@@ -1,0 +1,697 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/i1mach.f
+Compiled : 01/14/13  17:51:43
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/i1mach.f
+Date     : 01/14/2013  17:51:56
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     There are no optimizations or loops to mark
+
+
+    1.          INTEGER FUNCTION I1MACH(I)
+    2.    C***BEGIN PROLOGUE  I1MACH
+    3.    C***DATE WRITTEN   750101   (YYMMDD)
+    4.    C***REVISION DATE  840405   (YYMMDD)
+    5.    C***CATEGORY NO.  R1
+    6.    C***KEYWORDS  MACHINE CONSTANTS
+    7.    C***AUTHOR  FOX, P. A., (BELL LABS)
+    8.    C           HALL, A. D., (BELL LABS)
+    9.    C           SCHRYER, N. L., (BELL LABS)
+   10.    C***PURPOSE  Returns integer machine dependent constants
+   11.    C***DESCRIPTION
+   12.    C
+   13.    C * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+   14.    C   These machine constant routines must be activated for
+   15.    C   a particular environment.
+   16.    C * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+   17.    C
+   18.    C     I1MACH can be used to obtain machine-dependent parameters
+   19.    C     for the local machine environment.  It is a function
+   20.    C     subroutine with one (input) argument, and can be called
+   21.    C     as follows, for example
+   22.    C
+   23.    C          K = I1MACH(I)
+   24.    C
+   25.    C     where I=1,...,16.  The (output) value of K above is
+   26.    C     determined by the (input) value of I.  The results for
+   27.    C     various values of I are discussed below.
+   28.    C
+   29.    C  I/O unit numbers.
+   30.    C    I1MACH( 1) = the standard input unit.
+   31.    C    I1MACH( 2) = the standard output unit.
+   32.    C    I1MACH( 3) = the standard punch unit.
+   33.    C    I1MACH( 4) = the standard error message unit.
+   34.    C
+   35.    C  Words.
+   36.    C    I1MACH( 5) = the number of bits per integer storage unit.
+   37.    C    I1MACH( 6) = the number of characters per integer storage unit.
+   38.    C
+   39.    C  Integers.
+   40.    C    assume integers are represented in the S-digit, base-A form
+   41.    C
+   42.    C               sign ( X(S-1)*A**(S-1) + ... + X(1)*A + X(0) )
+   43.    C
+   44.    C               where 0 .LE. X(I) .LT. A for I=0,...,S-1.
+   45.    C    I1MACH( 7) = A, the base.
+   46.    C    I1MACH( 8) = S, the number of base-A digits.
+   47.    C    I1MACH( 9) = A**S - 1, the largest magnitude.
+   48.    C
+   49.    C  Floating-Point Numbers.
+   50.    C    Assume floating-point numbers are represented in the T-digit,
+   51.    C    base-B form
+   52.    C               sign (B**E)*( (X(1)/B) + ... + (X(T)/B**T) )
+   53.    C
+   54.    C               where 0 .LE. X(I) .LT. B for I=1,...,T,
+   55.    C               0 .LT. X(1), and EMIN .LE. E .LE. EMAX.
+   56.    C    I1MACH(10) = B, the base.
+   57.    C
+   58.    C  Single-Precision
+   59.    C    I1MACH(11) = T, the number of base-B digits.
+   60.    C    I1MACH(12) = EMIN, the smallest exponent E.
+   61.    C    I1MACH(13) = EMAX, the largest exponent E.
+   62.    C
+   63.    C  Double-Precision
+   64.    C    I1MACH(14) = T, the number of base-B digits.
+   65.    C    I1MACH(15) = EMIN, the smallest exponent E.
+   66.    C    I1MACH(16) = EMAX, the largest exponent E.
+   67.    C
+   68.    C  To alter this function for a particular environment,
+   69.    C  the desired set of DATA statements should be activated by
+   70.    C  removing the C from column 1.  Also, the values of
+   71.    C  I1MACH(1) - I1MACH(4) should be checked for consistency
+   72.    C  with the local operating system.
+   73.    C***REFERENCES  FOX P.A., HALL A.D., SCHRYER N.L.,*FRAMEWORK FOR A
+   74.    C                 PORTABLE LIBRARY*, ACM TRANSACTIONS ON MATHEMATICAL
+   75.    C                 SOFTWARE, VOL. 4, NO. 2, JUNE 1978, PP. 177-188.
+   76.    C***ROUTINES CALLED  (NONE)
+   77.    C***END PROLOGUE  I1MACH
+   78.    C
+   79.          INTEGER IMACH(16),OUTPUT
+   80.          EQUIVALENCE (IMACH(4),OUTPUT)
+   81.    C
+   82.    C     MACHINE CONSTANTS FOR THE BURROUGHS 1700 SYSTEM.
+   83.    C
+   84.    C     DATA IMACH( 1) /    7 /
+   85.    C     DATA IMACH( 2) /    2 /
+   86.    C     DATA IMACH( 3) /    2 /
+   87.    C     DATA IMACH( 4) /    2 /
+   88.    C     DATA IMACH( 5) /   36 /
+   89.    C     DATA IMACH( 6) /    4 /
+   90.    C     DATA IMACH( 7) /    2 /
+   91.    C     DATA IMACH( 8) /   33 /
+   92.    C     DATA IMACH( 9) / Z1FFFFFFFF /
+   93.    C     DATA IMACH(10) /    2 /
+   94.    C     DATA IMACH(11) /   24 /
+   95.    C     DATA IMACH(12) / -256 /
+   96.    C     DATA IMACH(13) /  255 /
+   97.    C     DATA IMACH(14) /   60 /
+   98.    C     DATA IMACH(15) / -256 /
+   99.    C     DATA IMACH(16) /  255 /
+  100.    C
+  101.    C     MACHINE CONSTANTS FOR THE BURROUGHS 5700 SYSTEM.
+  102.    C
+  103.    C     DATA IMACH( 1) /   5 /
+  104.    C     DATA IMACH( 2) /   6 /
+  105.    C     DATA IMACH( 3) /   7 /
+  106.    C     DATA IMACH( 4) /   6 /
+  107.    C     DATA IMACH( 5) /  48 /
+  108.    C     DATA IMACH( 6) /   6 /
+  109.    C     DATA IMACH( 7) /   2 /
+  110.    C     DATA IMACH( 8) /  39 /
+  111.    C     DATA IMACH( 9) / O0007777777777777 /
+  112.    C     DATA IMACH(10) /   8 /
+  113.    C     DATA IMACH(11) /  13 /
+  114.    C     DATA IMACH(12) / -50 /
+  115.    C     DATA IMACH(13) /  76 /
+  116.    C     DATA IMACH(14) /  26 /
+  117.    C     DATA IMACH(15) / -50 /
+  118.    C     DATA IMACH(16) /  76 /
+  119.    C
+  120.    C     MACHINE CONSTANTS FOR THE BURROUGHS 6700/7700 SYSTEMS.
+  121.    C
+  122.    C     DATA IMACH( 1) /   5 /
+  123.    C     DATA IMACH( 2) /   6 /
+  124.    C     DATA IMACH( 3) /   7 /
+  125.    C     DATA IMACH( 4) /   6 /
+  126.    C     DATA IMACH( 5) /  48 /
+  127.    C     DATA IMACH( 6) /   6 /
+  128.    C     DATA IMACH( 7) /   2 /
+  129.    C     DATA IMACH( 8) /  39 /
+  130.    C     DATA IMACH( 9) / O0007777777777777 /
+  131.    C     DATA IMACH(10) /   8 /
+  132.    C     DATA IMACH(11) /  13 /
+  133.    C     DATA IMACH(12) / -50 /
+  134.    C     DATA IMACH(13) /  76 /
+  135.    C     DATA IMACH(14) /  26 /
+  136.    C     DATA IMACH(15) / -32754 /
+  137.    C     DATA IMACH(16) /  32780 /
+  138.    C
+  139.    C     MACHINE CONSTANTS FOR THE CONVEX C-120 (NATIVE MODE)
+  140.    C
+  141.    C     DATA IMACH( 1) /    5 /
+  142.    C     DATA IMACH( 2) /    6 /
+  143.    C     DATA IMACH( 3) /    0 /
+  144.    C     DATA IMACH( 4) /    6 /
+  145.    C     DATA IMACH( 5) /   32 /
+  146.    C     DATA IMACH( 6) /    4 /
+  147.    C     DATA IMACH( 7) /    2 /
+  148.    C     DATA IMACH( 8) /   31 /
+  149.    C     DATA IMACH( 9) / 2147483647 /
+  150.    C     DATA IMACH(10) /    2 /
+  151.    C     DATA IMACH(11) /   24 /
+  152.    C     DATA IMACH(12) / -127 /
+  153.    C     DATA IMACH(13) /  127 /
+  154.    C     DATA IMACH(14) /   53 /
+  155.    C     DATA IMACH(15) / -1023 /
+  156.    C     DATA IMACH(16) /  1023 /
+  157.    C
+  158.    C     MACHINE CONSTANTS FOR THE CONVEX (NATIVE MODE)
+  159.    C     WITH -R8 OPTION
+  160.    C
+  161.    C     DATA IMACH( 1) /     5 /
+  162.    C     DATA IMACH( 2) /     6 /
+  163.    C     DATA IMACH( 3) /     0 /
+  164.    C     DATA IMACH( 4) /     6 /
+  165.    C     DATA IMACH( 5) /    32 /
+  166.    C     DATA IMACH( 6) /     4 /
+  167.    C     DATA IMACH( 7) /     2 /
+  168.    C     DATA IMACH( 8) /    31 /
+  169.    C     DATA IMACH( 9) / 2147483647 /
+  170.    C     DATA IMACH(10) /     2 /
+  171.    C     DATA IMACH(11) /    53 /
+  172.    C     DATA IMACH(12) / -1023 /
+  173.    C     DATA IMACH(13) /  1023 /
+  174.    C     DATA IMACH(14) /    53 /
+  175.    C     DATA IMACH(15) / -1023 /
+  176.    C     DATA IMACH(16) /  1023 /
+  177.    C
+  178.    C     MACHINE CONSTANTS FOR THE CONVEX C-120 (IEEE MODE)
+  179.    C
+  180.    C     DATA IMACH( 1) /    5 /
+  181.    C     DATA IMACH( 2) /    6 /
+  182.    C     DATA IMACH( 3) /    0 /
+  183.    C     DATA IMACH( 4) /    6 /
+  184.    C     DATA IMACH( 5) /   32 /
+  185.    C     DATA IMACH( 6) /    4 /
+  186.    C     DATA IMACH( 7) /    2 /
+  187.    C     DATA IMACH( 8) /   31 /
+  188.    C     DATA IMACH( 9) / 2147483647 /
+  189.    C     DATA IMACH(10) /    2 /
+  190.    C     DATA IMACH(11) /   24 /
+  191.    C     DATA IMACH(12) / -125 /
+  192.    C     DATA IMACH(13) /  128 /
+  193.    C     DATA IMACH(14) /   53 /
+  194.    C     DATA IMACH(15) / -1021 /
+  195.    C     DATA IMACH(16) /  1024 /
+  196.    C
+  197.    C     MACHINE CONSTANTS FOR THE CONVEX (IEEE MODE)
+  198.    C     WITH -R8 OPTION
+  199.    C
+  200.    C     DATA IMACH( 1) /     5 /
+  201.    C     DATA IMACH( 2) /     6 /
+  202.    C     DATA IMACH( 3) /     0 /
+  203.    C     DATA IMACH( 4) /     6 /
+  204.    C     DATA IMACH( 5) /    32 /
+  205.    C     DATA IMACH( 6) /     4 /
+  206.    C     DATA IMACH( 7) /     2 /
+  207.    C     DATA IMACH( 8) /    31 /
+  208.    C     DATA IMACH( 9) / 2147483647 /
+  209.    C     DATA IMACH(10) /     2 /
+  210.    C     DATA IMACH(11) /    53 /
+  211.    C     DATA IMACH(12) / -1021 /
+  212.    C     DATA IMACH(13) /  1024 /
+  213.    C     DATA IMACH(14) /    53 /
+  214.    C     DATA IMACH(15) / -1021 /
+  215.    C     DATA IMACH(16) /  1024 /
+  216.    C
+  217.    C     MACHINE CONSTANTS FOR THE CDC CYBER 170 SERIES (FTN5).
+  218.    C
+  219.    C      DATA IMACH( 1) /    5 /
+  220.    C      DATA IMACH( 2) /    6 /
+  221.    C      DATA IMACH( 3) /    7 /
+  222.    C      DATA IMACH( 4) /    6 /
+  223.    C      DATA IMACH( 5) /   60 /
+  224.    C      DATA IMACH( 6) /   10 /
+  225.    C      DATA IMACH( 7) /    2 /
+  226.    C      DATA IMACH( 8) /   48 /
+  227.    C      DATA IMACH( 9) / O"00007777777777777777" /
+  228.    C      DATA IMACH(10) /    2 /
+  229.    C      DATA IMACH(11) /   48 /
+  230.    C      DATA IMACH(12) / -974 /
+  231.    C      DATA IMACH(13) / 1070 /
+  232.    C      DATA IMACH(14) /   96 /
+  233.    C      DATA IMACH(15) / -927 /
+  234.    C      DATA IMACH(16) / 1070 /
+  235.    C
+  236.    C     MACHINE CONSTANTS FOR THE CDC 170/180 SERIES USING NOS/VE
+  237.    C
+  238.    C     DATA IMACH( 1) /     5 /
+  239.    C     DATA IMACH( 2) /     6 /
+  240.    C     DATA IMACH( 3) /     7 /
+  241.    C     DATA IMACH( 4) /     6 /
+  242.    C     DATA IMACH( 5) /    64 /
+  243.    C     DATA IMACH( 6) /     8 /
+  244.    C     DATA IMACH( 7) /     2 /
+  245.    C     DATA IMACH( 8) /    63 /
+  246.    C     DATA IMACH( 9) / 9223372036854775807 /
+  247.    C     DATA IMACH(10) /     2 /
+  248.    C     DATA IMACH(11) /    47 /
+  249.    C     DATA IMACH(12) / -4095 /
+  250.    C     DATA IMACH(13) /  4094 /
+  251.    C     DATA IMACH(14) /    94 /
+  252.    C     DATA IMACH(15) / -4095 /
+  253.    C     DATA IMACH(16) /  4094 /
+  254.    C
+  255.    C     MACHINE CONSTANTS FOR THE CDC CYBER 205
+  256.    C
+  257.    C     DATA IMACH( 1) /      5 /
+  258.    C     DATA IMACH( 2) /      6 /
+  259.    C     DATA IMACH( 3) /      7 /
+  260.    C     DATA IMACH( 4) /      6 /
+  261.    C     DATA IMACH( 5) /     64 /
+  262.    C     DATA IMACH( 6) /      8 /
+  263.    C     DATA IMACH( 7) /      2 /
+  264.    C     DATA IMACH( 8) /     47 /
+  265.    C     DATA IMACH( 9) / X'00007FFFFFFFFFFF' /
+  266.    C     DATA IMACH(10) /      2 /
+  267.    C     DATA IMACH(11) /     47 /
+  268.    C     DATA IMACH(12) / -28625 /
+  269.    C     DATA IMACH(13) /  28718 /
+  270.    C     DATA IMACH(14) /     94 /
+  271.    C     DATA IMACH(15) / -28625 /
+  272.    C     DATA IMACH(16) /  28718 /
+  273.    C
+  274.    C
+  275.    C     MACHINE CONSTANTS FOR THE CDC 6000/7000 SERIES.
+  276.    C
+  277.    C     DATA IMACH( 1) /    5 /
+  278.    C     DATA IMACH( 2) /    6 /
+  279.    C     DATA IMACH( 3) /    7 /
+  280.    C     DATA IMACH( 4) /6LOUTPUT/
+  281.    C     DATA IMACH( 5) /   60 /
+  282.    C     DATA IMACH( 6) /   10 /
+  283.    C     DATA IMACH( 7) /    2 /
+  284.    C     DATA IMACH( 8) /   48 /
+  285.    C     DATA IMACH( 9) / 00007777777777777777B /
+  286.    C     DATA IMACH(10) /    2 /
+  287.    C     DATA IMACH(11) /   47 /
+  288.    C     DATA IMACH(12) / -929 /
+  289.    C     DATA IMACH(13) / 1070 /
+  290.    C     DATA IMACH(14) /   94 /
+  291.    C     DATA IMACH(15) / -929 /
+  292.    C     DATA IMACH(16) / 1069 /
+  293.    C
+  294.    C     MACHINE CONSTANTS FOR THE CRAY 1
+  295.    C
+  296.    C     DATA IMACH( 1) /   100 /
+  297.    C     DATA IMACH( 2) /   101 /
+  298.    C     DATA IMACH( 3) /   102 /
+  299.    C     DATA IMACH( 4) /   101 /
+  300.    C     DATA IMACH( 5) /    64 /
+  301.    C     DATA IMACH( 6) /     8 /
+  302.    C     DATA IMACH( 7) /     2 /
+  303.    C     DATA IMACH( 8) /    63 /
+  304.    C     DATA IMACH( 9) /  777777777777777777777B /
+  305.    C     DATA IMACH(10) /     2 /
+  306.    C     DATA IMACH(11) /    47 /
+  307.    C     DATA IMACH(12) / -8189 /
+  308.    C     DATA IMACH(13) /  8190 /
+  309.    C     DATA IMACH(14) /    94 /
+  310.    C     DATA IMACH(15) / -8099 /
+  311.    C     DATA IMACH(16) /  8190 /
+  312.    C
+  313.    C     MACHINE CONSTANTS FOR THE DATA GENERAL ECLIPSE S/200
+  314.    C
+  315.    C     DATA IMACH( 1) /   11 /
+  316.    C     DATA IMACH( 2) /   12 /
+  317.    C     DATA IMACH( 3) /    8 /
+  318.    C     DATA IMACH( 4) /   10 /
+  319.    C     DATA IMACH( 5) /   16 /
+  320.    C     DATA IMACH( 6) /    2 /
+  321.    C     DATA IMACH( 7) /    2 /
+  322.    C     DATA IMACH( 8) /   15 /
+  323.    C     DATA IMACH( 9) /32767 /
+  324.    C     DATA IMACH(10) /   16 /
+  325.    C     DATA IMACH(11) /    6 /
+  326.    C     DATA IMACH(12) /  -64 /
+  327.    C     DATA IMACH(13) /   63 /
+  328.    C     DATA IMACH(14) /   14 /
+  329.    C     DATA IMACH(15) /  -64 /
+  330.    C     DATA IMACH(16) /   63 /
+  331.    C
+  332.    C     MACHINE CONSTANTS FOR THE HARRIS 220
+  333.    C
+  334.    C     DATA IMACH( 1) /       5 /
+  335.    C     DATA IMACH( 2) /       6 /
+  336.    C     DATA IMACH( 3) /       0 /
+  337.    C     DATA IMACH( 4) /       6 /
+  338.    C     DATA IMACH( 5) /      24 /
+  339.    C     DATA IMACH( 6) /       3 /
+  340.    C     DATA IMACH( 7) /       2 /
+  341.    C     DATA IMACH( 8) /      23 /
+  342.    C     DATA IMACH( 9) / 8388607 /
+  343.    C     DATA IMACH(10) /       2 /
+  344.    C     DATA IMACH(11) /      23 /
+  345.    C     DATA IMACH(12) /    -127 /
+  346.    C     DATA IMACH(13) /     127 /
+  347.    C     DATA IMACH(14) /      38 /
+  348.    C     DATA IMACH(15) /    -127 /
+  349.    C     DATA IMACH(16) /     127 /
+  350.    C
+  351.    C     MACHINE CONSTANTS FOR THE HONEYWELL 600/6000 SERIES.
+  352.    C
+  353.    C     DATA IMACH( 1) /    5 /
+  354.    C     DATA IMACH( 2) /    6 /
+  355.    C     DATA IMACH( 3) /   43 /
+  356.    C     DATA IMACH( 4) /    6 /
+  357.    C     DATA IMACH( 5) /   36 /
+  358.    C     DATA IMACH( 6) /    6 /
+  359.    C     DATA IMACH( 7) /    2 /
+  360.    C     DATA IMACH( 8) /   35 /
+  361.    C     DATA IMACH( 9) / O377777777777 /
+  362.    C     DATA IMACH(10) /    2 /
+  363.    C     DATA IMACH(11) /   27 /
+  364.    C     DATA IMACH(12) / -127 /
+  365.    C     DATA IMACH(13) /  127 /
+  366.    C     DATA IMACH(14) /   63 /
+  367.    C     DATA IMACH(15) / -127 /
+  368.    C     DATA IMACH(16) /  127 /
+  369.    C
+  370.    C     MACHINE CONSTANTS FOR THE HP 2100
+  371.    C     3 WORD DOUBLE PRECISION OPTION WITH FTN4
+  372.    C
+  373.    C     DATA IMACH(1) /      5/
+  374.    C     DATA IMACH(2) /      6 /
+  375.    C     DATA IMACH(3) /      4 /
+  376.    C     DATA IMACH(4) /      1 /
+  377.    C     DATA IMACH(5) /     16 /
+  378.    C     DATA IMACH(6) /      2 /
+  379.    C     DATA IMACH(7) /      2 /
+  380.    C     DATA IMACH(8) /     15 /
+  381.    C     DATA IMACH(9) /  32767 /
+  382.    C     DATA IMACH(10)/      2 /
+  383.    C     DATA IMACH(11)/     23 /
+  384.    C     DATA IMACH(12)/   -128 /
+  385.    C     DATA IMACH(13)/    127 /
+  386.    C     DATA IMACH(14)/     39 /
+  387.    C     DATA IMACH(15)/   -128 /
+  388.    C     DATA IMACH(16)/    127 /
+  389.    C
+  390.    C     MACHINE CONSTANTS FOR THE HP 2100
+  391.    C     4 WORD DOUBLE PRECISION OPTION WITH FTN4
+  392.    C
+  393.    C     DATA IMACH(1) /      5 /
+  394.    C     DATA IMACH(2) /      6 /
+  395.    C     DATA IMACH(3) /      4 /
+  396.    C     DATA IMACH(4) /      1 /
+  397.    C     DATA IMACH(5) /     16 /
+  398.    C     DATA IMACH(6) /      2 /
+  399.    C     DATA IMACH(7) /      2 /
+  400.    C     DATA IMACH(8) /     15 /
+  401.    C     DATA IMACH(9) /  32767 /
+  402.    C     DATA IMACH(10)/      2 /
+  403.    C     DATA IMACH(11)/     23 /
+  404.    C     DATA IMACH(12)/   -128 /
+  405.    C     DATA IMACH(13)/    127 /
+  406.    C     DATA IMACH(14)/     55 /
+  407.    C     DATA IMACH(15)/   -128 /
+  408.    C     DATA IMACH(16)/    127 /
+  409.    C
+  410.    C     MACHINE CONSTANTS FOR THE IBM 360/370 SERIES,
+  411.    C     THE XEROX SIGMA 5/7/9, THE SEL SYSTEMS 85/86, AND
+  412.    C     THE PERKIN ELMER (INTERDATA) 7/32.
+  413.    C
+  414.    C     DATA IMACH( 1) /   5 /
+  415.    C     DATA IMACH( 2) /   6 /
+  416.    C     DATA IMACH( 3) /   7 /
+  417.    C     DATA IMACH( 4) /   6 /
+  418.    C     DATA IMACH( 5) /  32 /
+  419.    C     DATA IMACH( 6) /   4 /
+  420.    C     DATA IMACH( 7) /  16 /
+  421.    C     DATA IMACH( 8) /  31 /
+  422.    C     DATA IMACH( 9) / Z7FFFFFFF /
+  423.    C     DATA IMACH(10) /  16 /
+  424.    C     DATA IMACH(11) /   6 /
+  425.    C     DATA IMACH(12) / -64 /
+  426.    C     DATA IMACH(13) /  63 /
+  427.    C     DATA IMACH(14) /  14 /
+  428.    C     DATA IMACH(15) / -64 /
+  429.    C     DATA IMACH(16) /  63 /
+  430.    C
+  431.    C     MACHINE CONSTANTS FOR THE PDP-10 (KA PROCESSOR).
+  432.    C
+  433.    C     DATA IMACH( 1) /    5 /
+  434.    C     DATA IMACH( 2) /    6 /
+  435.    C     DATA IMACH( 3) /    5 /
+  436.    C     DATA IMACH( 4) /    6 /
+  437.    C     DATA IMACH( 5) /   36 /
+  438.    C     DATA IMACH( 6) /    5 /
+  439.    C     DATA IMACH( 7) /    2 /
+  440.    C     DATA IMACH( 8) /   35 /
+  441.    C     DATA IMACH( 9) / "377777777777 /
+  442.    C     DATA IMACH(10) /    2 /
+  443.    C     DATA IMACH(11) /   27 /
+  444.    C     DATA IMACH(12) / -128 /
+  445.    C     DATA IMACH(13) /  127 /
+  446.    C     DATA IMACH(14) /   54 /
+  447.    C     DATA IMACH(15) / -101 /
+  448.    C     DATA IMACH(16) /  127 /
+  449.    C
+  450.    C     MACHINE CONSTANTS FOR THE PDP-10 (KI PROCESSOR).
+  451.    C
+  452.    C     DATA IMACH( 1) /    5 /
+  453.    C     DATA IMACH( 2) /    6 /
+  454.    C     DATA IMACH( 3) /    5 /
+  455.    C     DATA IMACH( 4) /    6 /
+  456.    C     DATA IMACH( 5) /   36 /
+  457.    C     DATA IMACH( 6) /    5 /
+  458.    C     DATA IMACH( 7) /    2 /
+  459.    C     DATA IMACH( 8) /   35 /
+  460.    C     DATA IMACH( 9) / "377777777777 /
+  461.    C     DATA IMACH(10) /    2 /
+  462.    C     DATA IMACH(11) /   27 /
+  463.    C     DATA IMACH(12) / -128 /
+  464.    C     DATA IMACH(13) /  127 /
+  465.    C     DATA IMACH(14) /   62 /
+  466.    C     DATA IMACH(15) / -128 /
+  467.    C     DATA IMACH(16) /  127 /
+  468.    C
+  469.    C     MACHINE CONSTANTS FOR PDP-11 FORTRAN SUPPORTING
+  470.    C     32-BIT INTEGER ARITHMETIC.
+  471.    C
+  472.    C     DATA IMACH( 1) /    5 /
+  473.    C     DATA IMACH( 2) /    6 /
+  474.    C     DATA IMACH( 3) /    5 /
+  475.    C     DATA IMACH( 4) /    6 /
+  476.    C     DATA IMACH( 5) /   32 /
+  477.    C     DATA IMACH( 6) /    4 /
+  478.    C     DATA IMACH( 7) /    2 /
+  479.    C     DATA IMACH( 8) /   31 /
+  480.    C     DATA IMACH( 9) / 2147483647 /
+  481.    C     DATA IMACH(10) /    2 /
+  482.    C     DATA IMACH(11) /   24 /
+  483.    C     DATA IMACH(12) / -127 /
+  484.    C     DATA IMACH(13) /  127 /
+  485.    C     DATA IMACH(14) /   56 /
+  486.    C     DATA IMACH(15) / -127 /
+  487.    C     DATA IMACH(16) /  127 /
+  488.    C
+  489.    C     MACHINE CONSTANTS FOR PDP-11 FORTRAN SUPPORTING
+  490.    C     16-BIT INTEGER ARITHMETIC.
+  491.    C
+  492.    C     DATA IMACH( 1) /    5 /
+  493.    C     DATA IMACH( 2) /    6 /
+  494.    C     DATA IMACH( 3) /    5 /
+  495.    C     DATA IMACH( 4) /    6 /
+  496.    C     DATA IMACH( 5) /   16 /
+  497.    C     DATA IMACH( 6) /    2 /
+  498.    C     DATA IMACH( 7) /    2 /
+  499.    C     DATA IMACH( 8) /   15 /
+  500.    C     DATA IMACH( 9) / 32767 /
+  501.    C     DATA IMACH(10) /    2 /
+  502.    C     DATA IMACH(11) /   24 /
+  503.    C     DATA IMACH(12) / -127 /
+  504.    C     DATA IMACH(13) /  127 /
+  505.    C     DATA IMACH(14) /   56 /
+  506.    C     DATA IMACH(15) / -127 /
+  507.    C     DATA IMACH(16) /  127 /
+  508.    C
+  509.    C     MACHINE CONSTANTS FOR THE SUN 3 (68881 OR FPA)
+  510.    C
+  511.    C     DATA IMACH( 1) /    5 /
+  512.    C     DATA IMACH( 2) /    6 /
+  513.    C     DATA IMACH( 3) /    6 /
+  514.    C     DATA IMACH( 4) /    0 /
+  515.    C     DATA IMACH( 5) /   32 /
+  516.    C     DATA IMACH( 6) /    4 /
+  517.    C     DATA IMACH( 7) /    2 /
+  518.    C     DATA IMACH( 8) /   31 /
+  519.    C     DATA IMACH( 9) / 2147483647 /
+  520.    C     DATA IMACH(10) /    2 /
+  521.    C     DATA IMACH(11) /   24 /
+  522.    C     DATA IMACH(12) / -125 /
+  523.    C     DATA IMACH(13) /  128 /
+  524.    C     DATA IMACH(14) /   53 /
+  525.    C     DATA IMACH(15) / -1021 /
+  526.    C     DATA IMACH(16) /  1024 /
+  527.    C
+  528.    C     MACHINE CONSTANTS FOR THE UNIVAC 1100 SERIES. FTN COMPILER
+  529.    C
+  530.    C     DATA IMACH( 1) /    5 /
+  531.    C     DATA IMACH( 2) /    6 /
+  532.    C     DATA IMACH( 3) /    1 /
+  533.    C     DATA IMACH( 4) /    6 /
+  534.    C     DATA IMACH( 5) /   36 /
+  535.    C     DATA IMACH( 6) /    4 /
+  536.    C     DATA IMACH( 7) /    2 /
+  537.    C     DATA IMACH( 8) /   35 /
+  538.    C     DATA IMACH( 9) / O377777777777 /
+  539.    C     DATA IMACH(10) /    2 /
+  540.    C     DATA IMACH(11) /   27 /
+  541.    C     DATA IMACH(12) / -128 /
+  542.    C     DATA IMACH(13) /  127 /
+  543.    C     DATA IMACH(14) /   60 /
+  544.    C     DATA IMACH(15) /-1024 /
+  545.    C     DATA IMACH(16) / 1023 /
+  546.    C
+  547.    C     MACHINE CONSTANTS FOR THE VAX 11/780
+  548.    C
+  549.    C     DATA IMACH(1) /    5 /
+  550.    C     DATA IMACH(2) /    6 /
+  551.    C     DATA IMACH(3) /    5 /
+  552.    C     DATA IMACH(4) /    6 /
+  553.    C     DATA IMACH(5) /   32 /
+  554.    C     DATA IMACH(6) /    4 /
+  555.    C     DATA IMACH(7) /    2 /
+  556.    C     DATA IMACH(8) /   31 /
+  557.    C     DATA IMACH(9) /2147483647 /
+  558.    C     DATA IMACH(10)/    2 /
+  559.    C     DATA IMACH(11)/   24 /
+  560.    C     DATA IMACH(12)/ -127 /
+  561.    C     DATA IMACH(13)/  127 /
+  562.    C     DATA IMACH(14)/   56 /
+  563.    C     DATA IMACH(15)/ -127 /
+  564.    C     DATA IMACH(16)/  127 /
+  565.    C
+  566.    C     MACHINE CONSTANTS FOR THE Z80 MICROPROCESSOR
+  567.    C
+  568.    C     DATA IMACH( 1) /     1/
+  569.    C     DATA IMACH( 2) /     1/
+  570.    C     DATA IMACH( 3) /     0/
+  571.    C     DATA IMACH( 4) /     1/
+  572.    C     DATA IMACH( 5) /    16/
+  573.    C     DATA IMACH( 6) /     2/
+  574.    C     DATA IMACH( 7) /     2/
+  575.    C     DATA IMACH( 8) /    15/
+  576.    C     DATA IMACH( 9) / 32767/
+  577.    C     DATA IMACH(10) /     2/
+  578.    C     DATA IMACH(11) /    24/
+  579.    C     DATA IMACH(12) /  -127/
+  580.    C     DATA IMACH(13) /   127/
+  581.    C     DATA IMACH(14) /    56/
+  582.    C     DATA IMACH(15) /  -127/
+  583.    C     DATA IMACH(16) /   127/
+  584.    C
+  585.    C
+  586.    C***FIRST EXECUTABLE STATEMENT  I1MACH
+  587.    C     IF (I .LT. 1  .OR.  I .GT. 16) GO TO 10
+  588.    C
+  589.          I1MACH=IMACH(I)
+  590.          RETURN
+  591.    C
+  592.    C   10 CONTINUE
+  593.    C      WRITE(OUTPUT,9000)
+  594.    C9000 FORMAT('1ERROR    1 IN I1MACH - I OUT OF BOUNDS ')
+  595.    C
+  596.    C     CALL FDUMP
+  597.    C
+  598.    C
+  599.    C     STOP
+  600.          END
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

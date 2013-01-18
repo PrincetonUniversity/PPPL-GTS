@@ -1,0 +1,198 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/bnslv.f
+Compiled : 01/14/13  17:51:37
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/bnslv.f
+Date     : 01/14/2013  17:51:55
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.                 SUBROUTINE BNSLV(W,NROWW,NROW,NBANDL,NBANDU,B)
+    2.           C***BEGIN PROLOGUE  BNSLV
+    3.           C***REFER TO  BINT4,BINTK
+    4.           C
+    5.           C  BNSLV is the BANSLV routine from
+    6.           C        * A Practical Guide to Splines *  by C. de Boor
+    7.           C
+    8.           C  Companion routine to  BNFAC . It returns the solution  X  of the
+    9.           C  linear system  A*X = B  in place of  B , given the LU-factorization
+   10.           C  for  A  in the work array  W from BNFAC.
+   11.           C
+   12.           C *****  I N P U T  ******
+   13.           C  W, NROWW,NROW,NBANDL,NBANDU.....describe the LU-factorization of a
+   14.           C        banded matrix  A  of order  NROW  as constructed in  BNFAC .
+   15.           C        For details, see  BNFAC .
+   16.           C  B.....Right side of the system to be solved .
+   17.           C
+   18.           C *****  O U T P U T  ******
+   19.           C  B.....Contains the solution  X , of order  NROW .
+   20.           C
+   21.           C *****  M E T H O D  ******
+   22.           C     (With  A = L*U, as stored in  W,) the unit lower triangular system
+   23.           C  L(U*X) = B  is solved for  Y = U*X, and  Y  stored in  B . Then the
+   24.           C  upper triangular system  U*X = Y  is solved for  X  . The calcul-
+   25.           C  ations are so arranged that the innermost loops stay within columns.
+   26.           C***ROUTINES CALLED  (NONE)
+   27.           C***END PROLOGUE  BNSLV
+   28.           C
+   29.                 INTEGER NBANDL, NBANDU, NROW, NROWW, I, J, JMAX, MIDDLE, NROWM1
+   30.                 REAL*8 W(NROWW,NROW), B(NROW)
+   31.           C***FIRST EXECUTABLE STATEMENT  BNSLV
+   32.                 MIDDLE = NBANDU + 1
+   33.                 IF (NROW.EQ.1) GO TO 80
+   34.                 NROWM1 = NROW - 1
+   35.                 IF (NBANDL.EQ.0) GO TO 30
+   36.           C                                 FORWARD PASS
+   37.           C            FOR I=1,2,...,NROW-1, SUBTRACT  RIGHT SIDE(I)*(I-TH COLUMN
+   38.           C            OF  L )  FROM RIGHT SIDE  (BELOW I-TH ROW) .
+   39.  1------<       DO 20 I=1,NROWM1
+   40.  1                JMAX = MIN0(NBANDL,NROW-I)
+   41.  1 Vr4--<         DO 10 J=1,JMAX
+   42.  1 Vr4              B(I+J) = B(I+J) - B(I)*W(MIDDLE+J,I)
+   43.  1 Vr4-->    10   CONTINUE
+   44.  1------>    20 CONTINUE
+   45.           C                                 BACKWARD PASS
+   46.           C            FOR I=NROW,NROW-1,...,1, DIVIDE RIGHT SIDE(I) BY I-TH DIAG-
+   47.           C            ONAL ENTRY OF  U, THEN SUBTRACT  RIGHT SIDE(I)*(I-TH COLUMN
+   48.           C            OF  U)  FROM RIGHT SIDE  (ABOVE I-TH ROW).
+   49.              30 IF (NBANDU.GT.0) GO TO 50
+   50.           C                                A  IS LOWER TRIANGULAR .
+   51.  Vpr4---<       DO 40 I=1,NROW
+   52.  Vpr4             B(I) = B(I)/W(1,I)
+   53.  Vpr4--->    40 CONTINUE
+   54.                 RETURN
+   55.              50 I = NROW
+   56.              60 B(I) = B(I)/W(MIDDLE,I)
+   57.                 JMAX = MIN0(NBANDU,I-1)
+   58.  Vr4----<       DO 70 J=1,JMAX
+   59.  Vr4              B(I-J) = B(I-J) - B(I)*W(MIDDLE-J,I)
+   60.  Vr4---->    70 CONTINUE
+   61.                 I = I - 1
+   62.                 IF (I.GT.1) GO TO 60
+   63.              80 B(1) = B(1)/W(MIDDLE,1)
+   64.                 RETURN
+   65.                 END
+
+ftn-6254 ftn: VECTOR File = bnslv.f, Line = 39 
+  A loop starting at line 39 was not vectorized because a recurrence was found on "b" at line 42.
+
+ftn-6005 ftn: SCALAR File = bnslv.f, Line = 41 
+  A loop starting at line 41 was unrolled 4 times.
+
+ftn-6204 ftn: VECTOR File = bnslv.f, Line = 41 
+  A loop starting at line 41 was vectorized.
+
+ftn-6005 ftn: SCALAR File = bnslv.f, Line = 51 
+  A loop starting at line 51 was unrolled 4 times.
+
+ftn-6209 ftn: VECTOR File = bnslv.f, Line = 51 
+  A loop starting at line 51 was partially vectorized.
+
+ftn-6254 ftn: VECTOR File = bnslv.f, Line = 56 
+  A loop starting at line 56 was not vectorized because a recurrence was found on "b" at line 59.
+
+ftn-6005 ftn: SCALAR File = bnslv.f, Line = 58 
+  A loop starting at line 58 was unrolled 4 times.
+
+ftn-6204 ftn: VECTOR File = bnslv.f, Line = 58 
+  A loop starting at line 58 was vectorized.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

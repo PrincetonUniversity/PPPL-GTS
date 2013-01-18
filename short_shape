@@ -1,0 +1,33 @@
+##!/usr/bin/csh
+#@ shell           = /usr/bin/csh
+#@ job_name        = gts
+#@ account_no      = mp19
+#@ output          = job.out
+#@ error           = job.err
+#@ job_type        = parallel
+#@ environment     = COPY_ALL
+#@ notification    = always
+#@ network.MPI     = csss,not_shared,us
+#@ node_usage      = not_shared
+#@ class           = debug
+#
+#
+#@ node            = 4
+#@ tasks_per_node  = 1
+#@ wall_clock_limit= 00:30:00
+#
+#@ queue
+echo Beginning of Execution `date`
+#
+ set echo
+#
+ setenv SPINLOOPTIME "5000"
+ setenv SPINS "0"
+ setenv OMP_NUM_THREADS "16"
+
+#
+ ./gts
+#
+echo End of Execution `date`
+#
+exit

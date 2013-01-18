@@ -1,0 +1,280 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/bsqad.f
+Compiled : 01/14/13  17:51:40
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/bsqad.f
+Date     : 01/14/2013  17:51:56
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.               SUBROUTINE BSQAD(T,BCOEF,N,K,X1,X2,BQUAD,WORK)
+    2.         C***BEGIN PROLOGUE  BSQAD
+    3.         C***DATE WRITTEN   800901   (YYMMDD)
+    4.         C***REVISION DATE  820801   (YYMMDD)
+    5.         C***CATEGORY NO.  H2A2A1,E3,K6
+    6.         C***KEYWORDS  B-SPLINE,DATA FITTING,INTERPOLATION,QUADRATURE,SPLINE
+    7.         C***AUTHOR  AMOS, D. E., (SNLA)
+    8.         C***PURPOSE  Computes the integral on (X1,X2) of a K-th order
+    9.         C            B-spline using the B-representation.
+   10.         C***DESCRIPTION
+   11.         C
+   12.         C     Written by D. E. Amos, June, 1979.
+   13.         C
+   14.         C     Reference SAND 79-1825
+   15.         C
+   16.         C     Abstract
+   17.         C         BSQAD computes the integral on (X1,X2) of a K-th order
+   18.         C         B-spline using the B-representation (T,BCOEF,N,K).  Orders
+   19.         C         K as high as 20 are permitted by applying a 2, 6, or 10
+   20.         C         point Gauss formula on subintervals of (X1,X2) which are
+   21.         C         formed by included (distinct) knots.
+   22.         C
+   23.         C         If orders K greater than 20 are needed, use BFQAD with
+   24.         C         F(X) = 1.
+   25.         C
+   26.         C         BSQAD calls INTRV, BVALU, XERROR
+   27.         C
+   28.         C     Description of Arguments
+   29.         C         Input
+   30.         C           T      - knot array of length N+K
+   31.         C           BCOEF  - B-spline coefficient array of length N
+   32.         C           N      - length of coefficient array
+   33.         C           K      - order of B-spline, 1 .LE. K .LE. 20
+   34.         C           X1,X2  - end points of quadrature interval in
+   35.         C                    T(K) .LE. X .LE. T(N+1)
+   36.         C
+   37.         C         Output
+   38.         C           BQUAD  - integral of the B-spline over (X1,X2)
+   39.         C           WORK   - work vector of length 3*K
+   40.         C
+   41.         C     Error Conditions
+   42.         C         Improper input is a fatal error
+   43.         C***REFERENCES  D.E. AMOS, *QUADRATURE SUBROUTINES FOR SPLINES AND
+   44.         C                 B-SPLINES*, SAND79-1825, SANDIA LABORATORIES,
+   45.         C                 DECEMBER 1979.
+   46.         C***ROUTINES CALLED  BVALU,INTRV,XERROR
+   47.         C***END PROLOGUE  BSQAD
+   48.         C
+   49.         C
+   50.               INTEGER I,IL1,IL2,ILO,INBV, JF,K,LEFT,M,MF,MFLAG,N, NPK, NP1
+   51.               REAL*8 A, AA, B, BB, BMA, BPA, BQUAD, C1, GX, Q,
+   52.              1 TA, TB, X1, X2, Y1, Y2
+   53.               REAL*8 BVALU
+   54.               REAL*8 T(1), BCOEF(1), GPTS(9), GWTS(9), SUM(5), WORK(1)
+   55.         C
+   56.               DATA GPTS(1), GPTS(2), GPTS(3), GPTS(4), GPTS(5), GPTS(6),
+   57.              1     GPTS(7), GPTS(8), GPTS(9)/
+   58.              2     5.77350269189625764E-01,     2.38619186083196909E-01,
+   59.              3     6.61209386466264514E-01,     9.32469514203152028E-01,
+   60.              4     1.48874338981631211E-01,     4.33395394129247191E-01,
+   61.              5     6.79409568299024406E-01,     8.65063366688984511E-01,
+   62.              6     9.73906528517171720E-01/
+   63.               DATA GWTS(1), GWTS(2), GWTS(3), GWTS(4), GWTS(5), GWTS(6),
+   64.              1     GWTS(7), GWTS(8), GWTS(9)/
+   65.              2     1.00000000000000000E+00,     4.67913934572691047E-01,
+   66.              3     3.60761573048138608E-01,     1.71324492379170345E-01,
+   67.              4     2.95524224714752870E-01,     2.69266719309996355E-01,
+   68.              5     2.19086362515982044E-01,     1.49451349150580593E-01,
+   69.              6     6.66713443086881376E-02/
+   70.         C
+   71.         C***FIRST EXECUTABLE STATEMENT  BSQAD
+   72.               BQUAD = 0.0E0
+   73.               IF(K.LT.1 .OR. K.GT.20) GO TO 65
+   74.               IF(N.LT.K) GO TO 70
+   75.               AA = MIN(X1,X2)
+   76.               BB = MAX(X1,X2)
+   77.               IF (AA.LT.T(K)) GO TO 60
+   78.               NP1 = N + 1
+   79.               IF (BB.GT.T(NP1)) GO TO 60
+   80.               IF (AA.EQ.BB) RETURN
+   81.               NPK = N + K
+   82.         C     SELECTION OF 2, 6, OR 10 POINT GAUSS FORMULA
+   83.               JF = 0
+   84.               MF = 1
+   85.               IF (K.LE.4) GO TO 10
+   86.               JF = 1
+   87.               MF = 3
+   88.               IF (K.LE.12) GO TO 10
+   89.               JF = 4
+   90.               MF = 5
+   91.            10 CONTINUE
+   92.         C
+   93.  V----<       DO 20 I=1,MF
+   94.  V              SUM(I) = 0.0E0
+   95.  V---->    20 CONTINUE
+   96.               ILO = 1
+   97.               INBV = 1
+   98.               CALL INTRV(T, NPK, AA, ILO, IL1, MFLAG)
+   99.               CALL INTRV(T, NPK, BB, ILO, IL2, MFLAG)
+  100.               IF (IL2.GE.NP1) IL2 = N
+  101.  1----<       DO 40 LEFT=IL1,IL2
+  102.  1              TA = T(LEFT)
+  103.  1              TB = T(LEFT+1)
+  104.  1              IF (TA.EQ.TB) GO TO 40
+  105.  1              A = MAX(AA,TA)
+  106.  1              B = MIN(BB,TB)
+  107.  1              BMA = 0.5E0*(B-A)
+  108.  1              BPA = 0.5E0*(B+A)
+  109.  1 2--<         DO 30 M=1,MF
+  110.  1 2              C1 = BMA*GPTS(JF+M)
+  111.  1 2              GX = -C1 + BPA
+  112.  1 2              Y2 = BVALU(T,BCOEF,N,K,0,GX,INBV,WORK)
+  113.  1 2              GX = C1 + BPA
+  114.  1 2              Y1 = BVALU(T,BCOEF,N,K,0,GX,INBV,WORK)
+  115.  1 2              SUM(M) = SUM(M) + (Y1+Y2)*BMA
+  116.  1 2-->    30   CONTINUE
+  117.  1---->    40 CONTINUE
+  118.               Q = 0.0E0
+  119.  V----<       DO 50 M=1,MF
+  120.  V              Q = Q + GWTS(JF+M)*SUM(M)
+  121.  V---->    50 CONTINUE
+  122.               IF (X1.GT.X2) Q = -Q
+  123.               BQUAD = Q
+  124.               RETURN
+  125.         C
+  126.         C
+  127.            60 CONTINUE
+  128.               CALL XERROR( ' BSQAD,  X1 OR X2 OR BOTH DO NOT SATISFY T(K).LE.X.L
+  129.              1E.T(N+1)',   60, 2, 1)
+  130.               RETURN
+  131.            65 CONTINUE
+  132.               CALL XERROR( ' BSQAD,  K DOES NOT SATISFY 1.LE.K.LE.20',
+  133.              1 40, 2, 1)
+  134.               RETURN
+  135.            70 CONTINUE
+  136.               CALL XERROR( ' BSQAD,  N DOES NOT SATISFY N.GE.K', 34, 2, 1)
+  137.               RETURN
+  138.               END
+
+ftn-6204 ftn: VECTOR File = bsqad.f, Line = 93 
+  A loop starting at line 93 was vectorized.
+
+ftn-3021 ftn: IPA File = bsqad.f, Line = 98 
+  Routine intrv was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bsqad.f, Line = 99 
+  Routine intrv was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-6287 ftn: VECTOR File = bsqad.f, Line = 101 
+  A loop starting at line 101 was not vectorized because it contains a call to function "bvalu" on line 112.
+
+ftn-6287 ftn: VECTOR File = bsqad.f, Line = 109 
+  A loop starting at line 109 was not vectorized because it contains a call to function "bvalu" on line 112.
+
+ftn-3021 ftn: IPA File = bsqad.f, Line = 112 
+  Routine bvalu was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bsqad.f, Line = 114 
+  Routine bvalu was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-6204 ftn: VECTOR File = bsqad.f, Line = 119 
+  A loop starting at line 119 was vectorized.
+
+ftn-3021 ftn: IPA File = bsqad.f, Line = 128 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bsqad.f, Line = 132 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bsqad.f, Line = 136 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

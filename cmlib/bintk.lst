@@ -1,0 +1,334 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/bintk.f
+Compiled : 01/14/13  17:51:36
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/bintk.f
+Date     : 01/14/2013  17:51:55
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.                  SUBROUTINE BINTK(X,Y,T,N,K,BCOEF,Q,WORK)
+    2.            C***BEGIN PROLOGUE  BINTK
+    3.            C***DATE WRITTEN   800901   (YYMMDD)
+    4.            C***REVISION DATE  820801   (YYMMDD)
+    5.            C***CATEGORY NO.  E1A
+    6.            C***KEYWORDS  B-SPLINE,DATA FITTING,INTERPOLATION,SPLINE
+    7.            C***AUTHOR  AMOS, D. E., (SNLA)
+    8.            C***PURPOSE  Produces the B-spline coefficients, BCOEF, of the
+    9.            C            B-spline of order K with knots T(I), I=1,...,N+K, which
+   10.            C            takes on the value Y(I) at X(I), I=1,...,N.
+   11.            C***DESCRIPTION
+   12.            C
+   13.            C     Written by Carl de Boor and modified by D. E. Amos
+   14.            C
+   15.            C     References
+   16.            C
+   17.            C          A Practical Guide to Splines by C. de Boor, Applied
+   18.            C          Mathematics Series 27, Springer, 1979.
+   19.            C
+   20.            C     Abstract
+   21.            C
+   22.            C         BINTK is the SPLINT routine of the reference.
+   23.            C
+   24.            C         BINTK produces the B-spline coefficients, BCOEF, of the
+   25.            C         B-spline of order K with knots T(I), I=1,...,N+K, which
+   26.            C         takes on the value Y(I) at X(I), I=1,...,N.  The spline or
+   27.            C         any of its derivatives can be evaluated by calls to BVALU.
+   28.            C         The I-th equation of the linear system A*BCOEF = B for the
+   29.            C         coefficients of the interpolant enforces interpolation at
+   30.            C         X(I)), I=1,...,N.  Hence, B(I) = Y(I), all I, and A is
+   31.            C         a band matrix with 2K-1 bands if A is invertible. The matrix
+   32.            C         A is generated row by row and stored, diagonal by diagonal,
+   33.            C         in the rows of Q, with the main diagonal going into row K.
+   34.            C         The banded system is then solved by a call to BNFAC (which
+   35.            C         constructs the triangular factorization for A and stores it
+   36.            C         again in Q), followed by a call to BNSLV (which then
+   37.            C         obtains the solution BCOEF by substitution). BNFAC does no
+   38.            C         pivoting, since the total positivity of the matrix A makes
+   39.            C         this unnecessary.  The linear system to be solved is
+   40.            C         (theoretically) invertible if and only if
+   41.            C                 T(I) .LT. X(I)) .LT. T(I+K),        all I.
+   42.            C         Equality is permitted on the left for I=1 and on the right
+   43.            C         for I=N when K knots are used at X(1) or X(N).  Otherwise,
+   44.            C         violation of this condition is certain to lead to an error.
+   45.            C
+   46.            C         BINTK calls BSPVN, BNFAC, BNSLV, XERROR
+   47.            C
+   48.            C     Description of Arguments
+   49.            C         Input
+   50.            C           X       - vector of length N containing data point abscissa
+   51.            C                     in strictly increasing order.
+   52.            C           Y       - corresponding vector of length N containing data
+   53.            C                     point ordinates.
+   54.            C           T       - knot vector of length N+K
+   55.            C                     since T(1),..,T(K) .LE. X(1) and T(N+1),..,T(N+K)
+   56.            C                     .GE. X(N), this leaves only N-K knots (not nec-
+   57.            C                     essarily X(I)) values) interior to (X(1),X(N))
+   58.            C           N       - number of data points, N .GE. K
+   59.            C           K       - order of the spline, K .GE. 1
+   60.            C
+   61.            C         Output
+   62.            C           BCOEF   - a vector of length N containing the B-spline
+   63.            C                     coefficients
+   64.            C           Q       - a work vector of length (2*K-1)*N, containing
+   65.            C                     the triangular factorization of the coefficient
+   66.            C                     matrix of the linear system being solved.  The
+   67.            C                     coefficients for the interpolant of an
+   68.            C                     additional data set (X(I)),YY(I)), I=1,...,N
+   69.            C                     with the same abscissa can be obtained by loading
+   70.            C                     YY into BCOEF and then executing
+   71.            C                         call BNSLV(Q,2K-1,N,K-1,K-1,BCOEF)
+   72.            C           WORK    - work vector of length 2*K
+   73.            C
+   74.            C     Error Conditions
+   75.            C         Improper  input is a fatal error
+   76.            C         Singular system of equations is a fatal error
+   77.            C***REFERENCES  D.E. AMOS, *COMPUTATION WITH SPLINES AND B-SPLINES*,
+   78.            C                 SAND78-1968,SANDIA LABORATORIES,MARCH,1979.
+   79.            C               C. DE BOOR, *PACKAGE FOR CALCULATING WITH B-SPLINES*,
+   80.            C                 SIAM JOURNAL ON NUMERICAL ANALYSIS, VOLUME 14, NO. 3,
+   81.            C                 JUNE 1977, PP. 441-472.
+   82.            C               C. DE BOOR, *A PRACTICAL GUIDE TO SPLINES*, APPLIED
+   83.            C                 MATHEMATICS SERIES 27, SPRINGER, 1979.
+   84.            C***ROUTINES CALLED  BNFAC,BNSLV,BSPVN,XERROR
+   85.            C***END PROLOGUE  BINTK
+   86.            C
+   87.            C
+   88.                  INTEGER IFLAG, IWORK, K, N, I, ILP1MX, J, JJ, KM1, KPKM2, LEFT,
+   89.                 1 LENQ, NP1
+   90.                  REAL*8 BCOEF(N), Y(N), Q(1), T(1), X(N), XI, WORK(1)
+   91.            C     DIMENSION Q(2*K-1,N), T(N+K)
+   92.            C***FIRST EXECUTABLE STATEMENT  BINTK
+   93.                  IF(K.LT.1) GO TO 100
+   94.                  IF(N.LT.K) GO TO 105
+   95.                  JJ = N - 1
+   96.                  IF(JJ.EQ.0) GO TO 6
+   97.  1-------<       DO 5 I=1,JJ
+   98.  1               IF(X(I).GE.X(I+1)) GO TO 110
+   99.  1------->     5 CONTINUE
+  100.                6 CONTINUE
+  101.                  NP1 = N + 1
+  102.                  KM1 = K - 1
+  103.                  KPKM2 = 2*KM1
+  104.                  LEFT = K
+  105.            C                ZERO OUT ALL ENTRIES OF Q
+  106.                  LENQ = N*(K+KM1)
+  107.  A-------<       DO 10 I=1,LENQ
+  108.  A                 Q(I) = 0.0E0
+  109.  A------->    10 CONTINUE
+  110.            C
+  111.            C  ***   LOOP OVER I TO CONSTRUCT THE  N  INTERPOLATION EQUATIONS
+  112.  1-------<       DO 50 I=1,N
+  113.  1                 XI = X(I)
+  114.  1                 ILP1MX = MIN0(I+K,NP1)
+  115.  1         C        *** FIND  LEFT  IN THE CLOSED INTERVAL (I,I+K-1) SUCH THAT
+  116.  1         C                T(LEFT) .LE. X(I) .LT. T(LEFT+1)
+  117.  1         C        MATRIX IS SINGULAR IF THIS IS NOT POSSIBLE
+  118.  1                 LEFT = MAX0(LEFT,I)
+  119.  1                 IF (XI.LT.T(LEFT)) GO TO 80
+  120.  1            20   IF (XI.LT.T(LEFT+1)) GO TO 30
+  121.  1                 LEFT = LEFT + 1
+  122.  1                 IF (LEFT.LT.ILP1MX) GO TO 20
+  123.  1                 LEFT = LEFT - 1
+  124.  1                 IF (XI.GT.T(LEFT+1)) GO TO 80
+  125.  1         C        *** THE I-TH EQUATION ENFORCES INTERPOLATION AT XI, HENCE
+  126.  1         C        A(I,J) = B(J,K,T)(XI), ALL J. ONLY THE  K  ENTRIES WITH  J =
+  127.  1         C        LEFT-K+1,...,LEFT ACTUALLY MIGHT BE NONZERO. THESE  K  NUMBERS
+  128.  1         C        ARE RETURNED, IN  BCOEF (USED FOR TEMP.STORAGE HERE), BY THE
+  129.  1         C        FOLLOWING
+  130.  1            30   CALL BSPVN(T, K, K, 1, XI, LEFT, BCOEF, WORK, IWORK)
+  131.  1         C        WE THEREFORE WANT  BCOEF(J) = B(LEFT-K+J)(XI) TO GO INTO
+  132.  1         C        A(I,LEFT-K+J), I.E., INTO  Q(I-(LEFT+J)+2*K,(LEFT+J)-K) SINCE
+  133.  1         C        A(I+J,J)  IS TO GO INTO  Q(I+K,J), ALL I,J,  IF WE CONSIDER  Q
+  134.  1         C        AS A TWO-DIM. ARRAY , WITH  2*K-1  ROWS (SEE COMMENTS IN
+  135.  1         C        BNFAC). IN THE PRESENT PROGRAM, WE TREAT  Q  AS AN EQUIVALENT
+  136.  1         C        ONE-DIMENSIONAL ARRAY (BECAUSE OF FORTRAN RESTRICTIONS ON
+  137.  1         C        DIMENSION STATEMENTS) . WE THEREFORE WANT  BCOEF(J) TO GO INTO
+  138.  1         C        ENTRY
+  139.  1         C            I -(LEFT+J) + 2*K + ((LEFT+J) - K-1)*(2*K-1)
+  140.  1         C                   =  I-LEFT+1 + (LEFT -K)*(2*K-1) + (2*K-2)*J
+  141.  1         C        OF  Q .
+  142.  1                 JJ = I - LEFT + 1 + (LEFT-K)*(K+KM1)
+  143.  1 Vpr4--<         DO 40 J=1,K
+  144.  1 Vpr4              JJ = JJ + KPKM2
+  145.  1 Vpr4              Q(JJ) = BCOEF(J)
+  146.  1 Vpr4-->    40   CONTINUE
+  147.  1------->    50 CONTINUE
+  148.            C
+  149.            C     ***OBTAIN FACTORIZATION OF  A  , STORED AGAIN IN  Q.
+  150.                  CALL BNFAC(Q, K+KM1, N, KM1, KM1, IFLAG)
+  151.                  GO TO (60, 90), IFLAG
+  152.            C     *** SOLVE  A*BCOEF = Y  BY BACKSUBSTITUTION
+  153.  A-------<    60 DO 70 I=1,N
+  154.  A                 BCOEF(I) = Y(I)
+  155.  A------->    70 CONTINUE
+  156.                  CALL BNSLV(Q, K+KM1, N, KM1, KM1, BCOEF)
+  157.                  RETURN
+  158.            C
+  159.            C
+  160.               80 CONTINUE
+  161.                  CALL XERROR(  'BINTK,  SOME ABSCISSA WAS NOT IN THE SUPPORT OF THE
+  162.                 1 CORRESPONDING BASIS FUNCTION AND THE SYSTEM IS SINGULAR.',108,2,1
+  163.                 2)
+  164.                  RETURN
+  165.               90 CONTINUE
+  166.                  CALL XERROR( 'BINTK,  THE SYSTEM OF SOLVER DETECTS A SINGULAR SYST
+  167.                 1EM ALTHOUGH THE THEORETICAL CONDITIONS FOR A SOLUTION WERE SATISFI
+  168.                 2ED.',121,8,1)
+  169.                  RETURN
+  170.              100 CONTINUE
+  171.                  CALL XERROR( ' BINTK,  K DOES NOT SATISFY K.GE.1', 34, 2, 1)
+  172.                  RETURN
+  173.              105 CONTINUE
+  174.                  CALL XERROR( ' BINTK,  N DOES NOT SATISFY N.GE.K', 34, 2, 1)
+  175.                  RETURN
+  176.              110 CONTINUE
+  177.                  CALL XERROR( ' BINTK,  X(I) DOES NOT SATISFY X(I).LT.X(I+1) FOR SO
+  178.                 1ME I', 56, 2, 1)
+  179.                  RETURN
+  180.                  END
+
+ftn-6334 ftn: VECTOR File = bintk.f, Line = 97 
+  A loop starting at line 97 was not vectorized because it contains multiple potential exits.
+
+ftn-6202 ftn: VECTOR File = bintk.f, Line = 107 
+  A loop starting at line 107 was replaced by a library call.
+
+ftn-6288 ftn: VECTOR File = bintk.f, Line = 112 
+  A loop starting at line 112 was not vectorized because it contains a call to subroutine "bspvn" on line 130.
+
+ftn-6302 ftn: VECTOR File = bintk.f, Line = 120 
+  A loop starting at line 120 was not vectorized because the loop starting at line 97 was not vectorizable.
+
+ftn-3021 ftn: IPA File = bintk.f, Line = 130 
+  Routine bspvn was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-6005 ftn: SCALAR File = bintk.f, Line = 143 
+  A loop starting at line 143 was unrolled 4 times.
+
+ftn-6209 ftn: VECTOR File = bintk.f, Line = 143 
+  A loop starting at line 143 was partially vectorized.
+
+ftn-3021 ftn: IPA File = bintk.f, Line = 150 
+  Routine bnfac was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-6202 ftn: VECTOR File = bintk.f, Line = 153 
+  A loop starting at line 153 was replaced by a library call.
+
+ftn-3021 ftn: IPA File = bintk.f, Line = 156 
+  Routine bnslv was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bintk.f, Line = 161 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bintk.f, Line = 166 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bintk.f, Line = 171 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bintk.f, Line = 174 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = bintk.f, Line = 177 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

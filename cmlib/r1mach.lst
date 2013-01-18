@@ -1,0 +1,398 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/r1mach.f
+Compiled : 01/14/13  17:51:48
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/r1mach.f
+Date     : 01/14/2013  17:51:56
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     There are no optimizations or loops to mark
+
+
+    1.          FUNCTION R1MACH(I)
+    2.          implicit none
+    3.    C***BEGIN PROLOGUE  R1MACH
+    4.    C***DATE WRITTEN   790101   (YYMMDD)
+    5.    C***REVISION DATE  860825   (YYMMDD)
+    6.    C***CATEGORY NO.  R1
+    7.    C***KEYWORDS  MACHINE CONSTANTS
+    8.    C***AUTHOR  FOX, P. A., (BELL LABS)
+    9.    C           HALL, A. D., (BELL LABS)
+   10.    C           SCHRYER, N. L., (BELL LABS)
+   11.    C***PURPOSE  Returns single precision machine dependent constants
+   12.    C***DESCRIPTION
+   13.    C
+   14.    C     R1MACH can be used to obtain machine-dependent parameters
+   15.    C     for the local machine environment.  It is a function
+   16.    C     subroutine with one (input) argument, and can be called
+   17.    C     as follows, for example
+   18.    C
+   19.    C          A = R1MACH(I)
+   20.    C
+   21.    C     where I=1,...,5.  The (output) value of A above is
+   22.    C     determined by the (input) value of I.  The results for
+   23.    C     various values of I are discussed below.
+   24.    C
+   25.    C  Single-Precision Machine Constants
+   26.    C  R1MACH(1) = B**(EMIN-1), the smallest positive magnitude.
+   27.    C  R1MACH(2) = B**EMAX*(1 - B**(-T)), the largest magnitude.
+   28.    C  R1MACH(3) = B**(-T), the smallest relative spacing.
+   29.    C  R1MACH(4) = B**(1-T), the largest relative spacing.
+   30.    C  R1MACH(5) = LOG10(B)
+   31.    C***REFERENCES  FOX, P.A., HALL, A.D., SCHRYER, N.L, *FRAMEWORK FOR
+   32.    C                 A PORTABLE LIBRARY*, ACM TRANSACTIONS ON MATHE-
+   33.    C                 MATICAL SOFTWARE, VOL. 4, NO. 2, JUNE 1978,
+   34.    C                 PP. 177-188.
+   35.    C***ROUTINES CALLED  XERROR
+   36.    C***END PROLOGUE  R1MACH
+   37.    C
+   38.    CCCCC      INTEGER SMALL(2)
+   39.    CCCCC      INTEGER LARGE(2)
+   40.    CCCCC      INTEGER RIGHT(2)
+   41.    CCCCC      INTEGER DIVER(2)
+   42.    CCCCC      INTEGER LOG10(2)
+   43.    C
+   44.          REAL*8 R1MACH
+   45.          REAL*8 RMACH(5)
+   46.          INTEGER I
+   47.    C
+   48.    CCCCC      EQUIVALENCE (RMACH(1),SMALL(1))
+   49.    CCCCC      EQUIVALENCE (RMACH(2),LARGE(1))
+   50.    CCCCC      EQUIVALENCE (RMACH(3),RIGHT(1))
+   51.    CCCCC      EQUIVALENCE (RMACH(4),DIVER(1))
+   52.    CCCCC      EQUIVALENCE (RMACH(5),LOG10(1))
+   53.    C
+   54.    C     MACHINE CONSTANTS FOR THE BURROUGHS 1700 SYSTEM.
+   55.    C
+   56.    C     DATA RMACH(1) / Z400800000 /
+   57.    C     DATA RMACH(2) / Z5FFFFFFFF /
+   58.    C     DATA RMACH(3) / Z4E9800000 /
+   59.    C     DATA RMACH(4) / Z4EA800000 /
+   60.    C     DATA RMACH(5) / Z500E730E8 /
+   61.    C
+   62.    C     MACHINE CONSTANTS FOR THE BURROUGHS 5700/6700/7700 SYSTEMS.
+   63.    C
+   64.    C     DATA RMACH(1) / O1771000000000000 /
+   65.    C     DATA RMACH(2) / O0777777777777777 /
+   66.    C     DATA RMACH(3) / O1311000000000000 /
+   67.    C     DATA RMACH(4) / O1301000000000000 /
+   68.    C     DATA RMACH(5) / O1157163034761675 /
+   69.    C
+   70.    C     MACHINE CONSTANTS FOR THE CONVEX C-120 (NATIVE MODE)
+   71.    C
+   72.    C     DATA RMACH(1) / 2.9387360E-39 /
+   73.    C     DATA RMACH(2) / 1.7014117E+38 /
+   74.    C     DATA RMACH(3) / 5.9604645E-08 /
+   75.    C     DATA RMACH(4) / 1.1920929E-07 /
+   76.    C     DATA RMACH(5) / 3.0102999E-01 /
+   77.    C
+   78.    C     MACHINE CONSTANTS FOR THE CONVEX C-120 (NATIVE MODE)
+   79.    C     WITH -R8 OPTION
+   80.    C
+   81.    C     DATA RMACH(1) / 5.562684646268007D-309 /
+   82.    C     DATA RMACH(2) / 8.988465674311577D+307 /
+   83.    C     DATA RMACH(3) / 1.110223024625157D-016 /
+   84.    C     DATA RMACH(4) / 2.220446049250313D-016 /
+   85.    C     DATA RMACH(5) / 3.010299956639812D-001 /
+   86.    C
+   87.    C     MACHINE CONSTANTS FOR THE CONVEX C-120 (IEEE MODE)
+   88.    C
+   89.    C     DATA RMACH(1) / 1.1754945E-38 /
+   90.    C     DATA RMACH(2) / 3.4028234E+38 /
+   91.    C     DATA RMACH(3) / 5.9604645E-08 /
+   92.    C     DATA RMACH(4) / 1.1920929E-07 /
+   93.    C     DATA RMACH(5) / 3.0102999E-01 /
+   94.    C
+   95.    C     MACHINE CONSTANTS FOR THE CONVEX C-120 (IEEE MODE)
+   96.    C     WITH -R8 OPTION
+   97.    C
+   98.    C     DATA RMACH(1) / 2.225073858507202D-308 /
+   99.    C     DATA RMACH(2) / 1.797693134862315D+308 /
+  100.    C     DATA RMACH(3) / 1.110223024625157D-016 /
+  101.    C     DATA RMACH(4) / 2.220446049250313D-016 /
+  102.    C     DATA RMACH(5) / 3.010299956639812D-001 /
+  103.    C
+  104.    C     MACHINE CONSTANTS FOR THE CDC CYBER 170 SERIES (FTN5).
+  105.    C
+  106.    C      DATA RMACH(1) / O"00014000000000000000" /
+  107.    C      DATA RMACH(2) / O"37767777777777777777" /
+  108.    C      DATA RMACH(3) / O"16404000000000000000" /
+  109.    C      DATA RMACH(4) / O"16414000000000000000" /
+  110.    C      DATA RMACH(5) / O"17164642023241175720" /
+  111.    C
+  112.    C     MACHINE CONSTANTS FOR THE CDC 170/180 SERIES USING NOS/VE
+  113.    C
+  114.    C     DATA RMACH(1) / Z"3001800000000000" /
+  115.    C     DATA RMACH(2) / Z"4FFEFFFFFFFFFFFE" /
+  116.    C     DATA RMACH(3) / Z"3FD2800000000000" /
+  117.    C     DATA RMACH(4) / Z"3FD3800000000000" /
+  118.    C     DATA RMACH(5) / Z"3FFF9A209A84FBCF" /
+  119.    C
+  120.    C     MACHINE CONSTANTS FOR THE CDC CYBER 205
+  121.    C
+  122.    C     DATA RMACH(1) / X'9000400000000000' /
+  123.    C     DATA RMACH(2) / X'6FFF7FFFFFFFFFFE' /
+  124.    C     DATA RMACH(3) / X'FFA3400000000000' /
+  125.    C     DATA RMACH(4) / X'FFA4400000000000' /
+  126.    C     DATA RMACH(5) / X'FFD04D104D427DE8' /
+  127.    C
+  128.    C     MACHINE CONSTANTS FOR THE CDC 6000/7000 SERIES.
+  129.    C
+  130.    C     DATA RMACH(1) / 00564000000000000000B /
+  131.    C     DATA RMACH(2) / 37767777777777777776B /
+  132.    C     DATA RMACH(3) / 16414000000000000000B /
+  133.    C     DATA RMACH(4) / 16424000000000000000B /
+  134.    C     DATA RMACH(5) / 17164642023241175720B /
+  135.    C
+  136.    C     MACHINE CONSTANTS FOR THE CRAY 1
+  137.    C
+  138.    C     DATA RMACH(1) / 200034000000000000000B /
+  139.    C     DATA RMACH(2) / 577767777777777777776B /
+  140.    C     DATA RMACH(3) / 377224000000000000000B /
+  141.    C     DATA RMACH(4) / 377234000000000000000B /
+  142.    C     DATA RMACH(5) / 377774642023241175720B /
+  143.    C
+  144.    C     MACHINE CONSTANTS FOR THE DATA GENERAL ECLIPSE S/200
+  145.    C
+  146.    C     NOTE - IT MAY BE APPROPRIATE TO INCLUDE THE FOLLOWING CARD -
+  147.    C     STATIC RMACH(5)
+  148.    C
+  149.    C     DATA SMALL/20K,0/,LARGE/77777K,177777K/
+  150.    C     DATA RIGHT/35420K,0/,DIVER/36020K,0/
+  151.    C     DATA LOG10/40423K,42023K/
+  152.    C
+  153.    C     MACHINE CONSTANTS FOR THE HARRIS 220
+  154.    C
+  155.    C     DATA SMALL(1),SMALL(2) / '20000000, '00000201 /
+  156.    C     DATA LARGE(1),LARGE(2) / '37777777, '00000177 /
+  157.    C     DATA RIGHT(1),RIGHT(2) / '20000000, '00000352 /
+  158.    C     DATA DIVER(1),DIVER(2) / '20000000, '00000353 /
+  159.    C     DATA LOG10(1),LOG10(2) / '23210115, '00000377 /
+  160.    C
+  161.    C     MACHINE CONSTANTS FOR THE HONEYWELL 600/6000 SERIES.
+  162.    C
+  163.    C     DATA RMACH(1) / O402400000000 /
+  164.    C     DATA RMACH(2) / O376777777777 /
+  165.    C     DATA RMACH(3) / O714400000000 /
+  166.    C     DATA RMACH(4) / O716400000000 /
+  167.    C     DATA RMACH(5) / O776464202324 /
+  168.    C
+  169.    C     MACHINE CONSTANTS FOR THE HP 2100
+  170.    C     3 WORD DOUBLE PRECISION WITH FTN4
+  171.    C
+  172.    C     DATA SMALL(1), SMALL(2) / 40000B,       1 /
+  173.    C     DATA LARGE(1), LARGE(2) / 77777B, 177776B /
+  174.    C     DATA RIGHT(1), RIGHT(2) / 40000B,    325B /
+  175.    C     DATA DIVER(1), DIVER(2) / 40000B,    327B /
+  176.    C     DATA LOG10(1), LOG10(2) / 46420B,  46777B /
+  177.    C
+  178.    C     MACHINE CONSTANTS FOR THE HP 2100
+  179.    C     4 WORD DOUBLE PRECISION WITH FTN4
+  180.    C
+  181.    C     DATA SMALL(1), SMALL(2) / 40000B,       1 /
+  182.    C     DATA LARGE91), LARGE(2) / 77777B, 177776B /
+  183.    C     DATA RIGHT(1), RIGHT(2) / 40000B,    325B /
+  184.    C     DATA DIVER(1), DIVER(2) / 40000B,    327B /
+  185.    C     DATA LOG10(1), LOG10(2) / 46420B,  46777B /
+  186.    C
+  187.    C     MACHINE CONSTANTS FOR THE IBM 360/370 SERIES,
+  188.    C     THE XEROX SIGMA 5/7/9, THE SEL SYSTEMS 85/86  AND
+  189.    C     THE PERKIN ELMER (INTERDATA) 7/32.
+  190.    C
+  191.    C     DATA RMACH(1) / Z00100000 /
+  192.    C     DATA RMACH(2) / Z7FFFFFFF /
+  193.    C     DATA RMACH(3) / Z3B100000 /
+  194.    C     DATA RMACH(4) / Z3C100000 /
+  195.    C     DATA RMACH(5) / Z41134413 /
+  196.    C
+  197.    C     MACHINE CONSTANTS FOR THE PDP-10 (KA OR KI PROCESSOR).
+  198.    C
+  199.    C     DATA RMACH(1) / "000400000000 /
+  200.    C     DATA RMACH(2) / "377777777777 /
+  201.    C     DATA RMACH(3) / "146400000000 /
+  202.    C     DATA RMACH(4) / "147400000000 /
+  203.    C     DATA RMACH(5) / "177464202324 /
+  204.    C
+  205.    C     MACHINE CONSTANTS FOR PDP-11 FORTRAN SUPPORTING
+  206.    C     32-BIT INTEGERS (EXPRESSED IN INTEGER AND OCTAL).
+  207.    C
+  208.    C     DATA SMALL(1) /    8388608 /
+  209.    C     DATA LARGE(1) / 2147483647 /
+  210.    C     DATA RIGHT(1) /  880803840 /
+  211.    C     DATA DIVER(1) /  889192448 /
+  212.    C     DATA LOG10(1) / 1067065499 /
+  213.    C
+  214.    C     DATA RMACH(1) / O00040000000 /
+  215.    C     DATA RMACH(2) / O17777777777 /
+  216.    C     DATA RMACH(3) / O06440000000 /
+  217.    C     DATA RMACH(4) / O06500000000 /
+  218.    C     DATA RMACH(5) / O07746420233 /
+  219.    C
+  220.    C     MACHINE CONSTANTS FOR PDP-11 FORTRAN SUPPORTING
+  221.    C     16-BIT INTEGERS  (EXPRESSED IN INTEGER AND OCTAL).
+  222.    C
+  223.    C     DATA SMALL(1),SMALL(2) /   128,     0 /
+  224.    C     DATA LARGE(1),LARGE(2) / 32767,    -1 /
+  225.    C     DATA RIGHT(1),RIGHT(2) / 13440,     0 /
+  226.    C     DATA DIVER(1),DIVER(2) / 13568,     0 /
+  227.    C     DATA LOG10(1),LOG10(2) / 16282,  8347 /
+  228.    C
+  229.    C     DATA SMALL(1),SMALL(2) / O000200, O000000 /
+  230.    C     DATA LARGE(1),LARGE(2) / O077777, O177777 /
+  231.    C     DATA RIGHT(1),RIGHT(2) / O032200, O000000 /
+  232.    C     DATA DIVER(1),DIVER(2) / O032400, O000000 /
+  233.    C     DATA LOG10(1),LOG10(2) / O037632, O020233 /
+  234.    C
+  235.    C     MACHINE CONSTANTS FOR THE SUN 3 (68881 OR FPA)
+  236.    C
+  237.    c      DATA SMALL(1) / X'00800000' /
+  238.    c      DATA LARGE(1) / X'7F7FFFFF' /
+  239.    c      DATA RIGHT(1) / X'33800000' /
+  240.    c      DATA DIVER(1) / X'34000000' /
+  241.    c      DATA LOG10(1) / X'3E9A209B' /
+  242.    C
+  243.    C     MACHINE CONSTANTS FOR THE decstation 3100 (pmax) (Same as sun3)
+  244.    C
+  245.    C     DATA SMALL(1) / X'00800000' /
+  246.    C     DATA LARGE(1) / X'7F7FFFFF' /
+  247.    C     DATA RIGHT(1) / X'33800000' /
+  248.    C     DATA DIVER(1) / X'34000000' /
+  249.    C     DATA LOG10(1) / X'3E9A209B' /
+  250.    C
+  251.    C     MACHINE CONSTANTS FOR THE UNIVAC 1100 SERIES.
+  252.    C
+  253.    C     DATA RMACH(1) / O000400000000 /
+  254.    C     DATA RMACH(2) / O377777777777 /
+  255.    C     DATA RMACH(3) / O146400000000 /
+  256.    C     DATA RMACH(4) / O147400000000 /
+  257.    C     DATA RMACH(5) / O177464202324 /
+  258.    C
+  259.    C     MACHINE CONSTANTS FOR THE VAX 11/780
+  260.    C    (EXPRESSED IN INTEGER AND HEXADECIMAL)
+  261.    C  ***THE HEX FORMAT BELOW MAY NOT BE SUITABLE FOR UNIX SYSTEMS***
+  262.    C  *** THE INTEGER FORMAT SHOULD BE OK FOR UNIX SYSTEMS***
+  263.    C
+  264.    C     DATA SMALL(1) /       128 /
+  265.    C     DATA LARGE(1) /    -32769 /
+  266.    C     DATA RIGHT(1) /     13440 /
+  267.    C     DATA DIVER(1) /     13568 /
+  268.    C     DATA LOG10(1) / 547045274 /
+  269.    C
+  270.    C     DATA SMALL(1) / Z00000080 /
+  271.    C     DATA LARGE(1) / ZFFFF7FFF /
+  272.    C     DATA RIGHT(1) / Z00003480 /
+  273.    C     DATA DIVER(1) / Z00003500 /
+  274.    C     DATA LOG10(1) / Z209B3F9A /
+  275.    C
+  276.    C     MACHINE CONSTANTS FOR THE Z80 MICROPROCESSOR
+  277.    C
+  278.    C     DATA SMALL(1),SMALL(2) /     0,    256/
+  279.    C     DATA LARGE(1),LARGE(2) /    -1,   -129/
+  280.    C     DATA RIGHT(1),RIGHT(2) /     0,  26880/
+  281.    C     DATA DIVER(1),DIVER(2) /     0,  27136/
+  282.    C     DATA LOG10(1),LOG10(2) /  8347,  32538/
+  283.    C
+  284.    C
+  285.    C***FIRST EXECUTABLE STATEMENT  R1MACH
+  286.          IF (I .LT. 1  .OR.  I .GT. 5)
+  287.         1   CALL XERROR ( 'R1MACH -- I OUT OF BOUNDS',25,1,2)
+  288.    C
+  289.          RMACH(1)=TINY(0.D0)
+  290.          RMACH(2)=HUGE(0.D0)
+  291.          RMACH(4)=EPSILON(0.D0)
+  292.          RMACH(3)=0.5D0*RMACH(4)
+  293.          RMACH(5)=LOG10(2.D0)
+  294.    C
+  295.          R1MACH = RMACH(I)
+  296.          RETURN
+  297.    C
+  298.          END
+
+ftn-3021 ftn: IPA File = r1mach.f, Line = 287 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,0 +1,250 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/zeroin.f
+Compiled : 01/14/13  17:51:54
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/zeroin.f
+Date     : 01/14/2013  17:51:57
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     There are no optimizations or loops to mark
+
+
+    1.          SUBROUTINE ZEROIN(F,B,C,RE,AE,IFLAG)
+    2.    C
+    3.    C     SANDIA MATHEMATICAL PROGRAM LIBRARY
+    4.    C     MATHEMATICAL COMPUTING SERVICES DIVISION 5422
+    5.    C     SANDIA LABORATORIES
+    6.    C     P. O. BOX 5800
+    7.    C     ALBUQUERQUE, NEW MEXICO  87115
+    8.    C     CONTROL DATA 6600 VERSION 4.5, 1 NOVEMBER 1971
+    9.    C
+   10.    C     MODIFIED TO RUN AT NBS BY D. KAHANER DIV 713
+   11.    C
+   12.    C     ABSTRACT
+   13.    C        ZEROIN SEARCHES FOR A ZERO OF A FUNCTION F(X) BETWEEN
+   14.    C        THE GIVEN VALUES B AND C UNTIL THE WIDTH OF THE INTERVAL
+   15.    C        (B,C) HAS COLLAPSED TO WITHIN A TOLERANCE SPECIFIED BY
+   16.    C        THE STOPPING CRITERION, ABS(B-C) .LE. 2.*(RW*ABS(B)+AE).
+   17.    C
+   18.    C     DESCRIPTION OF ARGUMENTS
+   19.    C        F     - NAME OF THE REAL VALUED EXTERNAL FUNCTION.  THIS NAME
+   20.    C                MUST BE IN AN EXTERNAL STATEMENT IN THE CALLING
+   21.    C                PROGRAM.  F MUST BE A FUNCTION OF ONE REAL ARGUMENT.
+   22.    C        B     - ONE END OF THE INTERVAL (B,C).  THE VALUE RETURNED FOR
+   23.    C                B USUALLY IS THE BETTER APPROXIMATION TO A ZERO OF F.
+   24.    C        C     - THE OTHER END OF THE INTERVAL (B,C)
+   25.    C        RE    - RELATIVE ERROR USED FOR RW IN THE STOPPING CRITERION.
+   26.    C                IF THE REQUESTED RE IS LESS THAN MACHINE PRECISION,
+   27.    C                THEN RW IS SET TO APPROXIMATELY MACHINE PRECISION.
+   28.    C        AE    - ABSOLUTE ERROR USED IN THE STOPPING CRITERION.  IF THE
+   29.    C                GIVEN INTERVAL (B,C) CONTAINS THE ORIGIN, THEN A
+   30.    C                NONZERO VALUE SHOULD BE CHOSEN FOR AE.
+   31.    C        IFLAG - RETURNS A STATUS OF THE RESULTS INDICATING WHICH
+   32.    C                OF THE FOLLOWING CONDITIONS HOLD.
+   33.    C                    A - ABS(B-C) .LE. 2.*(RW*ABS(B)+AE)
+   34.    C                    B - F(B) * F(C) .LT. 0.
+   35.    C                    C - ABS(F(B)) .LE. ABS(F(C))
+   36.    C                    D - ABS(F(B   )) .LE. MAX(ABS(F(B  )),ABS(F(C  )))
+   37.    C                               OUT                   IN          IN
+   38.    C                    E - NUMBER OF EVALUATIONS OF F(X) .LE. 500
+   39.    C               =1 INDICATES NORMAL CASE.  ALL CONDITIONS ABOVE HOLD.
+   40.    C               =2 INDICATES F(B) = 0.  CONDITION A MAY NOT HOLD.
+   41.    C               =3 INDICATES CONDITIONS A, B, C, AND E HOLD BUT D DOES
+   42.    C                  NOT.  (B,C) PROBABLY CONTAINS A SINGULAR POINT OF F.
+   43.    C               =4 INDICATES CONDITIONS A AND E HOLD BUT B DOES NOT.
+   44.    C                  A LOCAL MINIMUM OF F(X) IN (B,C) MAY HAVE BEEN FOUND.
+   45.    C               =5 INDICATES SEARCH WAS ABORTED WHEN CONDITION E FAILED.
+   46.    C
+   47.    C     REFERENCES
+   48.    C       1.  L F SHAMPINE AND H A WATTS, ZEROIN, A ROOT-SOLVING CODE,
+   49.    C           SC-TM-70-631, SEPT 1970.
+   50.    C       2.  T J DEKKER, FINDING A ZERO BY MEANS OF SUCCESSIVE LINEAR
+   51.    C           INTERPOLATION, *CONSTRUCTIVE ASPECTS OF THE FUNDAMENTAL
+   52.    C           THEOREM OF ALGEBRA*, EDITED BY B DEJON AND P HENRICI, 1969.
+   53.    C
+   54.    C     INITIALIZE
+   55.          IMPLICIT REAL*8(A-H,O-Z)
+   56.          DATA ER/0.0D0/
+   57.          IF (ER .EQ. 0.0D0) ER = 4.D0 * (R1MACH (4) )
+   58.          RW=MAX(RE,ER)
+   59.          IC=0
+   60.          ACBS=ABS(B-C)
+   61.          A=C
+   62.          FA=F(A)
+   63.          FB=F(B)
+   64.          FC=FA
+   65.          KOUNT=2
+   66.          FX=MAX(ABS(FB),ABS(FC))
+   67.    C
+   68.        1 IF (ABS(FC) .GE. ABS(FB)) GO TO 2
+   69.    C     PERFORM INTERCHANGE
+   70.          A=B
+   71.          FA=FB
+   72.          B=C
+   73.          FB=FC
+   74.          C=A
+   75.          FC=FA
+   76.    C
+   77.        2 CMB=0.5D0*(C-B)
+   78.          ACMB=ABS(CMB)
+   79.          TOL=RW*ABS(B)+AE
+   80.    C
+   81.    C     TEST STOPPING CRITERION
+   82.          IF (ACMB .LE. TOL) GO TO 10
+   83.    C
+   84.    C     CALCULATE NEW ITERATE IMPLICITLY AS B+P/Q
+   85.    C     WHERE WE ARRANGE P .GE. 0.
+   86.    C     THE IMPLICIT FORM IS USED TO PREVENT OVERFLOW.
+   87.          P=(B-A)*FB
+   88.          Q=FA-FB
+   89.          IF (P .GE. 0.D0) GO TO 3
+   90.          P=-P
+   91.          Q=-Q
+   92.    C
+   93.    C     UPDATE A AND CHECK FOR SATISFACTORY REDUCTION
+   94.    C     IN THE SIZE OF OUR BOUNDING INTERVAL.
+   95.        3 A=B
+   96.          FA=FB
+   97.          IC=IC+1
+   98.          IF (IC .LT. 4) GO TO 4
+   99.          IF (8.D0*ACMB .GE. ACBS) GO TO 6
+  100.          IC=0
+  101.          ACBS=ACMB
+  102.    C
+  103.    C     TEST FOR TOO SMALL A CHANGE
+  104.        4 IF (P .GT. ABS(Q)*TOL) GO TO 5
+  105.    C
+  106.    C     INCREMENT BY TOLERANCE
+  107.          B=B+SIGN(TOL,CMB)
+  108.          GO TO 7
+  109.    C
+  110.    C     ROOT OUGHT TO BE BETWEEN B AND (C+B)/2.
+  111.        5 IF (P .GE. CMB*Q) GO TO 6
+  112.    C
+  113.    C     INTERPOLATE
+  114.          B=B+P/Q
+  115.          GO TO 7
+  116.    C
+  117.        6 B=0.5D0*(C+B)
+  118.    C     BISECT
+  119.    C
+  120.    C     HAVE COMPLETED COMPUTATION FOR NEW ITERATE B
+  121.        7 FB=F(B)
+  122.          IF (FB .EQ. 0.D0) GO TO 11
+  123.          KOUNT=KOUNT+1
+  124.          IF (KOUNT .GT. 500) GO TO 15
+  125.    C
+  126.    C     DECIDE WHETHER NEXT STEP IS INTERPOLATION OR EXTRAPOLATION
+  127.          IF (SIGN(1.0D0,FB) .NE. SIGN(1.0D0,FC)) GO TO 1
+  128.          C=A
+  129.          FC=FA
+  130.          GO TO 1
+  131.    C
+  132.    C
+  133.    C     FINISHED. PROCESS RESULTS FOR PROPER SETTING OF IFLAG
+  134.    C
+  135.       10 IF (FB*FC .GT. 0.) GO TO 13
+  136.          IF (ABS(FB) .GT. FX) GO TO 12
+  137.          IFLAG = 1
+  138.          RETURN
+  139.       11 IFLAG = 2
+  140.          RETURN
+  141.       12 IFLAG = 3
+  142.          RETURN
+  143.       13 IFLAG = 4
+  144.          RETURN
+  145.       15 IFLAG = 5
+  146.          RETURN
+  147.          END
+
+ftn-3022 ftn: IPA File = zeroin.f, Line = 57 
+  Routine r1mach was not inlined because too much text will get expanded inline. 
+
+ftn-6287 ftn: VECTOR File = zeroin.f, Line = 68 
+  A loop starting at line 68 was not vectorized because it contains a call to function "f" on line 121.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

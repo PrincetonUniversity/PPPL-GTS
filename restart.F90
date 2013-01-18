@@ -1,0 +1,115 @@
+subroutine restart_write
+  use global_parameters
+  use particle_decomp
+  use particle_array
+  use field_array
+  use esi_interface
+  use diagnosis_array
+
+  implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+  character(len=30) cdum
+  character buffer1(MAX_PACKED_LENGTH)
+  integer isize,ierr
+
+!  write(cdum,'("RESTART/DATA_RESTART.",i5.5)')mype
+  write(cdum,'("RESTART/D",i4.4,"/DATA_RESTART.",i3.3)')myrank_partd,myrank_toroidal
+  open(222,file=cdum,status='replace',form='unformatted')
+
+  buffer1=''
+  isize=pack_sprng(buffer1)   ! get SPRNG seed information
+
+! record particle information for future restart run
+
+  write(222) istep,mi,ntracer,etracer_i0,misum
+  write(222) zion(1:7,1:mi)
+  write(222) zion0(6,1:mi)
+  write(222) isize,buffer1
+  write(222) sn_box,sn0,sn0_g,sw,rdtem0,rtden,pmarki,markeri,cloud_i    ! these are calculated in load.f90 and should be saved for check point
+  write(222) phi  ! --> initial <phi> for poisson solving total phi  (ZF_SEPARATION=0 case)
+  write(222) ddT_da  ! need for maintaining constant Ti gradient drive
+  if(ifelectron/=0) then
+     write(222) me,ntracer_e,etracer_e0,mesum
+     write(222) zeon(1:7,1:me)
+     write(222) zeon0(6,1:me)
+     write(222) pmarke,markere,cloud_e    ! these are calculated in load.f90 and should be saved for check point
+!     write(222) dphidt,dphidt00  ! these are saved for check point only when using Jacobian iteration for solving dphidt
+  endif
+  close(222)
+  
+end subroutine restart_write
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+subroutine restart_read
+  use global_parameters
+  use particle_decomp
+  use particle_array
+  use field_array
+  use esi_interface
+  use diagnosis_array
+
+  implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+  SPRNG_POINTER stream
+  integer m,isize
+  character(len=30) cdum
+  character buffer1(MAX_PACKED_LENGTH)
+  
+!  write(cdum,'("RESTART/DATA_RESTART.",i5.5)')mype
+  write(cdum,'("RESTART/D",i4.4,"/DATA_RESTART.",i3.3)')myrank_partd,myrank_toroidal
+  open(333,file=cdum,status='old',form='unformatted')
+
+! read particle information to restart previous run
+  read(333) istart,mi,ntracer,etracer_i0,misum
+  read(333) zion(1:7,1:mi)
+  read(333) zion0(6,1:mi)
+  read(333) isize,buffer1
+  read(333) sn_box,sn0,sn0_g,sw,rdtem0,rtden,pmarki,markeri,cloud_i
+  read(333) phi  ! --> initial <phi> for poisson solving total phi (ZF_SEPARATION=0 case)
+  read(333) ddT_da  ! need for maintaining constant Ti gradient drive
+  
+  istart=istart+1         ! starting step number
+
+  if(ifelectron/=0) then
+     read(333) me,ntracer_e,etracer_e0,mesum
+     read(333) zeon(1:7,1:me)
+     read(333) zeon0(6,1:me)
+     read(333) pmarke,markere,cloud_e
+!     read(333) dphidt,dphidt00  ! these are needed only when using Jacobian iteration for solving dphidt
+  endif
+  close(333)
+
+  if(mype==0) print*, 'irun=', irun, '     istart=', istart
+
+  stream=unpack_sprng(buffer1)
+
+  zion0(1:5,1:mi)=zion(1:5,1:mi)
+  if(ifelectron/=0) zeon0(1:5,1:mi)=zeon(1:5,1:mi)
+!  return
+
+! test domain decomposition
+  do m=1,mi
+     if(zion(3,m)>zetamax+1.0e-10 .or. zion(3,m)<zetamin-1.0e-10)then
+        print *, 'PE=',mype, ' m=',m, ' zion=',zion(3,m)
+        stop
+     endif
+  enddo
+  if(ifelectron/=0)then
+     do m=1,me
+        if(zeon(3,m)>zetamax+1.0e-10 .or. zeon(3,m)<zetamin-1.0e-10)then
+           print *, 'PE=',mype, ' m=',m, ' zeon=',zeon(3,m)
+           stop
+        endif
+     enddo
+  endif
+
+end subroutine restart_read

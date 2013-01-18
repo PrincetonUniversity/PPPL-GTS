@@ -1,0 +1,234 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/xersav.f
+Compiled : 01/14/13  17:51:53
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/xersav.f
+Date     : 01/14/2013  17:51:57
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.               SUBROUTINE XERSAV(MESSG,NMESSG,NERR,LEVEL,ICOUNT)
+    2.         C***BEGIN PROLOGUE  XERSAV
+    3.         C***DATE WRITTEN   800319   (YYMMDD)
+    4.         C***REVISION DATE  820801   (YYMMDD)
+    5.         C***CATEGORY NO.  Z
+    6.         C***KEYWORDS  ERROR,XERROR PACKAGE
+    7.         C***AUTHOR  JONES, R. E., (SNLA)
+    8.         C***PURPOSE  Records that an error occurred.
+    9.         C***DESCRIPTION
+   10.         C     Abstract
+   11.         C        Record that this error occurred.
+   12.         C
+   13.         C     Description of Parameters
+   14.         C     --Input--
+   15.         C       MESSG, NMESSG, NERR, LEVEL are as in XERROR,
+   16.         C       except that when NMESSG=0 the tables will be
+   17.         C       dumped and cleared, and when NMESSG is less than zero the
+   18.         C       tables will be dumped and not cleared.
+   19.         C     --Output--
+   20.         C       ICOUNT will be the number of times this message has
+   21.         C       been seen, or zero if the table has overflowed and
+   22.         C       does not contain this message specifically.
+   23.         C       When NMESSG=0, ICOUNT will not be altered.
+   24.         C
+   25.         C     Written by Ron Jones, with SLATEC Common Math Library Subcommittee
+   26.         C     Latest revision ---  19 Mar 1980
+   27.         C***REFERENCES  JONES R.E., KAHANER D.K., "XERROR, THE SLATEC ERROR-
+   28.         C                 HANDLING PACKAGE", SAND82-0800, SANDIA LABORATORIES,
+   29.         C                 1982.
+   30.         C***ROUTINES CALLED  I1MACH,S88FMT,XGETUA
+   31.         C***END PROLOGUE  XERSAV
+   32.               INTEGER LUN(5)
+   33.               CHARACTER*(*) MESSG
+   34.               CHARACTER*20 MESTAB(10),MES
+   35.               DIMENSION NERTAB(10),LEVTAB(10),KOUNT(10)
+   36.               SAVE MESTAB,NERTAB,LEVTAB,KOUNT,KOUNTX
+   37.         C     NEXT TWO DATA STATEMENTS ARE NECESSARY TO PROVIDE A BLANK
+   38.         C     ERROR TABLE INITIALLY
+   39.               DATA KOUNT(1),KOUNT(2),KOUNT(3),KOUNT(4),KOUNT(5),
+   40.              1     KOUNT(6),KOUNT(7),KOUNT(8),KOUNT(9),KOUNT(10)
+   41.              2     /0,0,0,0,0,0,0,0,0,0/
+   42.               DATA KOUNTX/0/
+   43.         C***FIRST EXECUTABLE STATEMENT  XERSAV
+   44.               IF (NMESSG.GT.0) GO TO 80
+   45.         C     DUMP THE TABLE
+   46.                  IF (KOUNT(1).EQ.0) RETURN
+   47.         C        PRINT TO EACH UNIT
+   48.                  CALL XGETUA(LUN,NUNIT)
+   49.  1----<          DO 60 KUNIT=1,NUNIT
+   50.  1                  IUNIT = LUN(KUNIT)
+   51.  1  I               IF (IUNIT.EQ.0) IUNIT = I1MACH(4)
+   52.  1      C           PRINT TABLE HEADER
+   53.  1                  WRITE (IUNIT,10)
+   54.  1         10       FORMAT (32H0          ERROR MESSAGE SUMMARY/
+   55.  1           1      51H MESSAGE START             NERR     LEVEL     COUNT)
+   56.  1      C           PRINT BODY OF TABLE
+   57.  1 2--<             DO 20 I=1,10
+   58.  1 2                   IF (KOUNT(I).EQ.0) GO TO 30
+   59.  1 2                   WRITE (IUNIT,15) MESTAB(I),NERTAB(I),LEVTAB(I),KOUNT(I)
+   60.  1 2       15          FORMAT (1X,A20,3I10)
+   61.  1 2-->    20       CONTINUE
+   62.  1         30       CONTINUE
+   63.  1      C           PRINT NUMBER OF OTHER ERRORS
+   64.  1                  IF (KOUNTX.NE.0) WRITE (IUNIT,40) KOUNTX
+   65.  1         40       FORMAT (41H0OTHER ERRORS NOT INDIVIDUALLY TABULATED=,I10)
+   66.  1                  WRITE (IUNIT,50)
+   67.  1         50       FORMAT (1X)
+   68.  1---->    60    CONTINUE
+   69.                  IF (NMESSG.LT.0) RETURN
+   70.         C        CLEAR THE ERROR TABLES
+   71.  Vw---<          DO 70 I=1,10
+   72.  Vw--->    70       KOUNT(I) = 0
+   73.                  KOUNTX = 0
+   74.                  RETURN
+   75.            80 CONTINUE
+   76.         C     PROCESS A MESSAGE...
+   77.         C     SEARCH FOR THIS MESSG, OR ELSE AN EMPTY SLOT FOR THIS MESSG,
+   78.         C     OR ELSE DETERMINE THAT THE ERROR TABLE IS FULL.
+   79.               MES = MESSG
+   80.  1----<       DO 90 I=1,10
+   81.  1               II = I
+   82.  1               IF (KOUNT(I).EQ.0) GO TO 110
+   83.  1               IF (MES.NE.MESTAB(I)) GO TO 90
+   84.  1               IF (NERR.NE.NERTAB(I)) GO TO 90
+   85.  1               IF (LEVEL.NE.LEVTAB(I)) GO TO 90
+   86.  1               GO TO 100
+   87.  1---->    90 CONTINUE
+   88.         C     THREE POSSIBLE CASES...
+   89.         C     TABLE IS FULL
+   90.                  KOUNTX = KOUNTX+1
+   91.                  ICOUNT = 1
+   92.                  RETURN
+   93.         C     MESSAGE FOUND IN TABLE
+   94.           100    KOUNT(II) = KOUNT(II) + 1
+   95.                  ICOUNT = KOUNT(II)
+   96.                  RETURN
+   97.         C     EMPTY SLOT FOUND FOR NEW MESSAGE
+   98.           110    MESTAB(II) = MES
+   99.                  NERTAB(II) = NERR
+  100.                  LEVTAB(II) = LEVEL
+  101.                  KOUNT(II)  = 1
+  102.                  ICOUNT = 1
+  103.                  RETURN
+  104.               END
+
+ftn-3021 ftn: IPA File = xersav.f, Line = 48 
+  Routine xgetua was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-6286 ftn: VECTOR File = xersav.f, Line = 49 
+  A loop starting at line 49 was not vectorized because it contains input/output operations at line 53.
+
+ftn-3001 ftn: IPA File = xersav.f, Line = 51 
+  The call to i1mach was textually inlined.
+
+ftn-6286 ftn: VECTOR File = xersav.f, Line = 57 
+  A loop starting at line 57 was not vectorized because it contains input/output operations at line 59.
+
+ftn-6373 ftn: VECTOR File = xersav.f, Line = 71 
+  A loop starting at line 71 with a trip count of 10 was unwound into 2 vector iterations.
+
+ftn-6204 ftn: VECTOR File = xersav.f, Line = 71 
+  A loop starting at line 71 was vectorized.
+
+ftn-6334 ftn: VECTOR File = xersav.f, Line = 80 
+  A loop starting at line 80 was not vectorized because it contains multiple potential exits.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

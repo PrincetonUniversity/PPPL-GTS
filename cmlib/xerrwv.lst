@@ -1,0 +1,442 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/xerrwv.f
+Compiled : 01/14/13  17:51:52
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/xerrwv.f
+Date     : 01/14/2013  17:51:57
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.               SUBROUTINE XERRWV(MESSG,NMESSG,NERR,LEVEL,NI,I1,I2,NR,R1,R2)
+    2.         C***BEGIN PROLOGUE  XERRWV
+    3.         C***DATE WRITTEN   800319   (YYMMDD)
+    4.         C***REVISION DATE  820801   (YYMMDD)
+    5.         C***CATEGORY NO.  R3C
+    6.         C***KEYWORDS  ERROR,XERROR PACKAGE
+    7.         C***AUTHOR  JONES, R. E., (SNLA)
+    8.         C***PURPOSE  Processes error message allowing 2 integer and two real
+    9.         C            values to be included in the message.
+   10.         C***DESCRIPTION
+   11.         C     Abstract
+   12.         C        XERRWV processes a diagnostic message, in a manner
+   13.         C        determined by the value of LEVEL and the current value
+   14.         C        of the library error control flag, KONTRL.
+   15.         C        (See subroutine XSETF for details.)
+   16.         C        In addition, up to two integer values and two real
+   17.         C        values may be printed along with the message.
+   18.         C
+   19.         C     Description of Parameters
+   20.         C      --Input--
+   21.         C        MESSG - the Hollerith message to be processed.
+   22.         C        NMESSG- the actual number of characters in MESSG.
+   23.         C        NERR  - the error number associated with this message.
+   24.         C                NERR must not be zero.
+   25.         C        LEVEL - error category.
+   26.         C                =2 means this is an unconditionally fatal error.
+   27.         C                =1 means this is a recoverable error.  (I.e., it is
+   28.         C                   non-fatal if XSETF has been appropriately called.)
+   29.         C                =0 means this is a warning message only.
+   30.         C                =-1 means this is a warning message which is to be
+   31.         C                   printed at most once, regardless of how many
+   32.         C                   times this call is executed.
+   33.         C        NI    - number of integer values to be printed. (0 to 2)
+   34.         C        I1    - first integer value.
+   35.         C        I2    - second integer value.
+   36.         C        NR    - number of real values to be printed. (0 to 2)
+   37.         C        R1    - first real value.
+   38.         C        R2    - second real value.
+   39.         C
+   40.         C     Examples
+   41.         C        CALL XERRWV('SMOOTH -- NUM (=I1) WAS ZERO.',29,1,2,
+   42.         C    1   1,NUM,0,0,0.,0.)
+   43.         C        CALL XERRWV('QUADXY -- REQUESTED ERROR (R1) LESS THAN MINIMUM (
+   44.         C    1R2).,54,77,1,0,0,0,2,ERRREQ,ERRMIN)
+   45.         C
+   46.         C     Latest revision ---  19 MAR 1980
+   47.         C     Written by Ron Jones, with SLATEC Common Math Library Subcommittee
+   48.         C***REFERENCES  JONES R.E., KAHANER D.K., "XERROR, THE SLATEC ERROR-
+   49.         C                 HANDLING PACKAGE", SAND82-0800, SANDIA LABORATORIES,
+   50.         C                 1982.
+   51.         C***ROUTINES CALLED  FDUMP,I1MACH,J4SAVE,XERABT,XERCTL,XERPRT,XERSAV,
+   52.         C                    XGETUA
+   53.         C***END PROLOGUE  XERRWV
+   54.               CHARACTER*(*) MESSG
+   55.               CHARACTER*20 LFIRST
+   56.               CHARACTER*37 FORM
+   57.               DIMENSION LUN(5)
+   58.         C     GET FLAGS
+   59.         C***FIRST EXECUTABLE STATEMENT  XERRWV
+   60.  I            LKNTRL = J4SAVE(2,0,.FALSE.)
+   61.  I            MAXMES = J4SAVE(4,0,.FALSE.)
+   62.         C     CHECK FOR VALID INPUT
+   63.               IF ((NMESSG.GT.0).AND.(NERR.NE.0).AND.
+   64.              1    (LEVEL.GE.(-1)).AND.(LEVEL.LE.2)) GO TO 10
+   65.  w I-->          IF (LKNTRL.GT.0) CALL XERPRT('FATAL ERROR IN...',17)
+   66.  w I-->          CALL XERPRT('XERROR -- INVALID INPUT',23)
+   67.  I               IF (LKNTRL.GT.0) CALL FDUMP
+   68.  w I-->          IF (LKNTRL.GT.0) CALL XERPRT('JOB ABORT DUE TO FATAL ERROR.',
+   69.              1  29)
+   70.                  IF (LKNTRL.GT.0) CALL XERSAV(' ',0,0,0,KDUMMY)
+   71.  I               CALL XERABT('XERROR -- INVALID INPUT',23)
+   72.                  RETURN
+   73.            10 CONTINUE
+   74.         C     RECORD MESSAGE
+   75.  I            JUNK = J4SAVE(1,NERR,.TRUE.)
+   76.               CALL XERSAV(MESSG,NMESSG,NERR,LEVEL,KOUNT)
+   77.         C     LET USER OVERRIDE
+   78.               LFIRST = MESSG
+   79.               LMESSG = NMESSG
+   80.               LERR = NERR
+   81.               LLEVEL = LEVEL
+   82.  I            CALL XERCTL(LFIRST,LMESSG,LERR,LLEVEL,LKNTRL)
+   83.         C     RESET TO ORIGINAL VALUES
+   84.               LMESSG = NMESSG
+   85.               LERR = NERR
+   86.               LLEVEL = LEVEL
+   87.               LKNTRL = MAX0(-2,MIN0(2,LKNTRL))
+   88.               MKNTRL = IABS(LKNTRL)
+   89.         C     DECIDE WHETHER TO PRINT MESSAGE
+   90.               IF ((LLEVEL.LT.2).AND.(LKNTRL.EQ.0)) GO TO 100
+   91.               IF (((LLEVEL.EQ.(-1)).AND.(KOUNT.GT.MIN0(1,MAXMES)))
+   92.              1.OR.((LLEVEL.EQ.0)   .AND.(KOUNT.GT.MAXMES))
+   93.              2.OR.((LLEVEL.EQ.1)   .AND.(KOUNT.GT.MAXMES).AND.(MKNTRL.EQ.1))
+   94.              3.OR.((LLEVEL.EQ.2)   .AND.(KOUNT.GT.MAX0(1,MAXMES)))) GO TO 100
+   95.                  IF (LKNTRL.LE.0) GO TO 20
+   96.  w I-->             CALL XERPRT(' ',1)
+   97.         C           INTRODUCTION
+   98.  w I-->             IF (LLEVEL.EQ.(-1)) CALL XERPRT
+   99.              1('WARNING MESSAGE...THIS MESSAGE WILL ONLY BE PRINTED ONCE.',57)
+  100.  w I-->             IF (LLEVEL.EQ.0) CALL XERPRT('WARNING IN...',13)
+  101.  w I-->             IF (LLEVEL.EQ.1) CALL XERPRT
+  102.              1      ('RECOVERABLE ERROR IN...',23)
+  103.  w I-->             IF (LLEVEL.EQ.2) CALL XERPRT('FATAL ERROR IN...',17)
+  104.            20    CONTINUE
+  105.         C        MESSAGE
+  106.                  CALL XERPRT(MESSG,LMESSG)
+  107.                  CALL XGETUA(LUN,NUNIT)
+  108.  I               ISIZEI = LOG10(FLOAT(I1MACH(9))) + 1.0
+  109.  I               ISIZEF = LOG10(FLOAT(I1MACH(10))**I1MACH(11)) + 1.0
+  110.  1----<          DO 50 KUNIT=1,NUNIT
+  111.  1                  IUNIT = LUN(KUNIT)
+  112.  1  I               IF (IUNIT.EQ.0) IUNIT = I1MACH(4)
+  113.  1 2--<             DO 22 I=1,MIN(NI,2)
+  114.  1 2                   WRITE (FORM,21) I,ISIZEI
+  115.  1 2       21          FORMAT ('(11X,21HIN ABOVE MESSAGE, I',I1,'=,I',I2,')   ')
+  116.  1 2                   IF (I.EQ.1) WRITE (IUNIT,FORM) I1
+  117.  1 2                   IF (I.EQ.2) WRITE (IUNIT,FORM) I2
+  118.  1 2-->    22       CONTINUE
+  119.  1 2--<             DO 24 I=1,MIN(NR,2)
+  120.  1 2                   WRITE (FORM,23) I,ISIZEF+10,ISIZEF
+  121.  1 2       23          FORMAT ('(11X,21HIN ABOVE MESSAGE, R',I1,'=,E',
+  122.  1 2         1         I2,'.',I2,')')
+  123.  1 2                   IF (I.EQ.1) WRITE (IUNIT,FORM) R1
+  124.  1 2                   IF (I.EQ.2) WRITE (IUNIT,FORM) R2
+  125.  1 2-->    24       CONTINUE
+  126.  1                  IF (LKNTRL.LE.0) GO TO 40
+  127.  1      C              ERROR NUMBER
+  128.  1                     WRITE (IUNIT,30) LERR
+  129.  1         30          FORMAT (15H ERROR NUMBER =,I10)
+  130.  1         40       CONTINUE
+  131.  1---->    50    CONTINUE
+  132.         C        TRACE-BACK
+  133.  I               IF (LKNTRL.GT.0) CALL FDUMP
+  134.           100 CONTINUE
+  135.               IFATAL = 0
+  136.               IF ((LLEVEL.EQ.2).OR.((LLEVEL.EQ.1).AND.(MKNTRL.EQ.2)))
+  137.              1IFATAL = 1
+  138.         C     QUIT HERE IF MESSAGE IS NOT FATAL
+  139.               IF (IFATAL.LE.0) RETURN
+  140.               IF ((LKNTRL.LE.0).OR.(KOUNT.GT.MAX0(1,MAXMES))) GO TO 120
+  141.         C        PRINT REASON FOR ABORT
+  142.  w I-->          IF (LLEVEL.EQ.1) CALL XERPRT
+  143.              1   ('JOB ABORT DUE TO UNRECOVERED ERROR.',35)
+  144.  w I-->          IF (LLEVEL.EQ.2) CALL XERPRT
+  145.              1   ('JOB ABORT DUE TO FATAL ERROR.',29)
+  146.         C        PRINT ERROR SUMMARY
+  147.                  CALL XERSAV(' ',-1,0,0,KDUMMY)
+  148.           120 CONTINUE
+  149.         C     ABORT
+  150.               IF ((LLEVEL.EQ.2).AND.(KOUNT.GT.MAX0(1,MAXMES))) LMESSG = 0
+  151.  I            CALL XERABT(MESSG,LMESSG)
+  152.               RETURN
+  153.               END
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 60 
+  The call to j4save was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 61 
+  The call to j4save was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 65 
+  A loop starting at line 65 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 65 
+  A loop starting at line 65 was not vectorized because it contains input/output operations at line 65.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 65 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 65 
+  The call to i1mach was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 66 
+  A loop starting at line 66 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 66 
+  A loop starting at line 66 was not vectorized because it contains input/output operations at line 66.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 66 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 66 
+  The call to i1mach was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 67 
+  The call to fdump was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 68 
+  A loop starting at line 68 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 68 
+  A loop starting at line 68 was not vectorized because it contains input/output operations at line 68.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 68 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 68 
+  The call to i1mach was textually inlined.
+
+ftn-3021 ftn: IPA File = xerrwv.f, Line = 70 
+  Routine xersav was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 71 
+  The call to xerabt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 75 
+  The call to j4save was textually inlined.
+
+ftn-3021 ftn: IPA File = xerrwv.f, Line = 76 
+  Routine xersav was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 82 
+  The call to xerctl was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 96 
+  A loop starting at line 96 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 96 
+  A loop starting at line 96 was not vectorized because it contains input/output operations at line 96.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 96 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 96 
+  The call to i1mach was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 98 
+  A loop starting at line 98 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 98 
+  A loop starting at line 98 was not vectorized because it contains input/output operations at line 98.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 98 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 98 
+  The call to i1mach was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 100 
+  A loop starting at line 100 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 100 
+  A loop starting at line 100 was not vectorized because it contains input/output operations at line 100.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 100 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 100 
+  The call to i1mach was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 101 
+  A loop starting at line 101 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 101 
+  A loop starting at line 101 was not vectorized because it contains input/output operations at line 101.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 101 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 101 
+  The call to i1mach was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 103 
+  A loop starting at line 103 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 103 
+  A loop starting at line 103 was not vectorized because it contains input/output operations at line 103.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 103 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 103 
+  The call to i1mach was textually inlined.
+
+ftn-3021 ftn: IPA File = xerrwv.f, Line = 106 
+  Routine xgetua was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3021 ftn: IPA File = xerrwv.f, Line = 107 
+  Routine xgetua was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 108 
+  The call to i1mach was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 109 
+  The call to i1mach was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 109 
+  The call to i1mach was textually inlined.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 110 
+  A loop starting at line 110 was not vectorized because it contains input/output operations at line 114.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 112 
+  The call to i1mach was textually inlined.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 113 
+  A loop starting at line 113 was not vectorized because it contains input/output operations at line 114.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 119 
+  A loop starting at line 119 was not vectorized because it contains input/output operations at line 120.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 133 
+  The call to fdump was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 142 
+  A loop starting at line 142 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 142 
+  A loop starting at line 142 was not vectorized because it contains input/output operations at line 142.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 142 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 142 
+  The call to i1mach was textually inlined.
+
+ftn-6008 ftn: SCALAR File = xerrwv.f, Line = 144 
+  A loop starting at line 144 was unwound.
+
+ftn-6286 ftn: VECTOR File = xerrwv.f, Line = 144 
+  A loop starting at line 144 was not vectorized because it contains input/output operations at line 144.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 144 
+  The call to xerprt was textually inlined.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 144 
+  The call to i1mach was textually inlined.
+
+ftn-3021 ftn: IPA File = xerrwv.f, Line = 147 
+  Routine xersav was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-3001 ftn: IPA File = xerrwv.f, Line = 151 
+  The call to xerabt was textually inlined.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

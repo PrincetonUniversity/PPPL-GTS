@@ -1,0 +1,354 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/rank.f
+Compiled : 01/14/13  17:51:48
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/rank.f
+Date     : 01/14/2013  17:51:56
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.                 SUBROUTINE RANK(X,N,XR) 
+    2.           C
+    3.           C     PURPOSE--THIS SUBROUTINE RANKS (IN ASCENDING ORDER)
+    4.           C              THE N ELEMENTS OF THE SINGLE PRECISION VECTOR X,
+    5.           C              AND PUTS THE RESULTING N RANKS INTO THE
+    6.           C              SINGLE PRECISION VECTOR XR. (now both double)
+    7.           C              THIS SUBROUTINE GIVES THE DATA ANALYST
+    8.           C              THE ABILITY TO (FOR EXAMPLE) RANK THE DATA
+    9.           C              PRELIMINARY TO CERTAIN DISTRIBUTION-FREE
+   10.           C              ANALYSES.
+   11.           C     INPUT  ARGUMENTS--X      = THE SINGLE PRECISION VECTOR OF
+   12.           C                                OBSERVATIONS TO BE RANKED. 
+   13.           C                     --N      = THE INTEGER NUMBER OF OBSERVATIONS
+   14.           C                                IN THE VECTOR X. 
+   15.           C     OUTPUT ARGUMENTS--XR     = THE SINGLE PRECISION VECTOR
+   16.           C                                INTO WHICH THE RANKS
+   17.           C                                FROM X WILL BE PLACED.
+   18.           C     OUTPUT--THE SINGLE PRECISION VECTOR XR
+   19.           C             CONTAINING THE RANKS
+   20.           C             (IN ASCENDING ORDER)
+   21.           C             OF THE VALUES
+   22.           C             IN THE SINGLE PRECISION VECTOR X.
+   23.           C     PRINTING--NONE UNLESS AN INPUT ARGUMENT ERROR CONDITION EXISTS. 
+   24.           C     RESTRICTIONS--THE MAXIMUM ALLOWABLE VALUE OF N
+   25.           C                   FOR THIS SUBROUTINE IS 7500. (now 600,000)
+   26.           C     OTHER DATAPAC   SUBROUTINES NEEDED--SORT.
+   27.           C     FORTRAN LIBRARY SUBROUTINES NEEDED--NONE.
+   28.           C     MODE OF INTERNAL OPERATIONS--SINGLE PRECISION.
+   29.           C     LANGUAGE--ANSI FORTRAN. 
+   30.           C     COMMENT--THE RANK OF THE FIRST ELEMENT
+   31.           C              OF THE VECTOR X
+   32.           C              WILL BE PLACED IN THE FIRST POSITION
+   33.           C              OF THE VECTOR XR,
+   34.           C              THE RANK OF THE SECOND ELEMENT
+   35.           C              OF THE VECTOR X
+   36.           C              WILL BE PLACED IN THE SECOND POSITION
+   37.           C              OF THE VECTOR XR,
+   38.           C              ETC. 
+   39.           C     COMMENT--THE SMALLEST ELEMENT IN THE VECTOR X
+   40.           C              WILL HAVE A RANK OF 1 (UNLESS TIES EXIST).
+   41.           C              THE LARGEST ELEMENT IN THE VECTOR X
+   42.           C              WILL HAVE A RANK OF N (UNLESS TIES EXIST).
+   43.           C     COMMENT--ALTHOUGH RANKS ARE USUALLY (UNLESS TIES EXIST)
+   44.           C              INTEGRAL VALUES FROM 1 TO N, IT IS TO BE
+   45.           C              NOTED THAT THEY ARE OUTPUTED AS SINGLE
+   46.           C              PRECISION INTEGERS IN THE SINGLE PRECISION
+   47.           C              VECTOR XR.
+   48.           C              XR IS SINGLE PRECISION SO AS TO BE 
+   49.           C              CONSISTENT WITH THE FACT THAT ALL
+   50.           C              VECTOR ARGUMENTS IN ALL OTHER
+   51.           C              DATAPAC SUBROUTINES ARE SINGLE PRECISION;
+   52.           C              BUT MORE IMPORTANTLY, BECAUSE TIES FREQUENTLY
+   53.           C              DO EXIST IN DATA SETS AND SO SOME OF THE
+   54.           C              RESULTING RANKS WILL BE NON-INTEGRAL
+   55.           C              AND SO THE OUTPUT VECTOR OF RANKS MUST NECESSARILY
+   56.           C              BE SINGLE PRECISION AND NOT INTEGER.
+   57.           C     COMMENT--THE INPUT VECTOR X REMAINS UNALTERED.
+   58.           C     COMMENT--DUE TO CONFLICTING USE OF LABELED
+   59.           C              COMMON /BLOCK2/ BY THIS RANK
+   60.           C              SUBROUTINE AND THE SPCORR (SPEARMAN RANK
+   61.           C              CORRELATION COEFFICIENT) SUBROUTINE,
+   62.           C              THE VECTOR XS OF THIS RANK
+   63.           C              SUBROUTINE HAS BEEN PLACED IN
+   64.           C              LABELED COMMON /BLOCK4/
+   65.           C     COMMENT--THE FIRST AND THIRD ARGUMENTS IN THE
+   66.           C              CALLING SEQUENCE MAY
+   67.           C              BE IDENTICAL; THAT IS, AN 'IN PLACE'
+   68.           C              RANKING IS PERMITTED.
+   69.           C              THE CALLING SEQUENCE
+   70.           C              CALL RANK(X,N,X) IS VALID, IF DESIRED.
+   71.           C     COMMENT--THE SORTING ALGORTHM USED HEREIN
+   72.           C              IS THE BINARY SORT.
+   73.           C              THIS ALGORTHIM IS EXTREMELY FAST AS THE
+   74.           C              FOLLOWING TIME TRIALS INDICATE.
+   75.           C              THESE TIME TRIALS WERE CARRIED OUT ON THE
+   76.           C              UNIVAC 1108 EXEC 8 SYSTEM AT NBS
+   77.           C              IN AUGUST OF 1974.
+   78.           C              BY WAY OF COMPARISON, THE TIME TRIAL VALUES
+   79.           C              FOR THE EASY-TO-PROGRAM BUT EXTREMELY
+   80.           C              INEFFICIENT BUBBLE SORT ALGORITHM HAVE
+   81.           C              ALSO BEEN INCLUDED--
+   82.           C              NUMBER OF RANDOM        BINARY SORT       BUBBLE SORT
+   83.           C               NUMBERS SORTED
+   84.           C                N = 10                 .002 SEC          .002 SEC
+   85.           C                N = 100                .011 SEC          .045 SEC
+   86.           C                N = 1000               .141 SEC         4.332 SEC
+   87.           C                N = 3000               .476 SEC        37.683 SEC
+   88.           C                N = 10000             1.887 SEC      NOT COMPUTED
+   89.           C     REFERENCES--CACM MARCH 1969, PAGE 186 (BINARY SORT ALGORITHM
+   90.           C                 BY RICHARD C. SINGLETON).
+   91.           C               --CACM JANUARY 1970, PAGE 54.
+   92.           C               --CACM OCTOBER 1970, PAGE 624.
+   93.           C               --JACM JANUARY 1961, PAGE 41.
+   94.           C     WRITTEN BY--JAMES J. FILLIBEN
+   95.           C                 STATISTICAL ENGINEERING LABORATORY (205.03)
+   96.           C                 NATIONAL BUREAU OF STANDARDS
+   97.           C                 WASHINGTON, D. C. 20234
+   98.           C                 PHONE--301-921-2315
+   99.           C     ORIGINAL VERSION--JUNE      1972. 
+  100.           C     UPDATED         --JANUARY   1975. 
+  101.           C     UPDATED         --NOVEMBER  1975. 
+  102.           C     UPDATED         --JANUARY   1977. 
+  103.           C
+  104.           C---------------------------------------------------------------------
+  105.           C
+  106.           C      DIMENSION X(1),XR(1)
+  107.                 IMPLICIT REAL*8(A-H,O-Z)
+  108.                 REAL*8 X(1),XR(1)
+  109.                 COMMON /BLOCK4/ XS(600000)
+  110.           C
+  111.                 AN=N
+  112.                 IPR=6
+  113.                 IUPPER=600000
+  114.           C
+  115.           C     CHECK THE INPUT ARGUMENTS FOR ERRORS
+  116.           C
+  117.                 IF(N.LT.1.OR.N.GT.IUPPER)GOTO50
+  118.                 IF(N.EQ.1)GOTO55
+  119.                 HOLD=X(1)
+  120.  1------<       DO60I=2,N
+  121.  1              IF(X(I).NE.HOLD)GOTO90
+  122.  1------>    60 CONTINUE
+  123.                 WRITE(IPR, 9)HOLD
+  124.                 AVRANK=(AN+1.0)/2.0
+  125.  A------<       DO61I=1,N
+  126.  A              XR(I)=AVRANK
+  127.  A------>    61 CONTINUE
+  128.                 RETURN
+  129.              50 WRITE(IPR,17)IUPPER
+  130.                 WRITE(IPR,47)N
+  131.                 RETURN
+  132.              55 WRITE(IPR,18) 
+  133.                 XR(1)=1.0
+  134.                 RETURN
+  135.              90 CONTINUE
+  136.               9 FORMAT(1H ,109H***** NON-FATAL DIAGNOSTIC--THE FIRST  INPUT ARGUME
+  137.                1NT (A VECTOR) TO THE RANK   SUBROUTINE HAS ALL ELEMENTS = ,E15.8,6
+  138.                1H *****)
+  139.              17 FORMAT(1H , 98H***** FATAL ERROR--THE SECOND INPUT ARGUMENT TO THE
+  140.                1 RANK   SUBROUTINE IS OUTSIDE THE ALLOWABLE (1,,I6,16H) INTERVAL *
+  141.                1****)
+  142.              18 FORMAT(1H ,100H***** NON-FATAL DIAGNOSTIC--THE SECOND INPUT ARGUME
+  143.                1NT TO THE RANK   SUBROUTINE HAS THE VALUE 1 *****)
+  144.              47 FORMAT(1H , 35H***** THE VALUE OF THE ARGUMENT IS ,I8   ,6H *****)
+  145.           C
+  146.           C-----START POINT-----------------------------------------------------
+  147.           C
+  148.           C     FIRST SORT THE DATA FROM THE INPUT VECTOR X 
+  149.           C     INTO THE INTERMEDIATE STORAGE VECTOR XS.
+  150.           C
+  151.                 CALL SORT(X,N,XS)
+  152.           C
+  153.           C     NOW DETERMINE THE RANKS.
+  154.           C     THE BASIC ALGORITHM IS TO TAKE A GIVEN ELEMENT
+  155.           C     IN THE ORIGINAL INPUT VECTOR X,
+  156.           C     AND SCAN THE SORTED VALUES IN THE XS VECTOR 
+  157.           C     UNTIL A MATCH IS FOUND; 
+  158.           C     WHEN A MATCH IS FOUND, THEN THE RANK FOR THAT
+  159.           C     VALUE IN THE XS VECTOR IS DETERMINED.
+  160.           C     THAT RANK IS THEN WRITTEN INTO THAT POSITION
+  161.           C     IN THE OUTPUT Y VECTOR WHICH CORRESPONDS TO THE POSITION OF THE 
+  162.           C     GIVEN ELEMENT OF INTEREST IN THE ORIGINAL X VECTOR.
+  163.           C     THE CODE IS LENGTHENED FROM THIS BASIC ALGORITHM
+  164.           C     BY A SECTION WHICH CUTS DOWN THE SEARCH IN THE XS VECTOR,
+  165.           C     AND BY A SECTION WHICH OBVIATES (UNDER CERTAIN CIRCUMSTANCES)
+  166.           C     THE NEED FOR RECALCULATING THE RANK OF AN ELEMENT IN XS.
+  167.           C
+  168.                 NM1=N-1
+  169.                 XPREV=X(1)
+  170.  1------<       DO700I=1,N
+  171.  1              JMIN=1
+  172.  1              IF(X(I).GT.XPREV)GOTO770
+  173.  1              IF(I.EQ.1)GOTO790
+  174.  1              IF(X(I).EQ.XPREV)GOTO750
+  175.  1              GOTO790
+  176.  1          750 CONTINUE
+  177.  1              XR(I)=RPREV
+  178.  1              GOTO880
+  179.  1          770 CONTINUE
+  180.  1              JMIN=K
+  181.  1              IF(JMIN.LT.N)GOTO790
+  182.  1              IF(JMIN.EQ.N)GOTO820
+  183.  1              IBRAN=1
+  184.  1              WRITE(IPR,109)IBRAN
+  185.  1              WRITE(IPR,101)JMIN
+  186.  1          109 FORMAT(1H ,40H*****INTERNAL ERROR IN RANK SUBROUTINE--,
+  187.  1             146HIMPOSSIBLE BRANCH CONDITION AT BRANCH POINT = ,I8) 
+  188.  1          101 FORMAT(1H ,'JMIN = ',I8)
+  189.  1              STOP
+  190.  1          790 CONTINUE
+  191.  1 2----<       DO800J=JMIN,NM1
+  192.  1 2            IF(X(I).NE.XS(J))GOTO800
+  193.  1 2            JP1=J+1
+  194.  1 2 3--<       DO900K=JP1,N
+  195.  1 2 3          IF(XS(K).NE.XS(J))GOTO950
+  196.  1 2 3-->   900 CONTINUE
+  197.  1 2            K=N+1
+  198.  1 2        950 CONTINUE
+  199.  1 2            AVRANK=J+K-1
+  200.  1 2            AVRANK=AVRANK/2.0
+  201.  1 2            XR(I)=AVRANK
+  202.  1 2            GOTO880
+  203.  1 2---->   800 CONTINUE
+  204.  1          820 CONTINUE
+  205.  1              J=N 
+  206.  1              K=N+1
+  207.  1              IF(X(I).EQ.XS(J))GOTO850
+  208.  1              IBRAN=2
+  209.  1              WRITE(IPR,109)IBRAN
+  210.  1              WRITE(IPR,102)X(I),XS(J)
+  211.  1          102 FORMAT(1H ,'X(I) = ',F15.7,'   XS(J) = ',F15.7)
+  212.  1              STOP
+  213.  1          850 CONTINUE
+  214.  1              XR(I)=N
+  215.  1          880 CONTINUE
+  216.  1              XPREV=X(I)
+  217.  1              RPREV=XR(I)
+  218.  1------>   700 CONTINUE
+  219.           C
+  220.                 RETURN
+  221.                 END 
+
+ftn-6334 ftn: VECTOR File = rank.f, Line = 120 
+  A loop starting at line 120 was not vectorized because it contains multiple potential exits.
+
+ftn-6010 ftn: SCALAR File = rank.f, Line = 124 
+  A divide was turned into a multiply by a reciprocal
+
+ftn-6202 ftn: VECTOR File = rank.f, Line = 125 
+  A loop starting at line 125 was replaced by a library call.
+
+ftn-3021 ftn: IPA File = rank.f, Line = 151 
+  Routine sort was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-6302 ftn: VECTOR File = rank.f, Line = 170 
+  A loop starting at line 170 was not vectorized because the loop starting at line 120 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = rank.f, Line = 191 
+  A loop starting at line 191 was not vectorized because the loop starting at line 120 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = rank.f, Line = 194 
+  A loop starting at line 194 was not vectorized because the loop starting at line 120 was not vectorizable.
+
+ftn-6010 ftn: SCALAR File = rank.f, Line = 200 
+  A divide was turned into a multiply by a reciprocal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

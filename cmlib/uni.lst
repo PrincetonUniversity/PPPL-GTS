@@ -1,0 +1,224 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/uni.f
+Compiled : 01/14/13  17:51:50
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/uni.f
+Date     : 01/14/2013  17:51:57
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.             REAL FUNCTION UNI(JD)
+    2.       C***BEGIN PROLOGUE  UNI
+    3.       C***DATE WRITTEN   810915
+    4.       C***REVISION DATE  830805
+    5.       C***CATEGORY NO.  L6A21
+    6.       C***KEYWORDS  RANDOM NUMBERS, UNIFORM RANDOM NUMBERS
+    7.       C***AUTHOR    BLUE, JAMES, SCIENTIFIC COMPUTING DIVISION, NBS
+    8.       C             KAHANER, DAVID, SCIENTIFIC COMPUTING DIVISION, NBS
+    9.       C             MARSAGLIA, GEORGE, COMPUTER SCIENCE DEPT., WASH STATE UNIV
+   10.       C
+   11.       C***PURPOSE  THIS ROUTINE GENERATES QUASI UNIFORM RANDOM NUMBERS ON [0,1
+   12.       C             AND CAN BE USED ON ANY COMPUTER WITH WHICH ALLOWS INTEGERS
+   13.       C             AT LEAST AS LARGE AS 32767.
+   14.       C***DESCRIPTION
+   15.       C
+   16.       C       THIS ROUTINE GENERATES QUASI UNIFORM RANDOM NUMBERS ON THE INTER
+   17.       C       [0,1).  IT CAN BE USED WITH ANY COMPUTER WHICH ALLOWS
+   18.       C       INTEGERS AT LEAST AS LARGE AS 32767.
+   19.       C
+   20.       C
+   21.       C   USE
+   22.       C       FIRST TIME....
+   23.       C                   Z = UNI(JD)
+   24.       C                     HERE JD IS ANY  N O N - Z E R O  INTEGER.
+   25.       C                     THIS CAUSES INITIALIZATION OF THE PROGRAM
+   26.       C                     AND THE FIRST RANDOM NUMBER TO BE RETURNED AS Z.
+   27.       C       SUBSEQUENT TIMES...
+   28.       C                   Z = UNI(0)
+   29.       C                     CAUSES THE NEXT RANDOM NUMBER TO BE RETURNED AS Z.
+   30.       C
+   31.       C
+   32.       C..................................................................
+   33.       C   NOTE: USERS WHO WISH TO TRANSPORT THIS PROGRAM FROM ONE COMPUTER
+   34.       C         TO ANOTHER SHOULD READ THE FOLLOWING INFORMATION.....
+   35.       C
+   36.       C   MACHINE DEPENDENCIES...
+   37.       C      MDIG = A LOWER BOUND ON THE NUMBER OF BINARY DIGITS AVAILABLE
+   38.       C              FOR REPRESENTING INTEGERS, INCLUDING THE SIGN BIT.
+   39.       C              THIS VALUE MUST BE AT LEAST 16, BUT MAY BE INCREASED
+   40.       C              IN LINE WITH REMARK A BELOW.
+   41.       C
+   42.       C   REMARKS...
+   43.       C     A. THIS PROGRAM CAN BE USED IN TWO WAYS:
+   44.       C        (1) TO OBTAIN REPEATABLE RESULTS ON DIFFERENT COMPUTERS,
+   45.       C            SET 'MDIG' TO THE SMALLEST OF ITS VALUES ON EACH, OR,
+   46.       C        (2) TO ALLOW THE LONGEST SEQUENCE OF RANDOM NUMBERS TO BE
+   47.       C            GENERATED WITHOUT CYCLING (REPEATING) SET 'MDIG' TO THE
+   48.       C            LARGEST POSSIBLE VALUE.
+   49.       C     B. THE SEQUENCE OF NUMBERS GENERATED DEPENDS ON THE INITIAL
+   50.       C          INPUT 'JD' AS WELL AS THE VALUE OF 'MDIG'.
+   51.       C          IF MDIG=16 ONE SHOULD FIND THAT
+   52.       C            THE FIRST EVALUATION
+   53.       C              Z=UNI(305) GIVES Z=.027832881...
+   54.       C            THE SECOND EVALUATION
+   55.       C              Z=UNI(0) GIVES   Z=.56102176...
+   56.       C            THE THIRD EVALUATION
+   57.       C              Z=UNI(0) GIVES   Z=.41456343...
+   58.       C            THE THOUSANDTH EVALUATION
+   59.       C              Z=UNI(0) GIVES   Z=.19797357...
+   60.       C
+   61.       C***REFERENCES  MARSAGLIA G., "COMMENTS ON THE PERFECT UNIFORM RANDOM
+   62.       C                 NUMBER GENERATOR", UNPUBLISHED NOTES, WASH S. U.
+   63.       C***ROUTINES CALLED  I1MACH,XERROR
+   64.       C***END PROLOGUE  UNI
+   65.             INTEGER M(17)
+   66.       C
+   67.             SAVE I,J,M,M1,M2
+   68.       C
+   69.             DATA M(1),M(2),M(3),M(4),M(5),M(6),M(7),M(8),M(9),M(10),M(11),
+   70.            1     M(12),M(13),M(14),M(15),M(16),M(17)
+   71.            2                   / 30788,23052,2053,19346,10646,19427,23975,
+   72.            3                     19049,10949,19693,29746,26748,2796,23890,
+   73.            4                     29168,31924,16499 /
+   74.             DATA M1,M2,I,J / 32767,256,5,17 /
+   75.       C***FIRST EXECUTABLE STATEMENT  UNI
+   76.             IF(JD .EQ. 0) GO TO 3
+   77.       C  FILL
+   78.  I          MDIG=I1MACH(8)+1
+   79.       C          BE SURE THAT MDIG AT LEAST 16...
+   80.             IF(MDIG.LT.16)CALL XERROR('UNI--MDIG LESS THAN 16',22,1,2)
+   81.             M1= 2**(MDIG-2) + (2**(MDIG-2)-1)
+   82.             M2 = 2**(MDIG/2)
+   83.             JSEED = MIN0(IABS(JD),M1)
+   84.             IF( MOD(JSEED,2).EQ.0 ) JSEED=JSEED-1
+   85.             K0 =MOD(9069,M2)
+   86.             K1 = 9069/M2
+   87.             J0 = MOD(JSEED,M2)
+   88.             J1 = JSEED/M2
+   89.  1--<       DO 2 I=1,17
+   90.  1            JSEED = J0*K0
+   91.  1            J1 = MOD(JSEED/M2+J0*K1+J1*K0,M2/2)
+   92.  1            J0 = MOD(JSEED,M2)
+   93.  1-->     2   M(I) = J0+M2*J1
+   94.             I=5
+   95.             J=17
+   96.       C  BEGIN MAIN LOOP HERE
+   97.           3 K=M(I)-M(J)
+   98.             IF(K .LT. 0) K=K+M1
+   99.             M(J)=K
+  100.             I=I-1
+  101.             IF(I .EQ. 0) I=17
+  102.             J=J-1
+  103.             IF(J .EQ. 0) J=17
+  104.             UNI=FLOAT(K)/FLOAT(M1)
+  105.             RETURN
+  106.             END
+
+ftn-3001 ftn: IPA File = uni.f, Line = 78 
+  The call to i1mach was textually inlined.
+
+ftn-3021 ftn: IPA File = uni.f, Line = 80 
+  Routine xerror was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-6254 ftn: VECTOR File = uni.f, Line = 89 
+  A loop starting at line 89 was not vectorized because a recurrence was found on "j1" at line 91.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

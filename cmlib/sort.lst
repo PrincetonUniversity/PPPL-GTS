@@ -1,0 +1,342 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/sort.f
+Compiled : 01/14/13  17:51:49
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/sort.f
+Date     : 01/14/2013  17:51:57
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.             SUBROUTINE SORT(X,N,Y)
+    2.       C
+    3.       C     PURPOSE--THIS SUBROUTINE SORTS (IN ASCENDING ORDER)
+    4.       C              THE N ELEMENTS OF THE SINGLE PRECISION VECTOR X
+    5.       C              AND PUTS THE RESULTING N SORTED VALUES INTO THE
+    6.       C              SINGLE PRECISION VECTOR Y. (now both double)
+    7.       C     INPUT  ARGUMENTS--X      = THE SINGLE PRECISION VECTOR OF
+    8.       C                                OBSERVATIONS TO BE SORTED. 
+    9.       C                     --N      = THE INTEGER NUMBER OF OBSERVATIONS
+   10.       C                                IN THE VECTOR X. 
+   11.       C     OUTPUT ARGUMENTS--Y      = THE SINGLE PRECISION VECTOR
+   12.       C                                INTO WHICH THE SORTED DATA VALUES
+   13.       C                                FROM X WILL BE PLACED.
+   14.       C     OUTPUT--THE SINGLE PRECISION VECTOR Y
+   15.       C             CONTAINING THE SORTED
+   16.       C             (IN ASCENDING ORDER) VALUES
+   17.       C             OF THE SINGLE PRECISION VECTOR X.
+   18.       C     PRINTING--NONE UNLESS AN INPUT ARGUMENT ERROR CONDITION EXISTS. 
+   19.       C     RESTRICTIONS--THE DIMENSIONS OF THE VECTORS IL AND IU 
+   20.       C                   (DEFINED AND USED INTERNALLY WITHIN
+   21.       C                   THIS SUBROUTINE) DICTATE THE MAXIMUM
+   22.       C                   ALLOWABLE VALUE OF N FOR THIS SUBROUTINE.
+   23.       C                   IF IL AND IU EACH HAVE DIMENSION K,
+   24.       C                   THEN N MAY NOT EXCEED 2**(K+1) - 1.
+   25.       C                   FOR THIS SUBROUTINE AS WRITTEN, THE DIMENSIONS
+   26.       C                   OF IL AND IU HAVE BEEN SET TO 36,
+   27.       C                   THUS THE MAXIMUM ALLOWABLE VALUE OF N IS
+   28.       C                   APPROXIMATELY 137 BILLION.
+   29.       C                   SINCE THIS EXCEEDS THE MAXIMUM ALLOWABLE
+   30.       C                   VALUE FOR AN INTEGER VARIABLE IN MANY COMPUTERS,
+   31.       C                   AND SINCE A SORT OF 137 BILLION ELEMENTS
+   32.       C                   IS PRESENTLY IMPRACTICAL AND UNLIKELY,
+   33.       C                   THEN THERE IS NO PRACTICAL RESTRICTION
+   34.       C                   ON THE MAXIMUM VALUE OF N FOR THIS SUBROUTINE.
+   35.       C                   (IN LIGHT OF THE ABOVE, NO CHECK OF THE 
+   36.       C                   UPPER LIMIT OF N HAS BEEN INCORPORATED
+   37.       C                   INTO THIS SUBROUTINE.)
+   38.       C     OTHER DATAPAC   SUBROUTINES NEEDED--NONE.
+   39.       C     FORTRAN LIBRARY SUBROUTINES NEEDED--NONE.
+   40.       C     MODE OF INTERNAL OPERATIONS--SINGLE PRECISION.
+   41.       C     LANGUAGE--ANSI FORTRAN. 
+   42.       C     COMMENT--THE SMALLEST ELEMENT OF THE VECTOR X
+   43.       C              WILL BE PLACED IN THE FIRST POSITION
+   44.       C              OF THE VECTOR Y,
+   45.       C              THE SECOND SMALLEST ELEMENT IN THE VECTOR X
+   46.       C              WILL BE PLACED IN THE SECOND POSITION
+   47.       C              OF THE VECTOR Y, ETC.
+   48.       C     COMMENT--THE INPUT VECTOR X REMAINS UNALTERED.
+   49.       C     COMMENT--IF THE ANALYST DESIRES A SORT 'IN PLACE',
+   50.       C              THIS IS DONE BY HAVING THE SAME
+   51.       C              OUTPUT VECTOR AS INPUT VECTOR IN THE CALLING SEQUENCE. 
+   52.       C              THUS, FOR EXAMPLE, THE CALLING SEQUENCE
+   53.       C              CALL SORT(X,N,X)
+   54.       C              IS ALLOWABLE AND WILL RESULT IN
+   55.       C              THE DESIRED 'IN-PLACE' SORT.
+   56.       C     COMMENT--THE SORTING ALGORTHM USED HEREIN
+   57.       C              IS THE BINARY SORT.
+   58.       C              THIS ALGORTHIM IS EXTREMELY FAST AS THE
+   59.       C              FOLLOWING TIME TRIALS INDICATE.
+   60.       C              THESE TIME TRIALS WERE CARRIED OUT ON THE
+   61.       C              UNIVAC 1108 EXEC 8 SYSTEM AT NBS
+   62.       C              IN AUGUST OF 1974.
+   63.       C              BY WAY OF COMPARISON, THE TIME TRIAL VALUES
+   64.       C              FOR THE EASY-TO-PROGRAM BUT EXTREMELY
+   65.       C              INEFFICIENT BUBBLE SORT ALGORITHM HAVE
+   66.       C              ALSO BEEN INCLUDED--
+   67.       C              NUMBER OF RANDOM        BINARY SORT       BUBBLE SORT
+   68.       C               NUMBERS SORTED
+   69.       C                N = 10                 .002 SEC          .002 SEC
+   70.       C                N = 100                .011 SEC          .045 SEC
+   71.       C                N = 1000               .141 SEC         4.332 SEC
+   72.       C                N = 3000               .476 SEC        37.683 SEC
+   73.       C                N = 10000             1.887 SEC      NOT COMPUTED
+   74.       C     REFERENCES--CACM MARCH 1969, PAGE 186 (BINARY SORT ALGORITHM
+   75.       C                 BY RICHARD C. SINGLETON).
+   76.       C               --CACM JANUARY 1970, PAGE 54.
+   77.       C               --CACM OCTOBER 1970, PAGE 624.
+   78.       C               --JACM JANUARY 1961, PAGE 41.
+   79.       C     WRITTEN BY--JAMES J. FILLIBEN
+   80.       C                 STATISTICAL ENGINEERING LABORATORY (205.03)
+   81.       C                 NATIONAL BUREAU OF STANDARDS
+   82.       C                 WASHINGTON, D. C. 20234
+   83.       C                 PHONE--301-921-2315
+   84.       C     ORIGINAL VERSION--JUNE      1972. 
+   85.       C     UPDATED         --NOVEMBER  1975. 
+   86.       C
+   87.       C---------------------------------------------------------------------
+   88.       C
+   89.             IMPLICIT REAL*8(A-H,O-Z)
+   90.             REAL*8 X(1),Y(1)
+   91.             INTEGER IU(36),IL(36) 
+   92.       C
+   93.             IPR=6
+   94.       C
+   95.       C     CHECK THE INPUT ARGUMENTS FOR ERRORS
+   96.       C
+   97.             IF(N.LT.1)GOTO50
+   98.             IF(N.EQ.1)GOTO55
+   99.             HOLD=X(1)
+  100.  1--<       DO60I=2,N
+  101.  1          IF(X(I).NE.HOLD)GOTO90
+  102.  1-->    60 CONTINUE
+  103.             WRITE(IPR, 9)HOLD
+  104.  A--<       DO61I=1,N
+  105.  A          Y(I)=X(I)
+  106.  A-->    61 CONTINUE
+  107.             RETURN
+  108.          50 WRITE(IPR,15) 
+  109.             WRITE(IPR,47)N
+  110.             RETURN
+  111.          55 WRITE(IPR,18) 
+  112.             Y(1)=X(1)
+  113.             RETURN
+  114.          90 CONTINUE
+  115.           9 FORMAT(1H ,108H***** NON-FATAL DIAGNOSTIC--THE FIRST  INPUT ARGUME
+  116.            1NT (A VECTOR) TO THE SORT   SUBROUTINE HAS ALL ELEMENTS = ,E15.8,6
+  117.            1H *****)
+  118.          15 FORMAT(1H , 91H***** FATAL ERROR--THE SECOND INPUT ARGUMENT TO THE
+  119.            1 SORT   SUBROUTINE IS NON-POSITIVE *****)
+  120.          18 FORMAT(1H ,100H***** NON-FATAL DIAGNOSTIC--THE SECOND INPUT ARGUME
+  121.            1NT TO THE SORT   SUBROUTINE HAS THE VALUE 1 *****)
+  122.          47 FORMAT(1H , 35H***** THE VALUE OF THE ARGUMENT IS ,I8   ,6H *****)
+  123.       C
+  124.       C-----START POINT-----------------------------------------------------
+  125.       C
+  126.       C     COPY THE VECTOR X INTO THE VECTOR Y
+  127.  A--<       DO100I=1,N
+  128.  A          Y(I)=X(I)
+  129.  A-->   100 CONTINUE
+  130.       C
+  131.       C     CHECK TO SEE IF THE INPUT VECTOR IS ALREADY SORTED
+  132.       C
+  133.             NM1=N-1
+  134.  1--<       DO200I=1,NM1
+  135.  1          IP1=I+1
+  136.  1          IF(Y(I).LE.Y(IP1))GOTO200
+  137.  1          GOTO250
+  138.  1-->   200 CONTINUE
+  139.             RETURN
+  140.         250 M=1 
+  141.             I=1 
+  142.             J=N 
+  143.         305 IF(I.GE.J)GOTO370
+  144.         310 K=I 
+  145.             MID=(I+J)/2
+  146.             AMED=Y(MID)
+  147.             IF(Y(I).LE.AMED)GOTO320 
+  148.             Y(MID)=Y(I)
+  149.             Y(I)=AMED
+  150.             AMED=Y(MID)
+  151.         320 L=J 
+  152.             IF(Y(J).GE.AMED)GOTO340 
+  153.             Y(MID)=Y(J)
+  154.             Y(J)=AMED
+  155.             AMED=Y(MID)
+  156.             IF(Y(I).LE.AMED)GOTO340 
+  157.             Y(MID)=Y(I)
+  158.             Y(I)=AMED
+  159.             AMED=Y(MID)
+  160.             GOTO340
+  161.         330 Y(L)=Y(K)
+  162.             Y(K)=TT
+  163.         340 L=L-1
+  164.             IF(Y(L).GT.AMED)GOTO340 
+  165.             TT=Y(L)
+  166.         350 K=K+1
+  167.             IF(Y(K).LT.AMED)GOTO350 
+  168.             IF(K.LE.L)GOTO330
+  169.             LMI=L-I
+  170.             JMK=J-K
+  171.             IF(LMI.LE.JMK)GOTO360
+  172.             IL(M)=I
+  173.             IU(M)=L
+  174.             I=K 
+  175.             M=M+1
+  176.             GOTO380
+  177.         360 IL(M)=K
+  178.             IU(M)=J
+  179.             J=L 
+  180.             M=M+1
+  181.             GOTO380
+  182.         370 M=M-1
+  183.             IF(M.EQ.0)RETURN
+  184.             I=IL(M)
+  185.             J=IU(M)
+  186.         380 JMI=J-I
+  187.             IF(JMI.GE.11)GOTO310
+  188.             IF(I.EQ.1)GOTO305
+  189.             I=I-1
+  190.         390 I=I+1
+  191.             IF(I.EQ.J)GOTO370
+  192.             AMED=Y(I+1)
+  193.             IF(Y(I).LE.AMED)GOTO390 
+  194.             K=I 
+  195.         395 Y(K+1)=Y(K)
+  196.             K=K-1
+  197.             IF(AMED.LT.Y(K))GOTO395 
+  198.             Y(K+1)=AMED
+  199.             GOTO390
+  200.             END 
+
+ftn-6334 ftn: VECTOR File = sort.f, Line = 100 
+  A loop starting at line 100 was not vectorized because it contains multiple potential exits.
+
+ftn-6202 ftn: VECTOR File = sort.f, Line = 104 
+  A loop starting at line 104 was replaced by a library call.
+
+ftn-6202 ftn: VECTOR File = sort.f, Line = 127 
+  A loop starting at line 127 was replaced by a library call.
+
+ftn-6302 ftn: VECTOR File = sort.f, Line = 134 
+  A loop starting at line 134 was not vectorized because the loop starting at line 100 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = sort.f, Line = 143 
+  A loop starting at line 143 was not vectorized because the loop starting at line 100 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = sort.f, Line = 144 
+  A loop starting at line 144 was not vectorized because the loop starting at line 100 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = sort.f, Line = 163 
+  A loop starting at line 163 was not vectorized because the loop starting at line 100 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = sort.f, Line = 166 
+  A loop starting at line 166 was not vectorized because the loop starting at line 100 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = sort.f, Line = 182 
+  A loop starting at line 182 was not vectorized because the loop starting at line 100 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = sort.f, Line = 190 
+  A loop starting at line 190 was not vectorized because the loop starting at line 100 was not vectorizable.
+
+ftn-6302 ftn: VECTOR File = sort.f, Line = 195 
+  A loop starting at line 195 was not vectorized because the loop starting at line 100 was not vectorizable.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

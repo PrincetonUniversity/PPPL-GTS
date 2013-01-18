@@ -1,0 +1,180 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S u m m a r y   R e p o r t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Compilation
+-----------
+File     : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/bsrl.f
+Compiled : 01/14/13  17:51:40
+Compiler : Version 8.0.7
+Ftnlx    : Version 8012 (libcif 80009)
+Target   : x86-64
+Command  : /opt/cray/cce/8.0.7/cftn/x86-64/bin/ftn_driver.exe -hcpu=mc12
+           -hnetwork=gemini -hstatic -c -sreal64 -Dflush_=flush -I. -eF -em -rm
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/mod
+           -I/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/include
+           -I/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/include
+           -I/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/include
+           -I/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/include
+           -I/opt/cray/gni-headers/2.1-1.0400.4351.3.1.gem/include
+           -I/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/include
+           -I/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/include
+           -I/opt/cray-hss-devel/6.0.0/include
+           -I/opt/cray/krca/1.0.0-2.0400.31554.3.55.gem/include
+           -I/usr/common/usg/pspline/nersc1.0/cce/include
+           -I/usr/common/usg/sprng/2.0/cce/include
+           -I/opt/cray/cce/8.0.7/craylibs/x86-64/include
+           -I/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/include
+           -L/opt/cray/udreg/2.3.1-1.0400.4264.3.1.gem/lib64
+           -L/opt/cray/ugni/2.3-1.0400.4374.4.88.gem/lib64
+           -L/opt/cray/pmi/3.0.1-1.0000.9101.2.26.gem/lib64
+           -L/opt/cray/dmapp/3.2.1-1.0400.4255.2.159.gem/lib64
+           -L/opt/cray/xpmem/0.1-2.0400.31280.3.1.gem/lib64
+           -L/opt/cray/rca/1.0.0-2.0400.31553.3.58.gem/lib64 -lrca
+           -L/usr/common/usg/pspline/nersc1.0/cce/lib -lpspline -lezcdf
+           -L/usr/common/usg/sprng/2.0/cce/lib -lsprng
+           -L/opt/cray/cce/8.0.7/craylibs/x86-64 -L/opt/gcc/4.4.4/snos/lib64
+           -D__CRAYXE -D__CRAYXT_COMPUTE_LINUX_TARGET -D__TARGET_LINUX__
+           -I/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/include
+           -I/opt/cray/mpt/5.5.2/gni/sma/include
+           -I/opt/xt-libsci/11.1.00/cray/74/mc12/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/x86_64/include
+           -I/opt/petsc/3.2.02/real/CRAY/74/include
+           -I/opt/cray/hdf5/1.8.8/cray/74/include
+           -I/opt/cray/netcdf/4.2.0/cray/74/include
+           -I/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/include
+           -L/opt/cray/mpt/5.5.2/gni/mpich2-cray/74/lib
+           -L/opt/cray/mpt/5.5.2/gni/sma/lib64
+           -L/opt/xt-libsci/11.1.00/cray/74/mc12/lib
+           -L/opt/petsc/3.2.02/real/CRAY/74/x86_64/lib
+           -L/opt/cray/hdf5/1.8.8/cray/74/lib
+           -L/opt/cray/netcdf/4.2.0/cray/74/lib
+           -L/opt/cray/tpsl/1.2.01/CRAY/74/x86_64/lib -lcraypetsc_cray_real
+           -lsundials_cvode_cray -lsundials_cvodes_cray -lsundials_ida_cray
+           -lsundials_idas_cray -lsundials_kinsol_cray
+           -lsundials_nvecserial_cray -lsundials_nvecparallel_cray -lHYPRE_cray
+           -lsuperlu_cray -lsuperlu_dist_cray -lcmumps_cray -ldmumps_cray
+           -lsmumps_cray -lzmumps_cray -lmumps_common_cray -lpord_cray
+           -lparmetis_cray -lmetis_cray -lptesmumps_cray -lptscotch_cray
+           -lptscotcherr_cray -lptscotcherrexit_cray -lesmumps_cray
+           -lscotch_cray -lscotcherr_cray -lscotcherrexit_cray -lnetcdff_cray
+           -lnetcdf_cray -lhdf5hl_fortran_cray -lhdf5_hl_cray
+           -lhdf5_fortran_cray -lhdf5_cray -lz -lscicpp_cray -lsci_cray_mp
+           -lsma -lmpichf90_cray -lmpich_cray -lmpl -lxpmem -ldmapp -lpmi
+           -lugni -lalpslli -lalpsutil -ludreg
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/lib64
+           -L/opt/cray/xe-sysroot/4.0.46.securitypatch.20120828/usr/lib/alps
+           -L/usr/lib/alps adapt.f bfqad.f bint4.f bintk.f bnfac.f bnslv.f bsgq8
+           .f bspdr.f bspev.f bsppp.f bspvd.f bspvn.f bsqad.f bsrl.f bvalu.f fdu
+           mp.f flsm.f gl15t.f i1mach.f intrv.f isamax.f j4save.f nxprt.f pfqad.
+           f ppgq8.f ppqad.f ppval.f q1da.f q1dax.f q1db.f r1mach.f rank.f sort.
+           f symrl.f uni.f wht.f xerabt.f xerctl.f xerprt.f xerror.f xerrwv.f xe
+           rsav.f xgetua.f zeroin.f
+
+ftnlx report
+------------
+Source   : /global/project/projectdirs/mp288/jinchen/WWANG/startsev/GTS_2012_OMP/cmlib/bsrl.f
+Date     : 01/14/2013  17:51:56
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                          S o u r c e   L i s t i n g
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+     %%%    L o o p m a r k   L e g e n d    %%%
+
+     Primary Loop Type        Modifiers
+     ------- ---- ----        ---------
+     A - Pattern matched      a - atomic memory operation
+                              b - blocked
+     C - Collapsed            c - conditional and/or computed
+     D - Deleted               
+     E - Cloned               f - fused
+     G - Accelerated          g - partitioned
+     I - Inlined              i - interchanged
+     M - Multithreaded        m - partitioned
+                              n - non-blocking remote transfer
+                              p - partial
+                              r - unrolled
+                              s - shortloop
+     V - Vectorized           w - unwound
+
+
+    1.               SUBROUTINE BSRL(S,CENTER,HWIDTH,F,MAXVLS,FUNCLS,
+    2.              *                  ERRMIN,ERREST,BASEST,DIVAXO,DIVAXN)
+    3.               EXTERNAL F
+    4.               INTEGER S, DIVAXN, DIVAXO, FUNCLS, INTCLS, I, MINDEG, MAXDEG,
+    5.              * MAXORD, MINORD, MAXCLS, MAXVLS
+    6.               REAL*8 ONE, TWO, THREE, FIVE, TEN, DIF, ERRORM, ERRMIN, F,
+    7.              * CENTER(S), HWIDTH(S), SUM0, SUM1, SUM2, DIFMAX, X1, X2,
+    8.              * INTVLS(20), Z(20), FULSMS(200), WEGHTS(200), ERREST, BASEST
+    9.               MAXDEG = 12
+   10.               MINDEG = 4
+   11.               MINORD = 0
+   12.               ZERO = 0
+   13.               ONE = 1
+   14.               TWO = 2
+   15.               THREE = 3
+   16.               FIVE = 5
+   17.               TEN = 10
+   18.  1----<       DO 10 MAXORD = MINDEG,MAXDEG
+   19.  1              CALL SYMRL(S, CENTER, HWIDTH, F, MINORD, MAXORD, INTVLS,
+   20.  1           *   INTCLS, 200, WEGHTS, FULSMS, IFAIL)
+   21.  1              IF (IFAIL.EQ.2) GOTO 20
+   22.  1              ERREST = ABS(INTVLS(MAXORD)-INTVLS(MAXORD-1))
+   23.  1              ERRORM = ABS(INTVLS(MAXORD-1)-INTVLS(MAXORD-2))
+   24.  1              IF (ERREST.NE.ZERO)
+   25.  1           *  ERREST = ERREST*MAX(ONE/TEN,ERREST/MAX(ERREST/TWO,ERRORM))
+   26.  1              IF (ERRORM.LE.FIVE*ERREST) GOTO 20
+   27.  1              IF (2*INTCLS.GT.MAXVLS) GOTO 20
+   28.  1              IF (ERREST.LT.ERRMIN) GOTO 20
+   29.  1---->    10   CONTINUE
+   30.            20 DIFMAX = -1
+   31.               X1 = ONE/TWO**2
+   32.               X2 = THREE*X1
+   33.  Vr4--<       DO 30 I = 1,S
+   34.  Vr4           Z(I) = CENTER(I)
+   35.  Vr4-->    30  CONTINUE
+   36.               SUM0 = F(S,Z)
+   37.  1----<       DO 40 I = 1,S
+   38.  1             Z(I) = CENTER(I) - X1*HWIDTH(I)
+   39.  1             SUM1 = F(S,Z)
+   40.  1             Z(I) = CENTER(I) + X1*HWIDTH(I)
+   41.  1             SUM1 = SUM1 + F(S,Z)
+   42.  1             Z(I) = CENTER(I) - X2*HWIDTH(I)
+   43.  1             SUM2 = F(S,Z)
+   44.  1             Z(I) = CENTER(I) + X2*HWIDTH(I)
+   45.  1             SUM2 = SUM2 + F(S,Z)
+   46.  1             Z(I) = CENTER(I)
+   47.  1             DIF = ABS((SUM1-TWO*SUM0) - (X1/X2)**2*(SUM2-TWO*SUM0))
+   48.  1             IF (DIF.LT.DIFMAX) GOTO 40
+   49.  1              DIFMAX = DIF
+   50.  1              DIVAXN = I
+   51.  1---->    40  CONTINUE
+   52.                IF (SUM0.EQ.SUM0+DIFMAX/TWO) DIVAXN = MOD(DIVAXO,S) + 1
+   53.               BASEST = INTVLS(MINORD)
+   54.               FUNCLS = INTCLS + 4*S
+   55.               RETURN
+   56.               END
+
+ftn-6288 ftn: VECTOR File = bsrl.f, Line = 18 
+  A loop starting at line 18 was not vectorized because it contains a call to subroutine "symrl" on line 19.
+
+ftn-3021 ftn: IPA File = bsrl.f, Line = 19 
+  Routine symrl was not inlined because the compiler was unable to locate the routine to expand it inline.
+
+ftn-6005 ftn: SCALAR File = bsrl.f, Line = 33 
+  A loop starting at line 33 was unrolled 4 times.
+
+ftn-6204 ftn: VECTOR File = bsrl.f, Line = 33 
+  A loop starting at line 33 was vectorized.
+
+ftn-6287 ftn: VECTOR File = bsrl.f, Line = 37 
+  A loop starting at line 37 was not vectorized because it contains a call to function "f" on line 39.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
