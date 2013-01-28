@@ -380,13 +380,14 @@ subroutine poisson_initial( mat )
            tgrid=deltat(i)*real(j)+zdum*qtinv(i)
            tgrid=tgrid*pi2_inv
            tgrid=2.0_wp*pi*(tgrid-aint(tgrid))
-           jt=max(0,min(mtheta(i),int(pi2_inv*delt(i)*tgrid+0.5_wp)))
+           !  jt=max(0,min(mtheta(i),int(pi2_inv*delt(i)*tgrid+0.5_wp)))
            
            ! B-field
            aaa(1)=psi_grid(i)  ! equilibrium interface using a as radial coordinate
            the(1)=tgrid
            call esigetrzb(rj,zj,Bj,aaa,the,1)
-           ipjt=igrid(i)+jt
+           !  ipjt=igrid(i)+jt
+           ipjt=ij0            ! 2013
            
            do kr=1,mring
               
@@ -403,12 +404,15 @@ subroutine poisson_initial( mat )
                  elseif(kp==6)then
                     ddelr=0.5_wp*(pgyro(2,ipjt)+pgyro(3,ipjt))
                     ddelt=0.5_wp*(tgyro(2,ipjt)+tgyro(3,ipjt))
+                    wght=0.125_wp*fring(kr)
                  elseif(kp==7)then
                     ddelr=0.5_wp*(pgyro(2,ipjt)+pgyro(4,ipjt))
                     ddelt=0.5_wp*(tgyro(2,ipjt)+tgyro(4,ipjt))
+                    wght=0.125_wp*fring(kr)
                  elseif(kp==8)then
                     ddelr=0.5_wp*(pgyro(1,ipjt)+pgyro(4,ipjt))
                     ddelt=0.5_wp*(tgyro(1,ipjt)+tgyro(4,ipjt))
+                    wght=0.125_wp*fring(kr)
                  endif
 
 ! position for each point with rho_i=2.0*vring

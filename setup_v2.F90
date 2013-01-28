@@ -946,7 +946,7 @@ end if ! if(mype==0)
   me=mi                            !# of electrons per processor
   mesum=misum                      !# of total electrons
 
-  write(0,*)mype,' micell=',micell,'  mgrid=',mgrid,'  mpsi=',mpsi,'  npartdom=',npartdom,'  mi=',mi
+!  write(0,*)mype,' micell=',micell,'  mgrid=',mgrid,'  mpsi=',mpsi,'  npartdom=',npartdom,'  mi=',mi
 
   mimax=mi+50*ceiling(sqrt(real(mi,wp))) !particle array upper bound
   memax=me+50*ceiling(sqrt(real(me,wp))) !particle array upper bound
@@ -1297,12 +1297,15 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 ! dtheta/delta_x=1/(r*(1+r*cos(theta))), delta_x=poloidal length increasement
 !!!!        !$omp parallel do private(i,j,ij,zdum,pdum,tdum,q,b,dtheta_dx,rhoi)
   do i=0,mpsi
-     zdum=0.0_wp
+     zdum=zetamin+deltaz     ! zeta local to me 
+     !   zdum=0.0_wp         ! old before 2013
      pdum=psi_grid(i)
 
      do j=0,mtheta(i)
         ij=igrid(i)+j
-        tdum=deltat(i)*real(j,wp)
+        tdum=deltat(i)*real(j,wp)+zdum*qtinv(i)     ! local theta of grid point
+        tdum=tdum/(2.0_wp*pi)
+        tdum=2.0_wp*pi*(tdum-aint(tdum))
 
         aaa(1)=pdum
         the(1)=tdum
@@ -1333,8 +1336,9 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 !        pgyro(1,ij)=-((metric(5)*metric(5)-metric(1)*metric(3))/q+  &
 !                      (metric(1)*metric(6)-metric(5)*metric(4)))*dtheta_dx*rhoi   !wx gg
 
-        pgyro(1,ij)=-sqrt(metric(1))*rhoi        ! for tokamak; da/dl
-        pgyro(1,ij)=pgyro(1,ij)*vthc/vth_grid(i) ! ds/dl=(ds/da)*(da/dl)
+        pgyro(1,ij)=-sqrt(metric(1))*rhoi           ! for tokamak; da/dl
+        rdum=dsda(pdum)                             ! = dsda
+        pgyro(1,ij)=pgyro(1,ij)*rdum                ! ds/dl=(ds/da)*(da/dl)
 
         pgyro(2,ij)=-pgyro(1,ij)       !wx gg
 
@@ -1353,7 +1357,8 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 ! with rhoi enlarged by a factor JB*|grad_zeta| 
 !        pgyro(3,ij)=-metric(5)*dtheta_dx*Bj(1)*rhoi/gFaj(1)
         pgyro(3,ij)=-metric(5)*q/sqrt(metric(1))/metric(3)*Bj(1)*rhoi/gFaj(1)
-        pgyro(3,ij)=pgyro(3,ij)*vthc/vth_grid(i) ! ds/dl=(ds/da)*(da/dl)
+        pgyro(3,ij)=pgyro(3,ij)*rdum             ! ds/dl=(ds/da)*(da/dl)
+!        pgyro(3,ij)=pgyro(3,ij)*vthc/vth_grid(i) ! ds/dl=(ds/da)*(da/dl)
 
         pgyro(4,ij)=-pgyro(3,ij)
 
@@ -2187,7 +2192,7 @@ end subroutine setup
   ntoroidal=numberpe/npartdom
   if(mype==0)then
     write(stdout,*)'*******************************************************'
-    write(stdout,*)'  Using npartdom=',npartdom,' and ntoroidal=',ntoroidal,'numberpe=',numberpe
+    write(stdout,*)'  Using npartdom=',npartdom,' and ntoroidal=',ntoroidal
     write(stdout,*)'*******************************************************'
     write(stdout,*)
   endif
@@ -2211,9 +2216,9 @@ end subroutine setup
   particle_domain_location=mod(mype,npartdom)
   toroidal_domain_location=mype/npartdom
 
-  write(0,*)'cjmype=',mype,"  particle_domain_location =",&
-            particle_domain_location,' toroidal_domain_location =',&
-            toroidal_domain_location,' pi=',pi
+!  write(0,*)'mype=',mype,"  particle_domain_location =",&
+!            particle_domain_location,' toroidal_domain_location =',&
+!            toroidal_domain_location,' pi=',pi
 
 ! ---- Create particle domain communicator and toroidal communicator -----
 ! We now need to create a new communicator which will include only the
@@ -2254,9 +2259,9 @@ end subroutine setup
   call mpi_comm_size(toroidal_comm,nproc_toroidal,ierror)
   call mpi_comm_rank(toroidal_comm,myrank_toroidal,ierror)
 
-  write(0,*)'cjmype=',mype,'  nproc_toroidal=',nproc_toroidal,&
-       ' myrank_toroidal=',myrank_toroidal,'  nproc_partd=',nproc_partd,&
-       ' myrank_partd=',myrank_partd
+!  write(0,*)'mype=',mype,'  nproc_toroidal=',nproc_toroidal,&
+!       ' myrank_toroidal=',myrank_toroidal,'  nproc_partd=',nproc_partd,&
+!       ' myrank_partd=',myrank_partd
 
   if(nproc_partd/=npartdom)then
     write(0,*)'*** nproc_partd=',nproc_partd,' NOT EQUAL to npartdom=',npartdom
@@ -2279,8 +2284,6 @@ end subroutine setup
 
   left_pe=mod(myrank_toroidal-1+ntoroidal,ntoroidal)
   right_pe=mod(myrank_toroidal+1,ntoroidal)
-
-  write(0,*)'cjmype=',mype,'  left_pe=',left_pe, ' right_pe=',right_pe
 
 end subroutine set_particle_decomp
 

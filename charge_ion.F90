@@ -14,7 +14,7 @@ subroutine charge_ion
   real(wp) weight,wemark,rdum,tdum,delr,delt(0:mpsi),delz,r,wz1,wz0,wp1,&
        wp0,wt11,wt10,wt01,wt00,wdum(0:mpsi),tflr,damping,pi2_inv,&
        psitmp,thetatmp,zetatmp,rhoi,deltheta, & 
-       psimax,psimin,pdum,total_w,wf,wn                                !wx
+       psimax,psimin,pdum,total_w,wf,wn,thedum, zdum            !wx
   real(wp) sendl(mgrid),recvr(mgrid)
   real(wp) dnitmp(0:1,mgrid)
 
@@ -35,8 +35,10 @@ subroutine charge_ion
   psimin=s_grid(0)
   psimax=s_grid(mpsi)
 
+  zdum=zetamin+deltaz
+
 !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
-!$omp& wz1,pdum,rdum,ii,wp1,tflr,im,tdum,j00,j01)
+!$omp& wz1,pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
   do m=1,mi
 !     psitmp=zion(1,m)      ! =a  
      psitmp=zion(7,m)       ! =s
@@ -46,7 +48,11 @@ subroutine charge_ion
 
      r=psitmp
      ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
-     jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
+     !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
+     thedum=thetatmp-zdum*qtinv(ip)    ! corresponding theta on zeta=0 plane 
+     thedum=thedum*pi2_inv+100.0_wp
+     thedum=2.0_wp*pi*(thedum-aint(thedum))       ! bring back to range [0,2pi]
+     jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))
      ipjt=igrid(ip)+jt     ! note special case of jt=0
      wzion(m)=(zetatmp-zetamin)*delz
 

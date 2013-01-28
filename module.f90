@@ -45,7 +45,8 @@ end module precision
                         amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
 
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
-                        dlni=16.0_wp
+                        dlni=16.0_wp, &
+                        dsda_power=0.2_wp
   integer jr
 
   real(wp)  T_0,dTemi,xt,At,Bt,Tc,T_e0,dTeme,xt_e,At_e,Bt_e,Tc_e

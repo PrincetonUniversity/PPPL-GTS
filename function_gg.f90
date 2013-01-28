@@ -219,6 +219,7 @@ end function rho2a_zero
 
 FUNCTION dsda(adum)
       use precision
+      use global_parameters,only: dsda_power
       implicit  none
       real(wp) dsda
       real(wp) adum,Tcc,r
@@ -227,7 +228,7 @@ FUNCTION dsda(adum)
 
 !      dsda=sqrt(Tcc/temperature(adum,0.0))
 !      dsda=(Tcc/temperature(adum,0.0_wp))**0.4_wp
-      dsda=(Tcc/temperature(adum,0.0_wp))**0.2_wp
+      dsda=(Tcc/temperature(adum,0.0_wp))**dsda_power
 
       RETURN
 end function dsda

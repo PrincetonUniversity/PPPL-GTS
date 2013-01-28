@@ -256,7 +256,7 @@ end if
 
 !     zeon(7,m) = zeon0(7,m)+dtime*sqrt(Tc/backT(m))*da(m)
 !     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**0.4_wp*da(m)
-     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**0.2_wp*da(m)
+     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**dsda_power*da(m)
 
 #ifdef _TREAT_MAGNETIC_AXIS
      if(sw(m).eq.1) then    ! convert to (a, theta) coordinates
@@ -680,7 +680,7 @@ end if
 
 !     zeon(7,m) = zeon0(7,m)+dtime*sqrt(Tc/backT(m))*da(m)
 !     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**0.4_wp*da(m)
-     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**0.2_wp*da(m)
+     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**dsda_power*da(m)
 
 #ifdef _TREAT_MAGNETIC_AXIS
      if(sw(m).eq.1) then    ! convert to (a, theta) coordinates

@@ -300,7 +300,7 @@ end if
      zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))
 !     zion(7,m) = zion0(7,m)+dtime*sqrt(Tc*T_inverse)*da(m)
 !     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**0.4_wp*da(m)
-     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**0.2_wp*da(m)
+     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**dsda_power*da(m)
 
 #ifdef _TREAT_MAGNETIC_AXIS
      if(sw(m).eq.1) then    ! convert to (a, theta) coordinates
@@ -847,7 +847,7 @@ end if
      zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))
 !     zion(7,m) = zion0(7,m)+dtime*sqrt(Tc*T_inverse)*da(m)
 !     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**0.4_wp*da(m)
-     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**0.2_wp*da(m)
+     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**dsda_power*da(m)
 
 #ifdef _TREAT_MAGNETIC_AXIS
      if(sw(m).eq.1) then    ! convert to (a, theta) coordinates
