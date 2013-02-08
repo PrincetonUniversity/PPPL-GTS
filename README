@@ -29,6 +29,25 @@ Now, when I do an svn status, I don't get a list of the .mod files.
 
 ====================================================================
 
-01/18/2012 This is the first svn version
+01/18/2013 This is the first svn version
            source code from Weixing Wang on Jan 12, 2013
            It runs on hopper with WORK/JOB_2012/short_shape
+
+====================================================================
+
+01/22/2013 
+           GTS_etg_fem with FEM for 2D smoothing dated back to 2008:
+
+             7302 2008-09-09 11:37 fem.F90
+            21863 2008-09-09 11:37 triangle.h
+           651275 2008-09-09 11:37 triangle.c
+            20654 2008-09-09 11:37 therm2d.F90
+
+            28874 2008-09-09 11:37 solver_petsc.F90
+
+            19842 2008-09-09 11:37 smooth.F90
+
+             4668 2008-09-09 11:37 mesh_gen.c
+             8538 2008-09-09 11:37 main.F90
+
+

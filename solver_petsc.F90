@@ -652,7 +652,7 @@ contains
     yy = bb
 
     !     scatter rhs into PETSc vector
-    call VecCreateSeqWithArray(MPI_COMM_SELF,nn,yy,vec_yy,ierr)
+    call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     
     !     call VecSet( solver%bVec, 1.e30, ierr ) ! debug
