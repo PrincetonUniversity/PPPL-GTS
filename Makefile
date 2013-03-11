@@ -203,6 +203,18 @@ ifeq ($(F90C),ftn)
    # Flags for Cray XT system
    #####ifeq ($(shell uname -n | cut -c-3),hop)
    #####ifeq ($(NERSC_HOST),hopper)
+       ifeq ($(PE_ENV),INTEL)   # Using PGI compiler on Hopper
+          FFLAGS:= -real-size 64
+          OPT:=-O
+          COPT:=-O
+          CFLAGS:=
+          OMPFLAG:=-openmp
+          NOOMPFLAG:=
+          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
+          SPRNG_INC:=-I${SPRNG_DIR}/include
+          PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+       endif
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler on Hopper
           FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
           OPT:=-fast
@@ -214,7 +226,8 @@ ifeq ($(F90C),ftn)
           SPRNG_INC:=-I${SPRNG_DIR}/include
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-       else   # Using CRAY compiler
+       endif
+       ifeq ($(PE_ENV),CRAY)   # Using CRAY compiler
           #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
           FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
           OPT:=
@@ -222,7 +235,7 @@ ifeq ($(F90C),ftn)
           COPT:=
           OMPFLAG:=
           NOOMPFLAG:=-hnoomp
-          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
+          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
           SPRNG_INC:=-I${SPRNG_DIR}/include
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
@@ -294,9 +307,11 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o setup_v2.o Er_provide
      load.o restart.o diagnosis.o snapshot.o charge_ion.o current_ion.o \
      charge_eon.o current_eon.o solve_dphidt.o poisson.o smooth.o \
      field.o pushi.o pushe.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \
-     $(FFT) output.o escZ_march03.o check_eq.o view_distribution.o \
-     view_orbit.o $(NAG_FILES) check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o get_ZF_shear.o \
-     open_files.o csr2css.o check_tracers.o create_directory.o weight_damping.o weight_damping_eon.o
+     $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
+     check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
+     get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o \
+     weight_damping.o weight_damping_eon.o
+#output.o
 #output3d.o
 # selectmode.o volume.o 
 
