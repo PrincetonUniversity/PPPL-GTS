@@ -6,6 +6,15 @@ module profile_array
                                          Te_node,dTe_node,Iomg_node,dIomg_node
 end module profile_array
 
+module spl_profiles
+
+  use ezspline
+  use ezspline_obj
+
+  type(ezspline1_r8):: spn,spTi,spO,spTe,spEr,spEr0
+
+end module spl_profiles
+
 
   
 subroutine read_profiles(profile_data_name)
@@ -167,15 +176,6 @@ subroutine read_profiles_NSTX(profile_data_name)
 end subroutine read_profiles_NSTX
 
 
-
-module spl_profiles
-
-  use ezspline
-  use ezspline_obj
-
-  type(ezspline1_r8):: spn,spTi,spO,spTe,spEr,spEr0
-
-end module spl_profiles
 
 
 
