@@ -202,56 +202,50 @@ endif
 ifeq ($(F90C),ftn)
    # Flags for Cray XT system
    #####ifeq ($(shell uname -n | cut -c-3),hop)
-   #####ifeq ($(NERSC_HOST),hopper)
-       ifeq ($(PE_ENV),INTEL)   # Using PGI compiler on Hopper
-          FFLAGS:= -real-size 64
-          OPT:=-O
-          COPT:=-O
-          CFLAGS:=
-          OMPFLAG:=-openmp
-          NOOMPFLAG:=
-          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
-          SPRNG_INC:=-I${SPRNG_DIR}/include
-          PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-       endif
-       ifeq ($(PE_ENV),PGI)   # Using PGI compiler on Hopper
-          FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
-          OPT:=-fast
-          COPT:=-fast
-          CFLAGS:=
-          OMPFLAG:=-mp=nonuma
-          NOOMPFLAG:=
-          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
-          SPRNG_INC:=-I${SPRNG_DIR}/include
-          PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-       endif
-       ifeq ($(PE_ENV),CRAY)   # Using CRAY compiler
-          #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
-          FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
-          OPT:=
-          CFLAGS:=
-          COPT:=
-          OMPFLAG:=
-          NOOMPFLAG:=-hnoomp
-          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
-          SPRNG_INC:=-I${SPRNG_DIR}/include
-          PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-       endif
-####   else
-####     # Jaguarpf system at ORNL
-####       FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
-####       OPT:=-fast
-####       COPT:=-fast
-####       CFLAGS:=
-####       PSPLINE:=-module /apps/pspline/LINUX_pg62/mod \
-####               -L/apps/pspline/LINUX_pg62/lib -lpspline -lezcdf -lportlib
-####       SPRNG:=${SPRNG_LIB}
-####       NETCDF:=${NETCDF_FLIB}
-####       HDF5:=${HDF5_FLIB}
-####   endif
+   ifeq ($(PE_ENV),INTEL)   # Using PGI compiler on Hopper
+      FFLAGS:= -real-size 64
+      OPT:=-O
+      COPT:=-O
+      CFLAGS:=
+      OMPFLAG:=-openmp
+      NOOMPFLAG:=
+      SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
+      SPRNG_INC:=-I${SPRNG_DIR}/include
+      PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+      PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+   endif
+   ifeq ($(PE_ENV),PGI)   # Using PGI compiler on Hopper
+      FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
+      OPT:=-fast
+      COPT:=-fast
+      CFLAGS:=
+      OMPFLAG:=-mp=nonuma
+      NOOMPFLAG:=
+      SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
+      SPRNG_INC:=-I${SPRNG_DIR}/include
+      PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+      PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+   endif
+   ifeq ($(PE_ENV),CRAY)   # Using CRAY compiler
+      #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
+      FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
+      OPT:=
+      CFLAGS:=
+      COPT:=
+      OMPFLAG:=
+      NOOMPFLAG:=-hnoomp
+      SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
+      SPRNG_INC:=-I${SPRNG_DIR}/include
+      PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+      PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+   endif
+
+   ifeq ($(NERSC_HOST),edison)
+#     The SPRNG library on Edison has been built with dependance on the
+#     GNU Multiple Precision Arithmetic Library (GMP)
+      SPRNG_LIB:=$(SPRNG_LIB) -lgmp
+   endif
+
    PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_cray_real
    FFTLIB:=
    NAG_FILES:=fake_nag.o nag.o
@@ -264,25 +258,25 @@ ifeq ($(F90C),ftn)
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(HDF5)
 endif
 
-   ifeq ($(DEBUG),y)
-     OPT:=-g -pg $(FFLAGS)
-     COPT:= -g -pg $(CFLAGS)
-   else
-     OPT:=$(OPT) $(FFLAGS)
-     COPT:=$(COPT) $(CFLAGS)
-   endif
+ifeq ($(DEBUG),y)
+   OPT:=-g -pg $(FFLAGS)
+   COPT:= -g -pg $(CFLAGS)
+else
+   OPT:=$(OPT) $(FFLAGS)
+   COPT:=$(COPT) $(CFLAGS)
+endif
 
-   ifeq ($(OPENMP),y)
-     CMD:=GTS_OMP
-     OPT:=$(OMPFLAG) $(OPT)
-     COPT:=$(OMPFLAG) $(COPT)
-   else
-     CMD:=GTS
-     OPT:=$(NOOMPFLAG) $(OPT)
-     COPT:=$(NOOMPFLAG) $(COPT) 
-   endif
+ifeq ($(OPENMP),y)
+   CMD:=GTS_OMP
+   OPT:=$(OMPFLAG) $(OPT)
+   COPT:=$(OMPFLAG) $(COPT)
+else
+   CMD:=GTS
+   OPT:=$(NOOMPFLAG) $(OPT)
+   COPT:=$(NOOMPFLAG) $(COPT) 
+endif
 
-   LIB:=$(NAG) $(NETCDF) $(SPRNG_LIB) $(PSPLINE) $(HDF5) $(FFTLIB) $(PETSC_FLIB)
+LIB:=$(NAG) $(NETCDF) $(SPRNG_LIB) $(PSPLINE) $(HDF5) $(FFTLIB) $(PETSC_FLIB)
 ###     LIB:=$(NAG)  $(SUPERLU) $(NETCDF) $(SPRNG) $(PSPLINE) $(HDF5) $(FFTLIB) -lacml
 
 ##################################################################
