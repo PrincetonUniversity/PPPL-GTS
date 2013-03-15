@@ -279,6 +279,11 @@ endif
 LIB:=$(NAG) $(NETCDF) $(SPRNG_LIB) $(PSPLINE) $(HDF5) $(FFTLIB) $(PETSC_FLIB)
 ###     LIB:=$(NAG)  $(SUPERLU) $(NETCDF) $(SPRNG) $(PSPLINE) $(HDF5) $(FFTLIB) -lacml
 
+# Where to find finite elements
+vpath %.F90 .:fem
+vpath %.c .:fem
+vpath %.h .:fem
+
 ##################################################################
 # We add ".F90" to the list of suffixes to allow source files on which the
 # co-processor will be run automatically.
@@ -294,7 +299,7 @@ include ${PETSC_DIR}/conf/variables
 include ${PETSC_DIR}/conf/rules
 
 PETSCFINCLUDE:= -I${PETSC_DIR}/include -I${PETSC_DIR} -I${PETSC_DIR}/${PETSC_ARCH}/include $(MPI_INCLUDE)
-SOLVER:=solver_petsc.o 
+SOLVER:=fem.o solver_petsc.o 
 
 # List of all the object files needed to build the code
 OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o setup_v2.o Er_provider.o Theory_jb.o \
@@ -304,7 +309,8 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o setup_v2.o Er_provide
      $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
      check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
      get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o \
-     weight_damping.o weight_damping_eon.o
+     weight_damping.o weight_damping_eon.o \
+     mesh_gen.o triangle.o therm2d.o lagrange.o utility.o
 #output.o
 #output3d.o
 # selectmode.o volume.o 
@@ -330,7 +336,7 @@ $(OBJ): module.o
 	$(CMP) $(OPT) -c $<
 
 .c.o   :
-	$(CC) -c $(COPT) $<
+	$(CC) -c $(COPT) -DREDUCED -DCDT_ONLY -DTRILIBRARY -DANSI_DECLARATOR $<
 
 # The following tag is meant to "clean" the directory by removing the
 # executable along with all the object files created by the compilation 
