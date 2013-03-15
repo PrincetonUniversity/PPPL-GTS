@@ -1831,7 +1831,7 @@ end subroutine setup
 
   implicit none
 
-  integer,parameter :: n_integers=46, n_reals=58, n_chars=3
+  integer,parameter :: n_integers=47, n_reals=58, n_chars=3
   integer :: integer_params(n_integers)
   character(25),dimension(n_chars) :: char_params
 ! only the first processor will open files...
@@ -1915,7 +1915,8 @@ end subroutine setup
                      n_node,             &   ! number of radial nodes for Er data
                      Er_data_name,       &   ! name of Er data file
                      movie_3D_h5,        &   ! =0, 3D-movie data off; >0, write 3D-movie data every movie_3D_h5 step
-                     ZF_SEPARATION           ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
+                     ZF_SEPARATION,      &   ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
+                     order                   ! =0, original solver; =1, linear finite elements; =2 higher order elements
 
   namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
                      its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -1972,6 +1973,7 @@ end subroutine setup
      integer_params(37:44)=m
      integer_params(45)=nv
      integer_params(46)=ecollision
+     integer_params(47)= order
 
      real_params(1)=nonlinear
      real_params(2)=paranl
@@ -2051,6 +2053,7 @@ end subroutine setup
      write(0,*) 'jr=', jr, 'print end'
 
      write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
+     write(0,*) 'finite element order=', order
   endif 
 
   call mpi_bcast(char_params,25*n_chars,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
@@ -2101,6 +2104,7 @@ end subroutine setup
      m                 =integer_params(37:44)
      nv                =integer_params(45)
      ecollision        =integer_params(46)
+     order             =integer_params(47)
 
      nonlinear         =real_params(1)
      paranl            =real_params(2)

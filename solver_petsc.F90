@@ -9,6 +9,10 @@ module phit_matrix_type
   type phit_matrix_data
      Mat :: data ! not allcatted here
      integer,dimension(:),pointer :: gk_matid
+
+     Mat :: mdata ! mass matrix
+     integer :: numbdy
+     integer,dimension(:),pointer :: bdy
   end type phit_matrix_data
 end module phit_matrix_type
 !========================================================================
@@ -22,7 +26,7 @@ contains
   !========================================================================
   !                       subroutine new_phit_matrix  
   !========================================================================
-  subroutine new_phit_matrix( this, mat, mindex, mat_type )
+  subroutine new_phit_matrix( this, mat, mindex, bc_type )
     use precision,only:wp,doubleprec
     use global_parameters,only: mype,mtheta,mpsi,ZF_SEPARATION,ifelectron
     use particle_decomp,only:myrank_partd,nproc_partd
@@ -33,7 +37,7 @@ contains
     type(phit_matrix_data) :: this
     Mat mat
     !integer,dimension(0:) :: mtheta
-    integer mindex, mat_type
+    integer mindex, bc_type
     ! locals
     integer i, j, ierr, it, id
     !real(doubleprec) val
@@ -61,22 +65,30 @@ contains
           end if
 
           ! BCs
-          if(mat_type==1) then      ! for Poisson solver
-             if(ZF_SEPARATION==1) then
+          if(bc_type==1) then      ! for Poisson solver
+!cj             if(ZF_SEPARATION==1) then
+          ! dirichlet boundary condition at amin & neumann boundary condition at amax
                 if( i==0 ) this%gk_matid(it) = -1         ! Dirichlet boundary condiction at inner boundary: phi(i=0)=0
-             else ! ZF_SEPARATION==0                
-                if(ifelectron==0)  then ! adiabatic electrons
-                   ! NOTE: any combination of following BCs produces a spike at the boundary for ad-electron case
-                   ! if( i==0 ) this%gk_matid(it) = -1
-                   ! if( i==mpsi ) this%gk_matid(it) = -1  ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
-                else
-                   !   if( i==0 ) this%gk_matid(it) = -1
-                   !   if( i==mpsi ) this%gk_matid(it) = -1  ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
-                endif
-             endif
-          else                      ! for dphi/dt solver
+!cj                write(0,*) "	finite element: bc_type=1 ZF_SEPARATION=", ZF_SEPARATION
+!cj             else ! ZF_SEPARATION==0                
+!cj                if(ifelectron==0)  then ! adiabatic electrons
+!cj                   ! NOTE: any combination of following BCs produces a spike at the boundary for ad-electron case
+!cj                   ! if( i==0 ) this%gk_matid(it) = -1
+!cj                   ! if( i==mpsi ) this%gk_matid(it) = -1  ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
+!cj                else
+!cj                   !   if( i==0 ) this%gk_matid(it) = -1
+!cj                   !   if( i==mpsi ) this%gk_matid(it) = -1  ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
+!cj                endif
+!cj                write(0,*) "	finite element: bc_type=0"
+!cj             endif
+          else if(bc_type==2) then ! for dphi/dt solver
+          ! dirichlet boundary condition at amin & amax
              if( i==0 ) this%gk_matid(it) = -1
              if( i==mpsi ) this%gk_matid(it) = -1
+          else if(bc_type==0) then
+          ! neumann boundary condition at amin & amax
+          else
+          ! 3: neumann boundary condition at amin & dirichlet boundary condition at amax
           endif
        end do
     end do
@@ -163,6 +175,14 @@ module solver_data_type
      type(phit_matrix_data) :: mat
      Mat rhs_mat     
      !integer,dimension(:),pointer :: ipbc
+
+     !finite element
+     ! order = 0 original solver
+     ! order = 1 linear finite element
+     ! order = 2 2nd order finite element
+     integer order
+     real(doubleprec),allocatable,dimension(:) :: zero01, zero10
+     Vec zeroVec01, zeroVec10
   end type solver_data
 end module solver_data_type
 !
@@ -172,7 +192,7 @@ module solver_data_class
   use solver_data_type
   use particle_decomp,only:myrank_partd,nproc_partd,partd_comm
   implicit none
-  public :: nullify_solver,destroy_solver,new_gk_solver
+  public :: nullify_solver,destroy_solver,new_gk_solver, new_fem_solver
 contains
   !========================================================================
   !               nullify_solver
@@ -388,7 +408,7 @@ contains
   !========================================================================
   !              subroutine new_gk_solver
   !========================================================================
-  subroutine new_gk_solver( this, prefix, mat_type )
+  subroutine new_gk_solver( this, prefix, mat_type, bc_type )
     use precision,only:wp,doubleprec
     use global_parameters,only: mype,mtheta,mpsi,tite,ifelectron, &
                                 lmin,lmax,rmin,rmax
@@ -400,7 +420,7 @@ contains
 #include "finclude/petscvec.h" 
     type(solver_data) :: this
     character*(*) prefix
-    integer mat_type
+    integer mat_type, bc_type
     real(wp), external :: SMOOTHSTEP
     real(wp) instep,outstep
     ! locals
@@ -418,7 +438,6 @@ contains
     mindex=64*mring+1 ! estimate for matrix size
     ! mindex=mtheta(mpsi)+64*mring+1 ! estimate for matrix size
     neq = sum( mtheta )    
-  write(0,*)mype,' mring=',mring,' mindex=',mindex,' neq=',neq
 
     ! 
     !call MatCreateMPIAIJ(partd_comm,PETSC_DECIDE,PETSC_DECIDE,neq,neq,mindex,
@@ -438,14 +457,13 @@ contains
     !     ETG case: (1+zeff*Te/Ti)*(Phi/Te)-tilde(Phi)/Te=delta-ne/n_e0
     !     ITG case: [1+(1/zeff)*Ti/Te]*(Phi/Ti)-tilde(Phi)/Ti=delta-ni/n_i0+(1/zeff)*<Phi>/Te
     if(mype .eq. 0) write(0,*) '[',mype,'] new_gk_solver: call integral form of PETSc operator, neq = ', neq
-    call new_phit_matrix( m, Amat, mindex, mat_type )
+    call new_phit_matrix( m, Amat, mindex, bc_type )
     call delete_phit_matrix( m )
     
     ! I + tite - Phi_tilda
     iv = 0
     do i=0,mpsi
        sz = mtheta(i)
-       write(0,*)mype,' mpsi:i=',i,' mtheta:i=',mtheta(i)
 
        !   ti/te     1
        if(mat_type==1)then
@@ -532,6 +550,195 @@ contains
     call solver_init( this, prefix, Amat, neq, ierr )
   end subroutine new_gk_solver
 
+  !========================================================================
+  !              subroutine new_fem_solver
+  !========================================================================
+  subroutine new_fem_solver( fem, this, prefix, mat_type, bc_type )
+    use precision,only:wp,doubleprec
+    use global_parameters, only: mype,mtheta,mpsi,numberpe
+    use fem_data_class
+    implicit none
+#include "finclude/petscsys.h"
+#include "finclude/petscmat.h" 
+#include "finclude/petscvec.h" 
+#include "finclude/petscviewer.h"
+    type(fem_data) :: fem
+    type(solver_data) :: this
+    character,intent(in) :: prefix*(*)
+    integer mat_type, bc_type
+    ! locals
+    real(wp) :: alpha,beta
+    Mat Amat, Mmat
+    Mat Bmat
+    integer ierr,neq,mindex,mring, i, j, ir, it, ib, ib2, id
+    PetscScalar a
+    PetscViewer viewer
+    integer, dimension(:), allocatable :: bdy
+    Vec              vec_yy
+
+    interface
+       subroutine form_tangent(Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
+            alpha, beta, ierr)
+         use precision,only:wp,doubleprec
+         implicit none
+         integer iemax,nptsd,npts,ierr
+         integer,dimension(:) :: iet1,iet2,iet3
+         real(wp) points(2,npts)
+         real(wp) alpha, beta
+         Mat Amat, Mmat
+       end subroutine form_tangent
+    end interface
+
+    mring=2
+    mindex=64*mring+1 ! estimate for matrix size
+    neq = sum( mtheta )
+
+    call MatCreate( partd_comm, Amat, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    call MatSetSizes(Amat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatSetFromOptions( Amat, ierr ) ! need ti separate for SuperLU
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatMPIAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    call MatSeqAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+
+    call MatCreate( partd_comm, Mmat, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    call MatSetSizes(Mmat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatSetFromOptions( Mmat, ierr ) ! need ti separate for SuperLU
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatMPIAIJSetPreallocation(Mmat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    call MatSeqAIJSetPreallocation(Mmat,mindex,PETSC_NULL_INTEGER,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+
+    alpha = 1.
+    beta  = 1.
+    call form_tangent(Amat,Mmat,fem%iemax,fem%iet1,fem%iet2,&
+         fem%iet3,neq,fem%points,alpha,beta,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+
+    call MatAssemblyBegin( Amat, MAT_FINAL_ASSEMBLY, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatAssemblyEnd( Amat, MAT_FINAL_ASSEMBLY, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatAssemblyBegin( Mmat, MAT_FINAL_ASSEMBLY, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatAssemblyEnd( Mmat, MAT_FINAL_ASSEMBLY, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    if(mype==0) write(*,*) "	finite elements matrix created"
+
+    call new_gk_matid( this%mat, bc_type )
+
+!cj imposing dirichlet bc
+    if( bc_type .eq. 1 ) ib = mtheta(0)
+    if( bc_type .eq. 2 ) ib = mtheta(0) + mtheta(mpsi)
+    allocate(bdy(0:ib-1))
+    this%mat%numbdy = mtheta(0) + mtheta(mpsi)
+    allocate(this%mat%bdy(0:ib-1))
+    it = 0
+    ir = 0
+    id = 0
+    ib2 = 0
+    allocate(this%zero01(neq),this%zero10(neq))
+    this%zero01=0.
+    this%zero10=1.
+    do i=0,mpsi
+       do j=0,mtheta(i)
+          it = it + 1 !global index
+          if( j == mtheta(i) ) then
+             ir = ir + 1   !repeated index
+          else
+#ifdef OLDWAY
+             if( bc_type .eq. 1 .and. i==0 ) then
+                ! use 0-based bdy index to set Dirichlet bc for lhs matrix
+                bdy(ib2)=id
+                this%mat%bdy(ib2)=id
+                ib2=ib2+1  !count bdy index and assign global index
+
+                ! use 1-based bdy index to set Dirichlet bc for rhs vector
+                this%zero01(1+id) = 1.
+                this%zero10(1+id) = 0.
+             endif
+             if( bc_type .eq. 2 .and. (i==0 .or. i==mpsi) ) then
+                ! use 0-based bdy index to set Dirichlet bc for lhs matrix
+                bdy(ib2)=id
+                this%mat%bdy(ib2)=id
+                ib2=ib2+1  !count bdy index and assign global index
+
+                ! use 1-based bdy index to set Dirichlet bc for rhs vector
+                this%zero01(1+id) = 1.
+                this%zero10(1+id) = 0.
+             endif
+#else
+              if ( this%mat%gk_matid(it) .lt. 0 )  then
+                 ! use 0-based bdy index to set Dirichlet bc for lhs matrix
+                 bdy(ib2)=id
+                 this%mat%bdy(ib2)=id
+                 ib2=ib2+1  !count bdy index and assign global index
+ 
+                 ! use 1-based bdy index to set Dirichlet bc for rhs vector
+                 this%zero01(1+id) = 1.
+                 this%zero10(1+id) = 0.
+              endif
+#endif
+             id = id + 1   !conunt global index
+          end if
+       end do
+    end do
+    if(mype==0) write(*,*) "	finite elements bdy ib ib2=", ib, ib2
+    if(ib .ne. ib2) call MPI_ABORT(mpi_comm_world,1,ierr)
+
+!   Set Amat=-1 on bdy vertex for applying Dirichlet bc
+!   using zero-based bdy index
+    a = -1.
+    call MatZeroRows(Amat,ib,bdy,a,PETSC_NULL_OBJECT,PETSC_NULL_OBJECT,ierr)
+    if(mype==0) write(*,*) "	finite elements matrix bdy fix"
+
+    call solver_init( this, prefix, Amat, neq,ierr)
+    if(mype==0) write(0,*) '	finite elements solver created'
+    
+    ! finalize stiff matrix
+    ! ... done in solver_init
+
+    ! finalize mass matrix
+    call MatGetSubMatrix(Mmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,Bmat,ierr)
+    Mmat=Bmat
+    this%mat%mdata = Mmat
+
+    ! create zeroVec01 for applying bc
+    call VecDuplicate(this%bVec, this%zeroVec01, ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+#ifdef PETSC330
+    call VecCreateSeqWithArray(MPI_COMM_SELF,1,neq,this%zero01,vec_yy,ierr)
+#else
+    call VecCreateSeqWithArray(MPI_COMM_SELF,neq,this%zero01,vec_yy,ierr)
+#endif
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterBegin(this%scat,vec_yy, this%zeroVec01, INSERT_VALUES,SCATTER_FORWARD,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterEnd(this%scat,vec_yy, this%zeroVec01, INSERT_VALUES,SCATTER_FORWARD,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+
+    ! create zeroVec10 for applying bc
+    call VecDuplicate(this%bVec, this%zeroVec10, ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+#ifdef PETSC330
+    call VecCreateSeqWithArray(MPI_COMM_SELF,1,neq,this%zero10,vec_yy,ierr)
+#else
+    call VecCreateSeqWithArray(MPI_COMM_SELF,neq,this%zero10,vec_yy,ierr)
+#endif
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterBegin(this%scat,vec_yy, this%zeroVec10, INSERT_VALUES,SCATTER_FORWARD,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterEnd(this%scat,vec_yy, this%zeroVec10, INSERT_VALUES,SCATTER_FORWARD,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+    call VecDestroy( vec_yy, ierr )
+
+  end subroutine new_fem_solver
+
+
 !========================================================================
 !         solve
 !========================================================================
@@ -577,7 +784,6 @@ contains
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
-          !            if(myrank_partd==0) print*, 'mype=', mype, ir, ivgts, ivsl, itmax, bb_gk(ivgts), bb(ivsl-itmax+1),ivsl-itmax+1, bb_gk(1),bb_gk(ivgts/2),bb(ivgts/2)
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
        enddo
@@ -614,6 +820,133 @@ contains
 
   end subroutine solve
 
+!========================================================================
+!         testsolve
+!========================================================================
+  subroutine testsolve( solver )
+    !     solve linear system.  
+    !     Solver (KSP) and matrix are in linear_solve.h
+    !     
+    !     input:
+    !       nn: global number of equations in system
+    !       bb_gk: rhs[nn]
+    !       xx_gk: solution[nn]
+    !     
+    !     output:
+    !       bb_gk: RHS[nn]
+    !     ierr: error code
+    !     
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0
+    use field_array,only: psi_grid,qtinv
+    use esi_interface
+    implicit none
+    type(solver_data) :: solver
+    integer :: nn
+    integer :: ierr
+    ! locals
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
+    real(doubleprec),allocatable,dimension(:) :: xx, rhs 
+!cj    real(doubleprec),allocatable,dimension(:) :: zero01, zero10 
+    integer count
+    real(wp) zeta, pdum, dt, tdum, tmp
+    real(wp), dimension(2) :: aaa,the,rj,zj,Bj
+    real(wp) M, L, alfa, PI
+    data count/0/
+    count = count + 1
+
+    if(mype.eq.0) write(0, *) "	finite element test solve start"
+
+!cj the following is a combianation of solve and tri_mesh
+    neq = sum(mtheta)
+    allocate(xx(neq),rhs(neq))
+    xx=0.
+    ivsl = 0
+    ivgts = 0
+    zeta = zetamin + deltaz ! zeta for my plane   
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       pdum=psi_grid(ir)
+       dt = deltat(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             tdum = real(it)*dt + zeta*qtinv(ir)
+             aaa(1)=pdum
+             the(1)=tdum
+             call esigetrzb(rj,zj,Bj,aaa,the,1)
+!cj u = x^2 + y^2, del u = 4
+!cj             rhs(ivsl) = 4.
+             M=1.
+             L=1.
+             alfa=0.
+             PI=3.14159265359
+             xx(ivsl) = sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+             rhs(ivsl) = (-(PI*M)*(PI*M) - L*L) * xx(ivsl) 
+             !cj if( ir==0 .or. ir==mpsi ) then
+             !cj must be set to negative xx, since matrix was set to negative
+!cj u = x^2 + y^2, negative since a=-1 set as Amat diagonal
+!cj                rhs(ivsl) = - xx(ivsl)
+!cj u = x^2 + y^2, del u = 4
+!cj             xx(ivsl) = -( (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1) )
+             ! assign the boundary vertex
+             if( solver%zero01(ivsl) .gt. 0 ) then
+                xx(ivsl) = - sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+             endif
+          end if
+       enddo
+    enddo
+    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+    
+    ! solve GK Poisson equation
+    call petsc_solve( solver, neq, rhs, xx, ierr)
+
+!cj the following is a combianation of solve and tri_mesh, check |u-xx|
+    ivsl = 0
+    ivgts = 0
+    zeta = zetamin + deltaz ! zeta for my plane   
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       pdum=psi_grid(ir)
+       dt = deltat(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+
+             tdum = real(it)*dt + zeta*qtinv(ir)
+             aaa(1)=pdum
+             the(1)=tdum
+             call esigetrzb(rj,zj,Bj,aaa,the,1)
+
+!cj u = x^2 + y^2
+!cj             tmp = ( (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1) )
+             tmp = sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+             ! print the inner vertex
+             if( mype.eq.0 .and. solver%zero10(ivsl) .gt.0 ) write(111,111) ivsl, xx(ivsl), tmp
+111 format("finite element solver testsolve solution=", 1(2x,i7), 2(1x,d12.6))
+          end if
+       enddo
+    enddo
+    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+    call flush(111)
+    if(mype.eq.0) write(0, *) "	finite element test solve end"
+    
+    deallocate(rhs,xx) 
+
+    ! debug
+    if( count .eq. 1 .and. mype==-10 ) then
+       call plot_array( neq, xx, 'x.m' )
+       call plot_array( neq, rhs, 'b.m' )
+       stop 'plot'
+    endif
+
+  end subroutine testsolve
+
+
+#ifdef OLDWAY
 !========================================================================
 !         petsc_solve
 !========================================================================
@@ -655,7 +988,6 @@ contains
     !     scatter rhs into PETSc vector
     call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    
     !     call VecSet( solver%bVec, 1.e30, ierr ) ! debug
     call VecScatterBegin(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -685,6 +1017,187 @@ contains
     deallocate(yy,zz)
   end subroutine petsc_solve
 
+#else
+!========================================================================
+!         petsc_solve
+!========================================================================
+  subroutine petsc_solve( solver, nn, bb, xx, ierr )
+    !     solve linear system.  
+    !     Solver (KSP) and matrix are in linear_solve.h
+    !     
+    !     input:
+    !       nn: global number of equations in system
+    !       bb: rhs[nn]
+    !       xx: solution[nn]
+    !     
+    !     output:
+    !       bb: RHS[nn]
+    !     ierr: error code
+    !     
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mgrid ! debug
+    implicit none
+#include "finclude/petscsys.h"
+#include "finclude/petscvec.h"
+#include "finclude/petscviewer.h"
+    integer :: nn,ierr
+    real(doubleprec),intent(in) :: bb(nn)
+    real(doubleprec),intent(inout) :: xx(nn)
+    type(solver_data) :: solver
+    ! locals
+    Vec              vec_yy, rhsVec, tmpVec01, tmpVec10
+    integer          iplot,i,j
+    PetscScalar t1
+    PetscScalar,allocatable,dimension(:) :: yy, zz
+    PetscViewer viewer
+    integer :: m,n,p
+    PetscInt :: its
+    PetscReal :: rnorm
+
+    if(solver%mat%data .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    !     copy real vector into double precision
+    allocate(yy(nn),zz(nn))
+
+    !     scatter rhs into PETSc vector
+    yy = bb
+#ifdef PETSC330
+    call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
+#else
+    call VecCreateSeqWithArray(MPI_COMM_SELF,nn,yy,vec_yy,ierr)
+#endif
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    !     call VecSet( solver%bVec, 1.e30, ierr ) ! debug
+    call VecScatterBegin(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterEnd(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+
+    if(solver%order .ge. 1) then 
+       !cj M * b =>> rhs for solve Stiff xx = rhs
+       call VecDuplicate(solver%bVec, rhsVec, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+       call VecCopy(solver%bVec, rhsVec, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+       call MatMult(solver%mat%mdata, rhsVec, solver%bVec, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+
+       ! apply dirichlet bc
+       ! bVec = bVec * zero10 + xVec * zero01
+       yy=xx
+#ifdef PETSC330
+       call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
+#else
+       call VecCreateSeqWithArray(MPI_COMM_SELF,nn,yy,vec_yy,ierr)
+#endif
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call VecScatterBegin(solver%scat,vec_yy, solver%xVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call VecScatterEnd(solver%scat,vec_yy, solver%xVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+
+       ! take the part of bVec corresponding to internal vertex
+       call VecDuplicate(solver%bVec, tmpVec10, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+       call VecPointwiseMult(tmpVec10, solver%bVec, solver%zeroVec10, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+
+       ! take the part of xVec corresponding to boundary vertex
+       call VecDuplicate(solver%bVec, tmpVec01, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+       call VecPointwiseMult(tmpVec01, solver%xVec, solver%zeroVec01, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+
+       call VecAXPBYPCZ(solver%bVec, 1., 1., 0., tmpVec10, tmpVec01, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+    endif
+
+    !     Solve      
+    call KSPSolve( solver%ksp, solver%bVec, solver%xVec, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+
+    !     scatter solution to gts array (yy)
+    t1 = 0.0
+    call VecSet( vec_yy, t1, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterBegin(solver%scat,solver%xVec,vec_yy,INSERT_VALUES,SCATTER_REVERSE,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterEnd(solver%scat,solver%xVec, vec_yy, INSERT_VALUES,SCATTER_REVERSE,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr) 
+    
+    ! add all to all -- not super efficient
+    call MPI_ALLREDUCE(yy,zz,nn,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
+    !     copy in
+    xx = zz;
+    ! clean up
+    call VecDestroy( vec_yy, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+    deallocate(yy,zz)
+    if(solver%order .ge. 1) then
+       call VecDestroy( rhsVec, ierr )
+       call VecDestroy( tmpVec01, ierr )
+       call VecDestroy( tmpVec10, ierr )
+    endif
+  end subroutine petsc_solve
+#endif
+
+
+!========================================================================
+!         set up gk_matid for boundary condition
+!========================================================================
+  subroutine new_gk_matid( this, bc_type )
+    use precision,only:wp,doubleprec
+    use global_parameters,only: mype,mtheta,mpsi,ZF_SEPARATION,ifelectron
+    use particle_decomp,only:myrank_partd,nproc_partd
+    implicit none
+#include "finclude/petscsys.h"
+#include "finclude/petscvec.h"
+#include "finclude/petscmat.h"
+    type(phit_matrix_data) :: this
+    integer bc_type
+    ! locals
+    integer i, j, ierr, it, id
+
+    ! form map from gts node numbering (includes 0 & 2pi) to matrix numbering
+    it = sum(mtheta) + mpsi + 2
+    allocate(this%gk_matid(it))
+    this%gk_matid = -1
+    this%gk_matid(it) = -2
+    
+    id = 0
+    it = 0
+    do i=0,mpsi
+       do j=0,mtheta(i)
+          it = it + 1
+          if( j == mtheta(i) ) then
+             this%gk_matid(it) = id - mtheta(i) + 1 - 1
+          else
+             id = id + 1
+             this%gk_matid(it) = id - 1
+          end if
+
+          ! BCs
+          if(bc_type==1) then      ! for Poisson solver
+          ! Dirichlet boundary condiction at inner boundary: phi(i=0)=0
+             if( i==0 ) this%gk_matid(it) = -1
+          else if(bc_type==2) then      ! for dphi/dt solver
+             if( i==0 ) this%gk_matid(it) = -1
+             if( i==mpsi ) this%gk_matid(it) = -1
+          else if(bc_type==3) then
+          ! neumann bc at a0, dirichlet bc at a1
+             if( i==mpsi ) this%gk_matid(it) = -1
+          else                      ! for 
+          ! bc_type = 0
+          ! neumann bc at both a0 and a1
+          endif
+          if(mype .eq. 0 ) write(112,112) it, this%gk_matid(it)
+112 format("new_gk_matid ", 2(2x,i7))
+       end do
+    end do
+    if(id .ne. sum(mtheta)) call MPI_ABORT(mpi_comm_world,1,ierr)
+    if(this%gk_matid(sum(mtheta) + mpsi + 2) .ne. -2) call MPI_ABORT(mpi_comm_world,1,ierr)
+  end subroutine new_gk_matid
+
 end module solver_data_class
 
 !========================================================================
@@ -704,7 +1217,11 @@ subroutine plot_array( nn, arr, str )
   
   yy = arr
   
+#ifdef PETSC330
+  call VecCreateMPIWithArray(mpi_comm_self,1,nn,PETSC_DECIDE,yy,v,ierr)
+#else
   call VecCreateMPIWithArray(mpi_comm_self,nn,PETSC_DECIDE,yy,v,ierr)
+#endif
   !
   call PetscViewerASCIIOpen(mpi_comm_self, str,viewer,ierr)
   call PetscViewerSetFormat(viewer, PETSC_VIEWER_ASCII_MATLAB,ierr)
@@ -713,3 +1230,149 @@ subroutine plot_array( nn, arr, str )
   call VecDestroy( v, ierr )
   
 end subroutine plot_array
+
+
+!========================================================================
+!                         subroutine form_tangent
+!========================================================================
+subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
+     alpha, beta, ierr )
+  !     
+  !     input:
+  !     iemax: number of elements
+  !     iet1,2,3[iemax]: nodes of triangles of mesh
+  !     npts: number of mesh points
+  !     points[2,npts]: coordinates of points
+  !     
+  !     output:
+  !     Amat: matrix to add tangent to
+  !     ierr: error code
+  !
+  use precision,only:wp,doubleprec
+  use particle_decomp,only:myrank_partd
+  use global_parameters, only:mype
+  implicit none
+#include "finclude/petscsys.h"
+#include "finclude/petscvec.h"
+  integer iemax,npts,ierr
+  integer,dimension(:) :: iet1,iet2,iet3
+  real(wp) :: points(2,npts)
+  real(wp) alpha, beta
+  Mat  Amat, Mmat
+  real(doubleprec)  xlt(2,3),sarr(3,3),sarr2(3*3),ul(3,4),eps ! therm2d uses *8
+  real(doubleprec)           marr(3,3),marr2(3*3)             ! mass matrix
+  real(doubleprec) c1, c2
+  integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
+
+  ! Lagrange finite elements
+  integer iw, is, il
+  integer fe_order, fe_node, fe_ns, fe_nw
+  real(doubleprec),dimension(:),allocatable :: fe_weight
+  real(doubleprec),dimension(:,:),allocatable :: fe_NN
+  real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij
+  real(doubleprec) fe_mass(3,3),fe_stiff(3,3) ! mass and stiffness matrix
+
+  c1 = alpha
+  c2 = beta
+  nel = 3                   ! points per element
+  nst = 3                   ! size of elem matrix
+  ul = 0.                   ! displacement, velocit and acceloration (not used)
+  eps = 1.e-6
+
+  call MatZeroEntries(Amat,ierr)
+
+  call lagrange_element_define(fe_order, &
+                               fe_node, &
+                               fe_ns, &
+                               fe_nw )
+  allocate(fe_weight(fe_nw))
+  allocate(fe_NN(fe_ns,fe_nw))
+  allocate(fe_dN1(fe_node,fe_ns,fe_nw))
+  allocate(fe_Eij(fe_ns,fe_ns,fe_nw))
+  call lagrange_element_construct(fe_order, &
+                                   fe_ns, &
+                                   fe_nw, &
+                                   fe_weight, &
+                                   fe_NN, &
+                                   fe_dN1, &
+                                   fe_Eij)
+!  do iw=1,fe_nw
+!  if(mype .eq. 0) write(0,*) 'lagrange_element_construct: weight=', iw, fe_weight(iw)
+!     do is=1,fe_ns
+!  if(mype .eq. 0) write(0,*) 'lagrange_element_construct: NN=', is, fe_NN(is,iw)
+!        do il=1,fe_node
+!  if(mype .eq. 0) &
+!  write(0,*) 'lagrange_element_construct: dN1=', &
+!  iw, is, il, fe_dN1(il, is, iw)
+!        enddo
+!     do il=1,fe_ns
+!  if(mype .eq. 0) &
+!  write(0,*) 'lagrange_element_construct: Eij=', &
+!  iw, is, il, fe_Eij(il, is, iw)
+!     enddo
+!     enddo
+!  enddo
+
+  if(mype .eq. 0) write(0,*) 'form_tangent: iemax=', iemax
+  do ie=1,iemax
+     ind(1)=iet1(ie)
+     ind(2)=iet2(ie)
+     ind(3)=iet3(ie)
+     if(ind(1) .eq. 0) stop 'ind(1) == 0'
+    
+     xlt(1,1) = points(1,ind(1))
+     xlt(1,2) = points(1,ind(2))
+     xlt(1,3) = points(1,ind(3))
+     xlt(2,1) = points(2,ind(1))
+     xlt(2,2) = points(2,ind(2))
+     xlt(2,3) = points(2,ind(3))
+
+        sarr = 0.
+        marr = 0.
+        call therm2d(c1,c2,ul,xlt,sarr,marr,nel,nst,2,1)
+        call lagrange_element_matrix(fe_ns,  &
+                                     fe_nw,  &
+                                     xlt(1,:),  &
+                                     xlt(2,:),  &
+                                     fe_weight,  &
+                                     fe_NN, &
+                                     fe_dN1, &
+                                     fe_Eij, &
+                                     fe_mass, &
+                                     fe_stiff)
+
+        nz = 0
+        do i=1,nel
+           k = ind(i)
+           nz = nz + 1
+           ind3(nz) = i
+           ind2(nz) = k - 1 ! zero based
+        enddo
+!        if(mype==0) write(114,114) ie, nz, ind(1), ind(2), ind(3), &
+!         fe_mass(1,1), fe_mass(1,2), fe_mass(1,3), &
+!         fe_mass(2,1), fe_mass(2,2), fe_mass(2,3), &
+!         fe_mass(3,1), fe_mass(3,2), fe_mass(3,3)
+!114 format("matsetvalue index =", 5(2x,i7), 9(2x,d12.6))
+
+        kk = 0
+        do i=1,nel
+           k = ind(i)
+           do j=1,nz
+             kk = kk + 1
+             sarr2(kk) = sarr(i,ind3(j))
+             marr2(kk) = marr(i,ind3(j))
+!            sarr2(kk) = fe_stiff(i,ind3(j))
+!            marr2(kk) = fe_mass(i,ind3(j))
+           enddo
+        enddo
+        !
+        call MatSetValues(Amat,nz,ind2,nz,ind2,sarr2,ADD_VALUES,ierr)
+        call MatSetValues(Mmat,nz,ind2,nz,ind2,marr2,ADD_VALUES,ierr)
+!        if(mype .eq. 0) write(0,*) 'form_tangent: ', ie,') nz=',nz,', ids=',ind2,' data=',arr2
+  enddo
+
+  deallocate(fe_weight)
+  deallocate(fe_NN)
+  deallocate(fe_dN1)
+  deallocate(fe_Eij)
+end subroutine form_tangent

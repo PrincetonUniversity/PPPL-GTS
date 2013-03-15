@@ -83,6 +83,19 @@ end module precision
 ! The following input parameters are specified in setup for radial boundary layers with damping
   real(wp) lmin, lmax, rmin, rmax
 
+! finite element order
+! order = 0 original solver
+! order = 1 linear finite element
+! order = 2 2nd order finite element
+  integer   order
+
+! boundary type
+! bc_type = 0 neumann boundary conditions at both a=a0 and a=a1
+! bc_type = 1 dirichlet boundary condition at a=a0, neumann boundary conditions at a=a1
+! bc_type = 2 dirichlet boundary conditions at both a=a0 and a=a1
+! bc_type = 3 neumann boundary condition at a=a0, dirichlet boundary conditions at a=a1
+  integer   bc_type
+
 end module global_parameters
 
 module particle_array

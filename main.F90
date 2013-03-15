@@ -19,6 +19,7 @@ program GTS
   use field_array
   use diagnosis_array
   use solver_data_class
+  use fem_data_class
   implicit none
 #include "finclude/petscsysdef.h"
   
@@ -35,6 +36,7 @@ program GTS
   real(doubleprec) t0,t0wc,time(nc),timewc(nc),dt,dtwc,loop_time
   character(len=16) ic(nc)
   type(solver_data) :: solver1,solver_dphi_dt
+  type(fem_data) :: fem
 
   interface
     subroutine shift(phase,phase0,mp,mpmax)
@@ -76,8 +78,34 @@ program GTS
   end if
 
   ! solver
-  call new_gk_solver( solver1, '', 1 )
-  if(ifelectron==2) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2 )
+  ! which solver to use
+  ! order = 0 original solver
+  ! order = 1 linear finite element
+  ! order = 2 2nd order finite element
+  ! which bc_type to use
+  ! bc_type=0 neumann bc at a0, neumann bc at a1
+  ! bc_type=1 dirichlet bc at a0, neumann bc at a1
+  ! bc_type=2 dirichlet bc at a0, dirichlet bc at a1
+  ! bc_type=3 neumann bc at a0, dirichlet bc at a1
+  if( order .le. 0 ) then
+     solver1%order=0
+     solver_dphi_dt%order=0
+     ! mat type 1, bc type 1
+     call new_gk_solver( solver1, '', 1, 1 )
+     ! mat type 2, bc type 2
+     if(ifelectron==2) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
+  else
+     solver1%order = order
+     solver_dphi_dt%order = order
+     write (0, *) "	finite element: to be implemented", order
+     call new_fem_data( fem )
+     call new_fem_solver( fem, solver1, '', 1, 2 )
+     call testsolve( solver1 )
+     call delete_fem_data( fem )
+     call destroy_solver( solver1 )
+     call PetscFinalize( ierror )
+     stop
+  endif
 
   ! initialize particle position and velocity
   CALL LOAD
