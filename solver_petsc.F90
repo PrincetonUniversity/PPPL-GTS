@@ -849,14 +849,14 @@ contains
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(doubleprec),allocatable,dimension(:) :: xx, rhs 
 !cj    real(doubleprec),allocatable,dimension(:) :: zero01, zero10 
-    integer count
+    integer whichone
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(2) :: aaa,the,rj,zj,Bj
     real(wp) M, L, alfa, PI
-    data count/0/
-    count = count + 1
+    data whichone/0/
 
-    if(mype.eq.0) write(0, *) "	finite element test solve start"
+    whichone = 2
+    if(mype.eq.0) write(0, *) "	finite element test solve", whichone, "of two"
 
 !cj the following is a combianation of solve and tri_mesh
     neq = sum(mtheta)
@@ -877,23 +877,28 @@ contains
              aaa(1)=pdum
              the(1)=tdum
              call esigetrzb(rj,zj,Bj,aaa,the,1)
-!cj u = x^2 + y^2, del u = 4
-!cj             rhs(ivsl) = 4.
-             M=1.
-             L=1.
-             alfa=0.
-             PI=3.14159265359
-             xx(ivsl) = sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
-             rhs(ivsl) = (-(PI*M)*(PI*M) - L*L) * xx(ivsl) 
-             !cj if( ir==0 .or. ir==mpsi ) then
-             !cj must be set to negative xx, since matrix was set to negative
-!cj u = x^2 + y^2, negative since a=-1 set as Amat diagonal
-!cj                rhs(ivsl) = - xx(ivsl)
-!cj u = x^2 + y^2, del u = 4
-!cj             xx(ivsl) = -( (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1) )
+
+             if(whichone==1) then
+                !u = x^2 + y^2, del u = 4
+                xx(ivsl) = (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1)
+                rhs(ivsl) = 4.
+             else
+                !u = sin(pi M x) cos( L y), del u = -( (pi M)^2 + L^2 ) u
+                M=1.
+                L=1.
+                alfa=0.
+                PI=3.14159265359
+                xx(ivsl) = sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+                rhs(ivsl) = (-(PI*M)*(PI*M) - L*L) * xx(ivsl) 
+             endif
+
              ! assign the boundary vertex
+             ! must be set to negative xx since Amat was set to -1 on bdy vertex
+             ! if( ir==0 .or. ir==mpsi ) then
              if( solver%zero01(ivsl) .gt. 0 ) then
-                xx(ivsl) = - sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+                !xx(ivsl) = -( (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1) )
+                !xx(ivsl) = - sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+                xx(ivsl) = - xx(ivsl)
              endif
           end if
        enddo
@@ -921,12 +926,16 @@ contains
              the(1)=tdum
              call esigetrzb(rj,zj,Bj,aaa,the,1)
 
-!cj u = x^2 + y^2
-!cj             tmp = ( (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1) )
-             tmp = sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
-             ! print the inner vertex
-             if( mype.eq.0 .and. solver%zero10(ivsl) .gt.0 ) write(111,111) ivsl, xx(ivsl), tmp
-111 format("finite element solver testsolve solution=", 1(2x,i7), 2(1x,d12.6))
+             if(whichone==1) then
+                tmp = ( (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1) )
+             else
+                tmp = sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+             endif
+
+             ! print the inner vertex for debugging
+             if( mype.eq.0 .and. solver%zero10(ivsl) .gt.0 ) &
+             write(111,111) ivsl, xx(ivsl), tmp
+111 format("finite element test solve=", 1(2x,i7), 2(1x,d12.6))
           end if
        enddo
     enddo
@@ -937,7 +946,7 @@ contains
     deallocate(rhs,xx) 
 
     ! debug
-    if( count .eq. 1 .and. mype==-10 ) then
+    if( whichone .eq. 0 .and. mype==-10 ) then
        call plot_array( neq, xx, 'x.m' )
        call plot_array( neq, rhs, 'b.m' )
        stop 'plot'
@@ -1313,7 +1322,7 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
 !     enddo
 !  enddo
 
-  if(mype .eq. 0) write(0,*) 'form_tangent: iemax=', iemax
+  if(mype .eq. 0) write(0,*) '	form_tangent: iemax=', iemax
   do ie=1,iemax
      ind(1)=iet1(ie)
      ind(2)=iet2(ie)

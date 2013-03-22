@@ -27,8 +27,9 @@ int lagrange_element_define_(int *order,
     medge = *order - 1;   /* =1 for =2 =3 */
     nedge = medge * 3;  /* =3 for =6  =9 */
     nbubble = *ns - 3 - nedge;/* =0 for =1 =3 */
-    printf("\tfinite element: order=%d ns=%d nw=%d medge=%d nedge=%d nbubble=%d \n",
-           *order, *ns, *nw, medge,nedge,nbubble);
+    PetscPrintf(PETSC_COMM_WORLD,
+        "\tfinite element: order=%d ns=%d nw=%d medge=%d nedge=%d nbubble=%d \n",
+        *order, *ns, *nw, medge,nedge,nbubble);
   return 0;
 }
 
@@ -62,7 +63,7 @@ int lagrange_element_construct_(int *order,
     nedge = medge * 3;
     nbubble = *ns - 3 - nedge;
 */
-    printf("\tfinitelement: lagrange_element_construct\n");
+    PetscPrintf(PETSC_COMM_WORLD,"\tfinitelement: lagrange_element_construct\n");
 
 /* unit triangle related, never changes over each trianlge
     double phi[3][3];

@@ -97,7 +97,7 @@ program GTS
   else
      solver1%order = order
      solver_dphi_dt%order = order
-     write (0, *) "	finite element: to be implemented", order
+     if(mype == 0) write (0, *) "	finite element order=", order
      call new_fem_data( fem )
      call new_fem_solver( fem, solver1, '', 1, 2 )
      call testsolve( solver1 )

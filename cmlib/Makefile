@@ -29,4 +29,4 @@ libcmlib.a :
 	ranlib libcmlib.a
 
 clean:
-	-rm *.o *.a
+	-rm *.o *.a *.lst
