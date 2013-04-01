@@ -569,7 +569,6 @@ contains
     ! locals
     real(wp) :: alpha,beta
     Mat Amat, Mmat
-    Mat Bmat
     integer ierr,neq,mindex,mring, i, j, ir, it, ib, ib2, id
     PetscScalar a
     PetscViewer viewer
@@ -583,7 +582,7 @@ contains
          implicit none
          integer iemax,nptsd,npts,ierr
          integer,dimension(:) :: iet1,iet2,iet3
-         real(wp) points(2,npts)
+         real(wp) points(4,npts)
          real(wp) alpha, beta
          Mat Amat, Mmat
        end subroutine form_tangent
@@ -629,6 +628,7 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     if(mype==0) write(*,*) "	finite elements matrix created"
 
+!cj reuse original code
     call new_gk_matid( this%mat, bc_type )
 
 !cj imposing dirichlet bc
@@ -703,9 +703,7 @@ contains
     ! ... done in solver_init
 
     ! finalize mass matrix
-    call MatGetSubMatrix(Mmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,Bmat,ierr)
-    Mmat=Bmat
-    this%mat%mdata = Mmat
+    call MatGetSubMatrix(Mmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%mdata,ierr)
 
     ! create zeroVec01 for applying bc
     call VecDuplicate(this%bVec, this%zeroVec01, ierr)
@@ -838,7 +836,7 @@ contains
     !     
     !use global_parameters
     use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi
     use field_array,only: psi_grid,qtinv
     use esi_interface
     implicit none
@@ -848,15 +846,16 @@ contains
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(doubleprec),allocatable,dimension(:) :: xx, rhs 
-!cj    real(doubleprec),allocatable,dimension(:) :: zero01, zero10 
-    integer whichone
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(2) :: aaa,the,rj,zj,Bj
-    real(wp) M, L, alfa, PI
-    data whichone/0/
+    real(wp) cf1, cf2, cf3, cf4, cf5
 
-    whichone = 2
-    if(mype.eq.0) write(0, *) "	finite element test solve", whichone, "of two"
+    real(wp) M, L, alfa
+    integer whichone
+    data whichone/2/
+
+    if(mype.eq.0) &
+    write(0, *) "	finite element test solve", whichone, "of four"
 
 !cj the following is a combianation of solve and tri_mesh
     neq = sum(mtheta)
@@ -873,31 +872,56 @@ contains
           ivgts = ivgts + 1
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
+
+             M=1.
+             L=1.
+             alfa=0.
+
              tdum = real(it)*dt + zeta*qtinv(ir)
+             tdum=tdum/(2.0_wp*pi)
+             tdum=2.0_wp*pi*(tdum-aint(tdum))
+
              aaa(1)=pdum
              the(1)=tdum
              call esigetrzb(rj,zj,Bj,aaa,the,1)
 
              if(whichone==1) then
-                !u = x^2 + y^2, del u = 4
-                xx(ivsl) = (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1)
-                rhs(ivsl) = 4.
-             else
+                !u = (x + y)^2,
+                !rhs: c1f*d^2/dx^2 + cf2*d^/dxdy + cf3*d^2/dy^2 + cf4*d/dx + cf5*d/dy = 8 + 4(x+y)
+                cf1=1.
+                cf2=1.
+                cf3=1.
+                cf4=1.
+                cf5=1.
+                xx(ivsl) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
+                rhs(ivsl) = cf1*2. + cf2*2.*2. + cf3*2. + cf4*2.*((rj(1)-R_0) + zj(1)) + cf5*2.*((rj(1)-R_0) + zj(1))
+             else if(whichone==2) then
                 !u = sin(pi M x) cos( L y), del u = -( (pi M)^2 + L^2 ) u
-                M=1.
-                L=1.
-                alfa=0.
-                PI=3.14159265359
-                xx(ivsl) = sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
-                rhs(ivsl) = (-(PI*M)*(PI*M) - L*L) * xx(ivsl) 
+                xx(ivsl) = sin(pi*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+                rhs(ivsl) = (-(pi*M)*(pi*M) - L*L) * xx(ivsl) 
+             else
+                !u = sin(pi M (a-a0)/(a1-a0)) cos( L theta + alfa),
+                !rhs: del u = -( (pi M / (a1-a0))^2 + L^2 ) u
+                xx(ivsl) = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
+                rhs(ivsl) = (-(pi*M/(a1-a0))*(pi*M/(a1-a0)) - L*L) * xx(ivsl) 
+
+                !whichone=3: in rz coordinates
+                !matrix: Amatrix = 
+                !      d^2 phi / da ^2  da ^2\     d^2 phi / da  dt     da  dt \   d^2 phi / dt ^2  dt ^2\
+                !del u=------- |(--)  +(--)  | + 2 ------- |(--)(--) + (--)(--)| + ------- |(--)  +(--)  |
+                !      da^2    \ dx     dy   /     da dt   \ dx  dx     dy  dy /   dt^2    \ dx     dy   /
+
+                !whichone=4: in at coordinates
+                !matrix: Amatrix = dnx[i]*dnx[j] + dny[i]*dny[j]
+                !      d^2 phi   d^2 phi
+                !del u=------- + -------
+                !      da^2      dt^2
              endif
 
              ! assign the boundary vertex
              ! must be set to negative xx since Amat was set to -1 on bdy vertex
              ! if( ir==0 .or. ir==mpsi ) then
              if( solver%zero01(ivsl) .gt. 0 ) then
-                !xx(ivsl) = -( (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1) )
-                !xx(ivsl) = - sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
                 xx(ivsl) = - xx(ivsl)
              endif
           end if
@@ -922,20 +946,25 @@ contains
              ivsl = ivsl + 1
 
              tdum = real(it)*dt + zeta*qtinv(ir)
+             tdum=tdum/(2.0_wp*pi)
+             tdum=2.0_wp*pi*(tdum-aint(tdum))
+
              aaa(1)=pdum
              the(1)=tdum
              call esigetrzb(rj,zj,Bj,aaa,the,1)
 
              if(whichone==1) then
-                tmp = ( (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1) )
+                tmp = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
+             else if(whichone==2) then
+                tmp = sin(pi*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
              else
-                tmp = sin(PI*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
+                tmp = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
              endif
 
              ! print the inner vertex for debugging
              if( mype.eq.0 .and. solver%zero10(ivsl) .gt.0 ) &
-             write(111,111) ivsl, xx(ivsl), tmp
-111 format("finite element test solve=", 1(2x,i7), 2(1x,d12.6))
+             write(111,111) ivsl, xx(ivsl), tmp, abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
+111 format("finite element test solve=", 1(2x,i7), 3(1x,d12.6))
           end if
        enddo
     enddo
@@ -1251,7 +1280,7 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
   !     iemax: number of elements
   !     iet1,2,3[iemax]: nodes of triangles of mesh
   !     npts: number of mesh points
-  !     points[2,npts]: coordinates of points
+  !     points[4,npts]: coordinates of points in cartesian and flux coordinate
   !     
   !     output:
   !     Amat: matrix to add tangent to
@@ -1265,13 +1294,17 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
 #include "finclude/petscvec.h"
   integer iemax,npts,ierr
   integer,dimension(:) :: iet1,iet2,iet3
-  real(wp) :: points(2,npts)
+  real(wp) :: points(4,npts)
   real(wp) alpha, beta
   Mat  Amat, Mmat
   real(doubleprec)  xlt(2,3),sarr(3,3),sarr2(3*3),ul(3,4),eps ! therm2d uses *8
   real(doubleprec)           marr(3,3),marr2(3*3)             ! mass matrix
+  real(doubleprec)  rrarr(3,3),rzarr(3,3),zzarr(3,3),rarr(3,3),zarr(3,3)
   real(doubleprec) c1, c2
+  real(doubleprec) c3  ! flux coordinate jacobian
+  real(doubleprec) cf1, cf2, cf3, cf4, cf5, cf6
   integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
+  real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 
   ! Lagrange finite elements
   integer iw, is, il
@@ -1279,7 +1312,8 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
   real(doubleprec),dimension(:),allocatable :: fe_weight
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij
-  real(doubleprec) fe_mass(3,3),fe_stiff(3,3) ! mass and stiffness matrix
+    integer whichone
+    data whichone/2/
 
   c1 = alpha
   c2 = beta
@@ -1305,22 +1339,6 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
                                    fe_NN, &
                                    fe_dN1, &
                                    fe_Eij)
-!  do iw=1,fe_nw
-!  if(mype .eq. 0) write(0,*) 'lagrange_element_construct: weight=', iw, fe_weight(iw)
-!     do is=1,fe_ns
-!  if(mype .eq. 0) write(0,*) 'lagrange_element_construct: NN=', is, fe_NN(is,iw)
-!        do il=1,fe_node
-!  if(mype .eq. 0) &
-!  write(0,*) 'lagrange_element_construct: dN1=', &
-!  iw, is, il, fe_dN1(il, is, iw)
-!        enddo
-!     do il=1,fe_ns
-!  if(mype .eq. 0) &
-!  write(0,*) 'lagrange_element_construct: Eij=', &
-!  iw, is, il, fe_Eij(il, is, iw)
-!     enddo
-!     enddo
-!  enddo
 
   if(mype .eq. 0) write(0,*) '	form_tangent: iemax=', iemax
   do ie=1,iemax
@@ -1329,26 +1347,81 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
      ind(3)=iet3(ie)
      if(ind(1) .eq. 0) stop 'ind(1) == 0'
     
-     xlt(1,1) = points(1,ind(1))
-     xlt(1,2) = points(1,ind(2))
-     xlt(1,3) = points(1,ind(3))
-     xlt(2,1) = points(2,ind(1))
-     xlt(2,2) = points(2,ind(2))
-     xlt(2,3) = points(2,ind(3))
+     if(whichone.le.3) then
+        ! in (r,z) cylindrical coordinates
+        xlt(1,1) = points(1,ind(1))
+        xlt(1,2) = points(1,ind(2))
+        xlt(1,3) = points(1,ind(3))
+        xlt(2,1) = points(2,ind(1))
+        xlt(2,2) = points(2,ind(2))
+        xlt(2,3) = points(2,ind(3))
+     else
+        ! in (a,t) flux coordinates
+        xlt(1,1) = points(3,ind(1))
+        xlt(1,2) = points(3,ind(2))
+        xlt(1,3) = points(3,ind(3))
+        xlt(2,1) = points(4,ind(1))
+        xlt(2,2) = points(4,ind(2))
+        xlt(2,3) = points(4,ind(3))
+     endif
 
+     aaa(1)=points(3,ind(1))
+     the(1)=points(4,ind(1))
+     aaa(2)=points(3,ind(2))
+     the(2)=points(4,ind(2))
+     aaa(3)=points(3,ind(3))
+     the(3)=points(4,ind(3))
+     call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,3)
+     if(whichone.le.3) then
+        ! in (r,z) cylindrical coordinates
+        c3 = 1.
+        if(whichone.eq.1) then
+        cf1=1.
+        cf2=1.
+        cf3=1.
+        cf4=1.
+        cf5=1.
+        else
+        cf1 = ( raj(1)*raj(1) + rqj(1)*rqj(1) + &
+                raj(2)*raj(2) + rqj(2)*rqj(2) + &
+                raj(3)*raj(3) + rqj(3)*rqj(3)    ) / 3.
+        cf2 = ( raj(1)*zaj(1) + rqj(1)*zqj(1) + &
+                raj(2)*zaj(2) + rqj(2)*zqj(2) + &
+                raj(3)*zaj(3) + rqj(3)*zqj(3)    ) / 3.
+        cf3 = ( zaj(1)*zaj(1) + zqj(1)*zqj(1) + &
+                zaj(2)*zaj(2) + zqj(2)*zqj(2) + &
+                zaj(3)*zaj(3) + zqj(3)*zqj(3)    ) / 3.
+        endif
+     else
+        ! in (a,t) flux coordinates
+        ! c3: flux coordinate jacobian
+        c3 = ( (zaj(1)*rqj(1)-zqj(1)*raj(1)) * rj(1) + &
+               (zaj(2)*rqj(2)-zqj(2)*raj(2)) * rj(2) + &
+               (zaj(3)*rqj(3)-zqj(3)*raj(3)) * rj(3)   ) / 3.
+        cf1 = 1.
+        cf2 = 1.
+        cf3 = 1.
+     endif
+
+#ifdef USEGTSFE
+        if(mype==0 .and. ie==1 ) &
+        write(0,*) "	form_tangent: use historical gts elements whichone,c3=", whichone, c3
         sarr = 0.
         marr = 0.
-        call therm2d(c1,c2,ul,xlt,sarr,marr,nel,nst,2,1)
-        call lagrange_element_matrix(fe_ns,  &
-                                     fe_nw,  &
-                                     xlt(1,:),  &
-                                     xlt(2,:),  &
-                                     fe_weight,  &
-                                     fe_NN, &
-                                     fe_dN1, &
-                                     fe_Eij, &
-                                     fe_mass, &
-                                     fe_stiff)
+        rrarr = 0.
+        rzarr = 0.
+        zzarr = 0.
+        rarr = 0.
+        zarr = 0.
+        call therm2d(c1,c2,ul,xlt,sarr,marr,rrarr,rzarr,zzarr,rarr,zarr,nel,nst,2,1)
+#else
+        if(mype==0 .and. ie==1 ) &
+        write(0,*) "	form_tangent: use lagrange elements whichone,c3=", whichone, c3
+        call lagrange_element_matrix(fe_ns, fe_nw,  &
+                                     xlt(1,:), xlt(2,:),  &
+                                     fe_weight, fe_NN, fe_dN1, fe_Eij, &
+                                     marr,sarr,rrarr,rzarr,zzarr,rarr,zarr)
+#endif
 
         nz = 0
         do i=1,nel
@@ -1357,27 +1430,34 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
            ind3(nz) = i
            ind2(nz) = k - 1 ! zero based
         enddo
-!        if(mype==0) write(114,114) ie, nz, ind(1), ind(2), ind(3), &
-!         fe_mass(1,1), fe_mass(1,2), fe_mass(1,3), &
-!         fe_mass(2,1), fe_mass(2,2), fe_mass(2,3), &
-!         fe_mass(3,1), fe_mass(3,2), fe_mass(3,3)
-!114 format("matsetvalue index =", 5(2x,i7), 9(2x,d12.6))
 
         kk = 0
         do i=1,nel
            k = ind(i)
            do j=1,nz
              kk = kk + 1
+                if(whichone==1) then
+             sarr2(kk) = cf1*rrarr(i,ind3(j)) &
+                        +cf2*2.*rzarr(i,ind3(j)) &
+                        +cf3*zzarr(i,ind3(j)) &
+                        +cf4*rarr(i,ind3(j)) &
+                        +cf5*zarr(i,ind3(j))
+             marr2(kk) = marr(i,ind3(j))
+                else if(whichone==2) then
              sarr2(kk) = sarr(i,ind3(j))
              marr2(kk) = marr(i,ind3(j))
-!            sarr2(kk) = fe_stiff(i,ind3(j))
-!            marr2(kk) = fe_mass(i,ind3(j))
+                else if(whichone==3) then
+             sarr2(kk) = cf1*rrarr(i,ind3(j)) + 2.*cf2*rzarr(i,ind3(j)) + cf3*zzarr(i,ind3(j))
+             marr2(kk) = marr(i,ind3(j))
+                else
+             sarr2(kk) = c3*sarr(i,ind3(j))
+             marr2(kk) = c3*marr(i,ind3(j))
+                endif
            enddo
         enddo
         !
         call MatSetValues(Amat,nz,ind2,nz,ind2,sarr2,ADD_VALUES,ierr)
         call MatSetValues(Mmat,nz,ind2,nz,ind2,marr2,ADD_VALUES,ierr)
-!        if(mype .eq. 0) write(0,*) 'form_tangent: ', ie,') nz=',nz,', ids=',ind2,' data=',arr2
   enddo
 
   deallocate(fe_weight)

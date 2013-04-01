@@ -137,7 +137,12 @@ int lagrange_element_matrix_(int *ns,
                              double *dN1,
                              double *Eij,
                              double *m,
-                             double *s
+                             double *s,
+                             double *srr,
+                             double *srz,
+                             double *szz,
+                             double *sr,
+                             double *sz
                              )
 {
 /* matrix related, changes over each trianlge
@@ -185,10 +190,20 @@ int lagrange_element_matrix_(int *ns,
   for (i = 0; i < *ns; ++i) {
       m[i + j*(*ns)]  = 0.;
       s[i + j*(*ns)]  = 0.;
+      srr[i + j*(*ns)]  = 0.;
+      srz[i + j*(*ns)]  = 0.;
+      szz[i + j*(*ns)]  = 0.;
+      sr[i + j*(*ns)]  = 0.;
+      sz[i + j*(*ns)]  = 0.;
 
       for (n = 0; n < *nw; ++n) {
           m[i + j*(*ns)] += weight[n] * jacobian[n] * NN[i + n*(*ns)] * NN[j + n*(*ns)];
           s[i + j*(*ns)] -= weight[n] * jacobian[n] * (dnx[i][n]*dnx[j][n] +  dny[i][n]*dny[j][n]);
+          srr[i + j*(*ns)] -= weight[n] * jacobian[n] * (dnx[i][n]*dnx[j][n]);
+          srz[i + j*(*ns)] -= weight[n] * jacobian[n] * (dnx[i][n]*dny[j][n]);
+          szz[i + j*(*ns)] -= weight[n] * jacobian[n] * (dny[i][n]*dny[j][n]);
+          sr[i + j*(*ns)] += weight[n] * jacobian[n] * (NN[i + n*(*ns)]*dnx[j][n]);
+          sz[i + j*(*ns)] += weight[n] * jacobian[n] * (NN[i + n*(*ns)]*dny[j][n]);
       }
   }
 

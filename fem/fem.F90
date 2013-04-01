@@ -118,7 +118,7 @@ end subroutine delete_fem_data_private
 !========================================================================    
 subroutine tri_mesh( this )
   use precision 
-  use global_parameters,only: mpsi,mype,mtheta,zetamin,deltaz,deltat,R_0
+  use global_parameters,only: mpsi,mype,mtheta,zetamin,deltaz,deltat,R_0,pi
   use field_array,only: psi_grid,qtinv
   !  use petsc_array
   use fem_data_class 
@@ -136,13 +136,13 @@ subroutine tri_mesh( this )
       implicit none
       integer iemax ! in or out
       integer mype,npoints,mtheta(0:)
-      real(wp) points(2,npoints)
+      real(wp) points(4,npoints)
     end subroutine circ_tri_mesh
   end interface
   !
 
   this%nmesh_pts = sum(mtheta)
-  allocate( this%points(2,this%nmesh_pts) )
+  allocate( this%points(4,this%nmesh_pts) )
 
   ! generate vertices: this%points -- grid position in cartitian coordinates (x,y)
   zeta = zetamin + deltaz ! zeta for my plane	
@@ -154,12 +154,16 @@ subroutine tri_mesh( this )
      do j=0,sz 
         iv= iv + 1 
         tdum = real(j)*dt + zeta*qtinv(i) 
+        tdum=tdum/(2.0_wp*pi)
+        tdum=2.0_wp*pi*(tdum-aint(tdum))
+
         aaa(1)=pdum
         the(1)=tdum
         call esigetrzb(rj,zj,Bj,aaa,the,1)
-        this%points(1,iv)= rj(1)-R_0   ! --> x; origin of (R.Z) coordinates is at magnetic axis 
-        this%points(2,iv)= zj(1)       ! --> y
-        !print *,iv,this%points(1,iv),this%points(2,iv),r,tdum
+        this%points(1,iv)= rj(1)-R_0   ! --> r; origin of (R.Z) coordinates is at magnetic axis 
+        this%points(2,iv)= zj(1)       ! --> z
+        this%points(3,iv)= pdum        ! --> a; flux coordinates
+        this%points(4,iv)= tdum        ! --> theta
      enddo
   enddo
   if(iv .ne. this%nmesh_pts) stop 'iv .ne. nmesh_pts'
@@ -194,7 +198,7 @@ subroutine circ_tri_mesh(mtheta,npoints,points,iemax,mype)
   implicit none
   integer iemax ! in or out
   integer mype,npoints,mtheta(0:)
-  real(wp) points(2,npoints)
+  real(wp) points(4,npoints)
   logical just_count
   integer iplot
   integer  nedges,i,j,k,sz,ierr,kk
