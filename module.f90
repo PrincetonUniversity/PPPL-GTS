@@ -22,7 +22,7 @@ end module precision
        idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,maintnT,&
        nelectron,ntracer_e,ntracer00,me00,idiag_e
   real(wp) misum,mesum  !Total number of ions and electrons can be >2 billion
-  real(wp) nonlinear,paranl,a0,a1,a,q0,q1,q2,pi,twopi,tstep,kappati,kappate,&
+  real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,tstep,kappati,kappate,&
            kappan,flow0,flow1,flow2,ulength,utime,E_00,gyroradius,deltar,&
            deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,&
            uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
@@ -33,17 +33,17 @@ end module precision
   real(wp),parameter :: B_00=1.0e4_wp,  &  ! code unit for B, in unit gauss
                         R_00=100._wp,  &  ! code unit for length, in cm
                         c=2.9979e10_wp, &
-
+                                        &
                         pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
                         amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
-
+                                                                      &
                       !  pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
                       !  amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
-
+                                                                     &
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
-
+                                                                      &
                         amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
-
+                                                                     &
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
                         dlni=16.0_wp, &
                         dsda_power=0.2_wp
@@ -59,7 +59,8 @@ end module precision
   integer seed
 
   real(wp),dimension(:),allocatable :: tite
-  integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,ifelectron,ecollision
+  integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,ifelectron,ecollision,  &
+          ifdphi,zeondim
 
   real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,csc0_i,c0cs_i
   real(wp)  etracer_i0, etracer_e0
@@ -82,6 +83,13 @@ end module precision
 
 ! The following input parameters are specified in setup for radial boundary layers with damping
   real(wp) lmin, lmax, rmin, rmax
+
+! The following  parameters are used to sepcify weight damping implementation
+!     wimcompressibility=0 --> no damping
+!     wimcompressibility=1 --> use the algorithm to assure imcompressibility in weight
+!     wimcompressibility=2 --> apply weight damping with damping rate specified by eta_w=weight_damping_rate/tstep
+  integer,parameter  :: wimcompressibility=1       ! switch  added April, 2013 for implementing weight imcompressibility
+  real(wp),parameter :: weight_damping_rate=2.0d-7 ! =eta_w*tstep
 
 ! finite element order
 ! order = 0 original solver

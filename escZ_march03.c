@@ -1997,7 +1997,8 @@ int gcmotion_e(REAL *dXgr,
                REAL *wpi_array,
                REAL *Er_particle,
                REAL *nonlinear,
-               int *nval)
+               int *nval,
+               int *zeondim)
 /*
   Xgr = particle_array[k][3] = zelectron(4,k+1) (Fortran side)
   Xa  = particle_array[k][0] = zelectron(1,k+1) (Fortran side)
@@ -2038,10 +2039,10 @@ int gcmotion_e(REAL *dXgr,
 /*                    gha[k]=1/|grad a|             */
 #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,Ba,Bq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,wpi1,wpi2,wpi3)
   for(k=0; k < n; k++){
-    Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
-    Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
-    Xgr = *(particle_array+k*7+3);  /* particle_array[k][3] */
-    Xgm = *(particle_array+k*7+5);  /* particle_array[k][5] */
+    Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
+    Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
+    Xgr = *(particle_array+k*(*zeondim)+3);  /* particle_array[k][3] */
+    Xgm = *(particle_array+k*(*zeondim)+5);  /* particle_array[k][5] */
     Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
     wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
     wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
@@ -2279,7 +2280,8 @@ int gcmotion_eon(REAL *dXgr,
                  REAL *wpi_array,
                  REAL *Er_particle,
                  REAL *nonlinear,
-                 int  *nval)
+                 int  *nval,
+                 int  *zeondim)
 /*  gcmotion_eon: added Feb. 2012  */
 /*
   Xgr = particle_array[k][3] = zelectron(4,k+1) (Fortran side)
@@ -2325,10 +2327,10 @@ int gcmotion_eon(REAL *dXgr,
 /*                    gha[k]=1/|grad a|             */
 #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,wpi1,wpi2,wpi3)
   for(k=0; k < n; k++){
-    Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
-    Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
-    Xgr = *(particle_array+k*7+3);  /* particle_array[k][3] */
-    Xgm = *(particle_array+k*7+5);  /* particle_array[k][5] */
+    Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
+    Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
+    Xgr = *(particle_array+k*(*zeondim)+3);  /* particle_array[k][3] */
+    Xgm = *(particle_array+k*(*zeondim)+5);  /* particle_array[k][5] */
     Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
     wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
     wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
@@ -3069,7 +3071,7 @@ int esiget2dthese(REAL *Fj,  REAL *Faj, REAL *gFaj, REAL *gYaj, REAL *rj,
 }
 
 
-int esigetb(REAL *particle_array,int *nval)
+int esigetb(REAL *particle_array,int *nval, int *nn)
 {
   /* Exception: at a=0 the routine returns:
      dr_q/a, dz_q/a, dB_q/a, dgF/a, dgY/a
@@ -3089,8 +3091,8 @@ int esigetb(REAL *particle_array,int *nval)
 
 #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX ,dXD,dxD,j00,j01,j10,j11)
   for(k =0; k < n; k++){
-    a	= *(particle_array+k*7);    /* particle_array[k][0] */
-    q	= *(particle_array+k*7+1);  /* particle_array[k][1] */
+    a	= *(particle_array+k*(*nn));    /* particle_array[k][0] */
+    q	= *(particle_array+k*(*nn)+1);  /* particle_array[k][1] */
     
     j1	=q*crgq0;
     if(q < 0.){
@@ -3166,7 +3168,7 @@ int esigetb(REAL *particle_array,int *nval)
 }
 
 
-int esigetbf(REAL *particle_array,int *nval)
+int esigetbf(REAL *particle_array,int *nval, int *nn)
 {
   /* Exception: at a=0 the routine returns:
      dr_q/a, dz_q/a, dB_q/a, dgF/a, dgY/a
@@ -3186,8 +3188,8 @@ int esigetbf(REAL *particle_array,int *nval)
 
 #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX ,dXD,dxD,j00,j01,j10,j11)
   for(k =0; k < n; k++){
-    a   = *(particle_array+k*7);    /* particle_array[k][0] */
-    q   = *(particle_array+k*7+1);  /* particle_array[k][1] */
+    a   = *(particle_array+k*(*nn));    /* particle_array[k][0] */
+    q   = *(particle_array+k*(*nn)+1);  /* particle_array[k][1] */
 
     j1	=q*crgq0;
     if(q < 0.){

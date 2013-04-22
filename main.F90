@@ -136,7 +136,7 @@ program GTS
 
   CALL FIELD
 
-  if(ifelectron==2) then
+  if(ifelectron==2.and.ifdphi==1) then
      CALL CURRENT_ION
      CALL CURRENT_EON
      CALL SOLVE_DPHIDT(solver_dphi_dt)    ! --> d(delta-phi)/dt
@@ -203,6 +203,9 @@ end if
         time(2)=time(2)+dt
         timewc(2)=timewc(2)+dtwc
 
+! Calculate ion weight damping 
+        if(irk==2.and.wimcompressibility==2) call WEIGHT_DAMPING_ION
+
 ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
 ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
 ! in PUSHI for calculating electric force on ions
@@ -231,7 +234,7 @@ end if
               timewc(9)=timewc(9)+dtwc
 
          !     CALL PUSHE(irk)
-              CALL PUSHEON(irk)
+              CALL PUSHEON(solver1, irk)
               call timer(t0,dt,t0wc,dtwc)
               time(10)=time(10)+dt
               timewc(10)=timewc(10)+dtwc
@@ -270,7 +273,7 @@ end if
 ! get_fluexs_e in pushe
 ! push electron -- the 1st step of 2nd order Runge-Kutta
              !    CALL PUSHE(1)
-                 CALL PUSHEON(1)
+                 CALL PUSHEON(solver1, 1)
                  call timer(t0,dt,t0wc,dtwc)
                  time(10)=time(10)+dt
                  timewc(10)=timewc(10)+dtwc
@@ -282,7 +285,7 @@ end if
 
 ! push electron -- the 2nd step of 2nd order Runge-Kutta
              !    CALL PUSHE(2)
-                 CALL PUSHEON(2)
+                 CALL PUSHEON(solver1, 2)
                  call timer(t0,dt,t0wc,dtwc)
                  time(10)=time(10)+dt
                  timewc(10)=timewc(10)+dtwc
@@ -295,6 +298,8 @@ end if
 !                 if(irk==2) call check_tracer_e
               end do
            end if    ! end if(nelectron==1)
+
+           if(irk==2.and.wimcompressibility==2) CALL WEIGHT_DAMPING_EON
 
 ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
 ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
@@ -338,7 +343,7 @@ end if
         time(6)=time(6)+dt
         timewc(6)=timewc(6)+dtwc
 
-        if(ifelectron==2) then
+        if(ifelectron==2.and.ifdphi==1) then
            CALL CURRENT_ION
            CALL CURRENT_EON
            CALL SOLVE_DPHIDT(solver_dphi_dt)    ! --> d(delta-phi)/dt
@@ -410,7 +415,7 @@ end if
 #endif
 
   if( order .le. 0 ) then
-  if(ifelectron==2) call destroy_solver(solver_dphi_dt)
+  if(ifelectron==2.and.ifdphi==1) call destroy_solver(solver_dphi_dt)
   call destroy_solver(solver1)
   else
      call delete_fem_data( fem )

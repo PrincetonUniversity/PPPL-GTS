@@ -64,7 +64,7 @@ subroutine snapshot
   if(ifelectron==0) then
 
 !     call esigetb(zion(1,:),zion(2,:),mi)   ! get B
-     call esigetb(zion,mi)   ! get B-->BB
+     call esigetb(zion,mi,7)   ! get B-->BB
 
      do m=1,mi 
         weight=zion0(6,m)
@@ -113,7 +113,7 @@ subroutine snapshot
   else
 
 !     call esigetb(zeon(1,:),zeon(2,:),me)   ! get B
-     call esigetb(zeon,me)   ! get B
+     call esigetb(zeon,me,zeondim)   ! get B
 
      do m=1,me 
         weight=zeon0(6,m)

@@ -35,7 +35,7 @@ subroutine check_temperature
      ONE_me=0._wp
 
 !     call esigetb(zeon(1,:),zeon(2,:),mi)   ! get B
-     call esigetb(zeon,mi)   ! get B
+     call esigetb(zeon,mi,zeondim)   ! get B
 
      do m=1,mi
         r=zeon(1,m)        

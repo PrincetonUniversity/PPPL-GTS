@@ -27,7 +27,7 @@
 #                     containing OpenMP directives
 #
 #############################################################################
-OPENMP=y
+OPENMP=n
 DEBUG=n
 
 # In the next declaration, "uname" is a standard Unix command which prints
@@ -305,7 +305,7 @@ SOLVER:=fem.o solver_petsc.o
 OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o Er_provider.o Theory_jb.o \
      load.o restart.o diagnosis.o snapshot.o charge_ion.o current_ion.o \
      charge_eon.o current_eon.o solve_dphidt.o poisson.o smooth.o \
-     field.o pushi.o pushe.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \
+     field.o pushi_new.o pushe_new.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \
      $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
      check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
      get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o \

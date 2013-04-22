@@ -1,3 +1,94 @@
+subroutine weight_damping_eon
+  use precision
+  use mpi_defs
+  use global_parameters
+  use particle_decomp
+  use particle_array
+  use field_array
+  use esi_interface
+
+  implicit none
+
+  integer m,ij
+  real(wp) mu,muB,vpara,v2,e1,e2,e3,wz1,wz0,wp0,wt00,wt10,wp1,wt01,wt11,avw,f_rho,  &
+           eta_w
+
+  real(wp) wfield(3,mgrid,0:1)
+
+  !  eta_w=2.0d-7/tstep
+  eta_w=weight_damping_rate/tstep
+
+  f_rho=1.0_wp/for_rho   ! for_rho=(ms/m0)*(e0/es)
+
+  call esigetb(zeon,me,zeondim)     ! get B-->BB
+  call electron_locator
+  call weight_field(wfield)
+
+
+  !  calculate average weight <w> at electrons using wieght-field wfield and then weight damping term
+
+!$omp parallel do private(m,mu,muB,vpara,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,v2,avw)
+  do m=1,me
+     mu=zeon(6,m)*zeon(6,m)        ! =normalized mu of electrons
+     muB=mu*BB(m)                  ! =normalized perpendicular energy of electrons
+     vpara=zeon(4,m)*BB(m)
+     vpara=vpara*f_rho                ! =normalized v_//
+     v2=vpara*vpara+muB*2.0_wp*m0ms   ! =v^2
+
+     wz1=wzeon(m)
+     wz0=1.0_wp-wz1
+
+     ij=jteon0(m)
+     wp0=1.0_wp-wpeon(m)
+
+     wt00=1.0_wp-wteon0(m)
+     e1=wp0*wt00*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
+     e2=wp0*wt00*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
+     e3=wp0*wt00*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+
+     ij=ij+1
+     wt10=1.0_wp-wt00
+     e1=e1+wp0*wt10*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
+     e2=e2+wp0*wt10*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
+     e3=e3+wp0*wt10*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+
+     ij=jteon1(m)
+     wp1=1.0_wp-wp0
+     wt01=1.0_wp-wteon1(m)
+     e1=e1+wp1*wt01*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
+     e2=e2+wp1*wt01*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
+     e3=e3+wp1*wt01*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+
+     ij=ij+1
+     wt11=1.0_wp-wt01
+     e1=e1+wp1*wt11*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
+     e2=e2+wp1*wt11*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
+     e3=e3+wp1*wt11*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+
+     avw=e1+e2*vpara+e3*v2
+
+!     if(mype==100.and.m==me/2) print*, 'AVW=', avw, zeon(5,m), mype
+!     if(mype==0.and.m==me/4) print*, 'AVW=', avw, zeon(5,m), mype
+!     if(mype==200.and.m==me/8) print*, 'AVW=', avw, zeon(5,m), mype
+
+
+      zeon(5,m) = avw+(zeon(5,m)-avw)*exp(-eta_w*tstep)   ! dw/dt=-eta_w*(w-<w>)
+
+
+  end do
+
+
+end subroutine weight_damping_eon
+
+
+
+
+
+
+
+
+
+
 subroutine weight_field_eon(wfield)
   use precision
   use mpi_defs
@@ -27,7 +118,7 @@ subroutine weight_field_eon(wfield)
 
   real(doubleprec) t0wc,t1wc,t2wc,t3wc
 
-  t0wc=MPI_WTIME()
+!   t0wc=MPI_WTIME()
 
 !  *****************************************
 !  calculate electron weight field
@@ -117,7 +208,7 @@ enddo    ! enddo  m=1,me
 #endif
 !$omp end parallel
 
-  t1wc=MPI_WTIME()
+!   t1wc=MPI_WTIME()
 
 ! If we have a particle decomposition on the toroidal domains, do a reduce
 ! operation to add up all the contributions to charge density on the grid
@@ -200,7 +291,7 @@ enddo    ! enddo  m=1,me
 
 
 
-  t2wc=MPI_WTIME()
+!   t2wc=MPI_WTIME()
 
 ! We now split the work of the following loop between the nproc_partd processes that
 ! occupy the same toroidal domain and share the same planes. We divide the mgrid points
@@ -303,10 +394,10 @@ enddo    ! enddo  m=1,me
 
 ! now both weight-field  wfield(:,:,1) and  wfield(:,:,0) have valid data
 
-  t3wc=MPI_WTIME()
+!  t3wc=MPI_WTIME()
 
-  if(mype==0)write(0,*)istep,'  in weight_field_eon: t1=',(t1wc-t0wc),'  t2=',&
-     (t2wc-t1wc),'  t3=',(t3wc-t2wc),'  tot=',(t3wc-t0wc)
+!   if(mype==0)write(0,*)istep,'  in weight_field_eon: t1=',(t1wc-t0wc),'  t2=',&
+!      (t2wc-t1wc),'  t3=',(t3wc-t2wc),'  tot=',(t3wc-t0wc)
 
 end subroutine weight_field_eon
 

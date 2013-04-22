@@ -133,7 +133,7 @@ subroutine pushe(irk_e)
 !  tt0=rtc()
 ! call cpu_time(cput0)
 
-  m=gcmotion_e(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me)
+  m=gcmotion_e(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
 
 !  tt1=rtc()
 !  call cpu_time(cput1)
@@ -346,15 +346,35 @@ end subroutine pushe
 
 
 
-subroutine pusheon(irk_e)
+
+
+
+
+
+!   *********************************************************************************************************************************************
+!   *********************************************************************************************************************************************
+!   *********************************************************************************************************************************************
+
+
+
+
+
+
+
+
+
+subroutine pusheon(solver1, irk_e)
   use precision
   use global_parameters
   use particle_array
   use field_array
   use diagnosis_array
   use esi_interface
+  use solver_data_class
 
   implicit none
+
+  type(solver_data) :: solver1
 
 !  integer,parameter :: nrbin=5       !wx
   integer i,im,ip,j,jt,k,kz,kk,m,ii,j11,j10,j01,j00,jtheta,ierror,ij,ipjt,irk_e
@@ -481,7 +501,7 @@ subroutine pusheon(irk_e)
 !  tt0=rtc()
 ! call cpu_time(cput0)
 
-  m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me)
+  m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
 
 ! tt1=rtc()
 ! call cpu_time(cput1)
@@ -524,6 +544,429 @@ if(nonlinear>100.0_wp) then            ! for nonlinear run
 
 
 end if
+
+
+
+
+
+
+IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory to calculate dphi/dt in delta-h electron case
+
+! update GC position
+! Another OpenMP parallel loop...
+!$omp parallel do private (m,mu,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,&
+!$omp& r,ip,Ea_00,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt,wdphidt2,muB,fip,&
+!$omp& instep,outstep,fdamp,vpara,v2,avw,E_f)
+  do m=1,me
+!     dbdz=0.0   for axisymmetric system   !wx
+
+     mu=zeon(6,m)*zeon(6,m)        ! =normalized mu of electrons
+     muB=mu*BB(m)                  ! =normalized perpendicular energy of electrons
+     T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+!     energy=0.5_wp*for_E*(zeon(4,m)*BB(m))**2+mu*BB(m)
+
+     vpara=zeon(4,m)*BB(m)
+     v2=vpara**2
+
+!     energy=0.5_wp*for_E*(zeon(4,m)*BB(m))**2+muB
+     energy=0.5_wp*for_E*v2+muB
+
+     vpara=vpara*f_rho                ! =normalized v_//
+     v2=vpara*vpara+muB*2.0_wp*m0ms   ! =v^2
+
+!!!! TEST
+     !   dlnTdae(m)=0.0_wp
+     !   dlnndae(m)=0.0_wp
+!!!! TEST
+
+     kappa=(min(umax*umax,energy*T_inverse)-1.5_wp)*(-dlnTdae(m))+(-dlnndae(m)) !=-dlnf_M/da
+
+! ExB drift in radial direction for w-dot and flux diagnostics
+     vdr=ghq(m)             !  da/dt|_EXB
+     wdrive=vdr*kappa
+
+     weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
+
+
+
+! calculate d(delta_phi)/dt at particles along trajactory
+        wz1=wzeon(m)
+        wz0=1.0_wp-wz1
+
+        ij=jteon0(m)
+        wp0=1.0_wp-wpeon(m)
+        wt00=1.0_wp-wteon0(m)
+        e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+        ij=ij+1
+        wt10=1.0_wp-wt00
+        e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+        ij=jteon1(m)
+        wp1=1.0_wp-wp0
+        wt01=1.0_wp-wteon1(m)
+        e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+        ij=ij+1
+        wt11=1.0_wp-wt01
+        e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+        if(ZF_SEPARATION==0) then
+!    calculate <phi> at electrons (no FLR effect -- x=R)
+           r=zeon(7,m)-s0       ! in radial coordinator s
+           r=r*delr
+           ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+           fip=r-real(ip,wp)
+           Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+        end if
+
+        E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0
+        if(irk_e==1) zeon0(8,m)=E_f    ! e*delta_phi/Te at electron beginning position
+
+
+
+     if(zeon(1,m).le.lmax.or.zeon(1,m).ge.rmin) then
+        instep =smoothstep(lmin,lmax,zeon(1,m))
+        outstep=smoothstep(rmin,rmax,zeon(1,m))
+!        fip=smoothstep(0.20_wp,0.25_wp,zeon(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zeon(1,m)))
+        fip=instep*(1.0_wp-outstep)
+        wdrive=wdrive*fip
+
+
+        fdamp=(1.0_wp-fip)*fdamp0
+     else
+        fdamp=0.0_wp
+     end if
+
+     wdrift=(Pa(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+
+     weqflow=weqflow*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
+
+     wdot=(wdrive+wdrift+weqflow)
+
+     wdot=(1.0_wp-E_f)*wdot   ! (1-e*delta_phi/Te)*(...) term -- see note
+
+
+!!!!!  if(nonlinear>0.5_wp) then     ! for nonlinear run
+if(nonlinear>100.0_wp) then          ! for nonlinear run
+! calculate average weight <w> at particles using wieght-field wfield
+     wz1=wzeon(m)
+     wz0=1.0_wp-wz1
+
+     ij=jteon0(m)
+     wp0=1.0_wp-wpeon(m)
+
+     wt00=1.0_wp-wteon0(m)
+     e1=wp0*wt00*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
+     e2=wp0*wt00*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
+     e3=wp0*wt00*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+
+     ij=ij+1
+     wt10=1.0_wp-wt00
+     e1=e1+wp0*wt10*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
+     e2=e2+wp0*wt10*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
+     e3=e3+wp0*wt10*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+
+     ij=jteon1(m)
+     wp1=1.0_wp-wp0
+     wt01=1.0_wp-wteon1(m)
+     e1=e1+wp1*wt01*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
+     e2=e2+wp1*wt01*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
+     e3=e3+wp1*wt01*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+
+     ij=ij+1
+     wt11=1.0_wp-wt01
+     e1=e1+wp1*wt11*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
+     e2=e2+wp1*wt11*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
+     e3=e3+wp1*wt11*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+
+     avw=e1+e2*vpara+e3*v2
+
+!     if(mype==100.and.m==me/2) print*, 'AVW=', avw, zeon(5,m), mype
+!     if(mype==0.and.m==me/4) print*, 'AVW=', avw, zeon(5,m), mype
+!     if(mype==200.and.m==me/8) print*, 'AVW=', avw, zeon(5,m), mype
+
+end if
+
+
+     zeon(1,m) = zeon0(1,m)+dtime*da(m)
+     zeon(2,m) = zeon0(2,m)+dtime*dgq(m)
+     zeon(3,m) = zeon0(3,m)+dtime*dgf(m)
+     zeon(4,m) = zeon0(4,m)+dtime*dgr(m)
+
+     zeon(8,m) = zeon(5,m)     ! save w 
+
+!     zeon(5,m) = zeon0(5,m)+dtime*wdot
+
+!     zeon(5,m) = 1.0_wp-(1.0_wp-zeon0(5,m))*exp(-dtime*wdot)
+
+     zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(5,m))*wdot-fdamp*zeon(5,m))*dtime  ! weight advanced w/o including dphi/dt term yet
+     !!!!zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*avw)*wdot-fdamp*zeon(5,m))*dtime
+
+!     zeon(7,m) = zeon0(7,m)+dtime*sqrt(Tc/backT(m))*da(m)
+!     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**0.4_wp*da(m)
+     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**dsda_power*da(m)
+
+#ifdef _TREAT_MAGNETIC_AXIS
+     if(sw(m).eq.1) then    ! convert to (a, theta) coordinates
+        xdum=sqrt(zeon(1,m)**2+zeon(2,m)**2)
+        ydum=sign(1.0_wp,zeon(2,m))*acos(zeon(1,m)/xdum)
+        zeon(1,m)=xdum
+        zeon(2,m)=ydum
+     end if
+#endif
+     
+! theta and zeta normalize to [0,2*pi), modulo is slower than hand coded procedure
+!     zeon(2,m)=zeon(2,m)*pi2_inv+100.0 !period of 1
+!     zeon(2,m)=2.0*pi*(zeon(2,m)-aint(zeon(2,m))) ![0,2*pi)
+!     zeon(3,m)=zeon(3,m)*pi2_inv+100.0
+!     zeon(3,m)=2.0*pi*(zeon(3,m)-aint(zeon(3,m)))
+
+!     zeon(2,m)=zeon(2,m)*pi2_inv !period of 1
+!     zeon(2,m)=10.0+zeon(2,m)-dint(zeon(2,m)) ![0,2*pi)
+!     zeon(2,m)=twopi*(zeon(2,m)-dint(zeon(2,m)))
+!     zeon(3,m)=zeon(3,m)*pi2_inv
+!     zeon(3,m)=10.0+zeon(3,m)-dint(zeon(3,m))
+!     zeon(3,m)=twopi*(zeon(3,m)-dint(zeon(3,m)))
+
+! use f90 modulo to normalize theta and zeta to [0,2*pi)
+! If P > 0, then the function modulo(A,P) determines the positive difference between A and then
+! next lowest multiple of P. If P < 0, then the function modulo(A,P) determines the negative
+! difference between A and then next highest multiple of P.
+     zeon(2,m)=modulo(zeon(2,m),twopi)
+     zeon(3,m)=modulo(zeon(3,m),twopi)
+
+
+! store GC information for flux measurements
+     wpi(1,m)=vdr       ! at present, wpi(1,*)=da/dt|_EXB 
+     wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
+     wpi(3,m)=muB       ! normalizd electron perpendicular energy
+
+  enddo
+
+
+  !   fluxes diagnose
+  if(idiag_e==0.and.irk_e==1) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
+!$omp parallel do private(m)
+     do m=1,me
+        wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
+     end do
+
+     call get_fluxes_e(wpi)
+
+     !   im=mod(istep,100)
+     im=mod(istep,msnap)
+     if(im==0) then
+        call get_Te_fluctuation(wpi(2,:))
+     end if
+  endif
+
+   CALL SHIFTE
+
+ call electron_locator
+ call n_T_u_group_e       ! get Te at electron position
+ zeon00(8,1:me)=zeon(5,1:me)    ! use for temporary storage
+
+!  E_a=0.0_wp
+!  E_f=0.0_wp
+!  E_t=0.0_wp
+
+!$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00, &
+!$omp& e1,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt)
+  do m=1,me
+     T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+! calculate d(delta_phi)/dt at particles
+      wz1=wzeon(m)
+      wz0=1.0_wp-wz1
+
+      ij=jteon0(m)
+      wp0=1.0_wp-wpeon(m)
+      wt00=1.0_wp-wteon0(m)
+      e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=ij+1
+      wt10=1.0_wp-wt00
+      e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=jteon1(m)
+      wp1=1.0_wp-wp0
+      wt01=1.0_wp-wteon1(m)
+      e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=ij+1
+      wt11=1.0_wp-wt01
+      e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electron new positions
+
+      if(ZF_SEPARATION==0) then
+!    calculate <phi> at electrons (no FLR effect -- x=R)
+         r=zeon(7,m)-s0       ! in radial coordinator s
+         r=r*delr
+         ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+         fip=r-real(ip,wp)
+         Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+      end if
+
+      wdphidt=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0   ! e*delta_phi/Te at electron new positions, but with unchanged delta_phi
+      wdphidt=(wdphidt-zeon0(8,m))/dtime  ! d(e*delta_phi/Te)/dt purely due to change of electron position
+
+      zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
+
+!       E_a=E_a+zeon(5,m)
+
+  end do
+
+  CALL CHARGE_EON
+  CALL POISSON( solver1 )
+  CALL SMOOTH_PHI
+
+!$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00, &
+!$omp& e1,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt)
+  do m=1,me
+     T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+! calculate d(delta_phi)/dt at particles
+      wz1=wzeon(m)
+      wz0=1.0_wp-wz1
+
+      ij=jteon0(m)
+      wp0=1.0_wp-wpeon(m)
+      wt00=1.0_wp-wteon0(m)
+      e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=ij+1
+      wt10=1.0_wp-wt00
+      e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=jteon1(m)
+      wp1=1.0_wp-wp0
+      wt01=1.0_wp-wteon1(m)
+      e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=ij+1
+      wt11=1.0_wp-wt01
+      e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+      if(ZF_SEPARATION==0) then
+!    calculate <phi> at electrons (no FLR effect -- x=R)
+         r=zeon(7,m)-s0       ! in radial coordinator s
+         r=r*delr
+         ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+         fip=r-real(ip,wp)
+         Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+      end if
+
+      wdphidt=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0  ! e*delta_phi/Te at electron new positions, but with advanced delta_phi
+      wdphidt=(wdphidt-zeon0(8,m))/dtime ! d(e*delta_phi/Te)/dt with correction of time derivative of delta_phi
+
+      zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
+
+!       E_f=E_f+zeon(5,m)
+  end do
+
+
+
+
+
+  if(ifelectron==-100) then
+
+  CALL CHARGE_EON
+  CALL POISSON( solver1 )
+  CALL SMOOTH_PHI
+
+!$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00, &
+!$omp& e1,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt)
+  do m=1,me
+     T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+! calculate d(delta_phi)/dt at particles
+      wz1=wzeon(m)
+      wz0=1.0_wp-wz1
+
+      ij=jteon0(m)
+      wp0=1.0_wp-wpeon(m)
+      wt00=1.0_wp-wteon0(m)
+      e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=ij+1
+      wt10=1.0_wp-wt00
+      e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=jteon1(m)
+      wp1=1.0_wp-wp0
+      wt01=1.0_wp-wteon1(m)
+      e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+      ij=ij+1
+      wt11=1.0_wp-wt01
+      e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+      if(ZF_SEPARATION==0) then
+!    calculate <phi> at electrons (no FLR effect -- x=R)
+         r=zeon(7,m)-s0       ! in radial coordinator s
+         r=r*delr
+         ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+         fip=r-real(ip,wp)
+         Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+      end if
+
+      wdphidt=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0  ! e*delta_phi/Te at electron new positions, with one more interation for advancing delta_phi
+      wdphidt=(wdphidt-zeon0(8,m))/dtime ! d(e*delta_phi/Te)/dt with one more interation for advancing delta_phi 
+
+      zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime  ! d(e*delta_phi/Te)/dt term added to weight 
+
+!       E_t=E_t+zeon(5,m)
+  end do
+
+  end if
+
+
+
+
+!   if(mype==0) print*, 'BBBB=', E_a, '  SSSS=', E_f, '  ZZZZ=', E_t
+
+
+ if(irk_e==2)then
+! out of boundary particle
+!$omp parallel do private(m)
+    do m=1,me
+       if(zeon(1,m) > psimax)then
+          zeon(1,m)=zeon0(1,m)
+          zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+          zeon(3,m)=zeon0(3,m)
+          zeon(4,m)=zeon0(4,m)
+          zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+!          zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
+          zeon(7,m)=zeon0(7,m)
+
+       elseif(zeon(1,m) < psimin)then
+          zeon(1,m)=zeon0(1,m)
+          zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+          zeon(3,m)=zeon0(3,m)
+          zeon(4,m)=zeon0(4,m)
+          zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+!          zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
+          zeon(7,m)=zeon0(7,m)
+       endif
+    enddo
+
+! ********************************
+if(mype==2) then
+  error_8=1.0e-5_wp
+  IFAIL=1
+  rdum=D01AHF(0.0d0,zeon(1,me/2),error_8,minpts,acc,dsda,-1,IFAIL)
+  print*, 'EEEEEEEEEEEE', zeon(7,me/2),'  ', rdum
+!   write(stdout,*)'######## electron gcmotion: wall =',(tt1-tt0),'  cpu =',(cput1-cput0)
+end if
+! ********************************
+
+ endif
+
+
+ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dphi/dt equation
+
+
+
 
 ! update GC position
 ! Another OpenMP parallel loop...
@@ -772,7 +1215,12 @@ end if
 
  endif
 
+ENDIF
+
 end subroutine pusheon
+
+
+
 
 
 

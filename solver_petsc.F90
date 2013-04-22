@@ -438,6 +438,7 @@ contains
     mindex=64*mring+1 ! estimate for matrix size
     ! mindex=mtheta(mpsi)+64*mring+1 ! estimate for matrix size
     neq = sum( mtheta )    
+    !  write(0,*)mype,' mring=',mring,' mindex=',mindex,' neq=',neq
 
     ! 
     !call MatCreateMPIAIJ(partd_comm,PETSC_DECIDE,PETSC_DECIDE,neq,neq,mindex,
@@ -448,8 +449,8 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Amat, ierr ) ! need ti separate for SuperLU
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
-    !call MatMPIAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,mindex/5+1,PETSC_NULL_INTEGER,ierr)
-    call MatMPIAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    !    call MatMPIAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,mindex/5+1,PETSC_NULL_INTEGER,ierr)
+    call MatMPIAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,mindex,PETSC_NULL_INTEGER,ierr)
     call MatSeqAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
@@ -464,6 +465,7 @@ contains
     iv = 0
     do i=0,mpsi
        sz = mtheta(i)
+       !  write(0,*)mype,' mpsi:i=',i,' mtheta:i=',mtheta(i)
 
        !   ti/te     1
        if(mat_type==1)then
@@ -1190,6 +1192,7 @@ contains
     yy = bb
 
     !     scatter rhs into PETSc vector
+    !   call VecCreateSeqWithArray(MPI_COMM_SELF,nn,yy,vec_yy,ierr)
     call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     !     call VecSet( solver%bVec, 1.e30, ierr ) ! debug

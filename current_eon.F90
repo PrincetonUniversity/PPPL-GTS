@@ -81,7 +81,7 @@ subroutine current_eon
      Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particles
   enddo
 
-  m=gcmotion_e(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me)  ! should use nonlinear=1.0 here for linear run? --> calculate current
+  m=gcmotion_e(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)  ! should use nonlinear=1.0 here for linear run? --> calculate current
 
 !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt; 
 !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     wpi(3,:)=dphi/dzeta, NO CHANGE; 

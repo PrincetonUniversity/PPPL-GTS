@@ -1,3 +1,88 @@
+subroutine weight_damping_ion
+  use precision
+  use mpi_defs
+  use global_parameters
+  use particle_decomp
+  use particle_array
+  use field_array
+  use esi_interface
+
+  implicit none
+
+  integer m,ij
+  real(wp) mu,muB,vpara,v2,e1,e2,e3,wz1,wz0,wp0,wt00,wt10,wp1,wt01,wt11,avw,  &
+           eta_w
+
+  real(wp) wfield(3,mgrid,0:1)
+
+  !  eta_w=2.0d-7/tstep
+  eta_w=weight_damping_rate/tstep
+
+  call esigetb(zion,mi,7)   ! get B-->BB
+  call weight_field(wfield)
+  
+
+  !  calculate average weight <w> at ions using wieght-field wfield and then weight damping term
+
+!$omp parallel do private(m,mu,muB,vpara,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,v2,avw)
+  do m=1,mi
+     mu=zion(6,m)*zion(6,m)           ! =v_perp^2/2B
+     muB=mu*BB(m)                     ! =v_perp^2/2
+     vpara=zion(4,m)*BB(m)
+     v2=vpara*vpara+muB*2.0_wp        ! v^2
+
+     wz1=wzion(m)
+     wz0=1.0_wp-wz1
+
+     ij=jtion0(1,m)
+     wp0=1.0_wp-wpion(1,m)
+
+     wt00=1.0_wp-wtion0(1,m)
+     e1=wp0*wt00*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
+     e2=wp0*wt00*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
+     e3=wp0*wt00*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
+
+     ij=ij+1
+     wt10=1.0_wp-wt00
+     e1=e1+wp0*wt10*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
+     e2=e2+wp0*wt10*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
+     e3=e3+wp0*wt10*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
+
+     ij=jtion1(1,m)
+     wp1=1.0_wp-wp0
+     wt01=1.0_wp-wtion1(1,m)
+     e1=e1+wp1*wt01*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
+     e2=e2+wp1*wt01*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
+     e3=e3+wp1*wt01*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
+
+     ij=ij+1
+     wt11=1.0_wp-wt01
+     e1=e1+wp1*wt11*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
+     e2=e2+wp1*wt11*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
+     e3=e3+wp1*wt11*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
+
+     avw=e1+e2*vpara+e3*v2
+
+     zion(5,m) = avw+(zion(5,m)-avw)*exp(-eta_w*tstep)   ! dw/dt=-eta_w*(w-<w>)
+! 
+!      if(abs(avw)>100.0_wp) then
+!         print*, 'p9999=', mype, istep, irk, avw, e1, e2, e3, vpara, v2, maxval(abs(wfield(1,1:mgrid,1))) , &
+!                 maxval(abs(wfield(2,1:mgrid,1))) , maxval(abs(wfield(3,1:mgrid,1))) , maxval(abs(wfield(1,1:mgrid,0))) , & 
+!                 maxval(abs(wfield(2,1:mgrid,0))) , maxval(abs(wfield(3,1:mgrid,0)))
+!      end if
+! 
+
+
+  end do
+
+
+end subroutine weight_damping_ion
+
+
+
+
+
+
 subroutine weight_field(wfield)
   use precision
   use mpi_defs
@@ -27,7 +112,7 @@ subroutine weight_field(wfield)
 
   real(doubleprec) t0wc,t1wc,t2wc,t3wc,t4wc
 
-  t0wc=MPI_WTIME()
+!   t0wc=MPI_WTIME()
 
 !  *****************************************
 !  calculate ion weight field
@@ -144,7 +229,7 @@ enddo    ! enddo  m=1,mi
 #endif
 !$omp end parallel
 
-  t1wc=MPI_WTIME()
+!   t1wc=MPI_WTIME()
 
 ! If we have a particle decomposition on the toroidal domains, do a reduce
 ! operation to add up all the contributions to charge density on the grid
@@ -159,7 +244,7 @@ enddo    ! enddo  m=1,mi
      dampf(:,igrid(j),:)=dampf(:,igrid(j)+mtheta(j),:)
   enddo
 
-  t2wc=MPI_WTIME()
+!   t2wc=MPI_WTIME()
 
 
 
@@ -249,27 +334,27 @@ enddo    ! enddo  m=1,mi
   rdum0=maxval(w2_ion0)
   w2_ion0=w2_ion1
 
-!  do ij=1,mgrid
+!   do ij=1,mgrid
 !
 !! ---- DEBUG ----- ---- DEBUG ----- ---- DEBUG -----
-!  if(myrank_partd==0) then
-!
-!     if(rdum0 > 0.3_wp) then
-!        write(677, 200) ij, dampf(1,ij,1), dampf(2,ij,1), dampf(4,ij,1), dampf(3,ij,1), dampf(5,ij,1), dampf(6,ij,1), dampf(7,ij,1), dampf(8,ij,1), dampf(9,ij,1)
-!        call flush(677)
-!     end if
-!  end if
-!200 format(1x,i7,12(2x,d12.6))
+!   if(myrank_partd==0) then
+! !
+! !     if(rdum0 > 0.3_wp) then
+!         write(677, 200) ij, dampf(1,ij,1), dampf(2,ij,1), dampf(4,ij,1), dampf(3,ij,1), dampf(5,ij,1), dampf(6,ij,1), dampf(7,ij,1), dampf(8,ij,1), dampf(9,ij,1)
+!         call flush(677)
+! !     end if
+!   end if
+! 200 format(1x,i7,12(2x,d12.6))
 !! ---- DEBUG ----- ---- DEBUG ----- ---- DEBUG -----
 !
-!  end do
+!   end do
 
 
 
 
 
 
-  t3wc=MPI_WTIME()
+!   t3wc=MPI_WTIME()
 
 ! We now split the work of the following loop between the nproc_partd processes that
 ! occupy the same toroidal domain and share the same planes. We divide the mgrid points
@@ -398,10 +483,10 @@ wfield(:,:,0)=0.0_wp    !!! ATTENTION: without this, cray compiler default optio
 
 ! now both weight-field  wfield(:,:,1) and  wfield(:,:,0) have valid data
 
-  t4wc=MPI_WTIME()
+!   t4wc=MPI_WTIME()
 
-  if(mype==0)write(0,*)istep,'  weight_field_ion: t1=',(t1wc-t0wc),'  t2=',&
-     (t2wc-t1wc),'  t3=',(t3wc-t2wc),'  t4=',(t4wc-t3wc),'  tot=',(t4wc-t0wc)
+!   if(mype==0)write(0,*)istep,'  weight_field_ion: t1=',(t1wc-t0wc),'  t2=',&
+!      (t2wc-t1wc),'  t3=',(t3wc-t2wc),'  t4=',(t4wc-t3wc),'  tot=',(t4wc-t0wc)
 
 end subroutine weight_field
 

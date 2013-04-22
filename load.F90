@@ -235,7 +235,7 @@ subroutine load
   cmratio=qion/aion
 !  call esigetb(zion(1,:),zion(2,:),mi)   ! get B
 !  call esigetb(zion,mi)   ! get B-->BB
-  call esigetbf(zion,mi)   ! get B-->BB, I-->F  12/07
+  call esigetbf(zion,mi,7)   ! get B-->BB, I-->F  12/07
   call n_T_u_group                       ! get T, n and omega_t
 !  output backu from call n_T_u_group is omega_t
   backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
@@ -385,6 +385,7 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
 !        zeon(5,ntracer_e)=0.0_wp
         zeon(5,ntracer_e)=zeon(5,ntracer)
         zeon(6,ntracer_e)=sqrt(msm0*pdum/(2.0_wp*B_0)) ! using v_per=v_th for tracer electron
+        if(ifdphi==2) zeon(8,ntracer_e)=0.0_wp
 
 !!!!!!!!!TEST electron tracer using me/mi=1!!!!!!!!!!!!!!!!!!
 !        zeon(:,ntracer_e)=zion(:,ntracer)
@@ -393,6 +394,7 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
         zeon0(7,ntracer_e)=zeon(7,ntracer_e)
 !        zeon0(6,ntracer_e)=zion0(6,ntracer)
         zeon0(6,ntracer_e)=1.0_wp
+        if(ifdphi==2) zeon0(8,ntracer_e)=0.0_wp
 
         print*,'ntracer_e=',ntracer_e,zeon(1,ntracer_e),zeon(2,ntracer_e),zeon(3,ntracer_e),&
                        zeon(4,ntracer_e),zeon(5,ntracer_e),zeon(6,ntracer_e),zeon(7,ntracer_e)

@@ -179,11 +179,12 @@ subroutine pushi
 !             no change for zion(1,2,4,:), wpi(1,2,:) and mu;
 !             wpi(3,:)=dphi/dzeta (no change);          Pa(:)=R (major radius)
 
-if(nonlinear>0.5_wp) then        ! for nonlinear run
-  call weight_field(wfield)      ! calculate weight-field uisng zion0 for irk=1 and zion at half-step for irk=2
-                                 ! used BB is obtained from gcmotion, and calculte its own ion locations  
-                                 ! which are used to calculate wfield in phase space grids and gether wfield at ions (next)
-end if
+  !!!!  if(nonlinear>0.5_wp) then        ! for nonlinear run
+  if(nonlinear>100.0_wp) then            ! for nonlinear run
+     call weight_field(wfield)      ! calculate weight-field uisng zion0 for irk=1 and zion at half-step for irk=2
+                                    ! used BB is obtained from gcmotion, and calculte its own ion locations  
+                                    ! which are used to calculate wfield in phase space grids and gether wfield at ions (next)
+  end if
 
 ! update GC position
 ! Another OpenMP parallel loop...
@@ -249,8 +250,9 @@ end if
      wgradB=(vdr*Ba(m)+vdq*Bq(m))*u_vpara*T_inverse*mu   ! interesting term propotional to grad_B
 
 
-if(nonlinear>0.5_wp) then     ! for nonlinear run
-! calculate average weight <w> at particles using wieght-field wfield
+!!!!!  if(nonlinear>0.5_wp) then     ! for nonlinear run
+if(nonlinear>100.0_wp) then          ! for nonlinear run
+     !   calculate average weight <w> at particles using wieght-field wfield
      wz1=wzion(m)
      wz0=1.0_wp-wz1
 
@@ -287,9 +289,10 @@ end if
 
 !     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+weqflow+wKH+wgradB+w_anti_relax)
 
-!     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+weqflow+wKH+wgradB)
 
-     wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+weqflow+wKH+wgradB)
+     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+weqflow+wKH+wgradB)
+     !     wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+weqflow+wKH+wgradB)
+
 
 ! if(mype==0.and.m==mi/2) print*, 'GGGGG', wdrive, w_anti_relax
 
@@ -496,12 +499,27 @@ end if
     call MPI_ALLREDUCE(adum_tot,En_tot,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
     En_tot=En_tot/jaco_sum     ! =<E^2> -- total field energy
 
-   call get_fluxes(wpi,dgf)
+
+
+
+!   call get_fluxes(wpi,dgf)
 
 !   im=mod(istep,100)
 !   if(im==0) then
 !      call get_3D_flow(da,dgq,dgf)
 !   end if
+
+
+
+
+   call get_fluxes(wpi,dgf,dgq)
+
+!   im=mod(istep,100)
+   im=mod(istep,msnap)
+   if(im==0) then
+      call get_3D_flow(da,dgq,dgf,wpi(2,:))
+   end if
+
 
  endif
 

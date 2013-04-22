@@ -290,6 +290,16 @@ endif
      write(300+numberpe,*)phi(1,:)
      !stop 'DEBUG'
   endif
+
+!
+!   if(mype==0.and.istep==10) then
+!      do i=1,mgrid
+!         write(18, 100) i, phi(1,i), add_phi(i), dentmp(i)
+!      end do
+!   end if
+! 100 format(1x,i6, 3(2x,d12.6))
+!     call flush(18)
+!
   
 end subroutine poisson
 

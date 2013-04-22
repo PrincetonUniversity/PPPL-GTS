@@ -26,7 +26,7 @@ subroutine collision_eon
      i=mod(istep,ecollision) 
      if(i==0) then           ! calculate collisions every ecollision-step
         if(irk==1) then      ! calculate collisions at irk=1
-           call esigetb(zeon,me)   ! get B-->BB
+           call esigetb(zeon,me,zeondim)   ! get B-->BB
           t2=MPI_WTIME()
 
 !           call esigetbf(zion,mi)   ! get B-->BB, I-->F  12/07

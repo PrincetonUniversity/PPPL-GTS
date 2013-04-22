@@ -497,12 +497,24 @@ end if
     call MPI_ALLREDUCE(adum_tot,En_tot,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
     En_tot=En_tot/jaco_sum     ! =<E^2> -- total field energy
 
-   call get_fluxes(wpi,dgf)
+!   call get_fluxes(wpi,dgf)
 
 !   im=mod(istep,100)
 !   if(im==0) then
 !      call get_3D_flow(da,dgq,dgf)
 !   end if
+
+
+
+
+   call get_fluxes(wpi,dgf,dgq)
+
+!   im=mod(istep,100)
+   im=mod(istep,msnap)
+   if(im==0) then
+      call get_3D_flow(da,dgq,dgf,wpi(2,:))
+   end if
+
 
  endif
 
@@ -552,6 +564,7 @@ subroutine pushion
   integer minpts,ifail
   real(wp) acc,error_8
   real(wp) E_a,E_t,E_f,timef
+  real(wp)  dminv,dmaxv
 
   real(wp) ddT_da_particle, w_anti_relax, muB, instep,outstep,fdamp,fdamp0, rdum1
 
@@ -700,8 +713,8 @@ subroutine pushion
 !             F(:) =F;           Fa(:)=dF/da;           gha(:)=1/|grad a|
 !             no change for zion(1,2,4,:), wpi(1,2,:) and mu;
 !             wpi(3,:)=dphi/dzeta (no change);          Pa(:)=R (major radius)
-
-
+!             TT(:)=1/|grad{theta)|; added Aug. 2012 for poloidal momentum flux diagnosis; changed to:
+!             TT(:)=poloidal velocity =vec(v).vec(B_p)/B_p; Oct. 2012
 
 !
 !        rdum1=maxval(abs(zion(5,1:mi)))
@@ -710,10 +723,12 @@ subroutine pushion
 
 
 
-if(nonlinear>0.5_wp) then        ! for nonlinear run
-  call weight_field(wfield)      ! calculate weight-field uisng zion0 for irk=1 and zion at half-step for irk=2
-                                 ! used BB obtained from gcmotion, and calculte its own ion locations  
-                                 ! which are used to calculate wfield in phase space grids and gether wfield at ions (next)
+!!!!  if(nonlinear>0.5_wp) then            ! for nonlinear run
+!!!!  if(nonlinear>100.0_wp) then          ! for nonlinear run
+if(wimcompressibility==1) then            ! for implementation of weight imcompressibility
+   call weight_field(wfield)      ! calculate weight-field uisng zion0 for irk=1 and zion at half-step for irk=2
+                                  ! used BB obtained from gcmotion, and calculte its own ion locations  
+                                  ! which are used to calculate wfield in phase space grids and gether wfield at ions (next)
 
 ! 
 ! rdum1=maxval(abs(wfield))
@@ -725,6 +740,13 @@ if(nonlinear>0.5_wp) then        ! for nonlinear run
 ! 
 
 end if
+
+
+
+
+dminv=0.0d0
+dmaxv=0.0d0
+
 
 ! update GC position
 ! Another OpenMP parallel loop...
@@ -787,8 +809,12 @@ end if
            -vdq*Bq(m)*backu(m))*B_inverse*vpara*T_inverse       ! major Kelvin-Helmholtz drive
 
 
-if(nonlinear>0.5_wp) then     ! for nonlinear run
-! calculate average weight <w> at particles using wieght-field wfield
+!
+!      calculate average weight <w> at particles using wieght-field wfield
+!
+!!!!!  if(nonlinear>0.5_wp) then          ! for nonlinear run
+!!!!!  if(nonlinear>100.0_wp) then        ! for nonlinear run
+  if(wimcompressibility==1) then          ! for weight imcompressibility
      wz1=wzion(m)
      wz0=1.0_wp-wz1
 
@@ -831,7 +857,7 @@ if(nonlinear>0.5_wp) then     ! for nonlinear run
 ! 
 
 
-end if
+  end if
 
 
 !     if(mype==100.and.m==mi/2) print*, 'AVW=', avw, zion(5,m), mype
@@ -840,9 +866,22 @@ end if
 
 !     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB+w_anti_relax)
 
-!     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)
+      if(wimcompressibility==1) then     ! for weight imcompressibility
+         wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
+      else
+         wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)
+      end if
 
-     wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+wKH+wgradB)
+
+
+
+      
+!      dminv=min(dminv,(wdrive+wdrift+wKH+wgradB)*tstep)
+!      dmaxv=max(dmaxv,(wdrive+wdrift+wKH+wgradB)*tstep)
+
+
+
+
 
 ! if(mype==0.and.m==mi/2) print*, 'GGGGG', wdrive, w_anti_relax
 
@@ -920,6 +959,15 @@ end if
 ! ********************************
 
  endif
+
+
+
+
+
+!  if(mype==0) print*, 'IONS:       Max Damping=', dmaxv, '   Min Damping=', dminv
+!  if(mype==0) print*, 'IONS:       ', 'Damping=', dmaxv, '   Min Damping=', dminv
+
+
 
 
  if(idiag==0)then
@@ -1045,12 +1093,13 @@ end if
     call MPI_ALLREDUCE(adum_tot,En_tot,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
     En_tot=En_tot/jaco_sum     ! =<E^2> -- total field energy
 
-   call get_fluxes(wpi,dgf)
+   call get_fluxes(wpi,dgf,dgq)
 
 !   im=mod(istep,100)
-!   if(im==0) then
-!      call get_3D_flow(da,dgq,dgf)
-!   end if
+   im=mod(istep,msnap)
+   if(im==0) then
+      call get_3D_flow(da,dgq,dgf,wpi(2,:))
+   end if
 
  endif
 

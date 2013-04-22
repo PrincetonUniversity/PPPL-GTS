@@ -21,7 +21,12 @@ subroutine shifte
        omp_get_thread_num
 #endif
 
-  nzeon=14    ! 7 zeon + 7 zeon0
+  if(ifdphi==2) then 
+     nzeon=16    ! 8 zeon + 8 zeon0
+  else
+     nzeon=14    ! 7 zeon + 7 zeon0
+  endif
+
   pi_inv=1.0_wp/pi
   m0=1
   iteration=0

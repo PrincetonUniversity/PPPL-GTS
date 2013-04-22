@@ -37,7 +37,7 @@ Subroutine setup
   namelist /run_parameters/ micell,misum,mpsi,mthetamax,mzetamax,numberpe,&
        nonlinear,ndiag,tstep,ifelectron,delr,delt,mid_theta,mgrid,mtdiag,&
        a,a0,a1,q0,q1,q2,kappati,kappate,kappan,ulength,utime,gyroradius,&
-       irun,nbound,mode00,paranl,iload,icollision,ecollision
+       irun,nbound,mode00,ifdphi,iload,icollision,ecollision
 
   integer esiread,species,get4exb,get4exb12
 
@@ -75,6 +75,10 @@ Subroutine setup
 
 !  kappan=kappati*kappan        ! =R_0*<grad(n)/n>=R_0/L_n
   aelectron=1.0/aelectron      ! aelectron=1.0/1837.0
+
+  if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases 
+  zeondim=7
+  if(ifdphi==2) zeondim=8
 
 !  r0=rmajor    !wx  normalized
 !  b0=b_axis    !wx  normalized
@@ -273,6 +277,9 @@ if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
   a_ref=0.35_wp      ! used for DIIID-129533_405
   a_ref=0.40_wp      ! used for DIIID-129533_405 eq., but with artificial profiles
   a_ref=0.55_wp         ! used for model equilibrium and profiles
+  a_ref=0.42_wp      ! used for DIIID-125236_360
+  a_ref=0.60_wp      ! used for NSTX-141716_448
+  a_ref=0.50_wp      
 
 !
 !  Initially, T_0 and T_e0 are specified in INPUT.d as temperatures at a=a_ref --> change made in Oct. 09
@@ -377,6 +384,24 @@ if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
 !  lmax=0.11_wp
 !  rmin=0.89_wp
 !  rmax=0.90_wp
+
+! used for DIIID-125236-369,  no boundary effect -- simulation domain [0.2, 0.8]
+  lmin=0.23_wp
+  lmax=0.26_wp
+  rmin=0.74_wp
+  rmax=0.77_wp
+
+! used for NSTX-141716-448,  no boundary effect -- simulation domain [0.4, 0.8]
+  lmin=0.43_wp
+  lmax=0.46_wp
+  rmin=0.74_wp
+  rmax=0.77_wp
+
+! used for DIIID-125229, and model equilibrium and profiles -- simulation domain [0.1, 0.9]
+  lmin=0.20_wp
+  lmax=0.25_wp
+  rmin=0.75_wp
+  rmax=0.80_wp
 
   Tcc=Tc                        ! make a copy
 
@@ -719,8 +744,11 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
      tdum=tdum*1.1_wp       ! for D3D 122338 2nd run
 
      tdum=(0.6*real(mpsi-i,wp)/real(mpsi,wp)+0.4*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)   ! for D125229
-     tdum=tdum*1.6       ! for D125229
+!     tdum=tdum*1.6       ! for D125229
 !     tdum=tdum*0.6       ! for D125229
+!     tdum=tdum*1.25       ! for DIIID 125236_360
+!     tdum=tdum*0.80       ! for DIIID 125236_360
+     tdum=tdum*1.2       ! for DIIID 125236_360
 
 !      tdum=(0.6_wp*real(mpsi-i,wp)/real(mpsi,wp)+0.4_wp*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)
 !                           ! for D3D 129533_405
@@ -1491,8 +1519,14 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
   allocate (zion(7,mimax),zion0(7,mimax),jtion0(4,mimax),jtion1(4,mimax),&
        wzion(mimax),wpion(4,mimax),wtion0(4,mimax),wtion1(4,mimax),enion(mimax))
   if(ifelectron/=0) then
-     allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax),jteon0(memax),&
-               jteon1(memax),wzeon(memax),wpeon(memax),&
+
+     if(ifdphi/=2) then     ! use dphi/dt equation when ifelectron=2 
+        allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))
+     else                   ! use direct dphi/dt when ifelectron==2
+        allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))
+     end if
+
+     allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
                wteon0(memax),wteon1(memax),markere(mgrid),&
              !   densitye(0:1,mgrid),cij(3,mgrid))
                densitye(0:1,mgrid),cij(5,mgrid))
@@ -1844,7 +1878,9 @@ end subroutine setup
                      msnap,              &   ! step interval for snapshot, PHI record and checkpoint
                      ndiag,              &   ! calculate fluxes, tur intensity, etc, every ndiag-step
                      nonlinear,          &   ! =1.0, nonlinear run, =0.0, linear run
-                     paranl,             &   ! =1, parallel nonlinearity is on (always on so far) 
+                     ifdphi,             &   ! =0 --> no dphi/dt involved when ifelectron=0 or 1; 
+                                         &   ! =1 --> use dphi/dt equation when ifelectron=2;
+                                         &   ! =2 --> use direct dphi/dt when ifelectron=2
                      mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
                      maintnT,            &   ! =0, no T profile restore; =1, T profile restore (be careful!)
                      tstep,              &   ! time step size ((in unit L_T/V_th)
@@ -1976,7 +2012,7 @@ end subroutine setup
      integer_params(47)= order
 
      real_params(1)=nonlinear
-     real_params(2)=paranl
+     real_params(2)=ifdphi
      real_params(3)=tstep
      real_params(4)=a
      real_params(5)=a0
@@ -2034,7 +2070,7 @@ end subroutine setup
      write(0,*) 'irun=', irun
      write(0,*) 'mstep=', mstep
      write(0,*) 'nonlinear=', nonlinear
-     write(0,*) 'paranl=', paranl
+     write(0,*) 'ifdphi=', ifdphi
      write(0,*) 'tstep=', tstep
      write(0,*) 'micell=', micell
      write(0,*) 'mpsi=', mpsi
@@ -2107,7 +2143,7 @@ end subroutine setup
      order             =integer_params(47)
 
      nonlinear         =real_params(1)
-     paranl            =real_params(2)
+     ifdphi            =real_params(2)
      tstep             =real_params(3)
      a                 =real_params(4)
      a0                =real_params(5)
