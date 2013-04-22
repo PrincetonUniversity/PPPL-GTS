@@ -100,11 +100,13 @@ program GTS
      if(mype == 0) write (0, *) "	finite element order=", order
      call new_fem_data( fem )
      call new_fem_solver( fem, solver1, '', 1, 2 )
-     call testsolve( solver1 )
-     call delete_fem_data( fem )
-     call destroy_solver( solver1 )
-     call PetscFinalize( ierror )
-     stop
+     if(ifelectron==2) call new_fem_solver( fem,solver_dphi_dt, 'dphidt_', 2, 2 )
+!...     call testsolve( solver1 )
+!...     call delete_fem_data( fem )
+!...     call destroy_solver( solver1 )
+!...     call destroy_solver( solver_dphi_dt )
+!...     call PetscFinalize( ierror )
+!...     stop
   endif
 
   ! initialize particle position and velocity
@@ -407,8 +409,14 @@ end if
   call system_stats()
 #endif
 
+  if( order .le. 0 ) then
   if(ifelectron==2) call destroy_solver(solver_dphi_dt)
   call destroy_solver(solver1)
+  else
+     call delete_fem_data( fem )
+     call destroy_solver( solver1 )
+     call destroy_solver( solver_dphi_dt )
+  endif
 
 ! MPI finalize
 !  call mpi_finalize(ierror)

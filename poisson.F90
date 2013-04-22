@@ -73,6 +73,9 @@ subroutine poisson( solver )
         do j=1,mtheta(i)
            ij=igrid(i)+j
            dentmp(ij)=densityi(1,ij)-densitye(1,ij)
+
+           !... finite element needs not this modification
+           if(order .le. 0) &
            dentmp(ij)=dentmp(ij)*vth_grid(i)**2
         enddo
      enddo
@@ -85,6 +88,7 @@ subroutine poisson( solver )
                        ! NO converage if using phi of last step!!
      do it=1,its
         add_phi=0.0_wp
+        !... finite element needs xx be set to 0 on bdy vertex as well
         xx=0.0_wp
         do i=0,mpsi
            outstep=smoothstep(rmin,rmax,psi_grid(i))
@@ -103,9 +107,11 @@ subroutine poisson( solver )
         call solve( solver, mgrid, add_phi, xx, ierr )
         phi(1,:) = xx
 
-! DEBUG
-!         if(mype==200) print*, 'Dirichlet', phi(1,igrid(0)), phi(1,igrid(0)+mtheta(0)/2),phi(1,igrid(0)+mtheta(0)-1), &
-!                                phi(1,igrid(mpsi)), phi(1,igrid(mpsi)+mtheta(mpsi)/2),phi(1,igrid(mpsi)+mtheta(mpsi)-1)
+! DEBUG CJ api 10 2013
+        if(mype==000) write(113,113) istep, &
+        phi(1,igrid(1)),        phi(1,igrid(mpsi*1/5)), phi(1,igrid(mpsi*2/5)), &
+        phi(1,igrid(mpsi*3/5)), phi(1,igrid(mpsi*4/5)), phi(1,igrid(mpsi-1))
+113 format("Dirichlet=", i5, 6(1x,d12.6))
 
 ! BCs !!!!
 ! radial boundary  Note wx: this could enforce a constraint on long wave length modes

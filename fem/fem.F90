@@ -119,7 +119,7 @@ end subroutine delete_fem_data_private
 subroutine tri_mesh( this )
   use precision 
   use global_parameters,only: mpsi,mype,mtheta,zetamin,deltaz,deltat,R_0,pi
-  use field_array,only: psi_grid,qtinv
+  use field_array,only: psi_grid,qtinv,q_grid
   !  use petsc_array
   use fem_data_class 
   use esi_interface
@@ -136,13 +136,13 @@ subroutine tri_mesh( this )
       implicit none
       integer iemax ! in or out
       integer mype,npoints,mtheta(0:)
-      real(wp) points(4,npoints)
+      real(wp) points(5,npoints)
     end subroutine circ_tri_mesh
   end interface
   !
 
   this%nmesh_pts = sum(mtheta)
-  allocate( this%points(4,this%nmesh_pts) )
+  allocate( this%points(5,this%nmesh_pts) )
 
   ! generate vertices: this%points -- grid position in cartitian coordinates (x,y)
   zeta = zetamin + deltaz ! zeta for my plane	
@@ -164,6 +164,7 @@ subroutine tri_mesh( this )
         this%points(2,iv)= zj(1)       ! --> z
         this%points(3,iv)= pdum        ! --> a; flux coordinates
         this%points(4,iv)= tdum        ! --> theta
+        this%points(5,iv)= q_grid(i)   ! --> q on flux surfaces (0:mpai)
      enddo
   enddo
   if(iv .ne. this%nmesh_pts) stop 'iv .ne. nmesh_pts'
@@ -198,7 +199,7 @@ subroutine circ_tri_mesh(mtheta,npoints,points,iemax,mype)
   implicit none
   integer iemax ! in or out
   integer mype,npoints,mtheta(0:)
-  real(wp) points(4,npoints)
+  real(wp) points(5,npoints)
   logical just_count
   integer iplot
   integer  nedges,i,j,k,sz,ierr,kk

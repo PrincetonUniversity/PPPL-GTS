@@ -582,7 +582,7 @@ contains
          implicit none
          integer iemax,nptsd,npts,ierr
          integer,dimension(:) :: iet1,iet2,iet3
-         real(wp) points(4,npts)
+         real(wp) points(5,npts)
          real(wp) alpha, beta
          Mat Amat, Mmat
        end subroutine form_tangent
@@ -765,11 +765,10 @@ contains
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(doubleprec),allocatable,dimension(:) :: xx, bb 
-    integer count
+    integer :: count = 0
 
-    data count/0/
+
     count = count + 1
-
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
     ivsl = 0
@@ -818,6 +817,168 @@ contains
 
   end subroutine solve
 
+
+!========================================================================
+!         solve test phi-phitilda
+!========================================================================
+  subroutine phitilda_solve( solver, nn, bb_gk, xx_gk, ierr )
+    !     solve linear system.  
+    !     Solver (KSP) and matrix are in linear_solve.h
+    !     
+    !     input:
+    !       nn: global number of equations in system
+    !       bb_gk: rhs[nn]
+    !       xx_gk: solution[nn]
+    !     
+    !     output:
+    !       bb_gk: RHS[nn]
+    !     ierr: error code
+    !     
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0,a0,a1
+    use field_array,only: psi_grid,igrid,qtinv
+    use esi_interface, only: metric
+    implicit none
+    type(solver_data) :: solver
+    integer,intent(in) :: nn
+    integer,intent(out) :: ierr
+    real(wp),intent(in) :: bb_gk(nn) 
+    real(wp),intent(out) :: xx_gk(nn)
+    ! locals
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,ij
+    real(doubleprec),allocatable,dimension(:) :: xx, bb
+    real(doubleprec),allocatable,dimension(:) :: rhs, phi
+
+    real(wp) zeta, pdum, dt, tdum, tmp
+    real(wp), dimension(2) :: aaa,the,rj,zj,Bj
+    real(wp) Mk, Lk, alfak
+    real(wp) :: bfun1, bfun2, rhoj, Tj
+    real(wp) zeta, pdum, dt, tdum, krho1, krho2, fip, tmp1, tmp2
+    real(wp), external :: temperature
+    integer, external :: metric_elements
+    real(wp),external :: besei0
+    integer metr
+
+    integer :: count = 5
+
+
+    count = count + 1
+    neq = sum(mtheta)
+    allocate(xx(neq),bb(neq))
+    allocate(rhs(nn), phi(nn))
+    xx=0.0_wp
+    ivsl = 0
+    ivgts = 0
+    zeta = zetamin + deltaz ! zeta for my plane   
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       pdum=psi_grid(ir)
+       dt = deltat(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          ij = igrid(ir) + it
+
+             tdum = real(it,wp)*dt + zeta*qtinv(ir)
+             tdum=tdum/(2.0_wp*pi)
+             tdum=2.0_wp*pi*(tdum-aint(tdum))
+
+             Mk=10.
+             Lk=10.
+             alfak=0.
+             phi(ij) = sin(pi*Mk*(pdum-a0)/(a1-a0))*cos(Lk*tdum+alfak)
+
+             aaa(1)=pdum
+             the(1)=tdum
+             call esigetrzb(rj,zj,Bj,aaa,the,1)
+
+             Tj = temperature( pdum, 0.0_wp )
+             metr=metric_elements(pdum,tdum,zeta)
+             rhoj=Tj/Bj(1)/Bj(1)
+             fip=pi*Mk/(a1-a0)
+
+             ! exp(-tmp) multiplied bessel function (k_perp^2*rhoj^2) for mode 1
+             tmp1 = fip*fip * metric(1) + Lk * Lk * metric(2) + 2.0d0 * fip * Lk * metric(4)
+             krho1 = tmp1 * rhoj
+             bfun1 = besei0( krho1 )
+
+             ! e myltiplied bessel function (k_perp^2*rhoj^2) for mode 2
+             tmp2 = fip *fip * metric(1) + Lk * Lk * metric(2) - 2.d0 * fip * Lk * metric(4)
+             krho2 = tmp2 * rhoj
+             bfun2 = besei0( krho2 )
+
+             ! phi - phi_tilda
+             rhs(ij) = sin( fip*(pdum-a0) + Lk*tdum+alfak ) * (1. - bfun1) /2. + &
+                       sin( fip*(pdum-a0) - Lk*tdum-alfak ) * (1. - bfun2) /2.
+
+             if(ir==0 .or. ir==mpsi) rhs(ij) = phi(ij)
+             if( mype.eq.0 ) write(112,112) ir, it, ij, ivgts, rj(1)-R_0, zj(1), xx(ij), rhs(ij)
+112 format("init =", 4(i5,2x), 4(1x,d12.6))
+       enddo
+           rhs(igrid(ir))=rhs(igrid(ir)+mtheta(ir)) !(:,igrid(i)) is missing in last do-loop
+    enddo
+
+    neq = sum(mtheta)
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             bb(ivsl) = rhs(ivgts)
+          elseif(rhs(ivgts).ne.bb(ivsl-itmax+1))then
+             stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
+          end if
+       enddo
+    enddo
+    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+    
+    ! solve GK Poisson equation
+    call petsc_solve( solver, neq, bb, xx, ierr)
+
+    ! set solution (output)
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi
+       itmax=mtheta(ir)
+       pdum=psi_grid(ir)
+       dt = deltat(ir)
+       do it=0,itmax
+          ivgts = ivgts+1 
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             xx_gk(ivgts) = xx(ivsl)
+
+             tdum = real(it,wp)*dt + zeta*qtinv(ir)
+             tdum=tdum/(2.0_wp*pi)
+             tdum=2.0_wp*pi*(tdum-aint(tdum))
+             tmp = sin(pi*Mk*(pdum-a0)/(a1-a0))*cos(Lk*tdum+alfak)
+
+             if( mype.eq.0 .and. (ir.ne.0 .and. ir.ne.mpsi)) &
+             write(111,111) ir, it, ivsl, xx(ivsl), tmp
+111 format("finite element test solve=", 3(2x,i7), 2(1x,d12.6))
+
+          else
+             xx_gk(ivgts) = xx(ivsl-itmax+1)
+          endif
+       enddo
+    enddo
+
+    deallocate(rhs,xx,bb,phi) 
+    call PetscFinalize( ierr )
+    stop
+
+    ! debug
+    if( count .eq. 1 .and. mype==-10 ) then
+       call plot_array( mgrid, xx_gk, 'x.m' )
+       call plot_array( mgrid, bb_gk, 'b.m' )
+       stop 'plot'
+    endif
+  end subroutine phitilda_solve
+
+
 !========================================================================
 !         testsolve
 !========================================================================
@@ -836,30 +997,32 @@ contains
     !     
     !use global_parameters
     use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
     use field_array,only: psi_grid,qtinv
-    use esi_interface
     implicit none
     type(solver_data) :: solver
     integer :: nn
     integer :: ierr
     ! locals
-    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
-    real(doubleprec),allocatable,dimension(:) :: xx, rhs 
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
+    real(doubleprec),allocatable,dimension(:) :: xx, bb 
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(2) :: aaa,the,rj,zj,Bj
     real(wp) cf1, cf2, cf3, cf4, cf5
+    real(wp) alpha, beta, ns0, ne0, gs, vthe, Zs
+    real(wp), external ::temperature_e, density
+    integer, external :: metric_elements
 
     real(wp) M, L, alfa
-    integer whichone
-    data whichone/2/
+    integer :: whichone = 5
+
 
     if(mype.eq.0) &
-    write(0, *) "	finite element test solve", whichone, "of four"
+    write(0, *) "	finite element test solve", whichone, "of five"
 
 !cj the following is a combianation of solve and tri_mesh
     neq = sum(mtheta)
-    allocate(xx(neq),rhs(neq))
+    allocate(xx(neq),bb(neq))
     xx=0.
     ivsl = 0
     ivgts = 0
@@ -894,16 +1057,16 @@ contains
                 cf4=1.
                 cf5=1.
                 xx(ivsl) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
-                rhs(ivsl) = cf1*2. + cf2*2.*2. + cf3*2. + cf4*2.*((rj(1)-R_0) + zj(1)) + cf5*2.*((rj(1)-R_0) + zj(1))
+                bb(ivsl) = cf1*2. + cf2*2.*2. + cf3*2. + cf4*2.*((rj(1)-R_0) + zj(1)) + cf5*2.*((rj(1)-R_0) + zj(1))
              else if(whichone==2) then
                 !u = sin(pi M x) cos( L y), del u = -( (pi M)^2 + L^2 ) u
                 xx(ivsl) = sin(pi*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
-                rhs(ivsl) = (-(pi*M)*(pi*M) - L*L) * xx(ivsl) 
-             else
+                bb(ivsl) = (-(pi*M)*(pi*M) - L*L) * xx(ivsl) 
+             else if(whichone==3 .or. whichone==4) then
                 !u = sin(pi M (a-a0)/(a1-a0)) cos( L theta + alfa),
                 !rhs: del u = -( (pi M / (a1-a0))^2 + L^2 ) u
                 xx(ivsl) = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
-                rhs(ivsl) = (-(pi*M/(a1-a0))*(pi*M/(a1-a0)) - L*L) * xx(ivsl) 
+                bb(ivsl) = (-(pi*M/(a1-a0))*(pi*M/(a1-a0)) - L*L) * xx(ivsl) 
 
                 !whichone=3: in rz coordinates
                 !matrix: Amatrix = 
@@ -916,6 +1079,21 @@ contains
                 !      d^2 phi   d^2 phi
                 !del u=------- + -------
                 !      da^2      dt^2
+             else
+                !u = sin(pi M (a-a0)/(a1-a0)) cos( L theta + alfa),
+                !rhs: del u = -( (pi M / (a1-a0))^2 + L^2 ) u
+                xx(ivsl) = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
+
+                vthe=temperature_e(pdum,0.0_wp)
+                alpha = abs(csc0) * m0ms / vthe
+                bb(ivsl) = alpha * xx(ivsl)
+
+                ns0=density(pdum,0.0_wp)
+                ne0=density(pdum,0.0_wp)
+                beta = -1. / ne0
+                Zs=1.
+                gs = Zs / Bj(1) / Bj(1) * ns0 * c0cs_i * msm0_i
+                bb(ivsl) = 1.
              endif
 
              ! assign the boundary vertex
@@ -930,7 +1108,7 @@ contains
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     
     ! solve GK Poisson equation
-    call petsc_solve( solver, neq, rhs, xx, ierr)
+    call petsc_solve( solver, neq, bb, xx, ierr)
 
 !cj the following is a combianation of solve and tri_mesh, check |u-xx|
     ivsl = 0
@@ -972,12 +1150,12 @@ contains
     call flush(111)
     if(mype.eq.0) write(0, *) "	finite element test solve end"
     
-    deallocate(rhs,xx) 
+    deallocate(bb,xx) 
 
     ! debug
     if( whichone .eq. 0 .and. mype==-10 ) then
        call plot_array( neq, xx, 'x.m' )
-       call plot_array( neq, rhs, 'b.m' )
+       call plot_array( neq, bb, 'b.m' )
        stop 'plot'
     endif
 
@@ -1280,40 +1458,47 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
   !     iemax: number of elements
   !     iet1,2,3[iemax]: nodes of triangles of mesh
   !     npts: number of mesh points
-  !     points[4,npts]: coordinates of points in cartesian and flux coordinate
+  !     points[5,npts]: coordinates of points in cartesian and flux coordinate and 1/q
   !     
   !     output:
-  !     Amat: matrix to add tangent to
+  !     Amat: stiffness matrix
+  !     Mmat: mass matrix
   !     ierr: error code
   !
   use precision,only:wp,doubleprec
   use particle_decomp,only:myrank_partd
-  use global_parameters, only:mype
+  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron
+  use esi_interface, only : metric
   implicit none
 #include "finclude/petscsys.h"
 #include "finclude/petscvec.h"
   integer iemax,npts,ierr
   integer,dimension(:) :: iet1,iet2,iet3
-  real(wp) :: points(4,npts)
+  real(wp) :: points(5,npts)
   real(wp) alpha, beta
   Mat  Amat, Mmat
   real(doubleprec)  xlt(2,3),sarr(3,3),sarr2(3*3),ul(3,4),eps ! therm2d uses *8
   real(doubleprec)           marr(3,3),marr2(3*3)             ! mass matrix
-  real(doubleprec)  rrarr(3,3),rzarr(3,3),zzarr(3,3),rarr(3,3),zarr(3,3)
+  real(doubleprec)  rrarr(3,3),rzarr(3,3),zrarr(3,3),zzarr(3,3),pparr(3,3),rarr(3,3),zarr(3,3)
   real(doubleprec) c1, c2
-  real(doubleprec) c3  ! flux coordinate jacobian
-  real(doubleprec) cf1, cf2, cf3, cf4, cf5, cf6
+  real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
+  real(doubleprec) :: cf1=1., cf2=1., cf3=1., cf4=1., cf5=1., cf6=1.
   integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
   real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+  real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe,q,ns0,ne0
+  real(wp) :: Zs, gs,qq
+
+  real(wp), external ::temperature_e, density
+  integer, external :: metric_elements
 
   ! Lagrange finite elements
-  integer iw, is, il
+  integer iw, is, il, mt
   integer fe_order, fe_node, fe_ns, fe_nw
   real(doubleprec),dimension(:),allocatable :: fe_weight
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij
-    integer whichone
-    data whichone/2/
+  integer :: whichone = 5
+
 
   c1 = alpha
   c2 = beta
@@ -1349,78 +1534,37 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
     
      if(whichone.le.3) then
         ! in (r,z) cylindrical coordinates
-        xlt(1,1) = points(1,ind(1))
-        xlt(1,2) = points(1,ind(2))
-        xlt(1,3) = points(1,ind(3))
-        xlt(2,1) = points(2,ind(1))
-        xlt(2,2) = points(2,ind(2))
-        xlt(2,3) = points(2,ind(3))
+        xlt(1,:) = points(1,ind(:))
+        xlt(2,:) = points(2,ind(:))
      else
         ! in (a,t) flux coordinates
-        xlt(1,1) = points(3,ind(1))
-        xlt(1,2) = points(3,ind(2))
-        xlt(1,3) = points(3,ind(3))
-        xlt(2,1) = points(4,ind(1))
-        xlt(2,2) = points(4,ind(2))
-        xlt(2,3) = points(4,ind(3))
+        xlt(1,:) = points(3,ind(:))
+        xlt(2,:) = points(4,ind(:))
      endif
 
-     aaa(1)=points(3,ind(1))
-     the(1)=points(4,ind(1))
-     aaa(2)=points(3,ind(2))
-     the(2)=points(4,ind(2))
-     aaa(3)=points(3,ind(3))
-     the(3)=points(4,ind(3))
-     call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,3)
-     if(whichone.le.3) then
+     if(whichone == 3) then
         ! in (r,z) cylindrical coordinates
-        c3 = 1.
-        if(whichone.eq.1) then
-        cf1=1.
-        cf2=1.
-        cf3=1.
-        cf4=1.
-        cf5=1.
-        else
-        cf1 = ( raj(1)*raj(1) + rqj(1)*rqj(1) + &
-                raj(2)*raj(2) + rqj(2)*rqj(2) + &
-                raj(3)*raj(3) + rqj(3)*rqj(3)    ) / 3.
-        cf2 = ( raj(1)*zaj(1) + rqj(1)*zqj(1) + &
-                raj(2)*zaj(2) + rqj(2)*zqj(2) + &
-                raj(3)*zaj(3) + rqj(3)*zqj(3)    ) / 3.
-        cf3 = ( zaj(1)*zaj(1) + zqj(1)*zqj(1) + &
-                zaj(2)*zaj(2) + zqj(2)*zqj(2) + &
-                zaj(3)*zaj(3) + zqj(3)*zqj(3)    ) / 3.
-        endif
-     else
-        ! in (a,t) flux coordinates
-        ! c3: flux coordinate jacobian
-        c3 = ( (zaj(1)*rqj(1)-zqj(1)*raj(1)) * rj(1) + &
-               (zaj(2)*rqj(2)-zqj(2)*raj(2)) * rj(2) + &
-               (zaj(3)*rqj(3)-zqj(3)*raj(3)) * rj(3)   ) / 3.
-        cf1 = 1.
-        cf2 = 1.
-        cf3 = 1.
+        cf1 = mean( raj*raj + rqj*rqj , 3)
+        cf2 = mean( raj*zaj + rqj*zqj , 3)
+        cf3 = mean( zaj*zaj + zqj*zqj , 3)
+     else if(whichone >= 4) then
+        call cmp_phy_qty
      endif
 
+        sarr = 0.; marr = 0.
+        rrarr = 0.; rzarr = 0.; zrarr = 0.; zzarr = 0.; pparr = 0.
+        rarr = 0.; zarr = 0.
 #ifdef USEGTSFE
         if(mype==0 .and. ie==1 ) &
-        write(0,*) "	form_tangent: use historical gts elements whichone,c3=", whichone, c3
-        sarr = 0.
-        marr = 0.
-        rrarr = 0.
-        rzarr = 0.
-        zzarr = 0.
-        rarr = 0.
-        zarr = 0.
-        call therm2d(c1,c2,ul,xlt,sarr,marr,rrarr,rzarr,zzarr,rarr,zarr,nel,nst,2,1)
+        write(0,*) "	form_tangent: use historical gts elements whichone,fcj=", whichone, fcj
+        call therm2d(c1,c2,ul,xlt,sarr,marr,rrarr,rzarr,zrarr,zzarr,rarr,zarr,nel,nst,2,1)
 #else
         if(mype==0 .and. ie==1 ) &
-        write(0,*) "	form_tangent: use lagrange elements whichone,c3=", whichone, c3
+        write(0,*) "	form_tangent: use lagrange elements whichone,fcj=", whichone, fcj
         call lagrange_element_matrix(fe_ns, fe_nw,  &
                                      xlt(1,:), xlt(2,:),  &
                                      fe_weight, fe_NN, fe_dN1, fe_Eij, &
-                                     marr,sarr,rrarr,rzarr,zzarr,rarr,zarr)
+                                     marr,sarr,rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr)
 #endif
 
         nz = 0
@@ -1449,9 +1593,18 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
                 else if(whichone==3) then
              sarr2(kk) = cf1*rrarr(i,ind3(j)) + 2.*cf2*rzarr(i,ind3(j)) + cf3*zzarr(i,ind3(j))
              marr2(kk) = marr(i,ind3(j))
+                else if(whichone==4) then
+             sarr2(kk) = fcj*sarr(i,ind3(j))
+             marr2(kk) = fcj*marr(i,ind3(j))
                 else
-             sarr2(kk) = c3*sarr(i,ind3(j))
-             marr2(kk) = c3*marr(i,ind3(j))
+             sarr2(kk) = alpha * fcj * marr(i,ind3(j)) &
+                       + beta * fcj * gs * ( cf1*rrarr(i,ind3(j)) &
+                       +                     cf2*rzarr(i,ind3(j)) &
+                       +                     cf2*zrarr(i,ind3(j)) &
+                       +                     cf3*zzarr(i,ind3(j)) &
+                       +                     cf4*pparr(i,ind3(j))/qq &
+                                           )
+             marr2(kk) = fcj*marr(i,ind3(j))
                 endif
            enddo
         enddo
@@ -1464,4 +1617,67 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
   deallocate(fe_NN)
   deallocate(fe_dN1)
   deallocate(fe_Eij)
+
+
+  CONTAINS
+    !------------------------------------
+    SUBROUTINE cmp_phy_qty
+
+     aaa(:)=points(3,ind(:))
+     the(:)=points(4,ind(:))
+     call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,fe_ns)
+
+        ! in (a,t) flux coordinates
+        ! fcj: flux coordinate jacobian
+        ! Jacobian=rj(1)*(  zaj(1)*rqj(1)-zqj(1)*raj(1)  )
+        fcj = mean( (zaj*rqj-zqj*raj)*rj, fe_ns )
+
+     do i=1,fe_ns
+        mt=metric_elements(aaa(i),the(i),0.)
+        gaa(i)=metric(1)
+        gtt(i)=metric(2)
+        gpp(i)=metric(3)
+        gat(i)=metric(4)
+     end do
+        cf1 = mean( gaa, fe_ns )
+        cf2 = mean( gat, fe_ns )
+        cf3 = mean( gtt, fe_ns )
+        cf4 = mean( gpp, fe_ns )
+
+     q(:) = points(5,ind(:))
+     qq = mean( q*q, fe_ns )
+
+     do i=1,fe_ns
+        ns0(i)=density(aaa(i),0.0_wp)
+        ne0(i)=density(aaa(i),0.0_wp)
+     enddo
+
+     do i=1,fe_ns
+        vthe(i)=temperature_e(aaa(i),0.0_wp)
+     enddo
+     if(ifelectron==1) then
+        alpha = 0.0_wp
+     else
+        alpha = abs(csc0) * m0ms / mean(vthe, fe_ns)
+     endif
+     beta = - 1./ mean(ne0,fe_ns)
+     Zs = 1.
+     gs = Zs / mean(Bj*Bj, fe_ns) &
+        * mean(ns0, fe_ns) &
+        * c0cs_i * msm0_i
+    END SUBROUTINE cmp_phy_qty
+
+
+    FUNCTION mean(vals,nn)
+    use precision
+    implicit none
+
+    real(wp) :: mean
+
+    integer, intent(in) :: nn
+    real(wp), dimension(nn), intent(in) :: vals
+    
+    mean = sum(vals)/real(nn,wp)
+    END FUNCTION mean
+
 end subroutine form_tangent

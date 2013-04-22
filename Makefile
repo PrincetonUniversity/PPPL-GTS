@@ -302,7 +302,7 @@ PETSCFINCLUDE:= -I${PETSC_DIR}/include -I${PETSC_DIR} -I${PETSC_DIR}/${PETSC_ARC
 SOLVER:=fem.o solver_petsc.o 
 
 # List of all the object files needed to build the code
-OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o setup_v2.o Er_provider.o Theory_jb.o \
+OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o Er_provider.o Theory_jb.o \
      load.o restart.o diagnosis.o snapshot.o charge_ion.o current_ion.o \
      charge_eon.o current_eon.o solve_dphidt.o poisson.o smooth.o \
      field.o pushi.o pushe.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \

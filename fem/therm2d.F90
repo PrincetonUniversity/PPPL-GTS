@@ -1,6 +1,6 @@
 !-----[--.----+----.----+----.-----------------------------------------]
       subroutine therm2d(alpha,beta,ul,xl,s,m,                          &
-                         srr,srz,szz,sr,sz,                             &
+                         srr,srz,szr,szz,sr,sz,                             &
                          nel,nst,ndm,ndf)
 !-----[--.----+----.----+----.-----------------------------------------]
       
@@ -30,6 +30,7 @@
       real*8    m(nst,nst)
       real*8    srr(nst,nst)
       real*8    srz(nst,nst)
+      real*8    szr(nst,nst)
       real*8    szz(nst,nst)
       real*8    sr(nst,nst)
       real*8    sz(nst,nst)
@@ -110,6 +111,7 @@
                m(i1,j1) = m(i1,j1) + a3*shp(3,i)
                srr(i1,j1) = srr(i1,j1) - (a1*shp(1,i))
                srz(i1,j1) = srz(i1,j1) - (a1*shp(2,i))
+               szr(i1,j1) = szr(i1,j1) - (a2*shp(1,i))
                szz(i1,j1) = szz(i1,j1) - (a2*shp(2,i))
                sr(i1,j1) = sr(i1,j1) + a3*shp(1,i)
                sz(i1,j1) = sz(i1,j1) + a3*shp(2,i)
@@ -668,7 +670,7 @@
         integer nel,i,j,k,ix(3,8),nst,e,ni,nj
         real*8 xl(2,9),xlt(2,3),s(3,4),m(3,4),alpha,beta
         real*8 arr(9,10),ul(3,4)
-        real*8 srr(3,4),srz(3,4),szz(3,4),sr(3,4),sz(3,4)
+        real*8 srr(3,4),srz(3,4),szr(3,4),szz(3,4),sr(3,4),sz(3,4)
         
         data ix/1,4,2,2,4,5,3,2,5,3,5,6,5,4,7,5,7,8,6,5,8,6,8,9/
         data xl/0.d0,2.d0,1.d0,2.d0,2.d0,2.d0,0.d0,1.d0,1.d0,1.d0,2.d0,1.d0,0.d0,0.d0,1.d0,0.d0,2.d0,0.d0/
@@ -701,7 +703,7 @@
          enddo
          !     
          call therm2d(alpha,beta,ul,xlt,s,m,      &
-                      srr,srz,szz,sr,sz,          &
+                      srr,srz,szr,szz,sr,sz,          &
                       nel,nst,2,1)
          !     
          if( s(3,3) .eq. 0. .or. s(1,4) .ne. 0. ) then
