@@ -99,7 +99,7 @@ program GTS
      solver_dphi_dt%order = order
      if(mype == 0) write (0, *) "	finite element order=", order
      call new_fem_data( fem )
-     call new_fem_solver( fem, solver1, '', 1, 2 )
+     call new_fem_solver( fem, solver1, '', 1, 1 )
      if(ifelectron==2) call new_fem_solver( fem,solver_dphi_dt, 'dphidt_', 2, 2 )
 !...     call testsolve( solver1 )
 !...     call delete_fem_data( fem )

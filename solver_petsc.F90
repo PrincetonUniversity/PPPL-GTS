@@ -575,18 +575,6 @@ contains
     integer, dimension(:), allocatable :: bdy
     Vec              vec_yy
 
-    interface
-       subroutine form_tangent(Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
-            alpha, beta, ierr)
-         use precision,only:wp,doubleprec
-         implicit none
-         integer iemax,nptsd,npts,ierr
-         integer,dimension(:) :: iet1,iet2,iet3
-         real(wp) points(5,npts)
-         real(wp) alpha, beta
-         Mat Amat, Mmat
-       end subroutine form_tangent
-    end interface
 
     mring=2
     mindex=64*mring+1 ! estimate for matrix size
@@ -1414,40 +1402,6 @@ contains
     if(this%gk_matid(sum(mtheta) + mpsi + 2) .ne. -2) call MPI_ABORT(mpi_comm_world,1,ierr)
   end subroutine new_gk_matid
 
-end module solver_data_class
-
-!========================================================================
-!         subroutine plot_array( nn, arr )
-!========================================================================
-subroutine plot_array( nn, arr, str )
-  use precision,only:wp,doubleprec
-  implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscviewer.h"
-  integer nn,ierr
-  character :: str*(*)
-  real(wp) arr(nn)
-  PetscViewer viewer
-  PetscScalar yy(nn)
-  Vec v;
-  
-  yy = arr
-  
-#ifdef PETSC330
-  call VecCreateMPIWithArray(mpi_comm_self,1,nn,PETSC_DECIDE,yy,v,ierr)
-#else
-  call VecCreateMPIWithArray(mpi_comm_self,nn,PETSC_DECIDE,yy,v,ierr)
-#endif
-  !
-  call PetscViewerASCIIOpen(mpi_comm_self, str,viewer,ierr)
-  call PetscViewerSetFormat(viewer, PETSC_VIEWER_ASCII_MATLAB,ierr)
-  call VecView( v, viewer, ierr )
-  call PetscViewerDestroy(viewer,ierr)
-  call VecDestroy( v, ierr )
-  
-end subroutine plot_array
-
-
 !========================================================================
 !                         subroutine form_tangent
 !========================================================================
@@ -1667,7 +1621,6 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
         * c0cs_i * msm0_i
     END SUBROUTINE cmp_phy_qty
 
-
     FUNCTION mean(vals,nn)
     use precision
     implicit none
@@ -1679,5 +1632,38 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
     
     mean = sum(vals)/real(nn,wp)
     END FUNCTION mean
-
 end subroutine form_tangent
+
+end module solver_data_class
+
+
+!========================================================================
+!         subroutine plot_array( nn, arr )
+!========================================================================
+subroutine plot_array( nn, arr, str )
+  use precision,only:wp,doubleprec
+  implicit none
+#include "finclude/petscsys.h"
+#include "finclude/petscviewer.h"
+  integer nn,ierr
+  character :: str*(*)
+  real(wp) arr(nn)
+  PetscViewer viewer
+  PetscScalar yy(nn)
+  Vec v;
+  
+  yy = arr
+  
+#ifdef PETSC330
+  call VecCreateMPIWithArray(mpi_comm_self,1,nn,PETSC_DECIDE,yy,v,ierr)
+#else
+  call VecCreateMPIWithArray(mpi_comm_self,nn,PETSC_DECIDE,yy,v,ierr)
+#endif
+  !
+  call PetscViewerASCIIOpen(mpi_comm_self, str,viewer,ierr)
+  call PetscViewerSetFormat(viewer, PETSC_VIEWER_ASCII_MATLAB,ierr)
+  call VecView( v, viewer, ierr )
+  call PetscViewerDestroy(viewer,ierr)
+  call VecDestroy( v, ierr )
+  
+end subroutine plot_array
