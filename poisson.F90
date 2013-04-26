@@ -153,6 +153,7 @@ subroutine poisson( solver )
 
      if(ZF_SEPARATION==1) then
 
+        xx=0.0_wp
         call solve( solver, mgrid, dentmp, xx, ierr )
         phi(1,:) = xx
 

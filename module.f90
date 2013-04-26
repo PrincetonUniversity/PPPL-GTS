@@ -95,7 +95,7 @@ end module precision
 ! order = 0 original solver
 ! order = 1 linear finite element
 ! order = 2 2nd order finite element
-  integer   order
+  integer ::  order=0
 
 ! boundary type
 ! bc_type = 0 neumann boundary conditions at both a=a0 and a=a1

@@ -1865,7 +1865,7 @@ end subroutine setup
 
   implicit none
 
-  integer,parameter :: n_integers=47, n_reals=58, n_chars=3
+  integer,parameter :: n_integers=48, n_reals=58, n_chars=3
   integer :: integer_params(n_integers)
   character(25),dimension(n_chars) :: char_params
 ! only the first processor will open files...
@@ -2010,9 +2010,10 @@ end subroutine setup
      integer_params(45)=nv
      integer_params(46)=ecollision
      integer_params(47)= order
+     integer_params(48)= ifdphi
 
      real_params(1)=nonlinear
-     real_params(2)=ifdphi
+     real_params(2)=0.00000000d0  ! spare -- not used for now, April,2013
      real_params(3)=tstep
      real_params(4)=a
      real_params(5)=a0
@@ -2089,7 +2090,7 @@ end subroutine setup
      write(0,*) 'jr=', jr, 'print end'
 
      write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
-     write(0,*) 'finite element order=', order
+     write(0,*) 'finite element order=', integer_params(47)
   endif 
 
   call mpi_bcast(char_params,25*n_chars,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
@@ -2141,9 +2142,10 @@ end subroutine setup
      nv                =integer_params(45)
      ecollision        =integer_params(46)
      order             =integer_params(47)
+     ifdphi            =integer_params(48)
 
      nonlinear         =real_params(1)
-     ifdphi            =real_params(2)
+     real_params(2)    =real_params(2)      ! spare for now, April, 2013
      tstep             =real_params(3)
      a                 =real_params(4)
      a0                =real_params(5)

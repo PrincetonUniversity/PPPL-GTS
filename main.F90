@@ -90,6 +90,7 @@ program GTS
   if( order .le. 0 ) then
      solver1%order=0
      solver_dphi_dt%order=0
+     if(mype == 0) write (0, *) "	integral equation order=", order
      ! mat type 1, bc type 1
      call new_gk_solver( solver1, '', 1, 1 )
      ! mat type 2, bc type 2

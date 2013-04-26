@@ -89,6 +89,7 @@ contains
           ! neumann boundary condition at amin & amax
           else
           ! 3: neumann boundary condition at amin & dirichlet boundary condition at amax
+             if( i==mpsi ) this%gk_matid(it) = -1
           endif
        end do
     end do
@@ -616,7 +617,7 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatAssemblyEnd( Mmat, MAT_FINAL_ASSEMBLY, ierr )
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
-    if(mype==0) write(*,*) "	finite elements matrix created"
+    if(mype==0) write(*,*) "	finite elements matrix created bc_type=",bc_type
 
 !cj reuse original code
     call new_gk_matid( this%mat, bc_type )
@@ -680,9 +681,9 @@ contains
     if(mype==0) write(*,*) "	finite elements bdy ib ib2=", ib, ib2
     if(ib .ne. ib2) call MPI_ABORT(mpi_comm_world,1,ierr)
 
-!   Set Amat=-1 on bdy vertex for applying Dirichlet bc
+!   Set Amat=1 on bdy vertex for applying Dirichlet bc
 !   using zero-based bdy index
-    a = -1.
+    a = 1.
     call MatZeroRows(Amat,ib,bdy,a,PETSC_NULL_OBJECT,PETSC_NULL_OBJECT,ierr)
     if(mype==0) write(*,*) "	finite elements matrix bdy fix"
 
@@ -698,11 +699,7 @@ contains
     ! create zeroVec01 for applying bc
     call VecDuplicate(this%bVec, this%zeroVec01, ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-#ifdef PETSC330
     call VecCreateSeqWithArray(MPI_COMM_SELF,1,neq,this%zero01,vec_yy,ierr)
-#else
-    call VecCreateSeqWithArray(MPI_COMM_SELF,neq,this%zero01,vec_yy,ierr)
-#endif
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     call VecScatterBegin(this%scat,vec_yy, this%zeroVec01, INSERT_VALUES,SCATTER_FORWARD,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -712,11 +709,7 @@ contains
     ! create zeroVec10 for applying bc
     call VecDuplicate(this%bVec, this%zeroVec10, ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-#ifdef PETSC330
     call VecCreateSeqWithArray(MPI_COMM_SELF,1,neq,this%zero10,vec_yy,ierr)
-#else
-    call VecCreateSeqWithArray(MPI_COMM_SELF,neq,this%zero10,vec_yy,ierr)
-#endif
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     call VecScatterBegin(this%scat,vec_yy, this%zeroVec10, INSERT_VALUES,SCATTER_FORWARD,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -1268,11 +1261,7 @@ contains
 
     !     scatter rhs into PETSc vector
     yy = bb
-#ifdef PETSC330
     call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
-#else
-    call VecCreateSeqWithArray(MPI_COMM_SELF,nn,yy,vec_yy,ierr)
-#endif
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     !     call VecSet( solver%bVec, 1.e30, ierr ) ! debug
     call VecScatterBegin(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
@@ -1292,11 +1281,7 @@ contains
        ! apply dirichlet bc
        ! bVec = bVec * zero10 + xVec * zero01
        yy=xx
-#ifdef PETSC330
        call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
-#else
-       call VecCreateSeqWithArray(MPI_COMM_SELF,nn,yy,vec_yy,ierr)
-#endif
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call VecScatterBegin(solver%scat,vec_yy, solver%xVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -1657,11 +1642,7 @@ subroutine plot_array( nn, arr, str )
   
   yy = arr
   
-#ifdef PETSC330
   call VecCreateMPIWithArray(mpi_comm_self,1,nn,PETSC_DECIDE,yy,v,ierr)
-#else
-  call VecCreateMPIWithArray(mpi_comm_self,nn,PETSC_DECIDE,yy,v,ierr)
-#endif
   !
   call PetscViewerASCIIOpen(mpi_comm_self, str,viewer,ierr)
   call PetscViewerSetFormat(viewer, PETSC_VIEWER_ASCII_MATLAB,ierr)
