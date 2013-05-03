@@ -589,7 +589,8 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Amat, ierr ) ! need ti separate for SuperLU
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
-    call MatMPIAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    !    call MatMPIAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    call MatMPIAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,mindex,PETSC_NULL_INTEGER,ierr)
     call MatSeqAIJSetPreallocation(Amat,mindex,PETSC_NULL_INTEGER,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
@@ -599,7 +600,8 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Mmat, ierr ) ! need ti separate for SuperLU
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
-    call MatMPIAIJSetPreallocation(Mmat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    !    call MatMPIAIJSetPreallocation(Mmat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    call MatMPIAIJSetPreallocation(Mmat,mindex,PETSC_NULL_INTEGER,mindex,PETSC_NULL_INTEGER,ierr)
     call MatSeqAIJSetPreallocation(Mmat,mindex,PETSC_NULL_INTEGER,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
@@ -625,6 +627,7 @@ contains
 !cj imposing dirichlet bc
     if( bc_type .eq. 1 ) ib = mtheta(0)
     if( bc_type .eq. 2 ) ib = mtheta(0) + mtheta(mpsi)
+    if( bc_type .eq. 3 ) ib = mtheta(mpsi)
     allocate(bdy(0:ib-1))
     this%mat%numbdy = mtheta(0) + mtheta(mpsi)
     allocate(this%mat%bdy(0:ib-1))
@@ -744,7 +747,7 @@ contains
     integer,intent(in) :: nn
     integer,intent(out) :: ierr
     real(wp),intent(in) :: bb_gk(nn) 
-    real(wp),intent(out) :: xx_gk(nn)
+    real(wp),intent(inout) :: xx_gk(nn)
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(doubleprec),allocatable,dimension(:) :: xx, bb 
@@ -763,6 +766,7 @@ contains
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
+             xx(ivsl) = xx_gk(ivgts)
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
@@ -1382,8 +1386,8 @@ contains
           ! bc_type = 0
           ! neumann bc at both a0 and a1
           endif
-          if(mype .eq. 0 ) write(112,112) it, this%gk_matid(it)
-112 format("new_gk_matid ", 2(2x,i7))
+!          if(mype .eq. 0 ) write(112,112) it, this%gk_matid(it)
+!112 format("new_gk_matid ", 2(2x,i7))
        end do
     end do
     if(id .ne. sum(mtheta)) call MPI_ABORT(mpi_comm_world,1,ierr)
@@ -1586,7 +1590,7 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
         cf3 = mean( gtt, fe_ns )
         cf4 = mean( gpp, fe_ns )
 
-     q(:) = points(5,ind(:))
+     q(:)=-gFaj(:)/gYaj(:)
      qq = mean( q*q, fe_ns )
 
      do i=1,fe_ns
