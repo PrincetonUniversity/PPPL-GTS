@@ -625,9 +625,14 @@ contains
     call new_gk_matid( this%mat, bc_type )
 
 !cj imposing dirichlet bc
-    if( bc_type .eq. 1 ) ib = mtheta(0)
-    if( bc_type .eq. 2 ) ib = mtheta(0) + mtheta(mpsi)
-    if( bc_type .eq. 3 ) ib = mtheta(mpsi)
+    ib=0
+    if( bc_type .eq. 1 ) then
+       ib = mtheta(0)
+    else if( bc_type .eq. 2 ) then
+       ib = mtheta(0) + mtheta(mpsi)
+    else if( bc_type .eq. 3 ) then
+       ib = mtheta(mpsi)
+    endif
     allocate(bdy(0:ib-1))
     this%mat%numbdy = mtheta(0) + mtheta(mpsi)
     allocate(this%mat%bdy(0:ib-1))
