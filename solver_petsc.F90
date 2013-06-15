@@ -582,6 +582,7 @@ contains
     mring=2
     mindex=64*mring+1 ! estimate for matrix size
     neq = sum( mtheta )
+    if(mype==0) write(*,*) "	finite elements matrix dim neq=", neq
 
     call MatCreate( partd_comm, Amat, ierr )
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
@@ -633,8 +634,8 @@ contains
     else if( bc_type .eq. 3 ) then
        ib = mtheta(mpsi)
     endif
+    this%mat%numbdy = ib
     allocate(bdy(0:ib-1))
-    this%mat%numbdy = mtheta(0) + mtheta(mpsi)
     allocate(this%mat%bdy(0:ib-1))
     it = 0
     ir = 0
@@ -686,13 +687,14 @@ contains
           end if
        end do
     end do
-    if(mype==0) write(*,*) "	finite elements bdy ib ib2=", ib, ib2
+    if(mype==0) write(*,*) "	finite elements bdy ib ib2=", ib, ib2, mtheta(0), mtheta(mpsi)
     if(ib .ne. ib2) call MPI_ABORT(mpi_comm_world,1,ierr)
 
 !   Set Amat=1 on bdy vertex for applying Dirichlet bc
 !   using zero-based bdy index
     a = 1.
     call MatZeroRows(Amat,ib,bdy,a,PETSC_NULL_OBJECT,PETSC_NULL_OBJECT,ierr)
+    deallocate(bdy)
     if(mype==0) write(*,*) "	finite elements matrix bdy fix"
 
     call solver_init( this, prefix, Amat, neq,ierr)
@@ -1006,6 +1008,7 @@ contains
     integer, external :: metric_elements
 
     real(wp) M, L, alfa
+    real(wp) :: rms=0.
     integer :: whichone = 5
 
 
@@ -1072,6 +1075,7 @@ contains
                 !del u=------- + -------
                 !      da^2      dt^2
              else
+#ifdef ORIG
                 !u = sin(pi M (a-a0)/(a1-a0)) cos( L theta + alfa),
                 !rhs: del u = -( (pi M / (a1-a0))^2 + L^2 ) u
                 xx(ivsl) = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
@@ -1086,13 +1090,17 @@ contains
                 Zs=1.
                 gs = Zs / Bj(1) / Bj(1) * ns0 * c0cs_i * msm0_i
                 bb(ivsl) = 1.
+#else
+                xx(ivsl) = pdum*pdum
+                bb(ivsl) = 4.
+#endif
              endif
 
              ! assign the boundary vertex
              ! must be set to negative xx since Amat was set to -1 on bdy vertex
              ! if( ir==0 .or. ir==mpsi ) then
              if( solver%zero01(ivsl) .gt. 0 ) then
-                xx(ivsl) = - xx(ivsl)
+                xx(ivsl) =   xx(ivsl)
              endif
           end if
        enddo
@@ -1128,7 +1136,12 @@ contains
              else if(whichone==2) then
                 tmp = sin(pi*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
              else
+#ifdef ORIG
                 tmp = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
+#else
+                tmp = pdum*pdum
+                rms = rms+abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))*abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
+#endif
              endif
 
              ! print the inner vertex for debugging
@@ -1140,6 +1153,7 @@ contains
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     call flush(111)
+    if(mype.eq.0) write(0, *) "	finite element test rms=",sqrt(rms/ivsl)
     if(mype.eq.0) write(0, *) "	finite element test solve end"
     
     deallocate(bb,xx) 
@@ -1548,6 +1562,7 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
              sarr2(kk) = fcj*sarr(i,ind3(j))
              marr2(kk) = fcj*marr(i,ind3(j))
                 else
+#ifdef ORIG
              sarr2(kk) = alpha * fcj * marr(i,ind3(j)) &
                        + beta * fcj * gs * ( cf1*rrarr(i,ind3(j)) &
                        +                     cf2*rzarr(i,ind3(j)) &
@@ -1556,6 +1571,10 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
                        +                     cf4*pparr(i,ind3(j))/qq &
                                            )
              marr2(kk) = fcj*marr(i,ind3(j))
+#else
+             sarr2(kk) = fcj*sarr(i,ind3(j))
+             marr2(kk) = fcj*marr(i,ind3(j))
+#endif
                 endif
            enddo
         enddo
@@ -1580,8 +1599,9 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
 
         ! in (a,t) flux coordinates
         ! fcj: flux coordinate jacobian
-        ! Jacobian=rj(1)*(  zaj(1)*rqj(1)-zqj(1)*raj(1)  )
-        fcj = mean( (zaj*rqj-zqj*raj)*rj, fe_ns )
+        ! Jacobian=(  zaj(1)*rqj(1)-zqj(1)*raj(1)  )
+        ! differential area dS = J |grad phi| dadt = J/rj
+        fcj = mean( (zaj*rqj-zqj*raj)/rj, fe_ns )
 
      do i=1,fe_ns
         mt=metric_elements(aaa(i),the(i),0.)
