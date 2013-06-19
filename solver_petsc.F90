@@ -208,6 +208,7 @@ contains
     type(solver_data) :: this    
     !
     this%mat%data = 0 !PETSC_NULL_OBJECT
+    this%mat%mdata = 0 !PETSC_NULL_OBJECT
     this%ksp = 0 !PETSC_NULL_OBJECT      
     this%scat = 0 !PETSC_NULL_OBJECT
     this%xVec = 0 !PETSC_NULL_OBJECT
@@ -391,6 +392,11 @@ contains
     
     if( this%mat%data /= 0 ) then
        call MatDestroy( this%mat%data,ierr)
+       !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    endif
+    
+    if( this%mat%mdata /= 0 ) then
+       call MatDestroy( this%mat%mdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
     
@@ -1076,6 +1082,9 @@ contains
                 !      da^2      dt^2
              else
 #ifdef ORIG
+                xx(ivsl) = pdum*pdum
+                bb(ivsl) = 4.
+#else
                 !u = sin(pi M (a-a0)/(a1-a0)) cos( L theta + alfa),
                 !rhs: del u = -( (pi M / (a1-a0))^2 + L^2 ) u
                 xx(ivsl) = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
@@ -1090,9 +1099,6 @@ contains
                 Zs=1.
                 gs = Zs / Bj(1) / Bj(1) * ns0 * c0cs_i * msm0_i
                 bb(ivsl) = 1.
-#else
-                xx(ivsl) = pdum*pdum
-                bb(ivsl) = 4.
 #endif
              endif
 
@@ -1137,10 +1143,10 @@ contains
                 tmp = sin(pi*M*(rj(1)-R_0)) * cos(L*zj(1)+alfa)
              else
 #ifdef ORIG
-                tmp = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
-#else
                 tmp = pdum*pdum
                 rms = rms+abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))*abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
+#else
+                tmp = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
 #endif
              endif
 
@@ -1563,6 +1569,9 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
              marr2(kk) = fcj*marr(i,ind3(j))
                 else
 #ifdef ORIG
+             sarr2(kk) = fcj*sarr(i,ind3(j))
+             marr2(kk) = fcj*marr(i,ind3(j))
+#else
              sarr2(kk) = alpha * fcj * marr(i,ind3(j)) &
                        + beta * fcj * gs * ( cf1*rrarr(i,ind3(j)) &
                        +                     cf2*rzarr(i,ind3(j)) &
@@ -1570,9 +1579,6 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
                        +                     cf3*zzarr(i,ind3(j)) &
                        +                     cf4*pparr(i,ind3(j))/qq &
                                            )
-             marr2(kk) = fcj*marr(i,ind3(j))
-#else
-             sarr2(kk) = fcj*sarr(i,ind3(j))
              marr2(kk) = fcj*marr(i,ind3(j))
 #endif
                 endif
