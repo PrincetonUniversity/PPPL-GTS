@@ -162,6 +162,7 @@ end module phit_matrix_class
 module solver_data_type
   use precision,only:wp,doubleprec
   use phit_matrix_class
+  use fem_data_class
   implicit none
 #include "finclude/petscdef.h"
 #include "finclude/petscvecdef.h"
@@ -175,7 +176,8 @@ module solver_data_type
      IS petsc_gts_is
      type(phit_matrix_data) :: mat
      Mat rhs_mat     
-     !integer,dimension(:),pointer :: ipbc
+
+     type(fem_data) :: fem
 
      !finite element
      ! order = 0 original solver
@@ -215,9 +217,6 @@ contains
     this%bVec = 0 !PETSC_NULL_OBJECT
     this%petsc_gts_is = 0 !PETSC_NULL_OBJECT
     this%rhs_mat = 0
-
-    !nullify(this%ipbc)
-
   end subroutine nullify_solver
     !========================================================================
   !             subroutine solver_init
@@ -588,7 +587,8 @@ contains
     mring=2
     mindex=64*mring+1 ! estimate for matrix size
     neq = sum( mtheta )
-    if(mype==0) write(*,*) "	finite elements matrix dim neq=", neq
+    if(fem%order .gt. 1) neq = fem%nmesh_pts
+    if(mype==0) write(*,*) "	finite elements matrix dim neq=", sum(mtheta), neq
 
     call MatCreate( partd_comm, Amat, ierr )
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
@@ -614,8 +614,10 @@ contains
 
     alpha = 1.
     beta  = 1.
-    call form_tangent(Amat,Mmat,fem%iemax,fem%iet1,fem%iet2,&
-         fem%iet3,neq,fem%points,alpha,beta,ierr)
+    !call form_tangent(Amat,Mmat,fem%iemax,fem%iet1,fem%iet2,&
+    !     fem%iet3,neq,fem%points,alpha,beta,ierr)
+    call form_tangent(fem%order,Amat,Mmat,fem%iemax,fem%iet,&
+         neq,fem%points,alpha,beta,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatAssemblyBegin( Amat, MAT_FINAL_ASSEMBLY, ierr )
@@ -733,6 +735,7 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
     call VecDestroy( vec_yy, ierr )
 
+    this%fem=fem
   end subroutine new_fem_solver
 
 
@@ -761,12 +764,14 @@ contains
     integer,intent(out) :: ierr
     real(wp),intent(in) :: bb_gk(nn) 
     real(wp),intent(inout) :: xx_gk(nn)
+    real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(doubleprec),allocatable,dimension(:) :: xx, bb 
     integer :: count = 0
 
 
+    if(mype.eq.0 .and. solver%order.gt.0) write(0, *) "	finite element solve begin"
     count = count + 1
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
@@ -787,8 +792,24 @@ contains
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     
+    if( solver%order .gt. 1) then
+    ! interpolate linear to ho array
+        allocate(xx_ho(solver%fem%nmesh_pts),bb_ho(solver%fem%nmesh_pts))
+        call hogrid(solver%fem%iemax, solver%fem%iet, neq, xx, solver%fem%nmesh_pts, xx_ho)
+        call hogrid(solver%fem%iemax, solver%fem%iet, neq, bb, solver%fem%nmesh_pts, bb_ho)
+
+    ! solve GK Poisson equation
+    call petsc_solve( solver, solver%fem%nmesh_pts, bb_ho, xx_ho, ierr)
+
+    ! interpolate linear from ho array
+        call hogridinv(neq, xx, solver%fem%nmesh_pts, xx_ho)
+        call hogridinv(neq, bb, solver%fem%nmesh_pts, bb_ho)
+        deallocate(xx_ho,bb_ho)
+
+    else
     ! solve GK Poisson equation
     call petsc_solve( solver, neq, bb, xx, ierr)
+    endif
 
     ! set solution (output)
     ivsl = 0
@@ -807,6 +828,7 @@ contains
     enddo
 
     deallocate(bb,xx) 
+    if(mype.eq.0 .and. solver%order>0) write(0, *) "	finite element solve end"
 
     ! debug
     if( count .eq. 1 .and. mype==-10 ) then
@@ -860,7 +882,7 @@ contains
     real(wp),external :: besei0
     integer metr
 
-    integer :: count = 5
+    integer :: count = 0
 
 
     count = count + 1
@@ -1005,7 +1027,8 @@ contains
     integer :: ierr
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
-    real(doubleprec),allocatable,dimension(:) :: xx, bb 
+    real(doubleprec),allocatable,dimension(:) :: xx, bb
+    real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(2) :: aaa,the,rj,zj,Bj
     real(wp) cf1, cf2, cf3, cf4, cf5
@@ -1053,10 +1076,10 @@ contains
                 !u = (x + y)^2,
                 !rhs: c1f*d^2/dx^2 + cf2*d^/dxdy + cf3*d^2/dy^2 + cf4*d/dx + cf5*d/dy = 8 + 4(x+y)
                 cf1=1.
-                cf2=1.
+                cf2=0.
                 cf3=1.
-                cf4=1.
-                cf5=1.
+                cf4=0.
+                cf5=0.
                 xx(ivsl) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
                 bb(ivsl) = cf1*2. + cf2*2.*2. + cf3*2. + cf4*2.*((rj(1)-R_0) + zj(1)) + cf5*2.*((rj(1)-R_0) + zj(1))
              else if(whichone==2) then
@@ -1113,8 +1136,41 @@ contains
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     
+    if( solver%order .gt. 1) then
+        if(mype==0) write(*,*) 'order neq nmesh_pts=',solver%fem%order, neq, solver%fem%nmesh_pts
+
+        allocate(xx_ho(solver%fem%nmesh_pts),bb_ho(solver%fem%nmesh_pts))
+        call hogrid(solver%fem%iemax, solver%fem%iet, neq, xx, solver%fem%nmesh_pts, xx_ho)
+        call hogrid(solver%fem%iemax, solver%fem%iet, neq, bb, solver%fem%nmesh_pts, bb_ho)
+        if(mype==0) then
+           do ivsl=1,neq
+              write(113,113) ivsl, xx(ivsl), bb(ivsl)
+           enddo
+           do ivsl=1,neq
+              write(114,114) ivsl, xx_ho(ivsl), bb_ho(ivsl)
+           enddo
+           113 format("xyin =",  i7,2(1x,d12.6))
+           114 format("xyout =", i7,2(1x,d12.6))
+        endif
+
     ! solve GK Poisson equation
+    call petsc_solve( solver, solver%fem%nmesh_pts, bb_ho, xx_ho, ierr)
+
+        call hogridinv(neq, xx, solver%fem%nmesh_pts, xx_ho)
+        call hogridinv(neq, bb, solver%fem%nmesh_pts, bb_ho)
+
+        if(mype==0) then
+           do ivsl=1,neq
+              write(116,116) ivsl, xx(ivsl), bb(ivsl)
+           enddo
+           116 format("xyin =",  i7,2(1x,d12.6))
+        endif
+
+        deallocate(xx_ho,bb_ho)
+
+    else
     call petsc_solve( solver, neq, bb, xx, ierr)
+    endif
 
 !cj the following is a combianation of solve and tri_mesh, check |u-xx|
     ivsl = 0
@@ -1152,8 +1208,8 @@ contains
 
              ! print the inner vertex for debugging
              if( mype.eq.0 .and. solver%zero10(ivsl) .gt.0 ) &
-             write(111,111) ivsl, xx(ivsl), tmp, abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
-111 format("finite element test solve=", 1(2x,i7), 3(1x,d12.6))
+             write(111,111) ivsl, xx(ivsl), tmp, (rj(1)-R_0), zj(1), abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
+111 format("finite element test solve=", 1(2x,i7), 5(1x,d12.6))
           end if
        enddo
     enddo
@@ -1280,9 +1336,10 @@ contains
     PetscScalar t1
     PetscScalar,allocatable,dimension(:) :: yy, zz
     PetscViewer viewer
-    integer :: m,n,p
+    integer :: m,n,p,vsize,msize,nsize
     PetscInt :: its
     PetscReal :: rnorm
+
 
     if(solver%mat%data .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     !     copy real vector into double precision
@@ -1306,6 +1363,7 @@ contains
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
        call MatMult(solver%mat%mdata, rhsVec, solver%bVec, ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+       !  call VecView( solver%bVec, PETSC_VIEWER_STDOUT_WORLD, ierr )
 
        ! apply dirichlet bc
        ! bVec = bVec * zero10 + xVec * zero01
@@ -1332,6 +1390,15 @@ contains
        call VecAXPBYPCZ(solver%bVec, 1., 1., 0., tmpVec10, tmpVec01, ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
     endif
+    !   call VecGetSize( solver%bVec, vsize, ierr )
+    !   if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    !       if(mype==0) write(*,*) 'dimension=',nn, 'vsize=',vsize
+    !   call MatGetSize(solver%mat%mdata,msize,nsize,ierr)
+    !   if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    !       if(mype==0) write(*,*) 'mdata: msize=',msize, 'nsize=',nsize
+    !   call MatGetSize(solver%mat%data,msize,nsize,ierr)
+    !   if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    !       if(mype==0) write(*,*) 'data: msize=',msize, 'nsize=',nsize
 
     !     Solve      
     call KSPSolve( solver%ksp, solver%bVec, solver%xVec, ierr )
@@ -1422,7 +1489,8 @@ contains
 !========================================================================
 !                         subroutine form_tangent
 !========================================================================
-subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
+!subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
+subroutine form_tangent( order, Amat, Mmat, iemax, iet, npts, points, &
      alpha, beta, ierr )
   !     
   !     input:
@@ -1443,20 +1511,29 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
   implicit none
 #include "finclude/petscsys.h"
 #include "finclude/petscvec.h"
-  integer iemax,npts,ierr
-  integer,dimension(:) :: iet1,iet2,iet3
+  integer order,iemax,npts,ierr
+! integer,dimension(:),allocatable :: iet1,iet2,iet3
+  integer,dimension(:,:) :: iet
   real(wp) :: points(5,npts)
   real(wp) alpha, beta
   Mat  Amat, Mmat
-  real(doubleprec)  xlt(2,3),sarr(3,3),sarr2(3*3),ul(3,4),eps ! therm2d uses *8
-  real(doubleprec)           marr(3,3),marr2(3*3)             ! mass matrix
-  real(doubleprec)  rrarr(3,3),rzarr(3,3),zrarr(3,3),zzarr(3,3),pparr(3,3),rarr(3,3),zarr(3,3)
+!  real(doubleprec)  xlt(2,3),sarr(3,3),sarr2(3*3),ul(3,4),eps ! therm2d uses *8
+!  real(doubleprec)           marr(3,3),marr2(3*3)             ! mass matrix
+!  real(doubleprec)  rrarr(3,3),rzarr(3,3),zrarr(3,3),zzarr(3,3),pparr(3,3),rarr(3,3),zarr(3,3)
+  real(doubleprec) eps ! therm2d uses *8
+  real(doubleprec),dimension(:,:),allocatable ::  xlt,sarr,marr,ul ! therm2d uses *8
+  real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
+  real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
   real(doubleprec) c1, c2
   real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
-  real(doubleprec) :: cf1=1., cf2=1., cf3=1., cf4=1., cf5=1., cf6=1.
-  integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
-  real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-  real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe,q,ns0,ne0
+  real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
+! integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
+  integer ie,i,j,k,kk,nz,nel,nst
+  integer,dimension(:),allocatable :: ind2,ind3,ind
+! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe,q,ns0,ne0
+  real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+  real(wp), dimension(:),allocatable :: gaa,gtt,gpp,gat,vthe,q,ns0,ne0
   real(wp) :: Zs, gs,qq
 
   real(wp), external ::temperature_e, density
@@ -1473,17 +1550,17 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
 
   c1 = alpha
   c2 = beta
-  nel = 3                   ! points per element
-  nst = 3                   ! size of elem matrix
-  ul = 0.                   ! displacement, velocit and acceloration (not used)
   eps = 1.e-6
 
   call MatZeroEntries(Amat,ierr)
 
+  fe_order=order
   call lagrange_element_define(fe_order, &
                                fe_node, &
                                fe_ns, &
                                fe_nw )
+  nel = fe_ns                   ! points per element
+  nst = fe_ns                   ! size of elem matrix
   allocate(fe_weight(fe_nw))
   allocate(fe_NN(fe_ns,fe_nw))
   allocate(fe_dN1(fe_node,fe_ns,fe_nw))
@@ -1496,11 +1573,23 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
                                    fe_dN1, &
                                    fe_Eij)
 
+  allocate( ind2(fe_ns),ind3(fe_ns),ind(fe_ns) )
+  allocate( xlt(2,fe_ns),sarr(fe_ns,fe_ns),sarr2(fe_ns*fe_ns),ul(fe_ns,4) )
+  allocate( marr(fe_ns,fe_ns),marr2(fe_ns*fe_ns) )
+  allocate( rrarr(fe_ns,fe_ns),rzarr(fe_ns,fe_ns),zrarr(fe_ns,fe_ns),zzarr(fe_ns,fe_ns),pparr(fe_ns,fe_ns),rarr(fe_ns,fe_ns),zarr(fe_ns,fe_ns) )
+  ul = 0.                   ! displacement, velocit and acceloration (not used)
+
+  allocate( aaa(fe_ns),the(fe_ns),Fj(fe_ns),Faj(fe_ns),gFaj(fe_ns),gYaj(fe_ns),rj(fe_ns),raj(fe_ns),rqj(fe_ns),zj(fe_ns),zaj(fe_ns),zqj(fe_ns),Bj(fe_ns) )
+  allocate( gaa(fe_ns),gtt(fe_ns),gpp(fe_ns),gat(fe_ns),vthe(fe_ns),q(fe_ns),ns0(fe_ns),ne0(fe_ns) )
+
   if(mype .eq. 0) write(0,*) '	form_tangent: iemax=', iemax
   do ie=1,iemax
-     ind(1)=iet1(ie)
-     ind(2)=iet2(ie)
-     ind(3)=iet3(ie)
+     !ind(1)=iet1(ie)
+     !ind(2)=iet2(ie)
+     !ind(3)=iet3(ie)
+     do i=1,fe_ns
+     ind(i)=iet(i,ie)
+     enddo
      if(ind(1) .eq. 0) stop 'ind(1) == 0'
     
      if(whichone.le.3) then
@@ -1515,9 +1604,9 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
 
      if(whichone == 3) then
         ! in (r,z) cylindrical coordinates
-        cf1 = mean( raj*raj + rqj*rqj , 3)
-        cf2 = mean( raj*zaj + rqj*zqj , 3)
-        cf3 = mean( zaj*zaj + zqj*zqj , 3)
+        cf1 = mean( raj*raj + rqj*rqj , fe_ns)
+        cf2 = mean( raj*zaj + rqj*zqj , fe_ns)
+        cf3 = mean( zaj*zaj + zqj*zqj , fe_ns)
      else if(whichone >= 4) then
         call cmp_phy_qty
      endif
@@ -1547,17 +1636,17 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
         enddo
 
         kk = 0
-        do i=1,nel
+        do j=1,nel
            k = ind(i)
-           do j=1,nz
+           do i=1,nz
              kk = kk + 1
                 if(whichone==1) then
-             sarr2(kk) = cf1*rrarr(i,ind3(j)) &
-                        +cf2*2.*rzarr(i,ind3(j)) &
-                        +cf3*zzarr(i,ind3(j)) &
-                        +cf4*rarr(i,ind3(j)) &
-                        +cf5*zarr(i,ind3(j))
-             marr2(kk) = marr(i,ind3(j))
+            sarr2(kk) = cf1*rrarr(i,j) &
+                       +cf2*2.*rzarr(i,j) &
+                       +cf3*zzarr(i,j) &
+                       +cf4*rarr(i,j) &
+                       +cf5*zarr(i,j)
+             marr2(kk) = marr(i,j)
                 else if(whichone==2) then
              sarr2(kk) = sarr(i,ind3(j))
              marr2(kk) = marr(i,ind3(j))
@@ -1642,6 +1731,7 @@ subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
      gs = Zs / mean(Bj*Bj, fe_ns) &
         * mean(ns0, fe_ns) &
         * c0cs_i * msm0_i
+
     END SUBROUTINE cmp_phy_qty
 
     FUNCTION mean(vals,nn)

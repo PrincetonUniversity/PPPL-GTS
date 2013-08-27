@@ -36,7 +36,7 @@ program GTS
   real(doubleprec) t0,t0wc,time(nc),timewc(nc),dt,dtwc,loop_time
   character(len=16) ic(nc)
   type(solver_data) :: solver1,solver_dphi_dt
-  type(fem_data) :: fem
+  type(fem_data) :: fem1,femt
 
   interface
     subroutine shift(phase,phase0,mp,mpmax)
@@ -98,16 +98,19 @@ program GTS
   else
      solver1%order = order
      solver_dphi_dt%order = order
+     fem1%order = order
+     femt%order = order
      if(mype == 0) write (0, *) "	finite element order=", order
-     call new_fem_data( fem )
-     call new_fem_solver( fem, solver1, '', 1, 1 )
-     if(ifelectron==2) call new_fem_solver( fem,solver_dphi_dt, 'dphidt_', 2, 2 )
-!...     call testsolve( solver1 )
-!...     call delete_fem_data( fem )
-!...     call destroy_solver( solver1 )
+     call new_fem_data( fem1 )
+     call new_fem_solver( fem1, solver1, '', 1, 2 )
+!...     if(ifelectron==2) call new_fem_data( femt )
+!...     if(ifelectron==2) call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', 2, 2 )
+!cj     call testsolve( solver1 )
+!cj     call delete_fem_data( fem1 )
+!cj     call destroy_solver( solver1 )
 !...     call destroy_solver( solver_dphi_dt )
-!...     call PetscFinalize( ierror )
-!...     stop
+!cj     call PetscFinalize( ierror )
+!cj     stop
   endif
 
   ! initialize particle position and velocity
@@ -419,9 +422,10 @@ end if
   if(ifelectron==2.and.ifdphi==1) call destroy_solver(solver_dphi_dt)
   call destroy_solver(solver1)
   else
-     call delete_fem_data( fem )
+     call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
-     call destroy_solver( solver_dphi_dt )
+!...     if(ifelectron==2) call delete_fem_data( femt )
+!...     if(ifelectron==2) call destroy_solver( solver_dphi_dt )
   endif
 
 ! MPI finalize

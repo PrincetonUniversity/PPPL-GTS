@@ -11,8 +11,10 @@ module fem_data_type
   use precision,only:wp
   implicit none
   type fem_data
+     integer :: order
      integer :: iemax,nmesh_pts
-     integer,dimension(:),pointer :: iet1,iet2,iet3
+!    integer,dimension(:),pointer :: iet1,iet2,iet3
+     integer,dimension(:,:),pointer :: iet
      real(wp),dimension(:,:),pointer :: points
   end type fem_data
 end module fem_data_type
@@ -103,11 +105,13 @@ subroutine delete_fem_data_private( this, ierr )
   integer,intent(out) :: ierr
   !
   if( this%iemax > 0 ) then
-     deallocate(this%iet1,this%iet2,this%iet3)
+!    deallocate(this%iet1,this%iet2,this%iet3)
+     deallocate(this%iet)
      if( associated(this%points) ) deallocate(this%points)
 
      this%iemax = 0
-     nullify(this%iet1,this%iet2,this%iet3,this%points)
+!    nullify(this%iet1,this%iet2,this%iet3,this%points)
+     nullify(this%iet)
   endif
 
   ierr = 0
@@ -129,11 +133,15 @@ subroutine tri_mesh( this )
   real(wp) zeta, pdum, dt, tdum
   integer i,j,sz,ie,iv
   real(wp), dimension(2) :: aaa,the,rj,zj,Bj
+  integer ngvert
+  real(wp),dimension(:,:),pointer :: gvert !, tmp
+  integer i1,i2,i3,i4,i5,i6
 
   interface
-    subroutine circ_tri_mesh(mtheta,npoints,points,iemax,mype)
+    subroutine circ_tri_mesh(mtheta,npoints,points,order,ngvert,iemax,mype)
       use precision
       implicit none
+      integer order, ngvert
       integer iemax ! in or out
       integer mype,npoints,mtheta(0:)
       real(wp) points(5,npoints)
@@ -170,12 +178,68 @@ subroutine tri_mesh( this )
   if(iv .ne. this%nmesh_pts) stop 'iv .ne. nmesh_pts'
 
   ! count elements
-  call circ_tri_mesh(mtheta, this%nmesh_pts, this%points, this%iemax, mype)
+  call circ_tri_mesh(mtheta, this%nmesh_pts, this%points, this%order, ngvert, this%iemax, mype)
   
   ! allocate and generate mesh
-  allocate( this%iet1(this%iemax), this%iet2(this%iemax), this%iet3(this%iemax) )
+! allocate( this%iet1(this%iemax), this%iet2(this%iemax), this%iet3(this%iemax) )
+  if (this%order .eq. 1) then
+  allocate( this%iet(3,this%iemax) )
+  else
+  allocate( this%iet(6,this%iemax) )
+  endif
   !
-  call mesh_gen( this%iemax, this%iet1, this%iet2, this%iet3, mype )
+  ! call mesh_gen( this%iemax, this%iet1, this%iet2, this%iet3, mype )
+  call mesh_gen( this%order, this%iemax, this%iet )
+
+  ! extract 2nd order node coordinate
+  if (this%order .gt. 1) then
+     if(mype==1) write(*,*) '	order and global nodes=',this%order, this%nmesh_pts, ngvert
+     allocate( gvert(5,ngvert) )
+!    allocate( tmp(2,ngvert) )
+!     do ie=1,this%iemax
+!           i1 = this%iet(1,ie)
+!           i2 = this%iet(2,ie)
+!           i3 = this%iet(3,ie)
+!           gvert(1,i1) = this%points(1,i1)
+!           gvert(1,i2) = this%points(1,i2)
+!           gvert(1,i3) = this%points(1,i3)
+!           gvert(2,i1) = this%points(2,i1)
+!           gvert(2,i2) = this%points(2,i2)
+!           gvert(2,i3) = this%points(2,i3)
+!           i4 = this%iet(4,ie)
+!           i5 = this%iet(5,ie)
+!           i6 = this%iet(6,ie)
+!           gvert(1,i4) = .5*(this%points(1,i1)+this%points(1,i2))
+!           gvert(1,i5) = .5*(this%points(1,i2)+this%points(1,i3))
+!           gvert(1,i6) = .5*(this%points(1,i3)+this%points(1,i1))
+!           gvert(2,i4) = .5*(this%points(2,i1)+this%points(2,i2))
+!           gvert(2,i5) = .5*(this%points(2,i2)+this%points(2,i3))
+!           gvert(2,i6) = .5*(this%points(2,i3)+this%points(2,i1))
+!     enddo
+!    call hogrid(this%iemax, this%iet, this%nmesh_pts, this%points(1,:), ngvert, gvert(1,:))
+!     do iv=1,ngvert
+!       if(abs(gvert(1,iv)-tmp(1,iv)) .gt. 1.e-6) write(*,*) "xcoor is wrong at", iv
+!        if( mype.eq.0 ) write(111,111) gvert(1,iv), tmp(1,iv), gvert(1,iv) - tmp(1,iv)
+!111 format("xcoor =", 3(1x,d12.6))
+!     enddo
+!    call hogrid(this%iemax, this%iet, this%nmesh_pts, this%points(2,:), ngvert, gvert(2,:))
+!     do iv=1,ngvert
+!       if(abs(gvert(2,iv)-tmp(2,iv)) .gt. 1.e-6) write(*,*) "ycoor is wrong at", iv
+!        if( mype.eq.0 ) write(112,112) gvert(2,iv), tmp(2,iv), gvert(2,iv) - tmp(2,iv)
+!112 format("ycoor =", 3(1x,d12.6))
+!     enddo
+     do iv=1,5
+        call hogrid(this%iemax, this%iet, this%nmesh_pts, this%points(iv,:), ngvert, gvert(iv,:))
+     enddo
+     DEALLOCATE(this%points)
+     this%nmesh_pts =  ngvert
+     allocate( this%points(5,this%nmesh_pts) )
+     do iv=1,5
+        this%points(iv,:) = gvert(iv,:)
+     enddo
+     DEALLOCATE(gvert)
+!     DEALLOCATE(tmp)
+  endif
 
   ! file output -- debug -- change two below also!!!
   if( mype .eq. -1 ) then
@@ -183,7 +247,8 @@ subroutine tri_mesh( this )
      open(unit=i,file='B2_1.ele')
      write(i,*) this%iemax,' 3 0'
      do ie=1,this%iemax
-        write(i,*) ie,this%iet1(ie),this%iet2(ie),this%iet3(ie)
+!       write(i,*) ie,this%iet1(ie),this%iet2(ie),this%iet3(ie)
+        write(i,*) ie,this%iet(1,ie),this%iet(2,ie),this%iet(3,ie)
      enddo
      close(i)
   endif
@@ -193,10 +258,11 @@ end subroutine tri_mesh
 !========================================================================
 !                         circ_tri_mesh
 !========================================================================
-subroutine circ_tri_mesh(mtheta,npoints,points,iemax,mype)
+subroutine circ_tri_mesh(mtheta,npoints,points,order,ngvert,iemax,mype)
   use precision
   use global_parameters,only:mpsi
   implicit none
+  integer order,ngvert
   integer iemax ! in or out
   integer mype,npoints,mtheta(0:)
   real(wp) points(5,npoints)
@@ -262,8 +328,66 @@ subroutine circ_tri_mesh(mtheta,npoints,points,iemax,mype)
      close(i)
   endif
 
-  call mesh_count(npoints,dpoints,nedges,edges,iemax,mype)
+  call mesh_count(npoints,dpoints,nedges,edges,order,ngvert,iemax,mype)
   DEALLOCATE(dpoints)
   DEALLOCATE(edges)
 
 end subroutine circ_tri_mesh
+
+subroutine hogrid(iemax, iet, insize, inarr, outsize, outarr)
+  use precision
+  use global_parameters,only: mype
+  integer iemax, insize, outsize
+  real(wp) inarr(insize)
+  real(wp) outarr(outsize)
+  integer,dimension(6,iemax) :: iet
+  integer:: ie, i1,i2,i3,i4,i5,i6
+  integer:: count=0
+     do ie=1,iemax
+           i1 = iet(1,ie)
+           i3 = iet(3,ie)
+           i5 = iet(5,ie)
+           outarr(i1) = inarr(i1)
+           outarr(i3) = inarr(i3)
+           outarr(i5) = inarr(i5)
+           i2 = iet(2,ie)
+           i4 = iet(4,ie)
+           i6 = iet(6,ie)
+           outarr(i2) = .5*(inarr(i1)+inarr(i3))
+           outarr(i4) = .5*(inarr(i3)+inarr(i5))
+           outarr(i6) = .5*(inarr(i5)+inarr(i1))
+           if( mype.eq.0 .and. count.lt.1) write(113,113) &
+           ie, inarr(i1), inarr(i3), inarr(i5)
+113 format("xyin =", i7,3(1x,d12.6))
+           if( mype.eq.0 .and. count.lt.1) write(114,114) &
+           ie, outarr(i1), outarr(i3), outarr(i5), outarr(i2), outarr(i4), outarr(i6)
+114 format("xyout =", i7, 6(1x,d12.6))
+           if( mype.eq.0 .and. count.lt.1) write(115,115) &
+           ie, i1, i2, i3, i4, i5, i6
+115 format("ie =", i7, 6(1x,i7))
+     enddo
+     count=count+1
+     if( mype.eq.0 .and. count.eq.mype) write(0,*) '	hogrid is called at', count
+end subroutine hogrid
+
+subroutine hogridinv(newsize, newarr, oldsize, oldarr)
+  use precision
+  integer newsize, oldsize
+  real(wp) newarr(newsize)
+  real(wp) oldarr(oldsize)
+     if(oldsize .lt. newsize) stop '	fem: array size is not right'
+     newarr(1:newsize) = oldarr(1:newsize)
+end subroutine hogridinv
+!  integer iemax, ssize, lsize
+!  real(wp) sarr(ssize), larr(lsize)
+!  integer,dimension(6,iemax) :: iet
+!  integer:: ie, i1,i2,i3
+!     if(lsize .lt. ssize) stop '	fem: array size is not right'
+!     do ie=1,iemax
+!           i1 = iet(1,ie)
+!           i2 = iet(2,ie)
+!           i3 = iet(3,ie)
+!           sarr(i1) = larr(i1)
+!           sarr(i2) = larr(i2)
+!           sarr(i3) = larr(i3)
+!     enddo
