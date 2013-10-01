@@ -16,6 +16,7 @@ module fem_data_type
 !    integer,dimension(:),pointer :: iet1,iet2,iet3
      integer,dimension(:,:),pointer :: iet
      real(wp),dimension(:,:),pointer :: points
+     real(wp),dimension(:,:,:),pointer :: Pijk
   end type fem_data
 end module fem_data_type
 !========================================================================
@@ -108,6 +109,7 @@ subroutine delete_fem_data_private( this, ierr )
 !    deallocate(this%iet1,this%iet2,this%iet3)
      deallocate(this%iet)
      if( associated(this%points) ) deallocate(this%points)
+     if( associated(this%Pijk) ) deallocate(this%Pijk)
 
      this%iemax = 0
 !    nullify(this%iet1,this%iet2,this%iet3,this%points)
@@ -182,17 +184,17 @@ subroutine tri_mesh( this )
   
   ! allocate and generate mesh
 ! allocate( this%iet1(this%iemax), this%iet2(this%iemax), this%iet3(this%iemax) )
-  if (this%order .eq. 1) then
-  allocate( this%iet(3,this%iemax) )
-  else
+  if (this%order .eq. 2) then
   allocate( this%iet(6,this%iemax) )
+  else
+  allocate( this%iet(3,this%iemax) )
   endif
   !
   ! call mesh_gen( this%iemax, this%iet1, this%iet2, this%iet3, mype )
   call mesh_gen( this%order, this%iemax, this%iet )
 
   ! extract 2nd order node coordinate
-  if (this%order .gt. 1) then
+  if (this%order .eq. 2) then
      if(mype==1) write(*,*) '	order and global nodes=',this%order, this%nmesh_pts, ngvert
      allocate( gvert(5,ngvert) )
 !    allocate( tmp(2,ngvert) )
@@ -356,15 +358,15 @@ subroutine hogrid(iemax, iet, insize, inarr, outsize, outarr)
            outarr(i2) = .5*(inarr(i1)+inarr(i3))
            outarr(i4) = .5*(inarr(i3)+inarr(i5))
            outarr(i6) = .5*(inarr(i5)+inarr(i1))
-           if( mype.eq.0 .and. count.lt.1) write(113,113) &
-           ie, inarr(i1), inarr(i3), inarr(i5)
-113 format("xyin =", i7,3(1x,d12.6))
-           if( mype.eq.0 .and. count.lt.1) write(114,114) &
-           ie, outarr(i1), outarr(i3), outarr(i5), outarr(i2), outarr(i4), outarr(i6)
-114 format("xyout =", i7, 6(1x,d12.6))
-           if( mype.eq.0 .and. count.lt.1) write(115,115) &
-           ie, i1, i2, i3, i4, i5, i6
-115 format("ie =", i7, 6(1x,i7))
+!           if( mype.eq.0 .and. count.lt.1) write(113,113) &
+!           ie, inarr(i1), inarr(i3), inarr(i5)
+!113 format("xyin =", i7,3(1x,d12.6))
+!           if( mype.eq.0 .and. count.lt.1) write(114,114) &
+!           ie, outarr(i1), outarr(i3), outarr(i5), outarr(i2), outarr(i4), outarr(i6)
+!114 format("xyout =", i7, 6(1x,d12.6))
+!           if( mype.eq.0 .and. count.lt.1) write(115,115) &
+!           ie, i1, i2, i3, i4, i5, i6
+!115 format("ie =", i7, 6(1x,i7))
      enddo
      count=count+1
      if( mype.eq.0 .and. count.eq.mype) write(0,*) '	hogrid is called at', count

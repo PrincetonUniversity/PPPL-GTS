@@ -41,6 +41,7 @@
 /* PETSC_EXTERN_CXX_BEGIN */
 
 static int *tries = NULL;
+//static REAL *dpoints = NULL;
 
 //void mesh_gen_( int *ntri, int *tri1, int *tri2, int *tri3 )
 void mesh_gen_( int *order, int *ntri, int *tri)
@@ -49,7 +50,7 @@ void mesh_gen_( int *order, int *ntri, int *tri)
   /* output */
   for( i = 0, j = 0; i < *ntri; i++ ) {
 //    tri1[i] = tries[j++]; tri2[i] = tries[j++]; tri3[i] = tries[j++];
-    if(*order > 1) {
+    if(*order == 2) {
     tri[i*6+0] = tries[j++];
     tri[i*6+2] = tries[j++];
     tri[i*6+4] = tries[j++];
@@ -105,7 +106,7 @@ void mesh_count_( int *npoints, REAL *points, int *nedges, int *edges, int *orde
   /* Triangulate the points.  Switches are chosen to read and write a  */
   /*   PSLG (p), ignore BCs (B), number everything from  */
   /*   zero (z), no node output (N), and verbose/quit (V/Q) */
-  if(*order > 1) {
+  if(*order == 2) {
   triangulate( "pPNBQo2", &in, &out, &vorout );
   } else {
   triangulate( "pPNBQ", &in, &out, &vorout );
@@ -120,7 +121,7 @@ if(*mype==0){
   }
   fclose(outfile);
   outfile = fopen("n.ele", "w");
-     if(*order > 1) {
+     if(*order == 2) {
   fprintf(outfile, "%ld  %d  %d\n", out.numberoftriangles, 6, 0);
   for(int j=0;j<out.numberoftriangles*6;j += 6){
     fprintf(outfile, "%4ld    %4d  %4d  %4d  %4d  %4d  %4d\n",j/6+1,
@@ -143,6 +144,7 @@ if(*mype==0){
   *ngvert = out.numberofpoints;
   /* save */
   tries = out.trianglelist;
+//  if(*order > 1) dpoints = out.pointlist;
  }
 
 /* PETSC_EXTERN_CXX_END */

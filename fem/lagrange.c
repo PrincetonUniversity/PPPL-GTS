@@ -11,7 +11,9 @@
 int lagrange_element_define_(int *order,
                           int *node,
                           int *ns,
-                          int *nw
+                          int *nw,
+                          int *ndof,
+                          int *nvar
                          )
 {
 /*int node, order, nw, ns*/;
@@ -20,31 +22,33 @@ int lagrange_element_define_(int *order,
 /*3 vertices defines a triangle*/
     *node = 3;
 
-/*number of collocation point for order 1 element
-    *order = 1;
-*/
+/*number of collocation point for order 1 element */
     *nw =  25;
 
 /*number of geometrical nodes*/
-if(*order > 1) {
-    *ns =  6;
-} else {
-    *ns =  3;
-}
+    if(*order == 2) {
+       *ns =  6;
+    } else {
+       *ns =  3;
+    }
 
 /*number of dof on attached to each geometrical node*/
-//    *ndof =  1;
+    if(*order > 2) {
+       *ndof =  6;
+    } else {
+       *ndof =  1;
+    }
 
 /*number of dof on attached to each triangle*/
-//    *nvar =  (*ndof) * (*node);
+    *nvar =  (*ndof) * (*ns);
 
 /*higher element related*/
     medge = 0; //*order - 1;   /* =1 for =2 =3 */
     nedge = 0; //medge * 3;  /* =3 for =6  =9 */
     nbubble = 0; //*ns - 3 - nedge;/* =0 for =1 =3 */
     PetscPrintf(PETSC_COMM_WORLD,
-        "\tfinite element: order=%d node=%d nw=%d ns=%d\n",
-        *order, *node, *nw, *ns/*, *ndof, *nvar*/);
+        "\tfinite element: order=%d node=%d nw=%d ns=%d ndof=%d nvar=%d\n",
+        *order, *node, *nw, *ns, *ndof, *nvar);
   return 0;
 }
 
@@ -63,10 +67,13 @@ if(*order > 1) {
 int lagrange_element_construct_(int *order,
                              int *ns,
                              int *nw,
+                             int *ndof,
+                             int *nvar,
                              double *weight,
                              double *NN,
                              double *dN1,
-                             double *Eij
+                             double *Eij,
+                             double *bEij
                             )
 {
   /*int node , order, nw, ns*/;
@@ -142,10 +149,13 @@ PetscScalar phi[3][25]={a0,a1,b1,c1,a2,b2,c2,a3,b3,b3,c3,c3,a3,a4,b4,b4,c4,c4,a4
 /*epsilon(3, 3) : epsilon(l,m) = [ lambda_l , lambda_m ]*/
     double epsilon[3][3] = { 0., 1., -1., -1., 0., 1., 1., -1., 0. };
 
-#ifdef TODO
+  PetscScalar *bNN;
+  PetscScalar *dbN1;
+    bNN = dVector1D(0, (*ns)*(*nw) - 1);
+    dbN1 = dVector1D(0, (*ns)*(*ns)*(*nw) - 1);
 /*Lagrange base functions as subparameter mapping evaluated at (ns, nw)
 */
-if(*order > 1) {
+if(*order == 2) {
 /*
   <N>=< N1 N2 N3 N4 N5 N6 >
 */
@@ -180,7 +190,7 @@ if(*order > 1) {
         dbN1[0*(*ns)*(*nw) + 5*(*nw) + n] = -4.*ph2;
         dbN1[1*(*ns)*(*nw) + 5*(*nw) + n] = 4.*(ph0 - ph2);
        
-        //0:dxi^2 1:dxideta 2:deta^2
+        /*0:dxi^2 1:dxideta 2:deta^2
         dbN2[0*(*ns)*(*nw) + 0*(*nw) + n] = 4.;
         dbN2[1*(*ns)*(*nw) + 0*(*nw) + n] = 4.;
         dbN2[2*(*ns)*(*nw) + 0*(*nw) + n] = 4.;
@@ -203,7 +213,7 @@ if(*order > 1) {
 
         dbN2[0*(*ns)*(*nw) + 5*(*nw) + n] =  0.;
         dbN2[1*(*ns)*(*nw) + 5*(*nw) + n] = -4.;
-        dbN2[2*(*ns)*(*nw) + 5*(*nw) + n] = -8.;
+        dbN2[2*(*ns)*(*nw) + 5*(*nw) + n] = -8.;*/
     }
 } else {
 /*
@@ -212,6 +222,12 @@ if(*order > 1) {
     for (i = 0; i < (*ns); i++)
         for (n = 0; n < *nw; n++)
             bNN[i*(*nw) + n] = phi[i][n];
+
+    for (l = 0; l < 2; l++)
+        for (i = 0; i < *ns; i++)
+            for (n = 0; n < *nw; n++)
+                dbN1[l*(*ns)*(*nw)+i*(*nw)+n] = 0.;
+
         i=0; // N1=1-ksi-eta
     for (n = 0; n < *nw; n++)
         dbN1[0*(*ns)*(*nw) + i*(*nw) + n] = -1.;
@@ -241,10 +257,188 @@ if(*order > 1) {
         for (n = 0; n < *nw; n++) {
             bEij[i*(*ns)*(*nw)+j*(*nw)+n] = dbN1[0*(*ns)*(*nw) + i*(*nw) + n] * dbN1[1*(*ns)*(*nw) + j*(*nw) + n]
                                           - dbN1[1*(*ns)*(*nw) + i*(*nw) + n] * dbN1[0*(*ns)*(*nw) + j*(*nw) + n];
-}
-#endif
+        }
 
-if(*order > 1) {
+if(*order > 2) {
+    /*gtsc1 base functions evaluated at (nvar, nw)*/
+    for (n = 0; n < *nw; n++) {
+        ph0 = phi[0][n];
+        ph1 = phi[1][n];
+        ph2 = phi[2][n];
+
+        NN[ 0*(*nw)+n] = ph0*ph0*(10.*ph0 - 15.*ph0*ph0 + 6.*ph0*ph0*ph0 + 30.*ph1*ph2*(ph1+ph2));
+        NN[ 1*(*nw)+n] = ph1*ph0*ph0*(3. - 2.*ph0 - 3.*ph1*ph1 + 6.*ph1*ph2);
+        NN[ 2*(*nw)+n] = ph2*ph0*ph0*(3. - 2.*ph0 - 3.*ph2*ph2 + 6.*ph1*ph2);
+        NN[ 3*(*nw)+n] = .5 * ph1*ph1*ph0*ph0*(1. - ph1 + 2.*ph2);
+        NN[ 4*(*nw)+n] = ph1*ph2*ph0*ph0;
+        NN[ 5*(*nw)+n] = .5 * ph2*ph2*ph0*ph0*(1. - ph2 + 2.*ph1);
+
+        NN[ 6*(*nw)+n] = ph1*ph1*(10.*ph1 - 15.*ph1*ph1 + 6.*ph1*ph1*ph1 + 15.*ph2*ph2*ph0);
+        NN[ 7*(*nw)+n] = .5 * ph1*ph1*(-8.*ph1 + 14.*ph1*ph1 - 6.*ph1*ph1*ph1 - 15.*ph2*ph2*ph0);
+        NN[ 8*(*nw)+n] = .5 * ph1*ph1*ph2*(6. - 4.*ph1 - 3.*ph2 - 3.*ph2*ph2 + 3.*ph1*ph2);
+        NN[ 9*(*nw)+n] = .25 * ph1*ph1*(2.*ph1*(1.-ph1)*(1.-ph1) + 5.*ph2*ph2*ph0);
+        NN[10*(*nw)+n] = .5 * ph1*ph1*ph2*(-2. + 2.*ph1 + 1.*ph2 + ph2*ph2 - ph1*ph2);
+        NN[11*(*nw)+n] = .25 * ph1*ph1*ph2*ph2*ph0 + .5 * ph1*ph1*ph1*ph2*ph2;
+
+        NN[12*(*nw)+n] = ph2*ph2*(10.*ph2 - 15.*ph2*ph2 + 6.*ph2*ph2*ph2 + 15.*ph1*ph1*ph0);
+        NN[13*(*nw)+n] = .5 * ph1*ph2*ph2*(6. - 3.*ph1 - 4.*ph2 - 3.*ph1*ph1 + 3.*ph1*ph2);
+        NN[14*(*nw)+n] = .5 * ph2*ph2*(-8.*ph2 + 14.*ph2*ph2 - 6.*ph2*ph2*ph2 - 15.*ph1*ph1*ph0);
+        NN[15*(*nw)+n] = .25 * ph1*ph1*ph2*ph2*ph0 + .5 * ph1*ph1*ph2*ph2*ph2;
+        NN[16*(*nw)+n] = .5 * ph1*ph2*ph2*(-2. + 1.*ph1 + 2.*ph2 + ph1*ph1 - ph1*ph2);
+        NN[17*(*nw)+n] = .25 * ph2*ph2*(2.*ph2*(1.-ph2)*(1.-ph2) + 5.*ph1*ph1*ph0);
+    }
+
+/*dNdphi at the collocation points phi(n, i), n=1:nw, i=1:nvar
+  dN1( 0, i, n ) = d N_i / d ksi
+  dN1( 1, i, n ) = d N_i / d eta
+*/
+    for (l = 0; l < 2; l++)
+        for (i = 0; i < *nvar; i++)
+            for (n = 0; n < *nw; n++)
+                dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = 0.;
+
+    for (n = 0; n < *nw; n++) {
+        ph0 = phi[0][n];
+        ph1 = phi[1][n];
+        ph2 = phi[2][n];
+
+        i=1-1; //N1
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = (-2.)*ph0*(10.*ph0 - 15.*ph0*ph0 + 6.*ph0*ph0*ph0 + 30.*ph1*ph2*(ph1+ph2))
+                     + ph0*ph0*(10.*(-1.) - 15.*(-2.)*ph0 + 6.*(-3.)*ph0*ph0 + 30.*ph2*(ph1+ph2) + 30.*ph1*ph2);
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = (-2.)*ph0*(10.*ph0 - 15.*ph0*ph0 + 6.*ph0*ph0*ph0 + 30.*ph1*ph2*(ph1+ph2))
+                     + ph0*ph0*(10.*(-1.) - 15.*(-2.)*ph0 + 6.*(-3.)*ph0*ph0 + 30.*ph1*(ph1+ph2) + 30.*ph1*ph2);
+
+        i=2-1; //N2
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = ph0*ph0*(3. - 2.*ph0 - 3.*ph1*ph1 + 6.*ph1*ph2)
+                     + ph1*(-2.)*ph0*(3. - 2.*ph0 - 3.*ph1*ph1 + 6.*ph1*ph2)
+                     + ph1*ph0*ph0*(3*(0.) - 2.*(-1.) -3.*(2.)*ph1 + 6.*ph2);
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = ph1*(-2.)*ph0*(3. - 2.*ph0 - 3.*ph1*ph1 + 6.*ph1*ph2)
+                     + ph1*ph0*ph0*(3*(0.) - 2.*(-1.) -3.*(0.) + 6.*ph1);
+
+        i=3-1; //N3
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = ph2*(-2.)*ph0*(3. - 2.*ph0 - 3.*ph2*ph2 + 6.*ph1*ph2)
+                     + ph2*ph0*ph0*(3.*(0.) - 2.*(-1.) -3.*(0.) + 6.*ph2);
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] =     ph0*ph0*(3. - 2.*ph0 - 3.*ph2*ph2 + 6.*ph1*ph2)
+                     + ph2*(-2.)*ph0*(3. - 2.*ph0 - 3.*ph2*ph2 + 6.*ph1*ph2)
+                     + ph2*ph0*ph0*(3.*(0.) - 2.*(-1.) - 3.*(2.)*ph2 + 6.*ph1);
+
+        i=4-1; //N4
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*(2.)*ph1*ph0*ph0*(1. - ph1 + 2.*ph2)
+                     + .5*ph1*ph1*(-2.)*ph0*(1. - ph1 + 2.*ph2)
+                     + .5*ph1*ph1*ph0*ph0*(1.*(0.) - 1. + 2.*(0.));
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*ph1*ph1*(-2.)*ph0*(1. - ph1 + 2.*ph2)
+                     + .5*ph1*ph1*ph0*ph0*(1.*(0.) - 1.*(0.) + 2.*(1.));
+
+        i=5-1; //N5
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = ph2*ph0*ph0 + ph1*ph2*(-2.)*ph0;
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = ph1*ph0*ph0 + ph1*ph2*(-2.)*ph0;
+
+        i=6-1; //N6
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*ph2*ph2*(-2.)*ph0*(1. + 2.*ph1 - ph2)
+                     + .5*ph2*ph2*ph0*ph0*(1.*(0.) + 2.*(1.) - 0.);
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*(2.)*ph2*ph0*ph0*(1. + 2.*ph1 - ph2)
+                     + .5*ph2*ph2*(-2.)*ph0*(1. + 2.*ph1 - ph2)
+                     + .5*ph2*ph2*ph0*ph0*(1.*(0.) + 2.*(0.) - 1.);
+
+        i=7-1; //N7
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = (2.)*ph1*(10.*ph1 - 15.*ph1*ph1 + 6.*ph1*ph1*ph1 + 15.*ph2*ph2*ph0)
+                     + ph1*ph1*(10.*(1.) - 15.*(2.)*ph1 + 6.*(3.)*ph1*ph1 + 15.*ph2*ph2*(-1.));
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = ph1*ph1*(10.*(0.) - 15.*(0.) + 6.*(0.) + 15.*(2.)*ph2*ph0 + 15.*ph2*ph2*(-1.));
+
+        i=8-1; //N8
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*(2.)*ph1*(-8.*ph1 + 14.*ph1*ph1 - 6.*ph1*ph1*ph1 - 15.*ph2*ph2*ph0)
+                     + .5*ph1*ph1*(-8.*(1.) + 14.*(2.)*ph1 - 6.*(3.)*ph1*ph1 - 15.*ph2*ph2*(-1.));
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*ph1*ph1*(-8.*(0.) + 14.*(0.) - 6.*(0.) - 15.*(2.)*ph2*ph0 - 15.*ph2*ph2*(-1.));
+
+        i=9-1; //N9
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*(2.)*ph1*ph2*(6. - 4.*ph1 - 3.*ph2 - 3.*ph2*ph2 + 3.*ph1*ph2)
+                     + .5*ph1*ph1*ph2*(6.*(0.) - 4.*(1.) - 3.*(0.) - 3.*(0.) + 3.*ph2);
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*ph1*ph1*(1.)*(6. - 4.*ph1 - 3.*ph2 - 3.*ph2*ph2 + 3.*ph1*ph2)
+                     + .5*ph1*ph1*ph2*(6.*(0.) - 4.*(0.) - 3.*1. - 3.*(2.)*ph2 + 3.*ph1);
+
+        i=10-1; //N10
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .25*(2.)*ph1*(2.*ph1*(1.-ph1)*(1.-ph1) + 5.*ph2*ph2*ph0)
+                     + .25*ph1*ph1*(2.*(1-ph1)*(1-ph1) + 2.*ph1*(-2.)*(1.-ph1) + 5.*ph2*ph2*(-1.));
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .25*ph1*ph1*(2.*(0.) + 5.*(2.)*ph2*ph0 + 5.*ph2*ph2*(-1.));
+
+        i=11-1; //N11
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*(2.)*ph1*ph2*(-2. + 2.*ph1 + ph2 + ph2*ph2 - ph1*ph2)
+                     + .5*ph1*ph1*ph2*(-2.*(0.) + 2.*(1.) + 0. + 0. - ph2);
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*ph1*ph1*(1.)*(-2. + 2.*ph1 + ph2 + ph2*ph2 - ph1*ph2)
+                     + .5*ph1*ph1*ph2*(-2.*(0.) + 2.*(0.) + 1. + 2.*ph2 - ph1);
+
+        i=12-1; //N12
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .25*(2.)*ph1*ph2*ph2*ph0 + .25*ph1*ph1*ph2*ph2*(-1.) + .5*(3.)*ph1*ph1*ph2*ph2;
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .25*ph1*ph1*(2.)*ph2*ph0 + .25*ph1*ph1*ph2*ph2*(-1.) + .5*ph1*ph1*ph1*(2.)*ph2;
+
+        i=13-1; //N13
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = ph2*ph2 * (10.*(0.) - 15.*(0.) + 6.*(0.) + 15.*(2.)*ph1*ph0 + 15.*ph1*ph1*(-1.));
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = (2.)*ph2*(10.*ph2 - 15.*ph2*ph2 + 6.*ph2*ph2*ph2 + 15.*ph1*ph1*ph0)
+                     + ph2*ph2*(10.*(1.) - 15.*(2.)*ph2 + 6.*(3.)*ph2*ph2 + 15.*ph1*ph1*(-1.));
+
+        i=14-1; //N14
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*(1.)*ph2*ph2*(6. - 3.*ph1 - 4.*ph2 - 3.*ph1*ph1 + 3.*ph1*ph2)
+                     + .5*ph1*ph2*ph2*(6.*(0.) - 3.*(1.) - 4.*(0.) - 3.*(2.)*ph1 + 3.*(1.)*ph2);
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*ph1*(2.)*ph2*(6. - 3.*ph1 - 4.*ph2 - 3.*ph1*ph1 + 3.*ph1*ph2)
+                     + .5*ph1*ph2*ph2*(6.*(0.) - 3.*(0.) - 4.*(1.) - 3.*(0.) + 3.*ph1*(1.));
+
+        i=15-1; //N15
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*ph2*ph2*(-8.*(0.) + 14.*(0.) - 6.*0. - 15.*(2.)*ph1*ph0 - 15.*ph1*ph1*(-1.));
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*(2.)*ph2*(-8.*ph2 + 14.*ph2*ph2 - 6.*ph2*ph2*ph2 - 15.*ph1*ph1*ph0)
+                     + .5*ph2*ph2*(-8.*(1.) + 14.*(2.)*ph2 - 6.*(3.)*ph2*ph2 - 15.*ph1*ph1*(-1.));
+
+        i=16-1; //N16
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .25*(2.)*ph1*ph2*ph2*ph0 + .25*ph1*ph1*ph2*ph2*(-1.) + .5*(2.)*ph1*ph2*ph2*ph2;
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .25*ph1*ph1*(2.)*ph2*ph0 + .25*ph1*ph1*ph2*ph2*(-1.) + .5*ph1*ph1*(3.)*ph2*ph2;
+
+        i=17-1; //N17
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*(1.)*ph2*ph2*(-2. + ph1 + 2.*ph2 + ph1*ph1 - ph1*ph2) 
+                     + .5*ph1*ph2*ph2*(-2.*(0.) + 1. + 2.*(0.) + (2.)*ph1 - ph2);
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .5*ph1*(2.)*ph2*(-2. + ph1 + 2.*ph2 + ph1*ph1 - ph1*ph2) 
+                     + .5*ph1*ph2*ph2*(-2.*(0.) + 0. + 2.*(1.) + 0. - ph1);
+
+        i=18-1; //N18
+        l=0; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .25*ph2*ph2*(2.*0. + 5.*(2.)*ph1*ph0 + 5.*ph1*ph1*(-1.));
+        l=1; li=l+i*2+n*2*(*nvar);
+        dN1[l*(*nvar)*(*nw)+i*(*nw)+n] = .25*(2.)*ph2*(2.*ph2*(1.-ph2)*(1.-ph2) + 5.*ph1*ph1*ph0)
+                     + .25*ph2*ph2*(2.*(1.-ph2)*(1.-ph2) + 2.*ph2*(-2.)*(1.-ph2) + 5.*ph1*ph1*(-1.));
+    }
+} else if(*order == 2) {
     for (n = 0; n < *nw; n++) {
         ph0 = phi[0][n];
         ph1 = phi[1][n];
@@ -303,14 +497,10 @@ if(*order > 1) {
     }
 } else {
 /*c1 base functions evaluated at (nvar, nw)*/
-PetscScalar stmp, xx;
     for (n = 0; n < *nw; n++) {
-        ph0 = phi[0][n];
-        ph1 = phi[1][n];
-        ph2 = phi[2][n];
-        NN[ 0*(*nw)+n] = ph0;
-        NN[ 1*(*nw)+n] = ph1;
-        NN[ 2*(*nw)+n] = ph2;
+        NN[ 0*(*nw)+n] = phi[0][n];
+        NN[ 1*(*nw)+n] = phi[1][n];
+        NN[ 2*(*nw)+n] = phi[2][n];
     }
 
 /*dNdphi at the collocation points phi(n, i), n=1:nw, i=1:nvar
@@ -321,11 +511,8 @@ PetscScalar stmp, xx;
         for (i = 0; i < *ns; i++)
             for (n = 0; n < *nw; n++)
                 dN1[l*(*ns)*(*nw)+i*(*nw)+n] = 0.;
-    for (n = 0; n < *nw; n++) {
-        ph0 = phi[0][n];
-        ph1 = phi[1][n];
-        ph2 = phi[2][n];
 
+    for (n = 0; n < *nw; n++) {
         i=1-1; //N1
         l=0; li=l+i*2+n*2*(*ns);
         dN1[l*(*ns)*(*nw)+i*(*nw)+n] = -1.;
@@ -349,12 +536,12 @@ PetscScalar stmp, xx;
 /*poisson bracket tensor
   Eij[i][j][n] = dNi/dksi dbNj/deta - dNi/deta dbNj/dksi , i=1,18, j=1,3
 */
-    for (i = 0; i < *ns; i++)
+    for (i = 0; i < *nvar; i++)
     for (j = 0; j < *ns; j++)
         for (n = 0; n < *nw; n++) {
             Eij[i*(*ns)*(*nw)+j*(*nw)+n] = 
-                           dN1[0*(*ns)*(*nw)+i*(*nw)+n] * dN1[1*(*ns)*(*nw) + j*(*nw) + n]
-                         - dN1[1*(*ns)*(*nw)+i*(*nw)+n] * dN1[0*(*ns)*(*nw) + j*(*nw) + n];
+                           dN1[0*(*nvar)*(*nw)+i*(*nw)+n] * dbN1[1*(*ns)*(*nw) + j*(*nw) + n]
+                         - dN1[1*(*nvar)*(*nw)+i*(*nw)+n] * dbN1[0*(*ns)*(*nw) + j*(*nw) + n];
     }
 
 /*P bracket tensor
@@ -368,6 +555,9 @@ PetscScalar stmp, xx;
        }
 */
 
+    free_dVector1D(bNN , 0, (*ns)*(*nw) - 1);
+    free_dVector1D(dbN1 , 0, (*ns)*(*ns)*(*nw) - 1);
+
   return 0;
 }
 
@@ -375,17 +565,17 @@ PetscScalar stmp, xx;
 int lagrange_element_matrix_(/*int *node,*/
                           int *ns,
                           int *nw,
-                          /*int *ndof,
-                          int *nvar,*/
+                          int *ndof,
+                          int *nvar,
                           double *x,
                           double *y,
                           double *weight,
                           /*double *dbN1,
-                          double *dbN2,
-                          double *bEij,*/
+                          double *dbN2,*/
                           double *NN,
                           double *dN1,
                           double *Eij,
+                          double *bEij,
                           double *ma,
                           double *sa,
                           double *srr,
@@ -414,28 +604,28 @@ int lagrange_element_matrix_(/*int *node,*/
 
 
   jacobian = dVector1D(            0, *nw  -1);
-  dnx      = dVector2D(0, *ns-1, 0, *nw  -1);
-  dny      = dVector2D(0, *ns-1, 0, *nw  -1);
-  m        = dVector2D(0, *ns-1, 0, *ns-1);
-  s        = dVector2D(0, *ns-1, 0, *ns-1);
-  mtmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  stmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  r        = dVector2D(0, *ns-1, 0, *ns-1);
-  z        = dVector2D(0, *ns-1, 0, *ns-1);
-  rtmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  ztmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  rr        = dVector2D(0, *ns-1, 0, *ns-1);
-  rz        = dVector2D(0, *ns-1, 0, *ns-1);
-  rrtmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  rztmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  zr        = dVector2D(0, *ns-1, 0, *ns-1);
-  zz        = dVector2D(0, *ns-1, 0, *ns-1);
-  zrtmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  zztmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  pp        = dVector2D(0, *ns-1, 0, *ns-1);
-  pptmp     = dVector2D(0, *ns-1, 0, *ns-1);
-  tij      = dVector2D(0, *ns-1, 0, *ns-1);
-  tji      = dVector2D(0, *ns-1, 0, *ns-1);
+  dnx      = dVector2D(0, *nvar-1, 0, *nw  -1);
+  dny      = dVector2D(0, *nvar-1, 0, *nw  -1);
+  m        = dVector2D(0, *nvar-1, 0, *nvar-1);
+  s        = dVector2D(0, *nvar-1, 0, *nvar-1);
+  mtmp     = dVector2D(0, *nvar-1, 0, *nvar-1);
+  stmp     = dVector2D(0, *nvar-1, 0, *nvar-1);
+  r        = dVector2D(0, *nvar-1, 0, *nvar-1);
+  z        = dVector2D(0, *nvar-1, 0, *nvar-1);
+  rtmp     = dVector2D(0, *nvar-1, 0, *nvar-1);
+  ztmp     = dVector2D(0, *nvar-1, 0, *nvar-1);
+  rr       = dVector2D(0, *nvar-1, 0, *nvar-1);
+  rz       = dVector2D(0, *nvar-1, 0, *nvar-1);
+  rrtmp    = dVector2D(0, *nvar-1, 0, *nvar-1);
+  rztmp    = dVector2D(0, *nvar-1, 0, *nvar-1);
+  zr       = dVector2D(0, *nvar-1, 0, *nvar-1);
+  zz       = dVector2D(0, *nvar-1, 0, *nvar-1);
+  zrtmp    = dVector2D(0, *nvar-1, 0, *nvar-1);
+  zztmp    = dVector2D(0, *nvar-1, 0, *nvar-1);
+  pp       = dVector2D(0, *nvar-1, 0, *nvar-1);
+  pptmp    = dVector2D(0, *nvar-1, 0, *nvar-1);
+  tij      = dVector2D(0, *nvar-1, 0, *nvar-1);
+  tji      = dVector2D(0, *nvar-1, 0, *nvar-1);
 
 /* jacobian over each triangle
 */
@@ -443,7 +633,7 @@ int lagrange_element_matrix_(/*int *node,*/
       jacobian[n] = 0.;
       for (i = 0; i < *ns; ++i)
       for (j = 0; j < *ns; ++j)
-          jacobian[n] += Eij[i*(*ns)*(*nw)+j*(*nw)+n] * x[i] * y[j];
+          jacobian[n] += bEij[i*(*ns)*(*nw)+j*(*nw)+n] * x[i] * y[j];
 //      if(jacobian[n] < 0.) printf("jacobian[%d]=%e (<0) at e[%d]\n", n, jacobian[n], count);
   }
 /*
@@ -467,7 +657,7 @@ int lagrange_element_matrix_(/*int *node,*/
 /* first order derivatives
  */
   for (n = 0; n < *nw; ++n)
-      for (i = 0; i < *ns; ++i) {
+      for (i = 0; i < *nvar; ++i) {
           dnx[i][n] = 0.;
           dny[i][n] = 0.;
           for (j = 0; j < *ns; ++j) {
@@ -490,8 +680,8 @@ int lagrange_element_matrix_(/*int *node,*/
  */
 //#ifdef ORDER2
 //#else
-  for (i = 0; i < *ns; ++i)
-      for (j = 0; j < *ns; ++j) {
+  for (i = 0; i < *nvar; ++i)
+      for (j = 0; j < *nvar; ++j) {
           tij[i][j]=0.;
           tji[i][j]=0.;
       }
@@ -502,29 +692,32 @@ int lagrange_element_matrix_(/*int *node,*/
       J21 = x[3-1] - x[1-1];
       J22 = y[3-1] - y[1-1];
 
-      irow= i;
-//      irow= i*(*ndof);
+      irow= i*(*ndof);
       tij[irow+0][irow+0]=1.;
-//      tij[irow+1][irow+1]=J11; tij[irow+1][irow+1+1]=J12;
-//      tij[irow+2][irow+1]=J21; tij[irow+2][irow+1+1]=J22;
-//      tij[irow+3][irow+3]=J11*J11; tij[irow+3][irow+3+1]=2.*J11*J12;      tij[irow+3][irow+3+2]=J12*J12; 
-//      tij[irow+4][irow+3]=J11*J21; tij[irow+4][irow+3+1]=J12*J21+J11*J22; tij[irow+4][irow+3+2]=J12*J22; 
-//      tij[irow+5][irow+3]=J21*J21; tij[irow+5][irow+3+1]=2.*J21*J22;      tij[irow+5][irow+3+2]=J22*J22; 
+      if(*ndof>1) {
+      tij[irow+1][irow+1]=J11; tij[irow+1][irow+1+1]=J12;
+      tij[irow+2][irow+1]=J21; tij[irow+2][irow+1+1]=J22;
+      tij[irow+3][irow+3]=J11*J11; tij[irow+3][irow+3+1]=2.*J11*J12;      tij[irow+3][irow+3+2]=J12*J12; 
+      tij[irow+4][irow+3]=J11*J21; tij[irow+4][irow+3+1]=J12*J21+J11*J22; tij[irow+4][irow+3+2]=J12*J22; 
+      tij[irow+5][irow+3]=J21*J21; tij[irow+5][irow+3+1]=2.*J21*J22;      tij[irow+5][irow+3+2]=J22*J22; 
+      }
 
       tji[irow+0][irow+0]=1.;
-//      tji[irow+1][irow+1]=J11; tji[irow+1+1][irow+1]=J12;
-//      tji[irow+1][irow+2]=J21; tji[irow+1+1][irow+2]=J22;
-//      tji[irow+3][irow+3]=J11*J11; tji[irow+4][irow+3+0]=2.*J11*J12;      tji[irow+5][irow+3+0]=J12*J12; 
-//      tji[irow+3][irow+4]=J11*J21; tji[irow+4][irow+3+1]=J12*J21+J11*J22; tji[irow+5][irow+3+1]=J12*J22; 
-//      tji[irow+3][irow+5]=J21*J21; tji[irow+4][irow+3+2]=2.*J21*J22;      tji[irow+5][irow+3+2]=J22*J22; 
+      if(*ndof>1) {
+      tji[irow+1][irow+1]=J11; tji[irow+1+1][irow+1]=J12;
+      tji[irow+1][irow+2]=J21; tji[irow+1+1][irow+2]=J22;
+      tji[irow+3][irow+3]=J11*J11; tji[irow+4][irow+3+0]=2.*J11*J12;      tji[irow+5][irow+3+0]=J12*J12; 
+      tji[irow+3][irow+4]=J11*J21; tji[irow+4][irow+3+1]=J12*J21+J11*J22; tji[irow+5][irow+3+1]=J12*J22; 
+      tji[irow+3][irow+5]=J21*J21; tji[irow+4][irow+3+2]=2.*J21*J22;      tji[irow+5][irow+3+2]=J22*J22; 
+      }
   }
 //#endif
 
 /* calculate mass (m), stiffness (s) matrices 
    over collocation points
 */
-  for (j = 0; j < *ns; ++j)
-  for (i = 0; i < *ns; ++i) {
+  for (j = 0; j < *nvar; ++j)
+  for (i = 0; i < *nvar; ++i) {
           m[j][i]  = 0.;
           s[j][i]  = 0.;
           rr[j][i]  = 0.;
@@ -619,8 +812,8 @@ int lagrange_element_matrix_(/*int *node,*/
 
 //#ifdef ORDER2
 //#else
-  for (j = 0; j < *ns; ++j)
-  for (i = 0; i < *ns; ++i) {
+  for (j = 0; j < *nvar; ++j)
+  for (i = 0; i < *nvar; ++i) {
           mtmp[j][i] = 0.;
           stmp[j][i] = 0.;
           rrtmp[j][i] = 0.;
@@ -630,7 +823,7 @@ int lagrange_element_matrix_(/*int *node,*/
           pptmp[j][i] = 0.;
           rtmp[j][i] = 0.;
           ztmp[j][i] = 0.;
-      for (k = 0; k < *ns; ++k) {
+      for (k = 0; k < *nvar; ++k) {
           mtmp[j][i] += m[j][k] * tij[k][i];
           stmp[j][i] += s[j][k] * tij[k][i];
           rrtmp[j][i] += rr[j][k] * tij[k][i];
@@ -643,27 +836,27 @@ int lagrange_element_matrix_(/*int *node,*/
       }
   }
 
-  for (j = 0; j < *ns; ++j)
-  for (i = 0; i < *ns; ++i) {
-          ma[i+j*(*ns)] = 0.;
-          sa[i+j*(*ns)] = 0.;
-          srr[i+j*(*ns)] = 0.;
-          srz[i+j*(*ns)] = 0.;
-          szr[i+j*(*ns)] = 0.;
-          szz[i+j*(*ns)] = 0.;
-          spp[i+j*(*ns)] = 0.;
-          sr[i+j*(*ns)] = 0.;
-          sz[i+j*(*ns)] = 0.;
-      for (k = 0; k < *ns; ++k) {
-          ma[i+j*(*ns)] += tji[j][k] * mtmp[k][i];
-          sa[i+j*(*ns)] += tji[j][k] * stmp[k][i];
-          srr[i+j*(*ns)] += tji[j][k] * rrtmp[k][i];
-          srz[i+j*(*ns)] += tji[j][k] * rztmp[k][i];
-          szr[i+j*(*ns)] += tji[j][k] * zrtmp[k][i];
-          szz[i+j*(*ns)] += tji[j][k] * zztmp[k][i];
-          spp[i+j*(*ns)] += tji[j][k] * pptmp[k][i];
-          sr[i+j*(*ns)] += tji[j][k] * rtmp[k][i];
-          sz[i+j*(*ns)] += tji[j][k] * ztmp[k][i];
+  for (j = 0; j < *nvar; ++j)
+  for (i = 0; i < *nvar; ++i) {
+          ma[i+j*(*nvar)] = 0.;
+          sa[i+j*(*nvar)] = 0.;
+          srr[i+j*(*nvar)] = 0.;
+          srz[i+j*(*nvar)] = 0.;
+          szr[i+j*(*nvar)] = 0.;
+          szz[i+j*(*nvar)] = 0.;
+          spp[i+j*(*nvar)] = 0.;
+          sr[i+j*(*nvar)] = 0.;
+          sz[i+j*(*nvar)] = 0.;
+      for (k = 0; k < *nvar; ++k) {
+          ma[i+j*(*nvar)] += tji[j][k] * mtmp[k][i];
+          sa[i+j*(*nvar)] += tji[j][k] * stmp[k][i];
+          srr[i+j*(*nvar)] += tji[j][k] * rrtmp[k][i];
+          srz[i+j*(*nvar)] += tji[j][k] * rztmp[k][i];
+          szr[i+j*(*nvar)] += tji[j][k] * zrtmp[k][i];
+          szz[i+j*(*nvar)] += tji[j][k] * zztmp[k][i];
+          spp[i+j*(*nvar)] += tji[j][k] * pptmp[k][i];
+          sr[i+j*(*nvar)] += tji[j][k] * rtmp[k][i];
+          sz[i+j*(*nvar)] += tji[j][k] * ztmp[k][i];
       }
 //  PetscPrintf(PETSC_COMM_WORLD,
 //              "\t j=%d i=%d m=%e s=%e\n", j, i, ma[i+j*(*nvar)], sa[i+j*(*nvar)]);
@@ -671,28 +864,28 @@ int lagrange_element_matrix_(/*int *node,*/
 //#endif
 
   free_dVector1D(jacobian,         0, *nw-1);
-  free_dVector2D(dnx,  0, *ns-1, 0, *nw-1);
-  free_dVector2D(dny,  0, *ns-1, 0, *nw-1);
-  free_dVector2D(m,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(s,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(mtmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(stmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(r,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(z,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(rtmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(ztmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(rr,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(rz,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(rrtmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(rztmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(zr,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(zz,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(zrtmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(zztmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(pp,    0, *ns-1, 0, *ns-1);
-  free_dVector2D(pptmp, 0, *ns-1, 0, *ns-1);
-  free_dVector2D(tij,  0, *ns-1, 0, *ns-1);
-  free_dVector2D(tji,  0, *ns-1, 0, *ns-1);
+  free_dVector2D(dnx,  0, *nvar-1, 0, *nw-1);
+  free_dVector2D(dny,  0, *nvar-1, 0, *nw-1);
+  free_dVector2D(m,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(s,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(mtmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(stmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(r,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(z,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(rtmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(ztmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(rr,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(rz,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(rrtmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(rztmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(zr,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(zz,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(zrtmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(zztmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(pp,    0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(pptmp, 0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(tij,  0, *nvar-1, 0, *nvar-1);
+  free_dVector2D(tji,  0, *nvar-1, 0, *nvar-1);
   if(count==0) PetscPrintf(PETSC_COMM_WORLD,
               "\ttric1_element_matrix: done\n");
   count++;
