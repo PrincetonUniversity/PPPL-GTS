@@ -111,9 +111,9 @@ program GTS
      femm%order = 1
      call new_fem_data( femm )
      call new_fem_masssolver( femm, masssolver )
-     call testmasssolve( masssolver )
-     call delete_fem_data( femm )
-     call destroy_solver( masssolver )
+     !call testmasssolve( masssolver )
+     !call delete_fem_data( femm )
+     !call destroy_solver( masssolver )
 
      if(ifelectron==2) then
         solver_dphi_dt%order = order

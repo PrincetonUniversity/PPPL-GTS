@@ -1172,7 +1172,7 @@ contains
 
     real(wp) M, L, alfa
     real(wp) :: rms=0., eps, err, pim, rr, zz
-    integer :: whichone = 1
+    integer :: whichone = 5
     integer :: ki, fe_ndof, i0, i1, i2, i3, i4, i5
 
 
@@ -2276,7 +2276,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   real(doubleprec),dimension(:),allocatable :: fe_weight
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
-  integer :: whichone = 1
+  integer :: whichone = 5
 
 
   c1 = alpha
