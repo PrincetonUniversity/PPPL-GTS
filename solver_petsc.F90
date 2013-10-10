@@ -11,7 +11,7 @@ module phit_matrix_type
      integer,dimension(:),pointer :: gk_matid
 
      Mat :: mdata ! mass matrix
-     integer :: numbdy
+     integer :: numbdy, bc_type
      integer,dimension(:),pointer :: bdy
   end type phit_matrix_data
 end module phit_matrix_type
@@ -392,7 +392,6 @@ contains
     
     if( this%mat%data /= 0 ) then
        call MatDestroy( this%mat%data,ierr)
-       call MatDestroy( this%mat%mdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
     
@@ -411,9 +410,11 @@ contains
     !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)            
     !  endif
     !
-    call VecDestroy(this%zeroVec01,ierr)
-    call VecDestroy(this%zeroVec10,ierr)
-    deallocate(this%mat%bdy,this%mat%gk_matid)
+    if(this%order .ge. 1) then
+       call VecDestroy(this%zeroVec01,ierr)
+       call VecDestroy(this%zeroVec10,ierr)
+       deallocate(this%mat%bdy,this%mat%gk_matid)
+    endif
 
   end subroutine destroy_solver
   
@@ -596,7 +597,7 @@ contains
     neq = sum( mtheta )
     if(fem%order .gt. 2) fe_ndof=6
     neq = fem%nmesh_pts*fe_ndof
-    if(mype==0) write(*,*) "	finite elements matrix dim neq=", sum(mtheta), neq
+    if(mype==0) write(*,*) "	finite element: matrix dim neq=", sum(mtheta), neq
 
     call MatCreate( partd_comm, Amat, ierr )
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
@@ -781,7 +782,7 @@ contains
     mindex=64*mring+1 ! estimate for matrix size
     neq = sum( mtheta )
     if(fem%order .gt. 1) neq = fem%nmesh_pts
-    if(mype==0) write(*,*) "	finite elements matrix dim neq=", sum(mtheta), neq
+    if(mype==0) write(*,*) "	finite element: mass dim neq order=", sum(mtheta), neq, fem%order
 
     call MatCreate( partd_comm, Amat, ierr )
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
@@ -824,7 +825,7 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call solver_init( this, ' ', Mmat, neq,ierr)
-    if(mype==0) write(0,*) '	finite elements masssolver created'
+    if(mype==0) write(0,*) '	finite element: masssolver created'
     
     this%fem=fem
 
@@ -861,14 +862,13 @@ contains
     real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, hh, bh, hh_ho, bh_ho
     real(wp) :: neuma, neumt
     ! locals
-    integer :: bc_type=2   !todo
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(doubleprec),allocatable,dimension(:) :: xx, bb 
     real(doubleprec),allocatable,dimension(:) :: bn,bn_ho
     integer :: count = 0
 
 
-    if(mype.eq.0 .and. solver%order.gt.0) write(0, *) "	finite element solve begin"
+    if(mype.eq.0 .and. solver%fem%order.gt.0) write(0, *) "	finite element solve begin"
     count = count + 1
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
@@ -895,18 +895,18 @@ contains
     hh=0.
     bh=0.
     bn=0.
-    if(bc_type==0 .or. bc_type==1) then
+    if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
        it= sum( mtheta ) - mtheta(mpsi)
        ir=mpsi
        call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
     endif
-    if(bc_type==0 .or. bc_type==3) then
+    if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
        it= 0
        ir=0
        call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
     endif
 
-    if( solver%order .eq. 2) then
+    if( solver%fem%order .eq. 2) then
         ! interpolate linear to ho array
         allocate(xx_ho(solver%fem%nmesh_pts),bb_ho(solver%fem%nmesh_pts))
         call hogrid(solver%fem%iemax, solver%fem%iet, neq, xx, solver%fem%nmesh_pts, xx_ho)
@@ -962,7 +962,7 @@ contains
 
     deallocate(bb,xx,hh,bh) 
     deallocate(bn)
-    if(mype.eq.0 .and. solver%order>0) write(0, *) "	finite element solve end"
+    if(mype.eq.0 .and. solver%fem%order>0) write(0, *) "	finite element solve end"
 
     ! debug
     if( count .eq. 1 .and. mype==-10 ) then
@@ -1174,14 +1174,13 @@ contains
     real(wp) :: rms=0., eps, err, pim, rr, zz
     integer :: whichone = 1
     integer :: ki, fe_ndof, i0, i1, i2, i3, i4, i5
-    integer :: bc_type=2   !todo
 
 
     if(mype.eq.0) &
     write(0, *) "	finite element test solve", whichone, "of five"
 
     fe_ndof=1
-    if( solver%order .gt. 2) fe_ndof=6
+    if( solver%fem%order .gt. 2) fe_ndof=6
 
 !cj the following is a combianation of solve and tri_mesh
     neq = sum(mtheta)
@@ -1348,18 +1347,18 @@ contains
     !at present it only works for order=1
     allocate(bn(neq))
     bn = 0.  !dphidt related
-    if(bc_type==0 .or. bc_type==1) then
+    if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
        it= sum( mtheta ) - mtheta(mpsi)
        ir=mpsi
        call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
     endif
-    if(bc_type==0 .or. bc_type==3) then
+    if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
        it= 0
        ir=0
        call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
     endif
 
-    if( solver%order .eq. 2) then
+    if( solver%fem%order .eq. 2) then
         if(mype==0) &
         write(*,*) '	order neq nmesh_pts=', &
                    solver%fem%order, neq, solver%fem%nmesh_pts
@@ -1546,21 +1545,18 @@ contains
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
     real(doubleprec),allocatable,dimension(:) :: xx, bb, jself, dxdr, dxdz
-    real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, jself_ho, dxdr_ho, dxdz_ho
+    real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, jself_ho
     real(wp) zeta, pdum, dt, tdum, tmp
-    real(wp), dimension(2) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-    real(wp) alpha, beta
+    real(wp),dimension(2) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
     integer, external :: metric_elements
 
-    real(wp) M, L, alfa
-    real(wp) :: rms=0.
-    integer :: whichone = 1
+    real(wp) :: M, L, alfa, rms=0.
     integer :: i,ii,j,jj,k,kk
     integer :: fe_ns=3
 
 
     if(mype.eq.0) &
-    write(0, *) "	finite element testmasssolve", whichone, "of five"
+    write(0, *) "	mass solver:: dxdr dxdz"
 
 !cj the following is a combianation of solve and tri_mesh
     neq = sum(mtheta)
@@ -1586,49 +1582,24 @@ contains
              aaa(1)=pdum
              the(1)=tdum
              call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-             mt=metric_elements(aaa(1),the(1),0.)
 
-             if(whichone==1) then
-                xx(ivsl) = (rj(1)-R_0)*(rj(1)-R_0) + zj(1)*zj(1)
-                dxdr(ivsl) = 2. * (rj(1)-R_0)
-                dxdz(ivsl) = 2. * zj(1)
+                xx(ivsl) = 1.
+               !xx(ivsl) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
+                dxdr(ivsl) = 0. !* ( (rj(1)-R_0) + zj(1) )
+                dxdz(ivsl) = 0. !* ( (rj(1)-R_0) + zj(1) )
                 jself(ivsl) = 1.
-             else
-                xx(ivsl) = pdum*pdum
-                dxdr(ivsl) = 2. * pdum
-                dxdz(ivsl) = 0.
-                jself(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
-             endif
+
+                !xx(ivsl) = pdum*pdum
+                !dxdr(ivsl) = 2. * pdum
+                !dxdz(ivsl) = 0.
+                !jself(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
           end if
        enddo
     enddo
-    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
-
-    if( solver%order .gt. 1) then
-        fe_ns=6
-        if(mype==0) write(*,*) 'order neq nmesh_pts=',solver%fem%order, neq, solver%fem%nmesh_pts
-
-        allocate(xx_ho(solver%fem%nmesh_pts),bb_ho(solver%fem%nmesh_pts))
-        allocate(dxdr_ho(solver%fem%nmesh_pts),dxdz_ho(solver%fem%nmesh_pts))
-        allocate(jself_ho(solver%fem%nmesh_pts))
-        call hogrid(solver%fem%iemax, solver%fem%iet, neq, xx, solver%fem%nmesh_pts, xx_ho)
-        call hogrid(solver%fem%iemax, solver%fem%iet, neq, dxdr, solver%fem%nmesh_pts, dxdr_ho)
-        call hogrid(solver%fem%iemax, solver%fem%iet, neq, dxdz, solver%fem%nmesh_pts, dxdz_ho)
-        call hogrid(solver%fem%iemax, solver%fem%iet, neq, jself, solver%fem%nmesh_pts, jself_ho)
-        if(mype==0) then
-           do ivsl=1,neq
-              write(113,113) ivsl, xx(ivsl), dxdr(ivsl), dxdz(ivsl), jself(ivsl)
-           enddo
-           do ivsl=1,neq
-              write(114,114) ivsl, xx_ho(ivsl), dxdr_ho(ivsl), dxdr_ho(ivsl), jself_ho(ivsl)
-           enddo
-           113 format("xyin =",  i7,4(1x,d12.6))
-           114 format("xyout =", i7,4(1x,d12.6))
-        endif
-    endif
+    if(ivsl.ne.neq)stop'masssolve: ivsl.ne.neq'
 
 !   du/da=2a, u=a^2, solve numerical xx=du/da and compare it to analytical du/da
-    bb_ho=0.
+    bb=0.
     do ie=1, solver%fem%iemax
        do i = 1,fe_ns
           ii=solver%fem%iet(i,ie)
@@ -1636,38 +1607,17 @@ contains
              jj=solver%fem%iet(j,ie)
           do k = 1,fe_ns
              kk=solver%fem%iet(k,ie)
-             if( solver%order .gt. 1) then
-                bb_ho(ii)=bb_ho(ii)+xx_ho(jj) * solver%fem%points(2,kk)*solver%fem%Pijk(i,j,k)*jself_ho(jj)
-               !bb_ho(ii)=bb_ho(ii)-xx_ho(jj) * solver%fem%points(1,kk)*solver%fem%Pijk(i,j,k)*jself_ho(jj)
-             else
-                bb(ii)=bb(ii)+xx(jj) * solver%fem%points(2,kk)*solver%fem%Pijk(i,j,k)*jself(jj)
-               !bb(ii)=bb(ii)-xx(jj) * solver%fem%points(1,kk)*solver%fem%Pijk(i,j,k)*jself(jj)
-             endif
+             bb(ii)=bb(ii)+xx(jj) * solver%fem%points(2,kk)*solver%fem%Pijk(i,j,k)*jself(jj)
+            !bb(ii)=bb(ii)-xx(jj) * solver%fem%points(1,kk)*solver%fem%Pijk(i,j,k)*jself(jj)
           enddo
           enddo
        enddo
     enddo
 
-    if( solver%order .gt. 1) then
-        xx_ho=0.
-        call mass_solve( solver, solver%fem%nmesh_pts, bb_ho, xx_ho, ierr)
-        call hogridinv(neq, xx, solver%fem%nmesh_pts, xx_ho)
-    else
-        xx=0.
-        call mass_solve( solver, solver%fem%nmesh_pts, bb, xx, ierr)
-    endif
-        if(mype==0) then
-           do ivsl=1,neq
-              write(116,116) ivsl, xx(ivsl), dxdr(ivsl)
-           enddo
-           116 format("xyin =",  i7,2(1x,d12.6))
-        endif
+    ! the 2nd 'bb' argument serves as dummy
+    xx=0.
+    call petsc_solve( solver, neq, bb, xx, bb, ierr)
 
-    if( solver%order .gt. 1) then
-       deallocate(xx_ho,bb_ho,dxdr_ho,dxdz_ho,jself_ho)
-    endif
-
-!cj the following is a combianation of solve and tri_mesh, check |u-xx|
     ivsl = 0
     ivgts = 0
     zeta = zetamin + deltaz ! zeta for my plane   
@@ -1688,27 +1638,127 @@ contains
              the(1)=tdum
              call esigetrzb(rj,zj,Bj,aaa,the,1)
 
-             if(whichone==1) then
-                tmp = (rj(1)-R_0) * (rj(1)-R_0) + zj(1) * zj(1)
-             else
-                tmp = pdum*pdum
-             endif
+             tmp = 0. !* ( (rj(1)-R_0) + zj(1) )
+             !tmp = 2.*pdum
 
-             ! print the inner vertex for debugging
-             write(111,111) ivsl, xx(ivsl), tmp, (rj(1)-R_0), zj(1), abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
-             111 format("finite element test solve=", 1(2x,i7), 5(1x,d12.6))
+             rms = rms +&
+                   abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))*abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
+             write(115,115) ivsl, xx(ivsl), tmp, dxdr(ivsl), bb(ivsl), abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
+             115 format("mass solver=", 1(2x,i7), 5(1x,d12.6))
           end if
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
-    call flush(111)
+    call flush(115)
     if(mype.eq.0) write(0, *) "	finite element testmasssolve rms=",sqrt(rms/ivsl)
-    if(mype.eq.0) write(0, *) "	finite element testmasssolve end"
     
     deallocate(bb,xx) 
     deallocate(dxdr,dxdz,jself)
 
   end subroutine testmasssolve
+
+
+!========================================================================
+!         find dxdr dxdz
+!========================================================================
+  subroutine find_dxdadxdt( solver, nn, bb_gk, xa_gk, xt_gk, ierr )
+
+    !     solve M (dxdr) = u y Pijk
+    !           M (dxdz) =-u x Pijk
+
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat
+    use field_array,only: psi_grid,qtinv
+    implicit none
+    type(solver_data) :: solver
+    integer :: nn
+    integer :: ierr
+    real(wp),intent(in) :: bb_gk(nn)
+    real(wp),intent(inout) :: xa_gk(nn), xt_gk(nn)
+    ! locals
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
+    real(doubleprec),allocatable,dimension(:) :: xa, xt, bb, ba, bt, fcj
+    real(wp) zeta, pdum, dt, tdum, tmp
+    real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+    real(wp) alpha, beta
+
+    real(wp) M, L, alfa
+    real(wp) :: rms=0.
+    integer :: i,ii,j,jj,k,kk
+    integer :: fe_ns=3
+
+
+    if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
+
+    neq = sum(mtheta)
+    allocate(xa(neq),ba(neq),xt(neq),bt(neq),bb(neq),fcj(neq))
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             bb(ivsl) = bb_gk(ivgts)
+          end if
+       enddo
+    enddo
+    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+
+    do ivsl=1,neq
+       aaa(1)=solver%fem%points(3,ivsl)
+       the(1)=solver%fem%points(4,ivsl)
+       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
+       fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+    enddo
+
+!   du/da=2a, u=a^2, solve numerical xx=du/da and compare it to analytical du/da
+    do ie=1, solver%fem%iemax
+       do i = 1,fe_ns
+          ii=solver%fem%iet(i,ie)
+          do j = 1,fe_ns
+             jj=solver%fem%iet(j,ie)
+          do k = 1,fe_ns
+             kk=solver%fem%iet(k,ie)
+             ba(ii)=ba(ii)+bb(jj) * solver%fem%points(2,kk)*solver%fem%Pijk(i,j,k)*fcj(jj)
+             bt(ii)=bt(ii)-bb(jj) * solver%fem%points(1,kk)*solver%fem%Pijk(i,j,k)*fcj(jj)
+          enddo
+          enddo
+       enddo
+    enddo
+
+    xa=0.
+    xt=0.
+    solver%order=0
+    ! the 2nd 'bb' serve as dummy
+    call petsc_solve( solver, neq, ba, xa, ba, ierr)
+    call petsc_solve( solver, neq, bt, xt, bt, ierr)
+    
+    ! set solution (output)
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts+1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             xa_gk(ivgts) = xa(ivsl)
+             xt_gk(ivgts) = xt(ivsl)
+          else
+             xa_gk(ivgts) = xa(ivsl-itmax+1)
+             xt_gk(ivgts) = xt(ivsl-itmax+1)
+          endif
+       enddo
+    enddo
+
+    deallocate(bb,ba,bt,xa,xt,fcj)
+
+  end subroutine find_dxdadxdt
+
+
 
 
 #ifdef OLDWAY
@@ -1915,6 +1965,8 @@ contains
     call VecDestroy( vec_yy, ierr )
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
     deallocate(yy,zz)
+    call VecSet(solver%xVec, 0., ierr)
+    call VecSet(solver%bVec, 0., ierr)
     if(solver%order .ge. 1) then
        call VecDestroy( vec_xx, ierr )
        call VecDestroy( rhsVec, ierr )
@@ -1923,84 +1975,6 @@ contains
     endif
   end subroutine petsc_solve
 #endif
-
-
-!========================================================================
-!         mass_solve
-!========================================================================
-  subroutine mass_solve( solver, nn, bb, xx, ierr )
-    !     solve mass linear system.  
-    !     
-    !     input:
-    !       nn: global number of equations in system
-    !       bb: rhs[nn]
-    !       xx: solution[nn]
-    !     
-    !     output:
-    !       bb: RHS[nn]
-    !     ierr: error code
-    !     
-    !use global_parameters
-    use precision,only:wp,doubleprec
-    use global_parameters, only:mype ! debug
-    implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
-#include "finclude/petscviewer.h"
-    integer :: nn,ierr
-    real(doubleprec),intent(in) :: bb(nn)
-    real(doubleprec),intent(inout) :: xx(nn)
-    type(solver_data) :: solver
-    ! locals
-    Vec              vec_yy
-    PetscScalar t1
-    PetscScalar,allocatable,dimension(:) :: yy, zz
-    PetscInt :: its
-
-
-    if(solver%mat%data .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    !     copy real vector into double precision
-    allocate(yy(nn),zz(nn))
-
-    !     scatter rhs into PETSc vector
-    yy = bb
-    call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    !     call VecSet( solver%bVec, 1.e30, ierr ) ! debug
-    call VecScatterBegin(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    call VecScatterEnd(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
-
-    !     Solve      
-    call KSPSolve( solver%ksp, solver%bVec, solver%xVec, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-
-    !     scatter solution to gts array (yy)
-    t1 = 0.0
-    call VecSet( vec_yy, t1, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    call VecScatterBegin(solver%scat,solver%xVec,vec_yy,INSERT_VALUES,SCATTER_REVERSE,ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    call VecScatterEnd(solver%scat,solver%xVec, vec_yy, INSERT_VALUES,SCATTER_REVERSE,ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr) 
-    
-    ! add all to all -- not super efficient
-    call MPI_ALLREDUCE(yy,zz,nn,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
-    !     copy in
-    xx = zz;
-
-    ! clean up
-    deallocate(yy,zz)
-    call VecSet(solver%xVec, 0., ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
-    call VecSet(solver%bVec, 0., ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
-    call VecDestroy( vec_yy, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
-
-    if(mype.eq.0) write(0, *) "	finite element mass_solve end rms=", sum(abs(xx))/real(nn)
-  end subroutine mass_solve
 
 
 !========================================================================
@@ -2326,6 +2300,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   allocate(fe_NN(fe_nvar,fe_nw))
   allocate(fe_dN1(fe_node,fe_nvar,fe_nw))
   allocate(fe_Eij(fe_nvar,fe_ns,fe_nw))
+  allocate(fem%Pijk(fe_ns,fe_ns,fe_ns))
   allocate(fe_bEij(fe_ns,fe_ns,fe_nw))
   call lagrange_element_construct(fe_order, &
                                    fe_ns, &
@@ -2336,6 +2311,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
                                    fe_NN, &
                                    fe_dN1, &
                                    fe_Eij, &
+                                   fem%Pijk, &
                                    fe_bEij)
 
   allocate( ind2(fe_ns),ind3(fe_ns),ind(fe_ns) )
@@ -2349,15 +2325,10 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   allocate( gaa(fe_ns),gtt(fe_ns),gpp(fe_ns),gat(fe_ns),vthe(fe_ns),q(fe_ns),ns0(fe_ns),ne0(fe_ns) )
 
   !july 31, 2013 to calculate dxdr, dxdz
-  allocate(fem%Pijk(fe_ns,fe_ns,fe_ns))
-  fem%Pijk=0.
   do i=1,fe_ns
      do j=1,fe_ns
-     do k=1,fe_ns
-        do n=1,fe_nw
-           fem%Pijk(i,j,k)= fem%Pijk(i,j,k) + fe_weight(n)*fe_NN(i,n)*fe_Eij(j,k,n)
-        enddo
-     enddo
+        if(mype==0) write(*,115) i,j,fem%Pijk(i,j,1),fem%Pijk(i,j,2),fem%Pijk(i,j,3)
+        115 format("	Pijk:", 2(2x,i4), 3(1x,d12.6))
      enddo
   enddo
 

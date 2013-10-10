@@ -35,8 +35,8 @@ program GTS
   integer,parameter :: nc=13
   real(doubleprec) t0,t0wc,time(nc),timewc(nc),dt,dtwc,loop_time
   character(len=16) ic(nc)
-  type(solver_data) :: solver1,solver_dphi_dt
-  type(fem_data) :: fem1,femt
+  type(solver_data) :: solver1,solver_dphi_dt,masssolver
+  type(fem_data) :: fem1,femt,femm
 
   interface
     subroutine shift(phase,phase0,mp,mpmax)
@@ -96,21 +96,37 @@ program GTS
      ! mat type 2, bc type 2
      if(ifelectron==2) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
   else
-     solver1%order = order
-     solver_dphi_dt%order = order
-     fem1%order = order
-     femt%order = order
      if(mype == 0) write (0, *) "	finite element order=", order
+
+     solver1%order = order
+     solver1%mat%bc_type = 2
+     fem1%order = order
      call new_fem_data( fem1 )
      call new_fem_solver( fem1, solver1, '', 1, 2 )
-!...     if(ifelectron==2) call new_fem_data( femt )
-!...     if(ifelectron==2) call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', 2, 2 )
-!cj     call testsolve( solver1 )
-!cj     call delete_fem_data( fem1 )
-!cj     call destroy_solver( solver1 )
-!...     call destroy_solver( solver_dphi_dt )
-!cj     call PetscFinalize( ierror )
-!cj     stop
+     call testsolve( solver1 )
+     call delete_fem_data( fem1 )
+     call destroy_solver( solver1 )
+
+     masssolver%order = 0
+     femm%order = 1
+     call new_fem_data( femm )
+     call new_fem_masssolver( femm, masssolver )
+     call testmasssolve( masssolver )
+     call delete_fem_data( femm )
+     call destroy_solver( masssolver )
+
+     if(ifelectron==2) then
+        solver_dphi_dt%order = order
+        solver_dphi_dt%mat%bc_type = 2
+        femt%order = order
+        !cj  call new_fem_data( femt )
+        !cj  call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', 2, 2 )
+        !cj  call delete_fem_data( femt )
+        !cj  call destroy_solver( solver_dphi_dt )
+     endif
+
+     call PetscFinalize( ierror )
+     stop
   endif
 
   ! initialize particle position and velocity
@@ -424,8 +440,12 @@ end if
   else
      call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
-!...     if(ifelectron==2) call delete_fem_data( femt )
-!...     if(ifelectron==2) call destroy_solver( solver_dphi_dt )
+     call delete_fem_data( femm )
+     call destroy_solver( masssolver )
+     if(ifelectron==2) then
+        !cj  call delete_fem_data( femt )
+        !cj  call destroy_solver( solver_dphi_dt )
+     endif
   endif
 
 ! MPI finalize

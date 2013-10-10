@@ -73,12 +73,13 @@ int lagrange_element_construct_(int *order,
                              double *NN,
                              double *dN1,
                              double *Eij,
+                             double *Pijk,
                              double *bEij
                             )
 {
   /*int node , order, nw, ns*/;
   int medge, nedge, nbubble;
-  int i, j, l, m, n, li;
+  int i, j, k, l, m, n, li;
   PetscScalar ph0, ph1, ph2;
 
 /*  3 vertices defining a triangle 
@@ -546,6 +547,7 @@ if(*order > 2) {
 
 /*P bracket tensor
   Pijk[i][j][k] = NN[i] * Eij[j][k], rhs[i]=sum_j sum_k uu_j y_k P[i][j][k]
+*/
     for (i = 0; i < *nvar; i++)
        for (j = 0; j < *ns; j++)
        for (k = 0; k < *ns; k++) {
@@ -553,7 +555,6 @@ if(*order > 2) {
            for (n = 0; n < *nw; n++)
            Pijk[i*(*ns)*(*ns)+j*(*ns)+k] += weight[n] * NN[i*(*nw)+n] * Eij[j*(*ns)*(*nw)+k*(*nw)+n];
        }
-*/
 
     free_dVector1D(bNN , 0, (*ns)*(*nw) - 1);
     free_dVector1D(dbN1 , 0, (*ns)*(*ns)*(*nw) - 1);
