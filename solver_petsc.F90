@@ -1722,8 +1722,8 @@ contains
              jj=solver%fem%iet(j,ie)
           do k = 1,fe_ns
              kk=solver%fem%iet(k,ie)
-             ba(ii)=ba(ii)+bb(jj) * solver%fem%points(2,kk)*solver%fem%Pijk(i,j,k)*fcj(jj)
-             bt(ii)=bt(ii)-bb(jj) * solver%fem%points(1,kk)*solver%fem%Pijk(i,j,k)*fcj(jj)
+             ba(ii)=ba(ii)+bb(jj) * solver%fem%points(4,kk)*solver%fem%Pijk(i,j,k)*fcj(jj)
+             bt(ii)=bt(ii)-bb(jj) * solver%fem%points(3,kk)*solver%fem%Pijk(i,j,k)*fcj(jj)
           enddo
           enddo
        enddo
@@ -2079,10 +2079,10 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,dphida,dphidt,bn)
           fcj = zaj*rqj-zqj*raj/rj
 
           ! if (it, ir) makes one edge
-          x1=fem%points(1,i1)
-          y1=fem%points(2,i1)
-          x2=fem%points(1,i2)
-          y2=fem%points(2,i2)
+          x1=fem%points(3,i1)
+          y1=fem%points(4,i1)
+          x2=fem%points(3,i2)
+          y2=fem%points(4,i2)
           l12=(x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)
 
           mt=metric_elements(aaa(1),the(1),0.)
@@ -2184,8 +2184,8 @@ end subroutine neumbcfix
                  jj=fem%iet(j,ie)
               do k = 1,6
                  kk=fem%iet(k,ie)
-                 bh(ii)=bh(ii)+hh(jj)*fem%points(2,kk)*fem%Pijk(j,i,k)*bgsjgaa_ho(jj)
-                 bh(ii)=bh(ii)-hh(jj)*fem%points(1,kk)*fem%Pijk(j,i,k)*bgsjgat_ho(jj)
+                 bh(ii)=bh(ii)+hh(jj)*fem%points(4,kk)*fem%Pijk(j,i,k)*bgsjgaa_ho(jj)
+                 bh(ii)=bh(ii)-hh(jj)*fem%points(3,kk)*fem%Pijk(j,i,k)*bgsjgat_ho(jj)
               enddo
               enddo
            enddo
@@ -2202,8 +2202,8 @@ end subroutine neumbcfix
                  jj=fem%iet(j,ie)
               do k = 1,3
                  kk=fem%iet(k,ie)
-                 bh(ii)=bh(ii)+hh(jj)*fem%points(2,kk)*fem%Pijk(j,i,k)*bgsjgaa(jj)
-                 bh(ii)=bh(ii)-hh(jj)*fem%points(1,kk)*fem%Pijk(j,i,k)*bgsjgat(jj)
+                 bh(ii)=bh(ii)+hh(jj)*fem%points(4,kk)*fem%Pijk(j,i,k)*bgsjgaa(jj)
+                 bh(ii)=bh(ii)-hh(jj)*fem%points(3,kk)*fem%Pijk(j,i,k)*bgsjgat(jj)
               enddo
               enddo
            enddo
