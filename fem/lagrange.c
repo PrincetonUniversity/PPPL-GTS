@@ -549,11 +549,11 @@ if(*order > 2) {
   Pijk[i][j][k] = NN[i] * Eij[j][k], rhs[i]=sum_j sum_k uu_j y_k P[i][j][k]
 */
     for (i = 0; i < *nvar; i++)
-       for (j = 0; j < *ns; j++)
+       for (j = 0; j < *nvar; j++)
        for (k = 0; k < *ns; k++) {
-           Pijk[i*(*ns)*(*ns)+j*(*ns)+k]=0.;
+           Pijk[i*(*nvar)*(*ns)+j*(*ns)+k]=0.;
            for (n = 0; n < *nw; n++)
-           Pijk[i*(*ns)*(*ns)+j*(*ns)+k] += weight[n] * NN[i*(*nw)+n] * Eij[j*(*ns)*(*nw)+k*(*nw)+n];
+           Pijk[i*(*nvar)*(*ns)+j*(*ns)+k] += weight[n] * NN[i*(*nw)+n] * Eij[j*(*ns)*(*nw)+k*(*nw)+n];
        }
 
     free_dVector1D(bNN , 0, (*ns)*(*nw) - 1);

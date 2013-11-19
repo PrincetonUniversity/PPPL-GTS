@@ -103,17 +103,21 @@ program GTS
      fem1%order = order
      call new_fem_data( fem1 )
      call new_fem_solver( fem1, solver1, '', 1, 2 )
+#ifdef CJTEST
      call testsolve( solver1 )
      call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
+#endif
 
      masssolver%order = 0
      femm%order = 1
      call new_fem_data( femm )
      call new_fem_masssolver( femm, masssolver )
-     !call testmasssolve( masssolver )
-     !call delete_fem_data( femm )
-     !call destroy_solver( masssolver )
+#ifdef CJTEST
+     call testmasssolve( masssolver )
+     call delete_fem_data( femm )
+     call destroy_solver( masssolver )
+#endif
 
      if(ifelectron==2) then
         solver_dphi_dt%order = order
@@ -125,8 +129,10 @@ program GTS
         !cj  call destroy_solver( solver_dphi_dt )
      endif
 
+#ifdef CJTEST
      call PetscFinalize( ierror )
      stop
+#endif
   endif
 
   ! initialize particle position and velocity

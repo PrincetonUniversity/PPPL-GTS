@@ -268,7 +268,7 @@ contains
        call PetscViewerBinaryOpen(partd_comm, 'A0.m',FILE_MODE_WRITE,viewer,ierr)
        call MatView( Amat, viewer, ierr )
        call PetscViewerDestroy(viewer,ierr)
-       write(*,*) " ---> debug matsum", ierr
+       write(*,*) " ---> debug matsum on mype", mype, nproc_partd
     endif
     ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     if( this%petsc_gts_is .eq. 0 ) then
@@ -960,8 +960,7 @@ contains
        enddo
     enddo
 
-    deallocate(bb,xx,hh,bh) 
-    deallocate(bn)
+    deallocate(bb,xx,hh,bh,bn) 
     if(mype.eq.0 .and. solver%fem%order>0) write(0, *) "	finite element solve end"
 
     ! debug
@@ -1186,9 +1185,11 @@ contains
     neq = sum(mtheta)
     allocate(xx(neq*fe_ndof),bb(neq*fe_ndof))
     allocate(xx1(neq*fe_ndof))
-    allocate(hh(neq*fe_ndof), bh(neq*fe_ndof))
+    allocate(hh(neq*fe_ndof), bh(neq*fe_ndof), bn(neq*fe_ndof))
     xx=0.
     hh=1.
+    bh=0.
+    bn=0.  !dphidt related
     xx1=0.
     ivsl = 0
     ivgts = 0
@@ -1345,8 +1346,6 @@ contains
 
     !set Neumann bc for rhs vector sept19-2013
     !at present it only works for order=1
-    allocate(bn(neq))
-    bn = 0.  !dphidt related
     if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
        it= sum( mtheta ) - mtheta(mpsi)
        ir=mpsi
@@ -1515,7 +1514,7 @@ contains
     if(mype.eq.0) write(0, *) "	finite element test solve end"
     
     deallocate(bb,xx) 
-    deallocate(xx1,hh,bh) 
+    deallocate(xx1,hh,bh,bn) 
 
     ! debug
     if( whichone .eq. 0 .and. mype==-10 ) then
@@ -1530,7 +1529,7 @@ contains
 !========================================================================
 !         testmasssolve
 !========================================================================
-  subroutine testmasssolve( solver )
+  subroutine testmasssolve( masssolver )
     !     solve M (dxdr) = u y Pijk
     !           M (dxdz) =-u x Pijk
 
@@ -1539,84 +1538,66 @@ contains
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0,a0,a1
     use field_array,only: psi_grid,qtinv
     implicit none
-    type(solver_data) :: solver
-    integer :: nn
-    integer :: ierr
+    type(solver_data) :: masssolver
     ! locals
-    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,mt
     real(doubleprec),allocatable,dimension(:) :: xx, bb, jself, dxdr, dxdz
     real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, jself_ho
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp),dimension(2) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
     integer, external :: metric_elements
+    integer :: ierr
 
     real(wp) :: M, L, alfa, rms=0.
     integer :: i,ii,j,jj,k,kk
     integer :: fe_ns=3
 
 
-    if(mype.eq.0) &
-    write(0, *) "	mass solver:: dxdr dxdz"
+    if(masssolver%order .gt. 0) then
+       if(mype.eq.0) write(0, *) "	mass solver:: not implemented for high order elements"
+       return
+    else
+       if(mype.eq.0) write(0, *) "	mass solver:: find dxdr dxdz begin"
+    endif
 
 !cj the following is a combianation of solve and tri_mesh
-    neq = sum(mtheta)
-    allocate(xx(neq),bb(neq),dxdr(neq),dxdz(neq))
-    allocate(jself(neq))
-    xx=0.
-    ivsl = 0
-    ivgts = 0
-    zeta = zetamin + deltaz ! zeta for my plane   
-    do ir=0,mpsi 
-       itmax=mtheta(ir)
-       pdum=psi_grid(ir)
-       dt = deltat(ir)
-       do it=0,itmax
-          ivgts = ivgts + 1
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
-
-             tdum = real(it)*dt + zeta*qtinv(ir)
-             tdum=tdum/(2.0_wp*pi)
-             tdum=2.0_wp*pi*(tdum-aint(tdum))
-
-             aaa(1)=pdum
-             the(1)=tdum
-             call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-
-                xx(ivsl) = 1.
-               !xx(ivsl) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
-                dxdr(ivsl) = 0. !* ( (rj(1)-R_0) + zj(1) )
-                dxdz(ivsl) = 0. !* ( (rj(1)-R_0) + zj(1) )
-                jself(ivsl) = 1.
-
-                !xx(ivsl) = pdum*pdum
-                !dxdr(ivsl) = 2. * pdum
-                !dxdz(ivsl) = 0.
-                !jself(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
-          end if
-       enddo
-    enddo
-    if(ivsl.ne.neq)stop'masssolve: ivsl.ne.neq'
-
-!   du/da=2a, u=a^2, solve numerical xx=du/da and compare it to analytical du/da
+    allocate(xx(mgrid),bb(mgrid))
+    allocate(dxdr(mgrid),dxdz(mgrid),jself(mgrid))
     bb=0.
-    do ie=1, solver%fem%iemax
-       do i = 1,fe_ns
-          ii=solver%fem%iet(i,ie)
-          do j = 1,fe_ns
-             jj=solver%fem%iet(j,ie)
-          do k = 1,fe_ns
-             kk=solver%fem%iet(k,ie)
-             bb(ii)=bb(ii)+xx(jj) * solver%fem%points(2,kk)*solver%fem%Pijk(i,j,k)*jself(jj)
-            !bb(ii)=bb(ii)-xx(jj) * solver%fem%points(1,kk)*solver%fem%Pijk(i,j,k)*jself(jj)
-          enddo
-          enddo
+    dxdr=0.
+    dxdz=0.
+    ivsl = 0
+    ivgts = 0
+    zeta = zetamin + deltaz ! zeta for my plane   
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       pdum=psi_grid(ir)
+       dt = deltat(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          tdum = real(it)*dt + zeta*qtinv(ir)
+          tdum=tdum/(2.0_wp*pi)
+          tdum=2.0_wp*pi*(tdum-aint(tdum))
+
+          aaa(1)=pdum
+          the(1)=tdum
+          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+
+         !bb(ivgts) = 1.
+          bb(ivgts) =   (rj(1)-R_0) + zj(1)  
+         !bb(ivgts) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
+          jself(ivgts) = 1.
+
+          !bb(ivgts) = pdum*pdum
+          !jself(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
        enddo
     enddo
+    if(ivgts.ne.mgrid) then
+       if(mype.eq.0) write(*,*) "mgrid=",mgrid,"ivgts=",ivgts
+       stop'mass solver: ivgts.ne.mgrid'
+    endif
 
-    ! the 2nd 'bb' argument serves as dummy
-    xx=0.
-    call petsc_solve( solver, neq, bb, xx, bb, ierr)
+    call find_dxdadxdt( masssolver, mgrid, bb, dxdr, dxdz, ierr )
 
     ivsl = 0
     ivgts = 0
@@ -1627,32 +1608,30 @@ contains
        dt = deltat(ir)
        do it=0,itmax
           ivgts = ivgts + 1
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
 
-             tdum = real(it)*dt + zeta*qtinv(ir)
-             tdum=tdum/(2.0_wp*pi)
-             tdum=2.0_wp*pi*(tdum-aint(tdum))
+          tdum = real(it)*dt + zeta*qtinv(ir)
+          tdum=tdum/(2.0_wp*pi)
+          tdum=2.0_wp*pi*(tdum-aint(tdum))
 
-             aaa(1)=pdum
-             the(1)=tdum
-             call esigetrzb(rj,zj,Bj,aaa,the,1)
+          aaa(1)=pdum
+          the(1)=tdum
+          call esigetrzb(rj,zj,Bj,aaa,the,1)
 
-             tmp = 0. !* ( (rj(1)-R_0) + zj(1) )
-             !tmp = 2.*pdum
+         !tmp = 0.
+          tmp = 1.
+         !tmp = 2. * ( (rj(1)-R_0) + zj(1) )
+         !tmp = 2.*pdum
 
-             rms = rms +&
-                   abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))*abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
-             write(115,115) ivsl, xx(ivsl), tmp, dxdr(ivsl), bb(ivsl), abs(tmp-xx(ivsl))/abs(tmp+xx(ivsl))
-             115 format("mass solver=", 1(2x,i7), 5(1x,d12.6))
-          end if
+          write(115,115) ivgts, bb(ivgts), tmp, dxdr(ivgts), dxdz(ivgts)
+          115 format("mass solver=", 1(2x,i7), 4(1x,d12.6))
        enddo
     enddo
-    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+    if(ivgts.ne.mgrid)stop'mass solver: ivgts.ne.mgrid'
     call flush(115)
-    if(mype.eq.0) write(0, *) "	finite element testmasssolve rms=",sqrt(rms/ivsl)
+    if(mype.eq.0) write(0, *) &
+      "	mass solver: rms(dxdr dxdz)=",sqrt(sum(dxdr*dxdr))/mgrid, sqrt(sum(dxdz*dxdz))/mgrid
     
-    deallocate(bb,xx) 
+    deallocate(xx,bb) 
     deallocate(dxdr,dxdz,jself)
 
   end subroutine testmasssolve
@@ -1681,18 +1660,23 @@ contains
     real(doubleprec),allocatable,dimension(:) :: xa, xt, bb, ba, bt, fcj
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-    real(wp) alpha, beta
 
-    real(wp) M, L, alfa
-    real(wp) :: rms=0.
+    real(wp),allocatable,dimension(:,:) :: xlt
+    integer,dimension(:),allocatable :: ind
+    integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk
-    integer :: fe_ns=3
+    integer :: whichone = 5
 
 
     if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
+    fe_order=solver%fem%order
+    fe_ns=3
+    fe_nvar=3
+    allocate( xlt(2,fe_ns) )
+    allocate( ind(fe_ns) )
 
     neq = sum(mtheta)
-    allocate(xa(neq),ba(neq),xt(neq),bt(neq),bb(neq),fcj(neq))
+    allocate(bb(neq),xa(neq),ba(neq),xt(neq),bt(neq),fcj(neq))
     ivsl = 0
     ivgts = 0
     do ir=0,mpsi 
@@ -1707,34 +1691,66 @@ contains
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
 
-    do ivsl=1,neq
-       aaa(1)=solver%fem%points(3,ivsl)
-       the(1)=solver%fem%points(4,ivsl)
-       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
-       fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
-    enddo
+    if(whichone.lt.3) then
+       fcj=1.
+    else
+       do ivsl=1,neq
+          aaa(1)=solver%fem%points(3,ivsl)
+          the(1)=solver%fem%points(4,ivsl)
+          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
+          fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+       enddo
+    endif
 
-!   du/da=2a, u=a^2, solve numerical xx=du/da and compare it to analytical du/da
+!   form rhs ba&bt for dxdr&dxdz respectively
+    ba=0.
+    bt=0.
     do ie=1, solver%fem%iemax
-       do i = 1,fe_ns
+       ind(:)=solver%fem%iet(:,ie)
+       if(ind(1) .eq. 0) stop 'ind(1) == 0'
+
+       if(whichone.lt.3) then
+          ! in (r,z) cylindrical coordinates
+          xlt(1,:) = solver%fem%points(1,ind(:))
+          xlt(2,:) = solver%fem%points(2,ind(:))
+       else
+          ! in (a,t) flux coordinates
+          xlt(1,:) = solver%fem%points(3,ind(:))
+          xlt(2,:) = solver%fem%points(4,ind(:))
+          call fixtheta(ie,fe_order,fe_ns,xlt)
+       endif
+
+       do i = 1,fe_nvar
           ii=solver%fem%iet(i,ie)
-          do j = 1,fe_ns
+          do j = 1,fe_nvar
              jj=solver%fem%iet(j,ie)
           do k = 1,fe_ns
              kk=solver%fem%iet(k,ie)
-             ba(ii)=ba(ii)+bb(jj) * solver%fem%points(4,kk)*solver%fem%Pijk(i,j,k)*fcj(jj)
-             bt(ii)=bt(ii)-bb(jj) * solver%fem%points(3,kk)*solver%fem%Pijk(i,j,k)*fcj(jj)
+             ba(ii)=ba(ii)+bb(jj)*xlt(2,k)*solver%fem%Pijk(k,j,i)*fcj(jj)
+             bt(ii)=bt(ii)-bb(jj)*xlt(1,k)*solver%fem%Pijk(k,j,i)*fcj(jj)
           enddo
           enddo
        enddo
     enddo
+    !call find_rhs(neq, &
+    !              ba, &
+    !              bt, &
+    !              bb, &
+    !              solver%fem%iemax, &
+    !              solver%fem%iet(1,:), &
+    !              solver%fem%iet(2,:), &
+    !              solver%fem%iet(3,:), &
+    !              solver%fem%points(1,:), &
+    !              solver%fem%points(2,:))
 
+!   solve xa&xt representing dxdr&dxdz respectively
     xa=0.
     xt=0.
+    !re-enforce in case somehting went wrong
     solver%order=0
-    ! the 2nd 'bb' serve as dummy
-    call petsc_solve( solver, neq, ba, xa, ba, ierr)
-    call petsc_solve( solver, neq, bt, xt, bt, ierr)
+    ! 'fcj' serves as a place holder
+    call petsc_solve( solver, neq, ba, xa, fcj, ierr)
+    call petsc_solve( solver, neq, bt, xt, fcj, ierr)
     
     ! set solution (output)
     ivsl = 0
@@ -1754,11 +1770,88 @@ contains
        enddo
     enddo
 
+    deallocate( xlt )
+    deallocate( ind )
     deallocate(bb,ba,bt,xa,xt,fcj)
 
   end subroutine find_dxdadxdt
 
 
+
+!========================================================================
+!         fix theta periodic behavior
+!========================================================================
+  subroutine fixtheta(ie,fe_order,fe_ns,xlt)
+    use global_parameters, only:mype,mgrid,pi
+    implicit none
+    integer :: ie,fe_order,fe_ns
+    real(wp),intent(inout) :: xlt(2,fe_ns)
+    real(wp) :: eps, big
+
+    eps=pi/6.
+    big=pi*1.5
+
+    if(fe_order.eq.2) then
+        if( xlt(2,1).lt.eps .and. xlt(2,3).gt.big .and. xlt(2,5).gt.big ) then
+            xlt(2,1) = 2.*pi + xlt(2,1)
+            !if(mype .eq. 0) write(0,*) '	t1 changed:', ie, xlt(2,1)
+        endif
+        if( xlt(2,3).lt.eps .and. xlt(2,5).gt.big .and. xlt(2,1).gt.big ) then
+            xlt(2,3) = 2.*pi + xlt(2,3)
+            !if(mype .eq. 0) write(0,*) '	t2 changed:', ie, xlt(2,3)
+        endif
+        if( xlt(2,5).lt.eps .and. xlt(2,1).gt.big .and. xlt(2,3).gt.big ) then
+            xlt(2,5) = 2.*pi + xlt(2,5)
+            !if(mype .eq. 0) write(0,*) '	t3 changed:', ie, xlt(2,5)
+        endif
+        if( xlt(2,1).lt.eps .and. xlt(2,3).lt.eps .and. xlt(2,5).gt.big ) then
+            xlt(2,1) = 2.*pi + xlt(2,1)
+            xlt(2,3) = 2.*pi + xlt(2,3)
+            !if(mype .eq. 0) write(0,*) '	t4 changed:', ie, xlt(2,1), xlt(2,3)
+        endif
+        if( xlt(2,3).lt.eps .and. xlt(2,5).lt.eps .and. xlt(2,1).gt.big ) then
+            xlt(2,3) = 2.*pi + xlt(2,3)
+            xlt(2,5) = 2.*pi + xlt(2,5)
+            !if(mype .eq. 0) write(0,*) '	t5 changed:', ie, xlt(2,3), xlt(2,5)
+        endif
+        if( xlt(2,5).lt.eps .and. xlt(2,1).lt.eps .and. xlt(2,3).gt.big ) then
+            xlt(2,5) = 2.*pi + xlt(2,5)
+            xlt(2,1) = 2.*pi + xlt(2,1)
+            !if(mype .eq. 0) write(0,*) '	t6 changed:', ie, xlt(2,5), xlt(2,1)
+        endif
+        xlt(:,2) = .5*(xlt(:,1)+xlt(:,3))
+        xlt(:,4) = .5*(xlt(:,3)+xlt(:,5))
+        xlt(:,6) = .5*(xlt(:,5)+xlt(:,1))
+    else
+        if( xlt(2,1).lt.eps .and. xlt(2,2).gt.big .and. xlt(2,3).gt.big ) then
+            xlt(2,1) = 2.*pi + xlt(2,1)
+            !if(mype .eq. 0) write(0,*) '	t1 changed:', ie, xlt(2,1)
+        endif
+        if( xlt(2,2).lt.eps .and. xlt(2,3).gt.big .and. xlt(2,1).gt.big ) then
+            xlt(2,2) = 2.*pi + xlt(2,2)
+            !if(mype .eq. 0) write(0,*) '	t2 changed:', ie, xlt(2,2)
+        endif
+        if( xlt(2,3).lt.eps .and. xlt(2,1).gt.big .and. xlt(2,2).gt.big ) then
+            xlt(2,3) = 2.*pi + xlt(2,3)
+            !if(mype .eq. 0) write(0,*) '	t3 changed:', ie, xlt(2,3)
+        endif
+        if( xlt(2,1).lt.eps .and. xlt(2,2).lt.eps .and. xlt(2,3).gt.big ) then
+            xlt(2,1) = 2.*pi + xlt(2,1)
+            xlt(2,2) = 2.*pi + xlt(2,2)
+            !if(mype .eq. 0) write(0,*) '	t4 changed:', ie, xlt(2,1), xlt(2,2)
+        endif
+        if( xlt(2,2).lt.eps .and. xlt(2,3).lt.eps .and. xlt(2,1).gt.big ) then
+            xlt(2,2) = 2.*pi + xlt(2,2)
+            xlt(2,3) = 2.*pi + xlt(2,3)
+            !if(mype .eq. 0) write(0,*) '	t5 changed:', ie, xlt(2,2), xlt(2,3)
+        endif
+        if( xlt(2,3).lt.eps .and. xlt(2,1).lt.eps .and. xlt(2,2).gt.big ) then
+            xlt(2,3) = 2.*pi + xlt(2,3)
+            xlt(2,1) = 2.*pi + xlt(2,1)
+            !if(mype .eq. 0) write(0,*) '	t6 changed:', ie, xlt(2,3), xlt(2,1)
+        endif
+    endif
+  end subroutine fixtheta
 
 
 #ifdef OLDWAY
@@ -2129,13 +2222,30 @@ end subroutine neumbcfix
     real(wp) alpha, beta, ns0, ne0, gs, vthe, Zs
     real(wp), external ::temperature_e, density
     integer, external :: metric_elements
+    integer :: i0, i1, i2, i3, i4, i5
+    integer :: m,mv,n,nv
+    real(wp),allocatable,dimension(:,:) :: xlt
+    integer,dimension(:),allocatable :: ind
+    integer,allocatable,dimension(:) :: indlocal, indglobal
+    integer :: fe_order, fe_ns, fe_nvar, fe_ndof
+    integer :: whichone = 5
+
 
 
     if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
+    fe_order=fem%order
+    fe_ns=3
+    fe_ndof=1
+    if(fe_order .gt. 2) fe_ndof=6
+    if(fe_order .eq. 2) fe_ns=6
+    fe_nvar=fe_ns*fe_ndof
+    allocate( xlt(2,fe_ns) )
+    allocate( ind(fe_ns) )
+    allocate(indlocal(3*fe_ndof), indglobal(3*fe_ndof))
 
     !cal beta * gs * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
     neq = sum(mtheta)
-    allocate(bgsjgaa(neq), bgsjgat(neq))
+    allocate(bgsjgaa(neq*fe_ndof), bgsjgat(neq*fe_ndof))
     ivsl = 0
     ivgts = 0
     zeta = zetamin + deltaz ! zeta for my plane   
@@ -2163,8 +2273,28 @@ end subroutine neumbcfix
              beta = - 1./ ne0
              Zs = 1.
              gs = Zs / Bj(1)/Bj(1) * ns0 * c0cs_i * msm0_i
-             bgsjgaa(ivsl) = beta*gs*jself*metric(1)
-             bgsjgat(ivsl) = beta*gs*jself*metric(4)
+
+             i0=(ivsl-1)*fe_ndof+1
+             bgsjgaa(i0) = beta*gs*jself*metric(1)
+             bgsjgat(i0) = beta*gs*jself*metric(4)
+             if(fe_ndof .gt. 1) then
+                i1=(ivsl-1)*fe_ndof+2
+                i2=(ivsl-1)*fe_ndof+3
+                i3=(ivsl-1)*fe_ndof+4
+                i4=(ivsl-1)*fe_ndof+5
+                i5=(ivsl-1)*fe_ndof+6
+
+                bgsjgaa(i1) = beta*gs*jself*metric(1)
+                bgsjgaa(i2) = beta*gs*jself*metric(1)
+                bgsjgaa(i3) = beta*gs*jself*metric(1)
+                bgsjgaa(i4) = beta*gs*jself*metric(1)
+                bgsjgaa(i5) = beta*gs*jself*metric(1)
+                bgsjgat(i1) = beta*gs*jself*metric(4)
+                bgsjgat(i2) = beta*gs*jself*metric(4)
+                bgsjgat(i3) = beta*gs*jself*metric(4)
+                bgsjgat(i4) = beta*gs*jself*metric(4)
+                bgsjgat(i5) = beta*gs*jself*metric(4)
+             endif
           end if
        enddo
     enddo
@@ -2184,8 +2314,8 @@ end subroutine neumbcfix
                  jj=fem%iet(j,ie)
               do k = 1,6
                  kk=fem%iet(k,ie)
-                 bh(ii)=bh(ii)+hh(jj)*fem%points(4,kk)*fem%Pijk(j,i,k)*bgsjgaa_ho(jj)
-                 bh(ii)=bh(ii)-hh(jj)*fem%points(3,kk)*fem%Pijk(j,i,k)*bgsjgat_ho(jj)
+                 bh(ii)=bh(ii)+hh(jj)*fem%points(4,kk)*fem%Pijk(k,i,j)*bgsjgaa_ho(jj)
+                 bh(ii)=bh(ii)-hh(jj)*fem%points(3,kk)*fem%Pijk(k,i,j)*bgsjgat_ho(jj)
               enddo
               enddo
            enddo
@@ -2196,20 +2326,47 @@ end subroutine neumbcfix
     else
         !cal extra term to be added to M*bb(rhs)
         do ie=1, fem%iemax
-           do i = 1,3
-              ii=fem%iet(i,ie)
-              do j = 1,3
-                 jj=fem%iet(j,ie)
+           ind(:)=fem%iet(:,ie)
+           if(ind(1) .eq. 0) stop 'ind(1) == 0'
+
+           if(whichone.lt.3) then
+              ! in (r,z) cylindrical coordinates
+              xlt(1,:) = fem%points(1,ind(:))
+              xlt(2,:) = fem%points(2,ind(:))
+           else
+              ! in (a,t) flux coordinates
+              xlt(1,:) = fem%points(3,ind(:))
+              xlt(2,:) = fem%points(4,ind(:))
+              call fixtheta(ie,fe_order,fe_ns,xlt)
+           endif
+
+           !preparing for index
+           do m = 1,3
+              mv=fem%iet(m,ie)
+              do n = 1,fe_ndof
+                 nv=(m-1)*fe_ndof+n
+                 indlocal(nv)=nv
+                 indglobal(nv)=(mv-1)*fe_ndof+n
+              enddo
+           enddo
+
+           do i = 1,3*fe_ndof
+              ii=indglobal(i)
+              do j = 1,3*fe_ndof
+                 jj=indglobal(j)
               do k = 1,3
                  kk=fem%iet(k,ie)
-                 bh(ii)=bh(ii)+hh(jj)*fem%points(4,kk)*fem%Pijk(j,i,k)*bgsjgaa(jj)
-                 bh(ii)=bh(ii)-hh(jj)*fem%points(3,kk)*fem%Pijk(j,i,k)*bgsjgat(jj)
+                 bh(ii)=bh(ii)+hh(jj)*xlt(2,k)*fem%Pijk(k,i,j)*bgsjgaa(jj)
+                 bh(ii)=bh(ii)-hh(jj)*xlt(1,k)*fem%Pijk(k,i,j)*bgsjgat(jj)
               enddo
               enddo
            enddo
         enddo
     endif
 
+    deallocate( xlt )
+    deallocate( ind )
+    deallocate(indlocal, indglobal)
     deallocate(bgsjgaa, bgsjgat)
   end subroutine add_hh2bb
 
@@ -2234,7 +2391,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   !     ierr: error code
   !
   use precision,only:wp,doubleprec
-  use particle_decomp,only:myrank_partd
+  use particle_decomp,only:myrank_partd,nproc_partd
   use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi
   use esi_interface, only : metric
   use fem_data_class
@@ -2252,6 +2409,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
 !  real(doubleprec)           marr(3,3),marr2(3*3)             ! mass matrix
 !  real(doubleprec)  rrarr(3,3),rzarr(3,3),zrarr(3,3),zzarr(3,3),pparr(3,3),rarr(3,3),zarr(3,3)
   real(doubleprec) eps,big ! therm2d uses *8
+  real(doubleprec),dimension(:,:,:),allocatable ::  fe_Pijk
   real(doubleprec),dimension(:,:),allocatable ::  xlt,sarr,marr,ul ! therm2d uses *8
   real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
   real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
@@ -2285,6 +2443,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   big = pi*1.5
 
   call MatZeroEntries(Amat,ierr)
+  call MatZeroEntries(Mmat,ierr)
 
   fe_order=fem%order
   call lagrange_element_define(fe_order, &
@@ -2300,7 +2459,8 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   allocate(fe_NN(fe_nvar,fe_nw))
   allocate(fe_dN1(fe_node,fe_nvar,fe_nw))
   allocate(fe_Eij(fe_nvar,fe_ns,fe_nw))
-  allocate(fem%Pijk(fe_ns,fe_ns,fe_ns))
+  allocate(fem%Pijk(fe_ns,fe_nvar,fe_nvar))
+  allocate(fe_Pijk(fe_ns,fe_nvar,fe_nvar))
   allocate(fe_bEij(fe_ns,fe_ns,fe_nw))
   call lagrange_element_construct(fe_order, &
                                    fe_ns, &
@@ -2325,12 +2485,15 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   allocate( gaa(fe_ns),gtt(fe_ns),gpp(fe_ns),gat(fe_ns),vthe(fe_ns),q(fe_ns),ns0(fe_ns),ne0(fe_ns) )
 
   !july 31, 2013 to calculate dxdr, dxdz
-  do i=1,fe_ns
-     do j=1,fe_ns
-        if(mype==0) write(*,115) i,j,fem%Pijk(i,j,1),fem%Pijk(i,j,2),fem%Pijk(i,j,3)
-        115 format("	Pijk:", 2(2x,i4), 3(1x,d12.6))
-     enddo
-  enddo
+  !shouldn't do MPI_ALLREDUCE, but just for now to fix bug
+  fe_Pijk(:,:,:)= fem%Pijk(:,:,:)
+    call MPI_ALLREDUCE(fe_Pijk,fem%Pijk,fe_ns*fe_nvar*fe_nvar,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
+  !do i=1,fe_nvar
+  !   do j=1,fe_nvar
+  !      if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
+  !      115 format("	Pijk:", 2(2x,i4), 3(1x,d12.6))
+  !   enddo
+  !enddo
 
   if(mype .eq. 0) write(0,*) '	form_tangent: iemax=', fem%iemax
   do ie=1,fem%iemax
@@ -2341,79 +2504,12 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         ! in (r,z) cylindrical coordinates
         xlt(1,:) = fem%points(1,ind(:))
         xlt(2,:) = fem%points(2,ind(:))
+        fcj=1.
      else
         ! in (a,t) flux coordinates
         xlt(1,:) = fem%points(3,ind(:))
         xlt(2,:) = fem%points(4,ind(:))
-     endif
-
-if(fe_order.eq.2) then
-        if( xlt(2,1).lt.eps .and. xlt(2,3).gt.big .and. xlt(2,5).gt.big ) then
-            xlt(2,1) = 2.*pi + xlt(2,1)
-            if(mype .eq. 0) write(0,*) '	t1 changed:', ie, xlt(2,1)
-        endif
-        if( xlt(2,3).lt.eps .and. xlt(2,5).gt.big .and. xlt(2,1).gt.big ) then
-            xlt(2,3) = 2.*pi + xlt(2,3)
-            if(mype .eq. 0) write(0,*) '	t2 changed:', ie, xlt(2,3)
-        endif
-        if( xlt(2,5).lt.eps .and. xlt(2,1).gt.big .and. xlt(2,3).gt.big ) then
-            xlt(2,5) = 2.*pi + xlt(2,5)
-            if(mype .eq. 0) write(0,*) '	t3 changed:', ie, xlt(2,5)
-        endif
-        if( xlt(2,1).lt.eps .and. xlt(2,3).lt.eps .and. xlt(2,5).gt.big ) then
-            xlt(2,1) = 2.*pi + xlt(2,1)
-            xlt(2,3) = 2.*pi + xlt(2,3)
-            if(mype .eq. 0) write(0,*) '	t4 changed:', ie, xlt(2,1), xlt(2,3)
-        endif
-        if( xlt(2,3).lt.eps .and. xlt(2,5).lt.eps .and. xlt(2,1).gt.big ) then
-            xlt(2,3) = 2.*pi + xlt(2,3)
-            xlt(2,5) = 2.*pi + xlt(2,5)
-            if(mype .eq. 0) write(0,*) '	t5 changed:', ie, xlt(2,3), xlt(2,5)
-        endif
-        if( xlt(2,5).lt.eps .and. xlt(2,1).lt.eps .and. xlt(2,3).gt.big ) then
-            xlt(2,5) = 2.*pi + xlt(2,5)
-            xlt(2,1) = 2.*pi + xlt(2,1)
-            if(mype .eq. 0) write(0,*) '	t6 changed:', ie, xlt(2,5), xlt(2,1)
-        endif
-        xlt(:,2) = .5*(xlt(:,1)+xlt(:,3))
-        xlt(:,4) = .5*(xlt(:,3)+xlt(:,5))
-        xlt(:,6) = .5*(xlt(:,5)+xlt(:,1))
-else
-        if( xlt(2,1).lt.eps .and. xlt(2,2).gt.big .and. xlt(2,3).gt.big ) then
-            xlt(2,1) = 2.*pi + xlt(2,1)
-            if(mype .eq. 0) write(0,*) '	t1 changed:', ie, xlt(2,1)
-        endif
-        if( xlt(2,2).lt.eps .and. xlt(2,3).gt.big .and. xlt(2,1).gt.big ) then
-            xlt(2,2) = 2.*pi + xlt(2,2)
-            if(mype .eq. 0) write(0,*) '	t2 changed:', ie, xlt(2,2)
-        endif
-        if( xlt(2,3).lt.eps .and. xlt(2,1).gt.big .and. xlt(2,2).gt.big ) then
-            xlt(2,3) = 2.*pi + xlt(2,3)
-            if(mype .eq. 0) write(0,*) '	t3 changed:', ie, xlt(2,3)
-        endif
-        if( xlt(2,1).lt.eps .and. xlt(2,2).lt.eps .and. xlt(2,3).gt.big ) then
-            xlt(2,1) = 2.*pi + xlt(2,1)
-            xlt(2,2) = 2.*pi + xlt(2,2)
-            if(mype .eq. 0) write(0,*) '	t4 changed:', ie, xlt(2,1), xlt(2,2)
-        endif
-        if( xlt(2,2).lt.eps .and. xlt(2,3).lt.eps .and. xlt(2,1).gt.big ) then
-            xlt(2,2) = 2.*pi + xlt(2,2)
-            xlt(2,3) = 2.*pi + xlt(2,3)
-            if(mype .eq. 0) write(0,*) '	t5 changed:', ie, xlt(2,2), xlt(2,3)
-        endif
-        if( xlt(2,3).lt.eps .and. xlt(2,1).lt.eps .and. xlt(2,2).gt.big ) then
-            xlt(2,3) = 2.*pi + xlt(2,3)
-            xlt(2,1) = 2.*pi + xlt(2,1)
-            if(mype .eq. 0) write(0,*) '	t6 changed:', ie, xlt(2,3), xlt(2,1)
-        endif
-endif
-
-     if(whichone >= 3) then
-        !! in (r,z) cylindrical coordinates
-        !cf1 = mean( raj*raj + rqj*rqj , fe_ns)
-        !cf2 = mean( raj*zaj + rqj*zqj , fe_ns)
-        !cf3 = mean( zaj*zaj + zqj*zqj , fe_ns)
-     !else if(whichone >= 4) then
+        call fixtheta(ie,fe_order,fe_ns,xlt)
         call cmp_phy_qty
      endif
 
@@ -2458,22 +2554,17 @@ endif
            do i=1,nz
              kk = kk + 1
                 if(whichone==1) then
-            sarr2(kk) = cf1*rrarr(i,j) &
-                       +cf2*2.*rzarr(i,j) &
-                       +cf3*zzarr(i,j) &
-                       +cf4*rarr(i,j) &
-                       +cf5*zarr(i,j)
-             marr2(kk) = marr(i,j)
+             sarr2(kk) = cf1*rrarr(i,j) &
+                        +cf2*2.*rzarr(i,j) &
+                        +cf3*zzarr(i,j) &
+                        +cf4*rarr(i,j) &
+                        +cf5*zarr(i,j)
                 else if(whichone==2) then
              sarr2(kk) = sarr(i,j)
-             marr2(kk) = marr(i,j)
                 else if(whichone==3) then
              sarr2(kk) = fcj*( rrarr(i,j) + 2.*rzarr(i,j) + zzarr(i,j) )
-             marr2(kk) = fcj*marr(i,j)
                 else if(whichone==4) then
-            !sarr2(kk) = fcj*sarr(i,j)
              sarr2(kk) = fcj*( cf1*rrarr(i,j) + 2.*cf2*rzarr(i,j) + cf3*zzarr(i,j) )
-             marr2(kk) = fcj*marr(i,j)
                 else
              sarr2(kk) = alpha * fcj * marr(i,j) &
                        + beta * fcj * gs * ( cf1*rrarr(i,j) &
@@ -2482,15 +2573,24 @@ endif
                        +                     cf3*zzarr(i,j) &
                        +                     cf4*pparr(i,j)/qq &
                                            )
-             marr2(kk) = fcj*marr(i,j)
                 endif
+             marr2(kk) = fcj*marr(i,j)
            enddo
         enddo
-        !
+
         call MatSetValues(Amat,nz,ind2,nz,ind2,sarr2,ADD_VALUES,ierr)
         call MatSetValues(Mmat,nz,ind2,nz,ind2,marr2,ADD_VALUES,ierr)
   enddo
 
+  deallocate( ind2,ind3,ind )
+  deallocate( xlt )
+  deallocate( sarr,sarr2,ul )
+  deallocate( marr,marr2 )
+  deallocate( rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr )
+  deallocate( aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj )
+  deallocate( gaa,gtt,gpp,gat,vthe,q,ns0,ne0 )
+
+  deallocate(fe_Pijk)
   deallocate(fe_weight)
   deallocate(fe_NN)
   deallocate(fe_dN1)
