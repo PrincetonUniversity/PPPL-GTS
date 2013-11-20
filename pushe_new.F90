@@ -562,12 +562,16 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
 
      kappa=(min(umax*umax,energy*T_inverse)-1.5_wp)*(-dlnTdae(m))+(-dlnndae(m)) !=-dlnf_M/da
 
-! ExB drift in radial direction for w-dot and flux diagnostics
-     vdr=ghq(m)             !  da/dt|_EXB
+     if(ifneoclassical==1) then
+        vdr=da(m)                 !  full da/dt including NC dynamics
+        weqflow=vdr*Ba(m)+dgq(m)*Bq(m)
+     else
+        ! ExB drift in radial direction for w-dot and flux diagnostics
+        vdr=ghq(m)             !  da/dt|_EXB
+        weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
+     end if
+
      wdrive=vdr*kappa
-
-     weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
-
 
 
 ! calculate d(delta_phi)/dt at particles along trajactory
@@ -619,7 +623,11 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
         fdamp=0.0_wp
      end if
 
-     wdrift=(Pa(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+     if(ifneoclassical==1) then   
+        wdrift=(dgr(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+     else
+        wdrift=(Pa(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+     end if
 
      weqflow=weqflow*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
 
@@ -733,7 +741,7 @@ end if
 
 
 ! store GC information for flux measurements
-     wpi(1,m)=vdr       ! at present, wpi(1,*)=da/dt|_EXB 
+     wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
      wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
      wpi(3,m)=muB       ! normalizd electron perpendicular energy
 
@@ -995,11 +1003,16 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
 
      kappa=(min(umax*umax,energy*T_inverse)-1.5_wp)*(-dlnTdae(m))+(-dlnndae(m)) !=-dlnf_M/da
 
-! ExB drift in radial direction for w-dot and flux diagnostics
-     vdr=ghq(m)             !  da/dt|_EXB
-     wdrive=vdr*kappa
+     if(ifneoclassical==1) then
+        vdr=da(m)
+        weqflow=vdr*Ba(m)+dgq(m)*Bq(m)
+     else
+        !  ExB drift in radial direction for w-dot and flux diagnostics
+        vdr=ghq(m)             !  da/dt|_EXB
+        weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
+     end if
 
-     weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
+     wdrive=vdr*kappa
 
 
      if(ifelectron==2) then 
@@ -1058,7 +1071,11 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
         fdamp=0.0_wp
      end if
 
-     wdrift=(Pa(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+     if(ifneoclassical==1) then
+        wdrift=(dgr(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+     else
+        wdrift=(Pa(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+     endif
 
      weqflow=weqflow*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
 
@@ -1158,7 +1175,7 @@ end if
 
 
 ! store GC information for flux measurements
-     wpi(1,m)=vdr       ! at present, wpi(1,*)=da/dt|_EXB 
+     wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
      wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
      wpi(3,m)=muB       ! normalizd electron perpendicular energy
 

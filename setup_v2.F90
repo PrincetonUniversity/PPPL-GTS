@@ -76,6 +76,8 @@ Subroutine setup
 !  kappan=kappati*kappan        ! =R_0*<grad(n)/n>=R_0/L_n
   aelectron=1.0/aelectron      ! aelectron=1.0/1837.0
 
+  if(ifneoclassical==1) Er_from_GTC_Neo=0   ! no need to import any equilibrium Er
+
   if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases 
   zeondim=7
   if(ifdphi==2) zeondim=8
@@ -223,6 +225,7 @@ Subroutine setup
 
 
 if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
+if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert the pol momentum flux in fort.56 etc. to 1/(m*s^2)
 
 
       if(plasma==1) then           !Read experimental profiles
@@ -236,7 +239,8 @@ if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
          O_50=O_50*utime       ! normalized toroidal rotation angular velocity,
                                ! in radians (rad)
 ! --------------------
-!    O_50=0.0d0
+!    O_50=O_50*1.0d-6
+!    O_50=0.0_wp
 ! --------------------
 
 !         if(ETG==1) then  ! exchange Ti and Te so that temperature()-->Te and temperature_e()-->Ti;
@@ -280,6 +284,7 @@ if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
   a_ref=0.42_wp      ! used for DIIID-125236_360
   a_ref=0.60_wp      ! used for NSTX-141716_448
   a_ref=0.50_wp      
+  a_ref=0.36_wp      ! used for D146596B11_2235 [0.05 0.7]
 
 !
 !  Initially, T_0 and T_e0 are specified in INPUT.d as temperatures at a=a_ref --> change made in Oct. 09
@@ -398,10 +403,10 @@ if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
   rmax=0.77_wp
 
 ! used for DIIID-125229, and model equilibrium and profiles -- simulation domain [0.1, 0.9]
-  lmin=0.20_wp
-  lmax=0.25_wp
-  rmin=0.75_wp
-  rmax=0.80_wp
+  lmin=0.03_wp
+  lmax=0.05_wp
+  rmin=0.95_wp
+  rmax=0.97_wp
 
   Tcc=Tc                        ! make a copy
 
@@ -452,8 +457,8 @@ if(mype==0) write(0,*) 'Tc=', Tc*Tem_00,  'in KeV', backnc, &
 
 !  Lc=Lce    ! for D125229
 !  Lc=Lce    ! for D129533, but with artificial profiles (grad-Te driven case)
-  Lc=Lcn    ! for D129533, but with artificial profiles (grad-n driven case)
-!  Lc=Lci    ! for D129533
+!  Lc=Lcn    ! for D129533, but with artificial profiles (grad-n driven case)
+  Lc=Lci    ! for D129533
 !  Lc=Lcu    ! for toroidal shear flow driven KH instability and turbulence
 
 if(mype==0) write(0,*) 'R_0/<L_T>=', R_0/Lc   ! 6.9 is often used in cyclone case 
@@ -743,7 +748,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
      tdum=(0.6_wp*real(mpsi-i,wp)/real(mpsi,wp)+0.4_wp*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)  ! for D3D 122338
      tdum=tdum*1.1_wp       ! for D3D 122338 2nd run
 
-     tdum=(0.6*real(mpsi-i,wp)/real(mpsi,wp)+0.4*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)   ! for D125229
+     tdum=(0.7*real(mpsi-i,wp)/real(mpsi,wp)+0.3*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)   ! for D125229
 !     tdum=tdum*1.6       ! for D125229
 !     tdum=tdum*0.6       ! for D125229
 !     tdum=tdum*1.25       ! for DIIID 125236_360
@@ -799,8 +804,8 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
 
 !     eta_grid(i)=dlnT_e    ! for TEM driven by grad(Te), such as D125229 
 !     eta_grid(i)=dlnT_e    ! for TEM driven by grad(Te)
-     eta_grid(i)=dlnn      ! for TEM driven by grad(ne)
-!     eta_grid(i)=dlnT      ! for ITG; such as D129533 with KE
+!     eta_grid(i)=dlnn      ! for TEM driven by grad(ne)
+     eta_grid(i)=dlnT      ! for ITG; such as D129533 with KE
 !     eta_grid(i)=abs(rdum) ! for KH turbulence driven by toroidal flow shear  ! added 2011
 
      eta_grid(i)=eta_grid(i)*smoothstep(lmin,lmax,aaa(1))*(1.0_wp-smoothstep(rmin,rmax,aaa(1)))
@@ -1087,7 +1092,7 @@ end if ! if(mype==0)
 
 if(mype==0) then 
    do i=0, mpsi
-       write(21,204) i, pmarki(i)
+       !  write(21,204) i, pmarki(i)
        do j=1,mtheta(i)
           ij=igrid(i)+j
           write(22,204) ij, markeri(ij)
@@ -1230,7 +1235,7 @@ if(mype==0) write(0,*) 'average density=', density_ave
      end if
   enddo
 
-!  if(mype==0)  call theory
+  if(mype==0)  call theory
 
      r=rc
      tdum=temperature(r,0.0_wp)
@@ -1504,7 +1509,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
 ! Post-processor calculation of zonal flow ExB shearing rate 
 ! need a separate directory with ZF data copied 
-!  i=30265    ! number of lines in ZF data files
+!  i=21616    ! number of lines in ZF data files
 !  call get_ZF_shear(i)
 !  call mpi_finalize(ierror)
 !  STOP

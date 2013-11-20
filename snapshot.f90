@@ -27,7 +27,7 @@ subroutine snapshot
 
 ! write particle data for re-run
 !  call restart_write
-  if(mod(istep,400) .eq. 0) call restart_write
+  if(mod(istep,500) .eq. 0) call restart_write
 
 ! number of poloidal grid
   jm=mtheta(ipsi)/2

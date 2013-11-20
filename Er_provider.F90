@@ -92,8 +92,9 @@ end if
          Er401_pc(i)=((hint2-1._wp)*dlnT_da-dlnn_da)*0.5_wp*vthr**2-U_int*gFaj(1)/(qq*Fj(1))
 
 !   given a model Er profile
-         Er401_bp(i)=Er_amp*exp(-((Yr(i)-ac)/half_width)**xe)
+         !  Er401_bp(i)=Er_amp*exp(-((Yr(i)-ac)/half_width)**xe)
 
+         if(ifneoclassical==1) Er401_bp(i)=0.0_wp    !  no need to use equilibrium Er as external input
 29    continue
 
       do i=0,mpsi
@@ -134,9 +135,11 @@ end if
       end do
 
       do i=0,mpsi
-         Er_grid(i)=Er_amp*exp(-((psi_grid(i)-ac)/half_width)**xe)
+         !  Er_grid(i)=Er_amp*exp(-((psi_grid(i)-ac)/half_width)**xe)
       end do
      
+      if(ifneoclassical==1) Er_grid=0.0_wp    !  no need to use equilibrium Er as external input
+
   if(Er_from_GTC_Neo==1) then  ! import Er data from GTC-Neo simulation
                                ! n_node+2: number of radial nodes of Er data
                                ! Er_on_node: Er data at nodes

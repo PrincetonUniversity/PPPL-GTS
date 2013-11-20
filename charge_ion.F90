@@ -324,9 +324,9 @@ if(ZF_SEPARATION==0) then  !  solve total potential
   do i=0,nbound
      rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))   
      densityi(:,igrid(i):igrid(i)+mtheta(i))=   &
-        densityi(:,igrid(i):igrid(i)+mtheta(i))*rdum
+       densityi(:,igrid(i):igrid(i)+mtheta(i))*rdum
      densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-        densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
+       densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
   enddo
 
 else  ! solve zonal flows separately when ZF_SEPARATION==1

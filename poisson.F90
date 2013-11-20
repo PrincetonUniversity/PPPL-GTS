@@ -30,6 +30,8 @@ subroutine poisson( solver )
   real(wp), external :: SMOOTHSTEP
   real(wp) instep,outstep
   
+  real(wp) zdum,tdum,tdum0,tdum1
+
   real(doubleprec),save :: t0=0.0_wp
   real(doubleprec) t1,rtc
   
@@ -75,8 +77,8 @@ subroutine poisson( solver )
            dentmp(ij)=densityi(1,ij)-densitye(1,ij)
 
            !... finite element needs not this modification
-           if(order .le. 0) &
-           dentmp(ij)=dentmp(ij)*vth_grid(i)**2
+           if( solver%order <= 0 ) dentmp(ij)=dentmp(ij)*vth_grid(i)**2
+
         enddo
      enddo
      
@@ -84,47 +86,58 @@ subroutine poisson( solver )
         dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
      enddo
 
-     phi(1,:)=0.0_wp   ! addition to RHS with phi=0 for 1st iteration
+     if(solver%order <= 0 ) then   ! use original integral solver
+
+        phi(1,:)=0.0_wp   ! addition to RHS with phi=0 for 1st iteration
                        ! NO converage if using phi of last step!!
-     do it=1,its
-        add_phi=0.0_wp
-        !... finite element needs xx be set to 0 on bdy vertex as well
-        xx=0.0_wp
-        do i=0,mpsi
-           outstep=smoothstep(rmin,rmax,psi_grid(i))
-       !       instep=smoothstep(lmin,lmax,psi_grid(i))
-       !       instep=instep*(1.0d0-outstep)
-       !       outstep=1.0d0-instep
-           ! tmp = (0.21 + 0.09*outstep)     ! full electron (no split) --> tmp=0.01+0.09=0.1  for r > rmax  -- see solver_petsc.f90
-           tmp = (gama0 + gama1*outstep)     ! full electron (no split) --> tmp=0.01+0.09=0.1  for r > rmax  -- see solver_petsc.f90
-           do j=1,mtheta(i)
-              ij=igrid(i)+j
-              add_phi(ij)=dentmp(ij)+tmp*phi(1,ij)
+        do it=1,its
+           add_phi=0.0_wp
+           !... finite element needs xx be set to 0 on bdy vertex as well
+           xx=0.0_wp
+           do i=0,mpsi
+              outstep=smoothstep(rmin,rmax,psi_grid(i))
+          !       instep=smoothstep(lmin,lmax,psi_grid(i))
+          !       instep=instep*(1.0d0-outstep)
+          !       outstep=1.0d0-instep
+              ! tmp = (0.21 + 0.09*outstep)     ! full electron (no split) --> tmp=0.01+0.09=0.1  for r > rmax  -- see solver_petsc.f90
+              tmp = (gama0 + gama1*outstep)     ! full electron (no split) --> tmp=0.01+0.09=0.1  for r > rmax  -- see solver_petsc.f90
+              do j=1,mtheta(i)
+                 ij=igrid(i)+j
+                 add_phi(ij)=dentmp(ij)+tmp*phi(1,ij)
+              end do
+              add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i)) 
            end do
-           add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i)) 
-        end do
 
-        call solve( solver, mgrid, add_phi, xx, ierr )
-        phi(1,:) = xx
+           call solve( solver, mgrid, add_phi, xx, ierr )
+           phi(1,:) = xx
 
-! DEBUG CJ api 10 2013
-        if(mype==000) write(113,113) istep, &
-        phi(1,igrid(1)),        phi(1,igrid(mpsi*1/5)), phi(1,igrid(mpsi*2/5)), &
-        phi(1,igrid(mpsi*3/5)), phi(1,igrid(mpsi*4/5)), phi(1,igrid(mpsi-1))
-113 format("Dirichlet=", i5, 6(1x,d12.6))
+! DEBUG
+!         if(mype==200) print*, 'Dirichlet', phi(1,igrid(0)), phi(1,igrid(0)+mtheta(0)/2),phi(1,igrid(0)+mtheta(0)-1), &
+!                                phi(1,igrid(mpsi)), phi(1,igrid(mpsi)+mtheta(mpsi)/2),phi(1,igrid(mpsi)+mtheta(mpsi)-1)
 
 ! BCs !!!!
 ! radial boundary  Note wx: this could enforce a constraint on long wave length modes
 !                           ---- a constraint on large scale Er (???)
-        phi(1,igrid(0):igrid(0)+mtheta(0))=0.0_wp  
+           phi(1,igrid(0):igrid(0)+mtheta(0))=0.0_wp  
 
 !            it is questionalbe to set phi=0 at both inner and uter boundaries
 !            phi(1,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
 
+           do i=0, mpsi
+              phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
+           enddo
+        end do
+
+     else   !  use FEM solver
+
+        xx=0.0_wp
+        call solve( solver, mgrid, dentmp, xx, ierr )
+        phi(1,:) = xx
+
         do i=0, mpsi
-           phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
+              phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
         enddo
-     end do
+     endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   else     ! for both delta-h (ifelectron=2) and adiabatic (ifelectron=0) electrons 
@@ -143,7 +156,7 @@ subroutine poisson( solver )
            ij=igrid(i)+j
            dentmp(ij)=densityi(1,ij)
            if(ifelectron==2) dentmp(ij)=dentmp(ij)-densitye(1,ij)   ! with non-adiabatic electrons
-           dentmp(ij)=dentmp(ij)*vth_grid(i)**2
+           if( solver%order <= 0 )  dentmp(ij)=dentmp(ij)*vth_grid(i)**2
         enddo
      enddo
 
@@ -153,8 +166,12 @@ subroutine poisson( solver )
 
      if(ZF_SEPARATION==1) then
 
-        xx=0.0_wp
+        if(mype==0) print*, 'PPPP1111'
+
         call solve( solver, mgrid, dentmp, xx, ierr )
+
+        if(mype==0) print*, 'PPPP2222'
+
         phi(1,:) = xx
 
         ! radial boundary  Note wx: setting phi=0 at both coundaries could enforce a constraint on
@@ -198,14 +215,18 @@ subroutine poisson( solver )
 
            rtc=phi_flux_ave(0)
 
-      ! re-level phi and <phi> by subtracting a constant
-           phi_flux_ave=phi_flux_ave - phi_flux_ave(0)
+      ! re-level phi and <phi> by subtracting a constant for original integral solver
+           if(solver%order <= 0 )  phi_flux_ave=phi_flux_ave - phi_flux_ave(0)
 
            t1=sum((phi_flux_ave-adum0)**2)/sum(adum0**2)  ! calculated for checking convergence
            adum0=phi_flux_ave
 
            phi(1,:)=phi(1,:)-phi_flux_ave(0)
-           phi_flux_ave=phi_flux_ave*tite        !  =<phi>*(Ti/Te)
+           if(solver%order <= 0 ) then   ! use original integral solver
+              phi_flux_ave=phi_flux_ave*tite        !  =<phi>*(Ti/Te)
+           else                          ! use FEM solver
+              phi_flux_ave=phi_flux_ave*abs(csc0)/Te_grid   ! =(e/e0)*(m0/ms)*<phi>/T_e with <phi>, T_e normalized
+           endif
 ! endif
 
 

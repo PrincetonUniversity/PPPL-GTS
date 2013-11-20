@@ -89,7 +89,7 @@ subroutine theory
          f_t=D01AHF(0.0d0,up,eps,minpts,acc,trap_fraction,-1,IFAIL)
          f_t=1.0d0-3.0d0/4.0d0*f_t   ! trapped particle fraction
 
-         print*,'trapped particle fraction=', f_t, '1.46*sqrt(ep)=', 1.46d0*sqrt(ep), IFAIL
+         if(mype==0) print*,'trapped particle fraction=', f_t, '1.46*sqrt(ep)=', 1.46d0*sqrt(ep), IFAIL
 
 !     prepare input for subroutine bootstrap
          ftrapx=f_t

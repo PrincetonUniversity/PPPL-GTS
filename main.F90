@@ -92,9 +92,9 @@ program GTS
      solver_dphi_dt%order=0
      if(mype == 0) write (0, *) "	integral equation order=", order
      ! mat type 1, bc type 1
-     call new_gk_solver( solver1, '', 1, 1 )
+     call new_gk_solver( solver1, '', 1, 2 )
      ! mat type 2, bc type 2
-     if(ifelectron==2) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
+     if(ifelectron==2.and.ifdphi==1) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
   else
      if(mype == 0) write (0, *) "	finite element order=", order
 
@@ -102,7 +102,7 @@ program GTS
      solver1%mat%bc_type = 2
      fem1%order = order
      call new_fem_data( fem1 )
-     call new_fem_solver( fem1, solver1, '', 1, 2 )
+     call new_fem_solver( fem1, solver1, '', 1, 3 )
 #ifdef CJTEST
      call testsolve( solver1 )
      call delete_fem_data( fem1 )
@@ -119,7 +119,7 @@ program GTS
      call destroy_solver( masssolver )
 #endif
 
-     if(ifelectron==2) then
+     if(ifelectron==2.and.ifdphi==1) then
         solver_dphi_dt%order = order
         solver_dphi_dt%mat%bc_type = 2
         femt%order = order
@@ -151,16 +151,22 @@ program GTS
   idiag=1
   CALL CHARGE_ION
 
+if(mype==0) print*, 'AAAA1111'
+
   if(ifelectron/=0) CALL CHARGE_EON
+
+if(mype==0) print*, 'BBBB1111'
 
   CALL POISSON( solver1 )
 !  CALL POISSON( solver_dphi_dt )
+
+if(mype==0) print*, 'CCCC1111'
 
   CALL SMOOTH(0)
 
   CALL SMOOTH(1)
 
-  CALL FIELD
+  CALL FIELD(masssolver)
 
   if(ifelectron==2.and.ifdphi==1) then
      CALL CURRENT_ION
@@ -363,7 +369,7 @@ end if
         timewc(5)=timewc(5)+dtwc
 
 ! field
-        CALL FIELD
+        CALL FIELD(masssolver)
 
         call timer(t0,dt,t0wc,dtwc)
         time(6)=time(6)+dt

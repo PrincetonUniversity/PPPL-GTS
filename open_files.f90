@@ -83,6 +83,7 @@ subroutine open_files
         open(97,file='fort.97',status='replace',RECL=8192)
         open(98,file='fort.98',status='replace',RECL=8192)
         open(99,file='fort.99',status='replace',RECL=8192)
+        open(85,file='fort.950',status='replace',RECL=8192)
      end if
      if(mype==1)then
         open(201,file='fort.201',status='replace',RECL=8192)
@@ -145,6 +146,7 @@ subroutine open_files
         open(96,file='fort.96',status='old',position='append',RECL=8192)
         open(97,file='fort.97',status='old',position='append',RECL=8192)
         open(99,file='fort.99',status='old',position='append',RECL=8192)
+        open(85,file='fort.950',status='old',position='append',RECL=8192)
      end if
      if(mype==1)then
         open(201,file='fort.201',status='old',position='append',RECL=8192)

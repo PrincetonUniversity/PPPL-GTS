@@ -26,8 +26,10 @@ subroutine get_Te_fluctuation(wpi2)
 #endif
 !$omp do private(m,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
   do m=1,me
-     weight=zeon0(5,m)*wpi2(m)    ! calculation using zeon0 at irk_e=1 determined by idiag_e=0
-                                  ! wzeon, wpeon, wteon0, wteon1 etc are calculated in pusheon
+     !  weight=zeon0(5,m)*wpi2(m)    ! calculation using zeon0 at irk_e=1 determined by idiag_e=0
+     !                               ! wzeon, wpeon, wteon0, wteon1 etc are calculated in pusheon
+     weight=zeon0(5,m)*(wpi2(m)*2.0_wp/3.0_wp-backTe(m)*msm0)    ! calculation using zeon0 at irk_e=1 determined by idiag_e=0
+                                                                 ! wzeon, wpeon, wteon0, wteon1 etc are calculated in pusheon
 
      wz1=weight*wzeon(m)
      wz0=weight-wz1     
@@ -149,7 +151,7 @@ subroutine get_Te_fluctuation(wpi2)
      buff(1,igrid(j))=buff(1,igrid(j)+mtheta(j))
 
      rdum=1.0/Te_grid(j)         ! = 1/Te_0 with Te_0 normalized with same unit as Ti
-     rdum=rdum*2.0_wp/3.0_wp
+     !  rdum=rdum*2.0_wp/3.0_wp
      !$omp parallel do private(i,ij)
      do i=0,mtheta(j)
         ij=igrid(j)+i

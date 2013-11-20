@@ -777,9 +777,14 @@ dmaxv=0.0d0
      fip=(zion(1,m)-psi_grid(ip))/(psi_grid(ip+1)-psi_grid(ip))
      ddT_da_particle=fip*ddT_da(ip+1)+(1.0_wp-fip)*ddT_da(ip) ! d<delta_Ti>/da at particle's position
 
-! ExB drift in radial direction for w-dot and flux diagnostics
-     vdr=ghq(m)             !  da/at|_EXB
-     vdq=Ta(m)              !  dtheta/dt|_EXB
+     if(ifneoclassical==1) then 
+        vdr=da(m)              !  full da/at      -- including NC dynamics
+        vdq=dgq(m)             !  full dtheta/dt  -- including NC dynamics
+     else
+        !   ExB drift in radial direction for w-dot and flux diagnostics
+        vdr=ghq(m)             !  da/at|_EXB
+        vdq=Ta(m)              !  dtheta/dt|_EXB
+     endif
 
      wdrive=vdr*kappa
 
@@ -794,14 +799,19 @@ dmaxv=0.0d0
         outstep=smoothstep(rmin,rmax,zion(1,m))
 !        fip=smoothstep(0.20_wp,0.25_wp,zion(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zion(1,m)))
         fip=instep*(1.0_wp-outstep)
-        wdrive=wdrive*fip
+        !  wdrive=wdrive*fip
         w_anti_relax=w_anti_relax*fip
         fdamp=(1.0_wp-fip)*fdamp0
      else
+        fip=1.0_wp
         fdamp=0.0_wp
      end if
 
-     wdrift=(PP(m)*BB(m)+zion(4,m)*weqflow)*(vpara-backu(m))*T_inverse   ! see note
+     if(ifneoclassical==1) then
+        wdrift=(dgr(m)*BB(m)+zion(4,m)*weqflow)*(vpara-backu(m))*T_inverse   !  full drho/dt -- including NC dynamics
+     else
+        wdrift=(PP(m)*BB(m)+zion(4,m)*weqflow)*(vpara-backu(m))*T_inverse   ! see note
+     endif
 
      wgradB=weqflow*T_inverse*mu       ! interesting term propotional to grad_B
 
@@ -867,9 +877,9 @@ dmaxv=0.0d0
 !     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB+w_anti_relax)
 
       if(wimcompressibility==1) then     ! for weight imcompressibility
-         wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
+         wdot=(zion0(6,m)-nonlinear*avw)*(wdrive*fip+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
       else
-         wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)
+         wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)*fip
       end if
 
 
@@ -917,7 +927,7 @@ dmaxv=0.0d0
      zion(3,m)=modulo(zion(3,m),twopi)
 
 ! store GC information for flux measurements
-     wpi(1,m)=vdr       ! at present, wpi(1,*)=da/dt|_EXB 
+     wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
      wpi(2,m)=energy    ! =(v_para-u//)^2/2+v_perp^2/2
      wpi(3,m)=muB       ! =v_perp^2/2, need for calculate distribution function in get_fluxes
 

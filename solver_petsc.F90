@@ -26,7 +26,7 @@ contains
   !========================================================================
   !                       subroutine new_phit_matrix  
   !========================================================================
-  subroutine new_phit_matrix( this, mat, mindex, bc_type )
+  subroutine new_phit_matrix( this, mat, mindex, mat_type )
     use precision,only:wp,doubleprec
     use global_parameters,only: mype,mtheta,mpsi,ZF_SEPARATION,ifelectron
     use particle_decomp,only:myrank_partd,nproc_partd
@@ -37,7 +37,7 @@ contains
     type(phit_matrix_data) :: this
     Mat mat
     !integer,dimension(0:) :: mtheta
-    integer mindex, bc_type
+    integer mindex, mat_type
     ! locals
     integer i, j, ierr, it, id
     !real(doubleprec) val
@@ -51,7 +51,7 @@ contains
     allocate(this%gk_matid(it))
     this%gk_matid = -1
     this%gk_matid(it) = -2
-    
+
     id = 0
     it = 0
     do i=0,mpsi
@@ -65,41 +65,35 @@ contains
           end if
 
           ! BCs
-          if(bc_type==1) then      ! for Poisson solver
-!cj             if(ZF_SEPARATION==1) then
-          ! dirichlet boundary condition at amin & neumann boundary condition at amax
+          if(mat_type==1) then      ! for Poisson solver
+             if(ZF_SEPARATION==1) then
                 if( i==0 ) this%gk_matid(it) = -1         ! Dirichlet boundary condiction at inner boundary: phi(i=0)=0
-!cj                write(0,*) "	finite element: bc_type=1 ZF_SEPARATION=", ZF_SEPARATION
-!cj             else ! ZF_SEPARATION==0                
-!cj                if(ifelectron==0)  then ! adiabatic electrons
-!cj                   ! NOTE: any combination of following BCs produces a spike at the boundary for ad-electron case
-!cj                   ! if( i==0 ) this%gk_matid(it) = -1
-!cj                   ! if( i==mpsi ) this%gk_matid(it) = -1  ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
-!cj                else
-!cj                   !   if( i==0 ) this%gk_matid(it) = -1
-!cj                   !   if( i==mpsi ) this%gk_matid(it) = -1  ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
-!cj                endif
-!cj                write(0,*) "	finite element: bc_type=0"
-!cj             endif
-          else if(bc_type==2) then ! for dphi/dt solver
-          ! dirichlet boundary condition at amin & amax
+                !   if( i==mpsi ) this%gk_matid(it) = -1         ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
+             else ! ZF_SEPARATION==0                
+                if(ifelectron==0)  then ! adiabatic electrons
+                   ! NOTE: any combination of following BCs produces a spike at the boundary for ad-electron case
+                   ! if( i==0 ) this%gk_matid(it) = -1
+                   ! if( i==mpsi ) this%gk_matid(it) = -1  ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
+                else
+                   if( i==0 ) this%gk_matid(it) = -1
+                   !   if( i==mpsi ) this%gk_matid(it) = -1  ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
+                endif
+             endif
+          else                      ! for dphi/dt solver
              if( i==0 ) this%gk_matid(it) = -1
-             if( i==mpsi ) this%gk_matid(it) = -1
-          else if(bc_type==0) then
-          ! neumann boundary condition at amin & amax
-          else
-          ! 3: neumann boundary condition at amin & dirichlet boundary condition at amax
              if( i==mpsi ) this%gk_matid(it) = -1
           endif
        end do
     end do
+
     if(id .ne. sum(mtheta)) call MPI_ABORT(mpi_comm_world,1,ierr)
     if(this%gk_matid(sum(mtheta) + mpsi + 2) .ne. -2) call MPI_ABORT(mpi_comm_world,1,ierr)
-        
+
     ! form matrix data
     call poisson_initial( this )
 
   end subroutine new_phit_matrix
+
   
   !========================================================================
   !           subroutine delete_phit_matrix  
@@ -471,7 +465,7 @@ contains
     !     ETG case: (1+zeff*Te/Ti)*(Phi/Te)-tilde(Phi)/Te=delta-ne/n_e0
     !     ITG case: [1+(1/zeff)*Ti/Te]*(Phi/Ti)-tilde(Phi)/Ti=delta-ni/n_i0+(1/zeff)*<Phi>/Te
     if(mype .eq. 0) write(0,*) '[',mype,'] new_gk_solver: call integral form of PETSc operator, neq = ', neq
-    call new_phit_matrix( m, Amat, mindex, bc_type )
+    call new_phit_matrix( m, Amat, mindex, mat_type )
     call delete_phit_matrix( m )
     
     ! I + tite - Phi_tilda
@@ -1165,7 +1159,7 @@ contains
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(2) :: aaa,the,rj,zj,Bj
     real(wp) cf1, cf2, cf3, cf4, cf5
-    real(wp) alpha, beta, ns0, ne0, gs, vthe, Zs
+    real(wp) alpha, beta, ns0, ne0, gs, vthe3, Zs
     real(wp), external ::temperature_e, density
     integer, external :: metric_elements
 
@@ -1316,8 +1310,8 @@ contains
                 !rhs: del u = -( (pi M / (a1-a0))^2 + L^2 ) u
                 xx(ivsl) = sin(pi*M*(pdum-a0)/(a1-a0))*cos(L*tdum+alfa)
 
-                vthe=temperature_e(pdum,0.0_wp)
-                alpha = abs(csc0) * m0ms / vthe
+                vthe3=temperature_e(pdum,0.0_wp)
+                alpha = abs(csc0) * m0ms / vthe3
                 bb(ivsl) = alpha * xx(ivsl)
 
                 ns0=density(pdum,0.0_wp)
@@ -2219,7 +2213,7 @@ end subroutine neumbcfix
     real(wp) zeta, pdum, dt, tdum
     integer :: mt,i, ii, j, jj, k, kk
     real(doubleprec),allocatable,dimension(:) :: bgsjgaa,bgsjgat,bgsjgaa_ho,bgsjgat_ho
-    real(wp) alpha, beta, ns0, ne0, gs, vthe, Zs
+    real(wp) alpha, beta, ns0, ne0, gs, vthe3, Zs
     real(wp), external ::temperature_e, density
     integer, external :: metric_elements
     integer :: i0, i1, i2, i3, i4, i5
@@ -2269,7 +2263,7 @@ end subroutine neumbcfix
              jself = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
              ns0=density(aaa(1),0.0_wp)
              ne0=density(aaa(1),0.0_wp)
-             vthe=temperature_e(aaa(1),0.0_wp)
+             vthe3=temperature_e(aaa(1),0.0_wp)
              beta = - 1./ ne0
              Zs = 1.
              gs = Zs / Bj(1)/Bj(1) * ns0 * c0cs_i * msm0_i
@@ -2420,9 +2414,9 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   integer ie,i,j,k,n,kk,ki,nz,nel,nst
   integer,dimension(:),allocatable :: ind2,ind3,ind
 ! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe,q,ns0,ne0
+! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
   real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-  real(wp), dimension(:),allocatable :: gaa,gtt,gpp,gat,vthe,q,ns0,ne0
+  real(wp), dimension(:),allocatable :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
   real(wp) :: Zs, gs,qq
 
   real(wp), external ::temperature_e, density
@@ -2482,7 +2476,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   ul = 0.                   ! displacement, velocit and acceloration (not used)
 
   allocate( aaa(fe_ns),the(fe_ns),Fj(fe_ns),Faj(fe_ns),gFaj(fe_ns),gYaj(fe_ns),rj(fe_ns),raj(fe_ns),rqj(fe_ns),zj(fe_ns),zaj(fe_ns),zqj(fe_ns),Bj(fe_ns) )
-  allocate( gaa(fe_ns),gtt(fe_ns),gpp(fe_ns),gat(fe_ns),vthe(fe_ns),q(fe_ns),ns0(fe_ns),ne0(fe_ns) )
+  allocate( gaa(fe_ns),gtt(fe_ns),gpp(fe_ns),gat(fe_ns),vthe3(fe_ns),q(fe_ns),ns0(fe_ns),ne0(fe_ns) )
 
   !july 31, 2013 to calculate dxdr, dxdz
   !shouldn't do MPI_ALLREDUCE, but just for now to fix bug
@@ -2588,7 +2582,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   deallocate( marr,marr2 )
   deallocate( rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr )
   deallocate( aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj )
-  deallocate( gaa,gtt,gpp,gat,vthe,q,ns0,ne0 )
+  deallocate( gaa,gtt,gpp,gat,vthe3,q,ns0,ne0 )
 
   deallocate(fe_Pijk)
   deallocate(fe_weight)
@@ -2633,13 +2627,19 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
      enddo
 
      do i=1,fe_ns
-        vthe(i)=temperature_e(aaa(i),0.0_wp)
+        vthe3(i)=temperature_e(aaa(i),0.0_wp)
      enddo
      if(ifelectron==1) then
         alpha = 0.0_wp
      else
-        alpha = abs(csc0) * m0ms / mean(vthe, fe_ns)
+        alpha = abs(csc0) * m0ms / mean(vthe3, fe_ns)
      endif
+
+
+     !     alpha = 0.0_wp
+     !     alpha = alpha/10.0
+
+
      beta = - 1./ mean(ne0,fe_ns)
      Zs = 1.
      gs = Zs / mean(Bj*Bj, fe_ns) &
@@ -2682,6 +2682,7 @@ subroutine plot_array( nn, arr, str )
   yy = arr
   
   call VecCreateMPIWithArray(mpi_comm_self,1,nn,PETSC_DECIDE,yy,v,ierr)
+  !  call VecCreateMPIWithArray(mpi_comm_self,nn,PETSC_DECIDE,yy,v,ierr)
   !
   call PetscViewerASCIIOpen(mpi_comm_self, str,viewer,ierr)
   call PetscViewerSetFormat(viewer, PETSC_VIEWER_ASCII_MATLAB,ierr)

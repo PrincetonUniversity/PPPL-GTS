@@ -331,8 +331,11 @@ subroutine get_fluxes_e(wpi)
 
   call MPI_Reduce(ONE_me_g,TOTAL_pe_g,4*(mpsi+1),MPI_REAL8,MPI_SUM,numberpe-3,MPI_COMM_WORLD,ierr)
   if(mype==numberpe-3) then 
+     ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_Te>
+
      TOTAL_pe_g(1,0:mpsi)=TOTAL_pe_g(1,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)
      TOTAL_pe_g(2,0:mpsi)=TOTAL_pe_g(2,0:mpsi)/sn0_g(0:mpsi)  ! =<delta_n>/n_0
+
      TOTAL_pe_g(3,0:mpsi)=TOTAL_pe_g(3,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)*csc0    ! electron bootstrap current profile
      TOTAL_pe_g(4,0:mpsi)=TOTAL_pe_g(4,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)/for_rho ! angular momentum flux
 
@@ -341,6 +344,9 @@ subroutine get_fluxes_e(wpi)
         enk_sum=enk_sum+(TOTAL_pe_g(1,i-1)*jaco_sum(i-1)+TOTAL_pe_g(1,i)*jaco_sum(i))*  &
                 (psi_grid(i)-psi_grid(i-1))*0.5_wp
      end do
+
+     TOTAL_pe_g(1,0:mpsi)=ONE_me_g(1,0:mpsi)/Te_grid(0:mpsi)-TOTAL_pe_g(2,0:mpsi)  ! = <delta_Te>/Te_0
+
      write(193,802) istep, (TOTAL_pe_g(1,i),i=0,mpsi),enk_sum
      call flush(193)
 

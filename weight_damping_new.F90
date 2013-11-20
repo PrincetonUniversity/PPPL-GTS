@@ -104,7 +104,7 @@ subroutine weight_field(wfield)
   real(wp) send(3,mgrid),recv(3,mgrid)
 
   real(wp) dnitmp(9,mgrid,0:1), dampf(9,mgrid,0:1), wfield(3,mgrid,0:1)
-  real(wp) aav(3,3),bv(3),work(lwork)
+  real(wp) aav(3,3),bv(3),work(lwork),ssss
   integer ipiv(3)
 
   integer displacement(0:nproc_partd-1),n_points(0:nproc_partd-1)
@@ -398,12 +398,23 @@ enddo    ! enddo  m=1,mi
 
 !     if(mype==100) print*, 'Weight_Damp=', aav(1,1), bv(1), bv(2), bv(3), ij
 
+     info=0
      call dsytrf('L',3,aav,3,ipiv,work,lwork,info)
+
+     if(info.ne.0) then
+        print*,  'IONwrong   ',  'ij=', ij, mype, myrank_toroidal, myrank_partd
+        bv=0.0_wp
+        go to 8000
+     end if
+
+     info=0
      call dsytrs('L',3,1,aav,3,ipiv,bv,3,info)
 
 !     if(info < 0) then 
 !        if(myrank_partd==1) print*, 'INFO=', info, 'ij=', ij, myrank_toroidal
 !     end if
+
+8000  continue
 
 !     wfield(ij,1,1)=bv(1)   
 !     wfield(ij,2,1)=bv(2)   
@@ -440,6 +451,15 @@ wfield(:,:,0)=0.0_wp    !!! ATTENTION: without this, cray compiler default optio
 !  end if
 !
 
+
+! do ij=1,mgrid
+!     ssss=wfield(1,ij,1)+1.0_wp
+!     if(ssss==wfield(1,ij,1)) print*, 'AAAAAAAAAAA111', wfield(1,ij,1), ij, mype
+!     ssss=wfield(2,ij,1)+1.0_wp
+!     if(ssss==wfield(2,ij,1)) print*, 'AAAAAAAAAAA222', wfield(1,ij,1), ij, mype
+!     ssss=wfield(3,ij,1)+1.0_wp
+!     if(ssss==wfield(3,ij,1)) print*, 'AAAAAAAAAAA333', wfield(1,ij,1), ij, mype
+! end do
 
 
 

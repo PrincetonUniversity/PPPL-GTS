@@ -15,7 +15,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
   real(wp)  my_ion, total_ion
 
   real(wp), dimension(nn,nbin_a) :: ONE_me,TOTAL_pe
-  real(wp), dimension(6,0:mpsi) :: ONE_me_g,TOTAL_pe_g
+  real(wp), dimension(7,0:mpsi) :: ONE_me_g,TOTAL_pe_g
 
 ! add for diagnosis of distribution functions
   real(wp), dimension(7,nprobe,-nv:nv,0:nv) :: df, df_tot   
@@ -365,31 +365,40 @@ subroutine get_fluxes(wpi,dgf,dgq)
         ONE_me_g(6,j1)=ONE_me_g(6,j1)+part*zion0(5,m)*vpara*BB(m) ! bootstrap current
         ONE_me_g(6,j2)=ONE_me_g(6,j2)+(1.0_wp-part)*zion0(5,m)*vpara*BB(m)
 
+        ONE_me_g(7,j1)=ONE_me_g(7,j1)+part*zion0(5,m)*wpi(1,m)*TT(m)              ! poloidal angular momentum flux; modified Oct. 2012 with TT(m)= poloidal velocity
+        ONE_me_g(7,j2)=ONE_me_g(7,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)*TT(m)
+
 !        adum=adum+zion0(5,m)*zion0(4,m)*F(m)
 ! replaced by:
         adum=adum+zion0(5,m)*Pa(m)*Pa(m)*dgf(m)
      enddo
 !$omp end parallel
 
-  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,6*(mpsi+1),mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
+  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,7*(mpsi+1),mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
   call MPI_Reduce(adum,TM_sum,1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
   if(mype==numberpe-1) then 
-     ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp  ! =normalized <delta_T> 
+     ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_T>
 
      TOTAL_pe_g(1,0:mpsi)=TOTAL_pe_g(1,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)
      TOTAL_pe_g(2,0:mpsi)=TOTAL_pe_g(2,0:mpsi)/sn0_g(0:mpsi)  ! =<delta_n>/n_0
-     TOTAL_pe_g(3,0:mpsi)=TOTAL_pe_g(3,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)
+
+     ONE_me_g(1,0:mpsi)=ONE_me_g(1,0:mpsi)-TOTAL_pe_g(2,0:mpsi)*vth_grid(0:mpsi)**2  ! =normalized <delta_T> -- corrected Aug. 2013
+
+     TOTAL_pe_g(3,0:mpsi)=TOTAL_pe_g(3,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! toroidal angular momentum flux
      TOTAL_pe_g(4,0:mpsi)=TOTAL_pe_g(4,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! angular momentum density
                                                                                     ! in units of m_0*R_00*v_00*cm^(-3)
      TOTAL_pe_g(5,0:mpsi)=TOTAL_pe_g(5,0:mpsi)/sn0_g(0:mpsi)*vth_inv(0:mpsi)  ! (delta-v_//)/v_th
      TOTAL_pe_g(6,0:mpsi)=TOTAL_pe_g(6,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)*csc0_i  ! ion bootstrap current profile 
                                                                                            ! in unit e0*v_00*B_00; 2010
+     TOTAL_pe_g(7,0:mpsi)=TOTAL_pe_g(7,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! poloidal angular momentum flux
 
      enk_sum=0.0_wp
      do i=1,mpsi
         enk_sum=enk_sum+(TOTAL_pe_g(1,i-1)*jaco_sum(i-1)+TOTAL_pe_g(1,i)*jaco_sum(i))*  &
                 (psi_grid(i)-psi_grid(i-1))*0.5_wp
      end do
+
+     TOTAL_pe_g(1,0:mpsi)=ONE_me_g(1,0:mpsi)*vth_inv(0:mpsi)**2    !  <delta_T>/T_0 -- corrected Aug. 2013
 
      write(93,802) istep, (TOTAL_pe_g(1,i),i=0,mpsi),enk_sum
      call flush(93)
@@ -408,6 +417,9 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
      write(99,802) istep, (TOTAL_pe_g(6,i),i=0,mpsi)
      call flush(99)
+
+     write(85,802) istep, (TOTAL_pe_g(7,i),i=0,mpsi)
+     call flush(85)
 
 ! direct numerical derivative to get d<delta_T>/da
 !$omp parallel do private(i,dpsi1,dpsi2,dpsi1_inv,dpsi2_inv,dpsi_inv,e_psi2,e_psi1)

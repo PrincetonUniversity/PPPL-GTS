@@ -34,11 +34,11 @@ end module precision
                         R_00=100._wp,  &  ! code unit for length, in cm
                         c=2.9979e10_wp, &
                                         &
-                        pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
-                        amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
+                      !  pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
+                      !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
                                                                       &
-                      !  pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
-                      !  amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
+                        pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
+                        amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
                                                                      &
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
                                                                       &
@@ -104,6 +104,11 @@ end module precision
 ! bc_type = 3 neumann boundary condition at a=a0, dirichlet boundary conditions at a=a1
   integer   bc_type
 
+! The following  parameters are used to sepcify the inclusion of neoclassical physics
+!     ifneoclassical=0 --> no neoclassical include
+!     ifneoclassical=1 --> include neoclassical
+  integer,parameter  :: ifneoclassical=1
+
 end module global_parameters
 
 module particle_array
@@ -131,6 +136,7 @@ module field_array
       den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,rho_grid,s_grid,eta_grid,&
       Er_grid,Er_grid0,dphidt00,ddT_da,Te_grid
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
+  real(wp),dimension(:),allocatable :: tphi, bphi, left1, left2   ! for testing solver
 
 ! Added for flow visualization, Feb. 2011
   real(wp),dimension(:,:),allocatable :: on_grid, flow_grid

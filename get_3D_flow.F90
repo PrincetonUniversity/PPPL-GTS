@@ -59,7 +59,9 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
         else if(i==3) then
            rdum=dgf(m)
         else
-           rdum=wpi2(m)  ! added Oct. 2012 for calculating delta-Ti on grid
+           !  rdum=wpi2(m)  ! added Oct. 2012 for calculating delta-Ti on grid; rdum=(v_para-u//)^2/2+v_perp^2/2
+           !  changed to (Aug. 2013):
+           rdum=wpi2(m)*2.0_wp/3.0_wp-backT(m)  !  rdum=[(v_para-u//)^2+v_perp^2]/3-vth^2
         end if
 
 #ifdef _OPENMP
@@ -239,7 +241,7 @@ end do   ! do i=1,4
      pflux_i(1,:,igrid(j))=pflux_i(1,:,igrid(j)+mtheta(j))
      
      rdum=vth_inv(j)*vth_inv(j)         ! = 1/Ti_0 with Ti_0 normalized 
-     rdum=rdum*2.0_wp/3.0_wp
+     !   rdum=rdum*2.0_wp/3.0_wp        ! modified in Aug. 2013
      !$omp parallel do private(i,ij)
      do i=0,mtheta(j)
         ij=igrid(j)+i

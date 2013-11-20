@@ -1,4 +1,4 @@
-subroutine field
+subroutine field(masssolver)
   use precision
   use mpi_defs
   use global_parameters
@@ -7,7 +7,11 @@ subroutine field
   use diagnosis_array
   use esi_interface
 
+  use solver_data_class
+
   implicit none
+
+  type(solver_data) :: masssolver
 
   integer i,ii,ij,j,k,icount,idest,isource,isendtag,irecvtag,ierror,ip,jt,&
        istatus(MPI_STATUS_SIZE)
@@ -26,7 +30,7 @@ subroutine field
 ! Note: evector,phip00,phi00 etc are calculated at particle coordinates (x), but not guiding center coordinates (R)
 
 !   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  if(ZF_SEPARATION==0) then
+  if(order <= 0.and.ZF_SEPARATION==0) then
 
 ! There is arbitrary constant in the potential;
 ! Re-level potential phi to make <phi>(a0)=0 at inner boundary 12/07
@@ -72,6 +76,10 @@ subroutine field
      enddo
   enddo
 
+
+
+if(order <= 0) then   ! using direct numerical derivative to claculate d_phi/d_a and d_phi/d_theta when using integral Poisson solver
+
 ! d_phi/d_a,    d_phi/d_psi   
 !$omp parallel do private(i,j,ij,dpsi1,dpsi2,dpsi1_inv,dpsi2_inv,dpsi_inv,e_psi2,e_psi1)
   do i=1,mpsi-1
@@ -105,6 +113,30 @@ subroutine field
         evector(2,1,ij)=difft(i)*(phi(1,ij+1-jt)-phi(1,ij-1))
      enddo
   enddo
+
+else                  ! using FEM to d_phi/d_a and d_phi/d_theta when using FEM solver
+  
+  sendl(:)=phi(1,:)
+  ierror=0
+
+  !  call find_dxdadxdt( masssolver, mgrid, phi(1,:), evector(1,1,:), evector(2,1,:), ierror )
+  call find_dxdadxdt( masssolver, mgrid, sendl, recvr, recvl, ierror )
+
+!  if(mype==0) then
+!     if(istep==1.and.irk==1) then 
+!     do ij=1,mgrid
+!        write(16, 206) ij,evector(1,1,ij),evector(2,1,ij),recvr(ij),recvl(ij)
+!     end do
+!     end if
+!     call flush_(16)
+!  206 format(2x, i6, 4(2x,ES13.6))
+!  end if
+   
+
+  evector(1,1,:)=recvr(:)
+  evector(2,1,:)=recvl(:)
+
+end if
   
 ! send phi to right and receive from left
   sendr=phi(1,:)
@@ -189,7 +221,13 @@ subroutine field
     enddo
 ! boundary conditions d<phi>/da=0 (not phi=0 at both boundaries)
     phip00(0)=0.0_wp
-    phip00(mpsi)=0.0_wp
+    !  phip00(mpsi)=0.0_wp
+    if(ifneoclassical==0) then
+       phip00(mpsi)=0.0_wp
+    else        ! d<phi>/da /= 0 when NC physics included
+       phip00(mpsi)=(phi00(mpsi)-phi00(mpsi-1))/(psi_grid(mpsi)-psi_grid(mpsi-1))
+       if(order <= 0) evector(1,1,igrid(mpsi):(igrid(mpsi)+mtheta(mpsi)))=phip00(mpsi)   ! also set dphi/dtheta=dphi/dzeta=0 at mpsi
+    endif
 
   end if     ! end if(ZF_SEPARATION==0)
 
@@ -301,22 +339,22 @@ subroutine field
      
 
 !$omp parallel do private(i,j,k)
-  do i=igrid(0),igrid(0)+mtheta(0)
-     do j=0,1
-        do k=1,3
-           if(evector(k,j,i).ne.0.0_wp)write(0,*)'E is not zero at inner boundary', mype, k, j, i, evector(k,j,i)
-        enddo
-     enddo
-  enddo
+!   do i=igrid(0),igrid(0)+mtheta(0)
+!      do j=0,1
+!         do k=1,3
+!            if(evector(k,j,i).ne.0.0_wp)write(0,*)'E is not zero at inner boundary', mype, k, j, i, evector(k,j,i)
+!         enddo
+!      enddo
+!   enddo
 
 !$omp parallel do private(i,j,k)
-  do i=igrid(mpsi),igrid(mpsi)+mtheta(mpsi)
-     do j=0,1
-        do k=1,3
-           if(evector(k,j,i).ne.0.0_wp)write(0,*)'E is not zero at outer boundary', mype, k, j, i, evector(k,j,i)
-        enddo
-     enddo
-  enddo
+!   do i=igrid(mpsi),igrid(mpsi)+mtheta(mpsi)
+!      do j=0,1
+!         do k=1,3
+!            if(evector(k,j,i).ne.0.0_wp)write(0,*)'E is not zero at outer boundary', mype, k, j, i, evector(k,j,i)
+!         enddo
+!      enddo
+!   enddo
   
 end subroutine field
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

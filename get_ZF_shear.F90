@@ -191,8 +191,9 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
           read(127,801) istep, (phia00(i),i=100,119)
 !          read(128,801) istep, (phia00(i),i=120,mpsi)
           read(128,801) istep, (phia00(i),i=120,139)
-          read(129,801) istep, (phia00(i),i=140,159)
-          read(130,801) istep, (phia00(i),i=160,mpsi)
+!          read(129,801) istep, (phia00(i),i=140,159)
+          read(129,801) istep, (phia00(i),i=140,mpsi)
+!          read(130,801) istep, (phia00(i),i=160,mpsi)
 !          read(131,801) istep, (phia00(i),i=180,mpsi)
 
 !         -------------------------------------------------------------------------
