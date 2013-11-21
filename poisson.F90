@@ -166,11 +166,7 @@ subroutine poisson( solver )
 
      if(ZF_SEPARATION==1) then
 
-        if(mype==0) print*, 'PPPP1111'
-
         call solve( solver, mgrid, dentmp, xx, ierr )
-
-        if(mype==0) print*, 'PPPP2222'
 
         phi(1,:) = xx
 

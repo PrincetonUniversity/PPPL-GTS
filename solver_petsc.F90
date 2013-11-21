@@ -889,15 +889,17 @@ contains
     hh=0.
     bh=0.
     bn=0.
-    if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
-       it= sum( mtheta ) - mtheta(mpsi)
-       ir=mpsi
-       call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
-    endif
-    if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
-       it= 0
-       ir=0
-       call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+    if( solver%order .ge. 1) then
+       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
+          it= sum( mtheta ) - mtheta(mpsi)
+          ir=mpsi
+          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+       endif
+       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
+          it= 0
+          ir=0
+          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+       endif
     endif
 
     if( solver%fem%order .eq. 2) then
@@ -929,10 +931,12 @@ contains
 
     else
         ! cal bh from hh(gts input) and add it to M*bb in subroutine petsc_solve
-        call add_hh2bb(solver%fem, neq, hh, bh, ierr)
-        ! set bh to 0 if don't want to add it
-        bh=bh+bn
-        bh=0.
+       if( solver%order .ge. 1) then
+           call add_hh2bb(solver%fem, neq, hh, bh, ierr)
+           ! set bh to 0 if don't want to add it
+           bh=bh+bn
+           bh=0.
+       endif
 
     ! solve GK Poisson equation
     call petsc_solve( solver, neq, bb, xx, bh, ierr)
@@ -1542,7 +1546,7 @@ contains
     integer, external :: metric_elements
     integer :: ierr
 
-    real(wp) :: M, L, alfa, rms=0.
+    real(wp) :: M, L, alfa, rms=0., pim, rr, zz, tmpr, tmpz
     integer :: i,ii,j,jj,k,kk
     integer :: fe_ns=3
 
@@ -1577,13 +1581,22 @@ contains
           the(1)=tdum
           call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
 
+         !whichone = 1
          !bb(ivgts) = 1.
           bb(ivgts) =   (rj(1)-R_0) + zj(1)  
          !bb(ivgts) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
-          jself(ivgts) = 1.
+         !jself(ivgts) = 1.
 
-          !bb(ivgts) = pdum*pdum
-          !jself(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+         !whichone = 3
+         !bb(ivgts) = pdum*pdum
+          M=1
+          L=1
+          alfa=1
+          pim = pi*M/(a1-a0)
+          rr=pdum-a0
+          zz=tdum
+         !bb(ivgts) = sin(pim*rr) * cos(L*zz+alfa)
+         !jself(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
        enddo
     enddo
     if(ivgts.ne.mgrid) then
@@ -1612,12 +1625,22 @@ contains
           call esigetrzb(rj,zj,Bj,aaa,the,1)
 
          !tmp = 0.
-          tmp = 1.
-         !tmp = 2. * ( (rj(1)-R_0) + zj(1) )
+          tmpr = 1.
+          tmpz = 1.
+         !tmpr = 2. * ( (rj(1)-R_0) + zj(1) )
+         !tmpz = 2. * ( (rj(1)-R_0) + zj(1) )
          !tmp = 2.*pdum
+          M=1
+          L=1
+          alfa=1
+          pim = pi*M/(a1-a0)
+          rr=pdum-a0
+          zz=tdum
+         !tmpr = cos(pim*rr) * cos(L*zz+alfa) * (pim)
+         !tmpz = sin(pim*rr) * sin(L*zz+alfa) * (-L)
 
-          write(115,115) ivgts, bb(ivgts), tmp, dxdr(ivgts), dxdz(ivgts)
-          115 format("mass solver=", 1(2x,i7), 4(1x,d12.6))
+          write(115,115) ivgts, bb(ivgts), tmpr, dxdr(ivgts), tmpz, dxdz(ivgts)
+          115 format("mass solver=", 1(2x,i7), 5(1x,d12.6))
        enddo
     enddo
     if(ivgts.ne.mgrid)stop'mass solver: ivgts.ne.mgrid'
@@ -2377,7 +2400,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   !     iemax: number of elements
   !     iet1,2,3[iemax]: nodes of triangles of mesh
   !     npts: number of mesh points
-  !     points[5,npts]: coordinates of points in cartesian and flux coordinate and 1/q
+  !     points[6,npts]: coordinates of points in cartesian and flux coordinate
   !     
   !     output:
   !     Amat: stiffness matrix
@@ -2396,7 +2419,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   integer order,iemax,npts,ierr
 ! integer,dimension(:),allocatable :: iet1,iet2,iet3
 ! integer,dimension(:,:) :: iet
-! real(wp) :: points(5,npts)
+! real(wp) :: points(6,npts)
   real(wp) alpha, beta
   Mat  Amat, Mmat
 !  real(doubleprec)  xlt(2,3),sarr(3,3),sarr2(3*3),ul(3,4),eps ! therm2d uses *8
@@ -2682,7 +2705,6 @@ subroutine plot_array( nn, arr, str )
   yy = arr
   
   call VecCreateMPIWithArray(mpi_comm_self,1,nn,PETSC_DECIDE,yy,v,ierr)
-  !  call VecCreateMPIWithArray(mpi_comm_self,nn,PETSC_DECIDE,yy,v,ierr)
   !
   call PetscViewerASCIIOpen(mpi_comm_self, str,viewer,ierr)
   call PetscViewerSetFormat(viewer, PETSC_VIEWER_ASCII_MATLAB,ierr)

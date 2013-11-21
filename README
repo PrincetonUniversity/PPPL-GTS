@@ -51,3 +51,45 @@ Now, when I do an svn status, I don't get a list of the .mod files.
              8538 2008-09-09 11:37 main.F90
 
 
+
+====================================================================
+
+11/20/2013 
+           merge code for WWang rel31-->rel32
+           rel31: bug fix for dxdr & dxdz
+                  (solver_petsc.F90 L2484 apply MPI_ALLREDUCE on fem%Pijk)
+
+           Status against revision:     31
+           ~/gts/trunk/GTS$svn add Er_provider_rescale.F90
+           A         Er_provider_rescale.F90
+           ~/gts/trunk/GTS$cd ..
+           ~/gts/trunk$svn ci GTS -m "merge code from ww"
+           Sending        GTS/Er_provider.F90
+           Adding         GTS/Er_provider_rescale.F90
+           Sending        GTS/Makefile
+           Sending        GTS/Theory_jb.f90
+           Sending        GTS/charge_ion.F90
+           Sending        GTS/field.f90
+           Sending        GTS/get_3D_flow.F90
+           Sending        GTS/get_Te_fluctuation.F90
+           Sending        GTS/get_ZF_shear.F90
+           Sending        GTS/get_fluxes.F90
+           Sending        GTS/get_fluxes_e.F90
+           Sending        GTS/main.F90
+           Sending        GTS/module.f90
+           Sending        GTS/open_files.f90
+           Sending        GTS/poisson.F90
+           Sending        GTS/pushe_new.F90
+           Sending        GTS/pushi_new.F90
+           Sending        GTS/setup_v2.F90
+           Sending        GTS/snapshot.f90
+           Sending        GTS/solver_petsc.F90
+           Sending        GTS/spl_profile.F90
+           Sending        GTS/weight_damping_eon_new2.F90
+           Sending        GTS/weight_damping_new.F90
+           Transmitting file data .......................
+           Committed revision 32.
+           ~/gts/trunk$cd -
+           ~/gts/trunk/GTS$svn update
+           At revision 32.
+

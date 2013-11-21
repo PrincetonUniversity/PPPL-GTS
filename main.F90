@@ -92,19 +92,21 @@ program GTS
      solver_dphi_dt%order=0
      if(mype == 0) write (0, *) "	integral equation order=", order
      ! mat type 1, bc type 1
+     solver1%mat%bc_type = 2
      call new_gk_solver( solver1, '', 1, 2 )
      ! mat type 2, bc type 2
+     solver_dphi_dt%mat%bc_type = 2
      if(ifelectron==2.and.ifdphi==1) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
   else
      if(mype == 0) write (0, *) "	finite element order=", order
 
      solver1%order = order
-     solver1%mat%bc_type = 2
+     solver1%mat%bc_type = 3
      fem1%order = order
      call new_fem_data( fem1 )
      call new_fem_solver( fem1, solver1, '', 1, 3 )
-#ifdef CJTEST
      call testsolve( solver1 )
+#ifdef CJTEST
      call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
 #endif
@@ -113,8 +115,8 @@ program GTS
      femm%order = 1
      call new_fem_data( femm )
      call new_fem_masssolver( femm, masssolver )
-#ifdef CJTEST
      call testmasssolve( masssolver )
+#ifdef CJTEST
      call delete_fem_data( femm )
      call destroy_solver( masssolver )
 #endif
@@ -151,16 +153,10 @@ program GTS
   idiag=1
   CALL CHARGE_ION
 
-if(mype==0) print*, 'AAAA1111'
-
   if(ifelectron/=0) CALL CHARGE_EON
-
-if(mype==0) print*, 'BBBB1111'
 
   CALL POISSON( solver1 )
 !  CALL POISSON( solver_dphi_dt )
-
-if(mype==0) print*, 'CCCC1111'
 
   CALL SMOOTH(0)
 
