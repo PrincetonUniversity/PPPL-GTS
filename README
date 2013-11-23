@@ -54,6 +54,26 @@ Now, when I do an svn status, I don't get a list of the .mod files.
 
 ====================================================================
 
+Stephane Ethier
+2:28 PM (28 minutes ago) 4/3/2013
+
+           to me, Weixing, Edward 
+           Hi All,
+
+           I'm not sure if it could help
+           but I finally found on an old cvs server the old version of GTC
+           that Mark Adams and Yas Nishimura worked on
+           to produce a Finite Element version of the solver.
+           I haven't tested it so I have no idea if it runs properly.
+           It might give you some ideas though.
+           You can have a look at the code on portal in the following directory:
+
+                /p/gkp/ethier/GTC/gtc_fem_adams
+           cheers,
+           Stephane
+
+====================================================================
+
 11/20/2013 
            merge code for WWang rel31-->rel32
            rel31: bug fix for dxdr & dxdz

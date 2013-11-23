@@ -105,8 +105,8 @@ program GTS
      fem1%order = order
      call new_fem_data( fem1 )
      call new_fem_solver( fem1, solver1, '', 1, 3 )
-     call testsolve( solver1 )
 #ifdef CJTEST
+     call testsolve( solver1 )
      call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
 #endif
@@ -115,8 +115,8 @@ program GTS
      femm%order = 1
      call new_fem_data( femm )
      call new_fem_masssolver( femm, masssolver )
-     call testmasssolve( masssolver )
 #ifdef CJTEST
+     call testmasssolve( masssolver )
      call delete_fem_data( femm )
      call destroy_solver( masssolver )
 #endif
