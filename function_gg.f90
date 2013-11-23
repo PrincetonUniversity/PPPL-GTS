@@ -699,6 +699,34 @@ FUNCTION object_u3(thedum)
 end function object_u3
 
 
+FUNCTION object_12(thedum)
+      use precision
+
+!  provide function  J*gs*(grad_a)^2  for flux-surface_average
+
+      use esi_interface
+
+      implicit  none
+      real(wp) object_12
+
+      real(wp), external:: gs, reducedjacobian
+      real(wp) adum,thedum,aaa(2),the(2),grad_a2
+      real(wp), dimension(2) :: Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+      common/stupidpass/adum
+
+      aaa(1)=adum
+      the(1)=thedum
+
+!      call esiget2dfunctions(aaa,the,1)  ! replaced by:
+      call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+
+      grad_a2=(rqj(1)*rqj(1)+zqj(1)*zqj(1))/(zaj(1)*rqj(1)-zqj(1)*raj(1))**2
+
+      object_12=reducedjacobian(thedum)*grad_a2*gs(adum,thedum)
+
+end function object_12
+
+
 subroutine get_table_4_dlnAda
 !
 !   calculate dln<A>/da and <A> and create tables for them; A=exp(u^2/2T)
@@ -1576,3 +1604,41 @@ FUNCTION FUN3u(adum)
 
       RETURN
 end function FUN3u
+
+
+
+FUNCTION gs(adum,thedum)
+      use precision
+!
+!      gs=sum_over_species[Zs/B^2*n_s0*(e0/es)*(ms/m0)]
+!
+      use global_parameters
+      use esi_interface
+      use spl_profiles
+      use profile_array
+
+      implicit  none
+      real(wp) gs
+      real(wp) adum,thedum,aaa(10),the(10),rj(10),zz(10),Bj(10)
+
+      real(wp), dimension(10) :: Fj,Faj,gFaj,gYaj,raj,rqj,zaj,zqj
+
+      integer ns, i 
+      real(wp)  Zs
+
+      real(wp), external :: density
+
+      ns=1        ! one ion species
+      Zs=1.0_wp   ! ion charge
+
+      aaa(1)=adum
+      the(1)=thedum
+
+      gs=0.0_wp
+      do i=1,ns
+         call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zz,zaj,zqj,Bj,aaa,the,1)
+         gs=gs+Zs/(Bj(1)*Bj(1))*density(adum,thedum)*c0cs_i*msm0_i
+      end do
+
+      return
+end function gs

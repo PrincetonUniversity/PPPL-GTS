@@ -22,10 +22,14 @@ subroutine smooth(iflag)
   real(wp) :: aux3f(1),aux3b(1)
 
 
+
+
+
 ! wx: solve zonal flow for general geometry (July, 04): 
 !     assume <tilde{phi}>=tilde{<phi>} -- probabaly not justified for gg 
+
   if(iflag==1)then
-   if(ZF_SEPARATION==1) then    ! solve zonal flows separately
+   if(ZF_SEPARATION==1.and.order <= 0) then    ! solve zonal flows separately
      phip00=zonali                           ! =<n_i>/n_0
      if(ifelectron/=0) phip00=phip00-zonale  ! =(<n_i>-<n_e>)/n_0 with non-adiabatic electrons
 ! (-0.0625 0.25 0.625 0.25 -0.0625) radial smoothing of (0,0) mode density phip00
@@ -81,6 +85,11 @@ subroutine smooth(iflag)
      if(mode00==0) phip00=0.0_wp  ! exclude zonal flow
    endif    ! end ZF_SEPARATION==1
   endif     ! end iflag=1
+
+
+
+
+
 
   if(iflag==1) then 
 !$omp parallel do private(i)

@@ -134,7 +134,7 @@ module field_array
   real(wp),dimension(:),allocatable :: phi00,phip00,rtemi,rteme,rden,qtinv,&
       pmarki,pmarke,zonali,zonale,psi_grid,plenth,allnodes,r_grid,q_grid,&
       den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,rho_grid,s_grid,eta_grid,&
-      Er_grid,Er_grid0,dphidt00,ddT_da,Te_grid
+      Er_grid,Er_grid0,dphidt00,ddT_da,Te_grid,gsgaa
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
   real(wp),dimension(:),allocatable :: tphi, bphi, left1, left2   ! for testing solver
 
@@ -142,7 +142,7 @@ module field_array
   real(wp),dimension(:,:),allocatable :: on_grid, flow_grid
 
   real(wp),dimension(:),allocatable :: markeri,markere,dtemper,heatflux,&
-                                       phi_tmp,Jcbn
+                                       phi_tmp,Jcbn,gsij
   real(wp),dimension(:,:,:),allocatable :: evector,pflux_i,pflux_e
   real(wp),dimension(:,:),allocatable :: wtp1,wtp2,gij,cij
 

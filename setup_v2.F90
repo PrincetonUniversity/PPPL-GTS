@@ -31,8 +31,8 @@ Subroutine setup
   integer,parameter :: maxpts=1000*3,lenwrk=(3+2)*(1+maxpts/33)
   real(wp) low_lim(3),up_lim(3),wrkstr(lenwrk),acc,error_8,finval,low1(2),up1(2)
   real(wp) rtden_allnodes(nrbin),rtden_global
-  real(wp),external :: f_jaco,object_1,object_5,reducedjacobian,FUN1,FUN3,FUN3e,FUN3n,FUN3u, &
-                       rho2a_zero,dsda,s2a_zero,FUN_J,smoothstep
+  real(wp),external :: f_jaco,object_1,object_5,object_12,reducedjacobian,FUN1,FUN3,FUN3e,FUN3n,FUN3u, &
+                       rho2a_zero,dsda,s2a_zero,FUN_J,smoothstep,gs
 
   namelist /run_parameters/ micell,misum,mpsi,mthetamax,mzetamax,numberpe,&
        nonlinear,ndiag,tstep,ifelectron,delr,delt,mid_theta,mgrid,mtdiag,&
@@ -522,7 +522,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
        zonale(0:mpsi),jaco_sum(0:mpsi),eigenmode(m_poloidal,num_mode,mpsi), & 
        allnodes(0:mpsi),gaa(0:mpsi),B2_s(0:mpsi),dVda(0:mpsi),En_00(0:mpsi),&
        En_tur(0:mpsi),En_tot(0:mpsi),sn0_g(0:mpsi),dnty_on_bin_g(0:mpsi),&
-       dphidt00(0:mpsi))
+       dphidt00(0:mpsi),gsgaa(0:mpsi))
 
 ! grid spacing
 !  deltar=(a1-a0)/real(mpsi)
@@ -833,8 +833,9 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
      itran(i)=itran(i)-mtheta(i)*(itran(i)/mtheta(i))
 
 !    several surface averages
-     call general_flux_average(aaa(1),object_1,gaa(i))   ! gaa=<|grad_a|^2>
-     call general_flux_average(aaa(1),object_5,B2_s(i))  ! B2_s=<B^2>
+     call general_flux_average(aaa(1),object_1,gaa(i))     ! gaa=<|grad_a|^2>
+     call general_flux_average(aaa(1),object_5,B2_s(i))    ! B2_s=<B^2>
+     call general_flux_average(aaa(1),object_12,gsgaa(i))  ! gsgaa=<gs*|grad_a|^2> with gs=sum_over_species[Zs/B^2*n_s0*(e0/es)*(ms/m0)]
 
 !    compare to direct surface average
      pdum=aaa(1)
@@ -993,7 +994,7 @@ end if ! if(mype==0)
        phi(0:1,mgrid),jtp1(2,mgrid),jtp2(2,mgrid),&
        wtp1(2,mgrid),wtp2(2,mgrid),dtemper(mgrid),heatflux(mgrid),&
        phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),&
-       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid))
+       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid))
 
 ! Added for flow visualization, Feb. 2011
   allocate (on_grid(6,mgrid))
@@ -1036,6 +1037,8 @@ end if ! if(mype==0)
         gij(2,ij)=metric(2)         
         gij(3,ij)=metric(3)         
         gij(4,ij)=metric(4)         
+
+        gsij(ij)=gs(pdum,tdum)   ! gsij=gs at grid point
 
         dtemper(ij)=dtemper(ij)*deltaz*deltat(i)   ! =J*dtheta*dzeta
         jaco_sum(i)=jaco_sum(i)+dtemper(ij)
@@ -1081,6 +1084,7 @@ end if ! if(mype==0)
      dtemper(igrid(i))=dtemper(igrid(i)+mtheta(i))
      Jcbn(igrid(i))=Jcbn(igrid(i)+mtheta(i))
      gij(:,igrid(i))=gij(:,igrid(i)+mtheta(i))
+     gsij(igrid(i))=gsij(igrid(i)+mtheta(i))
   enddo
   
   totalv=sum(allnodes) 

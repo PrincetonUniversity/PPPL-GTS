@@ -166,25 +166,31 @@ subroutine poisson( solver )
 
      if(ZF_SEPARATION==1) then
 
-        call solve( solver, mgrid, dentmp, xx, ierr )
+        if( solver%order <= 0 ) then    ! old solver 
+           call solve( solver, mgrid, dentmp, xx, ierr )
 
-        phi(1,:) = xx
+           phi(1,:) = xx
+   
+           ! radial boundary  Note wx: setting phi=0 at both coundaries could enforce a constraint on
+           !                           long wave length modes ---- a constraint on large scale Er (???)
+           !    3 cases:
+           ! 1. phi=0 at both inner and outer boundaries
+           ! 2. phi=0 at inner boundary and float phi at outer boundary
+           ! 3. phi is float at both inner and outer boundaries
+           !    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
 
-        ! radial boundary  Note wx: setting phi=0 at both coundaries could enforce a constraint on
-        !                           long wave length modes ---- a constraint on large scale Er (???)
-        !    3 cases:
-        ! 1. phi=0 at both inner and outer boundaries
-        ! 2. phi=0 at inner boundary and float phi at outer boundary
-        ! 3. phi is float at both inner and outer boundaries
-        !    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
+           !        phi(1,igrid(0):igrid(0)+mtheta(0))=0.0
+           !          potential at one of boundaries should be float
+           !        phi(1,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
 
-        !        phi(1,igrid(0):igrid(0)+mtheta(0))=0.0
-        !          potential at one of boundaries should be float
-        !        phi(1,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
+           do i=0, mpsi
+              phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
+           enddo
+        else             ! FEM solver
 
-        do i=0, mpsi
-           phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
-        enddo
+        !       FEM  solver 
+
+        end if
 
      else      ! ZF_SEPARATION=0 --> solve total potential
 
