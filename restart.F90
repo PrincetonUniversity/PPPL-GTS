@@ -32,9 +32,14 @@ subroutine restart_write
   write(222) sn_box,sn0,sn0_g,sw,rdtem0,rtden,pmarki,markeri,cloud_i    ! these are calculated in load.f90 and should be saved for check point
   write(222) phi  ! --> initial <phi> for poisson solving total phi  (ZF_SEPARATION=0 case)
   write(222) ddT_da  ! need for maintaining constant Ti gradient drive
+  write(222) phip00, phi00  ! need for restart when using FEM solver with ZF_SEPARATION=1
   if(ifelectron/=0) then
      write(222) me,ntracer_e,etracer_e0,mesum
-     write(222) zeon(1:7,1:me)
+     if(ifdphi/=2) then
+        write(222) zeon(1:7,1:me)
+     else
+        write(222) zeon(1:8,1:me)
+     endif
      write(222) zeon0(6,1:me)
      write(222) pmarke,markere,cloud_e    ! these are calculated in load.f90 and should be saved for check point
 !     write(222) dphidt,dphidt00  ! these are saved for check point only when using Jacobian iteration for solving dphidt
@@ -76,12 +81,17 @@ subroutine restart_read
   read(333) sn_box,sn0,sn0_g,sw,rdtem0,rtden,pmarki,markeri,cloud_i
   read(333) phi  ! --> initial <phi> for poisson solving total phi (ZF_SEPARATION=0 case)
   read(333) ddT_da  ! need for maintaining constant Ti gradient drive
+  read(333) phip00, phi00  ! need for restart when using FEM solver with ZF_SEPARATION=1
   
   istart=istart+1         ! starting step number
 
   if(ifelectron/=0) then
      read(333) me,ntracer_e,etracer_e0,mesum
-     read(333) zeon(1:7,1:me)
+     if(ifdphi/=2) then
+        read(333) zeon(1:7,1:me)
+     else
+        read(333) zeon(1:8,1:me)
+     endif
      read(333) zeon0(6,1:me)
      read(333) pmarke,markere,cloud_e
 !     read(333) dphidt,dphidt00  ! these are needed only when using Jacobian iteration for solving dphidt

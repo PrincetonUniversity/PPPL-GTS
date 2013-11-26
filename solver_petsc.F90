@@ -846,7 +846,8 @@ contains
     !     
     !use global_parameters
     use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mtheta,mpsi,mgrid
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,ZF_SEPARATION
+    use field_array, only: phip00
     implicit none
     type(solver_data) :: solver
     integer,intent(in) :: nn
@@ -866,6 +867,14 @@ contains
     count = count + 1
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
+
+    !set Neumann bc for rhs vector sept19-2013
+    !at present it only works for order=1
+    allocate(hh(neq),bh(neq),bn(neq))
+    hh=0.
+    bh=0.
+    bn=0.
+
     ivsl = 0
     ivgts = 0
     do ir=0,mpsi 
@@ -876,6 +885,7 @@ contains
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
              xx(ivsl) = xx_gk(ivgts)
+             hh(ivsl) = phip00(ir)
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
@@ -883,12 +893,6 @@ contains
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     
-    !set Neumann bc for rhs vector sept19-2013
-    !at present it only works for order=1
-    allocate(hh(neq),bh(neq),bn(neq))
-    hh=0.
-    bh=0.
-    bn=0.
     if( solver%order .ge. 1) then
        if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
           it= sum( mtheta ) - mtheta(mpsi)
@@ -931,11 +935,11 @@ contains
 
     else
         ! cal bh from hh(gts input) and add it to M*bb in subroutine petsc_solve
-       if( solver%order .ge. 1) then
+       if( solver%order .ge. 1.and.ZF_SEPARATION==1) then
            call add_hh2bb(solver%fem, neq, hh, bh, ierr)
-           ! set bh to 0 if don't want to add it
-           bh=bh+bn
-           bh=0.
+           !  set bh to 0 if don't want to add it
+           !  bh=bh+bn
+           !  bh=0.
        endif
 
     ! solve GK Poisson equation

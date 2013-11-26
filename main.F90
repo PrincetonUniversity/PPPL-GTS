@@ -97,14 +97,14 @@ program GTS
      ! mat type 2, bc type 2
      solver_dphi_dt%mat%bc_type = 2
      if(ifelectron==2.and.ifdphi==1) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
-  else
+  else          !  for order > 0
      if(mype == 0) write (0, *) "	finite element order=", order
 
      solver1%order = order
-     solver1%mat%bc_type = 3
+     solver1%mat%bc_type = 0
      fem1%order = order
      call new_fem_data( fem1 )
-     call new_fem_solver( fem1, solver1, '', 1, 3 )
+     call new_fem_solver( fem1, solver1, '', 1, 0 )
 #ifdef CJTEST
      call testsolve( solver1 )
      call delete_fem_data( fem1 )
@@ -155,7 +155,7 @@ program GTS
 
   if(ifelectron/=0) CALL CHARGE_EON
 
-  CALL POISSON( solver1 )
+  CALL POISSON( solver1, masssolver  )
 !  CALL POISSON( solver_dphi_dt )
 
   CALL SMOOTH(0)
@@ -262,7 +262,7 @@ end if
               timewc(9)=timewc(9)+dtwc
 
          !     CALL PUSHE(irk)
-              CALL PUSHEON(solver1, irk)
+              CALL PUSHEON(solver1, masssolver, irk)
               call timer(t0,dt,t0wc,dtwc)
               time(10)=time(10)+dt
               timewc(10)=timewc(10)+dtwc
@@ -301,7 +301,7 @@ end if
 ! get_fluexs_e in pushe
 ! push electron -- the 1st step of 2nd order Runge-Kutta
              !    CALL PUSHE(1)
-                 CALL PUSHEON(solver1, 1)
+                 CALL PUSHEON(solver1, masssolver, 1)
                  call timer(t0,dt,t0wc,dtwc)
                  time(10)=time(10)+dt
                  timewc(10)=timewc(10)+dtwc
@@ -313,7 +313,7 @@ end if
 
 ! push electron -- the 2nd step of 2nd order Runge-Kutta
              !    CALL PUSHE(2)
-                 CALL PUSHEON(solver1, 2)
+                 CALL PUSHEON(solver1, masssolver, 2)
                  call timer(t0,dt,t0wc,dtwc)
                  time(10)=time(10)+dt
                  timewc(10)=timewc(10)+dtwc
@@ -340,7 +340,7 @@ end if
         endif    ! end if(ifelectron/=0)
 
 ! solve GK Poisson equation using adiabatic electron
-        CALL POISSON( solver1 )
+        CALL POISSON( solver1, masssolver )
 !        CALL POISSON( solver_dphi_dt )
 
         call timer(t0,dt,t0wc,dtwc)

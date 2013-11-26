@@ -1,4 +1,4 @@
-subroutine poisson( solver )
+subroutine poisson( solver, masssolver )
   use precision
   use mpi_defs
   use global_parameters
@@ -11,7 +11,7 @@ subroutine poisson( solver )
   use solver_data_class
   implicit none
   ! 
-  type(solver_data) :: solver 
+  type(solver_data) :: solver, masssolver 
   ! local vars
   integer i,it,ij,j,jj,k,iteration,mring,mindex,ierr
 
@@ -25,7 +25,7 @@ subroutine poisson( solver )
   
   !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
   real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
-  real(wp) add_phi(mgrid)
+  real(wp) add_phi(mgrid), yy(mgrid)
 
   real(wp), external :: SMOOTHSTEP
   real(wp) instep,outstep
@@ -156,7 +156,11 @@ subroutine poisson( solver )
            ij=igrid(i)+j
            dentmp(ij)=densityi(1,ij)
            if(ifelectron==2) dentmp(ij)=dentmp(ij)-densitye(1,ij)   ! with non-adiabatic electrons
-           if( solver%order <= 0 )  dentmp(ij)=dentmp(ij)*vth_grid(i)**2
+           if( solver%order <= 0 )  then 
+              dentmp(ij)=dentmp(ij)*vth_grid(i)**2
+           else
+              if(ZF_SEPARATION==1) dentmp(ij)=dentmp(ij)+(zonali(i)-zonale(i))  ! total density fluctuations used for FEM solver with ZF_SEPARATION=1
+           endif
         enddo
      enddo
 
@@ -186,10 +190,56 @@ subroutine poisson( solver )
            do i=0, mpsi
               phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
            enddo
-        else             ! FEM solver
 
-        !       FEM  solver 
+        else             ! FEM solver solves delta-phi and d<phi>/da interatively
 
+           do it=1,its
+
+              !  phip00=0.0_wp
+
+              call solve( solver, mgrid, dentmp, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
+
+              if(mype==0) print*, 'it=', it, '  istep=', istep, '  irk=', irk, '  d<phi>/da=', phip00(mpsi/2), '  <phi>=', phi00(mpsi/2), '  delta-phi=', xx(mgrid/2)
+
+              do i=0, mpsi
+                 xx(igrid(i))=xx(igrid(i)+mtheta(i))  !validate xx(1,igrid(i)) for safe
+              enddo
+ 
+              call find_dxdadxdt( masssolver, mgrid, xx, add_phi, yy, ierr )          
+              add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))*gsij(:)   ! --> sum(gs)*grad_perp(delta-phi).grad(a)
+
+              adum=0.0_wp
+              phi_flux_ave=0.0_wp
+              !$omp parallel private(i,j,ij) reduction(+:adum,rms)
+              !$omp do
+              do i=0,mpsi
+                 do j=1,mtheta(i)
+                    ij=igrid(i)+j
+                    adum(i)=adum(i)+dtemper(ij)*add_phi(ij)  ! surface averaging
+                 enddo
+              enddo
+              !$omp end parallel
+              call MPI_ALLREDUCE(adum,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+              phi_flux_ave=phi_flux_ave/jaco_sum    !  =<sum(gs)*grad_perp(delta-phi).grad(a)>
+
+              phip00=0.0_wp
+              do i=1,mpsi
+                 phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
+                           (-den_grid(i-1)*dVda(i-1)*(zonali(i-1)-zonale(i-1))  &
+                            -den_grid(i)*dVda(i)*(zonali(i)-zonale(i)) )
+              enddo
+
+              phip00=phip00/dVda/gsgaa
+              phip00=phip00 -(phi_flux_ave*dVda-phi_flux_ave(0)*dVda(0))/dVda/gsgaa   ! --> phip00=dphi_00/da with phip00(0)=0
+           end do     !  end iteration for FEM   
+
+           phi(1,:) = xx
+
+           ! (0,0) mode potential store in phi00
+           phi00=0.0_wp   ! phi00(0)=0.0 is chosen
+           do i=1,mpsi
+              phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
+           enddo
         end if
 
      else      ! ZF_SEPARATION=0 --> solve total potential

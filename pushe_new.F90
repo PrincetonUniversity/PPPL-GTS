@@ -359,7 +359,7 @@ end subroutine pushe
 
 
 
-subroutine pusheon(solver1, irk_e)
+subroutine pusheon(solver1, masssolver, irk_e)
   use precision
   use global_parameters
   use particle_array
@@ -370,7 +370,7 @@ subroutine pusheon(solver1, irk_e)
 
   implicit none
 
-  type(solver_data) :: solver1
+  type(solver_data) :: solver1, masssolver
 
 !  integer,parameter :: nrbin=5       !wx
   integer i,im,ip,j,jt,k,kz,kk,m,ii,j11,j10,j01,j00,jtheta,ierror,ij,ipjt,irk_e
@@ -828,7 +828,7 @@ end if
   end do
 
   CALL CHARGE_EON
-  CALL POISSON( solver1 )
+  CALL POISSON( solver1, masssolver )
   CALL SMOOTH_PHI
 
 !$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00, &
@@ -882,7 +882,7 @@ end if
 if(ifelectron==-100) then    ! need to do one more time ?
 
   CALL CHARGE_EON
-  CALL POISSON( solver1 )
+  CALL POISSON( solver1, masssolver )
   CALL SMOOTH_PHI
 
 !$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00, &

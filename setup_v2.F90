@@ -232,12 +232,12 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
 
          call read_profiles(profile_data_name)         ! for JET data output
 
-         Ti_50=Ti_50/Tem_00    ! normalized temperature for which the normalized
-                               ! thermal velocity is vth=sqrt(T_i)
-         Te_50=Te_50*m0ms/Tem_00  ! normalized temperature corresponding to
-                                  ! electron thermal velocity of vth=sqrt(T_e)
-         O_50=O_50*utime       ! normalized toroidal rotation angular velocity,
-                               ! in radians (rad)
+         Ti_50=Ti_50/Tem_00       ! normalized temperature for which the normalized
+                                  ! thermal velocity is vth=sqrt(T_i)
+         Te_50=Te_50*m0ms/Tem_00  ! normalized electron temperature so that 
+                                  ! the normalized electron thermal velocity is vth=sqrt(T_e), the same as that for ions
+         O_50=O_50*utime          ! normalized toroidal rotation angular velocity,
+                                  ! in radians (rad)
 ! --------------------
 !    O_50=O_50*1.0d-6
 !    O_50=0.0_wp
