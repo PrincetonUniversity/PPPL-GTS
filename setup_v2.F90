@@ -749,7 +749,9 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
      tdum=tdum*1.1_wp       ! for D3D 122338 2nd run
 
      tdum=(0.7*real(mpsi-i,wp)/real(mpsi,wp)+0.3*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)   ! for D125229
-!     tdum=tdum*1.6       ! for D125229
+#ifdef CJTEST
+     tdum=tdum*1.6       ! for D125229
+#else
 !     tdum=tdum*0.6       ! for D125229
 !     tdum=tdum*1.25       ! for DIIID 125236_360
 !     tdum=tdum*0.80       ! for DIIID 125236_360
@@ -777,8 +779,14 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
 
 !     tdum=(0.61*real(mpsi-i,wp)/real(mpsi,wp)+0.39*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)   ! for model esi_mod.00
 !     tdum=tdum*1.5       ! for esi_mod.00   with T<0.5 kev
+#endif
 
+#ifdef CJTEST
+!    mtheta(i)=4*(i+2)+1
+     mtheta(i)=2.0_wp*pi*psi_grid(i)*mpsi/(a1-a0)
+#else
      mtheta(i)=max(2,2*int(plenth(i)/tdum/2.0_wp+0.5_wp)) !even # poloidal grid
+#endif
      deltat(i)=2.0_wp*pi/real(mtheta(i),wp)
 
      k=max(k,mtheta(i))

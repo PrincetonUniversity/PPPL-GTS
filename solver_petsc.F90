@@ -344,7 +344,7 @@ contains
     endif
     ! KSP build
     call KSPCreate( partd_comm, ksp, ierr )
-    call KSPSetOperators( ksp, Amat, Amat, DIFFERENT_NONZERO_PATTERN, ierr)
+    call KSPSetOperators( ksp, Amat, Amat, SAME_PRECONDITIONER, ierr)
     tol = 1.d-5
     call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_DOUBLE_PRECISION, PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,ierr)
     call KSPSetType(ksp, KSPGMRES, ierr )
@@ -863,7 +863,6 @@ contains
     integer :: count = 0
 
 
-    if(mype.eq.0 .and. solver%fem%order.gt.0) write(0, *) "	finite element solve begin"
     count = count + 1
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
@@ -935,7 +934,7 @@ contains
 
     else
         ! cal bh from hh(gts input) and add it to M*bb in subroutine petsc_solve
-       if( solver%order .ge. 1.and.ZF_SEPARATION==1) then
+       if( solver%order.ge.1 .and. ZF_SEPARATION.eq.1) then
            call add_hh2bb(solver%fem, neq, hh, bh, ierr)
            !  set bh to 0 if don't want to add it
            !  bh=bh+bn
@@ -963,7 +962,6 @@ contains
     enddo
 
     deallocate(bb,xx,hh,bh,bn) 
-    if(mype.eq.0 .and. solver%fem%order>0) write(0, *) "	finite element solve end"
 
     ! debug
     if( count .eq. 1 .and. mype==-10 ) then
@@ -1155,6 +1153,7 @@ contains
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
     use field_array,only: psi_grid,qtinv
     implicit none
+#include "finclude/petscsys.h"
     type(solver_data) :: solver
     integer :: nn
     integer :: ierr
@@ -1173,12 +1172,14 @@ contains
 
     real(wp) M, L, alfa
     real(wp) :: rms=0., eps, err, pim, rr, zz
+    logical :: flg
     integer :: whichone = 5
     integer :: ki, fe_ndof, i0, i1, i2, i3, i4, i5
 
 
     if(mype.eq.0) &
     write(0, *) "	finite element test solve", whichone, "of five"
+    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
     fe_ndof=1
     if( solver%fem%order .gt. 2) fe_ndof=6
@@ -1543,8 +1544,8 @@ contains
     type(solver_data) :: masssolver
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,mt
-    real(doubleprec),allocatable,dimension(:) :: xx, bb, jself, dxdr, dxdz
-    real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, jself_ho
+    real(doubleprec),allocatable,dimension(:) :: xx, bb, fcj, dxdr, dxdz
+    real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, fcj_ho
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp),dimension(2) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
     integer, external :: metric_elements
@@ -1564,7 +1565,7 @@ contains
 
 !cj the following is a combianation of solve and tri_mesh
     allocate(xx(mgrid),bb(mgrid))
-    allocate(dxdr(mgrid),dxdz(mgrid),jself(mgrid))
+    allocate(dxdr(mgrid),dxdz(mgrid),fcj(mgrid))
     bb=0.
     dxdr=0.
     dxdz=0.
@@ -1589,7 +1590,7 @@ contains
          !bb(ivgts) = 1.
           bb(ivgts) =   (rj(1)-R_0) + zj(1)  
          !bb(ivgts) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
-         !jself(ivgts) = 1.
+         !fcj(ivgts) = 1.
 
          !whichone = 3
          !bb(ivgts) = pdum*pdum
@@ -1600,7 +1601,7 @@ contains
           rr=pdum-a0
           zz=tdum
          !bb(ivgts) = sin(pim*rr) * cos(L*zz+alfa)
-         !jself(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+         !fcj(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
        enddo
     enddo
     if(ivgts.ne.mgrid) then
@@ -1643,7 +1644,7 @@ contains
          !tmpr = cos(pim*rr) * cos(L*zz+alfa) * (pim)
          !tmpz = sin(pim*rr) * sin(L*zz+alfa) * (-L)
 
-          write(115,115) ivgts, bb(ivgts), tmpr, dxdr(ivgts), tmpz, dxdz(ivgts)
+          if(mype.eq.0)write(115,115) ivgts, bb(ivgts), tmpr, dxdr(ivgts), tmpz, dxdz(ivgts)
           115 format("mass solver=", 1(2x,i7), 5(1x,d12.6))
        enddo
     enddo
@@ -1653,7 +1654,7 @@ contains
       "	mass solver: rms(dxdr dxdz)=",sqrt(sum(dxdr*dxdr))/mgrid, sqrt(sum(dxdz*dxdz))/mgrid
     
     deallocate(xx,bb) 
-    deallocate(dxdr,dxdz,jself)
+    deallocate(dxdr,dxdz,fcj)
 
   end subroutine testmasssolve
 
@@ -1668,9 +1669,10 @@ contains
 
     !use global_parameters
     use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat
-    use field_array,only: psi_grid,qtinv
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0
+    use field_array,only: psi_grid,qtinv,Jcbn
     implicit none
+#include "finclude/petscsys.h"
     type(solver_data) :: solver
     integer :: nn
     integer :: ierr
@@ -1686,10 +1688,13 @@ contains
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk
+    logical :: flg
     integer :: whichone = 5
 
 
     if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
+    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+
     fe_order=solver%fem%order
     fe_ns=3
     fe_nvar=3
@@ -1707,21 +1712,19 @@ contains
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
+             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
           end if
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
 
-    if(whichone.lt.3) then
-       fcj=1.
-    else
-       do ivsl=1,neq
-          aaa(1)=solver%fem%points(3,ivsl)
-          the(1)=solver%fem%points(4,ivsl)
-          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
-          fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
-       enddo
-    endif
+    if(whichone.lt.3) fcj=1.
+       !do ivsl=1,neq
+       !   aaa(1)=solver%fem%points(3,ivsl)
+       !   the(1)=solver%fem%points(4,ivsl)
+       !   call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
+       !   fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+       !enddo
 
 !   form rhs ba&bt for dxdr&dxdz respectively
     ba=0.
@@ -2011,7 +2014,7 @@ contains
        !  call VecView( solver%bVec, PETSC_VIEWER_STDOUT_WORLD, ierr )
 
        !! add bh and neumann bc fix to M*bb to M*bb
-       if(mype==0) write(*,*)"	petsc_solve: add hh to bb"
+      !if(mype==0) write(*,*)"	petsc_solve: add hh to bb"
        call VecDuplicate(solver%bVec, tmpVecbh, ierr)
        call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,bh,vec_bh,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -2224,10 +2227,11 @@ end subroutine neumbcfix
     !     
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
-    use field_array,only: psi_grid,qtinv
+    use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij
     use esi_interface, only : metric
     use fem_data_class
     implicit none
+#include "finclude/petscsys.h"
     type(fem_data) :: fem
     integer,intent(in) :: nn
     real(wp),intent(in) :: hh(nn)
@@ -2236,11 +2240,11 @@ end subroutine neumbcfix
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-    real(wp) :: jself,beta,gs
+    real(wp) :: fcj,beta,gs
     real(wp) zeta, pdum, dt, tdum
     integer :: mt,i, ii, j, jj, k, kk
     real(doubleprec),allocatable,dimension(:) :: bgsjgaa,bgsjgat,bgsjgaa_ho,bgsjgat_ho
-    real(wp) alpha, beta, ns0, ne0, gs, vthe3, Zs
+    real(wp) alpha, beta, ns0, ne0, gs, Zs, gaa, gat
     real(wp), external ::temperature_e, density
     integer, external :: metric_elements
     integer :: i0, i1, i2, i3, i4, i5
@@ -2249,11 +2253,13 @@ end subroutine neumbcfix
     integer,dimension(:),allocatable :: ind
     integer,allocatable,dimension(:) :: indlocal, indglobal
     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
+    logical :: flg
     integer :: whichone = 5
 
 
+   !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
+    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
-    if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
     fe_order=fem%order
     fe_ns=3
     fe_ndof=1
@@ -2262,7 +2268,7 @@ end subroutine neumbcfix
     fe_nvar=fe_ns*fe_ndof
     allocate( xlt(2,fe_ns) )
     allocate( ind(fe_ns) )
-    allocate(indlocal(3*fe_ndof), indglobal(3*fe_ndof))
+    allocate(indlocal(fe_nvar), indglobal(fe_nvar))
 
     !cal beta * gs * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
     neq = sum(mtheta)
@@ -2283,39 +2289,27 @@ end subroutine neumbcfix
              tdum=tdum/(2.0_wp*pi)
              tdum=2.0_wp*pi*(tdum-aint(tdum))
 
-             aaa(1)=pdum
-             the(1)=tdum
-             call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-             mt=metric_elements(aaa(1),the(1),0.)
-             jself = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+             aaa(1)=fem%points(3,ivsl)
+             the(1)=fem%points(4,ivsl)
              ns0=density(aaa(1),0.0_wp)
              ne0=density(aaa(1),0.0_wp)
-             vthe3=temperature_e(aaa(1),0.0_wp)
              beta = - 1./ ne0
-             Zs = 1.
-             gs = Zs / Bj(1)/Bj(1) * ns0 * c0cs_i * msm0_i
+
+             gs = gsij(ivgts)
+             gaa = gij(1,ivgts)
+             gat = gij(4,ivgts)
+             fcj = Jcbn(ivgts)/(fem%points(1,ivsl)+R_0)/(fem%points(1,ivsl)+R_0)
 
              i0=(ivsl-1)*fe_ndof+1
-             bgsjgaa(i0) = beta*gs*jself*metric(1)
-             bgsjgat(i0) = beta*gs*jself*metric(4)
-             if(fe_ndof .gt. 1) then
-                i1=(ivsl-1)*fe_ndof+2
-                i2=(ivsl-1)*fe_ndof+3
-                i3=(ivsl-1)*fe_ndof+4
-                i4=(ivsl-1)*fe_ndof+5
-                i5=(ivsl-1)*fe_ndof+6
-
-                bgsjgaa(i1) = beta*gs*jself*metric(1)
-                bgsjgaa(i2) = beta*gs*jself*metric(1)
-                bgsjgaa(i3) = beta*gs*jself*metric(1)
-                bgsjgaa(i4) = beta*gs*jself*metric(1)
-                bgsjgaa(i5) = beta*gs*jself*metric(1)
-                bgsjgat(i1) = beta*gs*jself*metric(4)
-                bgsjgat(i2) = beta*gs*jself*metric(4)
-                bgsjgat(i3) = beta*gs*jself*metric(4)
-                bgsjgat(i4) = beta*gs*jself*metric(4)
-                bgsjgat(i5) = beta*gs*jself*metric(4)
-             endif
+             bgsjgaa(i0) = beta*gs*fcj*gaa
+             bgsjgat(i0) = beta*gs*fcj*gat
+             !if(mype.eq.0)write(117,117) ivsl, gs, gaa, gat, bgsjgaa(i0), bgsjgat(i0)
+             !117 format("addhh2bb=", 1(2x,i5), 5(2x,d12.6))
+             do k=2,fe_ndof
+                i0=(ivsl-1)*fe_ndof+k
+                bgsjgaa(i0) = beta*gs*fcj*gaa
+                bgsjgat(i0) = beta*gs*fcj*gat
+             enddo
           end if
        enddo
     enddo
@@ -2329,11 +2323,11 @@ end subroutine neumbcfix
 
         !cal extra term to be added to M*bb(rhs)
         do ie=1, fem%iemax
-           do i = 1,6
+           do i = 1,fe_ns
               ii=fem%iet(i,ie)
-              do j = 1,6
+              do j = 1,fe_ns
                  jj=fem%iet(j,ie)
-              do k = 1,6
+              do k = 1,fe_ns
                  kk=fem%iet(k,ie)
                  bh(ii)=bh(ii)+hh(jj)*fem%points(4,kk)*fem%Pijk(k,i,j)*bgsjgaa_ho(jj)
                  bh(ii)=bh(ii)-hh(jj)*fem%points(3,kk)*fem%Pijk(k,i,j)*bgsjgat_ho(jj)
@@ -2362,7 +2356,7 @@ end subroutine neumbcfix
            endif
 
            !preparing for index
-           do m = 1,3
+           do m = 1,fe_ns
               mv=fem%iet(m,ie)
               do n = 1,fe_ndof
                  nv=(m-1)*fe_ndof+n
@@ -2371,14 +2365,14 @@ end subroutine neumbcfix
               enddo
            enddo
 
-           do i = 1,3*fe_ndof
+           do i = 1,fe_nvar
               ii=indglobal(i)
-              do j = 1,3*fe_ndof
+              do j = 1,fe_nvar
                  jj=indglobal(j)
-              do k = 1,3
+              do k = 1,fe_ns
                  kk=fem%iet(k,ie)
-                 bh(ii)=bh(ii)+hh(jj)*xlt(2,k)*fem%Pijk(k,i,j)*bgsjgaa(jj)
-                 bh(ii)=bh(ii)-hh(jj)*xlt(1,k)*fem%Pijk(k,i,j)*bgsjgat(jj)
+                 bh(ii)=bh(ii)-hh(jj)*xlt(2,k)*fem%Pijk(k,j,i)*bgsjgaa(jj)
+                 bh(ii)=bh(ii)+hh(jj)*xlt(1,k)*fem%Pijk(k,j,i)*bgsjgat(jj)
               enddo
               enddo
            enddo
@@ -2434,6 +2428,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   real(doubleprec),dimension(:,:),allocatable ::  xlt,sarr,marr,ul ! therm2d uses *8
   real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
   real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
+  real(doubleprec),dimension(:),allocatable ::  rarr2,zarr2            ! r&z matrix
   real(doubleprec) c1, c2
   real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
   real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
@@ -2455,8 +2450,11 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   real(doubleprec),dimension(:),allocatable :: fe_weight
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
+  logical :: flg
   integer :: whichone = 5
 
+
+  call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
   c1 = alpha
   c2 = beta
@@ -2499,7 +2497,9 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   allocate( xlt(2,fe_ns) )
   allocate( sarr(fe_nvar,fe_nvar),sarr2(fe_nvar*fe_nvar),ul(fe_nvar,4) )
   allocate( marr(fe_nvar,fe_nvar),marr2(fe_nvar*fe_nvar) )
-  allocate( rrarr(fe_nvar,fe_nvar),rzarr(fe_nvar,fe_nvar),zrarr(fe_nvar,fe_nvar),zzarr(fe_nvar,fe_nvar),pparr(fe_nvar,fe_nvar),rarr(fe_nvar,fe_nvar),zarr(fe_nvar,fe_nvar) )
+  allocate( rrarr(fe_nvar,fe_nvar),rzarr(fe_nvar,fe_nvar),zrarr(fe_nvar,fe_nvar),zzarr(fe_nvar,fe_nvar),pparr(fe_nvar,fe_nvar) )
+  allocate( rarr(fe_nvar,fe_nvar),rarr2(fe_nvar*fe_nvar) )
+  allocate( zarr(fe_nvar,fe_nvar),zarr2(fe_nvar*fe_nvar) )
   ul = 0.                   ! displacement, velocit and acceloration (not used)
 
   allocate( aaa(fe_ns),the(fe_ns),Fj(fe_ns),Faj(fe_ns),gFaj(fe_ns),gYaj(fe_ns),rj(fe_ns),raj(fe_ns),rqj(fe_ns),zj(fe_ns),zaj(fe_ns),zqj(fe_ns),Bj(fe_ns) )
@@ -2509,12 +2509,14 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   !shouldn't do MPI_ALLREDUCE, but just for now to fix bug
   fe_Pijk(:,:,:)= fem%Pijk(:,:,:)
     call MPI_ALLREDUCE(fe_Pijk,fem%Pijk,fe_ns*fe_nvar*fe_nvar,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
-  !do i=1,fe_nvar
-  !   do j=1,fe_nvar
-  !      if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
-  !      115 format("	Pijk:", 2(2x,i4), 3(1x,d12.6))
-  !   enddo
-  !enddo
+#ifdef CJTEST
+  do i=1,fe_nvar
+     do j=1,fe_nvar
+        if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
+        115 format("	Pijk:", 2(2x,i4), 3(1x,d12.6))
+     enddo
+  enddo
+#endif
 
   if(mype .eq. 0) write(0,*) '	form_tangent: iemax=', fem%iemax
   do ie=1,fem%iemax
@@ -2596,6 +2598,8 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
                                            )
                 endif
              marr2(kk) = fcj*marr(i,j)
+            !rarr2(kk) = fcj*rarr(i,j)
+            !zarr2(kk) = fcj*zarr(i,j)
            enddo
         enddo
 
@@ -2607,7 +2611,9 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   deallocate( xlt )
   deallocate( sarr,sarr2,ul )
   deallocate( marr,marr2 )
-  deallocate( rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr )
+  deallocate( rarr,rarr2 )
+  deallocate( zarr,zarr2 )
+  deallocate( rrarr,rzarr,zrarr,zzarr,pparr )
   deallocate( aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj )
   deallocate( gaa,gtt,gpp,gat,vthe3,q,ns0,ne0 )
 
