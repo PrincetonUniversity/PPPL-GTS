@@ -884,7 +884,9 @@ contains
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
              xx(ivsl) = xx_gk(ivgts)
+#ifdef CJTEST
              hh(ivsl) = phip00(ir)
+#endif
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
@@ -892,6 +894,7 @@ contains
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     
+#ifdef CJTEST
     if( solver%order .ge. 1) then
        if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
           it= sum( mtheta ) - mtheta(mpsi)
@@ -904,6 +907,7 @@ contains
           call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
        endif
     endif
+#endif
 
     if( solver%fem%order .eq. 2) then
         ! interpolate linear to ho array
@@ -934,12 +938,14 @@ contains
 
     else
         ! cal bh from hh(gts input) and add it to M*bb in subroutine petsc_solve
+#ifdef CJTEST
        if( solver%order.ge.1 .and. ZF_SEPARATION.eq.1) then
            call add_hh2bb(solver%fem, neq, hh, bh, ierr)
            !  set bh to 0 if don't want to add it
            !  bh=bh+bn
            !  bh=0.
        endif
+#endif
 
     ! solve GK Poisson equation
     call petsc_solve( solver, neq, bb, xx, bh, ierr)
