@@ -25,12 +25,14 @@ subroutine poisson( solver, masssolver )
   
   !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
   real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
-  real(wp) add_phi(mgrid), yy(mgrid)
+  real(wp) add_phi(mgrid), yy(mgrid), bb2(mgrid)
 
   real(wp), external :: SMOOTHSTEP
   real(wp) instep,outstep
   
   real(wp) zdum,tdum,tdum0,tdum1
+
+  real(wp) dpsi_inv,e_psi2,e_psi1,dpsi2_inv,dpsi1,dpsi2,dpsi1_inv
 
   real(doubleprec),save :: t0=0.0_wp
   real(doubleprec) t1,rtc
@@ -46,8 +48,39 @@ subroutine poisson( solver, masssolver )
   
   ! initialize poisson solver
   if(istep==0)then
-     if(irun==0) phi=0.0_wp  ! for follow-up runs, phi is read from restart
+     if(irun==0) phi=0.0_wp     ! for follow-up runs, phi is read from restart
+     if(irun==0) phip00=0.0_wp  ! for follow-up runs, phi is read from restart
      !gamma=gamma0
+
+     !  initialize terms for solving <phi> and delta-phi interatively using FEM solver -- see notes
+     if( solver%order > 0 ) then 
+        allocate ( div1(mgrid),div2(mgrid) )
+        div1(:)=Jcbn(:)*gsij(:)*gij(1,:)
+        div2(:)=Jcbn(:)*gsij(:)*gij(4,:)
+
+        call find_dxdadxdt( masssolver, mgrid, div1, xx, yy, ierr )
+        div1=xx/Jcbn
+
+        call find_dxdadxdt( masssolver, mgrid, div2, xx, yy, ierr )
+        div2=yy/Jcbn
+
+        do i=0, mpsi
+           do j=0,mtheta(i)
+              ij=igrid(i)+j
+              div1(ij)=(div1(ij)+div2(ij))/den_grid(i)   ! = -beta*div[sum(gs)*grad(a)]
+           end do
+           div1(igrid(i))=div1(igrid(i)+mtheta(i))
+        enddo
+
+        div2(:)=gsij(:)*gij(1,:)
+        do i=0, mpsi
+           do j=0,mtheta(i)
+              ij=igrid(i)+j
+              div2(ij)=div2(ij)/den_grid(i)   ! = -beta*[sum(gs)*gaa)]
+           end do
+           div2(igrid(i))=div2(igrid(i)+mtheta(i))
+        enddo
+     endif
   endif
   
   !  tmp=1.0/(tite+1.0-gamma) --> replaced by titer(ij)
@@ -195,19 +228,62 @@ subroutine poisson( solver, masssolver )
 
            do it=1,its
 
-              !  phip00=0.0_wp
+              !  phip00=0.0_wp    ! for debug
+
+
+
+
+
+if(ZF_SEPARATION==-100) then   !  direct numerical derivative to calculate -beta*div[sum(gs)*d<phi>/da*grad(a)]
+
+              ! direct numerical derivative to get d/da(d<phi>/da)
+!$omp parallel do private(i,dpsi1,dpsi2,dpsi1_inv,dpsi2_inv,dpsi_inv,e_psi2,e_psi1)
+              do i=1,mpsi-1
+                 dpsi1=psi_grid(i)-psi_grid(i-1)
+                 dpsi2=psi_grid(i+1)-psi_grid(i)
+                 dpsi1_inv=1.0_wp/dpsi1
+                 dpsi2_inv=1.0_wp/dpsi2
+                 dpsi_inv=1.0_wp/(dpsi1+dpsi2)
+                 e_psi2=(phip00(i+1)-phip00(i))*dpsi2_inv
+                 e_psi1=(phip00(i)-phip00(i-1))*dpsi1_inv
+                 adum0(i)=(e_psi1*dpsi2+e_psi2*dpsi1)*dpsi_inv    !  =d/da(d<phi>/da)
+              enddo
+              !   boundary conditions d<phi>/da=0 (not phi=0 at both boundaries)
+              adum0(0)=0.0_wp
+              adum0(mpsi)=0.0_wp
+
+!omp parallel do private(i,j,ij)
+              do i=0, mpsi
+                 do j=0,mtheta(i)
+                    ij=igrid(i)+j
+                    yy(ij)=div1(ij)*phip00(i)+div2(ij)*adum0(i)   ! = -beta*div[sum(gs)*d<phi>/da*grad(a)]
+                 end do
+                 yy(igrid(i))=yy(igrid(i)+mtheta(i))
+              enddo
+
+              bb2(:)=dentmp(:) + yy(:)    ! = b - beta*div[sum(gs)*d<phi>/da*grad(a)]
+
+              call solve( solver, mgrid, bb2, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
+
+else      ! use FEM inside the solver for adding -beta*div[sum(gs)*d<phi>/da*grad(a)] 
 
               call solve( solver, mgrid, dentmp, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
 
-              if(mype==0) print*, 'it=', it, '  istep=', istep, '  irk=', irk, '  d<phi>/da=', phip00(mpsi/2), '  <phi>=', phi00(mpsi/2), '  delta-phi=', xx(mgrid/2)
+end if
+
+
+
+
+
+              !  if(mype==0)   print*, 'it=', it, '   istep=', istep, '   irk=', irk, '   d<phi>/da=', phip00(mpsi/2),  '   delta-phi=', xx(mgrid/2)
 
               do i=0, mpsi
                  xx(igrid(i))=xx(igrid(i)+mtheta(i))  !validate xx(1,igrid(i)) for safe
               enddo
  
               call find_dxdadxdt( masssolver, mgrid, xx, add_phi, yy, ierr )          
-              add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))*gsij(:)   ! --> sum(gs)*grad_perp(delta-phi).grad(a)
 
+              add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))*gsij(:)   ! --> sum(gs)*grad_perp(delta-phi).grad(a)
               adum=0.0_wp
               phi_flux_ave=0.0_wp
               !$omp parallel private(i,j,ij) reduction(+:adum,rms)
@@ -231,6 +307,7 @@ subroutine poisson( solver, masssolver )
 
               phip00=phip00/dVda/gsgaa
               phip00=phip00 -(phi_flux_ave*dVda-phi_flux_ave(0)*dVda(0))/dVda/gsgaa   ! --> phip00=dphi_00/da with phip00(0)=0
+
            end do     !  end iteration for FEM   
 
            phi(1,:) = xx

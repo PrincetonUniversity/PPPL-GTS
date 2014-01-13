@@ -10,7 +10,9 @@ Subroutine setup
   use esi_interface
   use spl_profiles
   use profile_array
+
   implicit none
+
   integer i,j,k,ierror,ij,n(num_mode),m(num_mode),mid_theta,ip,jt,indp,indt
   real(wp) tdum,r,q,sint,dtheta_dx,rhoi,b,zdum,delr,delt,wt,a_minor,&
            N_on_ring, Vol_ring
@@ -162,7 +164,8 @@ Subroutine setup
   allocate (psi_grid(0:mpsi),plenth(0:mpsi),r_grid(0:mpsi),q_grid(0:mpsi),&
             den_grid(0:mpsi),vth_grid(0:mpsi),vth_inv(0:mpsi),Te_grid(0:mpsi), &
             rho_grid(0:mpsi),s_grid(0:mpsi), &
-            eta_grid(0:mpsi),Er_grid(0:mpsi),Er_grid0(0:mpsi),tite(0:mpsi),dadtdz(0:mpsi),ddT_da(0:mpsi))
+            eta_grid(0:mpsi),Er_grid(0:mpsi),Er_grid0(0:mpsi),tite(0:mpsi),dadtdz(0:mpsi),ddT_da(0:mpsi), &
+            dni_grid(0:mpsi),dne_grid(0:mpsi))
 
 !reference zeta point
   zeta_ref=0.0_wp
@@ -408,6 +411,17 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
   rmin=0.95_wp
   rmax=0.97_wp
 
+! used for D146596B11_2235 [0.05 0.7]
+  lmin=0.02_wp
+  lmax=0.04_wp
+  !  rmin=0.65_wp
+  !  rmax=0.68_wp
+
+  !  set rmin & rmax as follows later in this routine:
+  !  rmin=psi_grid(mpsi-nbound)
+  !  rmax=psi_grid(mpsi-nbound/2)
+
+
   Tcc=Tc                        ! make a copy
 
   vthc=sqrt(Tc)                 ! normalized reference thermal velocity
@@ -566,6 +580,15 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
   enddo
   !if(mype==0) write(0,*) 'i=', mpsi, 's_grid(i)=', s1, '  psi_grid(i)=', a1
   !!write(200+mype,*)' i=', mpsi, 's_grid(i)=', s1, '  psi_grid(i)=', a1
+
+
+
+
+  rmin=psi_grid(mpsi-nbound)
+  rmax=psi_grid(mpsi-nbound/2)
+
+
+
 
      !!write(200+mype,*)'  calculating plenth(i)'
 ! field line length on poloidal plane, stored in plenth(i)
@@ -998,11 +1021,11 @@ end if ! if(mype==0)
   rden=1.0_wp
 
 ! allocate memory
-  allocate (pgyro(4,mgrid),tgyro(4,mgrid),markeri(mgrid),densityi(0:1,mgrid),&
+  allocate ( pgyro(4,mgrid),tgyro(4,mgrid),markeri(mgrid),densityi(0:1,mgrid),&
        phi(0:1,mgrid),jtp1(2,mgrid),jtp2(2,mgrid),&
        wtp1(2,mgrid),wtp2(2,mgrid),dtemper(mgrid),heatflux(mgrid),&
        phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),&
-       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid))
+       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid) )
 
 ! Added for flow visualization, Feb. 2011
   allocate (on_grid(6,mgrid))
@@ -1078,7 +1101,9 @@ end if ! if(mype==0)
   jaco_sum=fluxpsi ! =int(J*dtheta*dzeta); fluxpsi is released after a use
 
   fluxpsi=1.0_wp    ! initialize to maintain global charge neutrality in terms of turbulence intensity I(r)
-  En_tur=1.0_wp    ! initialize to maintain global charge neutrality in terms of turbulence intensity I(r)
+  En_tur=1.0_wp     ! initialize to maintain global charge neutrality in terms of turbulence intensity I(r)
+  dni_grid=1.0_wp   ! initialization for use in chargi for zero out delta-ni 
+  dne_grid=1.0_wp   ! initialization for use in charge for zero out delta-ne
   
   do i=0, mpsi
 !$omp parallel do private(j,k,ij)
@@ -1248,7 +1273,7 @@ if(mype==0) write(0,*) 'average density=', density_ave
   enddo
 
   if(mype==0)  call theory
-
+ 
      r=rc
      tdum=temperature(r,0.0_wp)
      psimax=density(r,0.0_wp)

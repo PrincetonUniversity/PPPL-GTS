@@ -323,10 +323,16 @@ if(ZF_SEPARATION==0) then  !  solve total potential
 !  enddo
   do i=0,nbound
      rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))   
+
+     pdum=abs(dni_grid(nbound)/dni_grid(i))
+     zdum=abs(dni_grid(mpsi-nbound)/dni_grid(mpsi-i))
+     pdum=1.0_wp
+     zdum=1.0_wp
+
      densityi(:,igrid(i):igrid(i)+mtheta(i))=   &
-       densityi(:,igrid(i):igrid(i)+mtheta(i))*rdum
+       densityi(:,igrid(i):igrid(i)+mtheta(i))*rdum*pdum
      densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-       densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
+       densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum*zdum
   enddo
 
 else  ! solve zonal flows separately when ZF_SEPARATION==1
@@ -338,13 +344,6 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
 !     densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
 !        densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*real(i,wp)/real(nbound,wp)
 !  enddo
-  do i=0,nbound
-     rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))     
-     densityi(:,igrid(i):igrid(i)+mtheta(i))=   &
-        densityi(:,igrid(i):igrid(i)+mtheta(i))*rdum
-     densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-        densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
-  enddo
 
 ! flux surface average and normalization  
   wdum=0.0
@@ -374,14 +373,21 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      densityi(1,igrid(i))=densityi(1,igrid(i)+mtheta(i)) !wx validate densityi(1,igrid(i))
   enddo
 
+  if(its_jacobi==0) then 
 
-!
-!  #ifdef _NO_DENSITY_CONSERV
-!
-!  #else
-! 
+     do i=0,nbound
+        rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
 
-  if(its_jacobi==1) then !  enforcing enforce charge conservation for zonal flow mode 
+        densityi(:,igrid(i):igrid(i)+mtheta(i))=   &
+          densityi(:,igrid(i):igrid(i)+mtheta(i))*rdum
+        densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
+          densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
+
+        zonali(i)=zonali(nbound)*rdum
+        zonali(mpsi-i)=zonali(mpsi-nbound)*rdum
+     enddo
+
+  else     !  its_jacobi=1 --> enforcing enforce charge conservation for zonal flow mode
 
 ! enforce charge conservation for zonal flow mode  
 ! wx note: why should charge conservation be enforced? Should it be automatically satisfied ???
@@ -419,11 +425,16 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
   wf=0.0_wp
   wn=0.0_wp
   do i=1,mpsi
-!     wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)+dVda(i-1)*wdum(i-1))
-     wf=wf+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)*B2_s(i)  &
-                                           +dVda(i-1)*wdum(i-1)*B2_s(i-1))
-     wn=wn+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*zonali(i)*B2_s(i)  &
+
+     ! if(order==1) then  ! FEM solver
+     !    wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)+dVda(i-1)*wdum(i-1))
+     ! else               !  old solver
+
+        wf=wf+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)*B2_s(i)  &
+                                              +dVda(i-1)*wdum(i-1)*B2_s(i-1))
+        wn=wn+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*zonali(i)*B2_s(i)  &
                                            +dVda(i-1)*zonali(i-1)*B2_s(i-1))
+     ! end if
   end do
 
   do i=1,mpsi-1
@@ -432,14 +443,28 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
 !   Q: may change ZF behavior in linear stable zone--> drive a ZF in stable zone ????
 !     zonali(i)=zonali(i)-(density_ave/den_grid(i))*(total_w/misum) ! see note
 
-!     zonali(i)=zonali(i)-(density_ave/den_grid(i))*(total_w/misum)  &
-!               *(wdum(i)*finval_v/wf)            ! see note
+     ! if(order==1) then     ! FEM solver
+     !    zonali(i)=zonali(i)-(density_ave/den_grid(i))*(total_w/misum)  &
+     !              *(wdum(i)*finval_v/wf)            ! see note
+     ! else                  !  old solver
 
-     zonali(i)=zonali(i)-wdum(i)*(wn/wf)            ! see note
+        zonali(i)=zonali(i)-wdum(i)*(wn/wf)            ! see note
+
+     ! endif
 
   enddo
 
-!  #endif
+  do i=0,nbound
+     rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
+
+     densityi(:,igrid(i):igrid(i)+mtheta(i))=   &
+       densityi(:,igrid(i):igrid(i)+mtheta(i))*rdum
+     densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
+       densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
+
+     zonali(i)=zonali(nbound)*rdum
+     zonali(mpsi-i)=zonali(mpsi-nbound)*rdum
+  enddo
 
   end if   ! end (its_jacobi==1)
 

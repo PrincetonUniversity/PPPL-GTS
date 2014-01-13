@@ -67,15 +67,15 @@ program GTS
   time(nc)=t0
   timewc(nc)=t0wc
 
-  ! input parameters, setup equilibrium, allocate memory 
-  CALL SETUP
-
   if(irun==0) then      !  SPRNG initialize
      seed=985456376     !  random number seed advised in sprng 1.0 docum.
      rng_type = SPRNG_LFG
      stream=init_sprng(rng_type,seed,SPRNG_DEFAULT)
      istart=1
   end if
+
+  ! input parameters, setup equilibrium, allocate memory 
+  CALL SETUP
 
   ! solver
   ! which solver to use

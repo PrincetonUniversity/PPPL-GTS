@@ -540,6 +540,10 @@ subroutine pushion
 
   implicit none
 
+!  #define SIMPLE_SPRNG
+!  #define USE_MPI
+!  #include "sprng_f.h"
+
 !  integer,parameter :: nrbin=5       !wx
   integer i,im,ip,j,jt,kz,m,ii,j11,j10,j01,j00,jtheta,ierror,larmor,ij,ipjt
   real(wp) rdum,dtime,r,grada,vpara,energy,kappa,vdr,wdot,wdrift,&
@@ -565,6 +569,8 @@ subroutine pushion
   real(wp) acc,error_8
   real(wp) E_a,E_t,E_f,timef
   real(wp)  dminv,dmaxv
+  real(wp)  wfix     ! =0 in the boundary buffer, and =1 otherwise
+  real(wp)  rdm1, rdm2
 
   real(wp) ddT_da_particle, w_anti_relax, muB, instep,outstep,fdamp,fdamp0, rdum1
 
@@ -579,7 +585,7 @@ subroutine pushion
 
   fdamp0=1.0_wp/tstep*5.0d-4
   if(nonlinear<0.5_wp) fdamp0=0.0_wp
-!  fdamp0=0.0_wp
+  fdamp0=0.0_wp
 
   if(irk==1)then
 ! 1st step of Runge-Kutta method
@@ -877,7 +883,8 @@ dmaxv=0.0d0
 !     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB+w_anti_relax)
 
       if(wimcompressibility==1) then     ! for weight imcompressibility
-         wdot=(zion0(6,m)-nonlinear*avw)*(wdrive*fip+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
+         !  wdot=(zion0(6,m)-nonlinear*avw)*(wdrive*fip+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
+         wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+wKH+wgradB)*fip   ! Correct statement for weight_damping
       else
          wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)*fip
       end if
@@ -899,7 +906,15 @@ dmaxv=0.0d0
      zion(2,m) = zion0(2,m)+dtime*dgq(m)
      zion(3,m) = zion0(3,m)+dtime*dgf(m)
      zion(4,m) = zion0(4,m)+dtime*dgr(m)
+
+     !  if(zion0(1,m).gt.psi_grid(mpsi-nbound-1))  then
+     !     wfix=1.0_wp
+     !  else
+     !     wfix=1.0_wp
+     !  endif
+
      zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))
+!     zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))*wfix
 !     zion(7,m) = zion0(7,m)+dtime*sqrt(Tc*T_inverse)*da(m)
 !     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**0.4_wp*da(m)
      zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**dsda_power*da(m)
@@ -939,12 +954,19 @@ dmaxv=0.0d0
 !$omp parallel do private(m)
     do m=1,mi
        if(zion(1,m) > psimax)then
+          !  rdm1=sprng()
+          !  rdm1=dsign(1.0d0,(rdm1-0.5d0))
+          !  rdm2=sprng()
+          !  rdm2=dsign(1.0d0,(rdm2-0.5d0))
           zion(1,m)=zion0(1,m)
           zion(2,m)=2.0_wp*pi-zion0(2,m)
           zion(3,m)=zion0(3,m)
           zion(4,m)=zion0(4,m)
-          zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-!          zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
+          !  zion(4,m)=zion0(4,m)*rdm1  !  for test 
+          zion(5,m)=zion0(5,m)  ! this sounds reasonable: energy, momentum and particle conserving boundary
+          !  zion(5,m)=zion0(5,m)*rdm2  !  for test 
+          !  zion(5,m)=-zion0(5,m)  ! remove density (weight) accumulation at edge when ifneoclassical=1
+          !  zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
           zion(7,m)=zion0(7,m)
           
        elseif(zion(1,m) < psimin)then
@@ -953,7 +975,8 @@ dmaxv=0.0d0
           zion(3,m)=zion0(3,m)
           zion(4,m)=zion0(4,m) 
           zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-!          zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
+          !  zion(5,m)=-zion0(5,m)  ! remove density (weight) accumulation at edge when ifneoclassical=1
+          !  zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
           zion(7,m)=zion0(7,m)
        endif
     enddo

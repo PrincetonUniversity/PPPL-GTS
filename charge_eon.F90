@@ -13,7 +13,7 @@ subroutine charge_eon
   integer m,i,j,k,jt,kk,ii,ierror,ij,&
        icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
   real(wp) weight,rdum,tdum,r,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00, & 
-       wdum(0:mpsi),total_w,wf,wn
+       wdum(0:mpsi),total_w,wf,wn,pdum,zdum
   real(wp) sendl(mgrid),recvr(mgrid)
   real(wp) dnitmp(0:1,mgrid)
 
@@ -265,10 +265,16 @@ if(ZF_SEPARATION==0) then  !  solve total potential
 !  enddo
   do i=0,nbound
      rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
+
+     pdum=abs(dni_grid(nbound)/dni_grid(i))
+     zdum=abs(dni_grid(mpsi-nbound)/dni_grid(mpsi-i))
+     pdum=1.0_wp
+     zdum=1.0_wp
+
      densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
-        densitye(:,igrid(i):igrid(i)+mtheta(i))*rdum
+        densitye(:,igrid(i):igrid(i)+mtheta(i))*rdum*pdum
      densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
+        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum*zdum
   enddo
 
 else  ! solve zonal flows separately when ZF_SEPARATION==1
@@ -280,13 +286,6 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
 !     densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
 !        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*real(i,wp)/real(nbound,wp)
 !  enddo
-  do i=0,nbound
-     rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
-     densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
-        densitye(:,igrid(i):igrid(i)+mtheta(i))*rdum
-     densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
-  enddo
 
 ! flux surface average and normalization
   wdum=0.0_wp
@@ -316,17 +315,21 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))  ! validate densitye(:,igrid(i)
   enddo
 
+  if(its_jacobi==0) then 
 
+     do i=0,nbound
+        rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
 
+        densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
+           densitye(:,igrid(i):igrid(i)+mtheta(i))*rdum
+        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
+           densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
 
+        zonale(i)=zonale(nbound)*rdum
+        zonale(i)=zonale(nbound)*rdum
+     enddo
 
-! 
-! #ifdef _NO_DENSITY_CONSERV
-! 
-! #else
-!
-
-  if(its_jacobi==1) then !  enforcing enforce charge conservation for zonal flow mode 
+  else     !  its_jacobi=1 --> enforcing enforce charge conservation for zonal flow mode
 
 ! enforce charge conservation for zonal flow mode
 ! wx note: why should charge conservation be enforced? Should it be automatically satisfied ???
@@ -363,25 +366,46 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
   wf=0.0
   wn=0.0
   do i=1,mpsi
-!     wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)+dVda(i-1)*wdum(i-1))
-     wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)*B2_s(i)  &
-                                           +dVda(i-1)*wdum(i-1)*B2_s(i-1))
-     wn=wn+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*zonale(i)*B2_s(i)  &
-                                           +dVda(i-1)*zonale(i-1)*B2_s(i-1))
+
+     ! if(order==1) then  ! FEM solver
+     !    wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)+dVda(i-1)*wdum(i-1))
+     ! else               !  old solver
+
+        wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)*B2_s(i)  &
+                                              +dVda(i-1)*wdum(i-1)*B2_s(i-1))
+        wn=wn+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*zonale(i)*B2_s(i)  &
+                                              +dVda(i-1)*zonale(i-1)*B2_s(i-1))
+     ! endif
   end do
 
   do i=1,mpsi-1
+
 !     zonale(i)=zonale(i)-tdum
 !   Q: may change ZF behavior in linear stable zone--> drive a ZF in stable zone ????
-!     zonale(i)=zonale(i)-(density_ave/den_grid(i))*(total_w/float(mesum)) ! see note
+!     zonale(i)=zonale(i)-(density_ave/den_grid(i))*(total_w/mesum) ! see note
 
-!     zonale(i)=zonale(i)-(density_ave/den_grid(i))*(total_w/float(mesum))  &
-!               *(wdum(i)*finval_v/wf)            ! see note
-     zonale(i)=zonale(i)-wdum(i)*(wn/wf)            ! see note
+     ! if(order==1) then     ! FEM solver
+     !    zonale(i)=zonale(i)-(density_ave/den_grid(i))*(total_w/mesum)  &
+     !              *(wdum(i)*finval_v/wf)               ! see note
+     ! else                  !  old solver
+
+        zonale(i)=zonale(i)-wdum(i)*(wn/wf)            ! see note
+
+     ! endif
 
   enddo
 
-! #endif
+  do i=0,nbound
+     rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
+
+     densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
+        densitye(:,igrid(i):igrid(i)+mtheta(i))*rdum
+     densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
+        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
+
+     zonale(i)=zonale(nbound)*rdum
+     zonale(i)=zonale(nbound)*rdum
+  enddo
 
   end if   ! end (its_jacobi==1)
 

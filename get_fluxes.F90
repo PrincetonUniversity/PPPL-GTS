@@ -444,9 +444,13 @@ subroutine get_fluxes(wpi,dgf,dgq)
        ddT_da(i)=ddT_da(i)*rdum
        ddT_da(mpsi-i)=ddT_da(mpsi-i)*rdum
     enddo
+
+    dni_grid(:)=TOTAL_pe_g(2,:)
   end if
 
   call MPI_BCAST(ddT_da,mpsi+1,mpi_Rsize,numberpe-1,MPI_COMM_WORLD,ierr)
+ 
+  call MPI_BCAST(dni_grid,mpsi+1,mpi_Rsize,numberpe-1,MPI_COMM_WORLD,ierr)
 
     if(mype.gt.0.and.mype.lt.(nfile+1)) then
        write(my_nf,801) istep, (phip00(i),i=my_ZL(1),my_ZL(2))

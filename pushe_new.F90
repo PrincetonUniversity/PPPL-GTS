@@ -394,6 +394,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
   real(wp)  acc,error_8
   real(wp)  E_a,E_t,E_f
   real(wp)  dminv,dmaxv
+  real(wp)  wfix     ! =0 in the boundary buffer, and =1 otherwise
 
   real(wp) muB, instep,outstep,fdamp,fdamp0
 
@@ -410,7 +411,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
   fdamp0=1.0_wp/tstep*5.0d-4
   if(nonlinear<0.5_wp) fdamp0=0.0_wp
-!  fdamp0=0.0_wp
+  fdamp0=0.0_wp
 
   if(irk_e==1)then
 ! 1st step of Runge-Kutta method
@@ -610,16 +611,16 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
 
 
 
-     if(zeon(1,m).le.lmax.or.zeon(1,m).ge.rmin) then
+     if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
         instep =smoothstep(lmin,lmax,zeon(1,m))
         outstep=smoothstep(rmin,rmax,zeon(1,m))
-!        fip=smoothstep(0.20_wp,0.25_wp,zeon(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zeon(1,m)))
+        !  fip=smoothstep(0.20_wp,0.25_wp,zeon(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zeon(1,m)))
         fip=instep*(1.0_wp-outstep)
-        wdrive=wdrive*fip
-
+        !  wdrive=wdrive*fip
 
         fdamp=(1.0_wp-fip)*fdamp0
      else
+        fip=1.0_wp
         fdamp=0.0_wp
      end if
 
@@ -633,7 +634,7 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
 
      wdot=(wdrive+wdrift+weqflow)
 
-     wdot=(1.0_wp-E_f)*wdot   ! (1-e*delta_phi/Te)*(...) term -- see note
+     wdot=(1.0_wp-E_f)*wdot*fip   ! (1-e*delta_phi/Te)*(...) term -- see note
 
 
 !!!!!  if(nonlinear>0.5_wp) then     ! for nonlinear run
@@ -697,8 +698,18 @@ end if
 !    two cases below are unified by the replacement using zeon(8,m) in the formula
        !!!!zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(5,m))*wdot-fdamp*zeon(5,m))*dtime  ! weight advanced w/o including dphi/dt term yet
        !!!!zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*avw)*wdot-fdamp*zeon(5,m))*dtime
-     zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot-fdamp*zeon(5,m))*dtime  ! weight advanced w/o including dphi/dt term yet
-                                                                                           ! unified expression April, 2013
+
+     !  if(zeon0(1,m).gt.psi_grid(mpsi-nbound-1))  then 
+     !     wfix=1.0_wp
+     !  else
+     !     wfix=1.0_wp
+     !  endif
+
+     !  zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot-fdamp*zeon(5,m))*dtime*wfix  ! weight advanced w/o including dphi/dt term yet
+     zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot-fdamp*zeon(5,m))*dtime       ! weight advanced w/o including dphi/dt term yet
+                                                                                                ! unified expression April, 2013
+
+
 
 
 !     dminv=min(dminv,wdot*tstep)
@@ -821,6 +832,26 @@ end if
       wdphidt=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0   ! e*delta_phi/Te at electron new positions, but with unchanged delta_phi
       wdphidt=(wdphidt-zeon0(8,m))/dtime  ! d(e*delta_phi/Te)/dt purely due to change of electron position
 
+      !  if(zeon0(1,m).gt.psi_grid(mpsi-nbound-1))  then
+      !     wfix=1.0_wp
+      !  else
+      !     wfix=1.0_wp
+      !  endif
+
+      if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
+         instep =smoothstep(lmin,lmax,zeon(1,m))
+         outstep=smoothstep(rmin,rmax,zeon(1,m))
+         fip=instep*(1.0_wp-outstep)
+         !  wdrive=wdrive*fip
+         fdamp=(1.0_wp-fip)*fdamp0
+      else
+         fip=1.0_wp
+         fdamp=0.0_wp
+      end if
+
+      wdphidt=wdphidt*fip
+
+      !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
       zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
 
 !       E_a=E_a+zeon(5,m)
@@ -870,6 +901,26 @@ end if
       wdphidt=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0  ! e*delta_phi/Te at electron new positions, but with advanced delta_phi
       wdphidt=(wdphidt-zeon0(8,m))/dtime ! d(e*delta_phi/Te)/dt with correction of time derivative of delta_phi
 
+      !  if(zeon0(1,m).gt.psi_grid(mpsi-nbound-1))  then
+      !     wfix=1.0_wp
+      !  else
+      !     wfix=1.0_wp
+      !  endif
+
+      if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
+         instep =smoothstep(lmin,lmax,zeon(1,m))
+         outstep=smoothstep(rmin,rmax,zeon(1,m))
+         fip=instep*(1.0_wp-outstep)
+         !  wdrive=wdrive*fip
+         fdamp=(1.0_wp-fip)*fdamp0
+      else
+         fip=1.0_wp
+         fdamp=0.0_wp
+      end if
+
+      wdphidt=wdphidt*fip
+
+      !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
       zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
 
 !       E_f=E_f+zeon(5,m)
@@ -947,7 +998,8 @@ end if
           zeon(3,m)=zeon0(3,m)
           zeon(4,m)=zeon0(4,m)
           zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-!          zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
+          !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+          !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
           zeon(7,m)=zeon0(7,m)
 
        elseif(zeon(1,m) < psimin)then
@@ -956,7 +1008,8 @@ end if
           zeon(3,m)=zeon0(3,m)
           zeon(4,m)=zeon0(4,m)
           zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-!          zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
+          !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+          !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
           zeon(7,m)=zeon0(7,m)
        endif
     enddo

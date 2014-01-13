@@ -222,8 +222,8 @@ ifeq ($(F90C),ftn)
           COPT:=
           OMPFLAG:=
           NOOMPFLAG:=-hnoomp
-          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng                   # for Hopper
-###          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
+###          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng                   # for Hopper
+          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
           SPRNG_INC:=-I${SPRNG_DIR}/include
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
@@ -308,9 +308,14 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o 
 #output3d.o
 # selectmode.o volume.o 
 
+### TOBJ:=triangle.o
+
 all : $(NAG_REPLACEMENT) $(CMD)
 
-$(CMD): $(OBJ)
+### $(CMD): $(OBJ) $(TOBJ)
+### 	$(CMP) -o $(CMD) $(OBJ) $(TOBJ) $(OPT) $(LIB)
+
+$(CMD): $(OBJ) 
 	$(CMP) -o $(CMD) $(OBJ) $(OPT) $(LIB)
 ###$(CMP) -o $(CMD) $(OBJ) $(OPT) $(LIB) ${PETSC_FORTRAN_LIB} ${PETSC_KSP_LIB}
 

@@ -358,7 +358,11 @@ subroutine get_fluxes_e(wpi)
 
      write(199,802) istep, (TOTAL_pe_g(3,i),i=0,mpsi)
      call flush(199)
+
+     dne_grid(:)=TOTAL_pe_g(2,:)
   end if
+
+  call MPI_BCAST(dne_grid,mpsi+1,mpi_Rsize,numberpe-3,MPI_COMM_WORLD,ierr)
 
     if(mype==1) then
        do k=1,nprobe

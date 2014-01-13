@@ -863,6 +863,7 @@ contains
     integer :: count = 0
 
 
+    !  if(mype.eq.0 .and. solver%fem%order.gt.0) write(0, *) "	finite element solve begin"
     count = count + 1
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
@@ -884,29 +885,27 @@ contains
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
              xx(ivsl) = xx_gk(ivgts)
-#ifdef CJTEST
              hh(ivsl) = phip00(ir)
-#endif
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
+             !  print*, 'HEREHHH', bb_gk(ivgts), bb(ivsl-itmax+1), ivgts, ivsl, ir, mype
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     
-#ifdef CJTEST
-    if( solver%order .ge. 1) then
-       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
-          it= sum( mtheta ) - mtheta(mpsi)
-          ir=mpsi
-          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
-       endif
-       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
-          it= 0
-          ir=0
-          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
-       endif
-    endif
+!    if( solver%order .ge. 1) then
+!       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
+!          it= sum( mtheta ) - mtheta(mpsi)
+!          ir=mpsi
+!          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+!       endif
+!       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
+!          it= 0
+!          ir=0
+!          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+!       endif
+!    endif
 #endif
 
     if( solver%fem%order .eq. 2) then
@@ -938,13 +937,12 @@ contains
 
     else
         ! cal bh from hh(gts input) and add it to M*bb in subroutine petsc_solve
-#ifdef CJTEST
-       if( solver%order.ge.1 .and. ZF_SEPARATION.eq.1) then
-           call add_hh2bb(solver%fem, neq, hh, bh, ierr)
-           !  set bh to 0 if don't want to add it
-           !  bh=bh+bn
-           !  bh=0.
-       endif
+        if( solver%order .ge. 1.and.ZF_SEPARATION==1) then
+            call add_hh2bb(solver%fem, neq, hh, bh, ierr)
+            !  set bh to 0 if don't want to add it
+            !  bh=bh+bn
+            !  bh=0.
+        endif
 #endif
 
     ! solve GK Poisson equation
@@ -968,6 +966,7 @@ contains
     enddo
 
     deallocate(bb,xx,hh,bh,bn) 
+    !  if(mype.eq.0 .and. solver%fem%order>0) write(0, *) "	finite element solve end"
 
     ! debug
     if( count .eq. 1 .and. mype==-10 ) then
@@ -1665,6 +1664,7 @@ contains
   end subroutine testmasssolve
 
 
+
 !========================================================================
 !         find dxdr dxdz
 !========================================================================
@@ -1698,7 +1698,7 @@ contains
     integer :: whichone = 5
 
 
-    if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
+    !  if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
     fe_order=solver%fem%order
@@ -1805,6 +1805,274 @@ contains
     deallocate(bb,ba,bt,xa,xt,fcj)
 
   end subroutine find_dxdadxdt
+
+
+
+!========================================================================
+!         find dxdr dxdz
+!========================================================================
+  subroutine find_dxdadxdt_0( solver, nn, bb_gk, xa_gk, xt_gk, ierr )
+
+    !     solve M (dxdr) = u y Pijk
+    !           M (dxdz) =-u x Pijk
+
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat
+    use field_array,only: psi_grid,qtinv
+    implicit none
+#include "finclude/petscsys.h"
+    type(solver_data) :: solver
+    integer :: nn
+    integer :: ierr
+    real(wp),intent(in) :: bb_gk(nn)
+    real(wp),intent(inout) :: xa_gk(nn), xt_gk(nn)
+    ! locals
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
+    real(doubleprec),allocatable,dimension(:) :: xa, xt, bb, ba, bt, fcj
+    real(wp) zeta, pdum, dt, tdum, tmp
+    real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+
+    real(wp),allocatable,dimension(:,:) :: xlt
+    integer,dimension(:),allocatable :: ind
+    integer :: fe_order, fe_ns, fe_nvar
+    integer :: i,ii,j,jj,k,kk
+    logical :: flg
+    integer :: whichone = 5
+
+
+    !  if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
+    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+
+    fe_order=solver%fem%order
+    fe_ns=3
+    fe_nvar=3
+    allocate( xlt(2,fe_ns) )
+    allocate( ind(fe_ns) )
+
+    neq = sum(mtheta)
+    allocate(bb(neq),xa(neq),ba(neq),xt(neq),bt(neq),fcj(neq))
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             bb(ivsl) = bb_gk(ivgts)
+             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
+          end if
+       enddo
+    enddo
+    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+
+    if(whichone.lt.3) fcj=1.
+       !do ivsl=1,neq
+       !   aaa(1)=solver%fem%points(3,ivsl)
+       !   the(1)=solver%fem%points(4,ivsl)
+       !   call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
+       !   fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+       !enddo
+
+!   form rhs ba&bt for dxdr&dxdz respectively
+    ba=0.
+    bt=0.
+    do ie=1, solver%fem%iemax
+       ind(:)=solver%fem%iet(:,ie)
+       if(ind(1) .eq. 0) stop 'ind(1) == 0'
+
+       if(whichone.lt.3) then
+          ! in (r,z) cylindrical coordinates
+          xlt(1,:) = solver%fem%points(1,ind(:))
+          xlt(2,:) = solver%fem%points(2,ind(:))
+       else
+          ! in (a,t) flux coordinates
+          xlt(1,:) = solver%fem%points(3,ind(:))
+          xlt(2,:) = solver%fem%points(4,ind(:))
+          call fixtheta(ie,fe_order,fe_ns,xlt)
+       endif
+
+       do i = 1,fe_nvar
+          ii=solver%fem%iet(i,ie)
+          do j = 1,fe_nvar
+             jj=solver%fem%iet(j,ie)
+          do k = 1,fe_ns
+             kk=solver%fem%iet(k,ie)
+             ba(ii)=ba(ii)+bb(jj)*xlt(2,k)*solver%fem%Pijk(k,j,i)*fcj(jj)
+             bt(ii)=bt(ii)-bb(jj)*xlt(1,k)*solver%fem%Pijk(k,j,i)*fcj(jj)
+          enddo
+          enddo
+       enddo
+    enddo
+    !call find_rhs(neq, &
+    !              ba, &
+    !              bt, &
+    !              bb, &
+    !              solver%fem%iemax, &
+    !              solver%fem%iet(1,:), &
+    !              solver%fem%iet(2,:), &
+    !              solver%fem%iet(3,:), &
+    !              solver%fem%points(1,:), &
+    !              solver%fem%points(2,:))
+
+!   solve xa&xt representing dxdr&dxdz respectively
+    xa=0.
+    xt=0.
+    !re-enforce in case somehting went wrong
+    solver%order=0
+    ! 'fcj' serves as a place holder
+    call petsc_solve( solver, neq, ba, xa, fcj, ierr)
+    call petsc_solve( solver, neq, bt, xt, fcj, ierr)
+    
+    ! set solution (output)
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts+1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             xa_gk(ivgts) = xa(ivsl)
+             xt_gk(ivgts) = xt(ivsl)
+          else
+             xa_gk(ivgts) = xa(ivsl-itmax+1)
+             xt_gk(ivgts) = xt(ivsl-itmax+1)
+          endif
+       enddo
+    enddo
+
+    deallocate( xlt )
+    deallocate( ind )
+    deallocate(bb,ba,bt,xa,xt,fcj)
+
+  end subroutine find_dxdadxdt_0
+
+
+
+!========================================================================
+!         find dxdr only
+!========================================================================
+  subroutine find_dxda( solver, nn, bb_gk, xa_gk, ierr )
+
+    !     solve M (dxdr) = u y Pijk
+    !           M (dxdz) =-u x Pijk
+
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat
+    use field_array,only: psi_grid,qtinv
+    implicit none
+    type(solver_data) :: solver
+    integer :: nn
+    integer :: ierr
+    real(wp),intent(in) :: bb_gk(nn)
+    real(wp),intent(inout) :: xa_gk(nn)
+    ! locals
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
+    real(doubleprec),allocatable,dimension(:) :: xa, bb, ba, fcj
+    real(wp) zeta, pdum, dt, tdum, tmp
+    real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+
+    real(wp),allocatable,dimension(:,:) :: xlt
+    integer,dimension(:),allocatable :: ind
+    integer :: fe_order, fe_ns, fe_nvar
+    integer :: i,ii,j,jj,k,kk
+    integer :: whichone = 5
+
+
+    !  if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
+    fe_order=solver%fem%order
+    fe_ns=3
+    fe_nvar=3
+    allocate( xlt(2,fe_ns) )
+    allocate( ind(fe_ns) )
+
+    neq = sum(mtheta)
+    allocate(bb(neq),xa(neq),ba(neq),fcj(neq))
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             bb(ivsl) = bb_gk(ivgts)
+          end if
+       enddo
+    enddo
+    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+
+    if(whichone.lt.3) then
+       fcj=1.
+    else
+       do ivsl=1,neq
+          aaa(1)=solver%fem%points(3,ivsl)
+          the(1)=solver%fem%points(4,ivsl)
+          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
+          fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+       enddo
+    endif
+
+!   form rhs ba&bt for dxdr&dxdz respectively
+    ba=0.
+    do ie=1, solver%fem%iemax
+       ind(:)=solver%fem%iet(:,ie)
+       if(ind(1) .eq. 0) stop 'ind(1) == 0'
+
+       if(whichone.lt.3) then
+          ! in (r,z) cylindrical coordinates
+          xlt(1,:) = solver%fem%points(1,ind(:))
+          xlt(2,:) = solver%fem%points(2,ind(:))
+       else
+          ! in (a,t) flux coordinates
+          xlt(1,:) = solver%fem%points(3,ind(:))
+          xlt(2,:) = solver%fem%points(4,ind(:))
+          call fixtheta(ie,fe_order,fe_ns,xlt)
+       endif
+
+       do i = 1,fe_nvar
+          ii=solver%fem%iet(i,ie)
+          do j = 1,fe_nvar
+             jj=solver%fem%iet(j,ie)
+          do k = 1,fe_ns
+             kk=solver%fem%iet(k,ie)
+             ba(ii)=ba(ii)+bb(jj)*xlt(2,k)*solver%fem%Pijk(k,j,i)*fcj(jj)
+          enddo
+          enddo
+       enddo
+    enddo
+
+!   solve xa&xt representing dxdr&dxdz respectively
+    xa=0.
+    !re-enforce in case somehting went wrong
+    solver%order=0
+    ! 'fcj' serves as a place holder
+    call petsc_solve( solver, neq, ba, xa, fcj, ierr)
+    
+    ! set solution (output)
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts+1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             xa_gk(ivgts) = xa(ivsl)
+          else
+             xa_gk(ivgts) = xa(ivsl-itmax+1)
+          endif
+       enddo
+    enddo
+
+    deallocate( xlt )
+    deallocate( ind )
+    deallocate(bb,ba,xa,fcj)
+
+  end subroutine find_dxda
 
 
 
@@ -2020,7 +2288,7 @@ contains
        !  call VecView( solver%bVec, PETSC_VIEWER_STDOUT_WORLD, ierr )
 
        !! add bh and neumann bc fix to M*bb to M*bb
-      !if(mype==0) write(*,*)"	petsc_solve: add hh to bb"
+       !  if(mype==0) write(*,*)"	petsc_solve: add hh to bb"
        call VecDuplicate(solver%bVec, tmpVecbh, ierr)
        call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,bh,vec_bh,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -2225,6 +2493,7 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,dphida,dphidt,bn)
 end subroutine neumbcfix
 
 
+
 !========================================================================
 !         add_hh2bb
 !========================================================================
@@ -2390,6 +2659,174 @@ end subroutine neumbcfix
     deallocate(indlocal, indglobal)
     deallocate(bgsjgaa, bgsjgat)
   end subroutine add_hh2bb
+
+
+
+!========================================================================
+!         add_hh2bb
+!========================================================================
+  subroutine add_hh2bb_0( fem, nn, hh, bh, ierr )
+    !     add hh(dphi/dt) term to bb(rhs) before KSPSolve
+    !     
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
+    use field_array,only: psi_grid,qtinv
+    use esi_interface, only : metric
+    use fem_data_class
+    implicit none
+#include "finclude/petscsys.h"
+    type(fem_data) :: fem
+    integer,intent(in) :: nn
+    real(wp),intent(in) :: hh(nn)
+    real(wp),intent(inout) :: bh(nn) 
+    integer,intent(out) :: ierr
+    ! locals
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
+    real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+    real(wp) :: fcj,beta,gs
+    real(wp) zeta, pdum, dt, tdum
+    integer :: mt,i, ii, j, jj, k, kk
+    real(doubleprec),allocatable,dimension(:) :: bgsjgaa,bgsjgat,bgsjgaa_ho,bgsjgat_ho
+    real(wp) alpha, beta, ns0, ne0, gs, Zs, gaa, gat
+    real(wp), external ::temperature_e, density
+    integer, external :: metric_elements
+    integer :: i0, i1, i2, i3, i4, i5
+    integer :: m,mv,n,nv
+    real(wp),allocatable,dimension(:,:) :: xlt
+    integer,dimension(:),allocatable :: ind
+    integer,allocatable,dimension(:) :: indlocal, indglobal
+    integer :: fe_order, fe_ns, fe_nvar, fe_ndof
+    logical :: flg
+    integer :: whichone = 5
+
+
+   !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
+    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+
+    fe_order=fem%order
+    fe_ns=3
+    fe_ndof=1
+    if(fe_order .gt. 2) fe_ndof=6
+    if(fe_order .eq. 2) fe_ns=6
+    fe_nvar=fe_ns*fe_ndof
+    allocate( xlt(2,fe_ns) )
+    allocate( ind(fe_ns) )
+    allocate(indlocal(fe_nvar), indglobal(fe_nvar))
+
+    !cal beta * gs * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
+    neq = sum(mtheta)
+    allocate(bgsjgaa(neq*fe_ndof), bgsjgat(neq*fe_ndof))
+    ivsl = 0
+    ivgts = 0
+    zeta = zetamin + deltaz ! zeta for my plane   
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       pdum=psi_grid(ir)
+       dt = deltat(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+
+             tdum = real(it)*dt + zeta*qtinv(ir)
+             tdum=tdum/(2.0_wp*pi)
+             tdum=2.0_wp*pi*(tdum-aint(tdum))
+
+             aaa(1)=fem%points(3,ivsl)
+             the(1)=fem%points(4,ivsl)
+             ns0=density(aaa(1),0.0_wp)
+             ne0=density(aaa(1),0.0_wp)
+             beta = - 1./ ne0
+
+             gs = gsij(ivgts)
+             gaa = gij(1,ivgts)
+             gat = gij(4,ivgts)
+             fcj = Jcbn(ivgts)/(fem%points(1,ivsl)+R_0)/(fem%points(1,ivsl)+R_0)
+
+             i0=(ivsl-1)*fe_ndof+1
+             bgsjgaa(i0) = beta*gs*fcj*gaa
+             bgsjgat(i0) = beta*gs*fcj*gat
+             !if(mype.eq.0)write(117,117) ivsl, gs, gaa, gat, bgsjgaa(i0), bgsjgat(i0)
+             !117 format("addhh2bb=", 1(2x,i5), 5(2x,d12.6))
+             do k=2,fe_ndof
+                i0=(ivsl-1)*fe_ndof+k
+                bgsjgaa(i0) = beta*gs*fcj*gaa
+                bgsjgat(i0) = beta*gs*fcj*gat
+             enddo
+          end if
+       enddo
+    enddo
+    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+    
+    if( fem%order .eq. 2) then
+        ! interpolate linear to ho array
+        allocate(bgsjgaa_ho(fem%nmesh_pts), bgsjgat_ho(fem%nmesh_pts))
+        call hogrid(fem%iemax, fem%iet, neq, bgsjgaa, fem%nmesh_pts, bgsjgaa_ho)
+        call hogrid(fem%iemax, fem%iet, neq, bgsjgat, fem%nmesh_pts, bgsjgat_ho)
+
+        !cal extra term to be added to M*bb(rhs)
+        do ie=1, fem%iemax
+           do i = 1,fe_ns
+              ii=fem%iet(i,ie)
+              do j = 1,fe_ns
+                 jj=fem%iet(j,ie)
+              do k = 1,fe_ns
+                 kk=fem%iet(k,ie)
+                 bh(ii)=bh(ii)+hh(jj)*fem%points(4,kk)*fem%Pijk(k,i,j)*bgsjgaa_ho(jj)
+                 bh(ii)=bh(ii)-hh(jj)*fem%points(3,kk)*fem%Pijk(k,i,j)*bgsjgat_ho(jj)
+              enddo
+              enddo
+           enddo
+        enddo
+
+        deallocate(bgsjgaa_ho, bgsjgat_ho)
+
+    else
+        !cal extra term to be added to M*bb(rhs)
+        do ie=1, fem%iemax
+           ind(:)=fem%iet(:,ie)
+           if(ind(1) .eq. 0) stop 'ind(1) == 0'
+
+           if(whichone.lt.3) then
+              ! in (r,z) cylindrical coordinates
+              xlt(1,:) = fem%points(1,ind(:))
+              xlt(2,:) = fem%points(2,ind(:))
+           else
+              ! in (a,t) flux coordinates
+              xlt(1,:) = fem%points(3,ind(:))
+              xlt(2,:) = fem%points(4,ind(:))
+              call fixtheta(ie,fe_order,fe_ns,xlt)
+           endif
+
+           !preparing for index
+           do m = 1,fe_ns
+              mv=fem%iet(m,ie)
+              do n = 1,fe_ndof
+                 nv=(m-1)*fe_ndof+n
+                 indlocal(nv)=nv
+                 indglobal(nv)=(mv-1)*fe_ndof+n
+              enddo
+           enddo
+
+           do i = 1,fe_nvar
+              ii=indglobal(i)
+              do j = 1,fe_nvar
+                 jj=indglobal(j)
+              do k = 1,fe_ns
+                 kk=fem%iet(k,ie)
+                 bh(ii)=bh(ii)-hh(jj)*xlt(2,k)*fem%Pijk(k,j,i)*bgsjgaa(jj)
+                 bh(ii)=bh(ii)+hh(jj)*xlt(1,k)*fem%Pijk(k,j,i)*bgsjgat(jj)
+              enddo
+              enddo
+           enddo
+        enddo
+    endif
+
+    deallocate( xlt )
+    deallocate( ind )
+    deallocate(indlocal, indglobal)
+    deallocate(bgsjgaa, bgsjgat)
+  end subroutine add_hh2bb_0
 
 
 !========================================================================
