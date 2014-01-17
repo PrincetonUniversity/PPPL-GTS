@@ -863,7 +863,6 @@ contains
     integer :: count = 0
 
 
-    !  if(mype.eq.0 .and. solver%fem%order.gt.0) write(0, *) "	finite element solve begin"
     count = count + 1
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
@@ -887,25 +886,25 @@ contains
              xx(ivsl) = xx_gk(ivgts)
              hh(ivsl) = phip00(ir)
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
-             !  print*, 'HEREHHH', bb_gk(ivgts), bb(ivsl-itmax+1), ivgts, ivsl, ir, mype
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     
-!    if( solver%order .ge. 1) then
-!       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
-!          it= sum( mtheta ) - mtheta(mpsi)
-!          ir=mpsi
-!          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
-!       endif
-!       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
-!          it= 0
-!          ir=0
-!          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
-!       endif
-!    endif
+#ifdef CJTEST
+    if( solver%order .ge. 1) then
+       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
+          it= sum( mtheta ) - mtheta(mpsi)
+          ir=mpsi
+          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+       endif
+       if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
+          it= 0
+          ir=0
+          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+       endif
+    endif
 #endif
 
     if( solver%fem%order .eq. 2) then
@@ -937,13 +936,12 @@ contains
 
     else
         ! cal bh from hh(gts input) and add it to M*bb in subroutine petsc_solve
-        if( solver%order .ge. 1.and.ZF_SEPARATION==1) then
+        if( solver%order.ge.1 .and. ZF_SEPARATION.eq.1) then
             call add_hh2bb(solver%fem, neq, hh, bh, ierr)
             !  set bh to 0 if don't want to add it
             !  bh=bh+bn
             !  bh=0.
         endif
-#endif
 
     ! solve GK Poisson equation
     call petsc_solve( solver, neq, bb, xx, bh, ierr)
@@ -966,7 +964,6 @@ contains
     enddo
 
     deallocate(bb,xx,hh,bh,bn) 
-    !  if(mype.eq.0 .and. solver%fem%order>0) write(0, *) "	finite element solve end"
 
     ! debug
     if( count .eq. 1 .and. mype==-10 ) then
@@ -1664,7 +1661,6 @@ contains
   end subroutine testmasssolve
 
 
-
 !========================================================================
 !         find dxdr dxdz
 !========================================================================
@@ -1861,19 +1857,22 @@ contains
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
-             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
+            !fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
           end if
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
 
-    if(whichone.lt.3) fcj=1.
-       !do ivsl=1,neq
-       !   aaa(1)=solver%fem%points(3,ivsl)
-       !   the(1)=solver%fem%points(4,ivsl)
-       !   call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
-       !   fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
-       !enddo
+    if(whichone.lt.3) then
+       fcj=1.
+    else
+       do ivsl=1,neq
+          aaa(1)=solver%fem%points(3,ivsl)
+          the(1)=solver%fem%points(4,ivsl)
+          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
+          fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+       enddo
+    endif
 
 !   form rhs ba&bt for dxdr&dxdz respectively
     ba=0.
@@ -2670,7 +2669,7 @@ end subroutine neumbcfix
     !     
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
-    use field_array,only: psi_grid,qtinv
+    use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij
     use esi_interface, only : metric
     use fem_data_class
     implicit none
