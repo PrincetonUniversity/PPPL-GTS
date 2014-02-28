@@ -1612,6 +1612,8 @@ contains
     endif
 
     call find_dxdadxdt( masssolver, mgrid, bb, dxdr, dxdz, ierr )
+    !call find_dxda( masssolver, mgrid, bb, dxdr, ierr )
+    !call find_dxdt( masssolver, mgrid, bb, dxdz, ierr )
 
     ivsl = 0
     ivgts = 0
@@ -1662,6 +1664,75 @@ contains
 
 
 !========================================================================
+!         testpetscoption
+!========================================================================
+  subroutine testAxb( solver )
+    !     solve Ax=b with x=1, b=Ax
+    !     
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta
+    implicit none
+#include "finclude/petscsys.h"
+#include "finclude/petscvec.h"
+    type(solver_data) :: solver
+    integer :: nn, ierr
+    ! locals
+    real(doubleprec),allocatable,dimension(:) :: xx, bb
+    real :: neq
+    logical :: flg
+    real(wp) norm
+    Vec xVec, bVec;
+    PetscInt its; 
+    KSPConvergedReason reason;
+
+
+    if(mype.eq.0) write(0, *) "	testAxb:"
+    neq = sum(mtheta)
+
+    call VecSet( solver%xVec, 1.0, ierr )
+    call VecDuplicate( solver%xVec, xVec, ierr )
+    call VecCopy( solver%xVec, xVec, ierr )
+        call VecNorm(xVec,NORM_1,norm, ierr);
+        if(mype.eq.0) write(0, *) "	testAxb x=",norm/neq
+
+    call VecSet( solver%bVec, 0.0, ierr )
+    call MatMult(solver%mat%data, solver%xVec, solver%bVec, ierr)
+        call VecNorm(solver%bVec,NORM_1,norm, ierr);
+        if(mype.eq.0) write(0, *) "	testAxb b=",norm/neq
+
+    call VecSet( solver%xVec, 0.0, ierr )
+    call KSPSolve( solver%ksp, solver%bVec, solver%xVec, ierr )
+
+        call KSPGetIterationNumber(solver%ksp,its,ierr);CHKERRQ(ierr);
+        if(mype.eq.0) write(0, *) "	testAxb its=",its
+
+        call VecNorm(solver%xVec,NORM_1,norm, ierr);
+        if(mype.eq.0) write(0, *) "	testAxb x=",norm/neq
+
+        call KSPGetConvergedReason(solver%ksp,reason,ierr);
+        if(mype.eq.0) write(0, *) "	testAxb reason=",reason
+
+        norm=0.
+        call VecDuplicate( solver%bVec, bVec, ierr )
+        call MatMult(solver%mat%data,solver%xVec,bVec,ierr);
+        call VecNorm(bVec,NORM_1,norm, ierr);
+        if(mype.eq.0) write(0, *) "	testAxb b=",norm/neq
+        call VecAXPY(bVec,-1.0,solver%bVec,ierr);
+        call VecNorm(bVec,NORM_2,norm,ierr);
+        if(mype.eq.0) write(0, *) "	testAxb residual norm=",norm/sqrt(neq)
+
+    call VecDestroy( xVec, ierr )
+    call VecDestroy( bVec, ierr )
+    call VecSet(solver%xVec, 0., ierr)
+    call VecSet(solver%bVec, 0., ierr)
+
+    if(mype.eq.0) write(0, *) "	testAxb end"
+    
+  end subroutine testAxb
+
+
+!========================================================================
 !         find dxdr dxdz
 !========================================================================
   subroutine find_dxdadxdt( solver, nn, bb_gk, xa_gk, xt_gk, ierr )
@@ -1689,13 +1760,24 @@ contains
     real(wp),allocatable,dimension(:,:) :: xlt
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
-    integer :: i,ii,j,jj,k,kk
+    integer :: i,ii,j,jj,k,kk,ix,iy
     logical :: flg
     integer :: whichone = 5
 
 
-    !  if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    if(whichone.lt.3) then
+       ! in (r,z) cylindrical coordinates
+       ix=1
+       iy=2
+    else
+       ! in (a,t) flux coordinates
+       ix=3
+       iy=4
+    endif
+#ifdef CJTEST
+    if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt for solve",whichone,ix,iy
+#endif
 
     fe_order=solver%fem%order
     fe_ns=3
@@ -1735,16 +1817,14 @@ contains
        ind(:)=solver%fem%iet(:,ie)
        if(ind(1) .eq. 0) stop 'ind(1) == 0'
 
-       if(whichone.lt.3) then
-          ! in (r,z) cylindrical coordinates
-          xlt(1,:) = solver%fem%points(1,ind(:))
-          xlt(2,:) = solver%fem%points(2,ind(:))
-       else
-          ! in (a,t) flux coordinates
-          xlt(1,:) = solver%fem%points(3,ind(:))
-          xlt(2,:) = solver%fem%points(4,ind(:))
-          call fixtheta(ie,fe_order,fe_ns,xlt)
-       endif
+       !if(whichone.lt.3) then
+       !   xlt(1,:) = solver%fem%points(1,ind(:))
+       !   xlt(2,:) = solver%fem%points(2,ind(:))
+       !else
+       xlt(1,:) = solver%fem%points(ix,ind(:))
+       xlt(2,:) = solver%fem%points(iy,ind(:))
+       if(whichone.ge.3) call fixtheta(ie,fe_order,fe_ns,xlt)
+       !endif
 
        do i = 1,fe_nvar
           ii=solver%fem%iet(i,ie)
@@ -1805,164 +1885,18 @@ contains
 
 
 !========================================================================
-!         find dxdr dxdz
-!========================================================================
-  subroutine find_dxdadxdt_0( solver, nn, bb_gk, xa_gk, xt_gk, ierr )
-
-    !     solve M (dxdr) = u y Pijk
-    !           M (dxdz) =-u x Pijk
-
-    !use global_parameters
-    use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat
-    use field_array,only: psi_grid,qtinv
-    implicit none
-#include "finclude/petscsys.h"
-    type(solver_data) :: solver
-    integer :: nn
-    integer :: ierr
-    real(wp),intent(in) :: bb_gk(nn)
-    real(wp),intent(inout) :: xa_gk(nn), xt_gk(nn)
-    ! locals
-    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
-    real(doubleprec),allocatable,dimension(:) :: xa, xt, bb, ba, bt, fcj
-    real(wp) zeta, pdum, dt, tdum, tmp
-    real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-
-    real(wp),allocatable,dimension(:,:) :: xlt
-    integer,dimension(:),allocatable :: ind
-    integer :: fe_order, fe_ns, fe_nvar
-    integer :: i,ii,j,jj,k,kk
-    logical :: flg
-    integer :: whichone = 5
-
-
-    !  if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
-    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
-
-    fe_order=solver%fem%order
-    fe_ns=3
-    fe_nvar=3
-    allocate( xlt(2,fe_ns) )
-    allocate( ind(fe_ns) )
-
-    neq = sum(mtheta)
-    allocate(bb(neq),xa(neq),ba(neq),xt(neq),bt(neq),fcj(neq))
-    ivsl = 0
-    ivgts = 0
-    do ir=0,mpsi 
-       itmax=mtheta(ir)
-       do it=0,itmax
-          ivgts = ivgts + 1
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
-             bb(ivsl) = bb_gk(ivgts)
-            !fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
-          end if
-       enddo
-    enddo
-    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
-
-    if(whichone.lt.3) then
-       fcj=1.
-    else
-       do ivsl=1,neq
-          aaa(1)=solver%fem%points(3,ivsl)
-          the(1)=solver%fem%points(4,ivsl)
-          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
-          fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
-       enddo
-    endif
-
-!   form rhs ba&bt for dxdr&dxdz respectively
-    ba=0.
-    bt=0.
-    do ie=1, solver%fem%iemax
-       ind(:)=solver%fem%iet(:,ie)
-       if(ind(1) .eq. 0) stop 'ind(1) == 0'
-
-       if(whichone.lt.3) then
-          ! in (r,z) cylindrical coordinates
-          xlt(1,:) = solver%fem%points(1,ind(:))
-          xlt(2,:) = solver%fem%points(2,ind(:))
-       else
-          ! in (a,t) flux coordinates
-          xlt(1,:) = solver%fem%points(3,ind(:))
-          xlt(2,:) = solver%fem%points(4,ind(:))
-          call fixtheta(ie,fe_order,fe_ns,xlt)
-       endif
-
-       do i = 1,fe_nvar
-          ii=solver%fem%iet(i,ie)
-          do j = 1,fe_nvar
-             jj=solver%fem%iet(j,ie)
-          do k = 1,fe_ns
-             kk=solver%fem%iet(k,ie)
-             ba(ii)=ba(ii)+bb(jj)*xlt(2,k)*solver%fem%Pijk(k,j,i)*fcj(jj)
-             bt(ii)=bt(ii)-bb(jj)*xlt(1,k)*solver%fem%Pijk(k,j,i)*fcj(jj)
-          enddo
-          enddo
-       enddo
-    enddo
-    !call find_rhs(neq, &
-    !              ba, &
-    !              bt, &
-    !              bb, &
-    !              solver%fem%iemax, &
-    !              solver%fem%iet(1,:), &
-    !              solver%fem%iet(2,:), &
-    !              solver%fem%iet(3,:), &
-    !              solver%fem%points(1,:), &
-    !              solver%fem%points(2,:))
-
-!   solve xa&xt representing dxdr&dxdz respectively
-    xa=0.
-    xt=0.
-    !re-enforce in case somehting went wrong
-    solver%order=0
-    ! 'fcj' serves as a place holder
-    call petsc_solve( solver, neq, ba, xa, fcj, ierr)
-    call petsc_solve( solver, neq, bt, xt, fcj, ierr)
-    
-    ! set solution (output)
-    ivsl = 0
-    ivgts = 0
-    do ir=0,mpsi
-       itmax=mtheta(ir)
-       do it=0,itmax
-          ivgts = ivgts+1
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
-             xa_gk(ivgts) = xa(ivsl)
-             xt_gk(ivgts) = xt(ivsl)
-          else
-             xa_gk(ivgts) = xa(ivsl-itmax+1)
-             xt_gk(ivgts) = xt(ivsl-itmax+1)
-          endif
-       enddo
-    enddo
-
-    deallocate( xlt )
-    deallocate( ind )
-    deallocate(bb,ba,bt,xa,xt,fcj)
-
-  end subroutine find_dxdadxdt_0
-
-
-
-!========================================================================
 !         find dxdr only
 !========================================================================
   subroutine find_dxda( solver, nn, bb_gk, xa_gk, ierr )
 
     !     solve M (dxdr) = u y Pijk
-    !           M (dxdz) =-u x Pijk
 
     !use global_parameters
     use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat
-    use field_array,only: psi_grid,qtinv
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0
+    use field_array,only: psi_grid,qtinv,Jcbn
     implicit none
+#include "finclude/petscsys.h"
     type(solver_data) :: solver
     integer :: nn
     integer :: ierr
@@ -1970,18 +1904,32 @@ contains
     real(wp),intent(inout) :: xa_gk(nn)
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
-    real(doubleprec),allocatable,dimension(:) :: xa, bb, ba, fcj
+    real(doubleprec),allocatable,dimension(:) :: xa, xt, bb, ba, fcj
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 
     real(wp),allocatable,dimension(:,:) :: xlt
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
-    integer :: i,ii,j,jj,k,kk
+    integer :: i,ii,j,jj,k,kk,ix,iy
+    logical :: flg
     integer :: whichone = 5
 
 
-    !  if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt"
+    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    if(whichone.lt.3) then
+       ! in (r,z) cylindrical coordinates
+       ix=1
+       iy=2
+    else
+       ! in (a,t) flux coordinates
+       ix=3
+       iy=4
+    endif
+#ifdef CJTEST
+    if(mype.eq.0) write(0, *) "	finite element: find dxda for solve",whichone,ix,iy
+#endif
+
     fe_order=solver%fem%order
     fe_ns=3
     fe_nvar=3
@@ -1999,38 +1947,28 @@ contains
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
+             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
           end if
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
 
-    if(whichone.lt.3) then
-       fcj=1.
-    else
-       do ivsl=1,neq
-          aaa(1)=solver%fem%points(3,ivsl)
-          the(1)=solver%fem%points(4,ivsl)
-          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, aaa(1), the(1),1)
-          fcj(ivsl) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
-       enddo
-    endif
+    if(whichone.lt.3) fcj=1.
 
-!   form rhs ba&bt for dxdr&dxdz respectively
+!   form rhs ba for dxdr respectively
     ba=0.
     do ie=1, solver%fem%iemax
        ind(:)=solver%fem%iet(:,ie)
        if(ind(1) .eq. 0) stop 'ind(1) == 0'
 
-       if(whichone.lt.3) then
-          ! in (r,z) cylindrical coordinates
-          xlt(1,:) = solver%fem%points(1,ind(:))
-          xlt(2,:) = solver%fem%points(2,ind(:))
-       else
-          ! in (a,t) flux coordinates
-          xlt(1,:) = solver%fem%points(3,ind(:))
-          xlt(2,:) = solver%fem%points(4,ind(:))
-          call fixtheta(ie,fe_order,fe_ns,xlt)
-       endif
+       !if(whichone.lt.3) then
+       !   xlt(1,:) = solver%fem%points(1,ind(:))
+       !   xlt(2,:) = solver%fem%points(2,ind(:))
+       !else
+       xlt(1,:) = solver%fem%points(ix,ind(:))
+       xlt(2,:) = solver%fem%points(iy,ind(:))
+       if(whichone.ge.3) call fixtheta(ie,fe_order,fe_ns,xlt)
+       !endif
 
        do i = 1,fe_nvar
           ii=solver%fem%iet(i,ie)
@@ -2044,7 +1982,7 @@ contains
        enddo
     enddo
 
-!   solve xa&xt representing dxdr&dxdz respectively
+!   solve xa representing dxdr respectively
     xa=0.
     !re-enforce in case somehting went wrong
     solver%order=0
@@ -2072,6 +2010,135 @@ contains
     deallocate(bb,ba,xa,fcj)
 
   end subroutine find_dxda
+
+
+
+!========================================================================
+!         find dxdz only
+!========================================================================
+  subroutine find_dxdt( solver, nn, bb_gk, xt_gk, ierr )
+
+    !           M (dxdz) =-u x Pijk
+
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0
+    use field_array,only: psi_grid,qtinv,Jcbn
+    implicit none
+#include "finclude/petscsys.h"
+    type(solver_data) :: solver
+    integer :: nn
+    integer :: ierr
+    real(wp),intent(in) :: bb_gk(nn)
+    real(wp),intent(inout) :: xt_gk(nn)
+    ! locals
+    integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
+    real(doubleprec),allocatable,dimension(:) :: xt, bb, bt, fcj
+    real(wp) zeta, pdum, dt, tdum, tmp
+    real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+
+    real(wp),allocatable,dimension(:,:) :: xlt
+    integer,dimension(:),allocatable :: ind
+    integer :: fe_order, fe_ns, fe_nvar
+    integer :: i,ii,j,jj,k,kk,ix,iy
+    logical :: flg
+    integer :: whichone = 5
+
+
+    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    if(whichone.lt.3) then
+       ! in (r,z) cylindrical coordinates
+       ix=1
+       iy=2
+    else
+       ! in (a,t) flux coordinates
+       ix=3
+       iy=4
+    endif
+#ifdef CJTEST
+    if(mype.eq.0) write(0, *) "	finite element: find dxdt for solve",whichone,ix,iy
+#endif
+
+    fe_order=solver%fem%order
+    fe_ns=3
+    fe_nvar=3
+    allocate( xlt(2,fe_ns) )
+    allocate( ind(fe_ns) )
+
+    neq = sum(mtheta)
+    allocate(bb(neq),xt(neq),bt(neq),fcj(neq))
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi 
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts + 1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             bb(ivsl) = bb_gk(ivgts)
+             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
+          end if
+       enddo
+    enddo
+    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+
+    if(whichone.lt.3) fcj=1.
+
+!   form rhs bt for dxdz respectively
+    bt=0.
+    do ie=1, solver%fem%iemax
+       ind(:)=solver%fem%iet(:,ie)
+       if(ind(1) .eq. 0) stop 'ind(1) == 0'
+
+       !if(whichone.lt.3) then
+       !   xlt(1,:) = solver%fem%points(1,ind(:))
+       !   xlt(2,:) = solver%fem%points(2,ind(:))
+       !else
+       xlt(1,:) = solver%fem%points(ix,ind(:))
+       xlt(2,:) = solver%fem%points(iy,ind(:))
+       if(whichone.ge.3) call fixtheta(ie,fe_order,fe_ns,xlt)
+       !endif
+
+       do i = 1,fe_nvar
+          ii=solver%fem%iet(i,ie)
+          do j = 1,fe_nvar
+             jj=solver%fem%iet(j,ie)
+          do k = 1,fe_ns
+             kk=solver%fem%iet(k,ie)
+             bt(ii)=bt(ii)-bb(jj)*xlt(1,k)*solver%fem%Pijk(k,j,i)*fcj(jj)
+          enddo
+          enddo
+       enddo
+    enddo
+
+!   solve xt representing dxdz respectively
+    xt=0.
+    !re-enforce in case somehting went wrong
+    solver%order=0
+    ! 'fcj' serves as a place holder
+    call petsc_solve( solver, neq, bt, xt, fcj, ierr)
+    
+    ! set solution (output)
+    ivsl = 0
+    ivgts = 0
+    do ir=0,mpsi
+       itmax=mtheta(ir)
+       do it=0,itmax
+          ivgts = ivgts+1
+          if(it.lt.itmax) then ! skip double stored 0,2pi value
+             ivsl = ivsl + 1
+             xt_gk(ivgts) = xt(ivsl)
+          else
+             xt_gk(ivgts) = xt(ivsl-itmax+1)
+          endif
+       enddo
+    enddo
+
+    deallocate(bb,bt,xt,fcj)
+    deallocate( xlt )
+    deallocate( ind )
+
+  end subroutine find_dxdt
 
 
 

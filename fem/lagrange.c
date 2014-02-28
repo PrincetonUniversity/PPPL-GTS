@@ -803,8 +803,8 @@ int lagrange_element_matrix_(/*int *node,*/
           zr[j][i] -= weight[n] * jacobian[n] * (dny[j][n]*dnx[i][n]);
           zz[j][i] -= weight[n] * jacobian[n] * (dny[j][n]*dny[i][n]);
           pp[j][i] -= weight[n] * jacobian[n] * (dny[j][n]*dny[i][n]);
-          r[ j][i] += weight[n] * jacobian[n] * (NN[i*(*nw)+n]*dnx[j][n]);
-          z[ j][i] += weight[n] * jacobian[n] * (NN[i*(*nw)+n]*dny[j][n]);
+          r[ j][i] += weight[n] * jacobian[n] * (NN[j*(*nw)+n]*dnx[i][n]);
+          z[ j][i] += weight[n] * jacobian[n] * (NN[j*(*nw)+n]*dny[i][n]);
 #endif
       }
 //  PetscPrintf(PETSC_COMM_WORLD,

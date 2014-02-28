@@ -104,11 +104,13 @@ program GTS
      solver1%mat%bc_type = 0
      fem1%order = order
      call new_fem_data( fem1 )
-     call new_fem_solver( fem1, solver1, '', 1, 0 )
 #ifdef CJTEST
+     call new_fem_solver( fem1, solver1, '', 1, 2 )
      call testsolve( solver1 )
      call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
+#else
+     call new_fem_solver( fem1, solver1, '', 1, 0 )
 #endif
 
      masssolver%order = 0
