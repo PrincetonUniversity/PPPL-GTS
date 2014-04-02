@@ -7,6 +7,8 @@ subroutine snapshot
   use field_array
   use diagnosis_array
   use esi_interface
+!ZHIXIN control output of PHI
+  use  control_parameters
   
   implicit none
 
@@ -27,7 +29,10 @@ subroutine snapshot
 
 ! write particle data for re-run
 !  call restart_write
-  if(mod(istep,40) .eq. 0) call restart_write
+!ZHIXIN use flag irewrite to output RESTART
+! if(mod(istep,40) .eq. 0) call restart_write
+  if(mod(istep,irewrite) .eq. 0) call restart_write
+
 
 ! number of poloidal grid
   jm=mtheta(ipsi)/2
@@ -357,7 +362,9 @@ subroutine snapshot
 
 ! REcord Potential. Each myrank_toroidal has its own file (see open_file).
   if(movie_3D_h5==0) then  ! no 3D movie data created
-     if(istep>0 .and. myrank_partd==0) then
+!ZHIXIN use flag to output PHI
+!     if(istep>0 .and. myrank_partd==0) then
+     if(istep>0 .and. myrank_partd==0.and.flag_PHI>0) then
         write(777) istep
         write(777) phi(1,1:mgrid)  ! Note(5/08): phi contains zonal flow when ZF_SEPARATION=0 (solving total potential)
 !        write(777) phi_tmp(1,:)   ! time averaged phi
@@ -366,7 +373,9 @@ subroutine snapshot
   end if
 
 ! Record Density. Each myrank_toroidal has its own file (see open_file).
-  if(istep>0 .and. myrank_partd==1) then
+!ZHIXIN use flag to output DEN
+!  if(istep>0 .and. myrank_partd==1) then
+  if(istep>0 .and. myrank_partd==1.and.flag_DEN>0) then
      write(888) istep
      if(ifelectron==0) then
         write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid)

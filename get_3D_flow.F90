@@ -6,6 +6,8 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
   use particle_array
   use field_array
   use diagnosis_array
+!ZHIXIN contro output of FLOW
+  use  control_parameters
   implicit none
 
   integer m,i,j,k,jt,ii,ierror,ij,&
@@ -250,7 +252,9 @@ end do   ! do i=1,4
   enddo
 
 ! Record Density. Each myrank_toroidal has its own file (see open_file).
-  if(istep>0 .and. myrank_partd==2) then
+!ZHIXIN use flag to output FLOW
+!  if(istep>0 .and. myrank_partd==2) then
+  if(istep>0 .and. myrank_partd==2.and.flag_FLOW>0) then
      write(808) istep
      write(808) pflux_e(1,0,1:mgrid), pflux_e(2,0,1:mgrid), pflux_e(3,0,1:mgrid), pflux_e(2,1,1:mgrid)   !   , pflux_i(1,1,1:mgrid)
 !                   |                     |                     |                     |                  !        |

@@ -7,7 +7,8 @@ subroutine load
   use field_array
   use diagnosis_array
   use esi_interface
-
+!ZHIXIN use w_initial_in
+  use control_parameters
   implicit none
 
 #define SIMPLE_SPRNG
@@ -58,12 +59,15 @@ subroutine load
 !  w_initial=4.0e-4_wp    ! for TEM
 !  w_initial=4.0e-3_wp    ! for TEM
 
-  w_initial=1.0e-6_wp    ! for TEM
-  w_initial=1.0e-4_wp    ! for ITG
+!!!  w_initial=1.0e-6_wp    ! for TEM
+!!!  w_initial=1.0e-4_wp    ! for ITG
 
 !  w_initial=1.0e-12_wp    ! for linear growth rate and frequency
 !  w_initial=1.0e-18_wp    ! for linear growth rate and frequency
-  if(nonlinear<0.5_wp) w_initial=1.0e-20_wp
+!!!  if(nonlinear<0.5_wp) w_initial=1.0e-20_wp
+!ZHIXIN: use w_initial_in to set w_initial
+  w_initial=w_initial_in*1.0e0_wp
+  if(nonlinear<0.5_wp) w_initial=w_initial_in*1.0e-16_wp
       
 ! uniform load particle in configuration space 
   mtheta_load=256

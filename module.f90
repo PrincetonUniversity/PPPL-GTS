@@ -107,7 +107,8 @@ end module precision
 ! The following  parameters are used to sepcify the inclusion of neoclassical physics
 !     ifneoclassical=0 --> no neoclassical include
 !     ifneoclassical=1 --> include neoclassical
-  integer,parameter  :: ifneoclassical=1
+! integer,parameter  :: ifneoclassical=1
+  integer:: ifneoclassical  !--ZHIXIN: this is passed from INPUT.d
 
 end module global_parameters
 
@@ -220,4 +221,16 @@ module particle_decomp
   integer  :: left_pe,right_pe
   integer  :: toroidal_domain_location,particle_domain_location
 end module particle_decomp
+
+
+!ZHIXIN
+module control_parameters
+  use precision
+  real(wp) ratio_dthe0,ratio_dthe1,a0_dthe,a1_dthe,a_ref_in
+  real(wp) ratio_Er401,ratio_Er_grid,w_initial_in
+  integer flag_Lc,iratio_dthe,irewrite
+!-- switch for recording corresponding variables
+  integer flag_DEN,flag_FLOW,flag_PHI,flag_RESTART,flag_GRID
+
+end module control_parameters
 

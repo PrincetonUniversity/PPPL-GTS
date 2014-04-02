@@ -10,6 +10,8 @@ Subroutine setup
   use esi_interface
   use spl_profiles
   use profile_array
+!ZHIXIN define control_parameters to pass ratio_dthe et al
+  use control_parameters
 
   implicit none
 
@@ -289,6 +291,8 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
   a_ref=0.50_wp      
   a_ref=0.36_wp      ! used for D146596B11_2235 [0.05 0.7]
 
+  call read_control_params  !ZHIXIN
+  a_ref=a_ref_in     !ZHIXIN used to read data from input file
 !
 !  Initially, T_0 and T_e0 are specified in INPUT.d as temperatures at a=a_ref --> change made in Oct. 09
 !
@@ -362,7 +366,9 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
      Tc=temperature(a_ref,0.0_wp)  ! take T(a=a_ref) as reference temperature
      Tc_e=temperature_e(a_ref,0.0_wp)
   end if
-     
+  
+!ZHIXIN: skep follwing, since lmin,lmax,rmin,rmax are imported from input file
+if(.false.) then
 ! used for D129533  -- simulation domain [0.05, 0.8]
   lmin=0.10_wp
   lmax=0.15_wp
@@ -420,7 +426,7 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
   !  set rmin & rmax as follows later in this routine:
   !  rmin=psi_grid(mpsi-nbound)
   !  rmax=psi_grid(mpsi-nbound/2)
-
+endif
 
   Tcc=Tc                        ! make a copy
 
@@ -474,6 +480,26 @@ if(mype==0) write(0,*) 'Tc=', Tc*Tem_00,  'in KeV', backnc, &
 !  Lc=Lcn    ! for D129533, but with artificial profiles (grad-n driven case)
   Lc=Lci    ! for D129533
 !  Lc=Lcu    ! for toroidal shear flow driven KH instability and turbulence
+
+!ZHIXIN: get Lc according to flag_Lc from input file CONTROL.d
+ select case(flag_Lc)
+  case(1)
+   Lc=Lcn
+   if(mype==0) write(*,*)'Lcn (density) chosen'
+  case(2)
+   Lc=Lci
+   if(mype==0) write(*,*)'Lci (ion temperature) chosen'
+  case(3)
+   Lc=Lce
+   if(mype==0) write(*,*)'Lce (electron temperature) chosen'
+  case(4)
+   Lc=Lcu
+   if(mype==0) write(*,*)'Lcu (flow) chosen'
+  case default
+   write(*,*)'Wrong flag_Lc input. Only 1,2,3,4'
+   stop
+ end select
+
 
 if(mype==0) write(0,*) 'R_0/<L_T>=', R_0/Lc   ! 6.9 is often used in cyclone case 
 
@@ -583,10 +609,13 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
 
 
 
-
+!ZHIXIN: 
+ if(rmin.le.0.0.or.rmax.le.0.0) then !use original way
   rmin=psi_grid(mpsi-nbound)
   rmax=psi_grid(mpsi-nbound/2)
-
+  if(mype==0) print*, ' rmin,rmax = ', rmin,rmax
+ endif
+ 
 
 
 
@@ -802,6 +831,16 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
 
 !     tdum=(0.61*real(mpsi-i,wp)/real(mpsi,wp)+0.39*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)   ! for model esi_mod.00
 !     tdum=tdum*1.5       ! for esi_mod.00   with T<0.5 kev
+
+!ZHIXIN: use a0_dthe,a1_dthe,ratio_dthe from input file
+     tdum=(a0_dthe*real(mpsi-i,wp)/real(mpsi,wp)+a1_dthe*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)
+
+     if(i.lt.mpsi-iratio_dthe) then
+      tdum=tdum*ratio_dthe0
+     else
+      tdum=tdum*ratio_dthe1
+     endif
+
 #endif
 
 #ifdef CJTEST
@@ -838,6 +877,22 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
 !     eta_grid(i)=dlnn      ! for TEM driven by grad(ne)
      eta_grid(i)=dlnT      ! for ITG; such as D129533 with KE
 !     eta_grid(i)=abs(rdum) ! for KH turbulence driven by toroidal flow shear  ! added 2011
+
+!ZHIXIN
+ select case(flag_Lc)
+  case(1)
+     eta_grid(i)=dlnn      ! for TEM driven by grad(ne)
+  case(2)
+     eta_grid(i)=dlnT      ! for ITG; such as D129533 with KE
+  case(3)
+     eta_grid(i)=dlnT_e    ! for TEM driven by grad(Te), such as D125229
+  case(4)
+     eta_grid(i)=abs(rdum) ! for KH turbulence driven by toroidal flow shear!added 2011
+  case default
+   write(*,*)'Wrong flag_Lc input. Only 1,2,3,4'
+   stop
+ end select
+
 
      eta_grid(i)=eta_grid(i)*smoothstep(lmin,lmax,aaa(1))*(1.0_wp-smoothstep(rmin,rmax,aaa(1)))
 
@@ -1547,9 +1602,10 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 ! Post-processor calculation of zonal flow ExB shearing rate 
 ! need a separate directory with ZF data copied 
 !  i=21616    ! number of lines in ZF data files
+!  i=9600    ! number of lines in ZF data files
 !  call get_ZF_shear(i)
 !  call mpi_finalize(ierror)
-!  STOP
+! STOP
 
 ! *******************************************************************
 
@@ -1659,7 +1715,9 @@ if(irun==0) then
      !evector(:,1,igrid(i))=evector(:,1,igrid(i)+mtheta(i))
   end do
 
-  if(myrank_partd==0) then   ! myrank_partd==1 will write x,y,z
+ !ZHIXIN: use flag to output GRID
+! if(myrank_partd==0) then   ! myrank_partd==1 will write x,y,z
+  if(myrank_partd==0.and.flag_GRID>0) then   ! myrank_partd==1 will write x,y,z
       write(cdum1,'("GRID_COORD.",i5.5)')myrank_toroidal
       open(unit=995,file=cdum1,form='unformatted')
       write(995)coord_X
@@ -1887,6 +1945,90 @@ end if
 
 
 end subroutine setup
+
+!=============================================================================
+
+  subroutine read_control_params
+
+!=============================================================================
+  use precision
+  use mpi_defs
+  use global_parameters
+  use control_parameters
+
+  implicit none
+  integer,parameter :: n_integers=8, n_reals=13
+  integer :: integer_params(n_integers)
+  real*8       :: real_params(n_reals)
+  integer ierror
+
+! only the first processor will open files...
+!ZHIXIN: read control parameters from INPUT.in; the same as read_input_params
+  namelist/var_control/ lmin,lmax,rmin,rmax,iratio_dthe,ratio_dthe0,ratio_dthe1,a0_dthe,a1_dthe,&
+            flag_Lc,a_ref_in, &
+            flag_DEN,flag_FLOW,flag_PHI,flag_RESTART,flag_GRID,&
+            irewrite,ifneoclassical,ratio_Er401,ratio_Er_grid,w_initial_in
+
+  if(mype==0) then
+     open(unit=5,file='INPUT.d')
+     read(unit=5,nml=var_control)
+     write(*,nml=var_control)
+     close(5)
+  integer_params(1)=flag_Lc
+  integer_params(2)=flag_DEN
+  integer_params(3)=flag_FLOW
+  integer_params(4)=flag_PHI
+  integer_params(5)=flag_RESTART
+  integer_params(6)=flag_GRID
+  integer_params(7)=iratio_dthe
+  integer_params(8)=irewrite
+
+  real_params(1)=lmin
+  real_params(2)=lmax
+  real_params(3)=rmin
+  real_params(4)=rmax
+  real_params(5)=ratio_dthe0
+  real_params(6)=ratio_dthe1
+  real_params(7)=a0_dthe
+  real_params(8)=a1_dthe
+  real_params(9)=a_ref_in
+  real_params(10)=ifneoclassical
+  real_params(11)=ratio_Er401
+  real_params(12)=ratio_Er_grid
+  real_params(13)=w_initial_in
+  endif
+
+
+  call mpi_bcast(integer_params,n_integers,MPI_INTEGER,0,MPI_COMM_WORLD,ierror)
+  call mpi_bcast(real_params,n_reals,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+
+  if (mype/=0) then
+  flag_Lc=integer_params(1)
+  flag_DEN=integer_params(2)
+  flag_FLOW=integer_params(3)
+  flag_PHI=integer_params(4)
+  flag_RESTART=integer_params(5)
+  flag_GRID=integer_params(6)
+  iratio_dthe=integer_params(7)
+  irewrite=integer_params(8)
+
+  lmin=real_params(1)
+  lmax=real_params(2)
+  rmin=real_params(3)
+  rmax=real_params(4)
+  ratio_dthe0=real_params(5)
+  ratio_dthe1=real_params(6)
+  a0_dthe=real_params(7)
+  a1_dthe=real_params(8)
+  a_ref_in=real_params(9)
+  ifneoclassical=real_params(10)
+  ratio_Er401=real_params(11)
+  ratio_Er_grid=real_params(12)
+  w_initial_in=real_params(13)
+
+  endif
+ end subroutine read_control_params
+
 
 !=============================================================================
 

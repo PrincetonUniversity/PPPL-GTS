@@ -10,7 +10,8 @@ subroutine Er_provider
   use field_array
   use esi_interface
   use spl_profiles
-
+!ZHIXIN use flag to control Er
+  use control_parameters
   implicit none
  
   real(wp), dimension(10) :: Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the
@@ -184,6 +185,11 @@ end if
  
 !  Er401_bp=1.2_wp*Er401_bp
 !  Er_grid=1.2_wp*Er_grid
+
+!!ZHIXIN use flag to control Er
+  Er401_bp=Er401_bp*ratio_Er401
+  Er_grid=Er_grid*ratio_Er_grid
+
   Er401_bp0=Er401_bp
   Er_grid0=Er_grid
 

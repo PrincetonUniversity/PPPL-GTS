@@ -15,7 +15,8 @@ subroutine get_fluxes(wpi,dgf,dgq)
   real(wp)  my_ion, total_ion
 
   real(wp), dimension(nn,nbin_a) :: ONE_me,TOTAL_pe
-  real(wp), dimension(7,0:mpsi) :: ONE_me_g,TOTAL_pe_g
+!ZHIXIN: ONE_me_g extended from 7 to 9 dimension for particle, energy flux: fort.86,87
+  real(wp), dimension(9,0:mpsi) :: ONE_me_g,TOTAL_pe_g
 
 ! add for diagnosis of distribution functions
   real(wp), dimension(7,nprobe,-nv:nv,0:nv) :: df, df_tot   
@@ -371,10 +372,17 @@ subroutine get_fluxes(wpi,dgf,dgq)
 !        adum=adum+zion0(5,m)*zion0(4,m)*F(m)
 ! replaced by:
         adum=adum+zion0(5,m)*Pa(m)*Pa(m)*dgf(m)
+! ZHIXIN: calculate particle and energy flux on grid
+        ONE_me_g(8,j1)=ONE_me_g(8,j1)+part*zion0(5,m)*wpi(1,m) ! particle flux
+        ONE_me_g(8,j2)=ONE_me_g(8,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)
+
+        ONE_me_g(9,j1)=ONE_me_g(9,j1)+part*zion0(5,m)*wpi(1,m)*energy ! energy flux
+        ONE_me_g(9,j2)=ONE_me_g(9,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)*energy
+
      enddo
 !$omp end parallel
-
-  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,7*(mpsi+1),mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
+!ZHIXIN: size change from 7 to 9!!!
+  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,9*(mpsi+1),mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
   call MPI_Reduce(adum,TM_sum,1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
   if(mype==numberpe-1) then 
      ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_T>
@@ -400,6 +408,13 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
      TOTAL_pe_g(1,0:mpsi)=ONE_me_g(1,0:mpsi)*vth_inv(0:mpsi)**2    !  <delta_T>/T_0 -- corrected Aug. 2013
 
+!ZHIXIN: particle and energy flux added
+     TOTAL_pe_g(8,0:mpsi)=TOTAL_pe_g(8,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! particle flux
+     TOTAL_pe_g(9,0:mpsi)=TOTAL_pe_g(9,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! energy flux
+
+     TOTAL_pe_g(8,0:mpsi)=TOTAL_pe_g(8,0:mpsi)*uveloci*1.0e4_wp         ! convert to 1/m^2.s
+     TOTAL_pe_g(9,0:mpsi)=TOTAL_pe_g(9,0:mpsi)*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
+
      write(93,802) istep, (TOTAL_pe_g(1,i),i=0,mpsi),enk_sum
      call flush(93)
 
@@ -420,6 +435,12 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
      write(85,802) istep, (TOTAL_pe_g(7,i),i=0,mpsi)
      call flush(85)
+!ZHIXIN add particle/energy flux
+     write(86,802) istep, (TOTAL_pe_g(8,i),i=0,mpsi)
+     call flush(86)
+
+     write(87,802) istep, (TOTAL_pe_g(9,i),i=0,mpsi)
+     call flush(87)
 
 ! direct numerical derivative to get d<delta_T>/da
 !$omp parallel do private(i,dpsi1,dpsi2,dpsi1_inv,dpsi2_inv,dpsi_inv,e_psi2,e_psi1)

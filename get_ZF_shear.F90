@@ -9,7 +9,8 @@ subroutine get_ZF_shear(LINES)
   use field_array
   use esi_interface
   use spl_profiles
-
+!ZHIXIN use nfile in diagnosis_array
+  use diagnosis_array
   implicit none
  
   real(wp), dimension(10) :: Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the
@@ -17,8 +18,8 @@ subroutine get_ZF_shear(LINES)
           B_p0,rho_0,R2, &
           xe,ac,half_width,Er_amp,Yrr,dum, grad_a2,a_minor
   real(wp), external :: temperature,density,u_parallel,dT_da,dn_da
-  integer i, ifail,ierror,j,LINES
-
+  integer i, ifail,ierror,j,LINES,fid,ifile
+!ZHIXIN add  fid: ZF file; ifile: read file loop
 !  integer Er_from_GTC_Neo,n_node
 !  character(25) Er_data_name
   real(wp), dimension(:), allocatable :: Er_on_node,r_node
@@ -27,7 +28,9 @@ subroutine get_ZF_shear(LINES)
 
 
       je=jr
-      allocate(Yr(0:je), coty(0:je), Er401_pc(0:je), Er401_bp(0:je),Er401_bp0(0:je))
+!      allocate(Yr(0:je), coty(0:je), Er401_pc(0:je), Er401_bp(0:je),Er401_bp0(0:je))
+! ZHIXIN avoid conflict with Er_provider
+      if(.not.allocated(Yr)) allocate(Yr(0:je), coty(0:je), Er401_pc(0:je), Er401_bp(0:je),Er401_bp0(0:je))
       xe=2.0_wp
 !      ac=0.35
       ac=0.50_wp
@@ -146,7 +149,9 @@ end if
                                ! r_node:     radial location of nodes
                                ! E01_K,E01_C,E01_WRK: spline coefficients and working space
      if(mype==0) then
-        allocate(Er_on_node(n_node+2),r_node(n_node+2))
+!        allocate(Er_on_node(n_node+2),r_node(n_node+2))
+! ZHIXIN: avoid memory conflict with Er_provider
+        if(.not. allocated(Er_on_node)) allocate(Er_on_node(n_node+2),r_node(n_node+2))
         open(unit=20,file=Er_data_name)
         do i=1,n_node+2
            read(20,100) r_node(i), Er_on_node(i)
@@ -180,9 +185,15 @@ end if
     if(mype==0) then
 
 print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
-
+!ZHIXIN use INPUT.d to calculate LINES and nfile (the same as in open_files which is called later)
+  nfile=(mpsi+1)/ncolm
+  if((nfile*ncolm).lt.(mpsi+1)) nfile=nfile+1 ! # of pe needed to write ZF
+  LINES=mstep/ndiag
+print*, 'LINES=',LINES
        open(502,file='ZF_shearate.dat') 
        do j=1,LINES
+!ZHIXIN use nfile (initialized in open_files to decide file#)
+         if(.false.) then
           read(122,801) istep, (phia00(i),i=0,19)
           read(123,801) istep, (phia00(i),i=20,39)
           read(124,801) istep, (phia00(i),i=40,59)
@@ -195,7 +206,14 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
           read(129,801) istep, (phia00(i),i=140,mpsi)
 !          read(130,801) istep, (phia00(i),i=160,mpsi)
 !          read(131,801) istep, (phia00(i),i=180,mpsi)
-
+         endif
+write(*,*)'--start reading zf data--'
+         do ifile=1,nfile
+          fid=121+ifile 
+write(*,*)'ifile,fid,ncolm,mpsi=',ifile,fid,ncolm,mpsi
+          read(fid,801) istep, (phia00(i),i=ncolm*(ifile-1),min(mpsi,ncolm*ifile-1))
+         enddo 
+write(*,*)istep,phia00 !end of ZHIXIN
 !         -------------------------------------------------------------------------
 !         if calculate total shear ZF +equilibrium Er, use:
 !          phia00=phia00+Er_grid     ! --> phia00= total Er=d<phi>/da +d(phi_0)/da 
@@ -293,5 +311,7 @@ print*, 'read(130 0000', j
 50   format(2x, i5, 3(2x,ES13.6))
   end if
 
+!ZHIXIN: to avoid conflict with Er_provider
+!     if(mype==0) deallocate(Er_on_node,r_node)
 
 end subroutine get_ZF_shear
