@@ -127,10 +127,13 @@ program GTS
         solver_dphi_dt%order = order
         solver_dphi_dt%mat%bc_type = 2
         femt%order = order
-        !cj  call new_fem_data( femt )
-        !cj  call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', 2, 2 )
-        !cj  call delete_fem_data( femt )
-        !cj  call destroy_solver( solver_dphi_dt )
+        call new_fem_data( femt )
+        call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', 2, 2 )
+#ifdef CJTEST
+        call testsolve( solver_dphi_dt )
+        call delete_fem_data( femt )
+        call destroy_solver( solver_dphi_dt )
+#endif
      endif
 
 #ifdef CJTEST
@@ -452,9 +455,9 @@ end if
      call destroy_solver( solver1 )
      call delete_fem_data( femm )
      call destroy_solver( masssolver )
-     if(ifelectron==2) then
-        !cj  call delete_fem_data( femt )
-        !cj  call destroy_solver( solver_dphi_dt )
+     if(ifelectron==2.and.ifdphi==1) then
+        call delete_fem_data( femt )
+        call destroy_solver( solver_dphi_dt )
      endif
   endif
 

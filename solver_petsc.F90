@@ -846,7 +846,7 @@ contains
     !     
     !use global_parameters
     use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mtheta,mpsi,mgrid,ZF_SEPARATION
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,ZF_SEPARATION,ifelectron,ifdphi
     use field_array, only: phip00
     implicit none
     type(solver_data) :: solver
@@ -885,6 +885,10 @@ contains
              bb(ivsl) = bb_gk(ivgts)
              xx(ivsl) = xx_gk(ivgts)
              hh(ivsl) = phip00(ir)
+
+             !cj2014.05.02 modified for solver_dphi_dt with homogeneous Dirichlet BC
+             if(ifelectron==2.and.ifdphi==1) xx(ivsl) = 0.
+
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
@@ -892,6 +896,7 @@ contains
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
     
+    !cj2014.05.02 solver1 uses homogeneous Neumann BC, so don't call neumbcfix
 #ifdef CJTEST
     if( solver%order .ge. 1) then
        if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
@@ -2916,7 +2921,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   !
   use precision,only:wp,doubleprec
   use particle_decomp,only:myrank_partd,nproc_partd
-  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi
+  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi
   use esi_interface, only : metric
   use fem_data_class
   implicit none
@@ -2938,7 +2943,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
   real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
   real(doubleprec),dimension(:),allocatable ::  rarr2,zarr2            ! r&z matrix
-  real(doubleprec) c1, c2
+  real(doubleprec) :: c1=1., c2=1.
   real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
   real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
 ! integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
@@ -2965,8 +2970,8 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
 
   call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
-  c1 = alpha
-  c2 = beta
+  !cj2014.05.02 c1 = alpha
+  !cj2014.05.02 c2 = beta
   eps = pi/6.
   big = pi*1.5
 
@@ -3171,7 +3176,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
      do i=1,fe_ns
         vthe3(i)=temperature_e(aaa(i),0.0_wp)
      enddo
-     if(ifelectron==1) then
+     if(ifelectron==1 .or. (ifelectron==2.and.ifdphi==1)) then
         alpha = 0.0_wp
      else
         alpha = abs(csc0) * m0ms / mean(vthe3, fe_ns)
