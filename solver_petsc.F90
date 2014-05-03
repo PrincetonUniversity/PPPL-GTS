@@ -885,16 +885,18 @@ contains
              bb(ivsl) = bb_gk(ivgts)
              xx(ivsl) = xx_gk(ivgts)
              hh(ivsl) = phip00(ir)
-
-             !cj2014.05.02 modified for solver_dphi_dt with homogeneous Dirichlet BC
-             if(ifelectron==2.and.ifdphi==1) xx(ivsl) = 0.
-
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+
+    !cj2014.05.02 modified for solver_dphi_dt with homogeneous Dirichlet BC
+    if(ifelectron==2.and.ifdphi==1) then
+       xx(1:mtheta(0)) = 0.
+       xx(neq-mtheta(mpsi-1)+1:mtheta(mpsi)) = 0.
+    endif
     
     !cj2014.05.02 solver1 uses homogeneous Neumann BC, so don't call neumbcfix
 #ifdef CJTEST
