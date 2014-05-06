@@ -895,7 +895,7 @@ contains
     !cj2014.05.02 modified for solver_dphi_dt with homogeneous Dirichlet BC
     if(ifelectron==2.and.ifdphi==1) then
        xx(1:mtheta(0)) = 0.
-       xx(neq-mtheta(mpsi-1)+1:mtheta(mpsi)) = 0.
+       xx(neq-mtheta(mpsi)+1:neq) = 0.
     endif
     
     !cj2014.05.02 solver1 uses homogeneous Neumann BC, so don't call neumbcfix
