@@ -101,16 +101,17 @@ program GTS
      if(mype == 0) write (0, *) "	finite element order=", order
 
      solver1%order = order
+     solver1%mat%mat_type = 1
      solver1%mat%bc_type = 0
      fem1%order = order
      call new_fem_data( fem1 )
 #ifdef CJTEST
-     call new_fem_solver( fem1, solver1, '', 1, 2 )
+     call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, 2 )
      call testsolve( solver1 )
      call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
 #else
-     call new_fem_solver( fem1, solver1, '', 1, 0 )
+     call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, solver1%mat%bc_type )
 #endif
 
      masssolver%order = 0
@@ -125,10 +126,11 @@ program GTS
 
      if(ifelectron==2.and.ifdphi==1) then
         solver_dphi_dt%order = order
+        solver_dphi_dt%mat%mat_type = 2
         solver_dphi_dt%mat%bc_type = 2
         femt%order = order
         call new_fem_data( femt )
-        call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', 2, 2 )
+        call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', solver_dphi_dt%mat%mat_type, solver_dphi_dt%mat%bc_type )
 #ifdef CJTEST
         call testsolve( solver_dphi_dt )
         call delete_fem_data( femt )

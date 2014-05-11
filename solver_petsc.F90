@@ -11,7 +11,7 @@ module phit_matrix_type
      integer,dimension(:),pointer :: gk_matid
 
      Mat :: mdata ! mass matrix
-     integer :: numbdy, bc_type
+     integer :: numbdy, mat_type, bc_type
      integer,dimension(:),pointer :: bdy
   end type phit_matrix_data
 end module phit_matrix_type
@@ -621,7 +621,7 @@ contains
     !     fem%iet3,neq,fem%points,alpha,beta,ierr)
     !call form_tangent(fem%order,Amat,Mmat,fem%iemax,fem%iet,&
     !     neq,fem%points,alpha,beta,ierr)
-    call form_tangent(fem,Amat,Mmat,neq,alpha,beta,ierr)
+    call form_tangent(fem,Amat,Mmat,neq, mat_type, bc_type,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatAssemblyBegin( Amat, MAT_FINAL_ASSEMBLY, ierr )
@@ -800,13 +800,13 @@ contains
     call MatSeqAIJSetPreallocation(Mmat,mindex,PETSC_NULL_INTEGER,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
-    alpha = 1.
-    beta  = 1.
+    !alpha = -1
+    !beta  = -1
     !call form_tangent(Amat,Mmat,fem%iemax,fem%iet1,fem%iet2,&
     !     fem%iet3,neq,fem%points,alpha,beta,ierr)
     !call form_tangent(fem%order,Amat,Mmat,fem%iemax,fem%iet,&
     !     neq,fem%points,alpha,beta,ierr)
-    call form_tangent(fem,Amat,Mmat,neq,alpha,beta,ierr)
+    call form_tangent(fem,Amat,Mmat,neq,-1,-1,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatAssemblyBegin( Amat, MAT_FINAL_ASSEMBLY, ierr )
@@ -893,7 +893,7 @@ contains
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
 
     !cj2014.05.02 modified for solver_dphi_dt with homogeneous Dirichlet BC
-    if(ifelectron==2.and.ifdphi==1) then
+    if(solver%mat%mat_type==2) then
        xx(1:mtheta(0)) = 0.
        xx(neq-mtheta(mpsi)+1:neq) = 0.
     endif
@@ -1160,7 +1160,7 @@ contains
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
-    use field_array,only: psi_grid,qtinv
+    use field_array,only: psi_grid,qtinv,Jcbn,gij
     implicit none
 #include "finclude/petscsys.h"
     type(solver_data) :: solver
@@ -1179,11 +1179,15 @@ contains
     real(wp), external ::temperature_e, density
     integer, external :: metric_elements
 
-    real(wp) M, L, alfa
+    real(wp) :: M=1., L=1., alfa=0.
     real(wp) :: rms=0., eps, err, pim, rr, zz
     logical :: flg
     integer :: whichone = 5
     integer :: ki, fe_ndof, i0, i1, i2, i3, i4, i5
+
+    real(wp) dxda, dxdt
+    real(doubleprec),allocatable,dimension(:) :: Jgdxda, Jgdxdt
+    real(doubleprec),allocatable,dimension(:) :: x_Jgdxda, x_Jgdxdt
 
 
     if(mype.eq.0) &
@@ -1198,6 +1202,44 @@ contains
     allocate(xx(neq*fe_ndof),bb(neq*fe_ndof))
     allocate(xx1(neq*fe_ndof))
     allocate(hh(neq*fe_ndof), bh(neq*fe_ndof), bn(neq*fe_ndof))
+
+    if(whichone==3) then
+       !test solver_dphi_dt solver
+       allocate(Jgdxda(mgrid),Jgdxdt(mgrid))
+       allocate(x_Jgdxda(mgrid),x_Jgdxdt(mgrid))
+       ivgts = 0
+       zeta = zetamin + deltaz ! zeta for my plane   
+       do ir=0,mpsi 
+          itmax=mtheta(ir)
+          pdum=psi_grid(ir)
+          dt = deltat(ir)
+          do it=0,itmax
+             ivgts = ivgts + 1
+             tdum = real(it)*dt + zeta*qtinv(ir)
+             tdum=tdum/(2.0_wp*pi)
+             tdum=2.0_wp*pi*(tdum-aint(tdum))
+
+             pim = pi*M/(a1-a0)
+             rr=pdum-a0
+             zz=tdum
+
+             dxda=pim*cos(pim*rr) * cos(L*zz+alfa)
+             dxdt=-L *sin(pim*rr) * sin(L*zz+alfa)
+             Jgdxda(ivgts)=Jcbn(ivgts)*(gij(1,ivgts)*dxda+gij(4,ivgts)*dxdt)
+             Jgdxdt(ivgts)=Jcbn(ivgts)*(gij(4,ivgts)*dxda+gij(2,ivgts)*dxdt)
+          enddo
+       enddo
+       if(ivgts.ne.mgrid)stop'testsolve dphidt solver: ivgts.ne.mgrid'
+#ifdef TODOCJ
+       x_Jgdxda=Jgdxda
+       x_Jgdxdt=Jgdxdt
+#else
+      !call find_dxda( masssolver, mgrid, Jgdxda, x_Jgdxda, ierr )
+      !call find_dxdt( masssolver, mgrid, Jgdxdt, x_Jgdxdt, ierr )
+#endif
+       deallocate(Jgdxda,Jgdxdt)
+    endif
+
     xx=0.
     hh=1.
     bh=0.
@@ -1214,10 +1256,6 @@ contains
           ivgts = ivgts + 1
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
-
-             M=10.
-             L=10.
-             alfa=0.
 
              tdum = real(it)*dt + zeta*qtinv(ir)
              tdum=tdum/(2.0_wp*pi)
@@ -1284,11 +1322,12 @@ contains
 
                 !u = sin(pi M (a-a0)/(a1-a0)) cos( L theta + alfa),
                 !rhs: del u = -( (pi M/(a1-a0))^2 + L^2 )u - (pi M/(a1-a0) L)cos sin
+                !bb(i0) = (-pim*pim - L*L) * xx(i0) - (2.*pim*L)*cos(pim*rr)*sin(L*zz+alfa)
                 pim = pi*M/(a1-a0)
                 rr=pdum-a0
                 zz=tdum
                 xx(i0) = sin(pim*rr) * cos(L*zz+alfa)
-                bb(i0) = (-pim*pim - L*L) * xx(i0) - (2.*pim*L)*cos(pim*rr)*sin(L*zz+alfa)
+                bb(i0) = 1./Jcbn(ivgts) * ( x_Jgdxda(ivgts) + x_Jgdxda(ivgts) )
                 if(fe_ndof .gt. 1) then
                    xx(i1) = cos(pim*rr) * cos(L*zz+alfa) * (pim)
                    xx(i2) = sin(pim*rr) * sin(L*zz+alfa) * (-L)
@@ -1527,6 +1566,7 @@ contains
     
     deallocate(bb,xx) 
     deallocate(xx1,hh,bh,bn) 
+    if(whichone==3) deallocate(x_Jgdxda,x_Jgdxdt)
 
     ! debug
     if( whichone .eq. 0 .and. mype==-10 ) then
@@ -1548,8 +1588,9 @@ contains
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0,a0,a1
-    use field_array,only: psi_grid,qtinv
+    use field_array,only: psi_grid,qtinv,Jcbn,gij
     implicit none
+#include "finclude/petscsys.h"
     type(solver_data) :: masssolver
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,mt
@@ -1560,9 +1601,13 @@ contains
     integer, external :: metric_elements
     integer :: ierr
 
-    real(wp) :: M, L, alfa, rms=0., pim, rr, zz, tmpr, tmpz
+    real(wp) :: M=1., L=1., alfa=0., rms=0., pim, rr, zz, tmpr, tmpz
     integer :: i,ii,j,jj,k,kk
-    integer :: fe_ns=3
+    logical :: flg
+    integer :: whichone = 5
+    integer :: fe_ns=3, fe_order=1, ie
+    real(wp),allocatable,dimension(:,:) :: xlt
+    integer,dimension(:),allocatable :: ind
 
 
     if(masssolver%order .gt. 0) then
@@ -1571,6 +1616,7 @@ contains
     else
        if(mype.eq.0) write(0, *) "	mass solver:: find dxdr dxdz begin"
     endif
+    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
 !cj the following is a combianation of solve and tri_mesh
     allocate(xx(mgrid),bb(mgrid))
@@ -1595,22 +1641,40 @@ contains
           the(1)=tdum
           call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
 
-         !whichone = 1
-         !bb(ivgts) = 1.
-          bb(ivgts) =   (rj(1)-R_0) + zj(1)  
-         !bb(ivgts) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
-         !fcj(ivgts) = 1.
+          if(whichone == 0) then
+             bb(ivgts) = 1.
+          else if(whichone == 1) then
+             bb(ivgts) =   (rj(1)-R_0) + zj(1)  
+          else if(whichone == 2) then
+             bb(ivgts) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
+          else if(whichone == 3) then
+             bb(ivgts) = pdum*pdum
+          else if(whichone == 4) then
+#ifdef TODOCJ
+             bb(ivgts) = tdum*tdum
+#else
+             allocate( xlt(2,fe_ns) )
+             allocate( ind(fe_ns) )
+             do ie=1, masssolver%fem%iemax
+                ind(:)=masssolver%fem%iet(:,ie)
+                xlt(1,:) = masssolver%fem%points(3,ind(:))
+                xlt(2,:) = masssolver%fem%points(4,ind(:))
+                call fixtheta(ie,fe_order,fe_ns,xlt)
+                bb(ind(:)) = xlt(2,:)*xlt(2,:)
+             enddo
+#endif
+          else if(whichone == 5) then
+             pim = pi*M/(a1-a0)
+             rr=pdum-a0
+             zz=tdum
+             fcj(ivgts) = 1.
+             bb(ivgts) = sin(pim*rr) * cos(L*zz+alfa)
+             fcj(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+          else
+             if(mype.eq.0) write(0, *) "	mass solver:: not implemented for whichone >=3"
+             return
+          endif
 
-         !whichone = 3
-         !bb(ivgts) = pdum*pdum
-          M=1
-          L=1
-          alfa=1
-          pim = pi*M/(a1-a0)
-          rr=pdum-a0
-          zz=tdum
-         !bb(ivgts) = sin(pim*rr) * cos(L*zz+alfa)
-         !fcj(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
        enddo
     enddo
     if(ivgts.ne.mgrid) then
@@ -1640,20 +1704,27 @@ contains
           the(1)=tdum
           call esigetrzb(rj,zj,Bj,aaa,the,1)
 
-         !tmp = 0.
-          tmpr = 1.
-          tmpz = 1.
-         !tmpr = 2. * ( (rj(1)-R_0) + zj(1) )
-         !tmpz = 2. * ( (rj(1)-R_0) + zj(1) )
-         !tmp = 2.*pdum
-          M=1
-          L=1
-          alfa=1
-          pim = pi*M/(a1-a0)
-          rr=pdum-a0
-          zz=tdum
-         !tmpr = cos(pim*rr) * cos(L*zz+alfa) * (pim)
-         !tmpz = sin(pim*rr) * sin(L*zz+alfa) * (-L)
+          if(whichone == 0) then
+             tmp = 0.
+          else if(whichone == 1) then
+             tmpr = 1.
+             tmpz = 1.
+          else if(whichone == 2) then
+             tmpr = 2. * ( (rj(1)-R_0) + zj(1) )
+             tmpz = 2. * ( (rj(1)-R_0) + zj(1) )
+          else if(whichone == 3) then
+             tmpr = 2.*pdum * sqrt(gij(1,ivgts))
+             tmpz = 0.
+          else if(whichone == 4) then
+             tmpr = 0.
+             tmpz = 2.*pdum * sqrt(gij(2,ivgts))
+          else if(whichone == 5) then
+             pim = pi*M/(a1-a0)
+             rr=pdum-a0
+             zz=tdum
+             tmpr = cos(pim*rr) * cos(L*zz+alfa) * (pim)
+             tmpz = sin(pim*rr) * sin(L*zz+alfa) * (-L)
+          endif
 
           if(mype.eq.0)write(115,115) ivgts, bb(ivgts), tmpr, dxdr(ivgts), tmpz, dxdz(ivgts)
           115 format("mass solver=", 1(2x,i7), 5(1x,d12.6))
@@ -1771,6 +1842,12 @@ contains
     logical :: flg
     integer :: whichone = 5
 
+
+    if(solver%order .gt. 0) then
+       stop '	find_dxdadxdt: not implemented for high order elements'
+    else
+       if(mype.eq.0) write(0, *) "	find_dxdadxdt: find dxdr dxdz begin"
+    endif
 
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     if(whichone.lt.3) then
@@ -1923,6 +2000,12 @@ contains
     integer :: whichone = 5
 
 
+    if(solver%order .gt. 0) then
+       stop '	find_dxda: not implemented for high order elements'
+    else
+       if(mype.eq.0) write(0, *) "	find_dxda: find dxdr begin"
+    endif
+
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     if(whichone.lt.3) then
        ! in (r,z) cylindrical coordinates
@@ -2051,6 +2134,12 @@ contains
     logical :: flg
     integer :: whichone = 5
 
+
+    if(solver%order .gt. 0) then
+       stop '	find_dxdt: not implemented for high order elements'
+    else
+       if(mype.eq.0) write(0, *) "	find_dxdt: find dxdt begin"
+    endif
 
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     if(whichone.lt.3) then
@@ -2908,7 +2997,7 @@ end subroutine neumbcfix
 !subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
 !subroutine form_tangent( order, Amat, Mmat, iemax, iet, npts, points, &
 subroutine form_tangent( fem, Amat, Mmat, npts, &
-     alpha, beta, ierr )
+     mat_type, bc_type, ierr )
   !     
   !     input:
   !     iemax: number of elements
@@ -2931,6 +3020,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
 #include "finclude/petscvec.h"
   type(fem_data) :: fem
   integer order,iemax,npts,ierr
+  integer mat_type, bc_type
 ! integer,dimension(:),allocatable :: iet1,iet2,iet3
 ! integer,dimension(:,:) :: iet
 ! real(wp) :: points(6,npts)
@@ -3101,7 +3191,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
                 else if(whichone==2) then
              sarr2(kk) = sarr(i,j)
                 else if(whichone==3) then
-             sarr2(kk) = fcj*( rrarr(i,j) + 2.*rzarr(i,j) + zzarr(i,j) )
+             sarr2(kk) = fcj*( cf1*rrarr(i,j) + cf2*rzarr(i,j) + cf2*zrarr(i,j) + cf3*zzarr(i,j) )
                 else if(whichone==4) then
              sarr2(kk) = fcj*( cf1*rrarr(i,j) + 2.*cf2*rzarr(i,j) + cf3*zzarr(i,j) )
                 else
@@ -3178,7 +3268,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
      do i=1,fe_ns
         vthe3(i)=temperature_e(aaa(i),0.0_wp)
      enddo
-     if(ifelectron==1 .or. (ifelectron==2.and.ifdphi==1)) then
+     if(ifelectron==1 .or. mat_type==2) then
         alpha = 0.0_wp
      else
         alpha = abs(csc0) * m0ms / mean(vthe3, fe_ns)
