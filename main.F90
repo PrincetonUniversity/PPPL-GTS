@@ -115,6 +115,8 @@ program GTS
 #endif
 
      masssolver%order = 0
+     masssolver%mat%mat_type = -1
+     masssolver%mat%bc_type = -1
      femm%order = 1
      call new_fem_data( femm )
      call new_fem_masssolver( femm, masssolver )

@@ -252,11 +252,16 @@ contains
     PetscInt         npartitions
     Mat              Bmat
     KSP              ksp
-    Vec              vec
-    real(doubleprec):: tol,value(17),zeros(17)
+    PC               prec;
+    Vec              vec, oneVec, rhsVec
+    real(doubleprec):: tol,value(17),zeros(17), norm
     integer          i,flg,j,col(17),inz,n_loc,start,kk
     PetscViewer viewer
     MatPartitioning  mpart
+    MatNullSpace  nullsp;
+    PetscBool  isNull;
+    MPI_Comm  comm;
+
     ! debug
     if( mype / nproc_partd .eq. -10 ) then
        call PetscViewerBinaryOpen(partd_comm, 'A0.m',FILE_MODE_WRITE,viewer,ierr)
@@ -348,6 +353,48 @@ contains
     tol = 1.d-5
     call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_DOUBLE_PRECISION, PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,ierr)
     call KSPSetType(ksp, KSPGMRES, ierr )
+
+    ! create oneVec=1 in nullspace
+    ! -pc_factor_shift_nonzero 1.e-10
+    if(this%mat%mat_type.eq.2 .and. this%mat%bc_type.eq.0) then
+       call VecDuplicate(this%bVec, oneVec, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call VecDuplicate(this%bVec, rhsVec, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call VecSet( oneVec, 1.0, ierr )
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+       call MatMult(Amat, oneVec, rhsVec, ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call VecNorm(rhsVec,NORM_1,norm, ierr);
+       if(mype.eq.0) write(0, *) "	nullspace created for",prefix, norm/neq
+       ! whichone=4 nullspace created for=dphidt_ 1.211923845185931E-14
+       ! whichone=5 nullspace created for=dphidt_ 4.89611458334855338E-15
+
+       call PetscObjectGetComm(Amat,comm,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call MatNullSpaceCreate(partd_comm, PETSC_TRUE, 0, PETSC_NULL_OBJECT, nullsp, ierr);
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call MatNullSpaceTest(nullsp, Amat, isNull,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       if(mype.eq.0 .and. isNull) write(0,*) "	nullspace test for", prefix
+       !call MatSetNullSpace(Amat,nullsp,ierr)
+       !if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call KSPSetNullSpace(ksp, nullsp,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call KSPGetPC(ksp,prec,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call PCFactorSetShiftType(prec,MAT_SHIFT_POSITIVE_DEFINITE,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call PCFactorSetShiftAmount(prec,1.e-10,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call MatNullSpaceDestroy(nullsp,ierr)
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+
+       call VecDestroy( oneVec, ierr )
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       call VecDestroy( rhsVec, ierr )
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    endif
         
     call KSPSetOptionsPrefix( ksp, prefix, ierr )
     call KSPSetFromOptions( ksp, ierr )
@@ -847,7 +894,7 @@ contains
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,ZF_SEPARATION,ifelectron,ifdphi
-    use field_array, only: phip00
+    use field_array, only: phip00,gsij
     implicit none
     type(solver_data) :: solver
     integer,intent(in) :: nn
@@ -855,7 +902,7 @@ contains
     real(wp),intent(in) :: bb_gk(nn) 
     real(wp),intent(inout) :: xx_gk(nn)
     real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, hh, bh, hh_ho, bh_ho
-    real(wp) :: neuma, neumt
+    real(wp),allocatable,dimension(:) :: gs, neuma, neumt
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(doubleprec),allocatable,dimension(:) :: xx, bb 
@@ -866,6 +913,10 @@ contains
     count = count + 1
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
+    allocate(gs(neq),neuma(neq),neumt(neq))
+    neuma=0.
+    neumt=0.
+    gs=0.
 
     !set Neumann bc for rhs vector sept19-2013
     !at present it only works for order=1
@@ -885,6 +936,7 @@ contains
              bb(ivsl) = bb_gk(ivgts)
              xx(ivsl) = xx_gk(ivgts)
              hh(ivsl) = phip00(ir)
+             gs(ivsl) = gsij(ivgts)
           elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
              stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
           end if
@@ -904,12 +956,12 @@ contains
        if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
           it= sum( mtheta ) - mtheta(mpsi)
           ir=mpsi
-          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,gs,neuma,neumt,bn)
        endif
        if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
           it= 0
           ir=0
-          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+          call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,gs,neuma,neumt,bn)
        endif
     endif
 #endif
@@ -971,6 +1023,7 @@ contains
     enddo
 
     deallocate(bb,xx,hh,bh,bn) 
+    deallocate(gs,neuma,neumt) 
 
     ! debug
     if( count .eq. 1 .and. mype==-10 ) then
@@ -1001,7 +1054,7 @@ contains
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0,a0,a1
-    use field_array,only: psi_grid,igrid,qtinv
+    use field_array,only: psi_grid,igrid,qtinv,gsij
     use esi_interface, only: metric
     implicit none
     type(solver_data) :: solver
@@ -1160,7 +1213,7 @@ contains
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
-    use field_array,only: psi_grid,qtinv,Jcbn,gij
+    use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij
     implicit none
 #include "finclude/petscsys.h"
     type(solver_data) :: solver
@@ -1171,7 +1224,7 @@ contains
     real(doubleprec),allocatable,dimension(:) :: xx, bb, hh, bh, xx1
     real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, hh_ho, bh_ho
     real(doubleprec),allocatable,dimension(:) :: bn,bn_ho
-    real(wp) :: neuma, neumt
+    real(wp),allocatable,dimension(:) :: gs, neuma, neumt
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(2) :: aaa,the,rj,zj,Bj
     real(wp) cf1, cf2, cf3, cf4, cf5
@@ -1185,7 +1238,7 @@ contains
     integer :: whichone = 5
     integer :: ki, fe_ndof, i0, i1, i2, i3, i4, i5
 
-    real(wp) dxda, dxdt
+    real(wp) dxda, dxdt, fcj
     real(doubleprec),allocatable,dimension(:) :: Jgdxda, Jgdxdt
     real(doubleprec),allocatable,dimension(:) :: x_Jgdxda, x_Jgdxdt
 
@@ -1202,6 +1255,10 @@ contains
     allocate(xx(neq*fe_ndof),bb(neq*fe_ndof))
     allocate(xx1(neq*fe_ndof))
     allocate(hh(neq*fe_ndof), bh(neq*fe_ndof), bn(neq*fe_ndof))
+    allocate(neuma(neq*fe_ndof),neumt(neq*fe_ndof),gs(neq*fe_ndof))
+    neuma=0.
+    neumt=0.
+    gs=1.
 
     if(whichone==3) then
        !test solver_dphi_dt solver
@@ -1225,17 +1282,20 @@ contains
 
              dxda=pim*cos(pim*rr) * cos(L*zz+alfa)
              dxdt=-L *sin(pim*rr) * sin(L*zz+alfa)
-             Jgdxda(ivgts)=Jcbn(ivgts)*(gij(1,ivgts)*dxda+gij(4,ivgts)*dxdt)
-             Jgdxdt(ivgts)=Jcbn(ivgts)*(gij(4,ivgts)*dxda+gij(2,ivgts)*dxdt)
+             fcj=Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
+             Jgdxda(ivgts)=fcj*(gij(1,ivgts)*dxda+gij(4,ivgts)*dxdt)
+             Jgdxdt(ivgts)=fcj*(gij(4,ivgts)*dxda+gij(2,ivgts)*dxdt)
           enddo
        enddo
        if(ivgts.ne.mgrid)stop'testsolve dphidt solver: ivgts.ne.mgrid'
 #ifdef TODOCJ
-       x_Jgdxda=Jgdxda
-       x_Jgdxdt=Jgdxdt
-#else
+      !cannot use "solver" to find derivatives, must use "masssolver"
       !call find_dxda( masssolver, mgrid, Jgdxda, x_Jgdxda, ierr )
       !call find_dxdt( masssolver, mgrid, Jgdxdt, x_Jgdxdt, ierr )
+#else
+      !tmp solution ... need more works
+       x_Jgdxda=Jgdxda
+       x_Jgdxdt=Jgdxdt
 #endif
        deallocate(Jgdxda,Jgdxdt)
     endif
@@ -1350,6 +1410,8 @@ contains
 
                 xx(i0) = pdum*pdum
                 bb(i0) = 4.
+                neuma(ivsl)=2.*pdum
+                neumt(ivsl)=0.
                 if(fe_ndof .gt. 1) then
                    xx(i1) = pdum*2.
                    xx(i2) = 0.
@@ -1400,12 +1462,12 @@ contains
     if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
        it= sum( mtheta ) - mtheta(mpsi)
        ir=mpsi
-       call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+       call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,gs,neuma,neumt,bn)
     endif
     if(solver%mat%bc_type==0 .or. solver%mat%bc_type==3) then
        it= 0
        ir=0
-       call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,neuma,neumt,bn)
+       call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,gs,neuma,neumt,bn)
     endif
 
     if( solver%fem%order .eq. 2) then
@@ -1650,19 +1712,7 @@ contains
           else if(whichone == 3) then
              bb(ivgts) = pdum*pdum
           else if(whichone == 4) then
-#ifdef TODOCJ
              bb(ivgts) = tdum*tdum
-#else
-             allocate( xlt(2,fe_ns) )
-             allocate( ind(fe_ns) )
-             do ie=1, masssolver%fem%iemax
-                ind(:)=masssolver%fem%iet(:,ie)
-                xlt(1,:) = masssolver%fem%points(3,ind(:))
-                xlt(2,:) = masssolver%fem%points(4,ind(:))
-                call fixtheta(ie,fe_order,fe_ns,xlt)
-                bb(ind(:)) = xlt(2,:)*xlt(2,:)
-             enddo
-#endif
           else if(whichone == 5) then
              pim = pi*M/(a1-a0)
              rr=pdum-a0
@@ -1713,11 +1763,11 @@ contains
              tmpr = 2. * ( (rj(1)-R_0) + zj(1) )
              tmpz = 2. * ( (rj(1)-R_0) + zj(1) )
           else if(whichone == 3) then
-             tmpr = 2.*pdum * sqrt(gij(1,ivgts))
+             tmpr = 2.*pdum
              tmpz = 0.
           else if(whichone == 4) then
              tmpr = 0.
-             tmpz = 2.*pdum * sqrt(gij(2,ivgts))
+             tmpz = 2.*tdum
           else if(whichone == 5) then
              pim = pi*M/(a1-a0)
              rr=pdum-a0
@@ -2422,7 +2472,7 @@ contains
     PetscViewer viewer
     integer :: m,n,p,vsize,msize,nsize
     PetscInt :: its
-    PetscReal :: rnorm
+    PetscReal :: rnorm, bsum, bshift
 
 
     if(solver%mat%data .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -2462,6 +2512,19 @@ contains
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
        call VecDestroy( vec_bh, ierr )
        call VecDestroy( tmpVecbh, ierr )
+
+       ! project off nullspace from rhs vector for neumann bc
+       if(solver%mat%mat_type==2 .and. solver%mat%bc_type==0) then
+          ! b.e
+          call VecSum(solver%bVec, bsum, ierr)
+          if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+          ! bshift=(b.e)/(e.e)
+          bshift = - bsum/nn
+          ! b=b-e (b.e)/(e.e)
+          call VecShift(solver%bVec,bshift,ierr)
+          if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+          if(mype.eq.0) write(0, *) "	nullspace off from b(b.e)=", bsum
+       endif
 
        ! apply dirichlet bc
        ! bVec = bVec * zero10 + xVec * zero01
@@ -2590,7 +2653,7 @@ contains
 !========================================================================
 !         rhs fix for Neumann boundary condition
 !========================================================================
-subroutine neumbcfix(i,mtheta_i,offset,neq,fem,dphida,dphidt,bn)
+subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
     use precision,only:wp,doubleprec
     use fem_data_class
     use esi_interface, only : metric
@@ -2601,28 +2664,29 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,dphida,dphidt,bn)
 #include "finclude/petscviewer.h"
     integer i,mtheta_i,offset,neq
     type(fem_data) :: fem
-    real(wp) :: dphida,dphidt
+    real(wp) :: gs(neq),dphida(neq),dphidt(neq)
     real(wp) :: bn(neq)
     ! locals
-    real(wp) :: gs,dphida1,dphidt1,dphida2,dphidt2,x1,x2,y1,y2,l12
+    real(wp) :: gs1,dphida1,dphidt1,gs2,dphida2,dphidt2,x1,x2,y1,y2,l12
     real(wp) :: gaa1, gtt1, gat1, gaa2, gtt2, gat2
     real(wp), dimension(2) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, fcj
     integer :: j,i1,i2,mt
     integer, external :: metric_elements
 
        !set gs, dphida, dphidt as a place holder for input into "solve" subroutine
-       gs=1.
        do j=1,mtheta_i
-          dphida1=1.  !to be replaced by dphida at j
-          dphidt1=1.  !to be replaced by dphidt at j
-          dphida2=1.  !to be replaced by dphida at j
-          dphidt2=1.  !to be replaced by dphidt at j
-
           ! the boundary edge is make of the following 2 vertices
           i1 = offset + j
           i2 = offset + j+1
           ! if j is the last index, then i1 connects to the first index
           if(j.eq.mtheta_i) i2=offset + 1
+
+          dphida1=dphida(i1)  !dphida at j
+          dphidt1=dphidt(i1)  !dphidt at j
+          dphida2=dphida(i2)  !dphida at j+1
+          dphidt2=dphidt(i2)  !dphidt at j+1
+          gs1=gs(i1)  !gs at j
+          gs2=gs(i2)  !gs at j+1
 
           aaa(1)=fem%points(3,i1)
           the(1)=fem%points(4,i1)
@@ -2642,15 +2706,15 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,dphida,dphidt,bn)
           gaa1=metric(1)
           gtt1=metric(2)
           gat1=metric(4)
-          bn(i1) = bn(i1) - .5*fcj(1)*gs*(gaa1*dphida1)*sqrt(l12)
-          bn(i1) = bn(i1) - .5*fcj(1)*gs*(gat1*dphidt1)*sqrt(l12)
+          bn(i1) = bn(i1) - .5*fcj(1)*gs1*(gaa1*dphida1)*sqrt(l12)
+          bn(i1) = bn(i1) - .5*fcj(1)*gs1*(gat1*dphidt1)*sqrt(l12)
 
           mt=metric_elements(aaa(2),the(2),0.)
           gaa2=metric(1)
           gtt2=metric(2)
           gat2=metric(4)
-          bn(i2) = bn(i2) - .5*fcj(2)*gs*(gaa2*dphida2)*sqrt(l12)
-          bn(i2) = bn(i2) - .5*fcj(2)*gs*(gat2*dphidt2)*sqrt(l12)
+          bn(i2) = bn(i2) - .5*fcj(2)*gs2*(gaa2*dphida2)*sqrt(l12)
+          bn(i2) = bn(i2) - .5*fcj(2)*gs2*(gat2*dphidt2)*sqrt(l12)
        end do
 end subroutine neumbcfix
 
