@@ -18,7 +18,7 @@ subroutine current_eon
        dgr(me),da(me),dgq(me),dgf(me), &
        Er_particle(me),dela,fip
 
-  integer gcmotion_e
+  integer gcmotion_eon
 
   real(wp) dni(0:mpsi),dne(0:mpsi),tdni(0:mpsi),tdne(0:mpsi),sne,sni,tsne,tsni
   real(wp) dnitmp(0:1,mgrid),buff(0:1,mgrid)
@@ -81,7 +81,8 @@ subroutine current_eon
      Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particles
   enddo
 
-  m=gcmotion_e(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)  ! should use nonlinear=1.0 here for linear run? --> calculate current
+  !    m=gcmotion_e(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)  ! should use nonlinear=1.0 here for linear run? --> calculate current
+  m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)  ! should use nonlinear=1.0 here for linear run? --> calculate current
 
 !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt; 
 !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     wpi(3,:)=dphi/dzeta, NO CHANGE; 
@@ -283,9 +284,9 @@ end if
   do i=0,mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        pflux_e(1,1,ij)=pflux_e(1,1,ij)*cloud_e/dadtdz(i)  
-        pflux_e(2,1,ij)=pflux_e(2,1,ij)*cloud_e/dadtdz(i)  
-        pflux_e(3,1,ij)=pflux_e(3,1,ij)*cloud_e/dadtdz(i)  
+        pflux_e(1,1,ij)=pflux_e(1,1,ij)*cloud_e/dadtdz(i)  ! Gamma_e*J
+        pflux_e(2,1,ij)=pflux_e(2,1,ij)*cloud_e/dadtdz(i)  ! Gamma_e*J
+        pflux_e(3,1,ij)=pflux_e(3,1,ij)*cloud_e/dadtdz(i)  ! Gamma_e*J
      enddo
   enddo
 

@@ -1092,8 +1092,8 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
         wt11=1.0_wp-wt01
         e1=e1+wp1*wt11*(wz0*dphidt(0,ij)+wz1*dphidt(1,ij)) ! --> dphidt at electrons
   
-!     wdphidt=e1*csc0*T_inverse
-        wdphidt=e1*csc0           ! when dphi/dt equation is modified; dphidt=[d(delta_phi)/dt]/Te
+        wdphidt=e1*csc0*T_inverse    ! when e1 is dphi/dt at electrons -- using FEM solver with order>0
+        !  wdphidt=e1*csc0           ! when dphi/dt equation is modified; dphidt=[d(delta_phi)/dt]/Te using old integral solver with order=0
 
 !    calculate d<phi>/da at electrons (no FLR effect -- x=R)
         r=zeon(7,m)-s0       ! in radial coordinator s
@@ -1110,17 +1110,17 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
         wdphidt=0.0_wp
      end if
 
-     if(zeon(1,m).le.lmax.or.zeon(1,m).ge.rmin) then
+     if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
         instep =smoothstep(lmin,lmax,zeon(1,m))
         outstep=smoothstep(rmin,rmax,zeon(1,m))
-!        fip=smoothstep(0.20_wp,0.25_wp,zeon(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zeon(1,m)))
+        !  fip=smoothstep(0.20_wp,0.25_wp,zeon(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zeon(1,m)))
         fip=instep*(1.0_wp-outstep)
-        wdrive=wdrive*fip
-
-        wdphidt=wdphidt*fip
+        !  wdrive=wdrive*fip
+        !  wdphidt=wdphidt*fip
 
         fdamp=(1.0_wp-fip)*fdamp0
      else
+        fip=1.0_wp
         fdamp=0.0_wp
      end if
 
@@ -1133,6 +1133,8 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
      weqflow=weqflow*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
 
      wdot=(wdrive+wdrift+weqflow+wdphidt)
+
+     wdot=wdot*fip
 
 
 !!!!!  if(nonlinear>0.5_wp) then     ! for nonlinear run

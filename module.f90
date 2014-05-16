@@ -34,11 +34,11 @@ end module precision
                         R_00=100._wp,  &  ! code unit for length, in cm
                         c=2.9979e10_wp, &
                                         &
-                      !  pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
-                      !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
+                        pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
+                        amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
                                                                       &
-                        pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
-                        amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
+                      !  !pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
+                      !  amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
                                                                      &
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
                                                                       &

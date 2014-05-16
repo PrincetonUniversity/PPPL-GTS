@@ -23,6 +23,8 @@ subroutine current_ion
 !  **************************************************************
 !  calculate ion particle flux
  
+! ion locations [wzion, wpion, wtion0, jtion0, wtion1, jtion1] are calculated in CHARGE_ION 
+
      pflux_i=0.0_wp
 
 ! gather e_field using 4-point gyro-averaging, sorting in poloidal angle

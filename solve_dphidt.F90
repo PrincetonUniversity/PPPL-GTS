@@ -35,7 +35,7 @@ subroutine solve_dphidt( solver )
 !$omp parallel do private(ij)
      do ij=1,mgrid
 !          phitmp(1,ij)=(fstep3*pflux_e(jj,1,ij)-pflux_i(jj,1,ij))*Jcbn(ij) ! =(Gamma_e-Gamma_i)*J
-        phitmp(1,ij)=(fstep3*pflux_e(jj,1,ij)-pflux_i(jj,1,ij))          ! =(Gamma_e-Gamma_i)
+        phitmp(1,ij)=(fstep3*pflux_e(jj,1,ij)-pflux_i(jj,1,ij))          ! =(Gamma_e-Gamma_i)*J
      enddo
 
      ismooth=1
@@ -272,7 +272,7 @@ subroutine solve_dphidt( solver )
 
   enddo   ! end do jj=1,3
 
-  call divergence_j  ! --> pflux_i=dvi[(Gamma_e-Gamma_i)*J/n_0]/J
+  call divergence_j  ! --> pflux_i=dvi[(Gamma_e-Gamma_i)*J]/(n_0*J)  -- May, 2014
 
 !$omp parallel do private(i,j,ij,sne,tsne,tsni)
   do i=0, mpsi
@@ -294,11 +294,17 @@ subroutine solve_dphidt( solver )
 
         pflux_e(1,1,ij)=fstep1*(pflux_i(1,1,ij)+pflux_i(2,1,ij)+pflux_i(3,1,ij))+   &
                         fstep2*tsni
-                   ! --> This is the right hand side of dphi/dt equation
+                   ! --> This is the right hand side of normalized dphi/dt equation which is [dphi/dt-tilde(dphi/dt)]/Ti = ... 
+                   ! --> also the RHS of normalized dphi/dt equation of PDE form which is: 
+                   !     beta*nabla_perp[sum(gs)*nabla_perp(dphi/dt)] = ... (see note)
 
 !        pflux_e(1,1,ij)=pflux_e(1,1,ij)*vth_grid(i)*vth_grid(i)  ! multiply by Ti
-        pflux_e(1,1,ij)=pflux_e(1,1,ij)*tite(i)  ! multiply by Ti/Te --> RHS of following equation
-                                                 ! Eq.--> [dphi/dt-tilde(dphi/dt)]/Te = ...
+
+        if(solver%order <= 0) then 
+           pflux_e(1,1,ij)=pflux_e(1,1,ij)*tite(i)  ! multiply by Ti/Te --> RHS of following equation
+                                                    ! Eq.--> [dphi/dt-tilde(dphi/dt)]/Te = ...
+        endif
+
      enddo
   enddo
 
@@ -317,6 +323,7 @@ subroutine solve_dphidt( solver )
 
 ! Solve  
 
+if(solver%order <= 0) then   ! use integral solver -- never worked!!
 ! Note: dphidt=(dphi/dt)/Te
   dphidt(1,:)=0.0_wp  ! addition to RHS with dphidt=0 for 1st iteration
 
@@ -353,6 +360,27 @@ subroutine solve_dphidt( solver )
 
   end do
 
+else     ! using FEM solver
+
+  bb_rhs=0.0_wp
+  xx=0.0_wp
+  bb_rhs(:)=pflux_e(1,1,:)
+
+  call solve( solver, mgrid, bb_rhs, xx, ierr )
+  dphidt(1,:) = xx       ! =dphi/dt
+
+  do i=0, mpsi
+     dphidt(1,igrid(i))=dphidt(1,igrid(i)+mtheta(i))  !validate dphidt(1,igrid(i)) for safe
+  enddo
+
+endif 
+
+
+
+
+
+
+
   adum=0.0_wp
   rms=0.0_wp
   bdum=0.0_wp
@@ -385,7 +413,8 @@ subroutine solve_dphidt( solver )
   do i=0, mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        dphidt(1,ij)=dphidt(1,ij)-dphidt00(i)  ! --> [d(delta_phi)/dt]/Te
+        dphidt(1,ij)=dphidt(1,ij)-dphidt00(i)  ! --> [d(delta_phi)/dt]/Te when order=0
+                                               ! --> d(delta_phi)/dt when order>0
      enddo
   enddo
 
@@ -417,8 +446,8 @@ subroutine solve_dphidt( solver )
      dphidt(:,igrid(i))=dphidt(:,igrid(i)+mtheta(i))
   end do
 
-! output: dphidt=d(delta_phi)/dt; both dphidt(0,:) and dphidt(:,igrid(i)) have valid data  
-! NOTE: with the modified RHS, dphidt represents [d(delta_phi)/dt]/Te (normalized)
+! output: dphidt=d(delta_phi)/dt for order>0; both dphidt(0,:) and dphidt(:,igrid(i)) have valid data
+! NOTE: with the modified RHS, dphidt represents [d(delta_phi)/dt]/Te (normalized) when order=0
 
 end subroutine solve_dphidt
 
@@ -446,11 +475,11 @@ subroutine divergence_j
 !
 ! Note: This subroutine calculates divergence-j at grid points
 !       using finite difference:  
-!       INOUT:  pflux_e(1:3, 0:1, mgrid)=(Gamma_e-Gamma_i)*J/n_0
-!       OUTPUT: pflux_i(1:3, 0:1, mgrid)=div[(Gamma_e-Gamma_i)*J/n_0]/J
-!       pflux_i(1,*,*)=dpflux_e(1,*,*)/da/J; 
-!       pflux_i(2,*,*)=dpflux_e(2,*,*)/dtheta/J;
-!       pflux_i(3,*,*)=dpflux_e(3,*,*)/dzeta/J;
+!       INOUT:  pflux_e(1:3, 0:1, mgrid)=(Gamma_e-Gamma_i)*J
+!       OUTPUT: pflux_i(1:3, 0:1, mgrid)=div[(Gamma_e-Gamma_i)*J]/(n_0*J)
+!       pflux_i(1,*,*)=dpflux_e(1,*,*)/da/(n_0*J); 
+!       pflux_i(2,*,*)=dpflux_e(2,*,*)/dtheta/(n_0*J);
+!       pflux_i(3,*,*)=dpflux_e(3,*,*)/dzeta/(n_0*J);
 !       not involving pflux_e(:,0,:) and pflux_i(:,0,:).
 !       We set pflux_i(:,:,:)=0 at the radial boundries, which may be not true, 
 !       but pflux_i at the radial boundries are not used elsewhere. 
