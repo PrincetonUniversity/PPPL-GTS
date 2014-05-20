@@ -252,7 +252,7 @@ contains
     PetscInt         npartitions
     Mat              Bmat
     KSP              ksp
-    PC               prec;
+    PC               prec
     Vec              vec, oneVec, rhsVec
     real(doubleprec):: tol,value(17),zeros(17), norm
     integer          i,flg,j,col(17),inz,n_loc,start,kk
@@ -946,8 +946,14 @@ contains
 
     !cj2014.05.02 modified for solver_dphi_dt with homogeneous Dirichlet BC
     if(solver%mat%mat_type==2) then
-       xx(1:mtheta(0)) = 0.
-       xx(neq-mtheta(mpsi)+1:neq) = 0.
+       if(solver%mat%bc_type==2) then
+          xx(1:mtheta(0)) = 0.
+          xx(neq-mtheta(mpsi)+1:neq) = 0.
+       else if(solver%mat%bc_type==1) then
+          xx(1:mtheta(0)) = 0.
+       else if(solver%mat%bc_type==3) then
+          xx(neq-mtheta(mpsi)+1:neq) = 0.
+       endif
     endif
     
     !cj2014.05.02 solver1 uses homogeneous Neumann BC, so don't call neumbcfix
@@ -1264,6 +1270,7 @@ contains
        !test solver_dphi_dt solver
        allocate(Jgdxda(mgrid),Jgdxdt(mgrid))
        allocate(x_Jgdxda(mgrid),x_Jgdxdt(mgrid))
+       ivsl = 0
        ivgts = 0
        zeta = zetamin + deltaz ! zeta for my plane   
        do ir=0,mpsi 
@@ -1272,19 +1279,27 @@ contains
           dt = deltat(ir)
           do it=0,itmax
              ivgts = ivgts + 1
-             tdum = real(it)*dt + zeta*qtinv(ir)
-             tdum=tdum/(2.0_wp*pi)
-             tdum=2.0_wp*pi*(tdum-aint(tdum))
 
-             pim = pi*M/(a1-a0)
-             rr=pdum-a0
-             zz=tdum
+            if(it.lt.itmax) then ! skip double stored 0,2pi value
+                ivsl = ivsl + 1
 
-             dxda=pim*cos(pim*rr) * cos(L*zz+alfa)
-             dxdt=-L *sin(pim*rr) * sin(L*zz+alfa)
-             fcj=Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
-             Jgdxda(ivgts)=fcj*(gij(1,ivgts)*dxda+gij(4,ivgts)*dxdt)
-             Jgdxdt(ivgts)=fcj*(gij(4,ivgts)*dxda+gij(2,ivgts)*dxdt)
+                tdum = real(it)*dt + zeta*qtinv(ir)
+                tdum=tdum/(2.0_wp*pi)
+                tdum=2.0_wp*pi*(tdum-aint(tdum))
+
+                pim = pi*M/(a1-a0)
+                rr=pdum-a0
+                zz=tdum
+
+                dxda=pim*cos(pim*rr) * cos(L*zz+alfa)
+                dxdt=-L *sin(pim*rr) * sin(L*zz+alfa)
+                fcj=Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
+                Jgdxda(ivgts)=fcj*(gij(1,ivgts)*dxda+gij(4,ivgts)*dxdt)
+                Jgdxdt(ivgts)=fcj*(gij(4,ivgts)*dxda+gij(2,ivgts)*dxdt)
+            else
+                Jgdxda(ivgts)=Jgdxda(ivsl-itmax+1)
+                Jgdxdt(ivgts)=Jgdxdt(ivsl-itmax+1)
+            endif
           enddo
        enddo
        if(ivgts.ne.mgrid)stop'testsolve dphidt solver: ivgts.ne.mgrid'
@@ -1629,6 +1644,7 @@ contains
     deallocate(bb,xx) 
     deallocate(xx1,hh,bh,bn) 
     if(whichone==3) deallocate(x_Jgdxda,x_Jgdxdt)
+    deallocate(neuma,neumt,gs)
 
     ! debug
     if( whichone .eq. 0 .and. mype==-10 ) then
