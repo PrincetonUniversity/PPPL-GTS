@@ -33,17 +33,12 @@ end module precision
   real(wp),parameter :: B_00=1.0e4_wp,  &  ! code unit for B, in unit gauss
                         R_00=100._wp,  &  ! code unit for length, in cm
                         c=2.9979e10_wp, &
-                                        &
                         pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
                         amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
-                                                                      &
                       !  !pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
                       !  amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
-                                                                     &
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
-                                                                      &
                         amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
-                                                                     &
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
                         dlni=16.0_wp, &
                         dsda_power=0.2_wp
