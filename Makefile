@@ -215,18 +215,31 @@ ifeq ($(F90C),ftn)
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
        else   # Using CRAY compiler
-          #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
-          FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
-          OPT:=
-          CFLAGS:=
-          COPT:=
-          OMPFLAG:=
-          NOOMPFLAG:=-hnoomp
+          ifeq ($(PE_ENV),INTEL)   # Using the INTEL compiler on Hopper or Edison
+             FFLAGS:=-r8 -Dflush_=flush -I.
+             OPT:=
+             CFLAGS:=
+             COPT:=
+             OMPFLAG:=-openmp
+             NOOMPFLAG:=
+             SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
+             SPRNG_INC:=-I${SPRNG_DIR}/include
+             PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+             PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+          else  # Using the CRAY compiler (cce)
+             #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
+             FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
+             OPT:=
+             CFLAGS:=
+             COPT:=
+             OMPFLAG:=
+             NOOMPFLAG:=-hnoomp
 ###          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng                   # for Hopper
-          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
-          SPRNG_INC:=-I${SPRNG_DIR}/include
-          PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+             SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
+             SPRNG_INC:=-I${SPRNG_DIR}/include
+             PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+             PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+          endif
        endif
 ####   else
 ####     # Jaguarpf system at ORNL
