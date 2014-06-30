@@ -1077,7 +1077,7 @@ contains
     real(wp), dimension(2) :: aaa,the,rj,zj,Bj
     real(wp) Mk, Lk, alfak
     real(wp) :: bfun1, bfun2, rhoj, Tj
-    real(wp) zeta, pdum, dt, tdum, krho1, krho2, fip, tmp1, tmp2
+    real(wp) krho1, krho2, fip, tmp1, tmp2
     real(wp), external :: temperature
     integer, external :: metric_elements
     real(wp),external :: besei0
@@ -1234,7 +1234,7 @@ contains
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(2) :: aaa,the,rj,zj,Bj
     real(wp) cf1, cf2, cf3, cf4, cf5
-    real(wp) alpha, beta, ns0, ne0, gs, vthe3, Zs
+    real(wp) alpha, beta, ns0, ne0, vthe3, Zs
     real(wp), external ::temperature_e, density
     integer, external :: metric_elements
 
@@ -1683,7 +1683,7 @@ contains
     integer :: i,ii,j,jj,k,kk
     logical :: flg
     integer :: whichone = 5
-    integer :: fe_ns=3, fe_order=1, ie
+    integer :: fe_ns=3, fe_order=1
     real(wp),allocatable,dimension(:,:) :: xlt
     integer,dimension(:),allocatable :: ind
 
@@ -2761,7 +2761,7 @@ end subroutine neumbcfix
     real(wp) zeta, pdum, dt, tdum
     integer :: mt,i, ii, j, jj, k, kk
     real(doubleprec),allocatable,dimension(:) :: bgsjgaa,bgsjgat,bgsjgaa_ho,bgsjgat_ho
-    real(wp) alpha, beta, ns0, ne0, gs, Zs, gaa, gat
+    real(wp) alpha, ns0, ne0, Zs, gaa, gat
     real(wp), external ::temperature_e, density
     integer, external :: metric_elements
     integer :: i0, i1, i2, i3, i4, i5
@@ -2929,7 +2929,7 @@ end subroutine neumbcfix
     real(wp) zeta, pdum, dt, tdum
     integer :: mt,i, ii, j, jj, k, kk
     real(doubleprec),allocatable,dimension(:) :: bgsjgaa,bgsjgat,bgsjgaa_ho,bgsjgat_ho
-    real(wp) alpha, beta, ns0, ne0, gs, Zs, gaa, gat
+    real(wp) alpha, ns0, ne0, Zs, gaa, gat
     real(wp), external ::temperature_e, density
     integer, external :: metric_elements
     integer :: i0, i1, i2, i3, i4, i5
