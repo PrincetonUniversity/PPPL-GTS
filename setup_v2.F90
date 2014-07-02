@@ -2062,9 +2062,9 @@ end subroutine setup
                      msnap,              &   ! step interval for snapshot, PHI record and checkpoint
                      ndiag,              &   ! calculate fluxes, tur intensity, etc, every ndiag-step
                      nonlinear,          &   ! =1.0, nonlinear run, =0.0, linear run
-                     ifdphi,             &   ! =0 --> no dphi/dt involved when ifelectron=0 or 1; 
-                                         &   ! =1 --> use dphi/dt equation when ifelectron=2;
-                                         &   ! =2 --> use direct dphi/dt when ifelectron=2
+                     ifdphi,             &   ! =0 --> no dphi/dt involved when ifelectron=0 or 1
+                                             ! =1 --> use dphi/dt equation when ifelectron=2
+                                             ! =2 --> use direct dphi/dt when ifelectron=2
                      mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
                      maintnT,            &   ! =0, no T profile restore; =1, T profile restore (be careful!)
                      tstep,              &   ! time step size ((in unit L_T/V_th)
