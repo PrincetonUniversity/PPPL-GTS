@@ -71,6 +71,7 @@ void mesh_count_( int *npoints, REAL *points, int *nedges, int *edges, int *orde
 {
   struct triangulateio in, out, vorout;
   REAL hole[2] = {0., 0.};
+  int i,j;
   
   /* Define input points. */
   in.numberofpoints = *npoints;
@@ -116,14 +117,14 @@ if(*mype==0){
   /* file output*/
   FILE *outfile = fopen("n.node", "w");
   fprintf(outfile, "%ld  %d  %d  %d\n",in.numberofpoints,2,0,0);
-  for(int i=0;i<in.numberofpoints * 2;i += 2){
+  for(i=0;i<in.numberofpoints * 2;i += 2){
     fprintf(outfile, "%4d    %.17g  %.17g\n",i/2 + 1, points[i],points[i+1]);
   }
   fclose(outfile);
   outfile = fopen("n.ele", "w");
      if(*order == 2) {
   fprintf(outfile, "%ld  %d  %d\n", out.numberoftriangles, 6, 0);
-  for(int j=0;j<out.numberoftriangles*6;j += 6){
+  for(j=0;j<out.numberoftriangles*6;j += 6){
     fprintf(outfile, "%4ld    %4d  %4d  %4d  %4d  %4d  %4d\n",j/6+1,
             out.trianglelist[j+0], out.trianglelist[j+1], out.trianglelist[j+2],
             out.trianglelist[j+3], out.trianglelist[j+4], out.trianglelist[j+5]
@@ -131,7 +132,7 @@ if(*mype==0){
   }
      } else {
   fprintf(outfile, "%ld  %d  %d\n", out.numberoftriangles, 3, 0);
-  for(int j=0;j<out.numberoftriangles*3;j += 3){
+  for(j=0;j<out.numberoftriangles*3;j += 3){
     fprintf(outfile, "%4ld    %4d  %4d  %4d\n",j/3+1,
             out.trianglelist[j], out.trianglelist[j+1], out.trianglelist[j+2]);
   }
