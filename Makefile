@@ -217,15 +217,16 @@ ifeq ($(F90C),ftn)
        else   # Using CRAY compiler
           ifeq ($(PE_ENV),INTEL)   # Using the INTEL compiler on Hopper or Edison
              FFLAGS:=-r8 -Dflush_=flush -I.
-             OPT:=
+             OPT:=-fast -no-ipo
              CFLAGS:=
-             COPT:=
+             COPT:=-fast -no-ipo
              OMPFLAG:=-openmp
              NOOMPFLAG:=
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
              SPRNG_INC:=-I${SPRNG_DIR}/include
              PSPLINE_INC:=-I${PSPLINE_DIR}/mod
              PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
           else  # Using the CRAY compiler (cce)
              #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
              FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
@@ -239,6 +240,7 @@ ifeq ($(F90C),ftn)
              SPRNG_INC:=-I${SPRNG_DIR}/include
              PSPLINE_INC:=-I${PSPLINE_DIR}/mod
              PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_cray_real
           endif
        endif
 ####   else
@@ -253,7 +255,6 @@ ifeq ($(F90C),ftn)
 ####       NETCDF:=${NETCDF_FLIB}
 ####       HDF5:=${HDF5_FLIB}
 ####   endif
-   PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_cray_real
    FFTLIB:=
    NAG_FILES:=fake_nag.o nag.o
    NAG:=-L./cmlib -lcmlib
@@ -266,8 +267,8 @@ ifeq ($(F90C),ftn)
 endif
 
    ifeq ($(DEBUG),y)
-     OPT:=-g -pg $(FFLAGS)
-     COPT:= -g -pg $(CFLAGS)
+     OPT:=-g -O0 $(FFLAGS)
+     COPT:= -g -O0 $(CFLAGS)
    else
      OPT:=$(OPT) $(FFLAGS)
      COPT:=$(COPT) $(CFLAGS)
