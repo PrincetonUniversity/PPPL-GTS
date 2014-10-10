@@ -349,9 +349,11 @@ contains
     endif
     ! KSP build
     call KSPCreate( partd_comm, ksp, ierr )
-    call KSPSetOperators( ksp, Amat, Amat, SAME_PRECONDITIONER, ierr)
+   !call KSPSetOperators( ksp, Amat, Amat, SAME_PRECONDITIONER, ierr)
+    call KSPSetOperators( ksp, Amat, Amat, ierr)
     tol = 1.d-5
-    call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_DOUBLE_PRECISION, PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,ierr)
+   !call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_DOUBLE_PRECISION, PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,ierr)
+    call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr)
     call KSPSetType(ksp, KSPGMRES, ierr )
 
     ! create oneVec=1 in nullspace
@@ -3259,7 +3261,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
 
         kk = 0
         do j=1,nz
-           k = ind(i)
+           k = ind(j)
            do i=1,nz
              kk = kk + 1
                 if(whichone==1) then
