@@ -349,11 +349,18 @@ contains
     endif
     ! KSP build
     call KSPCreate( partd_comm, ksp, ierr )
-   !call KSPSetOperators( ksp, Amat, Amat, SAME_PRECONDITIONER, ierr)
+#ifdef PETSCOLD
+    call KSPSetOperators( ksp, Amat, Amat, SAME_PRECONDITIONER, ierr)
+#else
     call KSPSetOperators( ksp, Amat, Amat, ierr)
+#endif
     tol = 1.d-5
    !call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_DOUBLE_PRECISION, PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,ierr)
+#ifdef PETSCOLD
+    call KSPSetTolerances(ksp,tol,PETSC_REAL, PETSC_REAL,PETSC_DEFAULT_INTEGER,ierr)
+#else
     call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr)
+#endif
     call KSPSetType(ksp, KSPGMRES, ierr )
 
     ! create oneVec=1 in nullspace

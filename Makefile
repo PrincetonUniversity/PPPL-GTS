@@ -263,7 +263,11 @@ ifeq ($(F90C),ftn)
    CFLAGS:= -DAdd_ ${SPRNG_INC}
 ###     -I$(SUPERLU_SRC)  ${SPRNG_LIB} ${NETCDF_C_LIB} ${HDF5_CLIB}
 
+   ifeq ($(shell uname -n | cut -c-6),hopper)
+   FFLAGS:=-DPETSCOLD $(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(HDF5)
+   else
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(HDF5)
+   endif
 endif
 
    ifeq ($(DEBUG),y)
@@ -348,7 +352,7 @@ $(OBJ): module.o
 	$(CMP) $(OPT) -c $<
 
 .c.o   :
-	$(CC) -c $(COPT) -DREDUCED -DCDT_ONLY -DTRILIBRARY -DANSI_DECLARATOR $<
+	$(CC) -c $(COPT) $(PETSCFINCLUDE) -DREDUCED -DCDT_ONLY -DTRILIBRARY -DANSI_DECLARATOR $<
 
 # The following tag is meant to "clean" the directory by removing the
 # executable along with all the object files created by the compilation 
