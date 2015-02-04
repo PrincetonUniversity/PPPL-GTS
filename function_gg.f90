@@ -597,7 +597,7 @@ FUNCTION object_u0(thedum)
       use esi_interface
 
       implicit  none
-      real(wp) object_u0
+      real(wp) object_u0, tmp, tmp2
 
       real(wp), external:: u_parallel, temperature, reducedjacobian
       real(wp) adum,thedum,udum,vth2dum,aaa(2),the(2),Ti,ui
@@ -606,8 +606,11 @@ FUNCTION object_u0(thedum)
 
       Ti=temperature(adum,thedum)
       ui=u_parallel(adum,thedum)
-      object_u0=exp(ui*ui/Ti*0.5_wp)
-      object_u0=object_u0*reducedjacobian(thedum)
+!cj      object_u0=exp(ui*ui/Ti*0.5_wp)
+!cj      object_u0=object_u0*reducedjacobian(thedum)
+      tmp=exp(ui*ui/Ti*0.5_wp)
+      tmp2=tmp*reducedjacobian(thedum)
+      object_u0=tmp2
 
 end function object_u0
 
@@ -620,7 +623,7 @@ FUNCTION object_u1(thedum)
       use esi_interface
 
       implicit  none
-      real(wp) object_u1
+      real(wp) object_u1, tmp, tmp2, tmp3
 
       real(wp), external:: u_parallel, temperature, reducedjacobian,dT_da,domega_da
       real(wp)  adum,thedum,udum,vth2dum,aaa(2),the(2),Ti,ui,pupa,dTda,omega_t,doda
@@ -640,9 +643,14 @@ FUNCTION object_u1(thedum)
 !      pupa=ui*(doda/omega_t+Fa(1)/F(1)-Ba(1)/BB(1))  ! =d(u_//)/da NOTE: cause problem when omega_t=0
       pupa=F(1)/BB(1)*doda+omega_t/BB(1)*Fa(1)-ui*Ba(1)/BB(1)   ! =d(u_//)/da
 
-      object_u1=exp(ui*ui/Ti*0.5_wp)
-      object_u1=object_u1*(ui/Ti*pupa-ui*ui/Ti*0.5_wp*dTda/Ti)
-      object_u1=object_u1*reducedjacobian(thedum)
+!cj      object_u1=exp(ui*ui/Ti*0.5_wp)
+!cj      object_u1=object_u1*(ui/Ti*pupa-ui*ui/Ti*0.5_wp*dTda/Ti)
+!cj      object_u1=object_u1*reducedjacobian(thedum)
+      tmp=exp(ui*ui/Ti*0.5_wp)
+      tmp2=tmp*(ui/Ti*pupa-ui*ui/Ti*0.5_wp*dTda/Ti)
+      tmp3=tmp2*reducedjacobian(thedum)
+
+      object_u1=tmp3
 
 end function object_u1
 
@@ -655,7 +663,7 @@ FUNCTION object_u2(thedum)
       use esi_interface
 
       implicit  none
-      real(wp) object_u2
+      real(wp) object_u2, tmp, tmp2, tmp3
 
       real(wp), external:: u_parallel, temperature, reducedjacobian
       real(wp) adum,thedum,udum,vth2dum,aaa(2),the(2),Ti,ui
@@ -668,9 +676,13 @@ FUNCTION object_u2(thedum)
       aaa(1)=adum
       the(1)=thedum
       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-      object_u2=exp(ui*ui/Ti*0.5_wp)
-      object_u2=object_u2*raj(1)/rj(1)
-      object_u2=object_u2*reducedjacobian(thedum)
+!cj      object_u2=exp(ui*ui/Ti*0.5_wp)
+!cj      object_u2=object_u2*raj(1)/rj(1)
+!cj      object_u2=object_u2*reducedjacobian(thedum)
+      tmp=exp(ui*ui/Ti*0.5_wp)
+      tmp2=tmp*raj(1)/rj(1)
+      tmp3=tmp2*reducedjacobian(thedum)
+      object_u2=tmp3
 
 end function object_u2
 
@@ -683,7 +695,7 @@ FUNCTION object_u3(thedum)
       use esi_interface
 
       implicit  none
-      real(wp) object_u3
+      real(wp) object_u3, tmp, tmp2
 
       real(wp), external:: reducedjacobian
       real(wp) adum,thedum,aaa(2),the(2)
@@ -693,8 +705,12 @@ FUNCTION object_u3(thedum)
       aaa(1)=adum
       the(1)=thedum
       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-      object_u3=raj(1)/rj(1)
-      object_u3=object_u3*reducedjacobian(thedum)
+!cj      object_u3=raj(1)/rj(1)
+!cj      object_u3=object_u3*reducedjacobian(thedum)
+      tmp=raj(1)/rj(1)
+      tmp2=tmp*reducedjacobian(thedum)
+
+      object_u3=tmp2
 
 end function object_u3
 
@@ -859,7 +875,7 @@ FUNCTION density(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) density
+      real(wp) density, tmp, tmp2
       real(wp) adum,thedum
 
       integer i, ip
@@ -879,8 +895,11 @@ FUNCTION density(adum,thedum)
             r=r*dela
             ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
             fip=r-real(ip,wp)
-            density=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
-            density=n_0*exp(kappan*density)      ! ne
+            tmp=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
+            tmp2=n_0*exp(kappan*tmp)      ! ne
+            density=tmp2
+!cj            density=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
+!cj            density=n_0*exp(kappan*density)      ! ne
          end if
 
       end if
@@ -899,7 +918,7 @@ FUNCTION dn_da(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) dn_da,densi
+      real(wp) dn_da,densi, tmp, tmp2
       real(wp) adum,thedum
 
       integer i, ip
@@ -922,8 +941,12 @@ FUNCTION dn_da(adum,thedum)
             densi=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
             densi=n_0*exp(kappan*densi)     ! ne
             x=temconst*(adum-rc)
-            dn_da=kappan*exp(-x**edensity0) ! dlnn/da
-            dn_da=densi*dn_da               ! dn/da
+!cj            dn_da=kappan*exp(-x**edensity0) ! dlnn/da
+!cj            dn_da=densi*dn_da               ! dn/da
+            tmp=kappan*exp(-x**edensity0) ! dlnn/da
+            tmp2=densi*tmp               ! dn/da
+
+            dn_da=tmp2
          end if
       end if
 
@@ -941,7 +964,7 @@ FUNCTION temperature(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) temperature
+      real(wp) temperature, tmp, tmp2
       real(wp) adum,thedum
 
       integer i, ip
@@ -961,8 +984,12 @@ FUNCTION temperature(adum,thedum)
               r=r*dela
               ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
               fip=r-real(ip,wp)
-              temperature=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     ! Ti at particles
-              temperature=T_0*exp(q1*temperature)
+!cj              temperature=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     ! Ti at particles
+!cj              temperature=T_0*exp(q1*temperature)
+              tmp=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     ! Ti at particles
+              tmp2=T_0*exp(q1*tmp)
+
+              temperature=tmp2
            end if
       end if
 
@@ -980,7 +1007,7 @@ FUNCTION temperature_e(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) temperature_e
+      real(wp) temperature_e, tmp, tmp2
       real(wp) adum,thedum
 
       integer i, ip
@@ -994,15 +1021,23 @@ FUNCTION temperature_e(adum,thedum)
 
       else               ! use model Te(r) profile
         if(q2.gt.0.0) then 
-           temperature_e=T_e0*(At_e+Bt_e*exp(-dTeme*adum**xt_e)) ! model Te profil, the same as Ti
-           temperature_e=Tc_e*(temperature_e/Tc_e)**b0
+           tmp=T_e0*(At_e+Bt_e*exp(-dTeme*adum**xt_e)) ! model Te profil, the same as Ti
+           tmp2=Tc_e*(tmp/Tc_e)**b0
+
+           temperature_e=tmp2
+!cj           temperature_e=T_e0*(At_e+Bt_e*exp(-dTeme*adum**xt_e)) ! model Te profil, the same as Ti
+!cj           temperature_e=Tc_e*(temperature_e/Tc_e)**b0
         else
            r=adum-a0
            r=r*dela
            ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
            fip=r-real(ip,wp)
-           temperature_e=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     
-           temperature_e=T_e0*exp(flow1*temperature_e)    ! =Te
+           tmp=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     
+           tmp2=T_e0*exp(flow1*tmp)    ! =Te
+
+           temperature_e=tmp2
+!cj           temperature_e=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     
+!cj           temperature_e=T_e0*exp(flow1*temperature_e)    ! =Te
         end if
       end if
 
@@ -1020,7 +1055,7 @@ FUNCTION dT_da(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) dT_da,tempi
+      real(wp) dT_da,tempi, tmp, tmp2
       real(wp) adum,thedum
 
       integer i, ip
@@ -1036,8 +1071,12 @@ FUNCTION dT_da(adum,thedum)
       else               ! use model Ti(r) profile
          if(q2.gt.0.0) then
             tempi=T_0*(At+Bt*exp(-dTemi*adum**xt))     ! original Ti profile
-            dT_da=T_0*Bt*exp(-dTemi*adum**xt)*(-dTemi*xt*adum**(xt-1.0_wp)) ! for original Ti profile
-            dT_da=r0*(tempi/Tc)**(r0-1.0d0)*dT_da      ! for new model Ti profile
+!cj            dT_da=T_0*Bt*exp(-dTemi*adum**xt)*(-dTemi*xt*adum**(xt-1.0_wp)) ! for original Ti profile
+!cj            dT_da=r0*(tempi/Tc)**(r0-1.0d0)*dT_da      ! for new model Ti profile
+            tmp=T_0*Bt*exp(-dTemi*adum**xt)*(-dTemi*xt*adum**(xt-1.0_wp)) ! for original Ti profile
+            tmp2=r0*(tempi/Tc)**(r0-1.0d0)*tmp      ! for new model Ti profile
+
+            dT_da=tmp2
          else
             r=adum-a0
             r=r*dela
@@ -1046,8 +1085,12 @@ FUNCTION dT_da(adum,thedum)
             tempi=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     ! Ti at particles
             tempi=T_0*exp(q1*tempi)
             x=rw*(adum-rc)
-            dT_da=q1*exp(-x**q0)
-            dT_da=tempi*dT_da
+!cj            dT_da=q1*exp(-x**q0)
+!cj            dT_da=tempi*dT_da
+            tmp=q1*exp(-x**q0)
+            tmp2=tempi*tmp
+
+            dT_da=tmp2
          end if
       end if
 
@@ -1065,7 +1108,7 @@ FUNCTION dT_da_e(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) dT_da_e, tempe
+      real(wp) dT_da_e, tempe, tmp, tmp2
       real(wp) adum,thedum
 
       integer i, ip
@@ -1080,8 +1123,12 @@ FUNCTION dT_da_e(adum,thedum)
       else               ! use model Te(r) profile
          if(q2.gt.0.0) then
             tempe=T_e0*(At_e+Bt_e*exp(-dTeme*adum**xt_e))   ! original Te profile
-            dT_da_e=T_e0*Bt_e*exp(-dTeme*adum**xt_e)*(-dTeme*xt_e*adum**(xt_e-1.0_wp))  ! for original Te profile
-            dT_da_e=b0*(tempe/Tc_e)**(b0-1.0d0)*dT_da_e     ! for new model Te profile
+!cj            dT_da_e=T_e0*Bt_e*exp(-dTeme*adum**xt_e)*(-dTeme*xt_e*adum**(xt_e-1.0_wp))  ! for original Te profile
+!cj            dT_da_e=b0*(tempe/Tc_e)**(b0-1.0d0)*dT_da_e     ! for new model Te profile
+            tmp=T_e0*Bt_e*exp(-dTeme*adum**xt_e)*(-dTeme*xt_e*adum**(xt_e-1.0_wp))  ! for original Te profile
+            tmp2=b0*(tempe/Tc_e)**(b0-1.0d0)*tmp     ! for new model Te profile
+
+            dT_da_e=tmp2
          else
             r=adum-a0
             r=r*dela
@@ -1090,8 +1137,12 @@ FUNCTION dT_da_e(adum,thedum)
             tempe=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     ! Ti at particles
             tempe=T_e0*exp(flow1*tempe)
             x=flow2*(adum-rc)
-            dT_da_e=flow1*exp(-x**flow0)
-            dT_da_e=tempe*dT_da_e
+!cj            dT_da_e=flow1*exp(-x**flow0)
+!cj            dT_da_e=tempe*dT_da_e
+            tmp=flow1*exp(-x**flow0)
+            tmp2=tempe*tmp
+
+            dT_da_e=tmp2
          end if
       end if
 
@@ -1154,7 +1205,7 @@ FUNCTION u_parallel(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) u_parallel
+      real(wp) u_parallel, tmp, tmp2
       real(wp) adum,thedum,aaa(10),the(10),rj(10),zz(10),Bj(10)
 
       real(wp), dimension(10) :: Fj,Faj,gFaj,gYaj,raj,rqj,zaj,zqj
@@ -1169,25 +1220,30 @@ FUNCTION u_parallel(adum,thedum)
       aaa(1)=adum
       the(1)=thedum
       if(plasma==1) then    ! use experimental omega(r) profile
-         call ezspline_interp(spO,adum,u_parallel,ier)
+!cj         call ezspline_interp(spO,adum,u_parallel,ier)
+         call ezspline_interp(spO,adum,tmp,ier)
       else                  ! use model omega_t profile
          if(q2.gt.0.0) then  ! model profile I
-            u_parallel=u_0*(Au+Bu*exp(-du*adum**xu))  ! this is omega_t (12/07)
+!cj            u_parallel=u_0*(Au+Bu*exp(-du*adum**xu))  ! this is omega_t (12/07)
+            tmp=u_0*(Au+Bu*exp(-du*adum**xu))  ! this is omega_t (12/07)
          else                ! model profile II
             r=adum-a0
             r=r*dela
             ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
             fip=r-real(ip,wp)
             tempe=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)
-            u_parallel=u_0+Au*tempe                   ! this is omega_t
+!cj            u_parallel=u_0+Au*tempe                   ! this is omega_t
+            tmp=u_0+Au*tempe                   ! this is omega_t
          end if 
       end if
 
       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zz,zaj,zqj,Bj,aaa,the,1)
-      u_parallel=Fj(1)*u_parallel/Bj(1)  ! =u_//=(I/B)*omega
+      tmp2=Fj(1)*tmp/Bj(1)  ! =u_//=(I/B)*omega
 
 !           call esigetrzb(rj,zz,Bj,aaa,the,1)
 !           u_parallel=u_parallel*(B_0/Bj(1))
+
+      u_parallel=tmp2
 
       return
 end function u_parallel
@@ -1618,7 +1674,7 @@ FUNCTION gs(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) gs
+      real(wp) gs, tmp
       real(wp) adum,thedum,aaa(10),the(10),rj(10),zz(10),Bj(10)
 
       real(wp), dimension(10) :: Fj,Faj,gFaj,gYaj,raj,rqj,zaj,zqj
@@ -1634,11 +1690,12 @@ FUNCTION gs(adum,thedum)
       aaa(1)=adum
       the(1)=thedum
 
-      gs=0.0_wp
+      tmp=0.0_wp
       do i=1,ns
          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zz,zaj,zqj,Bj,aaa,the,1)
-         gs=gs+Zs/(Bj(1)*Bj(1))*density(adum,thedum)*c0cs_i*msm0_i
+         tmp=tmp+Zs/(Bj(1)*Bj(1))*density(adum,thedum)*c0cs_i*msm0_i
       end do
+      gs=tmp
 
       return
 end function gs
