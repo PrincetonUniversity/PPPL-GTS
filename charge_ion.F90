@@ -352,16 +352,18 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
   do i=0,mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        wdum(i)=wdum(i)+0.25*densityi(1,ij)
+        !  wdum(i)=wdum(i)+0.25*densityi(1,ij)      ! original flux-surface avarage --> zonali; replaced in Jan. 2015
         densityi(1,ij)=0.25*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+        wdum(i)=wdum(i)+dtemper(ij)*densityi(1,ij)  ! new flux-surface avarage --> zonali; used in Jan. 2015
      enddo
   enddo
 !$omp end parallel
 
 ! global sum of phi00, broadcast to every PE
   call MPI_ALLREDUCE(wdum,zonali,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
-  zonali=zonali*pmarki   ! =dn_00/n_0
-  total_w=sum(wdum)      ! total particle weight (appro to int(delta-n d^3x) )
+  !  zonali=zonali*pmarki   ! =dn_00/n_0  -- original flux-surface avarage --> zonali; replaced in Jan. 2015
+  !  total_w=sum(wdum)      ! total particle weight (appro to int(delta-n d^3x) )
+  zonali=zonali/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonali; used in Jan. 2015
 
 ! densityi subtracted (0,0) mode
 !$omp parallel do private(i,j,ij)
@@ -406,20 +408,36 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
 ! select weight function for maintaining charge neutrality, see note
 !  wdum=fluxpsi   ! in terms turbulence intensity I(a)
 
-!  wdum(1:mpsi-1)=sqrt(fluxpsi(1:mpsi-1))   ! in terms sqrt[I(a)]
-!  wdum(0)=0.0_wp
-!  wdum(mpsi)=0.0_wp
+!   wdum(1:mpsi-1)=sqrt(fluxpsi(1:mpsi-1))   ! in terms sqrt[I(a)]
+!   wdum(0)=0.0_wp
+!   wdum(mpsi)=0.0_wp
+
+
+!  added Jan. 2015
+   if(irun==0.and.istep < 2*ndiag) then 
+      wdum=1.0  ! this is because initially sumfluxpsi=0 which cannot be used as weighting function
+   else
+      wdum=sqrt(sumfluxpsi)   ! in terms of sqrt{int[I(a)dt]}
+   end if
+
 
 !  wdum(1:mpsi-1)=sqrt(En_tur(1:mpsi-1))   ! in terms of sqrt[turbulence energy]
 !  wdum(0)=0.0
 !  wdum(mpsi)=0.0
 
-  wdum=eta_grid**2 ! in terms eta_i 
+!  wdum=eta_grid**2 ! in terms eta_i 
 
 !  wdum=1.0  ! uniform compensation used previously: may generate artificial ZF 
              ! in linearly stable zones!!! 
   
 !  wdum=eta_grid  ! check ZF driving turbulence 
+
+  do i=0,nbound
+     rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
+     wdum(i)=wdum(nbound)*rdum
+     wdum(mpsi-i)=wdum(mpsi-nbound)*rdum
+  enddo
+
 
 ! calculate int[dVda*I(a)*da]
   wf=0.0_wp
@@ -430,11 +448,16 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      !    wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)+dVda(i-1)*wdum(i-1))
      ! else               !  old solver
 
+     if(order==1) then  ! FEM solver, added Jan. 2015 See note -- charge conservation consistent with E_zf=0 at boundary
+        wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(wdum(i)+wdum(i-1))
+        wn=wn+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(den_grid(i-1)*dVda(i-1)*zonali(i-1)  &
+                                                +den_grid(i)*dVda(i)*zonali(i))
+     else               !  old solver
         wf=wf+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)*B2_s(i)  &
                                               +dVda(i-1)*wdum(i-1)*B2_s(i-1))
         wn=wn+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*zonali(i)*B2_s(i)  &
-                                           +dVda(i-1)*zonali(i-1)*B2_s(i-1))
-     ! end if
+                                          +dVda(i-1)*zonali(i-1)*B2_s(i-1))
+     end if
   end do
 
   do i=1,mpsi-1
@@ -448,11 +471,25 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      !              *(wdum(i)*finval_v/wf)            ! see note
      ! else                  !  old solver
 
-        zonali(i)=zonali(i)-wdum(i)*(wn/wf)            ! see note
-
-     ! endif
+     if(order==1) then     ! FEM solver, added Jan. 2015 See note -- charge conservation consistent with E_zf=0 at boundary
+        !  zonali(i)=zonali(i)-wdum(i)*(wn/wf)/(den_grid(i)*dVda(i))
+        wdum(i)=wdum(i)*(wn/wf)/(den_grid(i)*dVda(i))
+     else                  !  old solver
+        !  zonali(i)=zonali(i)-wdum(i)*(wn/wf)            ! see note
+        wdum(i)=wdum(i)*(wn/wf)            ! see note
+     endif
 
   enddo
+
+  if(mype==0.and.idiag==0) then
+     wdum(0)=0.0
+     wdum(mpsi)=0.0
+     write(800,100) istep, ( wdum(i),i=0,mpsi), ( zonali(i),i=0,mpsi), ( sumfluxpsi(i),i=0,mpsi)
+100  format(1x,i6, 606(1x,d12.6)) ! for maxium mpsi=200
+     call flush(800)
+  end if
+
+  zonali(1:mpsi-1)=zonali(1:mpsi-1)-wdum(1:mpsi-1)
 
   do i=0,nbound
      rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))

@@ -58,7 +58,7 @@ Subroutine setup
 
   real(wp), dimension(:), allocatable :: workarray_4_ETG
   real(wp), dimension(:), allocatable :: coord_X,coord_Y,coord_Z,&
-                                         coord_R,coord_Phi
+                                         coord_R,coord_Phi,kstar_Te
 
   integer create_directory
 
@@ -69,13 +69,22 @@ Subroutine setup
   common/fun1d/Tcc,r
 
   real(wp) vb(2),vp(nprobe,2)
+  real(wp) ne0
+
 
 #ifdef _OPENMP
   integer nthreads,omp_get_num_threads
 #endif
 
+! cj 2015-03-14 used in index mapping setup
+  integer neq, ivsl, ivgts, itmax
+
+
 ! Read run parameters from input file
   call read_input_params
+
+! Read control parameters from input file
+  call read_control_params  !ZHIXIN
 
 !  kappan=kappati*kappan        ! =R_0*<grad(n)/n>=R_0/L_n
   aelectron=1.0/aelectron      ! aelectron=1.0/1837.0
@@ -192,7 +201,12 @@ Subroutine setup
   Bu=1.0_wp/(Bu*(a1-a0))
 
   if(plasma==0.and.q2.lt.0.0) then 
-     allocate(Ti_node(0:jr),Te_node(0:jr),ne_node(0:jr),Iomg_node(0:jr))
+!cj  2015-02-25
+!cj  allocate(Ti_node(0:jr),Te_node(0:jr),ne_node(0:jr),Iomg_node(0:jr))
+     if(.not.allocated(Ti_node)) allocate(Ti_node(0:jr))
+     if(.not.allocated(Te_node)) allocate(Te_node(0:jr))
+     if(.not.allocated(ne_node)) allocate(ne_node(0:jr))
+     if(.not.allocated(Iomg_node)) allocate(Iomg_node(0:jr))
      rdum=(a1-a0)/real(jr,wp)
      do i=0,jr
         pdum=a0+rdum*real(i,wp)
@@ -237,15 +251,27 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
 
          call read_profiles(profile_data_name)         ! for JET data output
 
+         !  tdum=6.0_wp    ! for testing DTEM in DIII-D geometry with NSTX profiles
+         tdum=1.0_wp
+         Ti_50=Ti_50*tdum
+         Te_50=Te_50*tdum
+
          Ti_50=Ti_50/Tem_00       ! normalized temperature for which the normalized
                                   ! thermal velocity is vth=sqrt(T_i)
          Te_50=Te_50*m0ms/Tem_00  ! normalized electron temperature so that 
                                   ! the normalized electron thermal velocity is vth=sqrt(T_e), the same as that for ions
          O_50=O_50*utime          ! normalized toroidal rotation angular velocity,
                                   ! in radians (rad)
+         PHI_50=PHI_50*trans/E_00 ! normalized potential (PHI_50 read in from TRANSP is in units of Volts) 
+
 ! --------------------
 !    O_50=O_50*1.0d-6
 !    O_50=0.0_wp
+
+          !  O_50=-O_50            ! flip over rotation for NSTX  -- change to using control parameter flip_rotation
+          O_50=flip_rotation*O_50            ! flip over rotation for NSTX
+
+
 ! --------------------
 
 !         if(ETG==1) then  ! exchange Ti and Te so that temperature()-->Te and temperature_e()-->Ti;
@@ -273,25 +299,24 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
 !  a_ref=0.35_wp      ! used for DIIID-125238280 
 !  a_ref=0.55_wp         ! esiP64_mono.D3D
 !  a_ref=0.62         ! used for NSTX-200155 
-  a_ref=0.42_wp      ! used for DIIID-133672-314
-  a_ref=0.45_wp      ! used for DIIID-125236_290
-  a_ref=0.42_wp      ! used for DIIID-125236_360
-  a_ref=0.47_wp      ! used for DIIID-125499_489
-  a_ref=0.45_wp      ! used for DIIID-131910
-  a_ref=0.56_wp      ! used for DIIID-125499_229
-  a_ref=0.50_wp         ! used for NSTX-121012
-  a_ref=0.55_wp      ! used for DIIID-122338b02 2nd run
+!  a_ref=0.42_wp      ! used for DIIID-133672-314
+!  a_ref=0.45_wp      ! used for DIIID-125236_290
+!  a_ref=0.42_wp      ! used for DIIID-125236_360
+!  a_ref=0.47_wp      ! used for DIIID-125499_489
+!  a_ref=0.45_wp      ! used for DIIID-131910
+!  a_ref=0.56_wp      ! used for DIIID-125499_229
+!  a_ref=0.50_wp         ! used for NSTX-121012
+!  a_ref=0.55_wp      ! used for DIIID-122338b02 2nd run
 
-  a_ref=0.55_wp         ! used for DIIID-125229
-  a_ref=0.35_wp      ! used for DIIID-129533_405
-  a_ref=0.40_wp      ! used for DIIID-129533_405 eq., but with artificial profiles
-  a_ref=0.55_wp         ! used for model equilibrium and profiles
-  a_ref=0.42_wp      ! used for DIIID-125236_360
-  a_ref=0.60_wp      ! used for NSTX-141716_448
-  a_ref=0.50_wp      
-  a_ref=0.36_wp      ! used for D146596B11_2235 [0.05 0.7]
+!  a_ref=0.55_wp         ! used for DIIID-125229
+!  a_ref=0.35_wp      ! used for DIIID-129533_405
+!  a_ref=0.40_wp      ! used for DIIID-129533_405 eq., but with artificial profiles
+!  a_ref=0.55_wp         ! used for model equilibrium and profiles
+!  a_ref=0.42_wp      ! used for DIIID-125236_360
+!  a_ref=0.60_wp      ! used for NSTX-141716_448
+!  a_ref=0.50_wp      
+!  a_ref=0.36_wp      ! used for D146596B11_2235 [0.05 0.7]
 
-  call read_control_params  !ZHIXIN
   a_ref=a_ref_in     !ZHIXIN used to read data from input file
 !
 !  Initially, T_0 and T_e0 are specified in INPUT.d as temperatures at a=a_ref --> change made in Oct. 09
@@ -522,7 +547,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
     ! taking into account different definition in vthc
       Tau=Tau*(sqrt(2.0_wp))**3
     ! artificially enlarge collision frequency by a factor of coll_enlarge
-      Tau=Tau/coll_enlarge
+      !  Tau=Tau/coll_enlarge
       Tau=Tau/utime     ! normalized collision time at reference location
       dt_coll=tstep/Tau ! step size in terms of reference collision time Tau
       if(mype==0) write(0,*) 'collision is on ', ' with step size=', dt_coll, 'in tau_ii'
@@ -558,7 +583,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
 ! allocate memory
   allocate (qtinv(0:mpsi),itran(0:mpsi),mtheta(0:mpsi),deltat(0:mpsi),&
        rtemi(0:mpsi),rden(0:mpsi),igrid(0:mpsi),pmarki(0:mpsi),pmarke(0:mpsi),&
-       phi00(0:mpsi),phip00(0:mpsi),fluxpsi(0:mpsi),zonali(0:mpsi),&
+       phi00(0:mpsi),phip00(0:mpsi),fluxpsi(0:mpsi),zonali(0:mpsi),sumfluxpsi(0:mpsi),flux_11(0:mpsi), &
        zonale(0:mpsi),jaco_sum(0:mpsi),eigenmode(m_poloidal,num_mode,mpsi), & 
        allnodes(0:mpsi),gaa(0:mpsi),B2_s(0:mpsi),dVda(0:mpsi),En_00(0:mpsi),&
        En_tur(0:mpsi),En_tot(0:mpsi),sn0_g(0:mpsi),dnty_on_bin_g(0:mpsi),&
@@ -616,6 +641,11 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
   if(mype==0) print*, ' rmin,rmax = ', rmin,rmax
  endif
  
+ if(lmin.le.0.0.or.lmax.le.0.0) then !use original way
+  lmin=psi_grid(0+nbound/2)
+  lmax=psi_grid(0+nbound)
+  if(mype==0) print*, ' lmin,lmax = ', lmin,lmax
+ endif
 
 
 
@@ -737,7 +767,40 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
                      temperature(aaa(1),the(1))*Tem_00, dlnT/grada*(rj(1)/R_0), dlnu, rdum, zdum, dlnu0
         call flush(501)
      end do
-5    format(12(1x,ES13.6))
+5    format(14(1x,ES13.6))
+
+     !   added to calculate geometry/equilibrium quantities as a function of major radius R to check with expts -- March 2015
+     do i=0,k
+        aaa(1)=max(1.0e-7_wp,min(1.0_wp,1.0_wp-1.0_wp/real(k,wp)*real(i,wp)))
+        the(1)=pi
+        call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+        q=-gFaj(1)/gYaj(1)
+        grada=sqrt(rqj(1)**2+zqj(1)**2)/abs(zaj(1)*rqj(1)-zqj(1)*raj(1)) !grad(a) at the=0
+
+        ! call ezspline_interp(spP,aaa(1),rdum,ierror)
+
+        tdum=Fj(1)/rj(1)
+        pdum=abs(gYaj(1))*grada/rj(1)
+        zdum=sqrt(tdum*tdum+pdum*pdum)
+        write(707,5) rj(1), aaa(1), Bj(1), tdum, pdum, zdum, q
+        call flush(707)
+     end do
+     do i=0,k
+        aaa(1)=max(1.0e-7_wp,min(1.0_wp,1.0_wp/real(k,wp)*real(i,wp)))
+        the(1)=0.0_wp
+        call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+        q=-gFaj(1)/gYaj(1)
+        grada=sqrt(rqj(1)**2+zqj(1)**2)/abs(zaj(1)*rqj(1)-zqj(1)*raj(1)) !grad(a) at the=0
+
+        ! call ezspline_interp(spP,aaa(1),rdum,ierror)
+
+        tdum=Fj(1)/rj(1)
+        pdum=abs(gYaj(1))*grada/rj(1)
+        zdum=sqrt(tdum*tdum+pdum*pdum)
+        write(707,5) rj(1), aaa(1), Bj(1), tdum, pdum, zdum, q
+        call flush(707)
+     end do
+
   end if
 
 
@@ -1080,7 +1143,8 @@ end if ! if(mype==0)
        phi(0:1,mgrid),jtp1(2,mgrid),jtp2(2,mgrid),&
        wtp1(2,mgrid),wtp2(2,mgrid),dtemper(mgrid),heatflux(mgrid),&
        phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),&
-       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid) )
+       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),   &
+       dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
 
 ! Added for flow visualization, Feb. 2011
   allocate (on_grid(6,mgrid))
@@ -1091,6 +1155,24 @@ end if ! if(mype==0)
   jaco_sum=0.0_wp
 
   allocate(jaco4spectrum(0:mpsi,nfft))
+
+  if(mype==0) then
+     open(unit=734,file='for.734',status='replace',RECL=8192)
+     do i=0, mpsi
+        aaa(1)=psi_grid(i)
+        do k=0,400
+           the(1)=twopi/real(400)*real(k)
+           call esigetrzb(rj,zj,Bj,aaa,the,1)
+           jaco4spectrum(i,k+1)=Bj(1)
+        end do
+      end do
+     do k=0,400
+        tdum=twopi/real(400)*real(k)
+        write(734,802) tdum, (jaco4spectrum(i,k+1),i=0,mpsi)
+        call flush(734)
+     end do
+     close(unit=734)
+  end if
 
 !   !$omp parallel do private(i,j,k,ij,zdum,tdum,dpsi)
   do i=0, mpsi
@@ -1128,6 +1210,11 @@ end if ! if(mype==0)
 
         dtemper(ij)=dtemper(ij)*deltaz*deltat(i)   ! =J*dtheta*dzeta
         jaco_sum(i)=jaco_sum(i)+dtemper(ij)
+
+        !cj 2015-03-16 added to optimize solver
+        ne0=density(pdum,0.0_wp)
+        gbeta(ij)=-1./ne0
+
      enddo
 
      do j=1, nfft
@@ -1147,10 +1234,15 @@ end if ! if(mype==0)
 802  format(503(1x,d12.6)) ! for maxium mpsi=500
   end if
 
+!cj 2015-02-25 deallocate memory
+  deallocate(jaco4spectrum)
+
   eachv=sum(pmarki)
 
 ! use allnodes for storage of sum(pmarki) over nodes
   call MPI_ALLREDUCE(pmarki,allnodes,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+
+  totalv=sum(allnodes) 
 
   call MPI_ALLREDUCE(jaco_sum,fluxpsi,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
   jaco_sum=fluxpsi ! =int(J*dtheta*dzeta); fluxpsi is released after a use
@@ -1164,7 +1256,8 @@ end if ! if(mype==0)
 !$omp parallel do private(j,k,ij)
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        markeri(ij)=markeri(ij)/eachv
+        !  markeri(ij)=markeri(ij)/eachv
+        markeri(ij)=markeri(ij)/totalv
      enddo
 !     pmarki is the inverse of total particle # (sum over nodes) at an annulus i
 !     pmarki(i)=1.0/(real(numberpe)*real(mi)*(pmarki(i)/eachv))
@@ -1173,10 +1266,9 @@ end if ! if(mype==0)
      Jcbn(igrid(i))=Jcbn(igrid(i)+mtheta(i))
      gij(:,igrid(i))=gij(:,igrid(i)+mtheta(i))
      gsij(igrid(i))=gsij(igrid(i)+mtheta(i))
+     gbeta(igrid(i))=gbeta(igrid(i)+mtheta(i))
   enddo
   
-  totalv=sum(allnodes) 
-
 ! pmarki is the inverse of total particle # (sum over nodes) at an annulus i
   do i=0, mpsi
      pmarki(i)=allnodes(i)/totalv
@@ -1316,8 +1408,11 @@ if(mype==0) write(0,*) 'average density=', density_ave
         zdum=inv_grada*uveloci*E_00*1.0e-3_wp
         write(9,200) r, rdum, zdum
         write(19,200) r, -1.0/(dnty_r(i)*dO_10(i))/utime,                       &  ! x(this factor) -> chi_phi in units m^2/s 
-                         -1.0/(dnty_r(i)*dT_10(i))/(uveloci*E_00*1.0d-3)/utime, &  ! x(this factor) -> chi_i in units m^2/s
-                         -1.0/(dnty_r(i)*dlnT_e)/(uveloci*E_00*1.0d-3)/utime,   &  ! x(this factor) -> chi_e in units m^2/s
+                         !  -1.0/(dnty_r(i)*dT_10(i))/(uveloci*E_00*1.0d-3)/utime, &  ! x(this factor) -> chi_i in units m^2/s
+                         !  -1.0/(dnty_r(i)*dlnT_e)/(uveloci*E_00*1.0d-3)/utime,   &  ! x(this factor) -> chi_e in units m^2/s
+                         !  corrected but not change results -- June, 2014 S. E.  
+                         -1.0/(dnty_r(i)*dT_10(i))/(E_00/R_00*10.0_wp), &  ! x(this factor) -> chi_i in units m^2/s
+                         -1.0/(dnty_r(i)*dlnT_e)/(E_00/R_00*10.0_wp),   &  ! x(this factor) -> chi_e in units m^2/s
                          -1.0/(dlnn*1.0d6),                                     &  ! x(this factor) -> D in units m^2/s
                          psimax,sint
 200     format(16(2x,ES13.6))
@@ -1327,7 +1422,7 @@ if(mype==0) write(0,*) 'average density=', density_ave
      end if
   enddo
 
-  if(mype==0)  call theory
+     !  if(mype==0)  call theory
  
      r=rc
      tdum=temperature(r,0.0_wp)
@@ -1438,6 +1533,11 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
         q=-gFaj(1)/gYaj(1)
         inv_jaco=1.0_wp/jacobian(pdum,tdum)
 
+        dRda(ij)=raj(1)
+        dRdt(ij)=rqj(1)
+        dZda(ij)=zaj(1)
+        dZdt(ij)=zqj(1)
+
 !          in metric, 1=grad_a^2,2=grad_theta^2,3=grad_zeta^2
 !          4=grad_a.grad_theta,5=grad_a.grad_zeta,6=grad_theta.grad_zeta
 
@@ -1495,6 +1595,11 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 ! to be safe do the following
      pgyro(:,igrid(i))=pgyro(:,igrid(i)+mtheta(i)) !(:,igrid(i)) is missing in last do-loop
      tgyro(:,igrid(i))=tgyro(:,igrid(i)+mtheta(i)) !(:,igrid(i)) is missing in last do-loop
+
+     dRda(igrid(i)+mtheta(i))=dRda(igrid(i))  !(:,igrid(i)) is missing in last do-loop
+     dRdt(igrid(i)+mtheta(i))=dRdt(igrid(i))  !(:,igrid(i)) is missing in last do-loop
+     dZda(igrid(i)+mtheta(i))=dZda(igrid(i))  !(:,igrid(i)) is missing in last do-loop
+     dZdt(igrid(i)+mtheta(i))=dZdt(igrid(i))  !(:,igrid(i)) is missing in last do-loop
   enddo
 
 !  for zero gyroradius limit, set tgyro,pgyro=0 !wx
@@ -1597,15 +1702,67 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
 
 
+!  get q-profile, multiple profile information
+  if(mype==0) then
+     open(509,file='manyprofile.dat')
+     k=200
+     do i=0,k
+        aaa(1)=max(1.0e-7_wp,min(1.0_wp,1.0_wp/real(k,wp)*real(i,wp)))
+        the(1)=0.0_wp
+        call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+        q=-gFaj(1)/gYaj(1)
+        grada=sqrt(rqj(1)**2+zqj(1)**2)/abs(zaj(1)*rqj(1)-zqj(1)*raj(1)) !grad(a) at the=0
+! calculate R_0/L_T and R_0/L_n at middle plane:
+        dlnT=abs(dT_da(aaa(1),the(1))/temperature(aaa(1),the(1)))*grada*R_0 !=R_0*grad(lnT)
+        dlnn=abs(dn_da(aaa(1),the(1))/density(aaa(1),the(1)))*grada*R_0     !=R_0*grad(lnn)
+        rdum=domega_da(aaa(1),the(1),zdum)
+
+        !  psimax=u_parallel(aaa(1),the(1))
+        !  psimax=psimax/sqrt(msm0*temperature_e(aaa(1),the(1)))  !   U//*(1/Cs)
+        !
+        !  psiout=dn_da(aaa(1),the(1))/density(aaa(1),the(1))     !   dn/da*(1/n)
+        !  
+        !  psimax=psimax*(psiout+rdum/zdum)  
+
+        psimax=u_parallel(aaa(1),the(1))
+        psimax=psimax/sqrt(msm0*temperature_e(aaa(1),the(1)))  !   U//*(1/Cs)
+
+        call esiget2dfunctions(aaa,the,1)
+        psimax=psimax*(rdum/zdum+Faj(1)/Fj(1)-Ba(1)/BB(1))
+
+        psiout=dn_da(aaa(1),the(1))/density(aaa(1),the(1))     !   dn/da*(1/n)
+
+        ! psimax=psimax*rdum/zdum
+        ! psimax=psimax
+        ! psimax=psimax/sqrt(msm0*temperature_e(aaa(1),the(1)))
+
+        psimax=psimax/psiout
+        psimax=abs(psimax)
+
+        if(i==0) tdum=zdum   ! totation at magnetic axis
+        dlnu=abs(rdum/zdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)]
+        dlnu0=abs(rdum/tdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)] with omega_t at magnetic axis
+        write(509,5) aaa(1), q, dlnT, dlnn, dlnT/dlnn, & ! dlnT/dlnn=eta_i
+                     temperature(aaa(1),the(1))*Tem_00, dlnT/grada*(rj(1)/R_0), dlnu, rdum, zdum, dlnu0, psimax
+        call flush(509)
+     end do
+  end if
+
+
+
+
+
+
+
 ! *******************************************************************
 
 ! Post-processor calculation of zonal flow ExB shearing rate 
 ! need a separate directory with ZF data copied 
 !  i=21616    ! number of lines in ZF data files
-!  i=9600    ! number of lines in ZF data files
+!  i=17667    ! number of lines in ZF data files
 !  call get_ZF_shear(i)
 !  call mpi_finalize(ierror)
-! STOP
+!  STOP
 
 ! *******************************************************************
 
@@ -1693,7 +1850,7 @@ end if
 ! calculate grid point location in Cartisian Coordinates
 if(irun==0) then
   allocate(coord_X(mgrid),coord_Y(mgrid),coord_Z(mgrid),&
-           coord_R(mgrid),coord_Phi(mgrid))
+           coord_R(mgrid),coord_Phi(mgrid),kstar_Te(mgrid))
   do i=0,mpsi
      pdum=psi_grid(i)
 
@@ -1711,6 +1868,7 @@ if(irun==0) then
         coord_Z(ij)=zj(1)             ! --> z
         coord_R(ij)=rj(1)             ! --> R
         coord_Phi(ij)=zdum            ! --> phi
+        kstar_Te(ij)=Te_grid(i)/abs(csc0)
      end do
      !evector(:,1,igrid(i))=evector(:,1,igrid(i)+mtheta(i))
   end do
@@ -1725,10 +1883,11 @@ if(irun==0) then
       write(995)coord_Z
       write(995)coord_R
       write(995)coord_Phi
+      write(995)kstar_Te
       close(995)
   endif
 
-  deallocate(coord_X,coord_Y,coord_Z,coord_R,coord_Phi)
+  deallocate(coord_X,coord_Y,coord_Z,coord_R,coord_Phi,kstar_Te)
 end if
 
 ! Now that we have freed  up some memory by deallocating the coordinate
@@ -1791,66 +1950,104 @@ end if
 
 
 !  add info needed for kr spectrum calculation:
-! a_ref=a_ref
-pdum=temperature(a_ref,0.0_wp)   ! Ti
-rdum=temperature_e(a_ref,0.0_wp)
-rdum=rdum*msm0                   ! Te with the same unit as Ti
-aaa(1)=a_ref
-aaa(2)=a_ref
-aaa(3)=a_ref
-the(1)=0.0_wp
-the(2)=0.5_wp*pi
-the(3)=pi
-call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,3)
-grada=sqrt(rqj(1)**2+zqj(1)**2)/abs(zaj(1)*rqj(1)-zqj(1)*raj(1)) !grad(a) at the=0
-tdum= sqrt(rqj(2)**2+zqj(2)**2)/abs(zaj(2)*rqj(2)-zqj(2)*raj(2)) !grad(a) at the=pi/2
-zdum= sqrt(rqj(3)**2+zqj(3)**2)/abs(zaj(3)*rqj(3)-zqj(3)*raj(3)) !grad(a) at the=pi
-! normalized rho_s using Te
-rhos1=sqrt(rdum)/Bj(1)    ! normalized rho_s at the=0
-rhos2=sqrt(rdum)/Bj(2)    ! normalized rho_s at the=pi/2
-rhos3=sqrt(rdum)/Bj(3)    ! normalized rho_s at the=pi
 
-if(mype==0) then
-   print*, ' reference point a_ref', a_ref
-   print*, ' grid size deltar in terms of s', deltar 
-   print*, '|grad(a)| (a_ref,    0)', grada, '  ', rhos1
-   print*, '|grad(a)| (a_ref, pi/2)', tdum, '  ', rhos2
-   print*, '|grad(a)| (a_ref,   pi)', zdum, '  ', rhos3
-end if
+do i=0, mpsi
+   ! a_ref=a_ref
+   r=psi_grid(i)
+   pdum=temperature(r,0.0_wp)   ! Ti
+   rdum=temperature_e(r,0.0_wp)
+   rdum=rdum*msm0                   ! Te with the same unit as Ti
+   aaa(1)=r
+   aaa(2)=r
+   aaa(3)=r
+   the(1)=0.0_wp
+   the(2)=0.5_wp*pi
+   the(3)=pi
+   call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,3)
+   grada=sqrt(rqj(1)**2+zqj(1)**2)/abs(zaj(1)*rqj(1)-zqj(1)*raj(1)) !grad(a) at the=0
+   tdum= sqrt(rqj(2)**2+zqj(2)**2)/abs(zaj(2)*rqj(2)-zqj(2)*raj(2)) !grad(a) at the=pi/2
+   zdum= sqrt(rqj(3)**2+zqj(3)**2)/abs(zaj(3)*rqj(3)-zqj(3)*raj(3)) !grad(a) at the=pi
+   ! normalized rho_s using Te
+   rhos1=sqrt(rdum)/Bj(1)    ! normalized rho_s at the=0
+   rhos2=sqrt(rdum)/Bj(2)    ! normalized rho_s at the=pi/2
+   rhos3=sqrt(rdum)/Bj(3)    ! normalized rho_s at the=pi
 
-!  add info needed for k_theta spectrum calculation:
-! a_ref=0.6d0                      ! radial location for  k_theta spectrum calculation
-! a_ref=0.5733537d0                ! radial location for  k_theta spectrum calculation
- a_ref=0.59516d0                ! radial location for  k_theta spectrum calculation
-pdum=temperature(a_ref,0.0_wp)   ! Ti
-rdum=temperature_e(a_ref,0.0_wp)
-rdum=rdum*msm0                   ! Te with the same unit as Ti
-aaa(1)=a_ref
-aaa(2)=a_ref
-aaa(3)=a_ref
-the(1)=0.0_wp
-the(2)=0.5_wp*pi
-the(3)=pi
-call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,3)
-grada=zaj(1)*rqj(1)-zqj(1)*raj(1)
-tdum= zaj(2)*rqj(2)-zqj(2)*raj(2)
-zdum= zaj(3)*rqj(3)-zqj(3)*raj(3)
+   if(mype==0) then
+      print*, ' reference point ipsi=', i
+      print*, ' grid size deltar in terms of s', deltar 
+      print*, '|grad(a)| (a_ref,    0)', grada, '  ', rhos1
+      print*, '|grad(a)| (a_ref, pi/2)', tdum, '  ', rhos2
+      print*, '|grad(a)| (a_ref,   pi)', zdum, '  ', rhos3
+      write(25, 124) i, r, grada, rhos1, tdum, rhos2, zdum, rhos3     
+   end if
 
-grada=sqrt((zaj(1)**2+raj(1)**2)/grada**2) ! |grad(theta)| at the=0
-tdum= sqrt((zaj(2)**2+raj(2)**2)/tdum**2)  ! |grad(theta)| at the=pi/2
-zdum= sqrt((zaj(3)**2+raj(3)**2)/zdum**2)  ! |grad(theta)| at the=pi
-! normalized rho_s using Te
-rhos1=sqrt(pdum)/Bj(1)*sqrt(rdum/pdum)  ! normalized rho_s at the=0
-rhos2=sqrt(pdum)/Bj(2)*sqrt(rdum/pdum)  ! normalized rho_s at the=pi/2
-rhos3=sqrt(pdum)/Bj(3)*sqrt(rdum/pdum)  ! normalized rho_s at the=pi
+   !  add info needed for k_theta spectrum calculation:
+   ! a_ref=0.6d0                      ! radial location for  k_theta spectrum calculation
+   ! a_ref=0.5733537d0                ! radial location for  k_theta spectrum calculation
+   ! a_ref=0.59516d0                ! radial location for  k_theta spectrum calculation
+   pdum=temperature(r,0.0_wp)   ! Ti
+   rdum=temperature_e(r,0.0_wp)
+   fip=sqrt(2.0_wp*pdum)
+   rdum=rdum*msm0                   ! Te with the same unit as Ti
+   aaa(1)=r
+   aaa(2)=r
+   aaa(3)=r
+   the(1)=0.0_wp
+   the(2)=0.5_wp*pi
+   the(3)=pi
+   call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,3)
+   grada=zaj(1)*rqj(1)-zqj(1)*raj(1)
+   tdum= zaj(2)*rqj(2)-zqj(2)*raj(2)
+   zdum= zaj(3)*rqj(3)-zqj(3)*raj(3)
 
-if(mype==0) then
-   print*, '(|(grad(theta)|,    0)', grada, '  ', rhos1
-   print*, '(|(grad(theta)|, pi/2)', tdum, '  ', rhos2
-   print*, '(|(grad(theta)|,   pi)', zdum, '  ', rhos3
-end if
+   grada=sqrt((zaj(1)**2+raj(1)**2)/grada**2) ! |grad(theta)| at the=0
+   tdum= sqrt((zaj(2)**2+raj(2)**2)/tdum**2)  ! |grad(theta)| at the=pi/2
+   zdum= sqrt((zaj(3)**2+raj(3)**2)/zdum**2)  ! |grad(theta)| at the=pi
+   ! normalized rho_s using Te
+   rhos1=sqrt(pdum)/Bj(1)*sqrt(rdum/pdum)  ! normalized rho_s at the=0
+   rhos2=sqrt(pdum)/Bj(2)*sqrt(rdum/pdum)  ! normalized rho_s at the=pi/2
+   rhos3=sqrt(pdum)/Bj(3)*sqrt(rdum/pdum)  ! normalized rho_s at the=pi
 
-!    generate (R,Z) coordinates for contour plot of n=0 mode
+   !  fip=sqrt(a_minor/R_0)*fip/vthc*Lc/(q_grid(i)*R_0)   ! = electron-bounce-frequency/(vthc/Lc)
+   fip=fip/vthc*Lc/(q_grid(i)*R_0)   ! = ion-transit-frequency/(vthc/Lc)
+
+
+
+
+      dlnT=dT_da(r,0.0)
+      dlnT_e=dT_da_e(r,0.0)
+      dlnn=dn_da(r,0.0)
+      call general_flux_average(r,object_9,minx)      ! minx=<|grad_a|>
+      dlnT_e=minx*dlnT_e
+      dlnT_e=dlnT_e*msm0
+      dlnn=minx*dlnn
+      minx=minx*dlnT                              ! minx==<|grad_a|>*dT/da
+      rdum=domega_da(r,0.0,sint)                          ! rdum=d_omega_t/da
+      psimax=rdum
+      call general_flux_average(r,object_11,miny)     ! miny=<R^2*|grad_a|>
+      minz=miny
+      miny=miny*rdum                              ! =<R^2*|grad_a|>*d_omega_t/da
+
+
+
+
+   if(mype==0) then
+      print*, '(|(grad(theta)|,    0)', grada, '  ', rhos1
+      print*, '(|(grad(theta)|, pi/2)', tdum, '  ', rhos2
+      print*, '(|(grad(theta)|,   pi)', zdum, '  ', rhos3
+      write(24, 124) i, r, grada, rhos1, tdum, rhos2, zdum, rhos3, sqrt(a_minor/R_0)*fip, fip, & 
+                     -1.0/(dnty_on_bin_g(i)*miny)/utime,                   &    ! x(this factor) -> chi_phi in units m^2/s
+                     -1.0/(dnty_on_bin_g(i)*minx)/(E_00/R_00*10.0_wp),     &    ! x(this factor) -> chi_i in units m^2/s     
+                     -1.0/(dnty_on_bin_g(i)*dlnT_e)/(E_00/R_00*10.0_wp),   &    ! x(this factor) -> chi_e in units m^2/s
+                     -1.0/(dlnn*1.0d6),                                    &    ! x(this factor) -> D in units m^2/s
+                     +1.0/(dnty_on_bin_g(i)*minz)/utime/utime
+   end if
+end do
+124  format(2x, i4, 16(2x, d12.6))
+close(24)
+close(25)
+
+!    generate (R,Z) coordinates for cntour plot of n=0 mode
 if(mype==0) then
    k=768
    tdum=twopi/real(k)
@@ -1939,6 +2136,33 @@ end if
      close(501)
   end if
 
+! cj 2015-03-14 index mapping
+! mappingL2G: generate global ivgts
+! mappingG2L: generate local ivsl
+! ... start ...
+  neq=sum(mtheta)
+  allocate (mappingL2G(neq), mappingG2L(mgrid))
+  ivsl = 0
+  ivgts = 0
+  do i=0,mpsi
+     itmax=mtheta(i)
+     do j=0,itmax
+        ivgts = ivgts + 1
+        if(j.lt.itmax) then ! skip double stored 0,2pi value
+           ivsl = ivsl + 1
+           mappingL2G(ivsl) = ivgts
+           mappingG2L(ivgts) = ivsl
+!  write(718,*) "mappingL2G ivsl ivgts ", i, j, ivsl, mappingL2G(ivsl)
+        else
+           mappingG2L(ivgts) = mappingG2L(ivgts-1) - itmax+1
+        end if
+!  write(717,*) "mappingG2L ivgts ivsl ", i, j, ivgts, mappingG2L(ivgts)
+     enddo
+  enddo
+  if(ivsl.ne.sum(mtheta))stop'solve: ivsl.ne.sum(mtheta)'
+! ...  end  ...
+
+  call output_profiles    ! for SL
 
   w2_ion0=1.0_wp
   w2_eon0=1.0_wp
@@ -1957,7 +2181,7 @@ end subroutine setup
   use control_parameters
 
   implicit none
-  integer,parameter :: n_integers=8, n_reals=13
+  integer,parameter :: n_integers=8, n_reals=16
   integer :: integer_params(n_integers)
   real*8       :: real_params(n_reals)
   integer ierror
@@ -1967,7 +2191,8 @@ end subroutine setup
   namelist/var_control/ lmin,lmax,rmin,rmax,iratio_dthe,ratio_dthe0,ratio_dthe1,a0_dthe,a1_dthe,&
             flag_Lc,a_ref_in, &
             flag_DEN,flag_FLOW,flag_PHI,flag_RESTART,flag_GRID,&
-            irewrite,ifneoclassical,ratio_Er401,ratio_Er_grid,w_initial_in
+            irewrite,ifneoclassical,ratio_Er401,ratio_Er_grid,w_initial_in,&
+            flip_rotation,ain,aout
 
   if(mype==0) then
      open(unit=5,file='INPUT.d')
@@ -1996,6 +2221,9 @@ end subroutine setup
   real_params(11)=ratio_Er401
   real_params(12)=ratio_Er_grid
   real_params(13)=w_initial_in
+  real_params(14)=flip_rotation   ! read-in experimental rotation is multiplied by flip_rotation
+  real_params(15)=ain             ! at boundary layers a<ain and a>aout, read-in experimental Ti, Te, ne profiles are modified
+  real_params(16)=aout
   endif
 
 
@@ -2025,8 +2253,12 @@ end subroutine setup
   ratio_Er401=real_params(11)
   ratio_Er_grid=real_params(12)
   w_initial_in=real_params(13)
+  flip_rotation=real_params(14)
+  ain=real_params(15)
+  aout=real_params(16)
 
   endif
+
  end subroutine read_control_params
 
 
@@ -2062,9 +2294,9 @@ end subroutine setup
                      msnap,              &   ! step interval for snapshot, PHI record and checkpoint
                      ndiag,              &   ! calculate fluxes, tur intensity, etc, every ndiag-step
                      nonlinear,          &   ! =1.0, nonlinear run, =0.0, linear run
-                     ifdphi,             &   ! =0 --> no dphi/dt involved when ifelectron=0 or 1
-                                             ! =1 --> use dphi/dt equation when ifelectron=2
-                                             ! =2 --> use direct dphi/dt when ifelectron=2
+                     ifdphi,             &   ! =0 --> no dphi/dt involved when ifelectron=0 or 1;
+                                         &   ! =1 --> use dphi/dt equation when ifelectron=2;
+                                         &   ! =2 --> use direct dphi/dt when ifelectron=2
                      mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
                      maintnT,            &   ! =0, no T profile restore; =1, T profile restore (be careful!)
                      tstep,              &   ! time step size ((in unit L_T/V_th)

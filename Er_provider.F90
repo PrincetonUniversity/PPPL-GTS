@@ -19,16 +19,18 @@ subroutine Er_provider
           B_p0,rho_0,R2, &
           xe,ac,half_width,Er_amp,Yrr,dum
   real(wp), external :: temperature,density,u_parallel,dT_da,dn_da
-  integer i, ifail,ierror
+  integer i, ifail, ierror, ErTRANSP
 
 !  integer Er_from_GTC_Neo,n_node
 !  character(25) Er_data_name
   real(wp), dimension(:), allocatable :: Er_on_node,r_node,E01_K,E01_C,E01_WRK
+  real(wp), dimension(:), allocatable :: Er401_TRANSP, Er_grid_TRANSP
       
 
 
       je=jr
       allocate(Yr(0:je), coty(0:je), Er401_pc(0:je), Er401_bp(0:je),Er401_bp0(0:je))
+      allocate(Er401_TRANSP(0:je), Er_grid_TRANSP(0:mpsi))
       xe=2.0_wp
 !      ac=0.35
       ac=0.50_wp
@@ -92,6 +94,8 @@ end if
          Er401_bp(i)=((hint1-1._wp)*dlnT_da-dlnn_da)*0.5_wp*vthr**2-U_int*gFaj(1)/(qq*Fj(1))
          Er401_pc(i)=((hint2-1._wp)*dlnT_da-dlnn_da)*0.5_wp*vthr**2-U_int*gFaj(1)/(qq*Fj(1))
 
+         if(plasma==1) call ezspline_derivative(spPHI,1,Yr(i),Er401_TRANSP(i),ierror) ! Er from TRANSP
+
 !   given a model Er profile
          !  Er401_bp(i)=Er_amp*exp(-((Yr(i)-ac)/half_width)**xe)
 
@@ -133,6 +137,8 @@ end if
 
                  ! Er=dPhi/da
          Er_grid(i)=((hint1-1._wp)*dlnT_da-dlnn_da)*0.5_wp*vthr**2-U_int*gFaj(1)/(qq*Fj(1)) ! using bp regime
+
+         if(plasma==1) call ezspline_derivative(spPHI,1,Yr(i),Er_grid_TRANSP(i),ierror) ! =Er from TRANSP
       end do
 
       do i=0,mpsi
@@ -190,20 +196,33 @@ end if
   Er401_bp=Er401_bp*ratio_Er401
   Er_grid=Er_grid*ratio_Er_grid
 
-  Er401_bp0=Er401_bp
-  Er_grid0=Er_grid
-
   if(mype==0) then
      open(502,file='Er_estimate.dat')
 
      do i=0,je
-        write(502,5) i, Yr(i), Er401_bp(i), Er401_pc(i) 
-        !print*, ' Er_nc:', i, Yr(i), Er401_bp(i), Er401_pc(i)
+        if(plasma==1) then
+           call ezspline_derivative(spPHI,1,Yr(i),dum,ierror) ! dum=dPHI_eq/da
+           write(502,5) i, Yr(i), Er401_bp(i), Er401_pc(i),dum 
+        else 
+           write(502,5) i, Yr(i), Er401_bp(i), Er401_pc(i)
+           !print*, ' Er_nc:', i, Yr(i), Er401_bp(i), Er401_pc(i)
+        endif
      end do
 
      call flush(502)
 
-5    format(2x, i5, 3(2x,ES13.6))
+5    format(2x, i5, 4(2x,ES13.6))
   end if
+
+  ErTRANSP=1
+  if(ifneoclassical==1) ErTRANSP=0
+
+  if(plasma==1.and.ErTRANSP==1) then
+     Er401_bp=Er401_TRANSP*ratio_Er401
+     Er_grid=Er_grid_TRANSP*ratio_Er_grid
+  endif
+
+  Er401_bp0=Er401_bp
+  Er_grid0=Er_grid
  
 end subroutine Er_provider

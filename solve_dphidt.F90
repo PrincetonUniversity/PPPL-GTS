@@ -1,4 +1,4 @@
-subroutine solve_dphidt( solver )
+subroutine solve_dphidt( solver, masssolver )
   use precision
   use mpi_defs
   use global_parameters
@@ -10,6 +10,7 @@ subroutine solve_dphidt( solver )
   implicit none
   !
   type(solver_data) :: solver 
+  type(solver_data) :: masssolver 
   !
   integer i,j,k,ii,jj,ij,ip,jt,ismooth,it,n, &
        icount,ierr,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
@@ -345,7 +346,7 @@ if(solver%order <= 0) then   ! use integral solver -- never worked!!
         bb_rhs(igrid(i))=bb_rhs(igrid(i)+mtheta(i))
      end do
 
-     call solve( solver, mgrid, bb_rhs, xx, ierr )
+     call solve( solver, masssolver, mgrid, bb_rhs, xx, ierr )
      dphidt(1,:) = xx       ! =(dphi/dt)/Te
 
      ! radial boundary: dphidt=0 at both inner and outer boundaries
@@ -366,7 +367,11 @@ else     ! using FEM solver
   xx=0.0_wp
   bb_rhs(:)=pflux_e(1,1,:)
 
-  call solve( solver, mgrid, bb_rhs, xx, ierr )
+!!  bb_rhs=bb_rhs*1.0d-30
+
+!!  if(mype==1) print*, 'HHHHEEEEEERRRRR'
+
+  call solve( solver, masssolver, mgrid, bb_rhs, xx, ierr )
   dphidt(1,:) = xx       ! =dphi/dt
 
   do i=0, mpsi

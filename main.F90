@@ -107,7 +107,7 @@ program GTS
      call new_fem_data( fem1 )
 #ifdef CJTEST
      call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, 2 )
-     call testsolve( solver1 )
+     call testsolve( solver1, masssolver )
      call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
 #else
@@ -134,7 +134,7 @@ program GTS
         call new_fem_data( femt )
         call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', solver_dphi_dt%mat%mat_type, solver_dphi_dt%mat%bc_type )
 #ifdef CJTEST
-        call testsolve( solver_dphi_dt )
+        call testsolve( solver_dphi_dt, masssolver )
         call delete_fem_data( femt )
         call destroy_solver( solver_dphi_dt )
 #endif
@@ -176,7 +176,7 @@ program GTS
   if(ifelectron==2.and.ifdphi==1) then
      CALL CURRENT_ION
      CALL CURRENT_EON
-     CALL SOLVE_DPHIDT(solver_dphi_dt)    ! --> d(delta-phi)/dt
+     CALL SOLVE_DPHIDT(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
   end if
 
 !  call check_temperature
@@ -383,7 +383,7 @@ end if
         if(ifelectron==2.and.ifdphi==1) then
            CALL CURRENT_ION
            CALL CURRENT_EON
-           CALL SOLVE_DPHIDT(solver_dphi_dt)    ! --> d(delta-phi)/dt
+           CALL SOLVE_DPHIDT(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
         end if
 
      enddo  ! enddo irk=1,2
@@ -464,6 +464,9 @@ end if
         call destroy_solver( solver_dphi_dt )
      endif
   endif
+
+!free all allocated arrays
+!  call GTS_finalize(ierror)
 
 ! MPI finalize
 !  call mpi_finalize(ierror)

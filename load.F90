@@ -44,6 +44,7 @@ subroutine load
   integer   ip
 
   if(irun==0) ddT_da=0.0_wp
+  if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
 ! restart from previous runs
   if(irun /= 0)then
      call restart_read
@@ -163,7 +164,8 @@ subroutine load
   call MPI_ALLREDUCE(mp1_i8,misum_i8,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,ierror)
 
 !     markeri is the inverse of ion marker number at each grid point in term of initial loading
-  markeri=markeri*(real(misum_i8,wp)/real(ntoroidal,wp))
+  !  markeri=markeri*(real(misum_i8,wp)/real(ntoroidal,wp))
+  markeri=markeri*real(misum_i8,wp)
   markeri=1.0_wp/markeri   ! to avoid divide operation
 
 !     pmarki is the inverse of total particle # (sum over nodes) at an anulus i

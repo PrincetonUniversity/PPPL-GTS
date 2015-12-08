@@ -228,6 +228,7 @@ int esifree()
   free(sr);
   free(gq);
   MemFl=0;
+  return(0);
 }
 
 int SetFunctionErf()

@@ -13,7 +13,7 @@ subroutine snapshot
   implicit none
 
   integer,parameter :: mbin_psi=5, mbin_u=32
-  integer i,ibin,ip,iu,j,jj,jm,jt,k,kz,m,nsnap,ierror,icount
+  integer i,ibin,ip,iu,j,jj,jm,jt,k,kz,m,nsnap,ierror,icount,ij
   real(wp) Emax,eright,uright,uleft,pdum,tdum,b,upara,energy,pitch,q,dela,&
            delu,g_inv,qdum,r,delr,delz,phisn(mtheta(ipsi)/2),&
            eachpsi(mtheta(ipsi)/2*mzetamax),wt,delt(0:mpsi),&
@@ -353,12 +353,18 @@ subroutine snapshot
   endif
   
 101 format(i6)
-102 format(e10.4)
-  
-105 format(e10.4,4x,6hflux2x,4x,i4)
-106 format(e10.4,4x,6hflux2z,4x,i4)
-107 format(e10.4,2x,i4,2x,4hpsi=,e10.4,2x,4hthe=,e10.4,2x,2hR=,e10.4,2x,2hz=,e10.4)
+!  102 format(e10.4)
 
+  
+!  105 format(e10.4,4x,6hflux2x,4x,i4)
+!  106 format(e10.4,4x,6hflux2z,4x,i4)
+!  107 format(e10.4,2x,i4,2x,4hpsi=,e10.4,2x,4hthe=,e10.4,2x,2hR=,e10.4,2x,2hz=,e10.4)
+
+102 format(d16.10)
+
+105 format(d16.10,4x,6hflux2x,4x,i4)
+106 format(e16.10,4x,6hflux2z,4x,i4)
+107 format(e16.10,2x,i4,2x,4hpsi=,d16.10,2x,4hthe=,d16.10,2x,2hR=,d16.10,2x,2hz=,d16.10)
 
 ! REcord Potential. Each myrank_toroidal has its own file (see open_file).
   if(movie_3D_h5==0) then  ! no 3D movie data created
@@ -380,6 +386,17 @@ subroutine snapshot
      if(ifelectron==0) then
         write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid)
      else 
+        
+        !   Total electron density fluctuations = adiabatic + nonadiabatic
+        !$omp parallel do private(i,j,ij)
+        do i=0,mpsi
+           do j=1,mtheta(i)
+              ij=igrid(i)+j
+              densitye(1,ij)=densitye(1,ij)+phi(1,ij)/Te_grid(i)*abs(csc0)  ! total electron density fluctuation dn_e/n_0
+           enddo
+           densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))  ! validate densitye(:,igrid(i)
+        enddo
+
         write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid),densitye(1,1:mgrid),heatflux(1:mgrid)   ! delta-ne output added Oct. 2012
                             !  phi_tmp:  Ti fluctuations
                             !  heatflux: Te fluctuations

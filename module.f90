@@ -33,10 +33,10 @@ end module precision
   real(wp),parameter :: B_00=1.0e4_wp,  &  ! code unit for B, in unit gauss
                         R_00=100._wp,  &  ! code unit for length, in cm
                         c=2.9979e10_wp, &
-                        pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
-                        amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
-                      !  !pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
-                      !  amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
+                      !  pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
+                      !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
+                        pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
+                        amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
                         amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
@@ -105,6 +105,8 @@ end module precision
 ! integer,parameter  :: ifneoclassical=1
   integer:: ifneoclassical  !--ZHIXIN: this is passed from INPUT.d
 
+  integer,dimension(:),allocatable :: mappingL2G, mappingG2L
+
 end module global_parameters
 
 module particle_array
@@ -139,7 +141,8 @@ module field_array
   real(wp),dimension(:,:),allocatable :: on_grid, flow_grid
 
   real(wp),dimension(:),allocatable :: markeri,markere,dtemper,heatflux,&
-                                       phi_tmp,Jcbn,gsij,div1,div2
+                                       phi_tmp,Jcbn,gsij,div1,div2,     &
+                                       dRda, dRdt, dZda, Dzdt, gbeta
   real(wp),dimension(:,:,:),allocatable :: evector,pflux_i,pflux_e
   real(wp),dimension(:,:),allocatable :: wtp1,wtp2,gij,cij
 
@@ -167,6 +170,7 @@ module diagnosis_array
   real(wp) sn0(nbin_a),dnty_on_bin(nbin_a),Tr(nbin_a),Tr_e(nbin_a), &
            dnty_r(nbin_a),dO_10(nbin_a),dT_10(nbin_a)
   real(wp),dimension(:),allocatable :: fluxpsi,jaco_sum,En_00,En_tur,En_tot,sn0_g,dnty_on_bin_g
+  real(wp),dimension(:),allocatable :: sumfluxpsi,flux_11
   real(wp),dimension(:,:,:),allocatable :: eigenmode
   integer,dimension(:),allocatable :: nf,nfL,nf_e,nfL_e
   integer my_nf, my_nfL, my_ZL(2),nfile
@@ -226,6 +230,7 @@ module control_parameters
   integer flag_Lc,iratio_dthe,irewrite
 !-- switch for recording corresponding variables
   integer flag_DEN,flag_FLOW,flag_PHI,flag_RESTART,flag_GRID
+  real(wp) flip_rotation,ain,aout   ! WX added Nov. 2014
 
 end module control_parameters
 

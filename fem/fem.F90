@@ -81,11 +81,11 @@ subroutine new_fem_data_private( this, ierr )
   integer i,iv,jv,kv
   !
   interface
-     subroutine tri_mesh( this )
-       use fem_data_class
-       implicit none
-       type(fem_data) :: this
-     end subroutine tri_mesh
+!     subroutine tri_mesh( this )
+!       use fem_data_class
+!       implicit none
+!       type(fem_data) :: this
+!     end subroutine tri_mesh
   end interface
   !
   ! form: iet1,iet2,iet3,iemax
@@ -140,14 +140,14 @@ subroutine tri_mesh( this )
   integer i1,i2,i3,i4,i5,i6
 
   interface
-    subroutine circ_tri_mesh(mtheta,npoints,points,order,ngvert,iemax,mype)
-      use precision
-      implicit none
-      integer order, ngvert
-      integer iemax ! in or out
-      integer mype,npoints,mtheta(0:)
-      real(wp) points(5,npoints)
-    end subroutine circ_tri_mesh
+!    subroutine circ_tri_mesh(npoints,points,order,ngvert,iemax,mype)
+!      use precision
+!      implicit none
+!      integer order, ngvert
+!      integer iemax ! in or out
+!      integer mype,npoints
+!      real(wp) points(5,npoints)
+!    end subroutine circ_tri_mesh
   end interface
   !
 
@@ -180,7 +180,7 @@ subroutine tri_mesh( this )
   if(iv .ne. this%nmesh_pts) stop 'iv .ne. nmesh_pts'
 
   ! count elements
-  call circ_tri_mesh(mtheta, this%nmesh_pts, this%points, this%order, ngvert, this%iemax, mype)
+  call circ_tri_mesh(this%nmesh_pts, this%points, this%order, ngvert, this%iemax, mype)
   
   ! allocate and generate mesh
 ! allocate( this%iet1(this%iemax), this%iet2(this%iemax), this%iet3(this%iemax) )
@@ -260,13 +260,13 @@ end subroutine tri_mesh
 !========================================================================
 !                         circ_tri_mesh
 !========================================================================
-subroutine circ_tri_mesh(mtheta,npoints,points,order,ngvert,iemax,mype)
+subroutine circ_tri_mesh(npoints,points,order,ngvert,iemax,mype)
   use precision
-  use global_parameters,only:mpsi
+  use global_parameters,only:mpsi,mtheta
   implicit none
   integer order,ngvert
   integer iemax ! in or out
-  integer mype,npoints,mtheta(0:)
+  integer mype,npoints
   real(wp) points(5,npoints)
   logical just_count
   integer iplot

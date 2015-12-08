@@ -74,6 +74,9 @@ subroutine open_files
      end if
 
      if(mype==0)open(80,file='fort.80',status='replace',RECL=8192)
+     if(mype==0)open(83,file='fort.83',status='replace',RECL=8192)
+     if(mype==0)open(800,file='fort.800',status='replace',RECL=8192)
+     if(mype==0)open(801,file='fort.801',status='replace',RECL=8192)
      if(mype==numberpe-1)then
         open(90,file='fort.90',status='replace',RECL=8192)
         open(93,file='fort.93',status='replace',RECL=8192)
@@ -142,6 +145,9 @@ subroutine open_files
         open(my_nfL,file=chdum,status='old',position='append')
      end if
      if(mype==0)open(80,file='fort.80',status='old',position='append',RECL=8192)
+     if(mype==0)open(83,file='fort.83',status='replace',RECL=8192)
+     if(mype==0)open(800,file='fort.800',status='old',position='append',RECL=8192)
+     if(mype==0)open(801,file='fort.801',status='old',position='append',RECL=8192)
      if(mype==numberpe-1)then
         open(90,file='fort.90',status='old',position='append',RECL=8192)
         open(93,file='fort.93',status='old',position='append',RECL=8192)

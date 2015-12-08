@@ -392,7 +392,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
   real(wp), external :: D01AHF,dsda,SMOOTHSTEP
   integer minpts,ifail
   real(wp)  acc,error_8
-  real(wp)  E_a,E_t,E_f
+  real(wp)  E_a,E_t,E_f,timef
   real(wp)  dminv,dmaxv
   real(wp)  wfix     ! =0 in the boundary buffer, and =1 otherwise
 
@@ -482,6 +482,23 @@ subroutine pusheon(solver1, masssolver, irk_e)
   enddo
 
 !    prepare equilibrium Er=dPhi/da at particles 
+
+!  if(istep.lt.2800) then
+if(istep.lt.26500) then
+   timef=0.0_wp
+else
+   timef=1.0_wp-exp(-(real(istep-26500)/5.0d2)**4)
+end if
+
+   timef=1.0_wp
+
+   Er401_bp=Er401_bp0*timef
+   Er_grid=Er_grid0*timef
+
+!  ------------------------------------------------------------
+
+
+
   dela=1.0_wp/Ydr
 ! if(istep.ge.4000) then
 !$omp parallel do private(m,r,ip,fip)
@@ -672,6 +689,7 @@ if(wimcompressibility==1) then     ! for weight imcompressibility
      e3=e3+wp1*wt11*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
 
      avw=e1+e2*vpara+e3*v2
+
 
 !     if(mype==100.and.m==me/2) print*, 'AVW=', avw, zeon(5,m), mype
 !     if(mype==0.and.m==me/4) print*, 'AVW=', avw, zeon(5,m), mype

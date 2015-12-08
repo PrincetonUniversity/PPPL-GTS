@@ -33,6 +33,7 @@ subroutine restart_write
   write(222) phi  ! --> initial <phi> for poisson solving total phi  (ZF_SEPARATION=0 case)
   write(222) ddT_da  ! need for maintaining constant Ti gradient drive
   write(222) phip00, phi00  ! need for restart when using FEM solver with ZF_SEPARATION=1
+  write(222) sumfluxpsi     ! need for restart when using int[I(a)dt] as weighting for enforcing conservation
   if(ifelectron/=0) then
      write(222) me,ntracer_e,etracer_e0,mesum
      if(ifdphi/=2) then
@@ -82,6 +83,7 @@ subroutine restart_read
   read(333) phi  ! --> initial <phi> for poisson solving total phi (ZF_SEPARATION=0 case)
   read(333) ddT_da  ! need for maintaining constant Ti gradient drive
   read(333) phip00, phi00  ! need for restart when using FEM solver with ZF_SEPARATION=1
+  read(333) sumfluxpsi     ! need for restart when using int[I(a)dt] as weighting for enforcing conservation
   
   istart=istart+1         ! starting step number
 

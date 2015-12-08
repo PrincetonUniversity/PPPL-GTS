@@ -215,33 +215,35 @@ ifeq ($(F90C),ftn)
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
        else   # Using CRAY compiler
-          ifeq ($(PE_ENV),INTEL)   # Using the INTEL compiler on Hopper or Edison
-             FFLAGS:=-r8 -Dflush_=flush -I.
-             OPT:=-fast -no-ipo
-             CFLAGS:=
-             COPT:=-fast -no-ipo
-             OMPFLAG:=-openmp
-             NOOMPFLAG:=
-             SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
-             SPRNG_INC:=-I${SPRNG_DIR}/include
-             PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-             PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
-          else  # Using the CRAY compiler (cce)
-             #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
-             FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
-             OPT:=
-             CFLAGS:=
-             COPT:=
-             OMPFLAG:=
-             NOOMPFLAG:=-hnoomp
+          #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
+          #FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
+          #FFLAGS:= -O 2 -s real64 -Dflush_=flush -I. -static -e F -e m -rm -m2 -R bcsp -e0 -ez
+
+          #initialize array to zero: -e0 -ez
+          #check all array bound:-m2 -R bcsp, but too slow, so not used unless debug code
+          FFLAGS:= -s real64 -Dflush_=flush -I. -static -e F -e m -rm -e0 -ez
+          OPT:= -O 1
+          #CFLAGS:= -m2 -R bcsp -e0 -ez
+          CFLAGS:= -e0 -ez
+          COPT:= -O 1
+
+          OMPFLAG:=
+          NOOMPFLAG:=-hnoomp
+
 ###          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng                   # for Hopper
-             SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
-             SPRNG_INC:=-I${SPRNG_DIR}/include
-             PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-             PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_cray_real
-          endif
+###          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
+###          SPRNG_INC:=-I${SPRNG_DIR}/include
+###          PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+###          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+
+          #SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper
+          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
+          SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod 
+          #PSPLINE_DIR:=/usr/common/usg/pspline/nersc1.1/cray
+          #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
+          PSPLINE_INC:=-I${PSPLINE_DIR}/include -I${PSPLINE_DIR}/mod -I$(NETCDF_DIR)/include
+          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+          PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_cray_real
        endif
 ####   else
 ####     # Jaguarpf system at ORNL
@@ -263,16 +265,12 @@ ifeq ($(F90C),ftn)
    CFLAGS:= -DAdd_ ${SPRNG_INC}
 ###     -I$(SUPERLU_SRC)  ${SPRNG_LIB} ${NETCDF_C_LIB} ${HDF5_CLIB}
 
-   ifeq ($(shell uname -n | cut -c-6),hopper)
-   FFLAGS:=-DPETSCOLD $(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(HDF5)
-   else
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(HDF5)
-   endif
 endif
 
    ifeq ($(DEBUG),y)
-     OPT:=-g -O0 $(FFLAGS)
-     COPT:= -g -O0 $(CFLAGS)
+     OPT:=-g  $(FFLAGS)
+     COPT:= -g  $(CFLAGS)
    else
      OPT:=$(OPT) $(FFLAGS)
      COPT:=$(COPT) $(CFLAGS)
@@ -320,7 +318,7 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o 
      field.o pushi_new.o pushe_new.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \
      $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
      check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
-     get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o \
+     get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o output_profiles.o \
      weight_damping_new.o weight_damping_eon_new2.o \
      mesh_gen.o triangle.o therm2d.o lagrange.o utility.o
 #output3d.o
@@ -352,7 +350,10 @@ $(OBJ): module.o
 	$(CMP) $(OPT) -c $<
 
 .c.o   :
-	$(CC) -c $(COPT) $(PETSCFINCLUDE) -DREDUCED -DCDT_ONLY -DTRILIBRARY -DANSI_DECLARATOR $<
+	$(CC) -c $(COPT) $<
+
+triangle.o:
+	$(CC) -c -g -DREDUCED -DCDT_ONLY -DTRILIBRARY -DANSI_DECLARATOR fem/triangle.c
 
 # The following tag is meant to "clean" the directory by removing the
 # executable along with all the object files created by the compilation 

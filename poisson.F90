@@ -13,7 +13,7 @@ subroutine poisson( solver, masssolver )
   ! 
   type(solver_data) :: solver, masssolver 
   ! local vars
-  integer i,it,ij,j,jj,k,iteration,mring,mindex,ierr
+  integer i,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2
 
   !  integer,dimension(:,:),allocatable :: nindex
   !  integer,dimension(:,:,:),allocatable :: indexp
@@ -21,7 +21,7 @@ subroutine poisson( solver, masssolver )
   
   real(wp) tmp,rms ! gamma0,
   
-  real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi)
+  real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi),adum_11(0:mpsi)
   
   !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
   real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
@@ -141,7 +141,7 @@ subroutine poisson( solver, masssolver )
               add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i)) 
            end do
 
-           call solve( solver, mgrid, add_phi, xx, ierr )
+           call solve( solver, masssolver, mgrid, add_phi, xx, ierr )
            phi(1,:) = xx
 
 ! DEBUG
@@ -164,7 +164,7 @@ subroutine poisson( solver, masssolver )
      else   !  use FEM solver
 
         xx=0.0_wp
-        call solve( solver, mgrid, dentmp, xx, ierr )
+        call solve( solver, masssolver, mgrid, dentmp, xx, ierr )
         phi(1,:) = xx
 
         do i=0, mpsi
@@ -204,7 +204,7 @@ subroutine poisson( solver, masssolver )
      if(ZF_SEPARATION==1) then
 
         if( solver%order <= 0 ) then    ! old solver 
-           call solve( solver, mgrid, dentmp, xx, ierr )
+           call solve( solver, masssolver, mgrid, dentmp, xx, ierr )
 
            phi(1,:) = xx
    
@@ -226,11 +226,10 @@ subroutine poisson( solver, masssolver )
 
         else             ! FEM solver solves delta-phi and d<phi>/da interatively
 
+           !   adum_11=0.0_wp
            do it=1,its
 
               !  phip00=0.0_wp    ! for debug
-
-
 
 
 
@@ -263,38 +262,74 @@ if(ZF_SEPARATION==-100) then   !  direct numerical derivative to calculate -beta
 
               bb2(:)=dentmp(:) + yy(:)    ! = b - beta*div[sum(gs)*d<phi>/da*grad(a)]
 
-              call solve( solver, mgrid, bb2, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
+              call solve( solver, masssolver, mgrid, bb2, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
 
 else      ! use FEM inside the solver for adding -beta*div[sum(gs)*d<phi>/da*grad(a)] 
 
-              call solve( solver, mgrid, dentmp, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
+              call solve( solver, masssolver, mgrid, dentmp, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!                  !  replaced by the following to ensure <delta-phi>=0
+!                  
+!    !omp parallel do private(i,j,ij)
+!                  do i=0, mpsi
+!                     do j=0,mtheta(i)
+!                        ij=igrid(i)+j
+!                        bb2(ij)=dentmp(ij)+adum_11(i)   ! = add alpha*<delta-phi> to RHS of delta-phi equation solved by FEM
+!                     end do
+!                     bb2(igrid(i))=bb2(igrid(i)+mtheta(i))
+!                  enddo
+!    
+!                  call solve( solver, masssolver, mgrid, bb2, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
 end if
-
-
-
-
 
               !  if(mype==0)   print*, 'it=', it, '   istep=', istep, '   irk=', irk, '   d<phi>/da=', phip00(mpsi/2),  '   delta-phi=', xx(mgrid/2)
 
               do i=0, mpsi
                  xx(igrid(i))=xx(igrid(i)+mtheta(i))  !validate xx(1,igrid(i)) for safe
               enddo
- 
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!                  adum_11=0.0_wp
+!                  !$omp parallel private(i,j,ij) reduction(+:adum_11)
+!                  !$omp do
+!                  do i=0,mpsi
+!                     do j=1,mtheta(i)
+!                        ij=igrid(i)+j
+!                        adum_11(i)=adum_11(i)+dtemper(ij)*xx(ij)  ! surface averaged <delta-phi>
+!                     enddo
+!                  enddo
+!                  !$omp end parallel
+!    
+!                  phi_flux_ave=0.0_wp
+!                  call MPI_ALLREDUCE(adum_11,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+!                  phi_flux_ave=phi_flux_ave/jaco_sum       ! =<delta-phi>
+!                  adum_11=phi_flux_ave*abs(csc0)/Te_grid   ! =(e/e0)*(m0/ms)*<delta-phi>/T_e with <phi>, T_e normalized, which should be zero by defination
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+              !  call find_dxda( masssolver, mgrid, xx, add_phi, ierr )          
+              !  call find_dxdt( masssolver, mgrid, add_phi, yy, ierr )          
+
               call find_dxdadxdt( masssolver, mgrid, xx, add_phi, yy, ierr )          
 
               add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))*gsij(:)   ! --> sum(gs)*grad_perp(delta-phi).grad(a)
               adum=0.0_wp
-              phi_flux_ave=0.0_wp
-              !$omp parallel private(i,j,ij) reduction(+:adum,rms)
+              !$omp parallel private(i,j,ij) reduction(+:adum)
               !$omp do
               do i=0,mpsi
                  do j=1,mtheta(i)
                     ij=igrid(i)+j
-                    adum(i)=adum(i)+dtemper(ij)*add_phi(ij)  ! surface averaging
+                    adum(i)=adum(i)+dtemper(ij)*add_phi(ij)   ! surface averaging
                  enddo
               enddo
               !$omp end parallel
+
+              phi_flux_ave=0.0_wp
               call MPI_ALLREDUCE(adum,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
               phi_flux_ave=phi_flux_ave/jaco_sum    !  =<sum(gs)*grad_perp(delta-phi).grad(a)>
 
@@ -317,6 +352,7 @@ end if
            do i=1,mpsi
               phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
            enddo
+
         end if
 
      else      ! ZF_SEPARATION=0 --> solve total potential
@@ -416,7 +452,7 @@ endif
               add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i))
            end do
 
-           call solve( solver, mgrid, add_phi, xx, ierr )
+           call solve( solver, masssolver, mgrid, add_phi, xx, ierr )
            phi(1,:) = xx
 
            do i=0, mpsi

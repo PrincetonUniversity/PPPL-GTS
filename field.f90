@@ -338,7 +338,7 @@ end if
 
      
 
-!$omp parallel do private(i,j,k)
+!!$omp parallel do private(i,j,k)
 !   do i=igrid(0),igrid(0)+mtheta(0)
 !      do j=0,1
 !         do k=1,3
@@ -347,7 +347,7 @@ end if
 !      enddo
 !   enddo
 
-!$omp parallel do private(i,j,k)
+!!$omp parallel do private(i,j,k)
 !   do i=igrid(mpsi),igrid(mpsi)+mtheta(mpsi)
 !      do j=0,1
 !         do k=1,3

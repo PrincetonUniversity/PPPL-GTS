@@ -556,7 +556,7 @@ subroutine pushion
        B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
        v2, avw,   &
 ! following working arrays are defined to use OMP reduction:
-       adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi) 
+       adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi) 
 
 !  integer ip_index(mimax)   !wx
 
@@ -673,6 +673,18 @@ subroutine pushion
 !  apply equilibrium Er in the middle insteady at the beginning
 
 !  if(istep.lt.2800) then
+if(istep.lt.26500) then
+   timef=0.0_wp
+else
+   timef=1.0_wp-exp(-(real(istep-26500)/5.0d2)**4)
+end if
+
+  timef=1.0_wp
+
+  Er401_bp=Er401_bp0*timef
+  Er_grid=Er_grid0*timef
+
+
 !  if(istep.lt.2950) then
 !     timef=0.0_wp
 !  else
@@ -1081,18 +1093,21 @@ dmaxv=0.0d0
     adum_00=0.0_wp
     adum_tur=0.0_wp
     adum_tot=0.0_wp
+    adum_11=0.0_wp
 
 ! DEBUG 
 !        if(mype==100) print*, 'Dirichlet2', phi(1,igrid(0)), phi(1,igrid(0)+mtheta(0)/2),phi(1,igrid(0)+mtheta(0)-1), &
 !                               phi(1,igrid(mpsi)), phi(1,igrid(mpsi)+mtheta(mpsi)/2),phi(1,igrid(mpsi)+mtheta(mpsi)-1)
 
-!$omp parallel private(i,j,ij,E_a,E_t,E_f) reduction(+:adum,adum_00,adum_tur,adum_tot)
+!$omp parallel private(i,j,ij,E_a,E_t,E_f) reduction(+:adum,adum_00,adum_tur,adum_tot,adum_11)
 !$omp do
     do i=0,mpsi
        do j=1,mtheta(i)
           ij=igrid(i)+j
 !          fluxpsi(i)=fluxpsi(i)+phi(1,ij)*phi(1,ij)               ! what average?
-          adum(i)=adum(i)+dtemper(ij)*phi(1,ij)*phi(1,ij)  ! surface averaging for delta-phi
+          adum(i)=adum(i)+dtemper(ij)*phi(1,ij)*phi(1,ij)  ! surface averaging for <delta-phi^2>
+
+          adum_11(i)=adum_11(i)+dtemper(ij)*phi(1,ij)      ! to check surface averaged <delta-phi> which should be zero by defination
 
           adum_00(i)=adum_00(i)+dtemper(ij)*phip00(i)**2*gij(1,ij)  ! surface average
 
@@ -1113,9 +1128,13 @@ dmaxv=0.0d0
     enddo
 !$omp end parallel
    end if   !  end if(ZF_SEPARATION==0)
+
+    call MPI_ALLREDUCE(adum_11,flux_11,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+    flux_11=flux_11/jaco_sum/Tc   ! =<phi>/Tc -- added in March 2013 to check whether <phi>=0 is obtained
  
     call MPI_ALLREDUCE(adum,fluxpsi,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
     fluxpsi=fluxpsi/jaco_sum/(Tc*Tc)  ! =<(phi/Tc)^2> -- turbulence field intensity
+    sumfluxpsi=sumfluxpsi+fluxpsi     ! =int[I(a)dt]
 
     call MPI_ALLREDUCE(adum_00,En_00,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
     En_00=En_00/jaco_sum      ! =<E_00^2>    -- zonal flow energy

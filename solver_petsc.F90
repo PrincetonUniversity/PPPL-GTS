@@ -349,18 +349,11 @@ contains
     endif
     ! KSP build
     call KSPCreate( partd_comm, ksp, ierr )
-#ifdef PETSCOLD
-    call KSPSetOperators( ksp, Amat, Amat, SAME_PRECONDITIONER, ierr)
-#else
+   !call KSPSetOperators( ksp, Amat, Amat, SAME_PRECONDITIONER, ierr)
     call KSPSetOperators( ksp, Amat, Amat, ierr)
-#endif
     tol = 1.d-5
    !call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_DOUBLE_PRECISION, PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,ierr)
-#ifdef PETSCOLD
-    call KSPSetTolerances(ksp,tol,PETSC_REAL, PETSC_REAL,PETSC_DEFAULT_INTEGER,ierr)
-#else
     call KSPSetTolerances(ksp,tol,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr)
-#endif
     call KSPSetType(ksp, KSPGMRES, ierr )
 
     ! create oneVec=1 in nullspace
@@ -862,7 +855,7 @@ contains
     !     fem%iet3,neq,fem%points,alpha,beta,ierr)
     !call form_tangent(fem%order,Amat,Mmat,fem%iemax,fem%iet,&
     !     neq,fem%points,alpha,beta,ierr)
-    call form_tangent(fem,Amat,Mmat,neq,-1,-1,ierr)
+    call form_tangent_RZcoor(fem,Amat,Mmat,neq,-1,-1,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatAssemblyBegin( Amat, MAT_FINAL_ASSEMBLY, ierr )
@@ -887,7 +880,7 @@ contains
 !========================================================================
 !         solve
 !========================================================================
-  subroutine solve( solver, nn, bb_gk, xx_gk, ierr )
+  subroutine solve( solver, masssolver, nn, bb_gk, xx_gk, ierr )
     !     solve linear system.  
     !     Solver (KSP) and matrix are in linear_solve.h
     !     
@@ -906,17 +899,19 @@ contains
     use field_array, only: phip00,gsij
     implicit none
     type(solver_data) :: solver
+    type(solver_data) :: masssolver
     integer,intent(in) :: nn
     integer,intent(out) :: ierr
     real(wp),intent(in) :: bb_gk(nn) 
     real(wp),intent(inout) :: xx_gk(nn)
     real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, hh, bh, hh_ho, bh_ho
+    real(doubleprec),allocatable,dimension(:) :: hh_gk
     real(wp),allocatable,dimension(:) :: gs, neuma, neumt
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(doubleprec),allocatable,dimension(:) :: xx, bb 
     real(doubleprec),allocatable,dimension(:) :: bn,bn_ho
-    integer :: count = 0
+    integer :: count = 0, ioffset, ioffset2
 
 
     count = count + 1
@@ -930,28 +925,39 @@ contains
     !set Neumann bc for rhs vector sept19-2013
     !at present it only works for order=1
     allocate(hh(neq),bh(neq),bn(neq))
+    allocate(hh_gk(mgrid))
     hh=0.
     bh=0.
     bn=0.
 
     ivsl = 0
     ivgts = 0
+    ioffset = 0
     do ir=0,mpsi 
        itmax=mtheta(ir)
-       do it=0,itmax
-          ivgts = ivgts + 1
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
-             bb(ivsl) = bb_gk(ivgts)
-             xx(ivsl) = xx_gk(ivgts)
-             hh(ivsl) = phip00(ir)
-             gs(ivsl) = gsij(ivgts)
-          elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
-             stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
-          end if
-       enddo
+       hh_gk(ioffset+1:ioffset+itmax+1)=phip00(ir)
+       ioffset = ioffset+itmax+1
+
+!cj       do it=0,itmax
+!cj          ivgts = ivgts + 1
+!cj          hh_gk(ivgts) =phip00(ir)
+!cj          hh_gk(ivgts) =phip00(ir)
+!cj          if(it.lt.itmax) then ! skip double stored 0,2pi value
+!cj             ivsl = ivsl + 1
+!cj             bb(ivsl) = bb_gk(ivgts)
+!cj             xx(ivsl) = xx_gk(ivgts)
+!cj             hh(ivsl) = phip00(ir)
+!cj             gs(ivsl) = gsij(ivgts)
+!cj          elseif(bb_gk(ivgts).ne.bb(ivsl-itmax+1))then
+!cj             stop 'bb_gk(ivgts).ne.bb(ivsl-itmax+1)'
+!cj          end if
+!cj       enddo
     enddo
-    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+!cj    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+!cj 2015-03-14 map bb fcj from gts index to fem index
+   call mappingGlobal2Local(bb_gk, bb, mgrid, neq)
+   call mappingGlobal2Local(xx_gk, xx, mgrid, neq)
+   call mappingGlobal2Local(gsij, gs, mgrid, neq)
 
     !cj2014.05.02 modified for solver_dphi_dt with homogeneous Dirichlet BC
     if(solver%mat%mat_type==2) then
@@ -990,7 +996,7 @@ contains
         ! cal bh_ho from hh(gts input) and add it to M*bb in subroutine petsc_solve
         allocate(hh_ho(solver%fem%nmesh_pts),bh_ho(solver%fem%nmesh_pts))
         call hogrid(solver%fem%iemax, solver%fem%iet, neq, hh, solver%fem%nmesh_pts, hh_ho)
-        call add_hh2bb(solver%fem, solver%fem%nmesh_pts, hh_ho, bh_ho, ierr)
+        call add_hh2bb(solver%fem, masssolver, solver%fem%nmesh_pts, hh_ho, bh_ho, ierr)
         ! set bh_ho to 0 if don't want to add it
 
         ! Neumann bc fix
@@ -1011,34 +1017,47 @@ contains
     else
         ! cal bh from hh(gts input) and add it to M*bb in subroutine petsc_solve
         if( solver%order.ge.1 .and. ZF_SEPARATION.eq.1) then
-            call add_hh2bb(solver%fem, neq, hh, bh, ierr)
+#ifdef OLD2014
+            call mappingGlobal2Local(hh_gk, hh, mgrid, neq)
+            call add_hh2bb(solver%fem, masssolver, neq, hh, bh, ierr)
+#else
+            call add_hh2bb(solver%fem, masssolver, neq, hh_gk, bh, ierr)
+#endif
             !  set bh to 0 if don't want to add it
             !  bh=bh+bn
             !  bh=0.
         endif
 
     ! solve GK Poisson equation
+    !cj 2015-03-12 changes for debugging
+    !cj now bh is added to bb and then multiplied by Mmat,
+    !cj instead of using finite element Pijk
+    bb=bb+bh
+    bh=0.
     call petsc_solve( solver, neq, bb, xx, bh, ierr)
     endif
 
     ! set solution (output)
-    ivsl = 0
-    ivgts = 0
-    do ir=0,mpsi
-       itmax=mtheta(ir)
-       do it=0,itmax
-          ivgts = ivgts+1 
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
-             xx_gk(ivgts) = xx(ivsl)
-          else
-             xx_gk(ivgts) = xx(ivsl-itmax+1)
-          endif
-       enddo
-    enddo
+!cj 2015-03-14 map xa xt from fem index to gts index
+    call mappingLoal2Global(xx, xx_gk, neq, mgrid)
+!cj    ivsl = 0
+!cj    ivgts = 0
+!cj    do ir=0,mpsi
+!cj       itmax=mtheta(ir)
+!cj       do it=0,itmax
+!cj          ivgts = ivgts+1 
+!cj          if(it.lt.itmax) then ! skip double stored 0,2pi value
+!cj             ivsl = ivsl + 1
+!cj             xx_gk(ivgts) = xx(ivsl)
+!cj          else
+!cj             xx_gk(ivgts) = xx(ivsl-itmax+1)
+!cj          endif
+!cj       enddo
+!cj    enddo
 
     deallocate(bb,xx,hh,bh,bn) 
     deallocate(gs,neuma,neumt) 
+    deallocate(hh_gk) 
 
     ! debug
     if( count .eq. 1 .and. mype==-10 ) then
@@ -1212,7 +1231,7 @@ contains
 !========================================================================
 !         testsolve
 !========================================================================
-  subroutine testsolve( solver )
+  subroutine testsolve( solver, masssolver )
     !     solve linear system.  
     !     Solver (KSP) and matrix are in linear_solve.h
     !     
@@ -1232,6 +1251,7 @@ contains
     implicit none
 #include "finclude/petscsys.h"
     type(solver_data) :: solver
+    type(solver_data) :: masssolver
     integer :: nn
     integer :: ierr
     ! locals
@@ -1302,7 +1322,7 @@ contains
 
                 dxda=pim*cos(pim*rr) * cos(L*zz+alfa)
                 dxdt=-L *sin(pim*rr) * sin(L*zz+alfa)
-                fcj=Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
+                fcj=Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)  !/(solver%fem%points(1,ivsl)+R_0)
                 Jgdxda(ivgts)=fcj*(gij(1,ivgts)*dxda+gij(4,ivgts)*dxdt)
                 Jgdxdt(ivgts)=fcj*(gij(4,ivgts)*dxda+gij(2,ivgts)*dxdt)
             else
@@ -1506,7 +1526,7 @@ contains
 
         ! cal bh_ho from hh(gts input) and add it to M*bb in subroutine petsc_solve
         call hogrid(solver%fem%iemax, solver%fem%iet, neq, hh, solver%fem%nmesh_pts, hh_ho)
-        call add_hh2bb(solver%fem, solver%fem%nmesh_pts, hh_ho, bh_ho, ierr)
+        call add_hh2bb(solver%fem, masssolver, solver%fem%nmesh_pts, hh_ho, bh_ho, ierr)
         ! set bh_ho to 0 if don't want to add it
 
         ! Neumann bc fix
@@ -1525,7 +1545,7 @@ contains
 
     else
         ! cal bh from hh(gts input) and add it to M*bb in subroutine petsc_solve
-        call add_hh2bb(solver%fem, neq*fe_ndof, hh, bh, ierr)
+        call add_hh2bb(solver%fem, masssolver, neq*fe_ndof, hh, bh, ierr)
         ! set bh to 0 if don't want to add it
 
         ! Neumann bc fix
@@ -1695,6 +1715,7 @@ contains
     integer :: fe_ns=3, fe_order=1
     real(wp),allocatable,dimension(:,:) :: xlt
     integer,dimension(:),allocatable :: ind
+    real(wp) Mk, Lk, alfak
 
 
     if(masssolver%order .gt. 0) then
@@ -1704,6 +1725,7 @@ contains
        if(mype.eq.0) write(0, *) "	mass solver:: find dxdr dxdz begin"
     endif
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    whichone = 1
 
 !cj the following is a combianation of solve and tri_mesh
     allocate(xx(mgrid),bb(mgrid))
@@ -1731,7 +1753,15 @@ contains
           if(whichone == 0) then
              bb(ivgts) = 1.
           else if(whichone == 1) then
-             bb(ivgts) =   (rj(1)-R_0) + zj(1)  
+             !cj 2015-03-11 masssolver use (r,z) coordinate
+             !cj bb(ivgts) =   (rj(1)-R_0) + zj(1)  
+
+             Mk=0.5d0
+             Lk=10.0d0
+             alfak=2.0d0*pi
+
+             bb(ivgts) = sin(pi*Mk*(pdum-a0)/(a1-a0))*cos(Lk*tdum+alfak)
+
           else if(whichone == 2) then
              bb(ivgts) = ( (rj(1)-R_0) + zj(1) ) * ( (rj(1)-R_0) + zj(1) )
           else if(whichone == 3) then
@@ -1744,7 +1774,7 @@ contains
              zz=tdum
              fcj(ivgts) = 1.
              bb(ivgts) = sin(pim*rr) * cos(L*zz+alfa)
-             fcj(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))/rj(1)
+             fcj(ivgts) = (zaj(1)*rqj(1)-zqj(1)*raj(1))  !/rj(1)
           else
              if(mype.eq.0) write(0, *) "	mass solver:: not implemented for whichone >=3"
              return
@@ -1777,13 +1807,22 @@ contains
 
           aaa(1)=pdum
           the(1)=tdum
-          call esigetrzb(rj,zj,Bj,aaa,the,1)
+          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
 
           if(whichone == 0) then
              tmp = 0.
           else if(whichone == 1) then
-             tmpr = 1.
-             tmpz = 1.
+             !cj 2015-03-11 masssolver use (r,z) coordinate
+             !cj tmpr = 1.
+             !cj tmpz = 1.
+
+             !dRda=raj(1)
+             !dRdt=rqj(1)
+             !dZda=zaj(1)
+             !dZdt=zqj(1)
+
+             tmpr = cos(pi*Mk*(pdum-a0)/(a1-a0))*cos(Lk*tdum+alfak)*pi*Mk/(a1-a0)
+             tmpz =-sin(pi*Mk*(pdum-a0)/(a1-a0))*sin(Lk*tdum+alfak)*Lk
           else if(whichone == 2) then
              tmpr = 2. * ( (rj(1)-R_0) + zj(1) )
              tmpz = 2. * ( (rj(1)-R_0) + zj(1) )
@@ -1801,7 +1840,9 @@ contains
              tmpz = sin(pim*rr) * sin(L*zz+alfa) * (-L)
           endif
 
-          if(mype.eq.0)write(115,115) ivgts, bb(ivgts), tmpr, dxdr(ivgts), tmpz, dxdz(ivgts)
+          if(mype.eq.0)write(115,115) ivgts, bb(ivgts), &
+                                      tmpr, dxdr(ivgts)*raj(1) + dxdz(ivgts)*zaj(1), &
+                                      tmpz, dxdr(ivgts)*rqj(1) + dxdz(ivgts)*zqj(1)
           115 format("mass solver=", 1(2x,i7), 5(1x,d12.6))
        enddo
     enddo
@@ -1896,7 +1937,7 @@ contains
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0
-    use field_array,only: psi_grid,qtinv,Jcbn
+    use field_array,only: psi_grid,qtinv,Jcbn, dRda, dRdt, dZda, dZdt
     implicit none
 #include "finclude/petscsys.h"
     type(solver_data) :: solver
@@ -1905,6 +1946,7 @@ contains
     real(wp),intent(in) :: bb_gk(nn)
     real(wp),intent(inout) :: xa_gk(nn), xt_gk(nn)
     ! locals
+    real(wp) :: ff(nn)
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
     real(doubleprec),allocatable,dimension(:) :: xa, xt, bb, ba, bt, fcj
     real(wp) zeta, pdum, dt, tdum, tmp
@@ -1925,6 +1967,7 @@ contains
     endif
 
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    whichone=1
     if(whichone.lt.3) then
        ! in (r,z) cylindrical coordinates
        ix=1
@@ -1946,20 +1989,23 @@ contains
 
     neq = sum(mtheta)
     allocate(bb(neq),xa(neq),ba(neq),xt(neq),bt(neq),fcj(neq))
-    ivsl = 0
-    ivgts = 0
-    do ir=0,mpsi 
-       itmax=mtheta(ir)
-       do it=0,itmax
-          ivgts = ivgts + 1
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
-             bb(ivsl) = bb_gk(ivgts)
-             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
-          end if
-       enddo
-    enddo
-    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+!cj    ivsl = 0
+!cj    ivgts = 0
+!cj    do ir=0,mpsi 
+!cj       itmax=mtheta(ir)
+!cj       do it=0,itmax
+!cj          ivgts = ivgts + 1
+!cj          if(it.lt.itmax) then ! skip double stored 0,2pi value
+!cj             ivsl = ivsl + 1
+!cj             bb(ivsl) = bb_gk(ivgts)
+!cj             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)  !/(solver%fem%points(1,ivsl)+R_0)
+!cj          end if
+!cj       enddo
+!cj    enddo
+!cj    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+   call mappingGlobal2Local(bb_gk, bb, mgrid, neq)
+   call mappingGlobal2Local(Jcbn, fcj, mgrid, neq)
+   fcj(:) = fcj(:)/(solver%fem%points(1,:)+R_0)
 
     if(whichone.lt.3) fcj=1.
        !do ivsl=1,neq
@@ -2018,29 +2064,35 @@ contains
     call petsc_solve( solver, neq, bt, xt, fcj, ierr)
     
     ! set solution (output)
-    ivsl = 0
-    ivgts = 0
-    do ir=0,mpsi
-       itmax=mtheta(ir)
-       do it=0,itmax
-          ivgts = ivgts+1
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
-             xa_gk(ivgts) = xa(ivsl)
-             xt_gk(ivgts) = xt(ivsl)
-          else
-             xa_gk(ivgts) = xa(ivsl-itmax+1)
-             xt_gk(ivgts) = xt(ivsl-itmax+1)
-          endif
-       enddo
-    enddo
+    !cj 2015-03-14 map xa xt from fem index to gts index
+    call mappingLoal2Global(xa, xa_gk, neq, mgrid)
+    call mappingLoal2Global(xt, xt_gk, neq, mgrid)
+!cj    ivsl = 0
+!cj    ivgts = 0
+!cj    do ir=0,mpsi
+!cj       itmax=mtheta(ir)
+!cj       do it=0,itmax
+!cj          ivgts = ivgts+1
+!cj          if(it.lt.itmax) then ! skip double stored 0,2pi value
+!cj             ivsl = ivsl + 1
+!cj             xa_gk(ivgts) = xa(ivsl)
+!cj             xt_gk(ivgts) = xt(ivsl)
+!cj          else
+!cj             xa_gk(ivgts) = xa(ivsl-itmax+1)
+!cj             xt_gk(ivgts) = xt(ivsl-itmax+1)
+!cj          endif
+!cj       enddo
+!cj    enddo
+
+    ff   =xa_gk*dRda+xt_gk*dZda
+    xt_gk=xa_gk*dRdt+xt_gk*dZdt
+    xa_gk=ff
 
     deallocate( xlt )
     deallocate( ind )
     deallocate(bb,ba,bt,xa,xt,fcj)
 
   end subroutine find_dxdadxdt
-
 
 
 !========================================================================
@@ -2063,7 +2115,8 @@ contains
     real(wp),intent(inout) :: xa_gk(nn)
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
-    real(doubleprec),allocatable,dimension(:) :: xa, xt, bb, ba, fcj
+    real(doubleprec),allocatable,dimension(:) :: xa, bb, ba, fcj
+    real(doubleprec),allocatable,dimension(:) :: xt_gk
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 
@@ -2081,6 +2134,7 @@ contains
        if(mype.eq.0) write(0, *) "	find_dxda: find dxdr begin"
     endif
 
+#ifdef OLD2014
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     if(whichone.lt.3) then
        ! in (r,z) cylindrical coordinates
@@ -2112,7 +2166,7 @@ contains
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
-             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
+             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)  !/(solver%fem%points(1,ivsl)+R_0)
           end if
        enddo
     enddo
@@ -2174,6 +2228,13 @@ contains
     deallocate( ind )
     deallocate(bb,ba,xa,fcj)
 
+#else
+    allocate(xt_gk(mgrid))
+    xt_gk=0.
+    call find_dxdadxdt( solver, nn, bb_gk, xa_gk, xt_gk, ierr )
+    deallocate(xt_gk)
+#endif
+
   end subroutine find_dxda
 
 
@@ -2199,6 +2260,7 @@ contains
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,mt
     real(doubleprec),allocatable,dimension(:) :: xt, bb, bt, fcj
+    real(doubleprec),allocatable,dimension(:) :: xa_gk
     real(wp) zeta, pdum, dt, tdum, tmp
     real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 
@@ -2216,6 +2278,7 @@ contains
        if(mype.eq.0) write(0, *) "	find_dxdt: find dxdt begin"
     endif
 
+#ifdef OLD2014
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     if(whichone.lt.3) then
        ! in (r,z) cylindrical coordinates
@@ -2247,7 +2310,7 @@ contains
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
              bb(ivsl) = bb_gk(ivgts)
-             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)/(solver%fem%points(1,ivsl)+R_0)
+             fcj(ivsl) = Jcbn(ivgts)/(solver%fem%points(1,ivsl)+R_0)  !/(solver%fem%points(1,ivsl)+R_0)
           end if
        enddo
     enddo
@@ -2309,7 +2372,126 @@ contains
     deallocate( xlt )
     deallocate( ind )
 
+#else
+    allocate(xa_gk(mgrid))
+    xa_gk=0.
+    call find_dxdadxdt( solver, nn, bb_gk, xa_gk, xt_gk, ierr )
+    deallocate(xa_gk)
+#endif
+
   end subroutine find_dxdt
+
+
+
+!========================================================================
+!         find laplacian of phi
+!========================================================================
+!       call find_laplacian( masssolver, mgrid, send_sm, recv_sm, ierr )
+  subroutine find_laplacian( masssolver, nn, bb_gk, xx_gk, ierr )
+    !     solve xx : grad_perp . [ gs grad_perp phi]
+    !              = 1/J d/da [ J gs (grad_perp phi . grad a) ] + 
+    !                1/J d/dt [ J gs (grad_perp phi . grad t) ] + 
+    !                gs/q^2 | grad vphi |^2 d^2/dt^2 phi
+    !              = 1/J d/da [ J gs (d/da phi grad a + d/dt phi grad t) . grad a) ] + 
+    !                1/J d/dt [ J gs (d/da phi grad a + d/dt phi grad t) . grad t) ] + 
+    !                gs/q^2 | grad vphi |^2 d^2/dt^2 phi
+    !              = 1/J d/da [ J gs (d/da phi gaa + d/dt phi gat) ] + 
+    !                1/J d/dt [ J gs (d/da phi gat + d/dt phi gtt) ] + 
+    !                gs/q^2 gvv^2 d^2/dt^2 phi
+
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0
+    use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij,q_grid
+    implicit none
+    type(solver_data) :: masssolver
+    integer :: nn
+    integer :: ierr
+    real(wp),intent(in) :: bb_gk(nn)
+    real(wp),intent(inout) :: xx_gk(nn)
+
+    real(wp) sendl_sm(mgrid), sendr_sm(mgrid), recvl_sm(mgrid), recvr_sm(mgrid)
+    real(wp) tmp(3,mgrid), tmpr(mgrid), tmpt(mgrid)
+
+    !locals
+    integer :: ir,it,ivgts,ivsl,itmax
+    real(wp) zeta, pdum, dt, tdum, tmp
+    real(wp),dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+    real(doubleprec),allocatable,dimension(:) :: qq
+
+
+    sendr_sm=0.0_wp
+    sendl_sm=bb_gk
+
+    ierr=0
+    recvl_sm=0.0_wp
+    recvr_sm=0.0_wp
+    call find_dxdadxdt( masssolver, mgrid, sendl_sm, recvr_sm, recvl_sm, ierr )
+
+       !save dphi/dr dphi/dt to calculate 1st, 2nd, 3rd term
+       tmpr=recvr_sm
+       tmpt=recvl_sm
+
+    !calculate 1st term
+    sendr_sm(:)=Jcbn(:)*1.*( tmpr(:)*gij(1,:)+tmpt(:)*gij(4,:) )
+
+       ierr=0
+       recvl_sm=0.0_wp
+       recvr_sm=0.0_wp
+       !call find_dxda( masssolver, mgrid, sendr_sm, recvr_sm, ierr )
+       call find_dxdadxdt( masssolver, mgrid, sendr_sm, recvr_sm, recvl_sm, ierr )
+       tmp(1,:)=recvr_sm(:)/Jcbn(:)  ! 1/J grad r ( ... )
+       if(mype==0) write(*,*)  "cal 1st term"
+
+    !calculate 2nd term
+    sendl_sm(:)=Jcbn(:)*1.*( tmpr(:)*gij(4,:)+tmpt(:)*gij(2,:) )
+
+       ierr=0
+       recvr_sm=0.0_wp
+       recvl_sm=0.0_wp
+       !call find_dxdt( masssolver, mgrid, sendl_sm, recvl_sm, ierr )
+       call find_dxdadxdt( masssolver, mgrid, sendl_sm, recvr_sm, recvl_sm, ierr )
+       tmp(2,:)=recvl_sm(:)/Jcbn(:)  ! 1/J grad theta ( ... )
+       if(mype==0) write(*,*)  "cal 2nd term"
+
+    !calculate 3rd term
+       !calculate q^2
+       allocate(qq(mgrid))
+       ivsl = 0
+       ivgts = 0
+       zeta = zetamin + deltaz ! zeta for my plane   
+       do ir=0,mpsi 
+          itmax=mtheta(ir)
+          pdum=psi_grid(ir)
+          dt = deltat(ir)
+          do it=0,itmax
+             ivgts = ivgts + 1
+             !todo: change to qq(ivgts)= masssolver%fem%points(5,ivsl)
+             qq(ivgts)= q_grid(ir)*q_grid(ir)
+          enddo
+       enddo
+       if(ivgts.ne.mgrid) then
+          if(mype.eq.0) write(*,*) "mgrid=",mgrid,"ivgts=",ivgts
+          stop'find_laplacian: ivgts.ne.mgrid'
+       endif
+
+    sendl_sm=tmpt
+
+       ierr=0
+       recvr_sm=0.0_wp
+       recvl_sm=0.0_wp
+       !call find_dxdt( masssolver, mgrid, sendl_sm, recvl_sm, ierr )
+       call find_dxdadxdt( masssolver, mgrid, sendl_sm, recvr_sm, recvl_sm, ierr )
+       tmp(3,:)=1./qq(:)*gij(3,:)*recvl_sm(:)
+       if(mype==0) write(*,*)  "cal 3rd term"
+       deallocate(qq)
+
+    xx_gk(:)=tmp(1,:)+tmp(2,:)+tmp(3,:)
+
+  end subroutine find_laplacian
+
+
+
 
 
 
@@ -2718,7 +2900,7 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
           aaa(2)=fem%points(3,i2)
           the(2)=fem%points(4,i2)
           call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,2)
-          fcj = zaj*rqj-zqj*raj/rj
+          fcj = (zaj*rqj-zqj*raj)  !/rj
 
           ! if (it, ir) makes one edge
           x1=fem%points(3,i1)
@@ -2748,25 +2930,31 @@ end subroutine neumbcfix
 !========================================================================
 !         add_hh2bb
 !========================================================================
-  subroutine add_hh2bb( fem, nn, hh, bh, ierr )
+  subroutine add_hh2bb( fem, masssolver, nn, hh, bh, ierr )
     !     add hh(dphi/dt) term to bb(rhs) before KSPSolve
     !     
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
-    use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij
+    use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij,gbeta
     use esi_interface, only : metric
     use fem_data_class
     implicit none
 #include "finclude/petscsys.h"
     type(fem_data) :: fem
+    type(solver_data) :: masssolver
     integer,intent(in) :: nn
-    real(wp),intent(in) :: hh(nn)
-    real(wp),intent(inout) :: bh(nn) 
+    real(wp),intent(out) :: bh(nn)
+#ifdef OLD2014
+    !  real(wp),intent(inout) :: hh(nn)
+    real(wp),intent(inout) :: hh(mgrid)
+#else
+    real(wp),intent(inout) :: hh(mgrid)
+#endif
     integer,intent(out) :: ierr
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
     real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-    real(wp) :: fcj,beta,gs
+    real(wp) :: gs
     real(wp) zeta, pdum, dt, tdum
     integer :: mt,i, ii, j, jj, k, kk
     real(doubleprec),allocatable,dimension(:) :: bgsjgaa,bgsjgat,bgsjgaa_ho,bgsjgat_ho
@@ -2781,10 +2969,15 @@ end subroutine neumbcfix
     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
     logical :: flg
     integer :: whichone = 5
+    real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, beta, bh_kk
 
 
    !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
     call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+#ifdef OLD2014
+#else
+    whichone=1
+#endif
 
     fe_order=fem%order
     fe_ns=3
@@ -2798,49 +2991,66 @@ end subroutine neumbcfix
 
     !cal beta * gs * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
     neq = sum(mtheta)
+    allocate(beta(neq*fe_ndof))
+#ifdef OLD2014
     allocate(bgsjgaa(neq*fe_ndof), bgsjgat(neq*fe_ndof))
-    ivsl = 0
-    ivgts = 0
-    zeta = zetamin + deltaz ! zeta for my plane   
-    do ir=0,mpsi 
-       itmax=mtheta(ir)
-       pdum=psi_grid(ir)
-       dt = deltat(ir)
-       do it=0,itmax
-          ivgts = ivgts + 1
-          if(it.lt.itmax) then ! skip double stored 0,2pi value
-             ivsl = ivsl + 1
+#else
+    allocate(bgsjgaa(mgrid*fe_ndof), bgsjgat(mgrid*fe_ndof))
+    allocate(dxdr(mgrid*fe_ndof), dxdz(mgrid*fe_ndof))
+    allocate(tmpr(mgrid*fe_ndof), tmpz(mgrid*fe_ndof))
+    allocate(bh_kk(mgrid*fe_ndof))
+#endif
+!cj    ivsl = 0
+    do ivgts = 1, mgrid
+!cj    zeta = zetamin + deltaz ! zeta for my plane   
+!cj    do ir=0,mpsi 
+!cj       itmax=mtheta(ir)
+!cj       pdum=psi_grid(ir)
+!cj       dt = deltat(ir)
+!cj       do it=0,itmax
+!cj          ivgts = ivgts + 1
 
-             tdum = real(it)*dt + zeta*qtinv(ir)
-             tdum=tdum/(2.0_wp*pi)
-             tdum=2.0_wp*pi*(tdum-aint(tdum))
-
-             aaa(1)=fem%points(3,ivsl)
-             the(1)=fem%points(4,ivsl)
-             ns0=density(aaa(1),0.0_wp)
-             ne0=density(aaa(1),0.0_wp)
-             beta = - 1./ ne0
-
-             gs = gsij(ivgts)
-             gaa = gij(1,ivgts)
-             gat = gij(4,ivgts)
-             fcj = Jcbn(ivgts)/(fem%points(1,ivsl)+R_0)/(fem%points(1,ivsl)+R_0)
-
-             i0=(ivsl-1)*fe_ndof+1
-             bgsjgaa(i0) = beta*gs*fcj*gaa
-             bgsjgat(i0) = beta*gs*fcj*gat
-             !if(mype.eq.0)write(117,117) ivsl, gs, gaa, gat, bgsjgaa(i0), bgsjgat(i0)
-             !117 format("addhh2bb=", 1(2x,i5), 5(2x,d12.6))
-             do k=2,fe_ndof
-                i0=(ivsl-1)*fe_ndof+k
-                bgsjgaa(i0) = beta*gs*fcj*gaa
-                bgsjgat(i0) = beta*gs*fcj*gat
-             enddo
-          end if
-       enddo
+!cj             tdum = real(it)*dt + zeta*qtinv(ir)
+!cj             tdum=tdum/(2.0_wp*pi)
+!cj             tdum=2.0_wp*pi*(tdum-aint(tdum))
+!cj
+!cj             aaa(1)=pdum  !fem%points(3,ivsl)
+!cj             the(1)=tdum  !fem%points(4,ivsl)
+!cj             call esigetrzb(rj,zj,Bj,aaa,the,1)
+!cj             ns0=density(aaa(1),0.0_wp)
+!cj             ne0=density(aaa(1),0.0_wp)
+!cj
+!cj             gs = gsij(ivgts)
+!cj             gaa = gij(1,ivgts)
+!cj             gat = gij(4,ivgts)
+!cj
+!cj          if(it.lt.itmax) then ! skip double stored 0,2pi value
+!cj             ivsl = ivsl + 1
+!cj             beta(ivsl) = - 1./ ne0
+!cj
+!cj#ifdef OLD2014
+!cj             i0=(ivsl-1)*fe_ndof+1
+!cj             bgsjgaa(i0) = beta(ivsl)*gs*Jcbn(ivgts)*gaa
+!cj             bgsjgat(i0) = beta(ivsl)*gs*Jcbn(ivgts)*gat
+!cj             do k=2,fe_ndof
+!cj                i0=(ivsl-1)*fe_ndof+k
+!cj                bgsjgaa(i0) = beta*gs*Jcbn(ivgts)*gaa
+!cj                bgsjgat(i0) = beta*gs*Jcbn(ivgts)*gat
+!cj             enddo
+!cj#endif
+!cj          end if
+!cj#ifdef OLD2014
+!cj#else
+             bgsjgaa(ivgts) =      gsij(ivgts)*Jcbn(ivgts)*gij(1,ivgts)*hh(ivgts)
+             bgsjgat(ivgts) =      gsij(ivgts)*Jcbn(ivgts)*gij(4,ivgts)*hh(ivgts)
+!cj#endif
+!cj       enddo
     enddo
-    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+!cj    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
+!cj    bgsjgaa(:) = gsij(:)*Jcbn(:)*gij(1,:)*hh(:)
+!cj    bgsjgat(:) = gsij(:)*Jcbn(:)*gij(4,:)*hh(:)
     
+#ifdef OLD2014
     if( fem%order .eq. 2) then
         ! interpolate linear to ho array
         allocate(bgsjgaa_ho(fem%nmesh_pts), bgsjgat_ho(fem%nmesh_pts))
@@ -2904,11 +3114,50 @@ end subroutine neumbcfix
            enddo
         enddo
     endif
+#else
+    !cj 2015-03-12 using (r,z) coor in masssolver
+    dxdr=0.
+    dxdz=0.
+    call find_dxdadxdt( masssolver, mgrid, bgsjgaa, dxdr, dxdz, ierr )
+    tmpr=dxdr
+
+    dxdr=0.
+    dxdz=0.
+    call find_dxdadxdt( masssolver, mgrid, bgsjgat, dxdr, dxdz, ierr )
+    tmpz=dxdz
+
+    bh=0.
+!cj    ivsl = 0
+!cj    ivgts = 0
+!cj    zeta = zetamin + deltaz ! zeta for my plane   
+!cj    do ir=0,mpsi 
+!cj       itmax=mtheta(ir)
+!cj       pdum=psi_grid(ir)
+!cj       dt = deltat(ir)
+!cj       do it=0,itmax
+!cj          ivgts = ivgts + 1
+!cj          if(it.lt.itmax) then ! skip double stored 0,2pi value
+!cj             ivsl = ivsl + 1
+!cj             bh(ivsl) =  bh(ivsl) - beta(ivsl)/Jcbn(ivgts)*tmpr(ivgts)
+!cj             bh(ivsl) =  bh(ivsl) - beta(ivsl)/Jcbn(ivgts)*tmpz(ivgts)
+!cj          endif
+!cj       enddo
+!cj    enddo
+!cj 2015-03-14 map bb fcj from gts index to fem index
+    bh_kk=-gbeta/Jcbn*(tmpr+tmpz)
+    call mappingGlobal2Local(bh_kk, bh, mgrid, neq)
+#endif
 
     deallocate( xlt )
     deallocate( ind )
     deallocate(indlocal, indglobal)
     deallocate(bgsjgaa, bgsjgat)
+    deallocate(beta)
+    deallocate(bh_kk)
+#ifdef OLD2014
+#else
+    deallocate(tmpr, tmpz, dxdr, dxdz)
+#endif
   end subroutine add_hh2bb
 
 
@@ -2992,7 +3241,7 @@ end subroutine neumbcfix
              gs = gsij(ivgts)
              gaa = gij(1,ivgts)
              gat = gij(4,ivgts)
-             fcj = Jcbn(ivgts)/(fem%points(1,ivsl)+R_0)/(fem%points(1,ivsl)+R_0)
+             fcj = Jcbn(ivgts)/(fem%points(1,ivsl)+R_0)  !/(fem%points(1,ivsl)+R_0)
 
              i0=(ivsl-1)*fe_ndof+1
              bgsjgaa(i0) = beta*gs*fcj*gaa
@@ -3078,6 +3327,52 @@ end subroutine neumbcfix
     deallocate(indlocal, indglobal)
     deallocate(bgsjgaa, bgsjgat)
   end subroutine add_hh2bb_0
+
+
+!=========================================================================
+!subroutine mappingGlobal2Local : mapping from global index to local index
+!=========================================================================
+subroutine mappingGlobal2Local(bb,xx,nn_gk,nn)
+    use precision,only:wp,doubleprec
+    use global_parameters, only: mappingL2G, mappingG2L
+    real(wp),intent(in) :: bb(nn_gk)  !global array bearing global index
+    real(wp),intent(out) :: xx(nn)  !local array bearing local index
+    integer nn_gk  !global dimendion
+    integer nn  !local dimension
+    integer ivsl,ivgts
+
+    do ivsl=1,nn
+       ivgts=mappingL2G(ivsl)
+       xx(ivsl) = bb(ivgts)
+    enddo
+end subroutine mappingGlobal2Local
+
+
+!=========================================================================
+!subroutine mappingLoal2Global : mapping from local index to global index
+!=========================================================================
+subroutine mappingLoal2Global(bb,xx,nn,nn_gk)
+    use precision,only:wp,doubleprec
+    use global_parameters, only: mpsi, mtheta, mappingG2L
+    real(wp),intent(in) :: bb(nn)  !global array bearing global index
+    real(wp),intent(out) :: xx(nn_gk)  !local array bearing local index
+    integer nn  !local dimension
+    integer nn_gk  !global dimendion
+    integer ivsl,ivgts, ir, it, itotal, itmax
+
+    do ivgts=1,nn_gk
+       ivsl=mappingG2L(ivgts)
+       xx(ivgts) = bb(ivsl)
+    enddo
+
+    !patch the repeating points at mtheta(ir), ir=0,mpsi
+    itotal=0
+    do ir=0,mpsi
+       itmax=1+mtheta(ir)
+       itotal=itotal+itmax
+       xx(itotal) = bb(itotal-itmax-ir+1)
+    enddo
+end subroutine mappingLoal2Global
 
 
 !========================================================================
@@ -3332,7 +3627,8 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         ! fcj: flux coordinate jacobian
         ! Jacobian=(  zaj(1)*rqj(1)-zqj(1)*raj(1)  )
         ! differential area dS = J |grad phi| dadt = J/rj
-        fcj = mean( (zaj*rqj-zqj*raj)/rj, fe_ns )
+        ! fcj = mean( (zaj*rqj-zqj*raj)/rj, fe_ns )
+        fcj = mean( (zaj*rqj-zqj*raj), fe_ns )
 
      do i=1,fe_ns
         mt=metric_elements(aaa(i),the(i),0.)
@@ -3388,6 +3684,317 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
     mean = sum(vals)/real(nn,wp)
     END FUNCTION mean
 end subroutine form_tangent
+
+!========================================================================
+!                         subroutine form_tangent_RZcoor
+!========================================================================
+!subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
+!subroutine form_tangent( order, Amat, Mmat, iemax, iet, npts, points, &
+subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
+     mat_type, bc_type, ierr )
+  !     
+  !     input:
+  !     iemax: number of elements
+  !     iet1,2,3[iemax]: nodes of triangles of mesh
+  !     npts: number of mesh points
+  !     points[6,npts]: coordinates of points in cartesian and flux coordinate
+  !     
+  !     output:
+  !     Amat: stiffness matrix
+  !     Mmat: mass matrix
+  !     ierr: error code
+  !
+  use precision,only:wp,doubleprec
+  use particle_decomp,only:myrank_partd,nproc_partd
+  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi
+  use esi_interface, only : metric
+  use fem_data_class
+  implicit none
+#include "finclude/petscsys.h"
+#include "finclude/petscvec.h"
+  type(fem_data) :: fem
+  integer order,iemax,npts,ierr
+  integer mat_type, bc_type
+! integer,dimension(:),allocatable :: iet1,iet2,iet3
+! integer,dimension(:,:) :: iet
+! real(wp) :: points(6,npts)
+  real(wp) alpha, beta
+  Mat  Amat, Mmat
+!  real(doubleprec)  xlt(2,3),sarr(3,3),sarr2(3*3),ul(3,4),eps ! therm2d uses *8
+!  real(doubleprec)           marr(3,3),marr2(3*3)             ! mass matrix
+!  real(doubleprec)  rrarr(3,3),rzarr(3,3),zrarr(3,3),zzarr(3,3),pparr(3,3),rarr(3,3),zarr(3,3)
+  real(doubleprec) eps,big ! therm2d uses *8
+  real(doubleprec),dimension(:,:,:),allocatable ::  fe_Pijk
+  real(doubleprec),dimension(:,:),allocatable ::  xlt,sarr,marr,ul ! therm2d uses *8
+  real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
+  real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
+  real(doubleprec),dimension(:),allocatable ::  rarr2,zarr2            ! r&z matrix
+  real(doubleprec) :: c1=1., c2=1.
+  real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
+  real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
+! integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
+  integer ie,i,j,k,n,kk,ki,nz,nel,nst
+  integer,dimension(:),allocatable :: ind2,ind3,ind
+! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
+  real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+  real(wp), dimension(:),allocatable :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
+  real(wp) :: Zs, gs,qq
+
+  real(wp), external ::temperature_e, density
+  integer, external :: metric_elements
+
+  ! Lagrange finite elements
+  integer mt
+  integer fe_order, fe_node, fe_ns, fe_nw, fe_ndof, fe_nvar
+  real(doubleprec),dimension(:),allocatable :: fe_weight
+  real(doubleprec),dimension(:,:),allocatable :: fe_NN
+  real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
+  logical :: flg
+  integer :: whichone = 5
+
+
+  call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+  whichone=1
+  !cj2014.05.02 c1 = alpha
+  !cj2014.05.02 c2 = beta
+  eps = pi/6.
+  big = pi*1.5
+
+  call MatZeroEntries(Amat,ierr)
+  call MatZeroEntries(Mmat,ierr)
+
+  fe_order=fem%order
+  call lagrange_element_define(fe_order, &
+                               fe_node, &
+                               fe_ns, &
+                               fe_nw, &
+                               fe_ndof, &
+                               fe_nvar)
+
+  nel = fe_ns                   ! points per element
+  nst = fe_ns                   ! size of elem matrix
+  allocate(fe_weight(fe_nw))
+  allocate(fe_NN(fe_nvar,fe_nw))
+  allocate(fe_dN1(fe_node,fe_nvar,fe_nw))
+  allocate(fe_Eij(fe_nvar,fe_ns,fe_nw))
+  allocate(fem%Pijk(fe_ns,fe_nvar,fe_nvar))
+  allocate(fe_Pijk(fe_ns,fe_nvar,fe_nvar))
+  allocate(fe_bEij(fe_ns,fe_ns,fe_nw))
+  call lagrange_element_construct(fe_order, &
+                                   fe_ns, &
+                                   fe_nw, &
+                                   fe_ndof, &
+                                   fe_nvar, &
+                                   fe_weight, &
+                                   fe_NN, &
+                                   fe_dN1, &
+                                   fe_Eij, &
+                                   fem%Pijk, &
+                                   fe_bEij)
+
+  allocate( ind2(fe_ns),ind3(fe_ns),ind(fe_ns) )
+  allocate( xlt(2,fe_ns) )
+  allocate( sarr(fe_nvar,fe_nvar),sarr2(fe_nvar*fe_nvar),ul(fe_nvar,4) )
+  allocate( marr(fe_nvar,fe_nvar),marr2(fe_nvar*fe_nvar) )
+  allocate( rrarr(fe_nvar,fe_nvar),rzarr(fe_nvar,fe_nvar),zrarr(fe_nvar,fe_nvar),zzarr(fe_nvar,fe_nvar),pparr(fe_nvar,fe_nvar) )
+  allocate( rarr(fe_nvar,fe_nvar),rarr2(fe_nvar*fe_nvar) )
+  allocate( zarr(fe_nvar,fe_nvar),zarr2(fe_nvar*fe_nvar) )
+  ul = 0.                   ! displacement, velocit and acceloration (not used)
+
+  allocate( aaa(fe_ns),the(fe_ns),Fj(fe_ns),Faj(fe_ns),gFaj(fe_ns),gYaj(fe_ns),rj(fe_ns),raj(fe_ns),rqj(fe_ns),zj(fe_ns),zaj(fe_ns),zqj(fe_ns),Bj(fe_ns) )
+  allocate( gaa(fe_ns),gtt(fe_ns),gpp(fe_ns),gat(fe_ns),vthe3(fe_ns),q(fe_ns),ns0(fe_ns),ne0(fe_ns) )
+
+  !july 31, 2013 to calculate dxdr, dxdz
+  !shouldn't do MPI_ALLREDUCE, but just for now to fix bug
+  fe_Pijk(:,:,:)= fem%Pijk(:,:,:)
+    call MPI_ALLREDUCE(fe_Pijk,fem%Pijk,fe_ns*fe_nvar*fe_nvar,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
+#ifdef CJTEST
+  do i=1,fe_nvar
+     do j=1,fe_nvar
+        if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
+        115 format("	RZcoor Pijk:", 2(2x,i4), 3(1x,d12.6))
+     enddo
+  enddo
+#endif
+
+  if(mype .eq. 0) write(0,*) '	form_tangent_RZcoor: iemax=', fem%iemax
+  do ie=1,fem%iemax
+     ind(:)=fem%iet(:,ie)
+     if(ind(1) .eq. 0) stop 'ind(1) == 0'
+    
+     if(whichone.lt.3) then
+        ! in (r,z) cylindrical coordinates
+        xlt(1,:) = fem%points(1,ind(:))
+        xlt(2,:) = fem%points(2,ind(:))
+        fcj=1.
+     else
+        ! in (a,t) flux coordinates
+        xlt(1,:) = fem%points(3,ind(:))
+        xlt(2,:) = fem%points(4,ind(:))
+        call fixtheta(ie,fe_order,fe_ns,xlt)
+        call cmp_phy_qty
+     endif
+
+        sarr = 0.; marr = 0.
+        rrarr = 0.; rzarr = 0.; zrarr = 0.; zzarr = 0.; pparr = 0.
+        rarr = 0.; zarr = 0.
+#ifdef USEGTSFE
+        if(mype==0 .and. ie==1 ) &
+        write(0,*) "	form_tangent: use historical gts elements whichone,fcj=", whichone, fcj
+        call therm2d(c1,c2,ul,xlt,sarr,marr,rrarr,rzarr,zrarr,zzarr,rarr,zarr,nel,nst,2,1)
+#else
+        if(mype==0 .and. ie==1 ) &
+        write(0,*) "	form_tangent_RZcoor: use lagrange elements whichone,fcj=", whichone, fcj
+        call lagrange_element_matrix(fe_ns, fe_nw, fe_ndof, fe_nvar, &
+                                     xlt(1,:), xlt(2,:),  &
+                                     fe_weight, fe_NN, fe_dN1, fe_Eij, fe_bEij, &
+                                     marr,sarr,rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr)
+#endif
+
+#ifdef NOC1ELE
+        nz = 0
+        do i=1,nel
+           k = ind(i)
+           nz = nz + 1
+!          ind3(nz) = i
+           ind2(nz) = k - 1 ! zero based
+        enddo
+#else
+        nz = 0
+        do i=1,nel
+        do ki=1,fe_ndof
+           k = ind(i)*fe_ndof + ki
+           nz = nz + 1
+           ind2(nz) = k - 1*fe_ndof - 1 ! zero based
+        enddo
+        enddo
+#endif
+
+        kk = 0
+        do j=1,nz
+           k = ind(j)
+           do i=1,nz
+             kk = kk + 1
+                if(whichone==1) then
+             sarr2(kk) = cf1*rrarr(i,j) &
+                        +cf2*2.*rzarr(i,j) &
+                        +cf3*zzarr(i,j) &
+                        +cf4*rarr(i,j) &
+                        +cf5*zarr(i,j)
+                else if(whichone==2) then
+             sarr2(kk) = sarr(i,j)
+                else if(whichone==3) then
+             sarr2(kk) = fcj*( cf1*rrarr(i,j) + cf2*rzarr(i,j) + cf2*zrarr(i,j) + cf3*zzarr(i,j) )
+                else if(whichone==4) then
+             sarr2(kk) = fcj*( cf1*rrarr(i,j) + 2.*cf2*rzarr(i,j) + cf3*zzarr(i,j) )
+                else
+             sarr2(kk) = alpha * fcj * marr(i,j) &
+                       + beta * fcj * gs * ( cf1*rrarr(i,j) &
+                       +                     cf2*rzarr(i,j) &
+                       +                     cf2*zrarr(i,j) &
+                       +                     cf3*zzarr(i,j) &
+                       +                     cf4*pparr(i,j)/qq &
+                                           )
+                endif
+             marr2(kk) = fcj*marr(i,j)
+            !rarr2(kk) = fcj*rarr(i,j)
+            !zarr2(kk) = fcj*zarr(i,j)
+           enddo
+        enddo
+
+        call MatSetValues(Amat,nz,ind2,nz,ind2,sarr2,ADD_VALUES,ierr)
+        call MatSetValues(Mmat,nz,ind2,nz,ind2,marr2,ADD_VALUES,ierr)
+  enddo
+
+  deallocate( ind2,ind3,ind )
+  deallocate( xlt )
+  deallocate( sarr,sarr2,ul )
+  deallocate( marr,marr2 )
+  deallocate( rarr,rarr2 )
+  deallocate( zarr,zarr2 )
+  deallocate( rrarr,rzarr,zrarr,zzarr,pparr )
+  deallocate( aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj )
+  deallocate( gaa,gtt,gpp,gat,vthe3,q,ns0,ne0 )
+
+  deallocate(fe_Pijk)
+  deallocate(fe_weight)
+  deallocate(fe_NN)
+  deallocate(fe_dN1)
+  deallocate(fe_Eij)
+  deallocate(fe_bEij)
+
+
+  CONTAINS
+    !------------------------------------
+    SUBROUTINE cmp_phy_qty
+
+     aaa(:)=fem%points(3,ind(:))
+     the(:)=fem%points(4,ind(:))
+     call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,fe_ns)
+
+        ! in (a,t) flux coordinates
+        ! fcj: flux coordinate jacobian
+        ! Jacobian=(  zaj(1)*rqj(1)-zqj(1)*raj(1)  )
+        ! differential area dS = J |grad phi| dadt = J/rj
+        ! fcj = mean( (zaj*rqj-zqj*raj)/rj, fe_ns )
+        fcj = mean( (zaj*rqj-zqj*raj), fe_ns )
+
+     do i=1,fe_ns
+        mt=metric_elements(aaa(i),the(i),0.)
+        gaa(i)=metric(1)
+        gtt(i)=metric(2)
+        gpp(i)=metric(3)
+        gat(i)=metric(4)
+     end do
+        cf1 = mean( gaa, fe_ns )
+        cf2 = mean( gat, fe_ns )
+        cf3 = mean( gtt, fe_ns )
+        cf4 = mean( gpp, fe_ns )
+
+     ! q on flux surfaces
+     q(:)=fem%points(5,ind(:))
+     qq = mean( q*q, fe_ns )
+
+     do i=1,fe_ns
+        ns0(i)=density(aaa(i),0.0_wp)
+        ne0(i)=density(aaa(i),0.0_wp)
+     enddo
+
+     do i=1,fe_ns
+        vthe3(i)=temperature_e(aaa(i),0.0_wp)
+     enddo
+     if(ifelectron==1 .or. mat_type==2) then
+        alpha = 0.0_wp
+     else
+        alpha = abs(csc0) * m0ms / mean(vthe3, fe_ns)
+     endif
+
+
+     !     alpha = 0.0_wp
+     !     alpha = alpha/10.0
+
+
+     beta = - 1./ mean(ne0,fe_ns)
+     Zs = 1.
+     gs = Zs / mean(Bj*Bj, fe_ns) &
+        * mean(ns0, fe_ns) &
+        * c0cs_i * msm0_i
+
+    END SUBROUTINE cmp_phy_qty
+
+    FUNCTION mean(vals,nn)
+    use precision
+    implicit none
+
+    real(wp) :: mean
+
+    integer, intent(in) :: nn
+    real(wp), dimension(nn), intent(in) :: vals
+    
+    mean = sum(vals)/real(nn,wp)
+    END FUNCTION mean
+end subroutine form_tangent_RZcoor
 
 end module solver_data_class
 

@@ -483,6 +483,9 @@ subroutine get_fluxes(wpi,dgf,dgq)
     if(mype==0) then 
        write(80,802) istep, (fluxpsi(i),i=0,mpsi)
        call flush(80)
+
+       write(83,802) istep, (flux_11(i),i=0,mpsi)
+       call flush(83)
     end if
 
     factor=pmass0*uveloci**2*ulength/charg0**2/(4.0_wp*twopi)   
