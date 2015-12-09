@@ -281,7 +281,7 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o 
 
 
 $(CMD): $(OBJ)
-	$(CMP) -o $(CMD) $(OBJ) $(OPT) $(LIB)
+	$(CMP) $(OBJ) $(OPT) $(LIB) -o $@
 
 libcm:
 	(cd cmlib; $(MAKE) FC=$(F90C) FFLAGS="$(OPT)" ; cd ..)
