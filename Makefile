@@ -21,7 +21,7 @@
 #
 # Special targets:
 #
-#  % gmake clean      Removes the executable and all object files (*.o)
+#  % gmake cleangts   Removes the executable and all object files (*.o *.mod *.lst)
 #
 #  % gmake cleanomp   Removes the executable and the object files
 #                     containing OpenMP directives
@@ -120,57 +120,11 @@ ifeq ($(F90C),xlf90_r)
 endif
 
 ifeq ($(F90C),lf95)
-    # Flags for the Lahey compiler under Linux
-    OPT:=-O --dbl --ap --pca --trace -Dflush_=flush
-    CC:=mpicc
-    CFLAGS:=-O -DAdd_
-    NETCDF:=-L${NETCDFHOME}/lib -lnetcdf
-    # We are probably running at PPPL so NAG is available and is the default
-    ifeq ($(HAVE_NAG),n)
-       NAG_FILES:=fake_nag.o nag.o
-       NAG:=-L./cmlib -lcmlib
-       NAG_REPLACEMENT:=libcm
-    else
-       NAG_FILES:=
-       NAG:=-L${NAG_ROOT}/lib -lnag
-       NAG_REPLACEMENT:=
-    endif
-    SPRNG:=-L${SPRNG_HOME}/lib -lsprng
-    PSPLINE:=-L${NTCCHOME}/lib -lpspline -lportlib -lezcdf
-    ifeq ($(DEBUG),y)
-       OPT:=-g $(OPT) --warn --chk[aesu] --chkglobal
-       CFLAGS:=-g $(CFLAGS)
-    endif
-    LIB:=$(NETCDF) $(NAG) $(PSPLINE) $(SPRNG)
-    OPT:=$(OPT) -I${NETCDFHOME}/include -I${SPRNG_HOME}/include \
-         -I${NTCCHOME}/mod
+         ### used in revisions before 61
 endif
 
 ifeq ($(F90C),lfc)
-    # Flags for the Lahey compiler under Linux
-    OPT:=-O --dbl --ap --pca --trace -Dflush_=flush
-    CC:=mpicc
-    CFLAGS:=-O -DAdd_
-    NETCDF:=-L${NETCDFHOME}/lib -lnetcdf
-    # We are probably running at PPPL so NAG is available and is the default
-    ifeq ($(HAVE_NAG),n)
-       NAG_FILES:=fake_nag.o nag.o
-       NAG:=-L./cmlib -lcmlib
-       NAG_REPLACEMENT:=libcm
-    else
-       NAG_FILES:=
-       NAG:=-L${NAG_ROOT} -lnag
-       NAG_REPLACEMENT:=
-    endif
-    SPRNG:=-L${SPRNG_HOME}/lib -lsprng
-    PSPLINE:=-L${NTCCHOME}/lib -lpspline -lportlib -lezcdf
-    ifeq ($(DEBUG),y)
-       OPT:=-g --warn --chk[aesu] --chkglobal $(OPT)
-       CFLAGS:=-g $(CFLAGS)
-    endif
-    LIB:=$(NETCDF) $(NAG) $(PSPLINE) $(SPRNG)
-    OPT:=$(OPT) -I${NETCDFHOME}/include -I${SPRNG_HOME}/include \
-         -I${NTCCHOME}/mod
+         ### used in revisions before 61
 endif
 
 ifeq ($(F90C),pgf90)
@@ -213,39 +167,46 @@ ifeq ($(F90C),ftn)
           SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
           SPRNG_INC:=-I${SPRNG_DIR}/include
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+          PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
        else   # Using CRAY compiler
-          #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
-          #FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
-          #FFLAGS:= -O 2 -s real64 -Dflush_=flush -I. -static -e F -e m -rm -m2 -R bcsp -e0 -ez
+          ifeq ($(PE_ENV),INTEL)   # Using the INTEL compiler on Hopper or Edison
+             FFLAGS:=-r8 -Dflush_=flush -I. -Ifem
+             OPT:=-fast -no-ipo
+             CFLAGS:=
+             COPT:=-fast -no-ipo
+             OMPFLAG:=-openmp
+             NOOMPFLAG:=
+             SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
+             SPRNG_INC:=-I${SPRNG_DIR}/include
+             PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
+          else  # Using the CRAY compiler (cce)
+             #initialize array to zero: -e0 -ez
+             #check all array bound:-m2 -R bcsp, but too slow, so not used unless debug code
+             #FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
+             #FFLAGS:= -O 2 -s real64 -Dflush_=flush -I. -static -e F -e m -rm -m2 -R bcsp -e0 -ez
+             #CFLAGS:= -m2 -R bcsp -e0 -ez
+             FFLAGS:= -s real64 -Dflush_=flush -I. -Ifem -static -e F -e m -rm -e0 -ez
+             OPT:= -O 1
+             CFLAGS:= -e0 -ez
+             COPT:= -O 1
 
-          #initialize array to zero: -e0 -ez
-          #check all array bound:-m2 -R bcsp, but too slow, so not used unless debug code
-          FFLAGS:= -s real64 -Dflush_=flush -I. -static -e F -e m -rm -e0 -ez
-          OPT:= -O 1
-          #CFLAGS:= -m2 -R bcsp -e0 -ez
-          CFLAGS:= -e0 -ez
-          COPT:= -O 1
+             OMPFLAG:=
+             NOOMPFLAG:=-hnoomp
 
-          OMPFLAG:=
-          NOOMPFLAG:=-hnoomp
-
-###          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng                   # for Hopper
-###          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
-###          SPRNG_INC:=-I${SPRNG_DIR}/include
-###          PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-###          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-
-          #SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper
-          SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
-          SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod 
-          #PSPLINE_DIR:=/usr/common/usg/pspline/nersc1.1/cray
-          #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
-          PSPLINE_INC:=-I${PSPLINE_DIR}/include -I${PSPLINE_DIR}/mod -I$(NETCDF_DIR)/include
-          PSPLINE:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-          PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_cray_real
+             #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
+             #SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper
+             SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
+             SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod 
+             #PSPLINE_DIR:=/usr/common/usg/pspline/nersc1.1/cray
+             #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
+             PSPLINE_INC:=-I${PSPLINE_DIR}/include -I${PSPLINE_DIR}/mod -I$(NETCDF_DIR)/include
+             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_cray_real
+          endif
        endif
-####   else
+
 ####     # Jaguarpf system at ORNL
 ####       FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
 ####       OPT:=-fast
@@ -256,60 +217,55 @@ ifeq ($(F90C),ftn)
 ####       SPRNG:=${SPRNG_LIB}
 ####       NETCDF:=${NETCDF_FLIB}
 ####       HDF5:=${HDF5_FLIB}
-####   endif
+
    FFTLIB:=
    NAG_FILES:=fake_nag.o nag.o
    NAG:=-L./cmlib -lcmlib
    NAG_REPLACEMENT:=libcm
+   FEM:=-L./fem -lfemlib
    CC:=cc
-   CFLAGS:= -DAdd_ ${SPRNG_INC}
-###     -I$(SUPERLU_SRC)  ${SPRNG_LIB} ${NETCDF_C_LIB} ${HDF5_CLIB}
-
+   CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC}
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(HDF5)
 endif
 
    ifeq ($(DEBUG),y)
      OPT:=-g  $(FFLAGS)
      COPT:= -g  $(CFLAGS)
+     GOPT:= -g  $(CFLAGS)
    else
      OPT:=$(OPT) $(FFLAGS)
      COPT:=$(COPT) $(CFLAGS)
+     GOPT:= -g  $(CFLAGS)
    endif
 
    ifeq ($(OPENMP),y)
      CMD:=GTS_OMP
      OPT:=$(OMPFLAG) $(OPT)
      COPT:=$(OMPFLAG) $(COPT)
+     GOPT:= $(OMPFLAG) $(GOPT)
    else
      CMD:=GTS
      OPT:=$(NOOMPFLAG) $(OPT)
      COPT:=$(NOOMPFLAG) $(COPT) 
+     GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
-   LIB:=$(NAG) $(NETCDF) $(SPRNG_LIB) $(PSPLINE) $(HDF5) $(FFTLIB) $(PETSC_FLIB)
-###     LIB:=$(NAG)  $(SUPERLU) $(NETCDF) $(SPRNG) $(PSPLINE) $(HDF5) $(FFTLIB) -lacml
+   LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PETSC_FLIB)
 
-# Where to find finite elements
-vpath %.F90 .:fem
-vpath %.c .:fem
-vpath %.h .:fem
 
 ##################################################################
 # We add ".F90" to the list of suffixes to allow source files on which the
 # co-processor will be run automatically.
 .SUFFIXES: .o .f90 .F90 .F .c
 
-all : libcm $(CMD)
+all : libcm libfem $(CMD)
 
-#export PETSC_ARCH=cray-xt4_O
-#export PETSC_DIR=/project/projectdirs/mp19/petsc-3.0.0-p7
 
-#petsc3.09 include ${PETSC_DIR}/conf/base
 include ${PETSC_DIR}/conf/variables
 include ${PETSC_DIR}/conf/rules
 
 PETSCFINCLUDE:= -I${PETSC_DIR}/include -I${PETSC_DIR} -I${PETSC_DIR}/${PETSC_ARCH}/include $(MPI_INCLUDE)
-SOLVER:=fem.o solver_petsc.o 
+SOLVER:=solver_petsc.o
 
 # List of all the object files needed to build the code
 OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o Er_provider.o Theory_jb.o \
@@ -319,24 +275,20 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o 
      $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
      check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
      get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o output_profiles.o \
-     weight_damping_new.o weight_damping_eon_new2.o \
-     mesh_gen.o triangle.o therm2d.o lagrange.o utility.o
-#output3d.o
-# selectmode.o volume.o 
+     weight_damping_new.o weight_damping_eon_new2.o
 
-### TOBJ:=triangle.o
+#output3d.o selectmode.o volume.o 
 
-all : $(NAG_REPLACEMENT) $(CMD)
 
-### $(CMD): $(OBJ) $(TOBJ)
-### 	$(CMP) -o $(CMD) $(OBJ) $(TOBJ) $(OPT) $(LIB)
-
-$(CMD): $(OBJ) 
+$(CMD): $(OBJ)
 	$(CMP) -o $(CMD) $(OBJ) $(OPT) $(LIB)
-###$(CMP) -o $(CMD) $(OBJ) $(OPT) $(LIB) ${PETSC_FORTRAN_LIB} ${PETSC_KSP_LIB}
 
-libcm :
+libcm:
 	(cd cmlib; $(MAKE) FC=$(F90C) FFLAGS="$(OPT)" ; cd ..)
+
+#finite element and mesh generator
+libfem: module.o
+	(cd fem; $(MAKE) FC=$(F90C) FFLAGS="$(OPT)" CC=$(CC) CFLAGS="$(COPT)" DEBUG="$(GOPT)"; cd ..)
 
 $(OBJ): module.o
 
@@ -352,14 +304,12 @@ $(OBJ): module.o
 .c.o   :
 	$(CC) -c $(COPT) $<
 
-triangle.o:
-	$(CC) -c -g -DREDUCED -DCDT_ONLY -DTRILIBRARY -DANSI_DECLARATOR fem/triangle.c
-
 # The following tag is meant to "clean" the directory by removing the
 # executable along with all the object files created by the compilation 
-# One only has to run:  gmake clean
+# One only has to run:  gmake cleangts
 
 cleangts:
 	-rm -f $(CMD) $(OBJ) *.mod *.lst
 	(cd cmlib; $(MAKE) clean ; cd ..)
+	(cd fem; $(MAKE) clean ; cd ..)
 

@@ -1231,7 +1231,7 @@ end if ! if(mype==0)
         call flush(733)
      end do
      close(unit=733)
-802  format(503(1x,d12.6)) ! for maxium mpsi=500
+802  format(503(1x,d13.6)) ! for maxium mpsi=500
   end if
 
 !cj 2015-02-25 deallocate memory
@@ -2043,7 +2043,7 @@ do i=0, mpsi
                      +1.0/(dnty_on_bin_g(i)*minz)/utime/utime
    end if
 end do
-124  format(2x, i4, 16(2x, d12.6))
+124  format(2x, i4, 16(2x, d13.6))
 close(24)
 close(25)
 
@@ -2063,7 +2063,7 @@ if(mype==0) then
       call esigetrzb(rj,zj,Bj,aaa,the,1)  
       write(633,100) i, (k+1), rj(1), zj(1)
    end do
-100  format(2x, i4, 2x, i4, 2x, d12.6, 2x, d12.6)
+100  format(2x, i4, 2x, i4, 2x, d13.6, 2x, d13.6)
    close(633)
 end if
 
@@ -2295,8 +2295,8 @@ end subroutine setup
                      ndiag,              &   ! calculate fluxes, tur intensity, etc, every ndiag-step
                      nonlinear,          &   ! =1.0, nonlinear run, =0.0, linear run
                      ifdphi,             &   ! =0 --> no dphi/dt involved when ifelectron=0 or 1;
-                                         &   ! =1 --> use dphi/dt equation when ifelectron=2;
-                                         &   ! =2 --> use direct dphi/dt when ifelectron=2
+                                             ! =1 --> use dphi/dt equation when ifelectron=2;
+                                             ! =2 --> use direct dphi/dt when ifelectron=2
                      mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
                      maintnT,            &   ! =0, no T profile restore; =1, T profile restore (be careful!)
                      tstep,              &   ! time step size ((in unit L_T/V_th)

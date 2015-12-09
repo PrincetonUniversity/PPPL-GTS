@@ -283,12 +283,12 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
 
 
 
-5   format(1x,i6, 503(1x,d12.6)) ! for maxium mpsi=500
-801 format(1x,i6, 21(1x,d12.6))       ! new format for mstep>100000
-! 801 format(1x,i5, 21(1x,d12.6))       ! new format for mstep>100000
-! 801 format(i6, 21(1x,d12.6))
+5   format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
+801 format(1x,i6, 21(1x,d13.6))       ! new format for mstep>100000
+! 801 format(1x,i5, 21(1x,d13.6))       ! new format for mstep>100000
+! 801 format(i6, 21(1x,d13.6))
 
-802 format(1x,i6, 503(1x,d12.6)) ! for maxium mpsi=500
+802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
 
   if(mype==0) then
      open(502,file='Er_estimate.dat')

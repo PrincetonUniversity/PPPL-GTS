@@ -16,7 +16,6 @@ Subroutine output_profiles
           Ti_id,Te_id,ni_id,ne_id,a0_id,a1_id,psigrid_id,tstep_id,utime_id,&
           r0_id,ul_id
   real(doubleprec), dimension(np) :: xx,yni,yne,yTi,yTe
-  integer i
   real(doubleprec) thedum,pdum
   real(wp), external :: density,temperature,temperature_e,domega_da
 

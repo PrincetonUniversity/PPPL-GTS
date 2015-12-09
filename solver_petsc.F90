@@ -1207,7 +1207,7 @@ contains
 
              if( mype.eq.0 .and. (ir.ne.0 .and. ir.ne.mpsi)) &
              write(111,111) ir, it, ivsl, xx(ivsl), tmp
-111 format("finite element test solve=", 3(2x,i7), 2(1x,d12.6))
+111 format("finite element test solve=", 3(2x,i7), 2(1x,d13.6))
 
           else
              xx_gk(ivgts) = xx(ivsl-itmax+1)
@@ -1660,7 +1660,7 @@ contains
 !112 format("c1=", 2(1x,i6),  3(2x,d10.4))
 !                endif
                 write(111,111) ivsl, xx1(i0), xx(ivsl), pdum, tdum, ir, it, itmax, err
-111 format("finite element test solve=", 1(2x,i7), 4(2x,d10.4), 3(2x,i5), (3x,d10.4))
+111 format("finite element test solve=", 1(2x,i7), 4(2x,d11.4), 3(2x,i5), (3x,d11.4))
              endif
           end if
        enddo
@@ -1843,7 +1843,7 @@ contains
           if(mype.eq.0)write(115,115) ivgts, bb(ivgts), &
                                       tmpr, dxdr(ivgts)*raj(1) + dxdz(ivgts)*zaj(1), &
                                       tmpz, dxdr(ivgts)*rqj(1) + dxdz(ivgts)*zqj(1)
-          115 format("mass solver=", 1(2x,i7), 5(1x,d12.6))
+          115 format("mass solver=", 1(2x,i7), 5(1x,d13.6))
        enddo
     enddo
     if(ivgts.ne.mgrid)stop'mass solver: ivgts.ne.mgrid'
@@ -2415,7 +2415,7 @@ contains
 
     !locals
     integer :: ir,it,ivgts,ivsl,itmax
-    real(wp) zeta, pdum, dt, tdum, tmp
+    real(wp) zeta, pdum, dt, tdum
     real(wp),dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
     real(doubleprec),allocatable,dimension(:) :: qq
 

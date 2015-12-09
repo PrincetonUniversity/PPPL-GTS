@@ -386,12 +386,12 @@ subroutine get_fluxes_e(wpi)
     end if
 
 
-800 format(1x,i6,1x,16(d12.6,1x))
-801 format(1x,i6, 21(1x,d12.6))
-802 format(1x,i6, 503(1x,d12.6)) ! for maxium mpsi=500
-! 802 format(1x,i6, 10(1x,d12.6)) ! for maxium mpsi=500
-400 format(1x,i6, 600(1x,d12.6))
-! 400 format(1x,i6, 10(1x,d12.6))
+800 format(1x,i6,1x,16(d13.6,1x))
+801 format(1x,i6, 21(1x,d13.6))
+802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
+! 802 format(1x,i6, 10(1x,d13.6)) ! for maxium mpsi=500
+400 format(1x,i6, 600(1x,d13.6))
+! 400 format(1x,i6, 10(1x,d13.6))
 
 end subroutine get_fluxes_e
 
