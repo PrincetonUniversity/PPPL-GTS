@@ -284,11 +284,11 @@ $(CMD): $(OBJ)
 	$(CMP) $(OBJ) $(OPT) $(LIB) -o $@
 
 libcm:
-	(cd cmlib; $(MAKE) FC=$(F90C) FFLAGS="$(OPT)" ; cd ..)
+	(cd cmlib; $(MAKE) -f Makefile.r63 FC=$(F90C) FFLAGS="$(OPT)" ; cd ..)
 
 #finite element and mesh generator
 libfem: module.o
-	(cd fem; $(MAKE) FC=$(F90C) FFLAGS="$(OPT)" CC=$(CC) CFLAGS="$(COPT)" DEBUG="$(GOPT)"; cd ..)
+	(cd fem; $(MAKE) -f Makefile.r63 FC=$(F90C) FFLAGS="$(OPT)" CC=$(CC) CFLAGS="$(COPT)" DEBUG="$(GOPT)"; cd ..)
 
 $(OBJ): module.o
 
@@ -310,6 +310,6 @@ $(OBJ): module.o
 
 cleangts:
 	-rm -f $(CMD) $(OBJ) *.mod *.lst
-	(cd cmlib; $(MAKE) clean ; cd ..)
-	(cd fem; $(MAKE) clean ; cd ..)
+	(cd cmlib; $(MAKE) -f Makefile.r63 clean ; cd ..)
+	(cd fem; $(MAKE) -f Makefile.r63 clean ; cd ..)
 

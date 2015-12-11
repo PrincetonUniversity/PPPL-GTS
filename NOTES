@@ -1,3 +1,7 @@
+12/11/2015 new features in Makefile
+           old stay is kept when do "make -f Makefile.r63"
+
+
 12/07/2015 GTS port to hopper and cori
 	1."svn add filename"
 do "svn revert filename" 
