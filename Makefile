@@ -82,5 +82,8 @@ libfem: module.o
 
 $(OB): module.o
 
+$(SOLVER): solver_petsc.F90
+	$(F90) $(OPT) $(INCLUDE) -DXUSERZ -c $< -o $@
+
 #----- Begin Boilerplate
 endif

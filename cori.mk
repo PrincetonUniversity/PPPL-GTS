@@ -53,8 +53,8 @@ ifeq ($(F90),ftn)
              #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
              PSPLINE_INC:=-I${PSPLINE_DIR}/include -I${PSPLINE_DIR}/mod -I$(NETCDF_DIR)/include
              PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-             PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR} -I${PETSC_DIR}/${PETSC_ARCH}/include $(MPI_INCLUDE)
-             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_cray_real
+             PETSC_FINC:= -I${PETSC_DIR}/include
+             PETSC_FLIB:=-L${PETSC_DIR}/lib -lcraypetsc_cray_real
           endif
        endif
 

@@ -13,7 +13,7 @@
 
 program GTS
   use precision
-  use mpi_defs
+!2015-0ct-24 already included in "solver_data_class": use mpi_defs
   use global_parameters
   use particle_array
   use field_array
@@ -21,7 +21,6 @@ program GTS
   use solver_data_class
   use fem_data_class
   implicit none
-#include "finclude/petscsysdef.h"
   
 ! to use parallel random number generator
 #define SIMPLE_SPRNG

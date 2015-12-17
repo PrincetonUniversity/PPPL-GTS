@@ -30,3 +30,17 @@ clean:
 	(cd cmlib; $(MAKE) clean ; cd ..)
 	(cd fem; $(MAKE) clean ; cd ..)
 
+# gmake cleangts to clean GTS code
+.PHONY: cleangts
+cleangts:
+	rm -rf $(OBJDIR)
+
+# gmake cleancmlib to clean cmlib directory
+.PHONY: cleancmlib
+cleancmlib:
+	(cd cmlib; $(MAKE) clean ; cd ..)
+
+# gmake cleancmlib to clean fem directory
+.PHONY: cleanfem
+cleanfem:
+	(cd fem; $(MAKE) clean ; cd ..)

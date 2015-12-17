@@ -1,6 +1,6 @@
 subroutine field(masssolver)
   use precision
-  use mpi_defs
+!2015-oct-24 already defined in "solver_data_class": use mpi_defs
   use global_parameters
   use particle_decomp
   use field_array

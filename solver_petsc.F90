@@ -4,8 +4,12 @@
 !========================================================================
 module phit_matrix_type
   implicit none
-#include "finclude/petscdef.h"
-#include "finclude/petscmatdef.h"
+#include <petsc/finclude/petscsys.h>
+#include <petsc/finclude/petscvec.h>
+#include <petsc/finclude/petscmat.h>
+#include <petsc/finclude/petscpc.h>
+#include <petsc/finclude/petscksp.h>
+#include <petsc/finclude/petscviewer.h>
   type phit_matrix_data
      Mat :: data ! not allcatted here
      integer,dimension(:),pointer :: gk_matid
@@ -31,9 +35,6 @@ contains
     use global_parameters,only: mype,mtheta,mpsi,ZF_SEPARATION,ifelectron
     use particle_decomp,only:myrank_partd,nproc_partd
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
-#include "finclude/petscmat.h"
     type(phit_matrix_data) :: this
     Mat mat
     !integer,dimension(0:) :: mtheta
@@ -114,8 +115,6 @@ contains
     use precision,only:wp,doubleprec
     use particle_decomp,only:myrank_partd,nproc_partd
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
     type(phit_matrix_data) :: this
     integer :: ij, ij0
     real(wp) rs 
@@ -158,11 +157,6 @@ module solver_data_type
   use phit_matrix_class
   use fem_data_class
   implicit none
-#include "finclude/petscdef.h"
-#include "finclude/petscvecdef.h"
-#include "finclude/petscmatdef.h" 
-#include "finclude/petsckspdef.h"
-#include "finclude/petscisdef.h"
   type solver_data
      Vec  xVec,bVec
      KSP  ksp
@@ -197,11 +191,6 @@ contains
   !========================================================================
   subroutine nullify_solver( this )
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
-#include "finclude/petscmat.h" 
-#include "finclude/petscksp.h"
-#include "finclude/petscis.h"
     type(solver_data) :: this    
     !
     this%mat%data = 0 !PETSC_NULL_OBJECT
@@ -220,8 +209,6 @@ contains
   !========================================================================
   subroutine petsc_init()
     implicit none
-!  #include "finclude/petsc.h"
-#include "finclude/petscsys.h"
     integer ierror
     
     call PetscInitialize('./PETSc_input',ierror)
@@ -236,12 +223,6 @@ contains
     use precision,only: wp,doubleprec
     use global_parameters, only: mgrid, mype
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
-#include "finclude/petscmat.h" 
-#include "finclude/petscksp.h"
-#include "finclude/petscis.h"
-#include "finclude/petscviewer.h"
     type(solver_data) :: this
     character,intent(in) :: prefix*(*)
     Mat :: Amat
@@ -379,10 +360,10 @@ contains
        call MatNullSpaceTest(nullsp, Amat, isNull,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        if(mype.eq.0 .and. isNull) write(0,*) "	nullspace test for", prefix
-       !call MatSetNullSpace(Amat,nullsp,ierr)
-       !if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-       call KSPSetNullSpace(ksp, nullsp,ierr)
+       call MatSetNullSpace(Amat,nullsp,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+       !call KSPSetNullSpace(ksp, nullsp,ierr)
+       !if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call KSPGetPC(ksp,prec,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call PCFactorSetShiftType(prec,MAT_SHIFT_POSITIVE_DEFINITE,ierr)
@@ -471,9 +452,6 @@ contains
     use field_array, only: psi_grid, igrid, gama0, gama1
     use phit_matrix_class
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscmat.h" 
-#include "finclude/petscvec.h" 
     type(solver_data) :: this
     character*(*) prefix
     integer mat_type, bc_type
@@ -616,10 +594,6 @@ contains
     use global_parameters, only: mype,mtheta,mpsi,numberpe
     use fem_data_class
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscmat.h" 
-#include "finclude/petscvec.h" 
-#include "finclude/petscviewer.h"
     type(fem_data) :: fem
     type(solver_data) :: this
     character,intent(in) :: prefix*(*)
@@ -809,10 +783,6 @@ contains
     use global_parameters, only: mype,mtheta,mpsi,numberpe
     use fem_data_class
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscmat.h" 
-#include "finclude/petscvec.h" 
-#include "finclude/petscviewer.h"
     type(fem_data) :: fem
     type(solver_data) :: this
     ! locals
@@ -1249,7 +1219,6 @@ contains
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
     use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij
     implicit none
-#include "finclude/petscsys.h"
     type(solver_data) :: solver
     type(solver_data) :: masssolver
     integer :: nn
@@ -1697,7 +1666,6 @@ contains
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0,a0,a1
     use field_array,only: psi_grid,qtinv,Jcbn,gij
     implicit none
-#include "finclude/petscsys.h"
     type(solver_data) :: masssolver
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,mt
@@ -1867,8 +1835,6 @@ contains
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
     type(solver_data) :: solver
     integer :: nn, ierr
     ! locals
@@ -1939,7 +1905,6 @@ contains
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0
     use field_array,only: psi_grid,qtinv,Jcbn, dRda, dRdt, dZda, dZdt
     implicit none
-#include "finclude/petscsys.h"
     type(solver_data) :: solver
     integer :: nn
     integer :: ierr
@@ -2107,7 +2072,6 @@ contains
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0
     use field_array,only: psi_grid,qtinv,Jcbn
     implicit none
-#include "finclude/petscsys.h"
     type(solver_data) :: solver
     integer :: nn
     integer :: ierr
@@ -2251,7 +2215,6 @@ contains
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0
     use field_array,only: psi_grid,qtinv,Jcbn
     implicit none
-#include "finclude/petscsys.h"
     type(solver_data) :: solver
     integer :: nn
     integer :: ierr
@@ -2592,8 +2555,6 @@ contains
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mgrid ! debug
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
     integer :: nn,ierr
     real(doubleprec),intent(in) :: bb(nn)
     real(doubleprec),intent(out) :: xx(nn)
@@ -2664,9 +2625,6 @@ contains
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mgrid ! debug
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
-#include "finclude/petscviewer.h"
     integer :: nn,ierr
     real(doubleprec),intent(in) :: bb(nn), bh(nn)
     real(doubleprec),intent(inout) :: xx(nn)
@@ -2808,9 +2766,6 @@ contains
     use global_parameters,only: mype,mtheta,mpsi,ZF_SEPARATION,ifelectron
     use particle_decomp,only:myrank_partd,nproc_partd
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
-#include "finclude/petscmat.h"
     type(phit_matrix_data) :: this
     integer bc_type
     ! locals
@@ -2865,10 +2820,6 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
     use fem_data_class
     use esi_interface, only : metric
     implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscmat.h" 
-#include "finclude/petscvec.h" 
-#include "finclude/petscviewer.h"
     integer i,mtheta_i,offset,neq
     type(fem_data) :: fem
     real(wp) :: gs(neq),dphida(neq),dphidt(neq)
@@ -2939,7 +2890,6 @@ end subroutine neumbcfix
     use esi_interface, only : metric
     use fem_data_class
     implicit none
-#include "finclude/petscsys.h"
     type(fem_data) :: fem
     type(solver_data) :: masssolver
     integer,intent(in) :: nn
@@ -3174,7 +3124,6 @@ end subroutine neumbcfix
     use esi_interface, only : metric
     use fem_data_class
     implicit none
-#include "finclude/petscsys.h"
     type(fem_data) :: fem
     integer,intent(in) :: nn
     real(wp),intent(in) :: hh(nn)
@@ -3395,13 +3344,14 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   !     ierr: error code
   !
   use precision,only:wp,doubleprec
+#ifdef USERZ
+  use field_array,only: psi_grid,qtinv,Jcbn, dRda, dRdt, dZda, dZdt
+#endif
   use particle_decomp,only:myrank_partd,nproc_partd
   use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi
   use esi_interface, only : metric
   use fem_data_class
   implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
   type(fem_data) :: fem
   integer order,iemax,npts,ierr
   integer mat_type, bc_type
@@ -3429,6 +3379,9 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
 ! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
   real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
   real(wp), dimension(:),allocatable :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
+#ifdef USERZ
+  real(wp), dimension(:),allocatable :: coef_rr, coef_rz, coef_zr, coef_zz
+#endif
   real(wp) :: Zs, gs,qq
 
   real(wp), external ::temperature_e, density
@@ -3494,6 +3447,9 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
 
   allocate( aaa(fe_ns),the(fe_ns),Fj(fe_ns),Faj(fe_ns),gFaj(fe_ns),gYaj(fe_ns),rj(fe_ns),raj(fe_ns),rqj(fe_ns),zj(fe_ns),zaj(fe_ns),zqj(fe_ns),Bj(fe_ns) )
   allocate( gaa(fe_ns),gtt(fe_ns),gpp(fe_ns),gat(fe_ns),vthe3(fe_ns),q(fe_ns),ns0(fe_ns),ne0(fe_ns) )
+#ifdef USERZ
+  allocate( coef_rr(fe_ns),coef_rz(fe_ns),coef_zr(fe_ns),coef_zz(fe_ns) )
+#endif
 
   !july 31, 2013 to calculate dxdr, dxdz
   !shouldn't do MPI_ALLREDUCE, but just for now to fix bug
@@ -3508,7 +3464,11 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   enddo
 #endif
 
-  if(mype .eq. 0) write(0,*) '	form_tangent: iemax=', fem%iemax
+#ifdef USERZ
+  if(mype .eq. 0) write(0,*) '	form_tangent: in RZcoor: iemax=', fem%iemax
+#else
+  if(mype .eq. 0) write(0,*) '	form_tangent: in ATcoor: iemax=', fem%iemax
+#endif
   do ie=1,fem%iemax
      ind(:)=fem%iet(:,ie)
      if(ind(1) .eq. 0) stop 'ind(1) == 0'
@@ -3519,10 +3479,16 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         xlt(2,:) = fem%points(2,ind(:))
         fcj=1.
      else
+#ifdef USERZ
+        ! in (r,z) cylindrical coordinates
+        xlt(1,:) = fem%points(1,ind(:))
+        xlt(2,:) = fem%points(2,ind(:))
+#else
         ! in (a,t) flux coordinates
         xlt(1,:) = fem%points(3,ind(:))
         xlt(2,:) = fem%points(4,ind(:))
         call fixtheta(ie,fe_order,fe_ns,xlt)
+#endif
         call cmp_phy_qty
      endif
 
@@ -3584,7 +3550,9 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
                        +                     cf2*rzarr(i,j) &
                        +                     cf2*zrarr(i,j) &
                        +                     cf3*zzarr(i,j) &
+#ifndef USERZ
                        +                     cf4*pparr(i,j)/qq &
+#endif
                                            )
                 endif
              marr2(kk) = fcj*marr(i,j)
@@ -3606,6 +3574,9 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   deallocate( rrarr,rzarr,zrarr,zzarr,pparr )
   deallocate( aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj )
   deallocate( gaa,gtt,gpp,gat,vthe3,q,ns0,ne0 )
+#ifdef USERZ
+  deallocate( coef_rr,coef_rz,coef_zr,coef_zz )
+#endif
 
   deallocate(fe_Pijk)
   deallocate(fe_weight)
@@ -3628,7 +3599,11 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         ! Jacobian=(  zaj(1)*rqj(1)-zqj(1)*raj(1)  )
         ! differential area dS = J |grad phi| dadt = J/rj
         ! fcj = mean( (zaj*rqj-zqj*raj)/rj, fe_ns )
+#ifdef USERZ
+        fcj = 1. ! for RZ coordinate
+#else
         fcj = mean( (zaj*rqj-zqj*raj), fe_ns )
+#endif
 
      do i=1,fe_ns
         mt=metric_elements(aaa(i),the(i),0.)
@@ -3637,13 +3612,42 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         gpp(i)=metric(3)
         gat(i)=metric(4)
      end do
+
+     q(:)=-gFaj(:)/gYaj(:)
+     qq = mean( q*q, fe_ns )
+
+#ifdef USERZ
+     coef_rr(:)=0.
+     coef_rz(:)=0.
+     coef_zr(:)=0.
+     coef_zz(:)=0.
+
+!term #1
+     coef_rr(:)=coef_rr(:)+dRda(ind(:))*( dRda(ind(:))*gaa(:) + dRdt(ind(:))*gat(:) )
+     coef_rz(:)=coef_rz(:)+dRda(ind(:))*( dZda(ind(:))*gaa(:) + dZdt(ind(:))*gat(:) )
+     coef_zr(:)=coef_zr(:)+dZda(ind(:))*( dRda(ind(:))*gaa(:) + dRdt(ind(:))*gat(:) )
+     coef_zz(:)=coef_zz(:)+dZda(ind(:))*( dZda(ind(:))*gaa(:) + dZdt(ind(:))*gat(:) )
+!term #2
+     coef_rr(:)=coef_rr(:)+dRda(ind(:))*( dRda(ind(:))*gat(:) + dRdt(ind(:))*gtt(:) )
+     coef_rz(:)=coef_rz(:)+dRda(ind(:))*( dZda(ind(:))*gat(:) + dZdt(ind(:))*gtt(:) )
+     coef_zr(:)=coef_zr(:)+dZda(ind(:))*( dRda(ind(:))*gat(:) + dRdt(ind(:))*gtt(:) )
+     coef_zz(:)=coef_zz(:)+dZda(ind(:))*( dZda(ind(:))*gat(:) + dZdt(ind(:))*gtt(:) )
+!term #3
+     coef_rr(:)=coef_rr(:)+dRdt(ind(:))*( dRdt(ind(:))*gpp(:) ) / (q(:)*q(:))
+     coef_rz(:)=coef_rz(:)+dRdt(ind(:))*( dZdt(ind(:))*gpp(:) ) / (q(:)*q(:))
+     coef_zr(:)=coef_zr(:)+dZdt(ind(:))*( dRdt(ind(:))*gpp(:) ) / (q(:)*q(:))
+     coef_zz(:)=coef_zz(:)+dZdt(ind(:))*( dZdt(ind(:))*gpp(:) ) / (q(:)*q(:))
+
+        cf1 = mean( coef_rr, fe_ns )
+        cf2 = mean( coef_rz, fe_ns )
+        cf3 = mean( coef_zr, fe_ns )
+        cf4 = mean( coef_zz, fe_ns )
+#else
         cf1 = mean( gaa, fe_ns )
         cf2 = mean( gat, fe_ns )
         cf3 = mean( gtt, fe_ns )
         cf4 = mean( gpp, fe_ns )
-
-     q(:)=-gFaj(:)/gYaj(:)
-     qq = mean( q*q, fe_ns )
+#endif
 
      do i=1,fe_ns
         ns0(i)=density(aaa(i),0.0_wp)
@@ -3710,8 +3714,6 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
   use esi_interface, only : metric
   use fem_data_class
   implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscvec.h"
   type(fem_data) :: fem
   integer order,iemax,npts,ierr
   integer mat_type, bc_type
@@ -4005,8 +4007,12 @@ end module solver_data_class
 subroutine plot_array( nn, arr, str )
   use precision,only:wp,doubleprec
   implicit none
-#include "finclude/petscsys.h"
-#include "finclude/petscviewer.h"
+#include <petsc/finclude/petscsys.h>
+#include <petsc/finclude/petscvec.h>
+#include <petsc/finclude/petscmat.h>
+#include <petsc/finclude/petscpc.h>
+#include <petsc/finclude/petscksp.h>
+#include <petsc/finclude/petscviewer.h>
   integer nn,ierr
   character :: str*(*)
   real(wp) arr(nn)
