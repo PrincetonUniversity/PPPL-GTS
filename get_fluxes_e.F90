@@ -299,7 +299,7 @@ subroutine get_fluxes_e(wpi)
 
 
      ONE_me_g=0.0_wp
-!$omp parallel private(m,r,yy,kc,j1,j2,part,energy) reduction(+:ONE_me_g)
+!$omp parallel private(m,r,yy,kc,j1,j2,part,upara,energy) reduction(+:ONE_me_g)
 !$omp do
      do m=1,me
         r=zeon0(7,m)

@@ -811,7 +811,7 @@ end if
 !  E_f=0.0_wp
 !  E_t=0.0_wp
 
-!$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00, &
+!$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00,instep,outstep,fdamp, &
 !$omp& e1,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt)
   do m=1,me
      T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
@@ -880,7 +880,7 @@ end if
   CALL POISSON( solver1, masssolver )
   CALL SMOOTH_PHI
 
-!$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00, &
+!$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00,instep,outstep,fdamp, &
 !$omp& e1,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt)
   do m=1,me
      T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti

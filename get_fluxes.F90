@@ -326,7 +326,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
      ONE_me_g=0.0_wp
      adum=0.0_wp
-!$omp parallel private(m,r,yy,kc,j1,j2,part,energy) reduction(+:ONE_me_g,adum)
+!$omp parallel private(m,r,yy,kc,j1,j2,part,vpara,energy) reduction(+:ONE_me_g,adum)
 !$omp do
      do m=1,mi
         r=zion0(7,m)

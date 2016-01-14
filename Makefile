@@ -68,6 +68,11 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o 
      get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o output_profiles.o \
      weight_damping_new.o weight_damping_eon_new2.o
 
+#hypre openmp solver
+ifeq ($(OPENMP), y)
+OBJ:=$(OBJ) hypresolve.o
+endif
+
 all : libcm libfem $(CMD)
 
 $(CMD): $(OBJ)
@@ -84,6 +89,10 @@ $(OB): module.o
 
 $(SOLVER): solver_petsc.F90
 	$(F90) $(OPT) $(INCLUDE) -DXUSERZ -c $< -o $@
+
+hypresolve:
+	-${CC} -o hypresolve -DXEX2_TEST $(VPATH)/hypresolve.c $(COPT) ${PETSC_FLIB}
+	${RM} hypresolve.o
 
 #----- Begin Boilerplate
 endif

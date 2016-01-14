@@ -2638,6 +2638,11 @@ contains
     integer :: m,n,p,vsize,msize,nsize
     PetscInt :: its
     PetscReal :: rnorm, bsum, bshift
+#ifdef _OPENMP
+    integer, save :: icounter=0
+    integer :: ncounter=20
+    logical :: flg
+#endif
 
 
     if(solver%mat%data .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -2726,8 +2731,29 @@ contains
     !       if(mype==0) write(*,*) 'data: msize=',msize, 'nsize=',nsize
 
     !     Solve      
+#ifdef _OPENMP
+    call HYPRESolve( solver%ksp, solver%bVec, solver%xVec, ierr )
+#else
     call KSPSolve( solver%ksp, solver%bVec, solver%xVec, ierr )
+#endif
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+#ifdef _OPENMP
+!    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-counter',ncounter,flg,ierr);
+!    !if(solver%order .ge. 1 .and. mype / nproc_partd .eq. 0 .and. icounter==ncounter ) then
+!    if(solver%order .ge. 1 .and. icounter==ncounter ) then
+!    if(mype==0) write(*,*) " ---> view matrix x b at counter=",icounter,ncounter
+!       call PetscViewerBinaryOpen(partd_comm, 'A0.m',FILE_MODE_WRITE,viewer,ierr)
+!       call MatView(solver%mat%data, viewer, ierr )
+!       call PetscViewerDestroy(viewer,ierr)
+!       call PetscViewerBinaryOpen(partd_comm, 'x.m',FILE_MODE_WRITE,viewer,ierr)
+!       call VecView(solver%xVec, viewer, ierr )
+!       call PetscViewerDestroy(viewer,ierr)
+!       call PetscViewerBinaryOpen(partd_comm, 'b.m',FILE_MODE_WRITE,viewer,ierr)
+!       call VecView(solver%bVec, viewer, ierr )
+!       call PetscViewerDestroy(viewer,ierr)
+!    endif
+!    icounter=icounter+1
+#endif
 
     !     scatter solution to gts array (yy)
     t1 = 0.0

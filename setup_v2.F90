@@ -1174,7 +1174,7 @@ end if ! if(mype==0)
      close(unit=734)
   end if
 
-!   !$omp parallel do private(i,j,k,ij,zdum,tdum,dpsi)
+!   !$omp parallel do private(i,j,k,ij,ip,pdum,zdum,tdum,dpsi,ne0)
   do i=0, mpsi
      pdum=psi_grid(i)
      if(i==0) then
@@ -1515,7 +1515,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 ! 4-point gyro-averaging for sqrt(mu)=gyroradius on grid of magnetic coordinates
 ! rhoi=(rho_th*sqrt(2/b))*(sqrt(mu)/rho_th), rho_th=gyroradius
 ! dtheta/delta_x=1/(r*(1+r*cos(theta))), delta_x=poloidal length increasement
-!!!!        !$omp parallel do private(i,j,ij,zdum,pdum,tdum,q,b,dtheta_dx,rhoi)
+!!!!        !$omp parallel do private(i,j,k,ij,zdum,pdum,tdum,aaa,the,q,inv_jaco,rhoi,rdum,b,dtheta_dx,rhoi)
   do i=0,mpsi
      zdum=zetamin+deltaz     ! zeta local to me 
      !   zdum=0.0_wp         ! old before 2013

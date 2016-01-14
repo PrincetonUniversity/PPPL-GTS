@@ -3,7 +3,7 @@
   CC := cc
   F90 := ftn
   F77 := ftn
-  LOADER := ftn
+  LOADER := ftn -Wl,-z,muldefs
 
 ifeq ($(F90),ftn)
    # Flags for Cray XT system
@@ -53,8 +53,9 @@ ifeq ($(F90),ftn)
              #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
              PSPLINE_INC:=-I${PSPLINE_DIR}/include -I${PSPLINE_DIR}/mod -I$(NETCDF_DIR)/include
              PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-             PETSC_FINC:= -I${PETSC_DIR}/include
-             PETSC_FLIB:=-L${PETSC_DIR}/lib -lcraypetsc_cray_real
+             PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include -I${HYPRE_DIR}/include
+             PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
+             #PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lmetis -lparmetis -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
           endif
        endif
 
@@ -64,7 +65,7 @@ ifeq ($(F90),ftn)
    NAG_REPLACEMENT:=libcm
    FEM:=-L$(VPATH)/fem/$(OBJDIR) -lfemlib
    CC:=cc
-   CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC}
+   CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC} $(PETSC_FINC)
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5)
 endif
 
@@ -79,12 +80,10 @@ endif
    endif
 
    ifeq ($(OPENMP),y)
-     CMD:=GTS_OMP
      OPT:=$(OMPFLAG) $(OPT)
      COPT:=$(OMPFLAG) $(COPT)
      GOPT:= $(OMPFLAG) $(GOPT)
    else
-     CMD:=GTS
      OPT:=$(NOOMPFLAG) $(OPT)
      COPT:=$(NOOMPFLAG) $(COPT) 
      GOPT:= $(NOOMPFLAG) $(GOPT)
