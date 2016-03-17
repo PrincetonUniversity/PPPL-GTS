@@ -595,6 +595,21 @@ int ESIReadAD(char* FNm)
       k++;
     }
   }
+
+  /* ----------------------------------------*/
+  /* S.Ethier 3/17/16 If the magnetic axis is not at z=0, shift the z coordinate
+     of all the points to force it to be at z=0. I got this from Leonid. */
+  k     =0;
+  s     =sz[0];
+  for(i=0; i < Na1; i++){
+    for(j=0; j < Np1; j++){
+      sz[k]     -=s;
+      k++;
+    }
+  }
+  /* ----------------------------------------*/
+
+
   while(feof(lf) == 0 && (*lc=fgetc(lf)) !='\n'){
     ;
   }
