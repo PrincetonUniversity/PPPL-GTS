@@ -760,7 +760,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
         dlnT=abs(dT_da(aaa(1),the(1))/temperature(aaa(1),the(1)))*grada*R_0 !=R_0*grad(lnT)
         dlnn=abs(dn_da(aaa(1),the(1))/density(aaa(1),the(1)))*grada*R_0     !=R_0*grad(lnn)
         rdum=domega_da(aaa(1),the(1),zdum)
-        if(i==0) tdum=zdum   ! totation at magnetic axis
+        if(i==0) tdum=zdum   ! rotation at magnetic axis
         dlnu=abs(rdum/zdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)]
         dlnu0=abs(rdum/tdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)] with omega_t at magnetic axis
         write(501,5) aaa(1), q, dlnT, dlnn, dlnT/dlnn, & ! dlnT/dlnn=eta_i
@@ -1739,7 +1739,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
         psimax=psimax/psiout
         psimax=abs(psimax)
 
-        if(i==0) tdum=zdum   ! totation at magnetic axis
+        if(i==0) tdum=zdum   ! rotation at magnetic axis
         dlnu=abs(rdum/zdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)]
         dlnu0=abs(rdum/tdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)] with omega_t at magnetic axis
         write(509,5) aaa(1), q, dlnT, dlnn, dlnT/dlnn, & ! dlnT/dlnn=eta_i
