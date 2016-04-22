@@ -137,11 +137,12 @@ subroutine get_fluxes(wpi,dgf,dgq)
               if(the_area.le.dtheta) then   ! within given theta range
   
                  vper=sqrt(wpi(3,m)*2.0_wp)/vthprobe(k)  ! in local v_th unit
-                 vpara0=vpara
-                 vpara=vpara/vthprobe(k)            ! in local v_th unit
-                 if(vper.le.vmax.and.abs(vpara).le.vmax) then
+                 !vpara0=vpara
+                 !vpara=vpara/vthprobe(k) <--- BAD!! Keeps dividing vpara by vthprobe
+                 vpara0=vpara/vthprobe(k)            ! in local v_th unit
+                 if(vper.le.vmax.and.abs(vpara0).le.vmax) then
   
-                    yy=vpara/delta_v
+                    yy=vpara0/delta_v
                     mc=floor(yy)
                     k1=min(nv,max(-nv,mc))        !{-nv,nv}
                     k2=min(nv,max(-nv,mc+1))      !{-nv,nv}
@@ -177,10 +178,10 @@ subroutine get_fluxes(wpi,dgf,dgq)
                     df(1,k,k2,l2)=df(1,k,k2,l2)+ss4
 
 ! bootstrap current 
-                    df(7,k,k1,l1)=df(7,k,k1,l1)+ss1*vpara0*BB(m)
-                    df(7,k,k1,l2)=df(7,k,k1,l2)+ss2*vpara0*BB(m)
-                    df(7,k,k2,l1)=df(7,k,k2,l1)+ss3*vpara0*BB(m)
-                    df(7,k,k2,l2)=df(7,k,k2,l2)+ss4*vpara0*BB(m)
+                    df(7,k,k1,l1)=df(7,k,k1,l1)+ss1*vpara*BB(m)
+                    df(7,k,k1,l2)=df(7,k,k1,l2)+ss2*vpara*BB(m)
+                    df(7,k,k2,l1)=df(7,k,k2,l1)+ss3*vpara*BB(m)
+                    df(7,k,k2,l2)=df(7,k,k2,l2)+ss4*vpara*BB(m)
 
 ! particle flux distribution
                     df(6,k,k1,l1)=df(6,k,k1,l1)+ss1*wpi(1,m)
