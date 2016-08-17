@@ -49,13 +49,10 @@ ifeq ($(F90),ftn)
              #SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper
              SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod 
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
-             #PSPLINE_DIR:=/usr/common/usg/pspline/nersc1.1/cray
-             #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
              PSPLINE_INC:=-I${PSPLINE_DIR}/include -I${PSPLINE_DIR}/mod -I$(NETCDF_DIR)/include
              PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-             PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include 
-             PETSC_FLIB:=-L${PETSC_DIR}/lib -lcraypetsc_cray_real
-             #nerscbuild-3620 PETSC_FLIB:=-L${PETSC_DIR}/lib -lpetsc -lmetis -lparmetis -ldl -lstdc++ #-L$(HYPRE_DIR)/lib -lHYPRE -lcraypetsc_cray_real
+             PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include -I${HYPRE_DIR}/include
+             PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
           endif
        endif
 

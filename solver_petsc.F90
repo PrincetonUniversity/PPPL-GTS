@@ -2,6 +2,15 @@
 !                         module phit_matrix_type
 !                           - shell to construct Phi tilda
 !========================================================================
+module linear_solve_log
+  use precision,only:wp
+  implicit none
+#include <petsc/finclude/petscsys.h>
+#include <petsc/finclude/petsclog.h>
+  PetscLogEvent SOLVER_EVENT
+
+  real(wp) :: timestart,timeend,timeelapsed,timetotal
+end module linear_solve_log
 module phit_matrix_type
   implicit none
 #include <petsc/finclude/petscsys.h>
@@ -222,6 +231,7 @@ contains
   subroutine solver_init( this, prefix, Amat, neq, ierr )
     use precision,only: wp,doubleprec
     use global_parameters, only: mgrid, mype
+    use linear_solve_log
     implicit none
     type(solver_data) :: this
     character,intent(in) :: prefix*(*)
@@ -243,6 +253,8 @@ contains
     PetscBool  isNull;
     MPI_Comm  comm;
 
+      call PetscLogEventRegister('Ax=b',0,SOLVER_EVENT,ierr)
+      timetotal = 0.
     ! debug
     if( mype / nproc_partd .eq. -10 ) then
        call PetscViewerBinaryOpen(partd_comm, 'A0.m',FILE_MODE_WRITE,viewer,ierr)
@@ -867,6 +879,7 @@ contains
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,ZF_SEPARATION,ifelectron,ifdphi
     use field_array, only: phip00,gsij
+    use linear_solve_log
     implicit none
     type(solver_data) :: solver
     type(solver_data) :: masssolver
@@ -884,6 +897,8 @@ contains
     integer :: count = 0, ioffset, ioffset2
 
 
+      call PetscLogEventBegin(SOLVER_EVENT,ierr)
+      timestart = MPI_WTIME()
     count = count + 1
     neq = sum(mtheta)
     allocate(xx(neq),bb(neq))
@@ -1035,7 +1050,12 @@ contains
        call plot_array( mgrid, bb_gk, 'b.m' )
        stop 'plot'
     endif
+      timeend = MPI_WTIME()
+      call PetscLogEventEnd(SOLVER_EVENT,ierr)
 
+      timeelapsed = timeend-timestart
+      timetotal = timetotal + timeelapsed
+      if(mype==0) write(107,'(i5,3x,d13.6)') count,timetotal
   end subroutine solve
 
 
@@ -1249,7 +1269,7 @@ contains
 
     if(mype.eq.0) &
     write(0, *) "	finite element test solve", whichone, "of five"
-    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
     fe_ndof=1
     if( solver%fem%order .gt. 2) fe_ndof=6
@@ -1692,7 +1712,7 @@ contains
     else
        if(mype.eq.0) write(0, *) "	mass solver:: find dxdr dxdz begin"
     endif
-    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     whichone = 1
 
 !cj the following is a combianation of solve and tri_mesh
@@ -1931,7 +1951,7 @@ contains
        if(mype.eq.0) write(0, *) "	find_dxdadxdt: find dxdr dxdz begin"
     endif
 
-    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     whichone=1
     if(whichone.lt.3) then
        ! in (r,z) cylindrical coordinates
@@ -2099,7 +2119,7 @@ contains
     endif
 
 #ifdef OLD2014
-    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     if(whichone.lt.3) then
        ! in (r,z) cylindrical coordinates
        ix=1
@@ -2242,7 +2262,7 @@ contains
     endif
 
 #ifdef OLD2014
-    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     if(whichone.lt.3) then
        ! in (r,z) cylindrical coordinates
        ix=1
@@ -2738,7 +2758,7 @@ contains
 #endif
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
 #ifdef _OPENMP
-!    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-counter',ncounter,flg,ierr);
+!    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-counter',ncounter,flg,ierr);
 !    !if(solver%order .ge. 1 .and. mype / nproc_partd .eq. 0 .and. icounter==ncounter ) then
 !    if(solver%order .ge. 1 .and. icounter==ncounter ) then
 !    if(mype==0) write(*,*) " ---> view matrix x b at counter=",icounter,ncounter
@@ -2949,7 +2969,7 @@ end subroutine neumbcfix
 
 
    !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
-    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 #ifdef OLD2014
 #else
     whichone=1
@@ -3176,7 +3196,7 @@ end subroutine neumbcfix
 
 
    !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
-    call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
     fe_order=fem%order
     fe_ns=3
@@ -3423,7 +3443,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   integer :: whichone = 5
 
 
-  call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+  call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
   !cj2014.05.02 c1 = alpha
   !cj2014.05.02 c2 = beta
@@ -3782,7 +3802,7 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
   integer :: whichone = 5
 
 
-  call PetscOptionsGetInt(PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+  call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
   whichone=1
   !cj2014.05.02 c1 = alpha
   !cj2014.05.02 c2 = beta
