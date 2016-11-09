@@ -44,13 +44,6 @@ program GTS
     end subroutine shift
   end interface
 
-#ifdef __NERSC
-! NERSC USG utilization statistics. This routine is available only on the
-! NERSC computers so it is included at the preprocessing stage only if
-! the variable __NERSC is defined (see the Makefile).
-  call system_stats()
-#endif
-
   call petsc_init()
 
 ! total # of PE and rank of PE
@@ -445,10 +438,6 @@ end if
      enddo
      write(stdout,'(/,"MAIN LOOP TIME(SEC):",f15.6,/)')loop_time
   endif
-
-#ifdef __NERSC
-  call system_stats()
-#endif
 
   if( order .le. 0 ) then
   if(ifelectron==2.and.ifdphi==1) call destroy_solver(solver_dphi_dt)
