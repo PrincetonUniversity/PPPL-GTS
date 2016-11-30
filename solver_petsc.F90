@@ -2751,7 +2751,12 @@ contains
     !       if(mype==0) write(*,*) 'data: msize=',msize, 'nsize=',nsize
 
     !     Solve      
-#ifdef _OPENMP
+!!!!!!#ifdef _OPENMP   ! _OPENMP gets defined whenever the code is compiled
+                       ! with OpenMP, which removes the flexibility of choosing
+                       ! KSPSolve when OpenMP is tunred on. It also causes problems
+                       ! on Cori when using the cray-petsc module. I thus changed
+                       ! this pre-processor variable to be "USING_HYPRE_OMP"
+#ifdef USING_HYPRE_OMP
     call HYPRESolve( solver%ksp, solver%bVec, solver%xVec, ierr )
 #else
     call KSPSolve( solver%ksp, solver%bVec, solver%xVec, ierr )
