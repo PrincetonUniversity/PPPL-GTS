@@ -22,11 +22,11 @@ ifeq ($(F90),ftn)
           PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
        else   # Using CRAY compiler
           ifeq ($(PE_ENV),INTEL)   # Using the INTEL compiler on Hopper or Edison
-             FFLAGS:=-r8 -Dflush_=flush -I. -Ifem
+             FFLAGS:=-r8 -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR)
              OPT:=-fast -no-ipo
              CFLAGS:=
              COPT:=-fast -no-ipo
-             OMPFLAG:=-openmp
+             OMPFLAG:=-qopenmp
              NOOMPFLAG:=
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
              SPRNG_INC:=-I${SPRNG_DIR}/include
