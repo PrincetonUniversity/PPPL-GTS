@@ -180,6 +180,11 @@ if(irun==0) then
    istep=0
    CALL SNAPSHOT     ! snapshot at t=0
 end if 
+
+if(irun==-100) then
+   mstep=(istart-1)+400   ! for continous debug runs with irun=-100
+end if
+
 !  phi_tmp=0.0
 ! ********************
 

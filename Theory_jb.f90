@@ -241,6 +241,8 @@ real*8 FUNCTION R2_inverse(thedum)
 !
 !
 
+      use global_parameters, only: coll_enlarge
+
       implicit real*8(a-h,o-z)
 
       data amu0/1.256637061e-6/
@@ -302,6 +304,10 @@ real*8 FUNCTION R2_inverse(thedum)
             (4.0*xdense*zeff*(echarge)**4*xclog)
       xtaui=1.414*(12.0*pi**1.5*xeps0**2*(xmi*pmass)**2*  &
             xvthi**3)/(4.0*xdensi*(zave*echarge)**4*xclog)
+
+      !  electron collision frequency is scaled by a factor of coll_enlarge -- 2016
+      xtaue=xtaue/coll_enlarge
+
       xnuse=1.414*(rmajx*qx)/(xtaue*xvthe*epsx**1.5)
       xnusi=1.414*(rmajx*qx)/(xtaui*xvthi*epsx**1.5)
       xl31=anum1/denom

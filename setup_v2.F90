@@ -150,6 +150,12 @@ Subroutine setup
 ! c2.    Reading data file (s) File names: <A-Z,a-z>,<0-9>,<_>,<.>
   k=esiread(B_0,R_0,eq_data_name) ! B_0=B on axis; R_0=major radius (normalized)
 
+! scale B by a factor of tdum: B --> tdum*B
+  tdum=1.0d0
+  call scaleuporigeq(tdum)
+  B_0=tdum*B_0
+
+
   if(k/=0) then
      write(0,*)'bad file for reading'
      call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
@@ -252,9 +258,11 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
          call read_profiles(profile_data_name)         ! for JET data output
 
          !  tdum=6.0_wp    ! for testing DTEM in DIII-D geometry with NSTX profiles
+         !  tdum=4.0_wp    ! change rho* by changing Te and Ti for size scaling
          tdum=1.0_wp
          Ti_50=Ti_50*tdum
          Te_50=Te_50*tdum
+         ne_50=ne_50*tdum
 
          Ti_50=Ti_50/Tem_00       ! normalized temperature for which the normalized
                                   ! thermal velocity is vth=sqrt(T_i)
@@ -567,6 +575,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
     !   taking into account different definition in vthc
         Tau_e=Tau_e*(sqrt(2.0_wp))**3
     ! artificially enlarge collision frequency by a factor of coll_enlarge
+    ! this goes the same way to calculating theoretical boostrap current jb in subroutine "Theory_jb.f90"
         Tau_e=Tau_e/coll_enlarge
         Tau_e=Tau_e/utime     ! normalized collision time at reference location
         dt_coll_e=tstep/Tau_e ! step size in terms of reference collision time Tau_e
@@ -760,7 +769,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
         dlnT=abs(dT_da(aaa(1),the(1))/temperature(aaa(1),the(1)))*grada*R_0 !=R_0*grad(lnT)
         dlnn=abs(dn_da(aaa(1),the(1))/density(aaa(1),the(1)))*grada*R_0     !=R_0*grad(lnn)
         rdum=domega_da(aaa(1),the(1),zdum)
-        if(i==0) tdum=zdum   ! rotation at magnetic axis
+        if(i==0) tdum=zdum   ! totation at magnetic axis
         dlnu=abs(rdum/zdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)]
         dlnu0=abs(rdum/tdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)] with omega_t at magnetic axis
         write(501,5) aaa(1), q, dlnT, dlnn, dlnT/dlnn, & ! dlnT/dlnn=eta_i
@@ -1070,6 +1079,7 @@ if(mype==0) then
   r=abs(rj(1)-rj(2))/2.0_wp       ! minor radius
   a_minor=r 
   write(0,*) 'Average a/rho_i=', r/gyroradius, '   Average aspect ratio=', R_0/r
+  write(0,*) 'Gyro-Bohm units', gyroradius/r*vthc**2/B_0*(R_00/1.0d2)**2/utime*c0cs_i*msm0_i, '(m^2/sec)'
 
   r=(rj(1)+rj(2))/2.0_wp
  
@@ -1422,7 +1432,7 @@ if(mype==0) write(0,*) 'average density=', density_ave
      end if
   enddo
 
-     !  if(mype==0)  call theory
+     if(mype==0)  call theory
  
      r=rc
      tdum=temperature(r,0.0_wp)
@@ -1739,7 +1749,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
         psimax=psimax/psiout
         psimax=abs(psimax)
 
-        if(i==0) tdum=zdum   ! rotation at magnetic axis
+        if(i==0) tdum=zdum   ! totation at magnetic axis
         dlnu=abs(rdum/zdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)]
         dlnu0=abs(rdum/tdum)*grada*R_0                                       !=R_0*grad[ln(omega_t)] with omega_t at magnetic axis
         write(509,5) aaa(1), q, dlnT, dlnn, dlnT/dlnn, & ! dlnT/dlnn=eta_i
@@ -1759,7 +1769,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 ! Post-processor calculation of zonal flow ExB shearing rate 
 ! need a separate directory with ZF data copied 
 !  i=21616    ! number of lines in ZF data files
-!  i=17667    ! number of lines in ZF data files
+!  i=7203    ! number of lines in ZF data files
 !  call get_ZF_shear(i)
 !  call mpi_finalize(ierror)
 !  STOP
@@ -2040,7 +2050,8 @@ do i=0, mpsi
                      -1.0/(dnty_on_bin_g(i)*minx)/(E_00/R_00*10.0_wp),     &    ! x(this factor) -> chi_i in units m^2/s     
                      -1.0/(dnty_on_bin_g(i)*dlnT_e)/(E_00/R_00*10.0_wp),   &    ! x(this factor) -> chi_e in units m^2/s
                      -1.0/(dlnn*1.0d6),                                    &    ! x(this factor) -> D in units m^2/s
-                     +1.0/(dnty_on_bin_g(i)*minz)/utime/utime
+                     +1.0/(dnty_on_bin_g(i)*minz)/utime/utime,             &
+                     +R_0*R_0*sint/(uveloci*1.0e4_wp)                           ! x(this factor) -> convert particle flux to convective momentum flux 2016
    end if
 end do
 124  format(2x, i4, 16(2x, d13.6))

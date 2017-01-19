@@ -16,7 +16,8 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
   real(wp), dimension(nn,nbin_a) :: ONE_me,TOTAL_pe
 !ZHIXIN: ONE_me_g extended from 7 to 9 dimension for particle, energy flux: fort.86,87
-  real(wp), dimension(9,0:mpsi) :: ONE_me_g,TOTAL_pe_g
+!             dimension 10 added for parallel Reynolds stress 2016
+  real(wp), dimension(10,0:mpsi) :: ONE_me_g,TOTAL_pe_g
 
 ! add for diagnosis of distribution functions
   real(wp), dimension(7,nprobe,-nv:nv,0:nv) :: df, df_tot   
@@ -126,6 +127,8 @@ subroutine get_fluxes(wpi,dgf,dgq)
         ONE_me(13,j1)=ONE_me(13,j1)+part*zion0(5,m)*TT(m)              ! poloidal flow velocity; modified Oct. 2012 with TT(m)= poloidal velocity
         ONE_me(13,j2)=ONE_me(13,j2)+(1.0_wp-part)*zion0(5,m)*TT(m)
 
+        vpara0=vpara         !  a bug fixed in April 2016
+
 !  calculate distribution functions at specified boxes
 !  NOTE:  need to work out OpenMP for this part 9/08 !!!  
         do k=1,nprobe
@@ -137,12 +140,11 @@ subroutine get_fluxes(wpi,dgf,dgq)
               if(the_area.le.dtheta) then   ! within given theta range
   
                  vper=sqrt(wpi(3,m)*2.0_wp)/vthprobe(k)  ! in local v_th unit
-                 !vpara0=vpara
-                 !vpara=vpara/vthprobe(k) <--- BAD!! Keeps dividing vpara by vthprobe
-                 vpara0=vpara/vthprobe(k)            ! in local v_th unit
-                 if(vper.le.vmax.and.abs(vpara0).le.vmax) then
+                 vpara=vpara0
+                 vpara=vpara/vthprobe(k)            ! in local v_th unit
+                 if(vper.le.vmax.and.abs(vpara).le.vmax) then
   
-                    yy=vpara0/delta_v
+                    yy=vpara/delta_v
                     mc=floor(yy)
                     k1=min(nv,max(-nv,mc))        !{-nv,nv}
                     k2=min(nv,max(-nv,mc+1))      !{-nv,nv}
@@ -178,10 +180,10 @@ subroutine get_fluxes(wpi,dgf,dgq)
                     df(1,k,k2,l2)=df(1,k,k2,l2)+ss4
 
 ! bootstrap current 
-                    df(7,k,k1,l1)=df(7,k,k1,l1)+ss1*vpara*BB(m)
-                    df(7,k,k1,l2)=df(7,k,k1,l2)+ss2*vpara*BB(m)
-                    df(7,k,k2,l1)=df(7,k,k2,l1)+ss3*vpara*BB(m)
-                    df(7,k,k2,l2)=df(7,k,k2,l2)+ss4*vpara*BB(m)
+                    df(7,k,k1,l1)=df(7,k,k1,l1)+ss1*vpara0*BB(m)
+                    df(7,k,k1,l2)=df(7,k,k1,l2)+ss2*vpara0*BB(m)
+                    df(7,k,k2,l1)=df(7,k,k2,l1)+ss3*vpara0*BB(m)
+                    df(7,k,k2,l2)=df(7,k,k2,l2)+ss4*vpara0*BB(m)
 
 ! particle flux distribution
                     df(6,k,k1,l1)=df(6,k,k1,l1)+ss1*wpi(1,m)
@@ -253,7 +255,6 @@ subroutine get_fluxes(wpi,dgf,dgq)
      enddo
 !$omp end parallel
 
-  
   call MPI_Reduce(ONE_me,TOTAL_pe,nn*nbin_a,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierr)
   call MPI_Reduce(my_ion,total_ion,1,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
@@ -327,7 +328,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
      ONE_me_g=0.0_wp
      adum=0.0_wp
-!$omp parallel private(m,r,yy,kc,j1,j2,part,vpara,energy) reduction(+:ONE_me_g,adum)
+!$omp parallel private(m,r,yy,kc,j1,j2,part,energy) reduction(+:ONE_me_g,adum)
 !$omp do
      do m=1,mi
         r=zion0(7,m)
@@ -353,6 +354,10 @@ subroutine get_fluxes(wpi,dgf,dgq)
 ! replaced by:
         ONE_me_g(3,j1)=ONE_me_g(3,j1)+part*zion0(5,m)*wpi(1,m)*Pa(m)*Pa(m)*dgf(m) ! angular momentum flux
         ONE_me_g(3,j2)=ONE_me_g(3,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)*Pa(m)*Pa(m)*dgf(m)
+
+! added 2016
+        ONE_me_g(10,j1)=ONE_me_g(10,j1)+part*zion0(5,m)*wpi(1,m)*Pa(m)*vpara ! parallel Reynolds stress associated to angular momentum flux
+        ONE_me_g(10,j2)=ONE_me_g(10,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)*Pa(m)*vpara
 
 !        ONE_me_g(4,j1)=ONE_me_g(4,j1)+part*zion0(5,m)*zion0(4,m)*F(m) ! angular momentum
 !        ONE_me_g(4,j2)=ONE_me_g(4,j2)+(1.0_wp-part)*zion0(5,m)*zion0(4,m)*F(m)
@@ -383,7 +388,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
      enddo
 !$omp end parallel
 !ZHIXIN: size change from 7 to 9!!!
-  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,9*(mpsi+1),mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
+  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,10*(mpsi+1),mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
   call MPI_Reduce(adum,TM_sum,1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
   if(mype==numberpe-1) then 
      ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_T>
@@ -393,7 +398,9 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
      ONE_me_g(1,0:mpsi)=ONE_me_g(1,0:mpsi)-TOTAL_pe_g(2,0:mpsi)*vth_grid(0:mpsi)**2  ! =normalized <delta_T> -- corrected Aug. 2013
 
-     TOTAL_pe_g(3,0:mpsi)=TOTAL_pe_g(3,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! toroidal angular momentum flux
+     TOTAL_pe_g(3,0:mpsi)=TOTAL_pe_g(3,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)    ! toroidal angular momentum flux
+     TOTAL_pe_g(10,0:mpsi)=TOTAL_pe_g(10,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! parallel Reynolds stress 
+
      TOTAL_pe_g(4,0:mpsi)=TOTAL_pe_g(4,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! angular momentum density
                                                                                     ! in units of m_0*R_00*v_00*cm^(-3)
      TOTAL_pe_g(5,0:mpsi)=TOTAL_pe_g(5,0:mpsi)/sn0_g(0:mpsi)*vth_inv(0:mpsi)  ! (delta-v_//)/v_th
@@ -424,6 +431,9 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
      write(95,802) istep, (TOTAL_pe_g(3,i),i=0,mpsi)
      call flush(95)
+
+     write(951,802) istep, (TOTAL_pe_g(10,i),i=0,mpsi)
+     call flush(951)
 
      write(96,802) istep, (TOTAL_pe_g(4,i),i=0,mpsi),TM_sum
      call flush(96)

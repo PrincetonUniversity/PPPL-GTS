@@ -190,24 +190,25 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
 
        open(502,file='ZF_shearate.dat',status='replace',RECL=8192) 
        do j=1,LINES
-          read(122,801) istep, (phia00(i),i=0,19)
-          read(123,801) istep, (phia00(i),i=20,39)
-          read(124,801) istep, (phia00(i),i=40,59)
-          read(125,801) istep, (phia00(i),i=60,79)
-          read(126,801) istep, (phia00(i),i=80,99)
+          !  read(122,801) istep, (phia00(i),i=0,19)  ! not work after edison relocated 2016
+          read(122,*) istep, (phia00(i),i=0,19)
+          read(123,*) istep, (phia00(i),i=20,39)
+          read(124,*) istep, (phia00(i),i=40,59)
+          read(125,*) istep, (phia00(i),i=60,79)
+          read(126,*) istep, (phia00(i),i=80,99)
 !          read(126,801) istep, (phia00(i),i=80,mpsi)
-          read(127,801) istep, (phia00(i),i=100,119)
-!          read(128,801) istep, (phia00(i),i=120,mpsi)
-          read(128,801) istep, (phia00(i),i=120,139)
-          read(129,801) istep, (phia00(i),i=140,159)
+          read(127,*) istep, (phia00(i),i=100,119)
+          read(128,801) istep, (phia00(i),i=120,mpsi)
+!          read(128,*) istep, (phia00(i),i=120,139)
+!          read(129,*) istep, (phia00(i),i=140,159)
 !          read(129,801) istep, (phia00(i),i=140,mpsi)
-          read(130,801) istep, (phia00(i),i=160,mpsi)
+!          read(130,*) istep, (phia00(i),i=160,mpsi)
 !          read(131,801) istep, (phia00(i),i=180,mpsi)
 
 !         -------------------------------------------------------------------------
 !         if calculate total shear ZF +equilibrium Er, use:
 !          phia00=phia00+Er_grid     ! --> phia00= total Er=d<phi>/da +d(phi_0)/da 
-          phia00=phia00+Er_grid_TRANSP     ! --> phia00= total Er=d<phi>/da + d(phi_0)/da with d(phi_0)/da from TRANSP 
+!          phia00=phia00+Er_grid_TRANSP     ! --> phia00= total Er=d<phi>/da + d(phi_0)/da with d(phi_0)/da from TRANSP 
 !         -------------------------------------------------------------------------
 
           call ezspline_init(spEr,mpsi+1,(/1,1/),ierror) ! 1st derivative boundary condition for both left and right
@@ -258,7 +259,8 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
 
        open(502,file='Intensity_gradient.dat',status='replace',RECL=8192)
        do j=1,LINES
-          read(80,802) istep, (phia00(i),i=0,mpsi)
+          !  read(80,802) istep, (phia00(i),i=0,mpsi)  ! not working after edison relocated
+          read(80,*) istep, (phia00(i),i=0,mpsi)
 
           call ezspline_init(spEr,mpsi+1,(/1,1/),ierror) ! 1st derivative boundary condition for both left and right
           spEr%x1=psi_grid

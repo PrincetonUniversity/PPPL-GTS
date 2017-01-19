@@ -14,6 +14,7 @@
 #define get4exb get4exb_
 #define get4exb12 get4exb12_
 #define species species_
+#define scaleuporigeq scaleuporigeq_
 
 #endif
 
@@ -1010,7 +1011,7 @@ int ESIReadAF(char* FNm)
     }
   }
   /* ----------------------------------------*/
-
+ 
 
   while(feof(lf) == 0 && (*lc=fgetc(lf)) !='\n'){
     ;
@@ -3528,7 +3529,7 @@ int get4exb(REAL *cij1,
       f0	=XF*sz [j00]+xF*sz [j10]+XD*sza [j00]+xD*sza [j10];
       f1	=XF*sz [j01]+xF*sz [j11]+XD*sza [j01]+xD*sza [j11];
       fq0	=XF*szq[j00]+xF*szq[j10]+XD*szaq[j00]+xD*szaq[j10];
-      fq1	=XF*szq[j01]+xF*szq[j11]+XD*szaq[j01]+xD*szaq[j11];
+      fq1	=XF*szq[j01]+xF*szq[j11]+XD*szaq[j01]+xD*szaq[j11]; 
       zq	=dY*(f1-f0)+dYD*fq0+dyD*fq1;
       f0	=dX*(sz [j10]-sz [j00])+dXD*sza [j00]+dxD*sza [j10];
       f1	=dX*(sz [j11]-sz [j01])+dXD*sza [j01]+dxD*sza [j11];
@@ -3740,4 +3741,36 @@ int get4exb12(REAL *cij1,
 
   }
   return(0);
+}
+
+
+
+void scaleuporigeq(double *Sc)
+{
+  int i,j,ij;
+  static double WSc=1.,rWSc=1.;
+
+  WSc    =(*Sc)*rWSc;
+  rWSc    =1./WSc;
+  ij    =0;
+  for(i=0; i < Na1; i++){
+    aF[i]    *=WSc;
+    daF[i]    *=WSc;
+    dgF[i]    *=WSc;
+    d2gF[i]    *=WSc;
+    dgY[i]    *=WSc;
+    d2gY[i]    *=WSc;
+    aT[i]    *=WSc;
+    daT[i]    *=WSc;
+    aP[i]    *=WSc;
+    daP[i]    *=WSc;
+
+    for(j=0; j < Np1; j++){
+      aB[ij]    *=WSc;
+      aBa[ij]    *=WSc;
+      aBq[ij]    *=WSc;
+      ij++;
+    }
+  }
+  return;
 }
