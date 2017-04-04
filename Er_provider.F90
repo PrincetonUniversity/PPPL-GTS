@@ -187,6 +187,8 @@ end if
 
      call MPI_BCAST(Er401_bp,je+1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
      call MPI_BCAST(Er_grid,mpsi+1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
+
+     deallocate(Er_on_node,r_node,E01_K,E01_C,E01_WRK)
   end if 
  
 !  Er401_bp=1.2_wp*Er401_bp
@@ -225,4 +227,6 @@ end if
   Er401_bp0=Er401_bp
   Er_grid0=Er_grid
  
+  deallocate(Er401_TRANSP, Er_grid_TRANSP)
+
 end subroutine Er_provider

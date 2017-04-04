@@ -173,6 +173,7 @@ end if
            call ezspline_interp(spEr0,psi_grid(i),Er_grid(i),ierror)
            call ezspline_derivative(spEr0,1,psi_grid(i),Era_grid(i),ierror) ! Era_grid=(d^2/da^2)phi
         end do
+        deallocate(Er_on_node,r_node)
      end if
 
      call MPI_BCAST(Er_grid,mpsi+1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
@@ -304,5 +305,6 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
 50   format(2x, i5, 3(2x,ES13.6))
   end if
 
+      deallocate(Er401_TRANSP, Er_grid_TRANSP)
 
 end subroutine get_ZF_shear
