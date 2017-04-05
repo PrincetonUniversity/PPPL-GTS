@@ -343,6 +343,8 @@ end if
               phip00=phip00/dVda/gsgaa
               phip00=phip00 -(phi_flux_ave*dVda-phi_flux_ave(0)*dVda(0))/dVda/gsgaa   ! --> phip00=dphi_00/da with phip00(0)=0
 
+              phip00=phip00+Er_a0        ! --> phip00=dphi_00/da with phip00(0)=Er_a0 which is Er_NC when ifneoclassical=1
+
            end do     !  end iteration for FEM   
 
            phi(1,:) = xx

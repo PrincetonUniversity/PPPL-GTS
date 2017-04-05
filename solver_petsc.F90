@@ -3510,7 +3510,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   do i=1,fe_nvar
      do j=1,fe_nvar
         if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
-        115 format("	Pijk:", 2(2x,i4), 3(1x,d12.6))
+        115 format("	Pijk:", 2(2x,i4), 3(1x,d13.6))
      enddo
   enddo
 #endif
@@ -3866,7 +3866,7 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
   do i=1,fe_nvar
      do j=1,fe_nvar
         if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
-        115 format("	RZcoor Pijk:", 2(2x,i4), 3(1x,d12.6))
+        115 format("	RZcoor Pijk:", 2(2x,i4), 3(1x,d13.6))
      enddo
   enddo
 #endif
