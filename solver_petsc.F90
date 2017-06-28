@@ -2728,7 +2728,7 @@ contains
     integer :: m,n,p,vsize,msize,nsize
     PetscInt :: its
     PetscReal :: rnorm, bsum, bshift
-#ifdef _OPENMP
+#ifdef USE_OPENMP
     integer, save :: icounter=0
     integer :: ncounter=20
     logical :: flg
@@ -2832,7 +2832,7 @@ contains
     call KSPSolve( solver%ksp, solver%bVec, solver%xVec, ierr )
 #endif
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-counter',ncounter,flg,ierr);
 !    !if(solver%order .ge. 1 .and. mype / nproc_partd .eq. 0 .and. icounter==ncounter ) then
 !    if(solver%order .ge. 1 .and. icounter==ncounter ) then
