@@ -72,7 +72,7 @@ Subroutine setup
   real(wp) ne0
 
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
   integer nthreads,omp_get_num_threads
 #endif
 
@@ -1632,7 +1632,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
      mid_theta=mtheta(ipsi)
      write(stdout,run_parameters)
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !$omp parallel private(nthreads)
      nthreads=omp_get_num_threads()  !Get the number of threads if using OMP
 !$omp single

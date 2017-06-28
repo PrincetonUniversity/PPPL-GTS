@@ -23,7 +23,7 @@ subroutine charge_eon
 
   densitye=0.0_wp
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! The following lines are OpenMP directives for loop-level parallelism
 ! on shared memory machines (see http://www.openmp.org).
 ! When compiling with the OpenMP option (-qsmp=omp for the XLF compiler on
@@ -52,7 +52,7 @@ subroutine charge_eon
         wt11=wp1*wteon1(m)
         wt01=wp1-wt11
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! Use thread-private temporary array dnitmp to store the results
         ij=jteon0(m)
         dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt00
@@ -91,7 +91,7 @@ subroutine charge_eon
 
   enddo
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! For OpenMP, we now write the results accumulated in each thread-private
 ! array dnitmp() back into the shared array densitye(). The loop is enclosed
 ! in a critical section so that one thread at a time updates densitye(). 
@@ -101,8 +101,8 @@ subroutine charge_eon
      densitye(1,ij) = densitye(1,ij) + dnitmp(1,ij)
   enddo
 !$omp end critical
-#endif
 !$omp end parallel
+#endif
 
 ! If we have a particle decomposition on the toroidal domains, do a reduce
 ! operation to add up all the contributions to charge density on the grid
@@ -427,7 +427,7 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      wdum(0)=0.0
      wdum(mpsi)=0.0
      write(801,100) istep, (wdum(i),i=0,mpsi), (zonale(i),i=0,mpsi)
-100  format(1x,i6, 503(1x,d12.6)) ! for maxium mpsi=500
+100  format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
      call flush(801)
   end if
 

@@ -94,7 +94,7 @@ subroutine current_ion
 
  do i=1,3  ! corresponding to a, theta, zeta; using do-loop to save memory
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !$omp parallel private(dnitmp)
   dnitmp=0.   ! Set array elements to zero
 #endif
@@ -127,7 +127,7 @@ subroutine current_ion
         wt11=wp1*wtion1(larmor,m)
         wt01=wp1-wt11
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! Use thread-private temporary array dnitmp to store the results
         ij=jtion0(larmor,m)
 
@@ -169,15 +169,15 @@ subroutine current_ion
      enddo
   enddo
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !$omp critical
   do ij=1,mgrid
      pflux_i(i,0,ij) = pflux_i(i,0,ij) + dnitmp(0,ij)
      pflux_i(i,1,ij) = pflux_i(i,1,ij) + dnitmp(1,ij)
   enddo
 !$omp end critical
-#endif
 !$omp end parallel   ! match "!$omp parallel private(dnitmp)"
+#endif
 
 ! If we have a particle decomposition on the toroidal domains, do a reduce
 ! operation to add up all the contributions to charge density on the grid

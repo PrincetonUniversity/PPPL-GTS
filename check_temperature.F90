@@ -90,7 +90,7 @@ subroutine check_temperature
        end do
     end if
 
-800 format(1x,i4,1x,10(ES12.6,1x))
+800 format(1x,i4,1x,10(ES13.6,1x))
 
 
 end subroutine check_temperature

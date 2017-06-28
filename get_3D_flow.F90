@@ -34,7 +34,7 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
 
 do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !$omp parallel private(dnitmp)
   dnitmp=0.   ! Set array elements to zero
 #endif
@@ -66,7 +66,7 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
            rdum=wpi2(m)*2.0_wp/3.0_wp-backT(m)  !  rdum=[(v_para-u//)^2+v_perp^2]/3-vth^2
         end if
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! Use thread-private temporary array dnitmp to store the results
         ij=jtion0(1,m)
         dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt00*rdum
@@ -124,7 +124,7 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
 
   enddo
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !$omp critical
   do ij=1,mgrid
      if(i < 4) then
@@ -136,8 +136,8 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
      end if
   enddo
 !$omp end critical
-#endif
 !$omp end parallel
+#endif
 
 ! If we have a particle decomposition on the toroidal domains, do a reduce
 ! operation to add up all the contributions to charge density on the grid

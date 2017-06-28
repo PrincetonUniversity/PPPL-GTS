@@ -61,8 +61,8 @@ Subroutine check_eq
                 rj(19), zj(19),rj(20), zj(20),rj(21), zj(21)
   end do
 
-100 format(1x,22(d12.6,1x))
-200 format(1x,42(d12.6,1x))
+100 format(1x,22(d13.6,1x))
+200 format(1x,42(d13.6,1x))
 
   close(11)
   close(12)

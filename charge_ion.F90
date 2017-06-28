@@ -20,7 +20,7 @@ subroutine charge_ion
 
   real(wp), external :: SMOOTHSTEP
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !! We need the following temporary array only when using OpenMP
 !  real,dimension(:,:),allocatable :: dnitmp
 #endif
@@ -89,7 +89,7 @@ subroutine charge_ion
      enddo
   enddo
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! The following lines are OpenMP directives for loop-level parallelism
 ! on shared memory machines (see http://www.openmp.org).
 ! When compiling with the OpenMP option (-qsmp=omp for the XLF compiler on
@@ -119,7 +119,7 @@ subroutine charge_ion
         wt11=wp1*wtion1(larmor,m)
         wt01=wp1-wt11
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! Use thread-private temporary array dnitmp to store the results
         ij=jtion0(larmor,m)
         dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt00
@@ -159,7 +159,7 @@ subroutine charge_ion
      enddo
   enddo
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! For OpenMP, we now write the results accumulated in each thread-private
 ! array dnitmp() back into the shared array densityi(). The loop is enclosed
 ! in a critical section so that one thread at a time updates densityi(). 
@@ -169,8 +169,8 @@ subroutine charge_ion
      densityi(1,ij) = densityi(1,ij) + dnitmp(1,ij)
   enddo
 !$omp end critical
-#endif
 !$omp end parallel
+#endif
 
 ! If we have a particle decomposition on the toroidal domains, do a reduce
 ! operation to add up all the contributions to charge density on the grid
@@ -485,7 +485,7 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      wdum(0)=0.0
      wdum(mpsi)=0.0
      write(800,100) istep, ( wdum(i),i=0,mpsi), ( zonali(i),i=0,mpsi), ( sumfluxpsi(i),i=0,mpsi)
-100  format(1x,i6, 606(1x,d12.6)) ! for maxium mpsi=200
+100  format(1x,i6, 606(1x,d13.6)) ! for maxium mpsi=200
      call flush(800)
   end if
 

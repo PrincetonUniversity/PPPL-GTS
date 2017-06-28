@@ -360,11 +360,11 @@ subroutine snapshot
 !  106 format(e10.4,4x,6hflux2z,4x,i4)
 !  107 format(e10.4,2x,i4,2x,4hpsi=,e10.4,2x,4hthe=,e10.4,2x,2hR=,e10.4,2x,2hz=,e10.4)
 
-102 format(d16.10)
+102 format(d17.10)
 
-105 format(d16.10,4x,6hflux2x,4x,i4)
-106 format(e16.10,4x,6hflux2z,4x,i4)
-107 format(e16.10,2x,i4,2x,4hpsi=,d16.10,2x,4hthe=,d16.10,2x,2hR=,d16.10,2x,2hz=,d16.10)
+105 format(d17.10,4x,6hflux2x,4x,i4)
+106 format(e17.10,4x,6hflux2z,4x,i4)
+107 format(e17.10,2x,i4,2x,4hpsi=,d17.10,2x,4hthe=,d17.10,2x,2hR=,d17.10,2x,2hz=,d17.10)
 
 ! REcord Potential. Each myrank_toroidal has its own file (see open_file).
   if(movie_3D_h5==0) then  ! no 3D movie data created

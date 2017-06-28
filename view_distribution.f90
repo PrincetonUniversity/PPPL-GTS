@@ -26,6 +26,6 @@ Subroutine view_distribution(zero_or_one)
   end if
 
 
-1000 format(1x,2(ES12.6,1x))
+1000 format(1x,2(ES13.6,1x))
 
 end subroutine view_distribution 

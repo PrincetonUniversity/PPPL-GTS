@@ -452,7 +452,7 @@ int ESIReadBD(char* FNm)
     fread(gHqq+j,sizeof(REAL),Np1,lf);
     if(fread(gHaqq+j,sizeof(REAL),Np1,lf) != Np1){
       fclose(lf);
-      printf("%s Bad binary file\n");
+      printf("%s Bad binary file\n", FNm);
       return(1);
     }
     j	+=Np1;
@@ -468,7 +468,7 @@ int ESIReadAD(char* FNm)
   FILE *lf;
   char ln[256],*lc;
 
-    fprintf(stderr,"In ESIReadAD: reading file <%s>\n",FNm,7);
+    fprintf(stderr,"In ESIReadAD: reading file <%s>\n",FNm);
 
   lf	=fopen(FNm,"r");
   if(lf == NULL){

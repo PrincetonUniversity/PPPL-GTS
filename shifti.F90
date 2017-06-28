@@ -14,7 +14,7 @@ subroutine shifti
   real(wp),dimension(:,:),allocatable :: recvleft,recvright,sendleft,sendright
   real(wp) zetaright,zetaleft,pi_inv
   character(len=8) cdum
-#ifdef _OPENMP
+#ifdef USE_OPENMP
   integer msleft(32,0:15),msright(32,0:15)
   integer nthreads,gnthreads,iam,delm,mbeg,mend,omp_get_num_threads,&
        omp_get_thread_num
@@ -41,7 +41,7 @@ subroutine shifti
         kzi(m)=0
      enddo
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! This section of code (down to #else) is included by the preprocessor when
 ! the compilation is performed with OpenMP support. We must then use a few
 ! temporary arrays and add some work distribution code.

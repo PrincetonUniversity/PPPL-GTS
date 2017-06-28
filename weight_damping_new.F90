@@ -126,7 +126,7 @@ subroutine weight_field(wfield)
 
   dnitmp=0.0_wp
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !$omp parallel private(dampf)
   dampf=0.0_wp   ! Set array elements to zero
 #endif
@@ -158,7 +158,7 @@ do m=1,mi
         rdum(8)=vz*zion(5,m)
         rdum(9)=enew*zion(5,m)
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
         ij=jtion0(1,m)
         dampf(1:9,ij,0) =dampf(1:9,ij,0) + wz0*wt00*rdum(1:9)
         dampf(1:9,ij,1) =dampf(1:9,ij,1) + wz1*wt00*rdum(1:9)
@@ -222,12 +222,12 @@ enddo    ! enddo  m=1,mi
 
 
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !$omp critical
   dnitmp(1:9,1:mgrid,0:1) = dnitmp(1:9,1:mgrid,0:1) + dampf(1:9,1:mgrid,0:1)
 !$omp end critical
-#endif
 !$omp end parallel
+#endif
 
 !   t1wc=MPI_WTIME()
 

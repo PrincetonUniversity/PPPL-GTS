@@ -246,7 +246,7 @@ subroutine diagnosis
   endif
 
 101 format(i6)
-102 format(e10.4)
-103 format(e10.4,2x,i4,2x,i4,2x,i4)
+102 format(e11.4)
+103 format(e11.4,2x,i4,2x,i4,2x,i4)
 
 end subroutine diagnosis

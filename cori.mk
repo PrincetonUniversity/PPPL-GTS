@@ -26,7 +26,7 @@ ifeq ($(F90),ftn)
              OPT:=-fast -no-ipo
              CFLAGS:=
              COPT:=-fast -no-ipo
-             OMPFLAG:=-qopenmp
+             OMPFLAG:=-qopenmp -DUSE_OPENMP
              NOOMPFLAG:=
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
              SPRNG_INC:=-I${SPRNG_DIR}/include
@@ -43,7 +43,7 @@ ifeq ($(F90),ftn)
              OPT:= -O 1
              CFLAGS:= -e0 -ez
              COPT:= -O 1
-             OMPFLAG:=
+             OMPFLAG:= -DUSE_OPENMP
              NOOMPFLAG:=-hnoomp
              #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
              #SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper

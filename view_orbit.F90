@@ -30,7 +30,7 @@ Subroutine view_orbit
   call esigetrzb(rj,zj,Bj,aaa,the,10)
 
   write(10,100) (rj(k), zj(k), k=1,10)
-100 format(1x,20(ES12.6,1x))
+100 format(1x,20(ES13.6,1x))
 
 
   en_error(1:10)=0.5_wp*(zion(4,mi/2+1:mi/2+10)*Bj(1:10))**2+zion(6,mi/2+1:mi/2+10)**2*Bj(1:10)
@@ -41,10 +41,10 @@ Subroutine view_orbit
 
   write(17,300) istep, (zion(5,mi/2+k), k=1,10)
 
-200 format(1x,10(ES12.6,1x))
+200 format(1x,10(ES13.6,1x))
 
 
-300 format(1x,i4,1x,20(ES12.6,1x))
+300 format(1x,i4,1x,20(ES13.6,1x))
 
   call flush(10)
   call flush(15)
