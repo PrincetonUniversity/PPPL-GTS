@@ -174,7 +174,7 @@ subroutine get_Te_fluctuation(wpi2)
 
   f_rho=1.0_wp/for_rho   ! for_rho=(ms/m0)*(e0/es)
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 !$omp parallel private(dnitmp)
   dnitmp=0._wp   ! Set array elements to zero
 #endif
@@ -195,7 +195,7 @@ subroutine get_Te_fluctuation(wpi2)
         wt11=wp1*wteon1(m)
         wt01=wp1-wt11
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! Use thread-private temporary array dnitmp to store the results
         ij=jteon0(m)
         dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt00
@@ -234,7 +234,7 @@ subroutine get_Te_fluctuation(wpi2)
 
   enddo
 
-#ifdef _OPENMP
+#ifdef USE_OPENMP
 ! For OpenMP, we now write the results accumulated in each thread-private
 ! array dnitmp() back into the shared array buff(). The loop is enclosed
 ! in a critical section so that one thread at a time updates buff(). 
