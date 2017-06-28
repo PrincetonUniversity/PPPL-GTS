@@ -24,7 +24,7 @@ subroutine theory
   real*8, dimension(2) :: Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the
   real*8  dlnT, dlnT_e, dlnn, vthr, vthri, ep, qq, B0B2IN, &
           density_ei, T_elec, T_ion, B_s, B_max, f_t, adum, up, lamda1,       &
-          ajavbs,tempxe,tempxi,pvale,pvali,ppvale,ppvali,xnuse,xnusi,tempxpe,tempxpi, &
+          ajavbs,ajavbs_e,tempxe,tempxi,pvale,pvali,ppvale,ppvali,xnuse,xnusi,tempxpe,tempxpi, &
           rm2avx,ftrapx,epsx,rmajx,zeff,qx,mu0, &
           dr, r,  R2, eps, acc, ierr
 
@@ -113,15 +113,19 @@ subroutine theory
          tempxpe=tempxe*dlnT_e/(-gYaj(1)*(B_00/1.0d4)*(R_00/1.0d2)**2)  ! dT_e/dpsi
          tempxpi=tempxi*dlnT/(-gYaj(1)*(B_00/1.0d4)*(R_00/1.0d2)**2) ! dT_i/dpsi
 !     estimate j_b in terms of Hirshman's formula         
-         call bootstrap(ajavbs, iboot, ierr, nout,                 &
+         call bootstrap(ajavbs, ajavbs_e, iboot, ierr, nout,                 &
                         zeff,rm2avx,epsx,rmajx,qx,ftrapx,          &
                         pvale,ppvale,tempxe,tempxpe,               &
                         pvali,ppvali,tempxi,tempxpi,xnuse,xnusi)
          ajavbs=ajavbs/mu0
          ajavbs=ajavbs*Fj(1)*rm2avx*utime/(charg0/3.0d9)/1.0d6   ! in unit e0*v_00*B_00
 
+!      electron BS current added 2017
+         ajavbs_e=ajavbs_e/mu0
+         ajavbs_e=ajavbs_e*Fj(1)*rm2avx*utime/(charg0/3.0d9)/1.0d6   ! in unit e0*v_00*B_00
+
 !         write(21,1299) r, ajavbs, pvale, pvali, ppvale, ppvali, tempxe, tempxi, tempxpe, tempxpi
-         write(21,1299) r, ajavbs
+         write(21,1299) r, ajavbs, ajavbs_e
 1299     format(10(2x,ES13.6))
 
 19    continue
@@ -204,7 +208,7 @@ real*8 FUNCTION R2_inverse(thedum)
 !    analytical estimate of bootstrap current in term of Hirshman's formula
 !                       by Charles Kessel   June 2003
 !
-      subroutine bootstrap(ajavbs, iboot, ierr, nout, &
+      subroutine bootstrap(ajavbs, ajavbs_e, iboot, ierr, nout, &
                            zeff,rm2avx,epsx,rmajx,qx,ftrapx,          &
                            pvale,ppvale,tempxe,tempxpe,               &
                            pvali,ppvali,tempxi,tempxpi,xnuse,xnusi)
@@ -216,6 +220,8 @@ real*8 FUNCTION R2_inverse(thedum)
 !
 !              ajavbs = <mu_0*j_//*B>/<B.gard(phi)>  ! noted by wx
 !
+!     ajavbs_e electron BS current  added 2017
+!   
 !     ierr     =0 for normal calculation
 !              =1 for error exit
 !
@@ -322,6 +328,8 @@ real*8 FUNCTION R2_inverse(thedum)
       if(iabs(iboot) .eq. 2) then
       ajavbs=-(pvale/rm2avx)*(xl31*col1*(pepope+(pvali/pvale)   &
              *(pipopi-alfhh*tipoti))-(2.5*xl31*col1-(2.5*xl31-xl32)*col2)*tepote)
+      ajavbs_e=-(pvale/rm2avx)*(xl31*col1*(pepope)   &
+             -(2.5*xl31*col1-(2.5*xl31-xl32)*col2)*tepote)
       return
       endif
  
@@ -370,6 +378,8 @@ real*8 FUNCTION R2_inverse(thedum)
  
       ajavbs=-(pvale/rm2avx)*(xl31*(pepope+(pvali/pvale)*pipopi)+  &
              xl32*tepote+xl34*alp*tipoti)
+      ajavbs_e=-(pvale/rm2avx)*(xl31*(pepope)+  &
+             xl32*tepote)
       return
  
 !.....error exit

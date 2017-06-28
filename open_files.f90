@@ -119,6 +119,7 @@ subroutine open_files
      if(ifelectron/=0.and.mype==numberpe-3)open(194,file='fort.194',status='replace',RECL=8192)
      if(ifelectron/=0.and.mype==numberpe-3)open(195,file='fort.195',status='replace',RECL=8192)
      if(ifelectron/=0.and.mype==numberpe-3)open(199,file='fort.199',status='replace',RECL=8192)
+     if(ifelectron/=0.and.mype==numberpe-3)open(198,file='fort.198',status='replace',RECL=8192)
      if(mype==numberpe-4)open(92,file='fort.92',status='replace',RECL=8192)
      if(mype==numberpe-3)open(98,file='fort.98',status='replace',RECL=8192)
 
@@ -188,6 +189,7 @@ subroutine open_files
      if(ifelectron/=0.and.mype==numberpe-3)open(194,file='fort.194',status='old',position='append',RECL=8192)
      if(ifelectron/=0.and.mype==numberpe-3)open(195,file='fort.195',status='old',position='append',RECL=8192)
      if(ifelectron/=0.and.mype==numberpe-3)open(199,file='fort.199',status='old',position='append',RECL=8192)
+     if(ifelectron/=0.and.mype==numberpe-3)open(198,file='fort.198',status='old',position='append',RECL=8192)
      if(mype==numberpe-4)open(92,file='fort.92',status='old',position='append',RECL=8192)
      if(mype==numberpe-3)open(98,file='fort.98',status='old',position='append',RECL=8192)
   end if

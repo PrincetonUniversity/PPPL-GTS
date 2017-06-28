@@ -388,7 +388,6 @@ end if
     dflowi=0.0_wp
     entropyi=0.0_wp
     fluxpsi=0.0_wp
-    heatflux=0.0_wp
     En_00=0.0_wp
     En_tur=0.0_wp
     En_tot=0.0_wp
@@ -1029,7 +1028,6 @@ dmaxv=0.0d0
     dflowi=0.0_wp
     entropyi=0.0_wp
     fluxpsi=0.0_wp
-    heatflux=0.0_wp
     En_00=0.0_wp
     En_tur=0.0_wp
     En_tot=0.0_wp

@@ -141,9 +141,10 @@ module field_array
 ! Added for flow visualization, Feb. 2011
   real(wp),dimension(:,:),allocatable :: on_grid, flow_grid
 
-  real(wp),dimension(:),allocatable :: markeri,markere,dtemper,heatflux,&
-                                       phi_tmp,Jcbn,gsij,div1,div2,     &
+  real(wp),dimension(:),allocatable :: markeri,markere,dtemper,heatflux, &
+                                       phi_tmp,Jcbn,gsij,div1,div2,      &
                                        dRda, dRdt, dZda, Dzdt, gbeta
+  real(wp),dimension(:),allocatable :: jflux
   real(wp),dimension(:,:,:),allocatable :: evector,pflux_i,pflux_e
   real(wp),dimension(:,:),allocatable :: wtp1,wtp2,gij,cij
 

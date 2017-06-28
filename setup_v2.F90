@@ -259,11 +259,12 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
 
          call read_profiles(profile_data_name)         ! for JET data output
 
-         !  tdum=6.0_wp    ! for testing DTEM in DIII-D geometry with NSTX profiles
+         tdum=6.0_wp    ! for testing DTEM in DIII-D geometry with NSTX profiles
          !  tdum=4.0_wp    ! change rho* by changing Te and Ti for size scaling
-         tdum=1.0_wp
+         !  tdum=1.0_wp
          Ti_50=Ti_50*tdum
          Te_50=Te_50*tdum
+         !  ne_50=ne_50*tdum*5.0_wp   ! test the way for changing frequency
          ne_50=ne_50*tdum
 
          Ti_50=Ti_50/Tem_00       ! normalized temperature for which the normalized
@@ -675,7 +676,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
 
 ! NOTE!!!!  if all procs write the same thing into the same file, it take terribly long time when using many procs
      if(mype==0) then
-         write(10,5) psi_grid(i), Tc*Tc/vthi**2
+         write(10,5) psi_grid(i), Tc*Tc/vthi**2, den_grid(i)
          call flush(10)
      end if
 
@@ -1152,11 +1153,13 @@ end if ! if(mype==0)
 
 ! allocate memory
   allocate ( pgyro(4,mgrid),tgyro(4,mgrid),markeri(mgrid),densityi(0:1,mgrid),&
-       phi(0:1,mgrid),jtp1(2,mgrid),jtp2(2,mgrid),&
-       wtp1(2,mgrid),wtp2(2,mgrid),dtemper(mgrid),heatflux(mgrid),&
-       phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),&
-       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),   &
+       phi(0:1,mgrid),jtp1(2,mgrid),jtp2(2,mgrid),                            &
+       wtp1(2,mgrid),wtp2(2,mgrid),dtemper(mgrid),heatflux(mgrid),            &
+       phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),          &
+       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),                    &
        dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
+
+  allocate (jflux(mgrid))
 
 ! Added for flow visualization, Feb. 2011
   allocate (on_grid(6,mgrid))

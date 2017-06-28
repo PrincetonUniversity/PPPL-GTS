@@ -2334,7 +2334,7 @@ int gcmotion_eon(REAL *dXgr,
 {
   int n = *nval;
   int j0,j1,k;
-  REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P;
+  REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P,qq;
   REAL a,q,a11,a12,a21,a22;
 
   REAL x,X,xx,XX;
@@ -2357,6 +2357,7 @@ int gcmotion_eon(REAL *dXgr,
 /*                    Ta[k]=dtheta/dt|_EXB          */
 /*                    Pa[k]=drho/dt|_EXB            */
 /*                    gha[k]=1/|grad a|             */
+/*                    Fa[k]=E_//   added 2017       */
 #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,wpi1,wpi2,wpi3)
   for(k=0; k < n; k++){
     Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
@@ -2526,6 +2527,9 @@ int gcmotion_eon(REAL *dXgr,
     }
     B[k]=BB;    /* output of B field */
     F[k]=FI;    /* output of F function for toroidal momentum diagnosis */
+/*    qq        =-gFa/gYa;   */
+    qq        =-gFa/gYa;
+    Fa[k]=FI*(wpi2+qq*wpi3)/(qq*BB*r*r);  /* output E// added for analysis of (E// x dn_e) contribution to electron current 2017 */
     a21 =FI;
     T   *=Xgr;
     D   =za*rq-zq*ra;
@@ -2543,7 +2547,6 @@ int gcmotion_eon(REAL *dXgr,
     a21 *=r;
     a22 *=r;
     D   *=r;
-/*    qq        =-gFa/gYa;   */
 #ifdef H
     r  =Xgr*BB*cgq0;
     BB  *=r;

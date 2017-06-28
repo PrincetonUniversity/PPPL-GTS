@@ -397,11 +397,16 @@ subroutine snapshot
            densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))  ! validate densitye(:,igrid(i)
         enddo
 
-        write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid),densitye(1,1:mgrid),heatflux(1:mgrid)   ! delta-ne output added Oct. 2012
+        write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid),densitye(1,1:mgrid),heatflux(1:mgrid),jflux(1:mgrid)   ! delta-ne output added Oct. 2012
                             !  phi_tmp:  Ti fluctuations
                             !  heatflux: Te fluctuations
+                            !  jflux:    B*j_e// fluctuations     added 2017
 
 !          print*, 'mype= ', mype, 'istep=', istep, phi_tmp(mgrid/2), heatflux(mgrid/2), densitye(1,mgrid/2), densityi(1,mgrid/2)
+!          print*, 'mype= ', mype, 'istep=', istep, jflux(mgrid/2), heatflux(mgrid/2)
+!          write(197, 20) heatflux(mgrid/16), heatflux(mgrid/8),heatflux(mgrid/4),heatflux(mgrid/2), jflux(mgrid/16),jflux(mgrid/8),jflux(mgrid/4),jflux(mgrid/2)
+!     20   format(8(2x,d16.10))
+!          call flush(197)
 
      end if
      call flush(888)

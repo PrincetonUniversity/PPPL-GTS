@@ -3,7 +3,7 @@
   CC := cc
   F90 := ftn
   F77 := ftn
-  LOADER := ftn
+  LOADER := ftn -Wl,-z,muldefs
 
 ifeq ($(F90),ftn)
    # Flags for Cray XT system

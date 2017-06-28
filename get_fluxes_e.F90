@@ -15,7 +15,7 @@ subroutine get_fluxes_e(wpi)
   real(wp)  my_eon,total_eon
 
   real(wp), dimension((nn-2),nbin_a) :: ONE_me,TOTAL_pe
-  real(wp), dimension(4,0:mpsi) :: ONE_me_g,TOTAL_pe_g
+  real(wp), dimension(5,0:mpsi) :: ONE_me_g,TOTAL_pe_g
 
 ! add for diagnosis of distribution functions
   real(wp), dimension(7,nprobe,-nv:nv,0:nv) :: df, df_tot
@@ -327,10 +327,13 @@ subroutine get_fluxes_e(wpi)
         ONE_me_g(4,j1)=ONE_me_g(4,j1)+part*zeon0(5,m)*wpi(1,m)*zeon0(4,m)*F(m) ! angular momentum flux
         ONE_me_g(4,j2)=ONE_me_g(4,j2)+(1.0_wp-part)*zeon0(5,m)*wpi(1,m)*zeon0(4,m)*F(m)
 
+        ONE_me_g(5,j1)=ONE_me_g(5,j1)+part*zeon0(5,m)*Fa(m)            ! E_//*delta-n_e add 2017
+        ONE_me_g(5,j2)=ONE_me_g(5,j2)+(1.0_wp-part)*zeon0(5,m)*Fa(m)
+
      enddo
 !$omp end parallel
 
-  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,4*(mpsi+1),MPI_REAL8,MPI_SUM,numberpe-3,MPI_COMM_WORLD,ierr)
+  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,5*(mpsi+1),MPI_REAL8,MPI_SUM,numberpe-3,MPI_COMM_WORLD,ierr)
   if(mype==numberpe-3) then 
      ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_Te>
 
@@ -339,6 +342,8 @@ subroutine get_fluxes_e(wpi)
 
      TOTAL_pe_g(3,0:mpsi)=TOTAL_pe_g(3,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)*csc0    ! electron bootstrap current profile
      TOTAL_pe_g(4,0:mpsi)=TOTAL_pe_g(4,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)/for_rho ! angular momentum flux
+
+     TOTAL_pe_g(5,0:mpsi)=TOTAL_pe_g(5,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)    ! ~ E_//*delta-n_e contribution to electron current density; 2017 
 
      enk_sum=0.0_wp
      do i=1,mpsi
@@ -359,6 +364,9 @@ subroutine get_fluxes_e(wpi)
 
      write(199,802) istep, (TOTAL_pe_g(3,i),i=0,mpsi)
      call flush(199)
+
+     write(198,802) istep, (TOTAL_pe_g(5,i),i=0,mpsi)
+     call flush(198)
 
      dne_grid(:)=TOTAL_pe_g(2,:)
   end if

@@ -531,7 +531,7 @@ end if
 !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;      
 !             ghq(:)=da/dt|_EXB;  Ta(:)=dtheta/dt|_EXB;  Pa(:)=drho/dt|_EXB;
 !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;       
-!             gha(:)=1/|grad a|   F(:) =F
+!             gha(:)=1/|grad a|   F(:) =F                Fa(;)=E_//;  
 !             wpi(3,:)=dphi/dzeta (NO change); no change for: zeon(1,2,4,:), wpi(1,2,:) and mu;
 
 !  if(nonlinear>100.0_wp) then            ! for nonlinear run
