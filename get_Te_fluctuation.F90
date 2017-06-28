@@ -244,8 +244,8 @@ subroutine get_Te_fluctuation(wpi2)
      buff(1,ij) = buff(1,ij) + dnitmp(1,ij)
   enddo
 !$omp end critical
-#endif
 !$omp end parallel
+#endif
 
 ! If we have a particle decomposition on the toroidal domains, do a reduce
 ! operation to add up all the contributions to temperature on the grid
