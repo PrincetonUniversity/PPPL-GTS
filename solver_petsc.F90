@@ -366,7 +366,7 @@ contains
        call MatMult(Amat, oneVec, rhsVec, ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call VecNorm(rhsVec,NORM_1,norm, ierr);
-       if(mype.eq.0) write(0, *) "	nullspace created for",prefix, norm/neq
+       if(mype.eq.0) write(0, *) "	nullspace created for ",trim(prefix), norm/neq
        ! whichone=4 nullspace created for=dphidt_ 1.211923845185931E-14
        ! whichone=5 nullspace created for=dphidt_ 4.89611458334855338E-15
 
@@ -376,7 +376,7 @@ contains
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call MatNullSpaceTest(nullsp, Amat, isNull,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-       if(mype.eq.0 .and. isNull) write(0,*) "	nullspace test for", prefix
+       if(mype.eq.0 .and. isNull) write(0,*) "	nullspace test for ", trim(prefix)
        call MatSetNullSpace(Amat,nullsp,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        !call KSPSetNullSpace(ksp, nullsp,ierr)
@@ -395,8 +395,8 @@ contains
        call VecDestroy( rhsVec, ierr )
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
-        
-    call KSPSetOptionsPrefix( ksp, prefix, ierr )
+
+    call KSPSetOptionsPrefix( ksp, trim(prefix), ierr )
     call KSPSetFromOptions( ksp, ierr )
 
     if( mype / nproc_partd .ne. 0 ) then
@@ -1009,7 +1009,6 @@ contains
     endif
     
     !cj2014.05.02 solver1 uses homogeneous Neumann BC, so don't call neumbcfix
-#ifdef CJTEST
     if( solver%order .ge. 1) then
        if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
           it= sum( mtheta ) - mtheta(mpsi)
@@ -1022,7 +1021,6 @@ contains
           call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,gs,neuma,neumt,bn)
        endif
     endif
-#endif
 
     if( solver%fem%order .eq. 2) then
         ! interpolate linear to ho array
@@ -1069,7 +1067,7 @@ contains
     !cj 2015-03-12 changes for debugging
     !cj now bh is added to bb and then multiplied by Mmat,
     !cj instead of using finite element Pijk
-    bb=bb+bh
+    bb=bb+bh+bn
     bh=0.
     call petsc_solve( solver, neq, bb, xx, bh, ierr)
     endif
@@ -1998,9 +1996,7 @@ contains
 
 
     if(solver%order .gt. 0) then
-       stop '	find_dxdadxdt: not implemented for high order elements'
-    else
-       if(mype.eq.0) write(0, *) "	find_dxdadxdt: find dxdr dxdz begin"
+       stop '	find_dxdadxdt L2001: not implemented for high order elements'
     endif
 
 !    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
@@ -2014,9 +2010,6 @@ contains
        ix=3
        iy=4
     endif
-#ifdef CJTEST
-    if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt for solve",whichone,ix,iy
-#endif
 
     fe_order=solver%fem%order
     fe_ns=3
@@ -2938,6 +2931,7 @@ contains
 !========================================================================
 subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
     use precision,only:wp,doubleprec
+    use global_parameters,only: mype,pi
     use fem_data_class
     use esi_interface, only : metric
     implicit none
@@ -2951,6 +2945,11 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
     real(wp), dimension(2) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, fcj
     integer :: j,i1,i2,mt
     integer, external :: metric_elements
+    real(wp) :: eps, big
+
+
+      eps=pi/6.
+      big=pi*1.5
 
        !set gs, dphida, dphidt as a place holder for input into "solve" subroutine
        do j=1,mtheta_i
@@ -2975,10 +2974,19 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
           fcj = (zaj*rqj-zqj*raj)  !/rj
 
           ! if (it, ir) makes one edge
+#ifdef USERZ
+          x1=fem%points(1,i1)
+          y1=fem%points(2,i1)
+          x2=fem%points(1,i2)
+          y2=fem%points(2,i2)
+#else
           x1=fem%points(3,i1)
           y1=fem%points(4,i1)
           x2=fem%points(3,i2)
           y2=fem%points(4,i2)
+          if( y1.lt.eps .and. y2.gt.big ) y1 = 2.*pi + y1
+          if( y2.lt.eps .and. y1.gt.big ) y2 = 2.*pi + y2
+#endif
           l12=(x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)
 
           mt=metric_elements(aaa(1),the(1),0.)
@@ -3702,11 +3710,11 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         rarr = 0.; zarr = 0.
 #ifdef USEGTSFE
         if(mype==0 .and. ie==1 ) &
-        write(0,*) "	form_tangent: use historical gts elements whichone,fcj=", whichone, fcj
+        write(0,*) "	form_tangent: use historical gts elements whichone,fcj,alpha=", whichone, fcj, alpha
         call therm2d(c1,c2,ul,xlt,sarr,marr,rrarr,rzarr,zrarr,zzarr,rarr,zarr,nel,nst,2,1)
 #else
         if(mype==0 .and. ie==1 ) &
-        write(0,*) "	form_tangent: use lagrange elements whichone,fcj=", whichone, fcj
+        write(0,*) "	form_tangent: use lagrange elements whichone,fcj,alpha=", whichone, fcj, alpha
         call lagrange_element_matrix(fe_ns, fe_nw, fe_ndof, fe_nvar, &
                                      xlt(1,:), xlt(2,:),  &
                                      fe_weight, fe_NN, fe_dN1, fe_Eij, fe_bEij, &
@@ -3880,18 +3888,6 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         * c0cs_i * msm0_i
 
     END SUBROUTINE cmp_phy_qty
-
-    FUNCTION mean(vals,nn)
-    use precision
-    implicit none
-
-    real(wp) :: mean
-
-    integer, intent(in) :: nn
-    real(wp), dimension(nn), intent(in) :: vals
-    
-    mean = sum(vals)/real(nn,wp)
-    END FUNCTION mean
 end subroutine form_tangent
 
 !========================================================================
@@ -3959,11 +3955,9 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
   logical :: flg
-  integer :: whichone = 5
+  integer :: whichone = 1
 
 
-  call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
-  whichone=1
   !cj2014.05.02 c1 = alpha
   !cj2014.05.02 c2 = beta
   eps = pi/6.
@@ -4204,6 +4198,8 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
         * c0cs_i * msm0_i
 
     END SUBROUTINE cmp_phy_qty
+end subroutine form_tangent_RZcoor
+
 
     FUNCTION mean(vals,nn)
     use precision
@@ -4216,8 +4212,56 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
     
     mean = sum(vals)/real(nn,wp)
     END FUNCTION mean
-end subroutine form_tangent_RZcoor
 
+
+! added 2017-nov-03 set alpha=0 in the solver
+#ifdef GIVEUP
+subroutine solver_reset( this )
+  use global_parameters,only: ifelectron, mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi, ifdphi, R_0
+  implicit none
+  type(solver_data) :: this
+  Vec tmpVec10
+  PetscScalar alpha
+  real(wp), dimension(:),allocatable :: vthe3, aaa
+  integer, dimension(:),allocatable :: ind
+  integer ierr, i, ie, fe_ns, neq
+  real(wp), external ::temperature_e
+
+
+     if(mype==0) write(*,*) "reset poisson solver to alpha=0"
+     !this%order=1
+     fe_ns=3
+     neq = this%fem%nmesh_pts
+
+     allocate( ind(fe_ns) )
+     allocate( vthe3(fe_ns), aaa(fe_ns) )
+     allocate( alpha(neq),this%zero10(neq))
+
+  do ie=1,this%fem%iemax
+     ind(:)=this%fem%iet(:,ie)
+
+     aaa(:)=this%fem%points(3,ind(:))
+     do i=1,fe_ns
+        vthe3(i)=temperature_e(aaa(i),0.0_wp)
+     enddo
+
+     if(ifelectron==1 .or. this%mat%mat_type==2) then
+        alpha = 0.0_wp
+     else
+        alpha = abs(csc0) * m0ms / mean(vthe3, fe_ns)
+     endif
+  enddo
+
+     deallocate( vthe3, aaa )
+
+     call VecDuplicate(this%zeroVec10, tmpVec10, ierr)
+     call VecCopy(this%zeroVec10, tmpVec10, ierr)
+
+     call VecScale(tmpVec10, -alpha, ierr)
+     call MatDiagonalSet(this%mat%data, tmpVec10, ADD_VALUES, ierr)
+     call VecDestroy(tmpVec10, ierr)
+end subroutine solver_reset
+#endif
 end module solver_data_class
 
 

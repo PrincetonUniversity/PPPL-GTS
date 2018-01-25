@@ -34,8 +34,8 @@ program GTS
   integer,parameter :: nc=13
   real(doubleprec) t0,t0wc,time(nc),timewc(nc),dt,dtwc,loop_time
   character(len=16) ic(nc)
-  type(solver_data) :: solver1,solver_dphi_dt,masssolver
-  type(fem_data) :: fem1,femt,femm
+  type(solver_data) :: solver0,solver1,solver_dphi_dt,masssolver
+  type(fem_data) :: fem0,fem1,femt,femm
 
   interface
     subroutine shift(phase,phase0,mp,mpmax)
@@ -92,6 +92,22 @@ program GTS
   else          !  for order > 0
      if(mype == 0) write (0, *) "	finite element order=", order
 
+     if(mype == 0) write (0, *) "	finite element create solver0"
+     solver0%order = order
+     solver0%mat%mat_type = 2
+     solver0%mat%bc_type = 0
+     fem0%order = order
+     call new_fem_data( fem0 )
+#ifdef CJTEST
+     call new_fem_solver( fem0, solver0, '', solver0%mat%mat_type, 2 )
+     call testsolve( solver0, masssolver )
+     call delete_fem_data( fem0 )
+     call destroy_solver( solver0 )
+#else
+     call new_fem_solver( fem0, solver0, 'solver0', solver0%mat%mat_type, solver0%mat%bc_type )
+#endif
+
+     if(mype == 0) write (0, *) "	finite element create solver1"
      solver1%order = order
      solver1%mat%mat_type = 1
      solver1%mat%bc_type = 0
@@ -103,9 +119,10 @@ program GTS
      call delete_fem_data( fem1 )
      call destroy_solver( solver1 )
 #else
-     call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, solver1%mat%bc_type )
+     call new_fem_solver( fem1, solver1, 'solver1', solver1%mat%mat_type, solver1%mat%bc_type )
 #endif
 
+     if(mype == 0) write (0, *) "	finite element create masssolver"
      masssolver%order = 0
      masssolver%mat%mat_type = -1
      masssolver%mat%bc_type = -1
@@ -119,6 +136,7 @@ program GTS
 #endif
 
      if(ifelectron==2.and.ifdphi==1) then
+        if(mype == 0) write (0, *) "	finite element create solver_dphi_dt"
         solver_dphi_dt%order = order
         solver_dphi_dt%mat%mat_type = 2
         solver_dphi_dt%mat%bc_type = 2
@@ -267,8 +285,13 @@ end if
               time(9)=time(9)+dt
               timewc(9)=timewc(9)+dtwc
 
+     if(mype == 0) write (0, *) ""
+     if(mype == 0) write (0, *) "	start to use solver0"
+     if(mype == 0) write (0, *) ""
+
          !     CALL PUSHE(irk)
-              CALL PUSHEON(solver1, masssolver, irk)
+!cj2017-nov-08CALL PUSHEON(solver1, masssolver, irk)
+              CALL PUSHEON(solver0, masssolver, irk)
               call timer(t0,dt,t0wc,dtwc)
               time(10)=time(10)+dt
               timewc(10)=timewc(10)+dtwc

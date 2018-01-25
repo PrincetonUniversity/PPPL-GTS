@@ -67,12 +67,14 @@ ifeq ($(F90),ftn)
    CC:=cc
    CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC} $(PETSC_FINC)
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5)
+
+   FFLAGS:=$(FFLAGS) -DUSERZ
 endif
 
    ifeq ($(DEBUG),y)
-     OPT:=-g  $(FFLAGS)
-     COPT:= -g  $(CFLAGS)
-     GOPT:= -g  $(CFLAGS)
+     OPT:=-g  $(FFLAGS)   -dynamic -debug inline-debug-info -parallel-source-info=2 -O3
+     COPT:= -g  $(CFLAGS) -dynamic -debug inline-debug-info -parallel-source-info=2 -O3
+     GOPT:= -g  $(CFLAGS) -dynamic -debug inline-debug-info -parallel-source-info=2 -O3
    else
      OPT:=$(OPT) $(FFLAGS)
      COPT:=$(COPT) $(CFLAGS)

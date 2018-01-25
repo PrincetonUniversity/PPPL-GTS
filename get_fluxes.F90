@@ -60,7 +60,10 @@ subroutine get_fluxes(wpi,dgf,dgq)
 !!     call esigetb(zion0(1,:),zion0(2,:),mi)   ! get B
 !     call esigetb(zion0,mi)   ! get B
 
-!$omp parallel private(m,r,yy,kc,j1,j2,part,vpara,energy,vpara0) reduction(+:ONE_me,my_ion)
+!$omp parallel private(m,r,yy,kc,j1,j2,part,vpara,energy,vpara0, &
+!$omp& r_area, the_area, the1, the2, vper, mc, am, &
+!$omp& k, k1, k2, part_k1, l1, l2, part_l1, &
+!$omp& ss1, ss2, ss3, ss4, qq1, qq2, qq3, qq4) reduction(+:ONE_me,my_ion)
 !$omp do
      do m=1,mi
         r=zion0(1,m)        

@@ -485,7 +485,7 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      wdum(0)=0.0
      wdum(mpsi)=0.0
      write(800,100) istep, ( wdum(i),i=0,mpsi), ( zonali(i),i=0,mpsi), ( sumfluxpsi(i),i=0,mpsi)
-100  format(1x,i6, 606(1x,d13.6)) ! for maxium mpsi=200
+100  format(1x,i6, 606(1x,d12.6)) ! for maxium mpsi=200
      call flush(800)
   end if
 
