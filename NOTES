@@ -1,0 +1,43 @@
+12/11/2015 new features in Makefile
+           old stay is kept when do "make -f Makefile.r63"
+
+
+12/07/2015 GTS port to hopper and cori
+	1."svn add filename"
+do "svn revert filename" 
+before commit so that filename is not going to be added into svn.
+	2. triangle.c has to be compiled with -g
+
+
+8/15/2007    COMMENTS ON ETG SIMULATIONS WITH GTS
+           ------------------------------------------
+According to Weixing, the ETG simulations of NSTX require about 10 million
+grid points per poloidal plane. In preparation for access to the 250TF
+system at NCCS I tried to estimate the amount of memory required to run
+that size of a grid. The total number of grid points would be 640 Million
+when using 64 toroidal planes. Without the radial domain decomposition, each
+MPI process will need to keep the information of a full poloidal plane.
+I used GTS on Seaborg to determine how much memory is used.
+
+I didn't the equilibrium and the profiles for NSTX so I used the ones for D3D
+and just increased the number of grid points.
+I managed to reach 10 million grid points (9982575) per plane by using:
+           mpsi=4096
+           mthetamax=4
+
+The amount of memory per MPI task varies, of course, with the number of
+particles per cell:
+
+         micell       Memory
+       ---------     --------
+           1          3.14 GB
+           2          4.78 GB
+           4          7.28 GB estimated
+
+Each dual-core Jaguar node presently has a total of 4 GB so only a run using
+micell=1 would be possible and that, by using only a single MPI task per node.
+We would need to use OpenMP to keep both cores busy.
+The Jaguar upgrade will have 4 cores per node and a total of 8 GB per node.
+This would allow an micell=4 job if using a single MPI process per node and
+OpenMP to parallelize the work between the 4 cores on that node.
+
