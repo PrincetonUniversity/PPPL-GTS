@@ -240,6 +240,7 @@ end if
 ! Calculate ion weight damping 
         if(irk==2.and.wimcompressibility==2) call WEIGHT_DAMPING_ION
 
+        if(irk==2) call check_tracer_i
 ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
 ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
 ! in PUSHI for calculating electric force on ions
@@ -278,7 +279,7 @@ end if
               time(11)=time(11)+dt
               timewc(11)=timewc(11)+dtwc
 
-!              if(irk==2) call check_tracer_e
+              if(irk==2) call check_tracer_e
            else                   ! 1 ion step = nelectron(>1) electron steps
                                   ! originally, 1 ion step = 2*nelectron electron steps
               if(irk==1) then
@@ -329,7 +330,7 @@ end if
                  time(11)=time(11)+dt
                  timewc(11)=timewc(11)+dtwc
 
-!                 if(irk==2) call check_tracer_e
+                 if(irk==2) call check_tracer_e
               end do
            end if    ! end if(nelectron==1)
 
@@ -404,6 +405,7 @@ end if
 
      !if(mype==0) print*,' MAIN_TIME_LOOP',  istep
      if(ntracer>0)write(0,*)'istep=',istep,'  tracer=',zion(1:6,ntracer)
+     if(ntracer_e>0)write(0,*)'istep=',istep,'  tracer_e=',zeon(1:6,ntracer_e)
 
 !  call check_temperature
 

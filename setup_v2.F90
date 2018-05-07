@@ -2294,7 +2294,7 @@ end subroutine setup
 
   implicit none
 
-  integer,parameter :: n_integers=48, n_reals=58, n_chars=3
+  integer,parameter :: n_integers=51, n_reals=61, n_chars=3
   integer :: integer_params(n_integers)
   character(25),dimension(n_chars) :: char_params
 ! only the first processor will open files...
@@ -2381,7 +2381,9 @@ end subroutine setup
                      Er_data_name,       &   ! name of Er data file
                      movie_3D_h5,        &   ! =0, 3D-movie data off; >0, write 3D-movie data every movie_3D_h5 step
                      ZF_SEPARATION,      &   ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
-                     order                   ! =0, original solver; =1, linear finite elements; =2 higher order elements
+                     order,              &   ! =0, original solver; =1, linear finite elements; =2 higher order elements
+                     electromagnetic,    &   ! =0, original electrostatic code; =1 electromagnetic code
+                     ga0, gam, gan, gagw, gagf0
 
   namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
                      its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2440,6 +2442,9 @@ end subroutine setup
      integer_params(46)=ecollision
      integer_params(47)= order
      integer_params(48)= ifdphi
+     integer_params(49)= electromagnetic
+     integer_params(50)= gam;
+     integer_params(51)= gan;
 
      real_params(1)=nonlinear
      real_params(2)=0.00000000d0  ! spare -- not used for now, April,2013
@@ -2495,6 +2500,9 @@ end subroutine setup
      real_params(52:54)=rprobe
      real_params(55:57)=tprobe
      real_params(58)=gama1
+     real_params(59)=ga0
+     real_params(60)=gagw
+     real_params(61)=gagf0
 
      write(0,*) 'equillibrium=', eq_data_name
      write(0,*) 'irun=', irun
@@ -2520,6 +2528,8 @@ end subroutine setup
 
      write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
      write(0,*) 'finite element order=', integer_params(47)
+     write(0,*) 'electromagnetic=', electromagnetic
+     write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0;
   endif 
 
   call mpi_bcast(char_params,25*n_chars,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
@@ -2572,6 +2582,9 @@ end subroutine setup
      ecollision        =integer_params(46)
      order             =integer_params(47)
      ifdphi            =integer_params(48)
+     electromagnetic   =integer_params(49)
+     gam               =integer_params(50)
+     gan               =integer_params(51)
 
      nonlinear         =real_params(1)
      real_params(2)    =real_params(2)      ! spare for now, April, 2013
@@ -2627,6 +2640,9 @@ end subroutine setup
      rprobe            =real_params(52:54)
      tprobe            =real_params(55:57)
      gama1             =real_params(58)
+     ga0               =real_params(59)
+     gagw              =real_params(60)
+     gagf0             =real_params(61)
      
      
   end if

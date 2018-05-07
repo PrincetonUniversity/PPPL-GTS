@@ -550,7 +550,7 @@ subroutine pushion
        vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
        xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
        epara,psimax,psimin,pdum,wdrive,ainv,psitmp,thetatmp,&
-       zetatmp,rhoi,e1,e2,e3,wpi(3,mi),rdel, &
+       zetatmp,rhoi,e1,e2,e3,wpi(3,mi),ga(mi),wga(3,mi),gat(mi),rdel, &
        dgr(mi),da(mi),dgq(mi),dgf(mi),mu, &
        Er_particle(mi),dela,fip,weqflow,T_inverse,& 
        B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
@@ -560,7 +560,7 @@ subroutine pushion
 
 !  integer ip_index(mimax)   !wx
 
-  integer gcmotion
+  integer gcmotion, gcmotion_em
 
   real(wp) tt0,tt1,cput0,cput1,rtc
 
@@ -662,6 +662,12 @@ subroutine pushion
      wpi(2,m)=0.25_wp*e2
      wpi(3,m)=0.25_wp*e3
 
+     ga(m) = ga0 * cos(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
+     wga(1,m) = 0.0_wp;
+     wga(2,m) = ga0 * gam * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
+     wga(3,m) = -ga0 * gan * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
+     gat(m) = ga0 * gagw * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
+
   enddo
 
 !    prepare equilibrium Er=dPhi/da at particles 
@@ -717,7 +723,11 @@ end if
 
 !!  m=gcmotion(dgr,da,dgq,dgf,zion(4,:),zion(1,:),zion(2,:),mu,wpi(1,:),wpi(2,:),wpi(3,:),Er_particle,nonlinear,mi)
 
+  if(electromagnetic == 1) then
+     m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
+  else
   m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
+  end if
 
 !  tt1=rtc()
 !  call cpu_time(cput1)

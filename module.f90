@@ -38,8 +38,7 @@ end module precision
                         pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
                         amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
-                      !  amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
-                        amasse=1.8219e-27_wp, charge=-4.8032e-10_wp, &  ! m=2*m_e (for benchmarking with Goler CBC case)
+                        amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
                         dlni=16.0_wp, &
                         dsda_power=0.2_wp
@@ -108,6 +107,10 @@ end module precision
   integer:: ifneoclassical  !--ZHIXIN: this is passed from INPUT.d
 
   integer,dimension(:),allocatable :: mappingL2G, mappingG2L
+
+  integer :: electromagnetic
+  real(wp) :: ga0, gagw, gagf0;
+  integer :: gam, gan;
 
 end module global_parameters
 

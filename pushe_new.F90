@@ -378,14 +378,14 @@ subroutine pusheon(solver1, masssolver, irk_e)
        vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
        xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
        epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
-       zetatmp,e1,e2,e3,wpi(3,me),rdel, &
+       zetatmp,e1,e2,e3,wpi(3,me),ga(me),wga(3,me),gat(me),rdel, &
        dgr(me),da(me),dgq(me),dgf(me),mu, &
        Er_particle(me),dela,fip,weqflow,T_inverse,Ea_00,wdphidt,wdphidt2, & 
        vpara, v2, avw, f_rho,  &
 ! following working arrays are defined to use OMP reduction:
        adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
 
-  integer gcmotion_eon
+  integer gcmotion_eon, gcmotion_eon_em
 
   real(wp) tt0,tt1,cput0,cput1,rtc
 
@@ -479,6 +479,13 @@ subroutine pusheon(solver1, masssolver, irk_e)
      wpi(1,m)=e1
      wpi(2,m)=e2
      wpi(3,m)=e3
+
+     ga(m) = ga0 * cos(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+     wga(1,m) = 0.0_wp;
+     wga(2,m) = ga0 * gam * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+     wga(3,m) = -ga0 * gan * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+     gat(m) = ga0 * gagw * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+
   enddo
 
 !    prepare equilibrium Er=dPhi/da at particles 
@@ -516,7 +523,11 @@ end if
 !  tt0=rtc()
 ! call cpu_time(cput0)
 
+  if(electromagnetic == 1)then
+     m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+  else
   m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
+  endif
 
 ! tt1=rtc()
 ! call cpu_time(cput1)
