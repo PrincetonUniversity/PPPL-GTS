@@ -33,7 +33,7 @@ subroutine smooth(iflag)
      phip00=zonali                           ! =<n_i>/n_0
      if(ifelectron/=0) phip00=phip00-zonale  ! =(<n_i>-<n_e>)/n_0 with non-adiabatic electrons
 ! (-0.0625 0.25 0.625 0.25 -0.0625) radial smoothing of (0,0) mode density phip00
-     do ismooth=1,5
+     do ismooth=1,1
         den00(0)=phip00(0)
         den00(mpsi)=phip00(mpsi)
         den00(1)=0.5_wp*phip00(1)+0.25_wp*(phip00(0)+phip00(2))
@@ -110,7 +110,7 @@ subroutine smooth(iflag)
      end if
   endif   ! end if(iflag==1)
 
-  ismooth=5
+  ismooth=1
   do ip=1,ismooth
 
 ! radial smoothing
@@ -648,7 +648,7 @@ subroutine smooth_phi
         phitmp(1,i)=phi(1,i)  !phitmp=phi  ! smooth phi for numerical derivative -->E field
      enddo
 
-  ismooth=5
+  ismooth=1
   do ip=1,ismooth
 
 ! radial smoothing

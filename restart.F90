@@ -18,7 +18,7 @@ subroutine restart_write
 
 !  write(cdum,'("RESTART/DATA_RESTART.",i5.5)')mype
   write(cdum,'("RESTART/D",i4.4,"/DATA_RESTART.",i3.3)')myrank_partd,myrank_toroidal
-  open(222,file=cdum,status='replace',form='unformatted',access='stream')
+  open(222,file=cdum,status='replace',form='unformatted')
 
   buffer1=''
   isize=pack_sprng(buffer1)   ! get SPRNG seed information
@@ -72,7 +72,7 @@ subroutine restart_read
   
 !  write(cdum,'("RESTART/DATA_RESTART.",i5.5)')mype
   write(cdum,'("RESTART/D",i4.4,"/DATA_RESTART.",i3.3)')myrank_partd,myrank_toroidal
-  open(333,file=cdum,status='old',form='unformatted',access='stream')
+  open(333,file=cdum,status='old',form='unformatted')
 
 ! read particle information to restart previous run
   read(333) istart,mi,ntracer,etracer_i0,misum

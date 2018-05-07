@@ -26,6 +26,9 @@ module phit_matrix_type
      Mat :: mdata ! mass matrix
      integer :: numbdy, mat_type, bc_type
      integer,dimension(:),pointer :: bdy
+
+     Mat :: rdata ! Ni*dNj/dR matrix for find_dxdadxdt 05/29/2017
+     Mat :: zdata ! Ni*dNj/dZ matrix for find_dxdadxdt 05/29/2017
   end type phit_matrix_data
 end module phit_matrix_type
 !========================================================================
@@ -204,6 +207,8 @@ contains
     !
     this%mat%data = 0 !PETSC_NULL_OBJECT
     this%mat%mdata = 0 !PETSC_NULL_OBJECT
+    this%mat%rdata = 0 !PETSC_NULL_OBJECT
+    this%mat%zdata = 0 !PETSC_NULL_OBJECT
     this%ksp = 0 !PETSC_NULL_OBJECT      
     this%scat = 0 !PETSC_NULL_OBJECT
     this%xVec = 0 !PETSC_NULL_OBJECT
@@ -433,6 +438,16 @@ contains
     
     if( this%mat%mdata /= 0 ) then
        call MatDestroy( this%mat%mdata,ierr)
+       !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    endif
+    
+    if( this%mat%rdata /= 0 ) then
+       call MatDestroy( this%mat%rdata,ierr)
+       !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    endif
+    
+    if( this%mat%zdata /= 0 ) then
+       call MatDestroy( this%mat%zdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
     
@@ -800,6 +815,7 @@ contains
     ! locals
     real(wp) :: alpha,beta
     Mat Amat, Mmat
+    Mat Rmat, Zmat
     integer ierr,neq,mindex,mring
 
 
@@ -831,13 +847,35 @@ contains
     call MatSeqAIJSetPreallocation(Mmat,mindex,PETSC_NULL_INTEGER,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
+    call MatCreate( partd_comm, Rmat, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    call MatSetSizes(Rmat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatSetFromOptions( Rmat, ierr ) ! need ti separate for SuperLU
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    !    call MatMPIAIJSetPreallocation(Rmat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    call MatMPIAIJSetPreallocation(Rmat,mindex,PETSC_NULL_INTEGER,mindex,PETSC_NULL_INTEGER,ierr)
+    call MatSeqAIJSetPreallocation(Rmat,mindex,PETSC_NULL_INTEGER,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+
+    call MatCreate( partd_comm, Zmat, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    call MatSetSizes(Zmat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatSetFromOptions( Zmat, ierr ) ! need ti separate for SuperLU
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    !    call MatMPIAIJSetPreallocation(Zmat,mindex,PETSC_NULL_INTEGER,mindex/4+1,PETSC_NULL_INTEGER,ierr)
+    call MatMPIAIJSetPreallocation(Zmat,mindex,PETSC_NULL_INTEGER,mindex,PETSC_NULL_INTEGER,ierr)
+    call MatSeqAIJSetPreallocation(Zmat,mindex,PETSC_NULL_INTEGER,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+
     !alpha = -1
     !beta  = -1
     !call form_tangent(Amat,Mmat,fem%iemax,fem%iet1,fem%iet2,&
     !     fem%iet3,neq,fem%points,alpha,beta,ierr)
     !call form_tangent(fem%order,Amat,Mmat,fem%iemax,fem%iet,&
     !     neq,fem%points,alpha,beta,ierr)
-    call form_tangent_RZcoor(fem,Amat,Mmat,neq,-1,-1,ierr)
+    call form_tangent_RZcoor(fem,Amat,Mmat,Rmat,Zmat,neq,-1,-1,ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatAssemblyBegin( Amat, MAT_FINAL_ASSEMBLY, ierr )
@@ -849,9 +887,23 @@ contains
     call MatAssemblyEnd( Mmat, MAT_FINAL_ASSEMBLY, ierr )
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
+    call MatAssemblyBegin( Rmat, MAT_FINAL_ASSEMBLY, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatAssemblyEnd( Rmat, MAT_FINAL_ASSEMBLY, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatAssemblyBegin( Zmat, MAT_FINAL_ASSEMBLY, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    call MatAssemblyEnd( Zmat, MAT_FINAL_ASSEMBLY, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+
     call solver_init( this, ' ', Mmat, neq,ierr)
     if(mype==0) write(0,*) '	finite element: masssolver created'
     
+    ! finalize rmass matrix
+    call MatGetSubMatrix(Rmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%rdata,ierr)
+    ! finalize zmass matrix
+    call MatGetSubMatrix(Zmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%zdata,ierr)
+
     this%fem=fem
 
     !we don't need stiffness matrix
@@ -1942,7 +1994,7 @@ contains
     integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk,ix,iy
     logical :: flg
-    integer :: whichone = 5
+    integer :: whichone = 1
 
 
     if(solver%order .gt. 0) then
@@ -1951,8 +2003,8 @@ contains
        if(mype.eq.0) write(0, *) "	find_dxdadxdt: find dxdr dxdz begin"
     endif
 
-    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
-    whichone=1
+!    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+!    whichone=1
     if(whichone.lt.3) then
        ! in (r,z) cylindrical coordinates
        ix=1
@@ -2003,6 +2055,12 @@ contains
 !   form rhs ba&bt for dxdr&dxdz respectively
     ba=0.
     bt=0.
+    !test 2017 June 1, everything is right.
+    !bb=11.
+    !bb(:) = (solver%fem%points(1,:)+R_0)
+    !bb(:) = (solver%fem%points(2,:))
+    !bb(:) = 4.11*(solver%fem%points(1,:)+R_0) + 2.71*(solver%fem%points(2,:)) + 1.371
+#ifdef OLD2017
     do ie=1, solver%fem%iemax
        ind(:)=solver%fem%iet(:,ie)
        if(ind(1) .eq. 0) stop 'ind(1) == 0'
@@ -2011,7 +2069,7 @@ contains
        !   xlt(1,:) = solver%fem%points(1,ind(:))
        !   xlt(2,:) = solver%fem%points(2,ind(:))
        !else
-       xlt(1,:) = solver%fem%points(ix,ind(:))
+       xlt(1,:) = solver%fem%points(ix,ind(:)) + R_0
        xlt(2,:) = solver%fem%points(iy,ind(:))
        if(whichone.ge.3) call fixtheta(ie,fe_order,fe_ns,xlt)
        !endif
@@ -2028,6 +2086,10 @@ contains
           enddo
        enddo
     enddo
+#else
+!optimized for cori knl, improved 75%
+    call find_rhs(solver, 1, neq, bb, ba, ierr )
+    call find_rhs(solver, 2, neq, bb, bt, ierr )
     !call find_rhs(neq, &
     !              ba, &
     !              bt, &
@@ -2038,6 +2100,7 @@ contains
     !              solver%fem%iet(3,:), &
     !              solver%fem%points(1,:), &
     !              solver%fem%points(2,:))
+#endif
 
 !   solve xa&xt representing dxdr&dxdz respectively
     xa=0.
@@ -2052,6 +2115,13 @@ contains
     !cj 2015-03-14 map xa xt from fem index to gts index
     call mappingLoal2Global(xa, xa_gk, neq, mgrid)
     call mappingLoal2Global(xt, xt_gk, neq, mgrid)
+
+    !test
+    !do i=1,neq
+    !write(191,'(i5,5d12.4)') i, bb(i), xa(i), xt(i), ba(i), bt(i)
+    !enddo
+    !stop
+
 !cj    ivsl = 0
 !cj    ivgts = 0
 !cj    do ir=0,mpsi
@@ -3329,6 +3399,90 @@ end subroutine neumbcfix
   end subroutine add_hh2bb_0
 
 
+!========================================================================
+!         new 2017 find_rhs
+!========================================================================
+  subroutine find_rhs( solver, iop, nn, bb, xx, ierr )
+    !     input:
+    !       nn: global number of equations in system
+    !       bb: rhs[nn]
+    !     
+    !     output:
+    !       iop=1: xx-> ba = Rmat * bb
+    !       iop=2: xx-> bt = Zmat * bb
+    !     
+    !use global_parameters
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype
+
+    implicit none
+
+    integer :: nn,ierr,iop
+    type(solver_data) :: solver
+    real(doubleprec),intent(in) :: bb(nn)
+
+    real(doubleprec),intent(inout) :: xx(nn)
+
+    ! locals
+    Vec       vec_yy
+    PetscScalar t1
+    PetscScalar,allocatable,dimension(:) :: yy, zz
+
+
+    if(solver%mat%rdata .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    if(solver%mat%zdata .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+
+    !     copy real vector into double precision
+    allocate(yy(nn),zz(nn))
+
+    !     scatter rhs into PETSc vector
+    yy = bb
+    call VecCreateSeqWithArray(MPI_COMM_SELF,1,nn,yy,vec_yy,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    !     call VecSet( solver%bVec, 1.e30, ierr ) ! debug
+    call VecScatterBegin(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterEnd(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+
+    if(iop .eq. 1) then 
+       call MatMult(solver%mat%rdata, solver%bVec, solver%xVec, ierr)
+    else
+       call MatMult(solver%mat%zdata, solver%bVec, solver%xVec, ierr)
+    endif
+       if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
+
+!       call VecCopy(solver%bVec, solver%xVec, ierr)
+
+    !     scatter solution to gts array (yy)
+    t1 = 0.0
+    call VecSet( vec_yy, t1, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterBegin(solver%scat,solver%xVec,vec_yy,INSERT_VALUES,SCATTER_REVERSE,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    call VecScatterEnd(solver%scat,solver%xVec, vec_yy, INSERT_VALUES,SCATTER_REVERSE,ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr) 
+    
+    ! add all to all -- not super efficient
+    call MPI_ALLREDUCE(yy,zz,nn,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
+    !     copy in
+    xx = zz;
+
+    ! clean up
+    call VecDestroy( vec_yy, ierr )
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+
+    deallocate(yy,zz)
+
+    call VecSet(solver%xVec, 0., ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+    call VecSet(solver%bVec, 0., ierr)
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+  end subroutine find_rhs
+
+
+
+
 !=========================================================================
 !subroutine mappingGlobal2Local : mapping from global index to local index
 !=========================================================================
@@ -3745,7 +3899,7 @@ end subroutine form_tangent
 !========================================================================
 !subroutine form_tangent( Amat, Mmat, iemax, iet1, iet2, iet3, npts, points, &
 !subroutine form_tangent( order, Amat, Mmat, iemax, iet, npts, points, &
-subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
+subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
      mat_type, bc_type, ierr )
   !     
   !     input:
@@ -3761,7 +3915,7 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
   !
   use precision,only:wp,doubleprec
   use particle_decomp,only:myrank_partd,nproc_partd
-  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi
+  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi, R_0
   use esi_interface, only : metric
   use fem_data_class
   implicit none
@@ -3773,6 +3927,7 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
 ! real(wp) :: points(6,npts)
   real(wp) alpha, beta
   Mat  Amat, Mmat
+  Mat  Rmat, Zmat
 !  real(doubleprec)  xlt(2,3),sarr(3,3),sarr2(3*3),ul(3,4),eps ! therm2d uses *8
 !  real(doubleprec)           marr(3,3),marr2(3*3)             ! mass matrix
 !  real(doubleprec)  rrarr(3,3),rzarr(3,3),zrarr(3,3),zzarr(3,3),pparr(3,3),rarr(3,3),zarr(3,3)
@@ -3786,7 +3941,7 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
   real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
   real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
 ! integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
-  integer ie,i,j,k,n,kk,ki,nz,nel,nst
+  integer ie,i,j,k,n,kk,kkk,ki,nz,nel,nst
   integer,dimension(:),allocatable :: ind2,ind3,ind
 ! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 ! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
@@ -3816,6 +3971,9 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
 
   call MatZeroEntries(Amat,ierr)
   call MatZeroEntries(Mmat,ierr)
+
+  call MatZeroEntries(Rmat,ierr)
+  call MatZeroEntries(Zmat,ierr)
 
   fe_order=fem%order
   call lagrange_element_define(fe_order, &
@@ -3878,7 +4036,7 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
     
      if(whichone.lt.3) then
         ! in (r,z) cylindrical coordinates
-        xlt(1,:) = fem%points(1,ind(:))
+        xlt(1,:) = fem%points(1,ind(:)) + R_0
         xlt(2,:) = fem%points(2,ind(:))
         fcj=1.
      else
@@ -3951,13 +4109,24 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, npts, &
                                            )
                 endif
              marr2(kk) = fcj*marr(i,j)
-            !rarr2(kk) = fcj*rarr(i,j)
-            !zarr2(kk) = fcj*zarr(i,j)
+
+             rarr2(kk) = 0.
+             zarr2(kk) = 0.
+             do kkk = 1,fe_ns
+             rarr2(kk) = rarr2(kk) + xlt(2,kkk)*fe_Pijk(kkk,i,j)
+             zarr2(kk) = zarr2(kk) - xlt(1,kkk)*fe_Pijk(kkk,i,j)
+             enddo
+
+             rarr2(kk) = fcj*rarr2(kk)
+             zarr2(kk) = fcj*zarr2(kk)
            enddo
         enddo
 
         call MatSetValues(Amat,nz,ind2,nz,ind2,sarr2,ADD_VALUES,ierr)
         call MatSetValues(Mmat,nz,ind2,nz,ind2,marr2,ADD_VALUES,ierr)
+
+        call MatSetValues(Rmat,nz,ind2,nz,ind2,rarr2,ADD_VALUES,ierr)
+        call MatSetValues(Zmat,nz,ind2,nz,ind2,zarr2,ADD_VALUES,ierr)
   enddo
 
   deallocate( ind2,ind3,ind )

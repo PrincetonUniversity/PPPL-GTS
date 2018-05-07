@@ -38,7 +38,8 @@ end module precision
                         pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
                         amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
-                        amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
+                      !  amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
+                        amasse=1.8219e-27_wp, charge=-4.8032e-10_wp, &  ! m=2*m_e (for benchmarking with Goler CBC case)
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
                         dlni=16.0_wp, &
                         dsda_power=0.2_wp
@@ -84,6 +85,7 @@ end module precision
 !     wimcompressibility=1 --> use the algorithm to assure imcompressibility in weight
 !     wimcompressibility=2 --> apply weight damping with damping rate specified by eta_w=weight_damping_rate/tstep
   integer,parameter  :: wimcompressibility=1       ! switch  added April, 2013 for implementing weight imcompressibility
+!     integer  :: wimcompressibility=1       ! switch  added April, 2013 for implementing weight imcompressibility
   real(wp),parameter :: weight_damping_rate=2.0d-7 ! =eta_w*tstep
 
 ! finite element order
@@ -154,7 +156,7 @@ module field_array
 
   real,dimension(:),allocatable :: save_flux_ave
 
-
+  real(wp) Er_a0, Er_a1
 
 
 end module field_array

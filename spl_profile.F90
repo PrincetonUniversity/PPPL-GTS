@@ -231,6 +231,7 @@ Print*, chdum
 !  endif
 !!!!!!! DEBUG !!!!!!
 
+  deallocate(dne_51,dTi_51,dTe_51)
 
 contains
   FUNCTION fln(pdum)

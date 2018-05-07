@@ -5,7 +5,6 @@ _ARCH := $(shell echo $(HOST) | awk '{ sub(/[0-9]+/,""); print }')
 export _ARCH
 endif
 
-
 OBJDIR := _$(_ARCH)-$(PE_ENV)$(BIN_POSTFIX)
 export OBJDIR 
 

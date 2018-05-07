@@ -203,4 +203,6 @@ end if
 5    format(2x, i5, 3(2x,ES13.6))
   end if
  
+  deallocate(Er_on_node,r_node,E01_K,E01_C,E01_WRK)
+
 end subroutine Er_provider

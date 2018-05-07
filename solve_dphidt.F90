@@ -39,7 +39,7 @@ subroutine solve_dphidt( solver, masssolver )
         phitmp(1,ij)=(fstep3*pflux_e(jj,1,ij)-pflux_i(jj,1,ij))          ! =(Gamma_e-Gamma_i)*J
      enddo
 
-     ismooth=5
+     ismooth=1
      do ip=1,ismooth
 
 ! radial smoothing

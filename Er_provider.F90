@@ -145,6 +145,15 @@ end if
          !  Er_grid(i)=Er_amp*exp(-((psi_grid(i)-ac)/half_width)**xe)
       end do
      
+      !!  set values for dPhi/da at boundaries that will be used as boundary condition for solving d<phi>/da in poisson.F90; 2017 
+      if(ifneoclassical==1) then    ! in this case, d<phi>/da includes neoclassical Er, and therefore, == Er_NC at boundaries 
+         Er_a0=Er_grid(0)
+         Er_a1=Er_grid(mpsi)
+      else                          ! in this case, d<phi>/da==ZFs which == 0 due to no turbulence near simulation boundaries 
+         Er_a0=0.0_wp
+         Er_a1=0.0_wp
+      end if
+
       if(ifneoclassical==1) Er_grid=0.0_wp    !  no need to use equilibrium Er as external input
 
   if(Er_from_GTC_Neo==1) then  ! import Er data from GTC-Neo simulation
@@ -187,6 +196,8 @@ end if
 
      call MPI_BCAST(Er401_bp,je+1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
      call MPI_BCAST(Er_grid,mpsi+1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
+
+     deallocate(Er_on_node,r_node,E01_K,E01_C,E01_WRK)
   end if 
  
 !  Er401_bp=1.2_wp*Er401_bp
@@ -225,4 +236,6 @@ end if
   Er401_bp0=Er401_bp
   Er_grid0=Er_grid
  
+  deallocate(Er401_TRANSP, Er_grid_TRANSP)
+
 end subroutine Er_provider
