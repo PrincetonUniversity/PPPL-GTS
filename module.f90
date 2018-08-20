@@ -59,7 +59,7 @@ end module precision
           ifdphi,zeondim
 
   real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,csc0_i,c0cs_i
-  real(wp)  etracer_i0, etracer_e0
+  real(wp)  ntracer_energy_ion0, ntracer_energy_electron0
   real(wp)  cloud_i, cloud_e
   real(wp),dimension(:),allocatable :: dadtdz
 
@@ -125,9 +125,16 @@ module particle_array
 ! so that we can pass them as dummy arguments to a subroutine and be allowed
 ! to reallocate them inside that subroutine if needed.
   real(wp),pointer,dimension(:,:) :: zion,zion0,zeon,zeon0,zeon00
+
+  ! ============================
+  ! M.G.Yoo (07/31/2018)
+  ! Information of Multiple-Tracers
   real(wp), dimension(:), allocatable :: elabels, ilabels
-  integer, parameter:: num_of_etracers = 50, num_of_itracers =50, nstep_for_tracer_record = 5
-  real(wp), dimension(:) :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
+  integer :: num_of_etracers = 200, num_of_itracers =200, nstep_for_tracer_record = 5
+  !real(wp), dimension(:), allocatable :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
+  real(wp), dimension(:), allocatable :: etracers_labels, itracers_labels
+  ! ===========================
+
   real(wp),dimension(:),allocatable :: enion
   real(wp),dimension(:),allocatable :: backn,backu,backT,dlnnda,dlnTda,&
                                        backne,backue,backTe,dlnndae,&

@@ -274,7 +274,7 @@ subroutine load
      aaa(1)=zion(1,ntracer)
      the(1)=zion(2,ntracer)
      call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-     etracer_i0=0.5_wp*(zion(4,ntracer)*Bj(1))**2+zion(6,ntracer)**2*Bj(1)      ! kinetic energy
+     ntracer_energy_ion0=0.5_wp*(zion(4,ntracer)*Bj(1))**2+zion(6,ntracer)**2*Bj(1)      ! kinetic energy
   endif
 
   do m=1,mi
@@ -424,7 +424,7 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
         aaa(1)=zeon(1,ntracer_e)
         the(1)=zeon(2,ntracer_e)
         call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-        etracer_e0=0.5*(zeon(4,ntracer_e)*Bj(1))**2*m0ms*csc0**2+zeon(6,ntracer_e)**2*Bj(1)  ! kinetic energy
+        ntracer_energy_electron0=0.5*(zeon(4,ntracer_e)*Bj(1))**2*m0ms*csc0**2+zeon(6,ntracer_e)**2*Bj(1)  ! kinetic energy
 
 !        print*, 'TRACER Elec1', zeon(1,ntracer_e)
 !        print*, 'TRACER Elec2', zeon(2,ntracer_e)

@@ -101,3 +101,6 @@ for th_id = 1:Np
     esi.P_2D(th_id, :) = esi.P;
     esi.Pa_2D(th_id, :) = esi.Pa;   
 end
+
+
+esi.Bpol_guess = sqrt(esi.B.^2 - (esi.F_2D./esi.r).^2);

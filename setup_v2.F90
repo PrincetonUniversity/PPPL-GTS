@@ -1786,7 +1786,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
 ! allocate memory
   allocate (zion(7,mimax),zion0(7,mimax),jtion0(4,mimax),jtion1(4,mimax),&
-       wzion(mimax),wpion(4,mimax),wtion0(4,mimax),wtion1(4,mimax),enion(mimax), ilabels(mimax))       
+       wzion(mimax),wpion(4,mimax),wtion0(4,mimax),wtion1(4,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers))       
   if(ifelectron/=0) then
 
      if(ifdphi/=2) then     ! use dphi/dt equation when ifelectron=2 
@@ -1798,7 +1798,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
      allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
                wteon0(memax),wteon1(memax),markere(mgrid),&
              !   densitye(0:1,mgrid),cij(3,mgrid))
-               densitye(0:1,mgrid),cij(5,mgrid), elabels(memax))
+               densitye(0:1,mgrid),cij(5,mgrid), elabels(memax), etracers_labels(num_of_etracers))
 
 if(mype==-100) then  ! before 2012
 

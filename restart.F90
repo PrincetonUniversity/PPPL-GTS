@@ -25,7 +25,7 @@ subroutine restart_write
 
 ! record particle information for future restart run
 
-  write(222) istep,mi,ntracer,etracer_i0,misum
+  write(222) istep,mi,ntracer,ntracer_energy_ion0,misum
   write(222) zion(1:7,1:mi)
   write(222) zion0(6,1:mi)
   write(222) isize,buffer1
@@ -35,7 +35,7 @@ subroutine restart_write
   write(222) phip00, phi00  ! need for restart when using FEM solver with ZF_SEPARATION=1
   write(222) sumfluxpsi     ! need for restart when using int[I(a)dt] as weighting for enforcing conservation
   if(ifelectron/=0) then
-     write(222) me,ntracer_e,etracer_e0,mesum
+     write(222) me,ntracer_e,ntracer_energy_electron0,mesum
      if(ifdphi/=2) then
         write(222) zeon(1:7,1:me)
      else
@@ -45,6 +45,15 @@ subroutine restart_write
      write(222) pmarke,markere,cloud_e    ! these are calculated in load.f90 and should be saved for check point
 !     write(222) dphidt,dphidt00  ! these are saved for check point only when using Jacobian iteration for solving dphidt
   endif
+
+  ! =====================================
+  ! M.G.Yoo (07/31/2018)
+  ! Add information of multiple tracers
+  write(222) num_of_etracers, num_of_itracers, nstep_for_tracer_record
+  write(222) etracers_labels(1:num_of_etracers), itracers_labels(1:num_of_itracers)
+  write(222) elabels(1:me), ilabels(1:mi)
+! =====================================
+
   close(222)
   
 end subroutine restart_write
@@ -75,7 +84,7 @@ subroutine restart_read
   open(333,file=cdum,status='old',form='unformatted',access='stream')
 
 ! read particle information to restart previous run
-  read(333) istart,mi,ntracer,etracer_i0,misum
+  read(333) istart,mi,ntracer,ntracer_energy_ion0,misum
   read(333) zion(1:7,1:mi)
   read(333) zion0(6,1:mi)
   read(333) isize,buffer1
@@ -88,7 +97,7 @@ subroutine restart_read
   istart=istart+1         ! starting step number
 
   if(ifelectron/=0) then
-     read(333) me,ntracer_e,etracer_e0,mesum
+     read(333) me,ntracer_e,ntracer_energy_electron0,mesum
      if(ifdphi/=2) then
         read(333) zeon(1:7,1:me)
      else
@@ -98,6 +107,17 @@ subroutine restart_read
      read(333) pmarke,markere,cloud_e
 !     read(333) dphidt,dphidt00  ! these are needed only when using Jacobian iteration for solving dphidt
   endif
+
+  ! =====================================
+  ! M.G.Yoo (07/31/2018)
+  ! Read information of multiple tracers
+  read(333) num_of_etracers, num_of_itracers, nstep_for_tracer_record
+  deallocate(etracers_labels,itracers_labels)
+  allocate(etracers_labels(num_of_etracers), itracers_labels(num_of_itracers))
+  read(333) etracers_labels(1:num_of_etracers), itracers_labels(1:num_of_itracers)
+  read(333) elabels(1:me), ilabels(1:mi)
+! =====================================
+
   close(333)
 
   if(mype==0) print*, 'irun=', irun, '     istart=', istart

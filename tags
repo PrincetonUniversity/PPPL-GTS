@@ -789,8 +789,8 @@ esilink2c4ne	escZ_march03.c	/^void esilink2c4ne(double *Xne,double *Xdne)$/;"	f
 esiread	escZ_march03.c	/^int esiread(REAL *b_axis, REAL *rmajor, char* FName)$/;"	f
 esiread	escZ_march03.c	9;"	d	file:
 eta_grid	module.f90	/^      den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,rho_grid,s_grid,eta_grid,/;"	v	module:field_array
-etracer_e0	module.f90	/^  real(wp)  etracer_i0, etracer_e0$/;"	v	module:global_parameters
-etracer_i0	module.f90	/^  real(wp)  etracer_i0,/;"	v	module:global_parameters
+ntracer_energy_electron0	module.f90	/^  real(wp)  ntracer_energy_ion0, ntracer_energy_electron0$/;"	v	module:global_parameters
+ntracer_energy_ion0	module.f90	/^  real(wp)  ntracer_energy_ion0,/;"	v	module:global_parameters
 evector	module.f90	/^  real(wp),dimension(:,:,:),allocatable :: evector,/;"	v	module:field_array
 expei	specfun.F	/^      function expei /;"	f
 f_jaco	function_gg.f90	/^function f_jaco(/;"	f

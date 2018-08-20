@@ -952,6 +952,11 @@ end if
       !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
       zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
 
+      if (mype ==0 .AND. MOD(m,(me/10))==0) then
+        write(stdout,*) 'my_rank= ',mype, ' zeon(5,m=',m,')= ',zeon(5,m), ' zeon0(5,m=',m,')= ',zeon0(5,m), ' avw= ',avw , ' zeon(8,m=',m,')= ',zeon(8,m), ' zeon00(8,m=',m,')= ',zeon00(8,m)
+        write(stdout,*) 'zeon(6,m=',m,')= ',zeon(6,m), ' zeon0(6,m=',m,')= ',zeon0(6,m) , ' wdphidt= ', wdphidt
+      endif
+
 !       E_f=E_f+zeon(5,m)
   end do
 
@@ -1006,7 +1011,7 @@ if(ifelectron==-100) then    ! need to do one more time ?
 
       zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime  ! d(e*delta_phi/Te)/dt term added to weight 
 
-!       E_t=E_t+zeon(5,m)
+      !       E_t=E_t+zeon(5,m)
   end do
 
 end if
@@ -1223,6 +1228,8 @@ end if
       else
          zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(5,m))*wdot-fdamp*zeon(5,m))*dtime
       end if
+
+
 
 !     zeon(7,m) = zeon0(7,m)+dtime*sqrt(Tc/backT(m))*da(m)
 !     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**0.4_wp*da(m)

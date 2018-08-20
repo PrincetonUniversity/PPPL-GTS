@@ -58,7 +58,7 @@ subroutine check_tracer_e
 
 ! record tracer information
      write(89,102) istep,(rj(1)-R_0), zj(1), tracer(2), tracer(3), &
-                    ((etracer-etracer_e0)/etracer_e0), etracer, my_mpi_id
+                    ((etracer-ntracer_energy_electron0)/ntracer_energy_electron0), etracer, my_mpi_id
      call flush(89)
 
 ! For Poincar plot of tracer particles
@@ -114,7 +114,7 @@ subroutine check_tracer_e
 
   do i=0,numberpe-1
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
-    if (i == mype) then    
+    if (my_num_of_tracers > 0 .AND. i == mype) then    
 
       open(unit=1515, file="real_tracers_electron.dat", position='append',action='write')
       open(unit=1516, file="real_tracers_electron_Poincare.dat", position='append',action='write')
@@ -169,12 +169,12 @@ subroutine check_tracer_e
 
 
           !write(1516,*) istep, (rj(1)-R_0), zj(1), tracer_at_0(2), tracer_at_0(3), etracer, elabels(my_tracer_indices(m)),mype
-          write(1516,*) istep, rj(1), zj(1), tracer(1:6), etracer, elabels(my_tracer_indices(m)),mype
+          write(1516,*) istep, rj(1), zj(1), tracer_at_0(1:6), etracer, elabels(my_tracer_indices(m)),mype
           call flush(1516)
         endif 
    
       enddo  
-      
+ 
       close(1515)
       close(1516)    
     endif
@@ -241,7 +241,7 @@ subroutine check_tracer_i
 
 ! record tracer information
      write(189,102) istep, (rj(1)-R_0), zj(1), tracer(2), tracer(3), &
-                      ((etracer-etracer_i0)/etracer_i0), etracer, my_mpi_id
+                      ((etracer-ntracer_energy_ion0)/ntracer_energy_ion0), etracer, my_mpi_id
      call flush(189)
 
 
@@ -351,7 +351,7 @@ subroutine check_tracer_i
 
 
           !write(1516,*) istep, (rj(1)-R_0), zj(1), tracer_at_0(2), tracer_at_0(3), etracer, ilabels(my_tracer_indices(m)),mype
-          write(1516,*) istep, rj(1), zj(1), tracer(1:6), etracer, ilabels(my_tracer_indices(m)),mype
+          write(1516,*) istep, rj(1), zj(1), tracer_at_0(1:6), etracer, ilabels(my_tracer_indices(m)),mype
           call flush(1516)
         endif        
       enddo  

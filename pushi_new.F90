@@ -941,6 +941,12 @@ dmaxv=0.0d0
 !     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**0.4_wp*da(m)
      zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**dsda_power*da(m)
 
+     if (mype ==0 .AND. MOD(m,(mi/10))==0) then
+      write(stdout,*) 'I''m= ',mype, ' zion(5,m=',m,')= ',zion(5,m), ' zion0(5,m=',m,')= ',zion0(5,m), ' avw= ',avw 
+      write(stdout,*) 'zion(6,m=',m,')= ',zion(6,m), ' zion0(6,m=',m,')= ',zion0(6,m) , ' wdot= ', wdot
+    end if
+
+
 #ifdef _TREAT_MAGNETIC_AXIS
      if(sw(m).eq.1) then    ! convert to (a, theta) coordinates
         xdum=sqrt(zion(1,m)**2+zion(2,m)**2)
