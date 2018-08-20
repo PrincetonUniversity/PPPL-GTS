@@ -174,6 +174,7 @@ subroutine load
 
   rtden=rtden*misum/real(misum_i8,wp)
   mi=max(1,mp1)   ! really loaded particle number on my node
+  ini_mi = mi
   misum=real(misum_i8,wp)  ! really loaded total particle number
 
   sn0=sn0*misum
@@ -283,6 +284,13 @@ subroutine load
      zion(7,m)=min(s1,max(s0,zion(7,m)))
   enddo
 
+
+  ! Give unique label numbers for every particle
+  do m=1,mi    
+    ! ilabels(m) = mype*10**(floor(log10(real(mi))) + 2) + m
+    ilabels(m) = mype + 1e5*m
+  enddo
+
   if(iload==0)then
 ! for arbitrary loading according to a distribution function g_0(x,v), then zion0(6,*)=f_0/g_0
 !         where f_0 is equilibrium distribution with delta_f=f-f_0.
@@ -343,6 +351,7 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
   
 ! load electron on top of ion, including both trapped and untrapped electrons
    me=mi
+   ini_me = me
 !   call MPI_ALLREDUCE(me,mesum,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierror)
    mesum=misum
 
@@ -377,6 +386,13 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
         zeon(6,m)=zion(6,m)*sqrt(msm0*(backTe(m)/backT(m)))     ! =sqrt(mu_e)
      enddo
 
+    ! Give unique label numbers for every particle
+    do m=1,me
+      ! elabels(m) = mype*10**(floor(log10(real(me))) + 2) + m
+      elabels(m) = mype +  1e5*m
+    enddo
+
+
 ! the tracer electron is initially on PE=0 with index ntracer_e=me
      ntracer_e=0
      if(mype == 0)then
@@ -387,7 +403,7 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
         zeon(7,ntracer_e)=zion(7,ntracer)
         pdum=temperature_e(zeon(1,ntracer_e),0.0_wp)
         zeon(4,ntracer_e)=sqrt(pdum)/B_0*msm0*c0cs  ! using v_par=v_th for tracer electron
-        zeon(4,ntracer_e)=zeon(4,ntracer_e)*0.4_wp
+        zeon(4,ntracer_e)=zeon(4,ntracer_e)
 !        zeon(5,ntracer_e)=0.0_wp
         zeon(5,ntracer_e)=zeon(5,ntracer)
         zeon(6,ntracer_e)=sqrt(msm0*pdum/(2.0_wp*B_0)) ! using v_per=v_th for tracer electron
@@ -438,5 +454,77 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
      if(mype==0) print*, 'INITIAL ELECTRON WEIGHT=', total_eon/mesum
 
   endif
+
+
+
+
+
+
+
+
+  
+  write(stdout,*) "In Loading.F90  I'm=",mype, "ini_mi=", ini_mi, ", ini_me=",ini_me
+  call flush(stdout)
+  
+
+
+  if(mi/= ini_mi) then
+    write(stdout,*) "mi=", mi, ", ini_mi=",ini_mi, " , are different!!! Error!" 
+    call flush(stdout)
+    call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
+  endif
+
+  ! (Min-Gu Yoo; 06/25/2018)
+  ! For multiple tracers of ions to test Poincare Plot under electromagnetic perturbation
+
+
+
+  if (mype==0) then
+    ! Assign Electron tracer labels
+    do i=1, num_of_etracers
+      m = (real(i)/(num_of_etracers+1.0)) * ini_me
+      etracers_labels(i) = elabels(m)    
+    enddo
+
+    ! Assign Ion tracer labels
+    do i=1, num_of_itracers
+      m = (real(i)/(num_of_itracers+1.0)) * ini_mi
+
+      itracers_labels(i) = ilabels(m)
+    
+      ! zion(1,m)= i*((a1-a0)/(num_of_itracers+1.0)) + a0
+      ! zion(2,m)=0.0_wp
+      ! zion(3,m)=0.5_wp*(zetamin+zetamax)
+    end do
+
+    ! call esigetbf(zion,mi,7)   ! get B-->BB, I-->F  12/07
+    ! call n_T_u_group   ! get T, n and omega_t
+    ! backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
+
+    ! do i=1, num_of_itracers
+    !   m = (real(i)/(num_of_itracers+1.0)) * ini_mi
+    !   pdum=temperature(0.5,0.0_wp) ! same energy just for a test
+    !   !pdum=temperature(zion(1,m),0.0_wp)
+    !   !zion(4, m) = (sqrt(pdum)+backu(m))/BB(m)      ! using v_par=v_th for tracer ion
+
+    !   ! zion(4, m) = (sqrt(pdum))/BB(m)      ! using v_par=v_th for tracer ion
+    !   ! zion(6, m) = 0.1*sqrt(pdum)/sqrt(2.0_wp*BB(m))   ! using v_per=v_th for tracer ion 
+      
+    !   ! Fixed mu and E test!!
+    !   zion(6, m) = sqrt(0.1*(3.0/2.0)*pdum /B_0)  !! 0.1 of fixed total energy E = (3/2)*Ti
+    !   zion(4, m) = sign(1.0, sprng()-0.5) * sqrt( 2.0/(BB(m)**2)  * ((3.0/2.0)*pdum  - zion(6,m)**2*BB(m) ) )
+
+    !   zion0(:,m)=zion(:,m)
+    ! enddo
+  endif
+
+
+
+  call MPI_BCAST(etracers_labels,num_of_etracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+  call MPI_BCAST(itracers_labels,num_of_itracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+
+  ! write(stdout,*) "I'm=", mype,"etracers_labels(1:10)=", etracers_labels(1:10), "itracers_labels(1:10)=", itracers_labels(1:10)
+  ! call flush(stdout)
+
 
 end subroutine load

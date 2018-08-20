@@ -812,7 +812,7 @@ end if
      end if
   endif
 
-   CALL SHIFTE
+   call shifte
 
  call electron_locator
  call n_T_u_group_e             ! get Te at electron position
@@ -887,9 +887,9 @@ end if
 
   end do
 
-  CALL CHARGE_EON
-  CALL POISSON( solver1, masssolver )
-  CALL SMOOTH_PHI
+  call charge_eon
+  call poisson( solver1, masssolver )
+  call smooth_PHI
 
 !$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00,instep,outstep,fdamp, &
 !$omp& e1,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt)
@@ -961,9 +961,9 @@ end if
 
 if(ifelectron==-100) then    ! need to do one more time ?
 
-  CALL CHARGE_EON
-  CALL POISSON( solver1, masssolver )
-  CALL SMOOTH_PHI
+  call charge_eon
+  call poisson( solver1, masssolver )
+  call smooth_PHI
 
 !$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00, &
 !$omp& e1,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt)

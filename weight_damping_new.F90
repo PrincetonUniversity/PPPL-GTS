@@ -416,9 +416,9 @@ enddo    ! enddo  m=1,mi
 
 8000  continue
 
-!     wfield(ij,1,1)=bv(1)   
-!     wfield(ij,2,1)=bv(2)   
-!     wfield(ij,3,1)=bv(3)   
+!     wfield(1,ij,1)=bv(1)   
+!     wfield(2,ij,1)=bv(2)   
+!     wfield(3,ij,1)=bv(3)   
      send(1,ij-ii)=bv(1)
      send(2,ij-ii)=bv(2)
      send(3,ij-ii)=bv(3)

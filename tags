@@ -1,0 +1,1413 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+1	spl_profile.F90	/^1    format(5(2x,ES13.4))$/;"	l	subroutine:get_profiles	file:
+1	spl_profile.F90	/^1    format(7(2x,ES13.4))$/;"	l	subroutine:get_profiles_on_nodes	file:
+10	CTPandCELL.F90	/^10      dgr(i)=dgr(i)+ghq(i)$/;"	l	subroutine:CTPandCELL	file:
+10	specfun.F	/^   10 continue$/;"	l	subroutine:machar	file:
+10	spl_profile.F90	/^10 format(11x,I3)$/;"	l	subroutine:read_profiles	file:
+10	spl_profile.F90	/^10 format(41x,I3)$/;"	l	subroutine:read_profiles_NSTX	file:
+100	Er_provider.F90	/^100  format(10(1x,ES13.6))$/;"	l	subroutine:Er_provider	file:
+100	charge_eon.F90	/^100  format(1x,i6, 503(1x,d12.6)) ! for maxium mpsi=500$/;"	l	subroutine:charge_eon	file:
+100	charge_ion.F90	/^100  format(1x,i6, 606(1x,d12.6)) ! for maxium mpsi=200$/;"	l	subroutine:charge_ion	file:
+100	check_eq.f90	/^100 format(1x,22(d12.6,1x))$/;"	l	subroutine:check_eq	file:
+100	current_eon.F90	/^100 format(2x, 4hpsi=, I3, 3x, 10h<pflux_e>=,ES14.8, 3x, ES14.8, 3x, 10h<pflux_i>=,ES14.8,  3x, ES14.8)$/;"	l	subroutine:current_eon	file:
+100	get_ZF_shear.F90	/^100  format(10(1x,ES13.6))$/;"	l	subroutine:get_ZF_shear	file:
+100	nag.F	/^  100 IF (IQ.EQ.0) RETURN$/;"	l	subroutine:D01AHY	file:
+100	nag.F	/^  100 QSUBND = QSUBND + RESULT(K)$/;"	l	function:D01AHF	file:
+100	nag.F	/^  100 T2 = A3 - A2$/;"	l	subroutine:D01AHX	file:
+100	nag.F	/^  100 X = T$/;"	l	subroutine:D01AHW	file:
+100	poisson.F90	/^100                 continue$/;"	l	subroutine:poisson_initial	file:
+100	setup_v2.F90	/^100  format(2x, i4, 2x, i4, 2x, d13.6, 2x, d13.6)$/;"	l	subroutine:setup	file:
+100	shifte.F90	/^100 iteration=iteration+1$/;"	l	subroutine:shifte	file:
+100	shifti.F90	/^100 iteration=iteration+1$/;"	l	subroutine:shifti	file:
+100	specfun.F	/^  100           continue$/;"	l	subroutine:rjbesl	file:
+100	specfun.F	/^  100       continue$/;"	l	subroutine:rkbesl	file:
+100	specfun.F	/^  100     continue$/;"	l	subroutine:rybesl	file:
+100	specfun.F	/^  100 continue$/;"	l	function:r8_psi	file:
+100	specfun.F	/^  100 continue$/;"	l	subroutine:machar	file:
+100	spl_profile.F90	/^100  do j=1,ndum$/;"	l	subroutine:read_profiles	file:
+100	view_orbit.F90	/^100 format(1x,20(ES12.6,1x))$/;"	l	subroutine:view_orbit	file:
+1000	smooth.F90	/^1000 continue $/;"	l	subroutine:smooth	file:
+1000	view_distribution.f90	/^1000 format(1x,2(ES12.6,1x))$/;"	l	subroutine:view_distribution	file:
+101	Theory_jb.f90	/^  101 continue$/;"	l	subroutine:bootstrap	file:
+101	diagnosis.f90	/^101 format(i6)$/;"	l	subroutine:diagnosis	file:
+101	snapshot.f90	/^101 format(i6)$/;"	l	subroutine:snapshot	file:
+101	solver_petsc.F90	/^101 format(2(2x, i8), 20(2x, ES13.6))$/;"	l	subroutine:new_gk_solver	file:
+102	Theory_jb.f90	/^  102 continue$/;"	l	subroutine:bootstrap	file:
+102	check_tracers.F90	/^102 format(1x,i7,6(1x,ES14.6),1x,i6)$/;"	l	subroutine:check_tracer_e	file:
+102	check_tracers.F90	/^102 format(1x,i7,6(1x,ES14.6),1x,i6)$/;"	l	subroutine:check_tracer_i	file:
+102	diagnosis.f90	/^102 format(e10.4)$/;"	l	subroutine:diagnosis	file:
+102	snapshot.f90	/^102 format(d16.10)$/;"	l	subroutine:snapshot	file:
+103	Theory_jb.f90	/^  103 continue$/;"	l	subroutine:bootstrap	file:
+103	diagnosis.f90	/^103 format(e10.4,2x,i4,2x,i4,2x,i4)$/;"	l	subroutine:diagnosis	file:
+104	Theory_jb.f90	/^  104 continue$/;"	l	subroutine:bootstrap	file:
+105	Theory_jb.f90	/^  105 continue$/;"	l	subroutine:bootstrap	file:
+105	snapshot.f90	/^105 format(d16.10,4x,6hflux2x,4x,i4)$/;"	l	subroutine:snapshot	file:
+106	Theory_jb.f90	/^  106 continue$/;"	l	subroutine:bootstrap	file:
+106	snapshot.f90	/^106 format(e16.10,4x,6hflux2z,4x,i4)$/;"	l	subroutine:snapshot	file:
+107	snapshot.f90	/^107 format(e16.10,2x,i4,2x,4hpsi=,d16.10,2x,4hthe=,d16.10,2x,2hR=,d16.10,2x,2hz=,d16.10)$/;"	l	subroutine:snapshot	file:
+11	CTPandCELL.F90	/^11      if(TT(i).ge.0.0_wp) goto 10$/;"	l	subroutine:CTPandCELL	file:
+110	nag.F	/^  110 CONTINUE$/;"	l	subroutine:D01AHX	file:
+110	specfun.F	/^  110     continue$/;"	l	subroutine:ribesl	file:
+1101	Theory_jb.f90	/^ 1101 format(" Error in bootstrap, tempxe,tempxi=",1p2e12.4)$/;"	l	subroutine:bootstrap	file:
+1102	Theory_jb.f90	/^ 1102 format(" Error in bootstrap, ftrapx=",1pe12.4)$/;"	l	subroutine:bootstrap	file:
+1103	Theory_jb.f90	/^ 1103 format(" Error in bootstrap, pvale,pvali =",1p2e12.4)$/;"	l	subroutine:bootstrap	file:
+1104	Theory_jb.f90	/^ 1104 format(" Error in bootstrap, rm2avx=",1pe12.4)$/;"	l	subroutine:bootstrap	file:
+1105	Theory_jb.f90	/^ 1105 format(" Error in bootstrap, zeff=",1pe12.4)$/;"	l	subroutine:bootstrap	file:
+1106	Theory_jb.f90	/^ 1106 format(" Error in bootstrap, iboot=",i5)$/;"	l	subroutine:bootstrap	file:
+111	solver_petsc.F90	/^111 format("finite element test solve=", 1(2x,i7), 4(2x,d11.4), 3(2x,i5), (3x,d11.4))$/;"	l	subroutine:testsolve	file:
+111	solver_petsc.F90	/^111 format("finite element test solve=", 3(2x,i7), 2(1x,d13.6))$/;"	l	subroutine:phitilda_solve	file:
+115	solver_petsc.F90	/^          115 format("mass solver=", 1(2x,i7), 5(1x,d13.6))$/;"	l	subroutine:testmasssolve	file:
+115	solver_petsc.F90	/^        115 format("	Pijk:", 2(2x,i4), 3(1x,d13.6))$/;"	l	subroutine:form_tangent	file:
+115	solver_petsc.F90	/^        115 format("	RZcoor Pijk:", 2(2x,i4), 3(1x,d13.6))$/;"	l	subroutine:form_tangent_RZcoor	file:
+120	nag.F	/^  120 AMAXL = 0.0D0$/;"	l	subroutine:D01AHY	file:
+120	nag.F	/^  120 IT = 0$/;"	l	function:D01AHF	file:
+120	nag.F	/^  120 Q2 = Q3$/;"	l	subroutine:D01AHX	file:
+120	nag.F	/^  120 VAL = SLOPE*F(X+W)$/;"	l	subroutine:D01AHW	file:
+120	specfun.F	/^  120     continue$/;"	l	subroutine:ribesl	file:
+124	setup_v2.F90	/^124  format(2x, i4, 16(2x, d13.6))$/;"	l	subroutine:setup	file:
+1299	Theory_jb.f90	/^1299     format(10(2x,ES13.6))$/;"	l	subroutine:theory	file:
+130	nag.F	/^  130 CONTINUE$/;"	l	subroutine:D01AHX	file:
+140	nag.F	/^  140 COMP = ABS(RESULT(K)-RESULT(K-1))$/;"	l	function:D01AHF	file:
+140	nag.F	/^  140 IF (K.EQ.5) GO TO 20$/;"	l	subroutine:D01AHX	file:
+140	specfun.F	/^  140     continue$/;"	l	subroutine:rjbesl	file:
+150	nag.F	/^  150 CONTINUE$/;"	l	subroutine:D01AHX	file:
+150	specfun.F	/^  150 continue$/;"	l	function:r8_psi	file:
+150	specfun.F	/^150         continue$/;"	l	subroutine:ribesl	file:
+160	nag.F	/^  160 QSUBND = QSUBND + RESULT(K)$/;"	l	function:D01AHF	file:
+160	nag.F	/^  160 R2 = R3$/;"	l	subroutine:D01AHX	file:
+170	nag.F	/^  170 CONTINUE$/;"	l	subroutine:D01AHX	file:
+180	nag.F	/^  180 IF (ABS(D01AHF).GT.100.0D0*UFLOW)$/;"	l	function:D01AHF	file:
+180	nag.F	/^  180 IF (K.EQ.7) GO TO 20$/;"	l	subroutine:D01AHX	file:
+187	specfun.F	/^  187     continue$/;"	l	subroutine:rkbesl	file:
+19	Theory_jb.f90	/^19    continue$/;"	l	subroutine:theory	file:
+190	nag.F	/^  190 CONTINUE$/;"	l	subroutine:D01AHX	file:
+190	specfun.F	/^  190     continue$/;"	l	subroutine:rjbesl	file:
+195	specfun.F	/^  195   continue$/;"	l	subroutine:rkbesl	file:
+20	nag.F	/^   20       CONTINUE$/;"	l	function:P01ABF	file:
+20	nag.F	/^   20    CONTINUE$/;"	l	subroutine:G05CAY	file:
+20	nag.F	/^   20    CONTINUE$/;"	l	subroutine:X04BAF	file:
+20	nag.F	/^   20 ALP = (2.0D0*G05CAF(XDUM)-1.0D0)*0.01D0\/D01AHU(B-A)$/;"	l	subroutine:D01AHY	file:
+20	nag.F	/^   20 CONTINUE$/;"	l	subroutine:D01AHV	file:
+20	nag.F	/^   20 D01AHZ = (S1+2.0D0*S3)\/3.0D0$/;"	l	function:D01AHZ	file:
+20	nag.F	/^   20 IF (ABS(SUB1-SUB3).LT.20.0D0*EPSIL*(ABS(SUB1)+ABS(SUB3))) THEN$/;"	l	function:D01AHF	file:
+20	nag.F	/^   20 IF (IT.EQ.0) GO TO 100$/;"	l	subroutine:D01AHW	file:
+20	nag.F	/^   20 IF (K.EQ.MRULE) GO TO 200$/;"	l	subroutine:D01AHX	file:
+20	specfun.F	/^   20 continue$/;"	l	subroutine:machar	file:
+20	spl_profile.F90	/^20 format(5(ES13.4))$/;"	l	subroutine:read_profiles	file:
+20	spl_profile.F90	/^20 format(ES14.6)$/;"	l	subroutine:read_profiles_NSTX	file:
+200	Theory_jb.f90	/^  200 ierr = 1$/;"	l	subroutine:bootstrap	file:
+200	check_eq.f90	/^200 format(1x,42(d12.6,1x))$/;"	l	subroutine:check_eq	file:
+200	nag.F	/^  200 ICHECK = 1$/;"	l	subroutine:D01AHX	file:
+200	nag.F	/^  200 IL = 2$/;"	l	function:D01AHF	file:
+200	setup_v2.F90	/^200     format(16(2x,ES13.6))$/;"	l	subroutine:setup	file:
+200	specfun.F	/^  200     continue$/;"	l	subroutine:rybesl	file:
+200	specfun.F	/^  200 continue$/;"	l	function:r8_psi	file:
+200	spl_profile.F90	/^200  print*, 'jj1=',jj1, 'jj2=',jj2   ! profiles Ti, Te and ne are modified at boundary layer inside jj1 and outside jj2$/;"	l	subroutine:read_profiles	file:
+200	view_orbit.F90	/^200 format(1x,10(ES12.6,1x))$/;"	l	subroutine:view_orbit	file:
+204	setup_v2.F90	/^204  format(2x, i8, 20(2x, ES13.6))$/;"	l	subroutine:setup	file:
+210	specfun.F	/^  210     continue$/;"	l	subroutine:rjbesl	file:
+210	specfun.F	/^  210 continue$/;"	l	subroutine:machar	file:
+220	nag.F	/^  220 IFAIL = P01ABF(ICQ,IL,SRNAME,0,P01REC)$/;"	l	function:D01AHF	file:
+220	nag.F	/^  220 NPTS = LP + LP + 1$/;"	l	subroutine:D01AHX	file:
+220	specfun.F	/^  220     continue$/;"	l	subroutine:ribesl	file:
+220	specfun.F	/^  220     continue$/;"	l	subroutine:rybesl	file:
+230	specfun.F	/^  230     continue$/;"	l	subroutine:ribesl	file:
+240	nag.F	/^  240 K = 2$/;"	l	subroutine:D01AHX	file:
+240	specfun.F	/^  240     continue$/;"	l	subroutine:rjbesl	file:
+250	specfun.F	/^  250     continue$/;"	l	subroutine:rjbesl	file:
+260	nag.F	/^  260 ICHECK = 4$/;"	l	subroutine:D01AHX	file:
+280	nag.F	/^  280 AMAXL = 0.0D0$/;"	l	subroutine:D01AHX	file:
+29	Er_provider.F90	/^29    continue$/;"	l	subroutine:Er_provider	file:
+29	get_ZF_shear.F90	/^29    continue$/;"	l	subroutine:get_ZF_shear	file:
+30	spl_profile.F90	/^30   format(6(2x, ES13.4))$/;"	l	subroutine:read_profiles	file:
+300	specfun.F	/^  300 continue$/;"	l	subroutine:calerf	file:
+300	specfun.F	/^  300 continue$/;"	l	subroutine:machar	file:
+300	view_orbit.F90	/^300 format(1x,i4,1x,20(ES12.6,1x))$/;"	l	subroutine:view_orbit	file:
+320	specfun.F	/^  320       continue$/;"	l	subroutine:rybesl	file:
+4	CTPandCELL.F90	/^4     continue$/;"	l	subroutine:CTPandCELL	file:
+4	collision_eon.F90	/^4       continue$/;"	l	subroutine:CTPandCELL_eon	file:
+40	nag.F	/^   40    ACUM = ACUM + W(IW)*(FUNCTP(I)+FUNCTM(I))$/;"	l	subroutine:D01AHX	file:
+40	nag.F	/^   40    CONTINUE$/;"	l	subroutine:G05CAY	file:
+40	nag.F	/^   40    WRITE (NOUT,FMT=99999) REC(1:I)$/;"	l	subroutine:X04BAF	file:
+40	nag.F	/^   40 COMP = ABS(RESULT(K)-RESULT(K-1))$/;"	l	function:D01AHF	file:
+40	nag.F	/^   40 D01AHZ = (S1+S3)\/2.0D0$/;"	l	function:D01AHZ	file:
+40	nag.F	/^   40 ERR = ABS(ALAST-RESULT(K))$/;"	l	subroutine:D01AHY	file:
+40	nag.F	/^   40 S = T - W$/;"	l	subroutine:D01AHW	file:
+400	get_fluxes.F90	/^400 format(1x,i6, 600(1x,d12.6))$/;"	l	subroutine:get_fluxes	file:
+400	get_fluxes_e.F90	/^400 format(1x,i6, 600(1x,d13.6))$/;"	l	subroutine:get_fluxes_e	file:
+400	specfun.F	/^  400 continue$/;"	l	subroutine:machar	file:
+410	specfun.F	/^  410 continue$/;"	l	subroutine:machar	file:
+420	specfun.F	/^  420   continue$/;"	l	subroutine:rkbesl	file:
+420	specfun.F	/^  420 continue$/;"	l	subroutine:machar	file:
+430	specfun.F	/^  430 continue$/;"	l	subroutine:machar	file:
+450	specfun.F	/^  450   continue$/;"	l	subroutine:rybesl	file:
+450	specfun.F	/^  450 continue$/;"	l	subroutine:machar	file:
+460	specfun.F	/^  460 continue$/;"	l	subroutine:machar	file:
+5	CTPandCELL.F90	/^5   continue$/;"	l	subroutine:CTPandCELL	file:
+5	Er_provider.F90	/^5    format(2x, i5, 4(2x,ES13.6))$/;"	l	subroutine:Er_provider	file:
+5	collision_eon.F90	/^5    continue$/;"	l	subroutine:CTPandCELL_eon	file:
+5	get_ZF_shear.F90	/^5   format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500$/;"	l	subroutine:get_ZF_shear	file:
+5	setup_v2.F90	/^5    format(14(1x,ES13.6))$/;"	l	subroutine:setup	file:
+50	get_ZF_shear.F90	/^50   format(2x, i5, 3(2x,ES13.6))$/;"	l	subroutine:get_ZF_shear	file:
+50	specfun.F	/^   50 continue$/;"	l	subroutine:dsubn	file:
+500	specfun.F	/^  500 continue$/;"	l	subroutine:machar	file:
+55	setup_v2.F90	/^55   format(30(1x,ES13.6))$/;"	l	subroutine:setup	file:
+60	nag.F	/^   60 CONTINUE$/;"	l	subroutine:D01AHX	file:
+60	nag.F	/^   60 CONTINUE$/;"	l	subroutine:G05CAY	file:
+60	nag.F	/^   60 D01AHZ = (2.0D0*S1+S3)\/3.0D0$/;"	l	function:D01AHZ	file:
+60	nag.F	/^   60 IQ = 1$/;"	l	subroutine:D01AHY	file:
+60	nag.F	/^   60 ISTACK(ISI) = KK$/;"	l	function:D01AHF	file:
+60	nag.F	/^   60 SLOPE = DBLE(NT+1)*GM*SLOPER$/;"	l	subroutine:D01AHW	file:
+60	specfun.F	/^   60           continue$/;"	l	subroutine:ribesl	file:
+80	nag.F	/^   80 IC = -ABS(IC)$/;"	l	function:D01AHF	file:
+80	nag.F	/^   80 ICHECK = 0$/;"	l	subroutine:D01AHY	file:
+80	nag.F	/^   80 P2 = P3$/;"	l	subroutine:D01AHX	file:
+80	nag.F	/^   80 RK = A - B$/;"	l	subroutine:D01AHW	file:
+800	check_temperature.F90	/^800 format(1x,i4,1x,10(ES12.6,1x))$/;"	l	subroutine:check_temperature	file:
+800	get_fluxes.F90	/^800 format(1x,i6,1x,16(d12.6,1x))$/;"	l	subroutine:get_fluxes	file:
+800	get_fluxes_e.F90	/^800 format(1x,i6,1x,16(d13.6,1x))$/;"	l	subroutine:get_fluxes_e	file:
+800	specfun.F	/^  800 continue$/;"	l	subroutine:caljy0	file:
+800	specfun.F	/^  800 continue$/;"	l	subroutine:caljy1	file:
+8000	weight_damping_eon_new2.F90	/^8000  continue $/;"	l	subroutine:weight_field_eon	file:
+8000	weight_damping_new.F90	/^8000  continue$/;"	l	subroutine:weight_field	file:
+801	get_ZF_shear.F90	/^801 format(1x,i6, 21(1x,d13.6))       ! new format for mstep>100000$/;"	l	subroutine:get_ZF_shear	file:
+801	get_fluxes.F90	/^801 format(1x,i6, 21(1x,d12.6))$/;"	l	subroutine:get_fluxes	file:
+801	get_fluxes_e.F90	/^801 format(1x,i6, 21(1x,d13.6))$/;"	l	subroutine:get_fluxes_e	file:
+802	get_ZF_shear.F90	/^802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500$/;"	l	subroutine:get_ZF_shear	file:
+802	get_fluxes.F90	/^802 format(1x,i6, 503(1x,d12.6)) ! for maxium mpsi=500$/;"	l	subroutine:get_fluxes	file:
+802	get_fluxes_e.F90	/^802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500$/;"	l	subroutine:get_fluxes_e	file:
+802	setup_v2.F90	/^802  format(503(1x,d13.6)) ! for maxium mpsi=500$/;"	l	subroutine:setup	file:
+90	nag.F	/^   90 CONTINUE$/;"	l	subroutine:D01AHX	file:
+90	specfun.F	/^   90           continue$/;"	l	subroutine:ribesl	file:
+99999	nag.F	/^99999 FORMAT (' ** ABNORMAL EXIT from NAG Library routine ',A,': IFAIL',$/;"	l	function:P01ABF	file:
+99999	nag.F	/^99999 FORMAT (A)$/;"	l	subroutine:X04BAF	file:
+A	escZ_march03.c	/^static REAL A,ha,rha,hq,rhq,cgq0,crgq0;\/* period and inverse period in gq *\/$/;"	v	file:
+AD01AH	nag.F	122;"	c	function:D01AHF
+AD01AH	nag.F	610;"	c	subroutine:D01AHX
+AG05CA	nag.F	1363;"	c	subroutine:G05CAZ
+AG05CA	nag.F	1531;"	c	subroutine:G05CAY
+An	module.f90	/^  real(wp)  n_0,dn,xn,An,/;"	v	module:global_parameters
+At	module.f90	/^  real(wp)  T_0,dTemi,xt,At,/;"	v	module:global_parameters
+At_e	module.f90	/^  real(wp)  T_0,dTemi,xt,At,Bt,Tc,T_e0,dTeme,xt_e,At_e,/;"	v	module:global_parameters
+Au	module.f90	/^  real(wp)  du,xu,Au,/;"	v	module:global_parameters
+B	escZ_march03.c	/^,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;$/;"	v	file:
+B2_s	module.f90	/^      den_grid,vth_grid,vth_inv,gaa,B2_s,/;"	v	module:field_array
+BB	module.f90	/^          rr,ra,rq,z,za,zq,BB,/;"	v	module:esi_interface
+BD01AH	nag.F	1056;"	c	subroutine:D01AHV
+BD01AH	nag.F	302;"	c	subroutine:D01AHY
+BD01AH	nag.F	611;"	c	subroutine:D01AHX
+BG05CA	nag.F	1364;"	c	subroutine:G05CAZ
+B_0	module.f90	/^           s0,s1,B_0,/;"	v	module:global_parameters
+B_00	module.f90	/^  real(wp),parameter :: B_00=/;"	v	module:global_parameters
+Ba	escZ_march03.c	/^,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;$/;"	v	file:
+Ba	module.f90	/^          rr,ra,rq,z,za,zq,BB,Ba,/;"	v	module:esi_interface
+Bn	module.f90	/^  real(wp)  n_0,dn,xn,An,Bn$/;"	v	module:global_parameters
+Bq	escZ_march03.c	/^,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;$/;"	v	file:
+Bq	module.f90	/^          rr,ra,rq,z,za,zq,BB,Ba,Bq,/;"	v	module:esi_interface
+Bt	module.f90	/^  real(wp)  T_0,dTemi,xt,At,Bt,/;"	v	module:global_parameters
+Bt_e	module.f90	/^  real(wp)  T_0,dTemi,xt,At,Bt,Tc,T_e0,dTeme,xt_e,At_e,Bt_e,/;"	v	module:global_parameters
+Bu	module.f90	/^  real(wp)  du,xu,Au,Bu,/;"	v	module:global_parameters
+CC	cori.mk	/^   CC:=cc$/;"	m
+CC	cori.mk	/^  CC := cc$/;"	m
+CC	edison.mk	/^   CC:=cc$/;"	m
+CC	edison.mk	/^  CC := cc$/;"	m
+CC	hopper.mk	/^   CC:=cc$/;"	m
+CC	hopper.mk	/^  CC := cc$/;"	m
+CD01AH	nag.F	123;"	c	function:D01AHF
+CD01AH	nag.F	1255;"	c	subroutine:D01AHW
+CD01AH	nag.F	303;"	c	subroutine:D01AHY
+CFLAGS	cori.mk	/^             CFLAGS:= -e0 -ez$/;"	m
+CFLAGS	cori.mk	/^             CFLAGS:=$/;"	m
+CFLAGS	cori.mk	/^          CFLAGS:=$/;"	m
+CFLAGS	cori.mk	/^   CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC} $(PETSC_FINC)$/;"	m
+CFLAGS	edison.mk	/^             CFLAGS:= -e0 -ez$/;"	m
+CFLAGS	edison.mk	/^             CFLAGS:=$/;"	m
+CFLAGS	edison.mk	/^          CFLAGS:=$/;"	m
+CFLAGS	edison.mk	/^   CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC} $(PETSC_FINC)$/;"	m
+CFLAGS	hopper.mk	/^             CFLAGS:= -e0 -ez$/;"	m
+CFLAGS	hopper.mk	/^             CFLAGS:=$/;"	m
+CFLAGS	hopper.mk	/^          CFLAGS:=$/;"	m
+CFLAGS	hopper.mk	/^   CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC}$/;"	m
+CG05CA	nag.F	1201;"	c	function:G05CAF
+CG05CA	nag.F	1532;"	c	subroutine:G05CAY
+CMD	edison.mk	/^     CMD:=GTS$/;"	m
+CMD	edison.mk	/^     CMD:=GTS_OMP$/;"	m
+CMD	hopper.mk	/^     CMD:=GTS$/;"	m
+CMD	hopper.mk	/^     CMD:=GTS_OMP$/;"	m
+COPT	cori.mk	/^             COPT:= -O 1$/;"	m
+COPT	cori.mk	/^             COPT:=-fast -no-ipo$/;"	m
+COPT	cori.mk	/^          COPT:=-fast$/;"	m
+COPT	cori.mk	/^     COPT:= -g  $(CFLAGS)$/;"	m
+COPT	cori.mk	/^     COPT:=$(COPT) $(CFLAGS)$/;"	m
+COPT	cori.mk	/^     COPT:=$(NOOMPFLAG) $(COPT) $/;"	m
+COPT	cori.mk	/^     COPT:=$(OMPFLAG) $(COPT)$/;"	m
+COPT	edison.mk	/^             COPT:= -O 1$/;"	m
+COPT	edison.mk	/^             COPT:=-fast -no-ipo$/;"	m
+COPT	edison.mk	/^          COPT:=-fast$/;"	m
+COPT	edison.mk	/^     COPT:= -g  $(CFLAGS)$/;"	m
+COPT	edison.mk	/^     COPT:=$(COPT) $(CFLAGS)$/;"	m
+COPT	edison.mk	/^     COPT:=$(NOOMPFLAG) $(COPT) $/;"	m
+COPT	edison.mk	/^     COPT:=$(OMPFLAG) $(COPT)$/;"	m
+COPT	hopper.mk	/^             COPT:= -O 1$/;"	m
+COPT	hopper.mk	/^             COPT:=-fast -no-ipo$/;"	m
+COPT	hopper.mk	/^          COPT:=-fast$/;"	m
+COPT	hopper.mk	/^     COPT:= -g  $(CFLAGS)$/;"	m
+COPT	hopper.mk	/^     COPT:=$(COPT) $(CFLAGS)$/;"	m
+COPT	hopper.mk	/^     COPT:=$(NOOMPFLAG) $(COPT) $/;"	m
+COPT	hopper.mk	/^     COPT:=$(OMPFLAG) $(COPT)$/;"	m
+CPP	cori.mk	/^  CPP := CC$/;"	m
+CPP	edison.mk	/^  CPP := CC$/;"	m
+CPP	hopper.mk	/^  CPP := CC$/;"	m
+CTPandCELL	CTPandCELL.F90	/^SUBROUTINE CTPandCELL$/;"	s
+CTPandCELL.F90	CTPandCELL.F90	1;"	F
+CTPandCELL_eon	collision_eon.F90	/^SUBROUTINE CTPandCELL_eon$/;"	s
+Cs	module.f90	/^           s0,s1,B_0,R_0,Cs /;"	v	module:global_parameters
+D01AHF	nag.F	/^      DOUBLE PRECISION FUNCTION D01AHF(/;"	f
+D01AHU	nag.F	/^      DOUBLE PRECISION FUNCTION D01AHU(/;"	f
+D01AHV	nag.F	/^      SUBROUTINE D01AHV(/;"	s
+D01AHW	nag.F	/^      SUBROUTINE D01AHW(/;"	s
+D01AHX	nag.F	/^      SUBROUTINE D01AHX(/;"	s
+D01AHY	nag.F	/^      SUBROUTINE D01AHY(/;"	s
+D01AHZ	nag.F	/^      DOUBLE PRECISION FUNCTION D01AHZ(/;"	f
+DD01AH	nag.F	124;"	c	function:D01AHF
+DD01AH	nag.F	1256;"	c	subroutine:D01AHW
+DD01AH	nag.F	379;"	c	function:D01AHU
+DD01AH	nag.F	612;"	c	subroutine:D01AHX
+DG05CA	nag.F	1365;"	c	subroutine:G05CAZ
+Dzdt	module.f90	/^                                       dRda, dRdt, dZda, Dzdt,/;"	v	module:field_array
+ESICopy	escZ_march03.c	/^int ESICopy(double *esr,double *esz,double *eaB,double *egH,int na1,int np1)$/;"	f
+ESIInit	escZ_march03.c	/^int ESIInit()$/;"	f
+ESIMemAlloc	escZ_march03.c	/^int ESIMemAlloc()$/;"	f
+ESIReadAD	escZ_march03.c	/^int ESIReadAD(char* FNm) $/;"	f
+ESIReadAF	escZ_march03.c	/^int ESIReadAF(char* FNm) $/;"	f
+ESIReadBD	escZ_march03.c	/^int ESIReadBD(char* FNm) $/;"	f
+ESIReadBF	escZ_march03.c	/^int ESIReadBF(char* FNm) $/;"	f
+E_00	module.f90	/^           kappan,flow0,flow1,flow2,ulength,utime,E_00,/;"	v	module:global_parameters
+En_00	module.f90	/^  real(wp),dimension(:),allocatable :: fluxpsi,jaco_sum,En_00,/;"	v	module:diagnosis_array
+En_tot	module.f90	/^  real(wp),dimension(:),allocatable :: fluxpsi,jaco_sum,En_00,En_tur,En_tot,/;"	v	module:diagnosis_array
+En_tur	module.f90	/^  real(wp),dimension(:),allocatable :: fluxpsi,jaco_sum,En_00,En_tur,/;"	v	module:diagnosis_array
+Er401_bp	module.f90	/^  real(wp),dimension(:),allocatable :: Yr, coty, Er401_pc, Er401_bp,/;"	v	module:global_parameters
+Er401_bp0	module.f90	/^  real(wp),dimension(:),allocatable :: Yr, coty, Er401_pc, Er401_bp, Er401_bp0$/;"	v	module:global_parameters
+Er401_pc	module.f90	/^  real(wp),dimension(:),allocatable :: Yr, coty, Er401_pc,/;"	v	module:global_parameters
+Er_a0	module.f90	/^  real(wp) Er_a0,/;"	v	module:field_array
+Er_a1	module.f90	/^  real(wp) Er_a0, Er_a1$/;"	v	module:field_array
+Er_data_name	module.f90	/^  character(25) :: Er_data_name,/;"	v	module:global_parameters
+Er_from_GTC_Neo	module.f90	/^  integer Er_from_GTC_Neo,/;"	v	module:global_parameters
+Er_grid	module.f90	/^      Er_grid,/;"	v	module:field_array
+Er_grid0	module.f90	/^      Er_grid,Er_grid0,/;"	v	module:field_array
+Er_provider	Er_provider.F90	/^subroutine Er_provider$/;"	s
+Er_provider.F90	Er_provider.F90	1;"	F
+F	escZ_march03.c	/^static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL$/;"	v	file:
+F	module.f90	/^   real(wp), dimension(:), allocatable :: F,/;"	v	module:esi_interface
+F0	escZ_march03.c	/^static double F0[128],F1[128],F2[128],F3[128],tF1=5.,hF,rhF;$/;"	v	file:
+F1	escZ_march03.c	/^static double F0[128],F1[128],F2[128],F3[128],tF1=5.,hF,rhF;$/;"	v	file:
+F2	escZ_march03.c	/^static double F0[128],F1[128],F2[128],F3[128],tF1=5.,hF,rhF;$/;"	v	file:
+F3	escZ_march03.c	/^static double F0[128],F1[128],F2[128],F3[128],tF1=5.,hF,rhF;$/;"	v	file:
+F77	cori.mk	/^  F77 := ftn$/;"	m
+F77	edison.mk	/^  F77 := ftn$/;"	m
+F77	hopper.mk	/^  F77 := ftn$/;"	m
+F90	cori.mk	/^  F90 := ftn$/;"	m
+F90	edison.mk	/^  F90 := ftn$/;"	m
+F90	hopper.mk	/^  F90 := ftn$/;"	m
+FEM	cori.mk	/^   FEM:=-L$(VPATH)\/fem\/$(OBJDIR) -lfemlib$/;"	m
+FEM	edison.mk	/^   FEM:=-L$(VPATH)\/fem\/$(OBJDIR) -lfemlib$/;"	m
+FEM	hopper.mk	/^   FEM:=-L$(VPATH)\/fem\/$(OBJDIR) -lfemlib$/;"	m
+FFLAGS	cori.mk	/^             FFLAGS:= -s real64 -Dflush_=flush -I$(VPATH)\/$(OBJDIR) -I$(VPATH)\/fem\/$(OBJDIR) -static -e F -e m -rm -e0 -ez$/;"	m
+FFLAGS	cori.mk	/^             FFLAGS:=-r8 -Dflush_=flush -I$(VPATH)\/$(OBJDIR) -I$(VPATH)\/fem\/$(OBJDIR)$/;"	m
+FFLAGS	cori.mk	/^          FFLAGS:= -r8 -Kieee -Dflush_=flush -module .$/;"	m
+FFLAGS	cori.mk	/^   FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5)$/;"	m
+FFLAGS	edison.mk	/^             FFLAGS:= -s real64 -Dflush_=flush -I$(VPATH)\/$(OBJDIR) -I$(VPATH)\/fem\/$(OBJDIR) -static -e F -e m -rm -e0 -ez$/;"	m
+FFLAGS	edison.mk	/^             FFLAGS:=-r8 -Dflush_=flush -I. -Ifem$/;"	m
+FFLAGS	edison.mk	/^          FFLAGS:= -r8 -Kieee -Dflush_=flush -module .$/;"	m
+FFLAGS	edison.mk	/^   FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5)$/;"	m
+FFLAGS	hopper.mk	/^             FFLAGS:= -s real64 -Dflush_=flush -I$(VPATH)\/$(OBJDIR) -I$(VPATH)\/fem\/$(OBJDIR) -static -e F -e m -rm -e0 -ez$/;"	m
+FFLAGS	hopper.mk	/^             FFLAGS:=-r8 -Dflush_=flush -I. -Ifem$/;"	m
+FFLAGS	hopper.mk	/^          FFLAGS:= -r8 -Kieee -Dflush_=flush -module .$/;"	m
+FFLAGS	hopper.mk	/^   FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5)$/;"	m
+FFTLIB	cori.mk	/^   FFTLIB:=$/;"	m
+FFTLIB	edison.mk	/^   FFTLIB:=$/;"	m
+FFTLIB	hopper.mk	/^   FFTLIB:=$/;"	m
+FUN1	function_gg.f90	/^FUNCTION FUN1(/;"	f
+FUN2	function_gg.f90	/^FUNCTION FUN2(/;"	f
+FUN3	function_gg.f90	/^FUNCTION FUN3(/;"	f
+FUN3e	function_gg.f90	/^FUNCTION FUN3e(/;"	f
+FUN3n	function_gg.f90	/^FUNCTION FUN3n(/;"	f
+FUN3u	function_gg.f90	/^FUNCTION FUN3u(/;"	f
+FUN_J	function_gg.f90	/^FUNCTION FUN_J(/;"	f
+Fa	escZ_march03.c	/^static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL$/;"	v	file:
+Fa	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,/;"	v	module:esi_interface
+G05CAF	nag.F	/^      DOUBLE PRECISION FUNCTION G05CAF(/;"	f
+G05CAY	nag.F	/^      SUBROUTINE G05CAY(/;"	s
+G05CAZ	nag.F	/^      SUBROUTINE G05CAZ(/;"	s
+GOPT	cori.mk	/^     GOPT:= $(NOOMPFLAG) $(GOPT)$/;"	m
+GOPT	cori.mk	/^     GOPT:= $(OMPFLAG) $(GOPT)$/;"	m
+GOPT	cori.mk	/^     GOPT:= -g  $(CFLAGS)$/;"	m
+GOPT	edison.mk	/^     GOPT:= $(NOOMPFLAG) $(GOPT)$/;"	m
+GOPT	edison.mk	/^     GOPT:= $(OMPFLAG) $(GOPT)$/;"	m
+GOPT	edison.mk	/^     GOPT:= -g  $(CFLAGS)$/;"	m
+GOPT	hopper.mk	/^     GOPT:= $(NOOMPFLAG) $(GOPT)$/;"	m
+GOPT	hopper.mk	/^     GOPT:= $(OMPFLAG) $(GOPT)$/;"	m
+GOPT	hopper.mk	/^     GOPT:= -g  $(CFLAGS)$/;"	m
+GTS	main.F90	/^program GTS$/;"	p
+GetEECollisions	escZ_march03.c	/^void GetEECollisions(double *gn,double *E,double *Te,double *ne)$/;"	f
+GetIECollisions	escZ_march03.c	/^void GetIECollisions(double *gn,double *E,double *Te,double *ne)$/;"	f
+GetIICollisions	escZ_march03.c	/^void GetIICollisions(double *gn,double *E,double *Ti,double *ne)$/;"	f
+InitLocalConstants	escZ_march03.c	/^int InitLocalConstants()$/;"	f
+Iomg_node	spl_profile.F90	/^                                           Te_node,dTe_node,Iomg_node,/;"	v	module:profile_array
+Jacobian	function_gg.f90	/^FUNCTION Jacobian(/;"	f
+Jcbn	module.f90	/^                                       phi_tmp,Jcbn,/;"	v	module:field_array
+L	c_superlu_pdgssv.c	/^    SuperMatrix *L;$/;"	m	struct:__anon1	file:
+LIB	cori.mk	/^LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PETSC_FLIB)$/;"	m
+LIB	edison.mk	/^LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PETSC_FLIB)$/;"	m
+LIB	hopper.mk	/^LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PETSC_FLIB)$/;"	m
+LOADER	cori.mk	/^  LOADER := ftn -Wl,-z,muldefs$/;"	m
+LOADER	edison.mk	/^  LOADER := ftn$/;"	m
+LOADER	hopper.mk	/^  LOADER := ftn$/;"	m
+Lorentz_coll	collision_eon.F90	/^SUBROUTINE Lorentz_coll$/;"	s
+MAKETARGET	subtarget.mk	/^MAKETARGET = $(MAKE) --no-print-directory -C $@ -f $(CURDIR)\/Makefile \\$/;"	m
+MAKETARGET	target.mk	/^MAKETARGET = $(MAKE) --no-print-directory -C $@ -f $(CURDIR)\/Makefile \\$/;"	m
+MPI_RSIZE	escZ_march03.c	182;"	d	file:
+MemFl	escZ_march03.c	/^static int Na,Na1=0,Np,Np1=0,MemFl=0;$/;"	v	file:
+NAG	cori.mk	/^   NAG:=-L$(VPATH)\/cmlib\/$(OBJDIR) -lcmlib$/;"	m
+NAG	edison.mk	/^   NAG:=-L$(VPATH)\/cmlib\/$(OBJDIR) -lcmlib$/;"	m
+NAG	hopper.mk	/^   NAG:=-L$(VPATH)\/cmlib\/$(OBJDIR) -lcmlib$/;"	m
+NAG_FILES	cori.mk	/^   NAG_FILES:=fake_nag.o nag.o$/;"	m
+NAG_FILES	edison.mk	/^   NAG_FILES:=fake_nag.o nag.o$/;"	m
+NAG_FILES	hopper.mk	/^   NAG_FILES:=fake_nag.o nag.o$/;"	m
+NAG_REPLACEMENT	cori.mk	/^   NAG_REPLACEMENT:=libcm$/;"	m
+NAG_REPLACEMENT	edison.mk	/^   NAG_REPLACEMENT:=libcm$/;"	m
+NAG_REPLACEMENT	hopper.mk	/^   NAG_REPLACEMENT:=libcm$/;"	m
+NOOMPFLAG	cori.mk	/^             NOOMPFLAG:=$/;"	m
+NOOMPFLAG	cori.mk	/^             NOOMPFLAG:=-hnoomp$/;"	m
+NOOMPFLAG	cori.mk	/^          NOOMPFLAG:=$/;"	m
+NOOMPFLAG	edison.mk	/^             NOOMPFLAG:=$/;"	m
+NOOMPFLAG	edison.mk	/^             NOOMPFLAG:=-hnoomp$/;"	m
+NOOMPFLAG	edison.mk	/^          NOOMPFLAG:=$/;"	m
+NOOMPFLAG	hopper.mk	/^             NOOMPFLAG:=$/;"	m
+NOOMPFLAG	hopper.mk	/^             NOOMPFLAG:=-hnoomp$/;"	m
+NOOMPFLAG	hopper.mk	/^          NOOMPFLAG:=$/;"	m
+Na	escZ_march03.c	/^static int Na,Na1=0,Np,Np1=0,MemFl=0;$/;"	v	file:
+Na1	escZ_march03.c	/^static int Na,Na1=0,Np,Np1=0,MemFl=0;$/;"	v	file:
+Ne	escZ_march03.c	/^static REAL *Ne=NULL,*dNe=NULL;$/;"	v	file:
+Np	escZ_march03.c	/^static int Na,Na1=0,Np,Np1=0,MemFl=0;$/;"	v	file:
+Np1	escZ_march03.c	/^static int Na,Na1=0,Np,Np1=0,MemFl=0;$/;"	v	file:
+OBJDIR	target.mk	/^OBJDIR := _$(_ARCH)-$(PE_ENV)$(BIN_POSTFIX)$/;"	m
+OMPFLAG	cori.mk	/^             OMPFLAG:=$/;"	m
+OMPFLAG	cori.mk	/^             OMPFLAG:=-qopenmp$/;"	m
+OMPFLAG	cori.mk	/^          OMPFLAG:=-mp=nonuma$/;"	m
+OMPFLAG	edison.mk	/^             OMPFLAG:=$/;"	m
+OMPFLAG	edison.mk	/^             OMPFLAG:=-openmp$/;"	m
+OMPFLAG	edison.mk	/^          OMPFLAG:=-mp=nonuma$/;"	m
+OMPFLAG	hopper.mk	/^             OMPFLAG:=$/;"	m
+OMPFLAG	hopper.mk	/^             OMPFLAG:=-openmp$/;"	m
+OMPFLAG	hopper.mk	/^          OMPFLAG:=-mp=nonuma$/;"	m
+OPT	cori.mk	/^             OPT:= -O 1$/;"	m
+OPT	cori.mk	/^             OPT:=-fast -no-ipo$/;"	m
+OPT	cori.mk	/^          OPT:=-fast$/;"	m
+OPT	cori.mk	/^     OPT:=$(NOOMPFLAG) $(OPT)$/;"	m
+OPT	cori.mk	/^     OPT:=$(OMPFLAG) $(OPT)$/;"	m
+OPT	cori.mk	/^     OPT:=$(OPT) $(FFLAGS)$/;"	m
+OPT	cori.mk	/^     OPT:=-g  $(FFLAGS)$/;"	m
+OPT	edison.mk	/^             OPT:= -O 1$/;"	m
+OPT	edison.mk	/^             OPT:=-fast -no-ipo$/;"	m
+OPT	edison.mk	/^          OPT:=-fast$/;"	m
+OPT	edison.mk	/^     OPT:=$(NOOMPFLAG) $(OPT)$/;"	m
+OPT	edison.mk	/^     OPT:=$(OMPFLAG) $(OPT)$/;"	m
+OPT	edison.mk	/^     OPT:=$(OPT) $(FFLAGS)$/;"	m
+OPT	edison.mk	/^     OPT:=-g  $(FFLAGS)$/;"	m
+OPT	hopper.mk	/^             OPT:= -O 1$/;"	m
+OPT	hopper.mk	/^             OPT:=-fast -no-ipo$/;"	m
+OPT	hopper.mk	/^          OPT:=-fast$/;"	m
+OPT	hopper.mk	/^     OPT:=$(NOOMPFLAG) $(OPT)$/;"	m
+OPT	hopper.mk	/^     OPT:=$(OMPFLAG) $(OPT)$/;"	m
+OPT	hopper.mk	/^     OPT:=$(OPT) $(FFLAGS)$/;"	m
+OPT	hopper.mk	/^     OPT:=-g  $(FFLAGS)$/;"	m
+O_50	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor,ne_50,Ti_50,Te_50,O_50,/;"	v	module:profile_array
+P	escZ_march03.c	/^,*T=NULL,*Ta=NULL,*P=NULL,*Pa=NULL;$/;"	v	file:
+P01ABF	nag.F	/^      INTEGER FUNCTION P01ABF(/;"	f
+P01ABZ	nag.F	/^      SUBROUTINE P01ABZ$/;"	s
+PETSC_FINC	cori.mk	/^             PETSC_FINC:= -I${PETSC_DIR}\/include -I${PETSC_DIR}\/$(PETSC_ARCH)\/include -I${HYPRE_DIR}\/include$/;"	m
+PETSC_FINC	edison.mk	/^             PETSC_FINC:= -I${PETSC_DIR}\/include -I${PETSC_DIR}\/$(PETSC_ARCH)\/include -I${HYPRE_DIR}\/include$/;"	m
+PETSC_FINC	hopper.mk	/^             PETSC_FINC:= -I${PETSC_DIR}\/include -I${PETSC_DIR} -I${PETSC_DIR}\/${PETSC_ARCH}\/include $(MPI_INCLUDE)$/;"	m
+PETSC_FLIB	cori.mk	/^             PETSC_FLIB:=-L${PETSC_DIR}\/$(PETSC_ARCH)\/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)\/lib -lHYPRE$/;"	m
+PETSC_FLIB	cori.mk	/^             PETSC_FLIB:=-L${PETSC_DIR}\/${PETSC_ARCH}\/lib -lcraypetsc_intel_real$/;"	m
+PETSC_FLIB	edison.mk	/^             PETSC_FLIB:=-L${PETSC_DIR}\/$(PETSC_ARCH)\/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)\/lib -lHYPRE$/;"	m
+PETSC_FLIB	edison.mk	/^             PETSC_FLIB:=-L${PETSC_DIR}\/${PETSC_ARCH}\/lib -lcraypetsc_intel_real$/;"	m
+PETSC_FLIB	hopper.mk	/^             PETSC_FLIB:=-L${PETSC_DIR}\/${PETSC_ARCH}\/lib -lcraypetsc_cray_real$/;"	m
+PETSC_FLIB	hopper.mk	/^             PETSC_FLIB:=-L${PETSC_DIR}\/${PETSC_ARCH}\/lib -lcraypetsc_intel_real$/;"	m
+PHI_50	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor,ne_50,Ti_50,Te_50,O_50,PHI_50$/;"	v	module:profile_array
+PP	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,/;"	v	module:esi_interface
+PSPLINE_INC	cori.mk	/^             PSPLINE_INC:=-I${PSPLINE_DIR}\/include -I${PSPLINE_DIR}\/mod -I$(NETCDF_DIR)\/include$/;"	m
+PSPLINE_INC	cori.mk	/^             PSPLINE_INC:=-I${PSPLINE_DIR}\/mod$/;"	m
+PSPLINE_INC	cori.mk	/^          PSPLINE_INC:=-I${PSPLINE_DIR}\/mod$/;"	m
+PSPLINE_INC	edison.mk	/^             PSPLINE_INC:=-I${PSPLINE_DIR}\/include -I${PSPLINE_DIR}\/mod -I$(NETCDF_DIR)\/include$/;"	m
+PSPLINE_INC	edison.mk	/^             PSPLINE_INC:=-I${PSPLINE_DIR}\/mod$/;"	m
+PSPLINE_INC	edison.mk	/^          PSPLINE_INC:=-I${PSPLINE_DIR}\/mod$/;"	m
+PSPLINE_INC	hopper.mk	/^             PSPLINE_INC:=-I${PSPLINE_DIR}\/include -I${PSPLINE_DIR}\/mod -I$(NETCDF_DIR)\/include$/;"	m
+PSPLINE_INC	hopper.mk	/^             PSPLINE_INC:=-I${PSPLINE_DIR}\/mod$/;"	m
+PSPLINE_INC	hopper.mk	/^          PSPLINE_INC:=-I${PSPLINE_DIR}\/mod$/;"	m
+PSPLINE_LIB	cori.mk	/^             PSPLINE_LIB:=-L${PSPLINE_DIR}\/lib -lpspline -lezcdf -L${NETCDF_DIR}\/lib -lnetcdf$/;"	m
+PSPLINE_LIB	cori.mk	/^          PSPLINE_LIB:=-L${PSPLINE_DIR}\/lib -lpspline -lezcdf -L${NETCDF_DIR}\/lib -lnetcdf$/;"	m
+PSPLINE_LIB	edison.mk	/^             PSPLINE_LIB:=-L${PSPLINE_DIR}\/lib -lpspline -lezcdf -L${NETCDF_DIR}\/lib -lnetcdf$/;"	m
+PSPLINE_LIB	edison.mk	/^          PSPLINE_LIB:=-L${PSPLINE_DIR}\/lib -lpspline -lezcdf -L${NETCDF_DIR}\/lib -lnetcdf$/;"	m
+PSPLINE_LIB	hopper.mk	/^             PSPLINE_LIB:=-L${PSPLINE_DIR}\/lib -lpspline -lezcdf -L${NETCDF_DIR}\/lib -lnetcdf$/;"	m
+PSPLINE_LIB	hopper.mk	/^          PSPLINE_LIB:=-L${PSPLINE_DIR}\/lib -lpspline -lezcdf -L${NETCDF_DIR}\/lib -lnetcdf$/;"	m
+Pa	escZ_march03.c	/^,*T=NULL,*Ta=NULL,*P=NULL,*Pa=NULL;$/;"	v	file:
+Pa	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa,/;"	v	module:esi_interface
+R2_inverse	Theory_jb.f90	/^real*8 FUNCTION R2_inverse(/;"	f
+R_0	module.f90	/^           s0,s1,B_0,R_0,/;"	v	module:global_parameters
+R_00	module.f90	/^                        R_00=/;"	v	module:global_parameters
+SMOOTHSTEP	function_gg.f90	/^FUNCTION SMOOTHSTEP(/;"	f
+SPCFFT	fft_gl.f90	/^SUBROUTINE SPCFFT(/;"	s
+SPCPFT	fft_gl.f90	/^SUBROUTINE SPCPFT(/;"	s
+SPRNG_INC	cori.mk	/^             SPRNG_INC:=-I${SPRNG_DIR}\/include -I${SPRNG_DIR}\/mod $/;"	m
+SPRNG_INC	cori.mk	/^             SPRNG_INC:=-I${SPRNG_DIR}\/include$/;"	m
+SPRNG_INC	cori.mk	/^          SPRNG_INC:=-I${SPRNG_DIR}\/include$/;"	m
+SPRNG_INC	edison.mk	/^             SPRNG_INC:=-I${SPRNG_DIR}\/include -I${SPRNG_DIR}\/mod $/;"	m
+SPRNG_INC	edison.mk	/^             SPRNG_INC:=-I${SPRNG_DIR}\/include$/;"	m
+SPRNG_INC	edison.mk	/^          SPRNG_INC:=-I${SPRNG_DIR}\/include$/;"	m
+SPRNG_INC	hopper.mk	/^             SPRNG_INC:=-I${SPRNG_DIR}\/include -I${SPRNG_DIR}\/mod $/;"	m
+SPRNG_INC	hopper.mk	/^             SPRNG_INC:=-I${SPRNG_DIR}\/include$/;"	m
+SPRNG_INC	hopper.mk	/^          SPRNG_INC:=-I${SPRNG_DIR}\/include$/;"	m
+SPRNG_LIB	cori.mk	/^             SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng -lgmp          # for Edison$/;"	m
+SPRNG_LIB	cori.mk	/^             SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng -lgmp$/;"	m
+SPRNG_LIB	cori.mk	/^          SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng$/;"	m
+SPRNG_LIB	edison.mk	/^             SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng -lgmp          # for Edison$/;"	m
+SPRNG_LIB	edison.mk	/^             SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng -lgmp$/;"	m
+SPRNG_LIB	edison.mk	/^          SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng$/;"	m
+SPRNG_LIB	hopper.mk	/^             SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng -lgmp          # for Edison$/;"	m
+SPRNG_LIB	hopper.mk	/^             SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng -lgmp$/;"	m
+SPRNG_LIB	hopper.mk	/^          SPRNG_LIB:=-L${SPRNG_DIR}\/lib -lsprng$/;"	m
+SetFunctionErf	escZ_march03.c	/^int SetFunctionErf()$/;"	f
+T	escZ_march03.c	/^,*T=NULL,*Ta=NULL,*P=NULL,*Pa=NULL;$/;"	v	file:
+TT	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,/;"	v	module:esi_interface
+T_0	module.f90	/^  real(wp)  T_0,/;"	v	module:global_parameters
+T_e0	module.f90	/^  real(wp)  T_0,dTemi,xt,At,Bt,Tc,T_e0,/;"	v	module:global_parameters
+Ta	escZ_march03.c	/^,*T=NULL,*Ta=NULL,*P=NULL,*Pa=NULL;$/;"	v	file:
+Ta	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,/;"	v	module:esi_interface
+Tc	module.f90	/^  real(wp)  T_0,dTemi,xt,At,Bt,Tc,/;"	v	module:global_parameters
+Tc_e	module.f90	/^  real(wp)  T_0,dTemi,xt,At,Bt,Tc,T_e0,dTeme,xt_e,At_e,Bt_e,Tc_e$/;"	v	module:global_parameters
+Te_50	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor,ne_50,Ti_50,Te_50,/;"	v	module:profile_array
+Te_51	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor2,ne_51,Ti_51,Te_51$/;"	v	module:profile_array
+Te_box	module.f90	/^            Ti_box(nprobe),Te_box(/;"	v	module:global_parameters
+Te_grid	module.f90	/^      Er_grid,Er_grid0,dphidt00,ddT_da,Te_grid,/;"	v	module:field_array
+Te_node	spl_profile.F90	/^                                           Te_node,/;"	v	module:profile_array
+Tem_00	module.f90	/^           uveloci,Tem_00,/;"	v	module:global_parameters
+Theory_jb.f90	Theory_jb.f90	1;"	F
+Ti_50	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor,ne_50,Ti_50,/;"	v	module:profile_array
+Ti_51	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor2,ne_51,Ti_51,/;"	v	module:profile_array
+Ti_at_electrons	function_gg.f90	/^subroutine Ti_at_electrons$/;"	s
+Ti_box	module.f90	/^            Ti_box(/;"	v	module:global_parameters
+Ti_node	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: Ti_node,/;"	v	module:profile_array
+Tr	module.f90	/^  real(wp) sn0(nbin_a),dnty_on_bin(nbin_a),Tr(/;"	v	module:diagnosis_array
+Tr_e	module.f90	/^  real(wp) sn0(nbin_a),dnty_on_bin(nbin_a),Tr(nbin_a),Tr_e(/;"	v	module:diagnosis_array
+U	c_superlu_pdgssv.c	/^    SuperMatrix *U;$/;"	m	struct:__anon1	file:
+X	c_superlu_pdgssv.c	/^    SuperMatrix *X;$/;"	m	struct:__anon1	file:
+X02AJF	nag.F	/^      DOUBLE PRECISION FUNCTION X02AJF(/;"	f
+X02AMF	nag.F	/^      DOUBLE PRECISION FUNCTION X02AMF(/;"	f
+X04AAF	nag.F	/^      SUBROUTINE X04AAF(/;"	s
+X04BAF	nag.F	/^      SUBROUTINE X04BAF(/;"	s
+XD	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+XF	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+Y	escZ_march03.c	/^static REAL y,Y,yy,YY;$/;"	v	file:
+YD	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+YF	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+YY	escZ_march03.c	/^static REAL y,Y,yy,YY;$/;"	v	file:
+Ydr	module.f90	/^  real(wp) Ydr$/;"	v	module:global_parameters
+Yr	module.f90	/^  real(wp),dimension(:),allocatable :: Yr,/;"	v	module:global_parameters
+ZF_SEPARATION	module.f90	/^  integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,/;"	v	module:global_parameters
+Zga	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+Zgb	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+_ARCH	target.mk	/^_ARCH := $(shell echo $(HOST) | awk '{ sub(\/[0-9]+\/,""); print }')$/;"	m
+a	escZ_march03.c	/^c     coordinates gr_parallel,a,theta,phi of n particles with magnetic $/;"	v
+a	module.f90	/^  real/;"	v	module:global_parameters
+a0	module.f90	/^  real(wp) nonlinear,a0,/;"	v	module:global_parameters
+a0_dthe	module.f90	/^  real(wp) ratio_dthe0,ratio_dthe1,a0_dthe,/;"	v	module:control_parameters
+a1	module.f90	/^  real(wp) nonlinear,a0,a1,/;"	v	module:global_parameters
+a1_dthe	module.f90	/^  real(wp) ratio_dthe0,ratio_dthe1,a0_dthe,a1_dthe,/;"	v	module:control_parameters
+aB	escZ_march03.c	/^static REAL *aB,*aBa,*aBq,*aBaq;$/;"	v	file:
+aBa	escZ_march03.c	/^static REAL *aB,*aBa,*aBq,*aBaq;$/;"	v	file:
+aBaq	escZ_march03.c	/^static REAL *aB,*aBa,*aBq,*aBaq;$/;"	v	file:
+aBq	escZ_march03.c	/^static REAL *aB,*aBa,*aBq,*aBaq;$/;"	v	file:
+aF	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+aP	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+aT	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+aTe	escZ_march03.c	/^static REAL aTe=15.,aTi=15.,raT;$/;"	v	file:
+aTi	escZ_march03.c	/^static REAL aTe=15.,aTi=15.,raT;$/;"	v	file:
+a_ref_in	module.f90	/^  real(wp) ratio_dthe0,ratio_dthe1,a0_dthe,a1_dthe,a_ref_in$/;"	v	module:control_parameters
+add_gk_value	solver_petsc.F90	/^  subroutine add_gk_value(/;"	s	module:phit_matrix_class
+add_hh2bb	solver_petsc.F90	/^  subroutine add_hh2bb(/;"	s	module:solver_data_class
+add_hh2bb_0	solver_petsc.F90	/^  subroutine add_hh2bb_0(/;"	s	module:solver_data_class
+aelectron	module.f90	/^           deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,/;"	v	module:global_parameters
+ain	module.f90	/^  real(wp) flip_rotation,ain,/;"	v	module:control_parameters
+aion	module.f90	/^           deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,/;"	v	module:global_parameters
+allnodes	module.f90	/^      pmarki,pmarke,zonali,zonale,psi_grid,plenth,allnodes,/;"	v	module:field_array
+amasse	module.f90	/^                        amasse=/;"	v	module:global_parameters
+amassi	module.f90	/^                        amassi=/;"	v	module:global_parameters
+amp_mode	module.f90	/^           amp_mode(/;"	v	module:diagnosis_array
+aout	module.f90	/^  real(wp) flip_rotation,ain,aout /;"	v	module:control_parameters
+ap	escZ_march03.c	/^,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;$/;"	v	file:
+arclength	function_gg.f90	/^FUNCTION arclength(/;"	f
+b0	module.f90	/^  real(wp) r0,b0,/;"	v	module:global_parameters
+backT	module.f90	/^  real(wp),dimension(:),allocatable :: backn,backu,backT,/;"	v	module:particle_array
+backTe	module.f90	/^                                       backne,backue,backTe,/;"	v	module:particle_array
+backn	module.f90	/^  real(wp),dimension(:),allocatable :: backn,/;"	v	module:particle_array
+backne	module.f90	/^                                       backne,/;"	v	module:particle_array
+backu	module.f90	/^  real(wp),dimension(:),allocatable :: backn,backu,/;"	v	module:particle_array
+backue	module.f90	/^                                       backne,backue,/;"	v	module:particle_array
+bad	Theory_jb.f90	/^  real*8, dimension(:), allocatable ::  bad$/;"	v	module:data_pass
+badpass	function_gg.f90	184;"	c	function:fun_para_zero
+badpass1	function_gg.f90	199;"	c	function:fun_perp_zero
+bc_type	module.f90	/^  integer   bc_type$/;"	v	module:global_parameters
+bc_type	solver_petsc.F90	/^     integer :: numbdy, mat_type, bc_type$/;"	k	type:phit_matrix_data
+bdy	solver_petsc.F90	/^     integer,dimension(:),pointer :: bdy$/;"	k	type:phit_matrix_data
+besei0	specfun.F	/^      function besei0 /;"	f
+besei1	specfun.F	/^      function besei1 /;"	f
+besek0	specfun.F	/^      function besek0 /;"	f
+besek1	specfun.F	/^      function besek1 /;"	f
+besi0	specfun.F	/^      function besi0 /;"	f
+besi1	specfun.F	/^      function besi1 /;"	f
+besj0	specfun.F	/^      function besj0 /;"	f
+besj1	specfun.F	/^      function besj1 /;"	f
+besk0	specfun.F	/^      function besk0 /;"	f
+besk1	specfun.F	/^      function besk1 /;"	f
+besy0	specfun.F	/^      function besy0 /;"	f
+besy1	specfun.F	/^      function besy1 /;"	f
+bootstrap	Theory_jb.f90	/^      subroutine bootstrap(/;"	s
+bphi	module.f90	/^  real(wp),dimension(:),allocatable :: tphi, bphi,/;"	v	module:field_array
+c	module.f90	/^                        c=/;"	v	module:global_parameters
+c0cs	escZ_march03.c	/^static double msm0, csc0, m0ms, c0cs, csc02, combine;$/;"	v	file:
+c0cs	module.f90	/^  real(wp)  msm0,m0ms,csc0,c0cs,/;"	v	module:global_parameters
+c0cs_i	module.f90	/^  real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,csc0_i,c0cs_i$/;"	v	module:global_parameters
+c2cfftgl	fft_gl.f90	/^Subroutine c2cfftgl(/;"	s
+c2gp	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+c2rfftgl	fft_gl.f90	/^Subroutine c2rfftgl(/;"	s
+c2rqgp	escZ_march03.c	/^static double c2rqgp;$/;"	v	file:
+cEeV	escZ_march03.c	/^static double cEeV=1.6022e-12; \/* erg energy of 1 eV *\/$/;"	v	file:
+cEkeV	escZ_march03.c	/^static double cEkeV=1.6022e-9; \/* erg energy of 1 keV *\/$/;"	v	file:
+c_rms	c_superlu_pdgssv.c	/^int c_rms(int *ldb, int *nrhs, double *array, double *rms)$/;"	f
+c_superlu_pdgssv	c_superlu_pdgssv.c	/^c_superlu_pdgssv(int *mype,$/;"	f
+c_superlu_pdgssv.c	c_superlu_pdgssv.c	1;"	F
+calcei	specfun.F	/^      subroutine calcei /;"	s
+calci0	specfun.F	/^      subroutine calci0 /;"	s
+calci1	specfun.F	/^      subroutine calci1 /;"	s
+calck0	specfun.F	/^      subroutine calck0 /;"	s
+calck1	specfun.F	/^      subroutine calck1 /;"	s
+calerf	specfun.F	/^      subroutine calerf /;"	s
+caljy0	specfun.F	/^      subroutine caljy0 /;"	s
+caljy1	specfun.F	/^      subroutine caljy1 /;"	s
+cc	escZ_march03.c	/^static double cc=2.9979e+10; \/* [cm\/sec] - speed of light *\/$/;"	v	file:
+ce	escZ_march03.c	/^static double ce=4.8032e-10; \/* [CGS] - proton electric charge *\/$/;"	v	file:
+cgm0	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+cgp	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+cgp_4	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+cgq0	escZ_march03.c	/^static REAL A,ha,rha,hq,rhq,cgq0,crgq0;\/* period and inverse period in gq *\/$/;"	v	file:
+charg0	module.f90	/^                        pmass0=3.3452e-24_wp, charg0=/;"	v	module:global_parameters
+charge	module.f90	/^                        amasse=9.1095e-28_wp, charge=/;"	v	module:global_parameters
+charge_eon	charge_eon.F90	/^subroutine charge_eon$/;"	s
+charge_eon.F90	charge_eon.F90	1;"	F
+charge_ion	charge_ion.F90	/^subroutine charge_ion$/;"	s
+charge_ion.F90	charge_ion.F90	1;"	F
+chargi	module.f90	/^                        amassi=3.3452e-24_wp, chargi=/;"	v	module:global_parameters
+check_eq	check_eq.f90	/^Subroutine check_eq$/;"	s
+check_eq.f90	check_eq.f90	1;"	F
+check_temperature	check_temperature.F90	/^subroutine check_temperature$/;"	s
+check_temperature.F90	check_temperature.F90	1;"	F
+check_tracer_e	check_tracers.F90	/^subroutine check_tracer_e$/;"	s
+check_tracer_i	check_tracers.F90	/^subroutine check_tracer_i$/;"	s
+check_tracers.F90	check_tracers.F90	1;"	F
+cij	module.f90	/^  real(wp),dimension(:,:),allocatable :: wtp1,wtp2,gij,cij$/;"	v	module:field_array
+cloud_e	module.f90	/^  real(wp)  cloud_i, cloud_e$/;"	v	module:global_parameters
+cloud_i	module.f90	/^  real(wp)  cloud_i,/;"	v	module:global_parameters
+cme	escZ_march03.c	/^static double cme=9.1094e-28; \/* [g] - electron mass *\/$/;"	v	file:
+cmi	escZ_march03.c	/^static double cmi=1.6726e-24; \/* [g] - proton mass *\/$/;"	v	file:
+cmp_phy_qty	solver_petsc.F90	/^    SUBROUTINE cmp_phy_qty$/;"	s	subroutine:form_tangent
+cmp_phy_qty	solver_petsc.F90	/^    SUBROUTINE cmp_phy_qty$/;"	s	subroutine:form_tangent_RZcoor
+coll_enlarge	module.f90	/^  real(wp) r0,b0,edensity0,temconst,coll_enlarge$/;"	v	module:global_parameters
+collision	collision.f90	/^subroutine collision$/;"	s
+collision.f90	collision.f90	1;"	F
+collision_eon	collision_eon.F90	/^subroutine collision_eon$/;"	s
+collision_eon.F90	collision_eon.F90	1;"	F
+combine	escZ_march03.c	/^static double msm0, csc0, m0ms, c0cs, csc02, combine;$/;"	v	file:
+control_parameters	module.f90	/^module control_parameters$/;"	m
+cori.mk	cori.mk	1;"	F
+coty	module.f90	/^  real(wp),dimension(:),allocatable :: Yr, coty,/;"	v	module:global_parameters
+cr12	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+cr2	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+cr2gp	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+cr3	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+cr4	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+cr6	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+create_directory	create_directory.c	/^int create_directory(const char *pathname)$/;"	f
+create_directory.c	create_directory.c	1;"	F
+create_directory_	create_directory.c	/^int create_directory_(const char *pathname)$/;"	f
+crgm0	escZ_march03.c	/^static double cr2,cr3,cr4,cr6,cr12,cgp,c2gp,cgp_4,cr2gp,cgm0,crgm0;$/;"	v	file:
+crgq0	escZ_march03.c	/^static REAL A,ha,rha,hq,rhq,cgq0,crgq0;\/* period and inverse period in gq *\/$/;"	v	file:
+csc0	escZ_march03.c	/^static double msm0, csc0, m0ms, c0cs, csc02, combine;$/;"	v	file:
+csc0	module.f90	/^  real(wp)  msm0,m0ms,csc0,/;"	v	module:global_parameters
+csc02	escZ_march03.c	/^static double msm0, csc0, m0ms, c0cs, csc02, combine;$/;"	v	file:
+csc0_i	module.f90	/^  real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,csc0_i,/;"	v	module:global_parameters
+csr2css.f90	csr2css.f90	1;"	F
+csrcsc	csr2css.f90	/^subroutine csrcsc /;"	s
+current_eon	current_eon.F90	/^subroutine current_eon$/;"	s
+current_eon.F90	current_eon.F90	1;"	F
+current_ion	current_ion.F90	/^subroutine current_ion$/;"	s
+current_ion.F90	current_ion.F90	1;"	F
+d2gF	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+d2gY	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+dIomg_node	spl_profile.F90	/^                                           Te_node,dTe_node,Iomg_node,dIomg_node$/;"	v	module:profile_array
+dNe	escZ_march03.c	/^static REAL *Ne=NULL,*dNe=NULL;$/;"	v	file:
+dO_10	module.f90	/^           dnty_r(nbin_a),dO_10(/;"	v	module:diagnosis_array
+dRda	module.f90	/^                                       dRda,/;"	v	module:field_array
+dRdt	module.f90	/^                                       dRda, dRdt,/;"	v	module:field_array
+dT_10	module.f90	/^           dnty_r(nbin_a),dO_10(nbin_a),dT_10(/;"	v	module:diagnosis_array
+dT_da	function_gg.f90	/^FUNCTION dT_da(/;"	f
+dT_da_e	function_gg.f90	/^FUNCTION dT_da_e(/;"	f
+dTe_node	spl_profile.F90	/^                                           Te_node,dTe_node,/;"	v	module:profile_array
+dTeme	module.f90	/^  real(wp)  T_0,dTemi,xt,At,Bt,Tc,T_e0,dTeme,/;"	v	module:global_parameters
+dTemi	module.f90	/^  real(wp)  T_0,dTemi,/;"	v	module:global_parameters
+dTi_node	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: Ti_node,dTi_node,/;"	v	module:profile_array
+dVda	module.f90	/^      den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,/;"	v	module:field_array
+dX	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+dXD	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+dY	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+dYD	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+dZda	module.f90	/^                                       dRda, dRdt, dZda,/;"	v	module:field_array
+da	escZ_march03.c	/^      da=0.8\/(na1-1)$/;"	v
+da	escZ_march03.c	/^      da=1.\/(na1-1)$/;"	v
+da	escZ_march03.c	/^      real*8 da,dgq$/;"	v
+daF	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+daP	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+daT	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+dadtdz	module.f90	/^  real(wp),dimension(:),allocatable :: dadtdz$/;"	v	module:global_parameters
+data_pass	Theory_jb.f90	/^module data_pass$/;"	m
+daw	specfun.F	/^      function daw /;"	f
+ddT_da	module.f90	/^      Er_grid,Er_grid0,dphidt00,ddT_da,/;"	v	module:field_array
+ddene	module.f90	/^  real(wp) efluxi,efluxe,pfluxi,pfluxe,ddeni,ddene,/;"	v	module:diagnosis_array
+ddeni	module.f90	/^  real(wp) efluxi,efluxe,pfluxi,pfluxe,ddeni,/;"	v	module:diagnosis_array
+delete_phit_matrix	solver_petsc.F90	/^  subroutine delete_phit_matrix(/;"	s	module:phit_matrix_class
+delta_v	module.f90	/^  real(wp)  dradius, dtheta, delta_v$/;"	v	module:global_parameters
+deltar	module.f90	/^           kappan,flow0,flow1,flow2,ulength,utime,E_00,gyroradius,deltar,/;"	v	module:global_parameters
+deltat	module.f90	/^  real(wp),dimension(:),allocatable :: deltat$/;"	v	module:global_parameters
+deltaz	module.f90	/^           deltaz,/;"	v	module:global_parameters
+den_grid	module.f90	/^      den_grid,/;"	v	module:field_array
+density	function_gg.f90	/^FUNCTION density(/;"	f
+density_ave	module.f90	/^           uveloci,Tem_00,vthi,vthe,vthc,density_ave,/;"	v	module:global_parameters
+density_in_box	module.f90	/^            sn_box(nprobe),density_in_box(/;"	v	module:global_parameters
+density_vary	function_gg.f90	/^FUNCTION density_vary(/;"	f
+densitye	module.f90	/^  real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,/;"	v	module:field_array
+densityi	module.f90	/^  real(wp),dimension(:,:),allocatable :: phi,densityi,/;"	v	module:field_array
+destroy_solver	solver_petsc.F90	/^  subroutine destroy_solver(/;"	s	module:solver_data_class
+dflowe	module.f90	/^  real(wp) efluxi,efluxe,pfluxi,pfluxe,ddeni,ddene,dflowi,dflowe,/;"	v	module:diagnosis_array
+dflowi	module.f90	/^  real(wp) efluxi,efluxe,pfluxi,pfluxe,ddeni,ddene,dflowi,/;"	v	module:diagnosis_array
+dgF	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+dgY	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+diagnosis	diagnosis.f90	/^subroutine diagnosis$/;"	s
+diagnosis.f90	diagnosis.f90	1;"	F
+diagnosis_array	module.f90	/^module diagnosis_array$/;"	m
+distribution_para	function_gg.f90	/^FUNCTION distribution_para(/;"	f
+div1	module.f90	/^                                       phi_tmp,Jcbn,gsij,div1,/;"	v	module:field_array
+div2	module.f90	/^                                       phi_tmp,Jcbn,gsij,div1,div2,/;"	v	module:field_array
+divergence_j	solve_dphidt.F90	/^subroutine divergence_j$/;"	s
+djr	module.f90	/^   real(wp)  djr$/;"	v	module:esi_interface
+dlamda	Theory_jb.f90	/^  real*8 dlamda$/;"	v	module:data_pass
+dlgama	specfun.F	/^      function dlgama /;"	f
+dlnA_da	module.f90	/^   real(wp), dimension(:), allocatable :: flux_it,dlnA_da,/;"	v	module:esi_interface
+dlnTda	module.f90	/^  real(wp),dimension(:),allocatable :: backn,backu,backT,dlnnda,dlnTda,/;"	v	module:particle_array
+dlnTdae	module.f90	/^                                       dlnTdae,/;"	v	module:particle_array
+dlni	module.f90	/^                        dlni=/;"	v	module:global_parameters
+dlnnda	module.f90	/^  real(wp),dimension(:),allocatable :: backn,backu,backT,dlnnda,/;"	v	module:particle_array
+dlnndae	module.f90	/^                                       backne,backue,backTe,dlnndae,/;"	v	module:particle_array
+dn	module.f90	/^  real(wp)  n_0,dn,/;"	v	module:global_parameters
+dn_da	function_gg.f90	/^FUNCTION dn_da(/;"	f
+dne_grid	module.f90	/^      dni_grid,dne_grid$/;"	v	module:field_array
+dne_node	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: Ti_node,dTi_node,ne_node,dne_node,/;"	v	module:profile_array
+dni_grid	module.f90	/^      dni_grid,/;"	v	module:field_array
+dnty_on_bin	module.f90	/^  real(wp) sn0(nbin_a),dnty_on_bin(/;"	v	module:diagnosis_array
+dnty_on_bin_g	module.f90	/^  real(wp),dimension(:),allocatable :: fluxpsi,jaco_sum,En_00,En_tur,En_tot,sn0_g,dnty_on_bin_g$/;"	v	module:diagnosis_array
+dnty_r	module.f90	/^           dnty_r(/;"	v	module:diagnosis_array
+domega_da	function_gg.f90	/^FUNCTION domega_da(/;"	f
+doubleprec	module.f90	/^  integer, parameter :: doubleprec=/;"	v
+dphidt	module.f90	/^  real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt$/;"	v	module:field_array
+dphidt00	module.f90	/^      Er_grid,Er_grid0,dphidt00,/;"	v	module:field_array
+dradius	module.f90	/^  real(wp)  dradius,/;"	v	module:global_parameters
+dsda	function_gg.f90	/^FUNCTION dsda(/;"	f
+dsda_power	module.f90	/^                        dsda_power=/;"	v	module:global_parameters
+dsne	escZ_march03.c	/^static REAL *sne,*dsne;$/;"	v	file:
+dsubn	specfun.F	/^      subroutine dsubn /;"	s
+dt_coll	module.f90	/^           uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,/;"	v	module:global_parameters
+dt_coll_e	module.f90	/^           uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e,/;"	v	module:global_parameters
+dtemper	module.f90	/^  real(wp),dimension(:),allocatable :: markeri,markere,dtemper,/;"	v	module:field_array
+dtheta	module.f90	/^  real(wp)  dradius, dtheta,/;"	v	module:global_parameters
+du	module.f90	/^  real(wp)  du,/;"	v	module:global_parameters
+duda	module.f90	/^                                       dlnTdae,duda$/;"	v	module:particle_array
+dxD	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+dyD	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+ecollision	module.f90	/^  integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,ifelectron,ecollision,/;"	v	module:global_parameters
+edensity0	module.f90	/^  real(wp) r0,b0,edensity0,/;"	v	module:global_parameters
+edison.mk	edison.mk	1;"	F
+efield	module.f90	/^           entropye,efield,/;"	v	module:diagnosis_array
+eflux	module.f90	/^           entropye,efield,eradial,eflux(/;"	v	module:diagnosis_array
+efluxe	module.f90	/^  real(wp) efluxi,efluxe,/;"	v	module:diagnosis_array
+efluxi	module.f90	/^  real(wp) efluxi,/;"	v	module:diagnosis_array
+ei	specfun.F	/^      function ei /;"	f
+eigenmode	module.f90	/^  real(wp),dimension(:,:,:),allocatable :: eigenmode$/;"	v	module:diagnosis_array
+electromagnetic	module.f90	/^  integer :: electromagnetic$/;"	v	module:global_parameters
+electron_locator	pushe_new.F90	/^subroutine electron_locator$/;"	s
+enion	module.f90	/^  real(wp),dimension(:),allocatable :: enion$/;"	v	module:particle_array
+entropye	module.f90	/^           entropye,/;"	v	module:diagnosis_array
+entropyi	module.f90	/^  real(wp) efluxi,efluxe,pfluxi,pfluxe,ddeni,ddene,dflowi,dflowe,entropyi,/;"	v	module:diagnosis_array
+eone	specfun.F	/^      function eone /;"	f
+eq_data_name	module.f90	/^  character(25) :: Er_data_name,profile_data_name,eq_data_name$/;"	v	module:global_parameters
+eradial	module.f90	/^           entropye,efield,eradial,/;"	v	module:diagnosis_array
+escZ_march03.c	escZ_march03.c	1;"	F
+esi_interface	module.f90	/^module esi_interface$/;"	m
+esifree	escZ_march03.c	/^int esifree()$/;"	f
+esiget2dfunctions	escZ_march03.c	/^int esiget2dfunctions(REAL *a0,REAL *gq0,int *nval)$/;"	f
+esiget2dfunctions	escZ_march03.c	7;"	d	file:
+esiget2dfunctions0	escZ_march03.c	/^int esiget2dfunctions0(REAL a,REAL q,int k)$/;"	f
+esiget2dthese	escZ_march03.c	/^int esiget2dthese(REAL *Fj,  REAL *Faj, REAL *gFaj, REAL *gYaj, REAL *rj,$/;"	f
+esiget2dthese	escZ_march03.c	8;"	d	file:
+esigetb	escZ_march03.c	/^int esigetb(REAL *particle_array,int *nval, int *nn)$/;"	f
+esigetb	escZ_march03.c	4;"	d	file:
+esigetbf	escZ_march03.c	/^int esigetbf(REAL *particle_array,int *nval, int *nn)$/;"	f
+esigetbf	escZ_march03.c	5;"	d	file:
+esigetbfgrada	escZ_march03.c	/^int esigetbfgrada(REAL *a0,REAL *gq0,int *nval)$/;"	f
+esigetdensity	escZ_march03.c	/^void esigetdensity(double *ne,double *dne,double *Te,double *Ti,double *a)$/;"	f
+esigetpressure	escZ_march03.c	/^void esigetpressure(double *p,double *dp,double *a, int *nval)$/;"	f
+esigetprofiles	escZ_march03.c	/^int esigetprofiles(REAL *sF,REAL *sFa,	 $/;"	f
+esigetrzb	escZ_march03.c	/^int esigetrzb(REAL *R, REAL *Z, REAL *Bm,REAL *a0,REAL *q0,int *nval)$/;"	f
+esigetrzb	escZ_march03.c	6;"	d	file:
+esilink2c	escZ_march03.c	/^void esilink2c(REAL *XaF,REAL *XaFa	 $/;"	f
+esilink2c	escZ_march03.c	10;"	d	file:
+esilink2c4ne	escZ_march03.c	/^void esilink2c4ne(double *Xne,double *Xdne)$/;"	f
+esiread	escZ_march03.c	/^int esiread(REAL *b_axis, REAL *rmajor, char* FName)$/;"	f
+esiread	escZ_march03.c	9;"	d	file:
+eta_grid	module.f90	/^      den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,rho_grid,s_grid,eta_grid,/;"	v	module:field_array
+etracer_e0	module.f90	/^  real(wp)  etracer_i0, etracer_e0$/;"	v	module:global_parameters
+etracer_i0	module.f90	/^  real(wp)  etracer_i0,/;"	v	module:global_parameters
+evector	module.f90	/^  real(wp),dimension(:,:,:),allocatable :: evector,/;"	v	module:field_array
+expei	specfun.F	/^      function expei /;"	f
+f_jaco	function_gg.f90	/^function f_jaco(/;"	f
+factors_t	c_superlu_pdgssv.c	/^} factors_t;$/;"	t	typeref:struct:__anon1	file:
+fem	solver_petsc.F90	/^     type(fem_/;"	k	type:solver_data
+fft_gl.f90	fft_gl.f90	1;"	F
+fftc1d	fft_gl.f90	/^subroutine fftc1d(/;"	s
+fftr1d	fft_gl.f90	/^subroutine fftr1d(/;"	s
+field	field.f90	/^subroutine field(/;"	s
+field.f90	field.f90	1;"	F
+field_array	module.f90	/^module field_array$/;"	m
+find_dxda	solver_petsc.F90	/^  subroutine find_dxda(/;"	s	module:solver_data_class
+find_dxdadxdt	solver_petsc.F90	/^  subroutine find_dxdadxdt(/;"	s	module:solver_data_class
+find_dxdt	solver_petsc.F90	/^  subroutine find_dxdt(/;"	s	module:solver_data_class
+find_laplacian	solver_petsc.F90	/^  subroutine find_laplacian(/;"	s	module:solver_data_class
+find_rhs	solver_petsc.F90	/^  subroutine find_rhs(/;"	s	module:solver_data_class
+finval_v	module.f90	/^           uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,/;"	v	module:global_parameters
+fixtheta	solver_petsc.F90	/^  subroutine fixtheta(/;"	s	module:solver_data_class
+flTe	spl_profile.F90	/^  FUNCTION flTe(/;"	f	subroutine:read_profiles
+flTi	spl_profile.F90	/^  FUNCTION flTi(/;"	f	subroutine:read_profiles
+flag_DEN	module.f90	/^  integer flag_DEN,/;"	v	module:control_parameters
+flag_FLOW	module.f90	/^  integer flag_DEN,flag_FLOW,/;"	v	module:control_parameters
+flag_GRID	module.f90	/^  integer flag_DEN,flag_FLOW,flag_PHI,flag_RESTART,flag_GRID$/;"	v	module:control_parameters
+flag_Lc	module.f90	/^  integer flag_Lc,/;"	v	module:control_parameters
+flag_PHI	module.f90	/^  integer flag_DEN,flag_FLOW,flag_PHI,/;"	v	module:control_parameters
+flag_RESTART	module.f90	/^  integer flag_DEN,flag_FLOW,flag_PHI,flag_RESTART,/;"	v	module:control_parameters
+flip_rotation	module.f90	/^  real(wp) flip_rotation,/;"	v	module:control_parameters
+fln	spl_profile.F90	/^  FUNCTION fln(/;"	f	subroutine:read_profiles
+flow0	module.f90	/^           kappan,flow0,/;"	v	module:global_parameters
+flow1	module.f90	/^           kappan,flow0,flow1,/;"	v	module:global_parameters
+flow2	module.f90	/^           kappan,flow0,flow1,flow2,/;"	v	module:global_parameters
+flow_grid	module.f90	/^  real(wp),dimension(:,:),allocatable :: on_grid, flow_grid$/;"	v	module:field_array
+flux_11	module.f90	/^  real(wp),dimension(:),allocatable :: sumfluxpsi,flux_11$/;"	v	module:diagnosis_array
+flux_A	module.f90	/^   real(wp), dimension(:), allocatable :: flux_it,dlnA_da,flux_A$/;"	v	module:esi_interface
+flux_it	module.f90	/^   real(wp), dimension(:), allocatable :: flux_it,/;"	v	module:esi_interface
+fluxpsi	module.f90	/^  real(wp),dimension(:),allocatable :: fluxpsi,/;"	v	module:diagnosis_array
+for_E	module.f90	/^  real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,/;"	v	module:global_parameters
+for_rho	module.f90	/^  real(wp)  msm0,m0ms,csc0,c0cs,for_rho,/;"	v	module:global_parameters
+for_the_search	function_gg.f90	155;"	c	function:fun_zero
+form_tangent	solver_petsc.F90	/^subroutine form_tangent(/;"	s	module:solver_data_class
+form_tangent_RZcoor	solver_petsc.F90	/^subroutine form_tangent_RZcoor(/;"	s	module:solver_data_class
+fptr	c_superlu_pdgssv.c	/^typedef long int fptr;  \/* 64 bit *\/$/;"	t	file:
+frTe	spl_profile.F90	/^  FUNCTION frTe(/;"	f	subroutine:read_profiles
+frTi	spl_profile.F90	/^  FUNCTION frTi(/;"	f	subroutine:read_profiles
+frn	spl_profile.F90	/^  FUNCTION frn(/;"	f	subroutine:read_profiles
+fun1d	function_gg.f90	212;"	c	function:rho2a_zero
+fun1d	function_gg.f90	227;"	c	function:dsda
+fun1d	function_gg.f90	244;"	c	function:s2a_zero
+fun1d	setup_v2.F90	69;"	c	subroutine:setup
+fun_para_zero	function_gg.f90	/^FUNCTION fun_para_zero(/;"	f
+fun_perp_zero	function_gg.f90	/^FUNCTION fun_perp_zero(/;"	f
+fun_zero	function_gg.f90	/^FUNCTION fun_zero(/;"	f
+function_gg.f90	function_gg.f90	1;"	F
+gFa	escZ_march03.c	/^static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL$/;"	v	file:
+gFa	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,gFa,/;"	v	module:esi_interface
+gFaa	escZ_march03.c	/^static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL$/;"	v	file:
+gFaa	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,/;"	v	module:esi_interface
+gH	escZ_march03.c	/^static REAL *gH,*gHa,*gHq,*gHaq,*gHqq,*gHaqq;$/;"	v	file:
+gHa	escZ_march03.c	/^static REAL *gH,*gHa,*gHq,*gHaq,*gHqq,*gHaqq;$/;"	v	file:
+gHaq	escZ_march03.c	/^static REAL *gH,*gHa,*gHq,*gHaq,*gHqq,*gHaqq;$/;"	v	file:
+gHaqq	escZ_march03.c	/^static REAL *gH,*gHa,*gHq,*gHaq,*gHqq,*gHaqq;$/;"	v	file:
+gHq	escZ_march03.c	/^static REAL *gH,*gHa,*gHq,*gHaq,*gHqq,*gHaqq;$/;"	v	file:
+gHqq	escZ_march03.c	/^static REAL *gH,*gHa,*gHq,*gHaq,*gHqq,*gHaqq;$/;"	v	file:
+gYa	escZ_march03.c	/^static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL$/;"	v	file:
+gYa	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,/;"	v	module:esi_interface
+gYaa	escZ_march03.c	/^static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL$/;"	v	file:
+gYaa	module.f90	/^   real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,/;"	v	module:esi_interface
+ga0	module.f90	/^  real(wp) :: ga0,/;"	v	module:global_parameters
+gaa	module.f90	/^      den_grid,vth_grid,vth_inv,gaa,/;"	v	module:field_array
+gagf0	module.f90	/^  real(wp) :: ga0, gagw, gagf0;/;"	v	module:global_parameters
+gagw	module.f90	/^  real(wp) :: ga0, gagw,/;"	v	module:global_parameters
+gam	module.f90	/^  integer :: gam,/;"	v	module:global_parameters
+gama0	module.f90	/^  real(wp) gama0,/;"	v	module:field_array
+gama1	module.f90	/^  real(wp) gama0, gama1$/;"	v	module:field_array
+gan	module.f90	/^  integer :: gam, gan;/;"	v	module:global_parameters
+gbeta	module.f90	/^                                       dRda, dRdt, dZda, Dzdt, gbeta$/;"	v	module:field_array
+gcmotion	escZ_march03.c	/^int gcmotion(REAL *dXgr,$/;"	f
+gcmotion	escZ_march03.c	11;"	d	file:
+gcmotion_e	escZ_march03.c	/^int gcmotion_e(REAL *dXgr,$/;"	f
+gcmotion_e	escZ_march03.c	13;"	d	file:
+gcmotion_em	escZ_march03.c	/^int gcmotion_em(REAL *dXgr,$/;"	f
+gcmotion_em	escZ_march03.c	12;"	d	file:
+gcmotion_eon	escZ_march03.c	/^int gcmotion_eon(REAL *dXgr,$/;"	f
+gcmotion_eon	escZ_march03.c	14;"	d	file:
+gcmotion_eon_em	escZ_march03.c	/^int gcmotion_eon_em(REAL *dXgr,$/;"	f
+gcmotion_eon_em	escZ_march03.c	15;"	d	file:
+general_flux_average	function_gg.f90	/^subroutine general_flux_average(/;"	s
+get4exb	escZ_march03.c	/^int get4exb(REAL *cij1,$/;"	f
+get4exb	escZ_march03.c	16;"	d	file:
+get4exb12	escZ_march03.c	/^int get4exb12(REAL *cij1,$/;"	f
+get4exb12	escZ_march03.c	17;"	d	file:
+get_3D_flow	get_3D_flow.F90	/^subroutine get_3D_flow(/;"	s
+get_3D_flow.F90	get_3D_flow.F90	1;"	F
+get_Te_fluctuation	get_Te_fluctuation.F90	/^subroutine get_Te_fluctuation(/;"	s
+get_Te_fluctuation.F90	get_Te_fluctuation.F90	1;"	F
+get_ZF_shear	get_ZF_shear.F90	/^subroutine get_ZF_shear(/;"	s
+get_ZF_shear.F90	get_ZF_shear.F90	1;"	F
+get_ave_grada_table	function_gg.f90	/^Subroutine get_ave_grada_table$/;"	s
+get_fluxes	get_fluxes.F90	/^subroutine get_fluxes(/;"	s
+get_fluxes.F90	get_fluxes.F90	1;"	F
+get_fluxes_e	get_fluxes_e.F90	/^subroutine get_fluxes_e(/;"	s
+get_fluxes_e.F90	get_fluxes_e.F90	1;"	F
+get_profiles	spl_profile.F90	/^subroutine get_profiles$/;"	s
+get_profiles_on_nodes	spl_profile.F90	/^subroutine get_profiles_on_nodes$/;"	s
+get_table_4_dlnAda	function_gg.f90	/^subroutine get_table_4_dlnAda$/;"	s
+getcollisions	escZ_march03.c	/^void getcollisions($/;"	f
+gh	escZ_march03.c	/^,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;$/;"	v	file:
+gh	module.f90	/^          rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,/;"	v	module:esi_interface
+gha	escZ_march03.c	/^,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;$/;"	v	file:
+gha	module.f90	/^          rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,/;"	v	module:esi_interface
+ghq	escZ_march03.c	/^,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;$/;"	v	file:
+ghq	module.f90	/^          rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,/;"	v	module:esi_interface
+gij	module.f90	/^  real(wp),dimension(:,:),allocatable :: wtp1,wtp2,gij,/;"	v	module:field_array
+gk_matid	solver_petsc.F90	/^     integer,dimension(:),pointer :: gk_matid$/;"	k	type:phit_matrix_data
+global_parameters	module.f90	/^ module global_parameters$/;"	m
+gmga	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+gmgb	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+gq	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+gs	function_gg.f90	/^FUNCTION gs(/;"	f
+gsgaa	module.f90	/^      Er_grid,Er_grid0,dphidt00,ddT_da,Te_grid,gsgaa,/;"	v	module:field_array
+gsij	module.f90	/^                                       phi_tmp,Jcbn,gsij,/;"	v	module:field_array
+gyroradius	module.f90	/^           kappan,flow0,flow1,flow2,ulength,utime,E_00,gyroradius,/;"	v	module:global_parameters
+hF	escZ_march03.c	/^static double F0[128],F1[128],F2[128],F3[128],tF1=5.,hF,rhF;$/;"	v	file:
+ha	escZ_march03.c	/^static REAL A,ha,rha,hq,rhq,cgq0,crgq0;\/* period and inverse period in gq *\/$/;"	v	file:
+heatflux	module.f90	/^  real(wp),dimension(:),allocatable :: markeri,markere,dtemper,heatflux,/;"	v	module:field_array
+hopper.mk	hopper.mk	1;"	F
+hq	escZ_march03.c	/^static REAL A,ha,rha,hq,rhq,cgq0,crgq0;\/* period and inverse period in gq *\/$/;"	v	file:
+i	escZ_march03.c	/^         a(i)=da*(i-1)$/;"	v
+i	escZ_march03.c	/^      do i=4,6$/;"	v
+i0	escZ_march03.c	/^static int i0=0,i1=1,j00,j10,j01,j11; $/;"	v	file:
+i1	escZ_march03.c	/^static int i0=0,i1=1,j00,j10,j01,j11; $/;"	v	file:
+icollision	module.f90	/^  integer plasma,linterp_from_nodes,icollision,/;"	v	module:global_parameters
+idiag	module.f90	/^       idiag,/;"	v	module:global_parameters
+idiag1	module.f90	/^       idiag,ncycle,mtdiag,idiag1,/;"	v	module:global_parameters
+idiag2	module.f90	/^       idiag,ncycle,mtdiag,idiag1,idiag2,/;"	v	module:global_parameters
+idiag_e	module.f90	/^       nelectron,ntracer_e,ntracer00,me00,idiag_e$/;"	v	module:global_parameters
+ier	spl_profile.F90	/^    integer ndum,ier$/;"	v	module:profile_array
+ifdphi	module.f90	/^          ifdphi,/;"	v	module:global_parameters
+ifelectron	module.f90	/^  integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,ifelectron,/;"	v	module:global_parameters
+ifneoclassical	module.f90	/^  integer:: ifneoclassical /;"	v	module:global_parameters
+igrid	module.f90	/^  integer,dimension(:),allocatable :: itran,igrid$/;"	v	module:field_array
+ihistory	module.f90	/^  integer,parameter :: ihistory=/;"	v	module:global_parameters
+iload	module.f90	/^       stdout,mype,numberpe,mode00,nbound,irun,iload,/;"	v	module:global_parameters
+int8	module.f90	/^                       &int8=/;"	v
+ion_locator	get_3D_flow.F90	/^subroutine ion_locator /;"	s
+ion_locator0	get_3D_flow.F90	/^subroutine ion_locator0 /;"	s
+ipsi	module.f90	/^       idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,/;"	v	module:global_parameters
+iratio_dthe	module.f90	/^  integer flag_Lc,iratio_dthe,/;"	v	module:control_parameters
+irewrite	module.f90	/^  integer flag_Lc,iratio_dthe,irewrite$/;"	v	module:control_parameters
+irk	module.f90	/^       stdout,mype,numberpe,mode00,nbound,irun,iload,irk,/;"	v	module:global_parameters
+irun	module.f90	/^       stdout,mype,numberpe,mode00,nbound,irun,/;"	v	module:global_parameters
+istart	module.f90	/^       mzetamax,istep,ndiag,istart,/;"	v	module:global_parameters
+istep	module.f90	/^       mzetamax,istep,/;"	v	module:global_parameters
+itran	module.f90	/^  integer,dimension(:),allocatable :: itran,/;"	v	module:field_array
+its	module.f90	/^  integer(wp) its,/;"	v	module:field_array
+its_jacobi	module.f90	/^  integer(wp) its,its_jacobi$/;"	v	module:field_array
+j	escZ_march03.c	/^         do j=1,np1$/;"	v
+j	escZ_march03.c	/^         j=j+np1$/;"	v
+j	escZ_march03.c	/^         j=np1*i$/;"	v
+j	escZ_march03.c	/^      integer i,j,k$/;"	v
+j00	escZ_march03.c	/^static int i0=0,i1=1,j00,j10,j01,j11; $/;"	v	file:
+j01	escZ_march03.c	/^static int i0=0,i1=1,j00,j10,j01,j11; $/;"	v	file:
+j10	escZ_march03.c	/^static int i0=0,i1=1,j00,j10,j01,j11; $/;"	v	file:
+j11	escZ_march03.c	/^static int i0=0,i1=1,j00,j10,j01,j11; $/;"	v	file:
+jaco_sum	module.f90	/^  real(wp),dimension(:),allocatable :: fluxpsi,jaco_sum,/;"	v	module:diagnosis_array
+je	module.f90	/^  integer je$/;"	v	module:global_parameters
+jteon0	module.f90	/^  integer,dimension(:),allocatable :: jteon0,/;"	v	module:particle_array
+jteon1	module.f90	/^  integer,dimension(:),allocatable :: jteon0,jteon1$/;"	v	module:particle_array
+jtion0	module.f90	/^  integer,dimension(:,:),allocatable :: jtion0,/;"	v	module:particle_array
+jtion1	module.f90	/^  integer,dimension(:,:),allocatable :: jtion0,jtion1$/;"	v	module:particle_array
+jtp1	module.f90	/^  integer,dimension(:,:),allocatable :: jtp1,/;"	v	module:field_array
+jtp2	module.f90	/^  integer,dimension(:,:),allocatable :: jtp1,jtp2$/;"	v	module:field_array
+k	escZ_march03.c	/^            k=k+1$/;"	v
+k	escZ_march03.c	/^      k=esigetrzb(r,z,B,a,gq,n)$/;"	v
+k	escZ_march03.c	/^      k=gcmotion(dgr,da,dgq,dgf,gr,a,gq,gm,n)$/;"	v
+kappan	module.f90	/^           kappan,/;"	v	module:global_parameters
+kappate	module.f90	/^  real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,tstep,kappati,kappate,/;"	v	module:global_parameters
+kappati	module.f90	/^  real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,tstep,kappati,/;"	v	module:global_parameters
+left1	module.f90	/^  real(wp),dimension(:),allocatable :: tphi, bphi, left1,/;"	v	module:field_array
+left2	module.f90	/^  real(wp),dimension(:),allocatable :: tphi, bphi, left1, left2 /;"	v	module:field_array
+left_pe	module.f90	/^  integer  :: left_pe,/;"	v	module:particle_decomp
+linear_solve_log	solver_petsc.F90	/^module linear_solve_log$/;"	m
+linterp_from_nodes	module.f90	/^  integer plasma,linterp_from_nodes,/;"	v	module:global_parameters
+lmax	module.f90	/^  real(wp) lmin, lmax,/;"	v	module:global_parameters
+lmin	module.f90	/^  real(wp) lmin,/;"	v	module:global_parameters
+load	load.F90	/^subroutine load$/;"	s
+load.F90	load.F90	1;"	F
+m0ms	escZ_march03.c	/^static double msm0, csc0, m0ms, c0cs, csc02, combine;$/;"	v	file:
+m0ms	module.f90	/^  real(wp)  msm0,m0ms,/;"	v	module:global_parameters
+m0ms_i	module.f90	/^  real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,/;"	v	module:global_parameters
+m_poloidal	module.f90	/^  integer,parameter :: mflux=5,num_mode=8,m_poloidal=/;"	v	module:diagnosis_array
+machar	specfun.F	/^      subroutine machar /;"	s
+main.F90	main.F90	1;"	F
+maintnT	module.f90	/^       idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,maintnT,/;"	v	module:global_parameters
+mappingG2L	module.f90	/^  integer,dimension(:),allocatable :: mappingL2G, mappingG2L$/;"	v	module:global_parameters
+mappingGlobal2Local	solver_petsc.F90	/^subroutine mappingGlobal2Local(/;"	s	module:solver_data_class
+mappingL2G	module.f90	/^  integer,dimension(:),allocatable :: mappingL2G,/;"	v	module:global_parameters
+mappingLoal2Global	solver_petsc.F90	/^subroutine mappingLoal2Global(/;"	s	module:solver_data_class
+markere	module.f90	/^  real(wp),dimension(:),allocatable :: markeri,markere,/;"	v	module:field_array
+markeri	module.f90	/^  real(wp),dimension(:),allocatable :: markeri,/;"	v	module:field_array
+mat	solver_petsc.F90	/^     type(phit_matr/;"	k	type:solver_data
+mat_type	solver_petsc.F90	/^     integer :: numbdy, mat_type,/;"	k	type:phit_matrix_data
+me	module.f90	/^  integer micell,mi,mimax,me,/;"	v	module:global_parameters
+me00	module.f90	/^       nelectron,ntracer_e,ntracer00,me00,/;"	v	module:global_parameters
+mean	solver_petsc.F90	/^    FUNCTION mean(/;"	f	subroutine:form_tangent
+mean	solver_petsc.F90	/^    FUNCTION mean(/;"	f	subroutine:form_tangent_RZcoor
+memax	module.f90	/^  integer micell,mi,mimax,me,memax,/;"	v	module:global_parameters
+mesum	module.f90	/^  real(wp) misum,mesum /;"	v	module:global_parameters
+metric	module.f90	/^   real(wp)  metric(/;"	v	module:esi_interface
+metric_elements	function_gg.f90	/^function metric_elements(/;"	f
+mflux	module.f90	/^  integer,parameter :: mflux=/;"	v	module:diagnosis_array
+mgrid	module.f90	/^  integer micell,mi,mimax,me,memax,mgrid,/;"	v	module:global_parameters
+mi	module.f90	/^  integer mic/;"	v	module:global_parameters
+micell	module.f90	/^  integer micell,/;"	v	module:global_parameters
+mimax	module.f90	/^  integer micell,mi,mimax,/;"	v	module:global_parameters
+misum	module.f90	/^  real(wp) misum,/;"	v	module:global_parameters
+mmode	module.f90	/^  integer nmode(num_mode),mmode(/;"	v	module:diagnosis_array
+mode00	module.f90	/^       stdout,mype,numberpe,mode00,/;"	v	module:global_parameters
+module.f90	module.f90	1;"	F
+movie_3D_h5	module.f90	/^       mzetamax,istep,ndiag,istart,movie_3D_h5,/;"	v	module:global_parameters
+mp	main.F90	/^      integer,intent(INOUT) :: mp,/;"	v
+mpi_Rsize	module.f90	/^  integer, parameter :: mpi_Rsize=/;"	v
+mpi_complex_size	module.f90	/^                        mpi_complex_size=/;"	v
+mpi_defs	module.f90	/^module mpi_defs$/;"	m
+mpmax	main.F90	/^      integer,intent(INOUT) :: mp,mpmax$/;"	v
+mpsi	module.f90	/^  integer micell,mi,mimax,me,memax,mgrid,mpsi,/;"	v	module:global_parameters
+msm0	escZ_march03.c	/^static double msm0, csc0, m0ms, c0cs, csc02, combine;$/;"	v	file:
+msm0	module.f90	/^  real(wp)  msm0,/;"	v	module:global_parameters
+msm0_i	module.f90	/^  real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,/;"	v	module:global_parameters
+msnap	module.f90	/^       mzetamax,istep,ndiag,istart,movie_3D_h5,ntracer,msnap,/;"	v	module:global_parameters
+mstep	module.f90	/^       mzetamax,istep,ndiag,istart,movie_3D_h5,ntracer,msnap,mstep,/;"	v	module:global_parameters
+mstepall	module.f90	/^       mzetamax,istep,ndiag,istart,movie_3D_h5,ntracer,msnap,mstep,mstepall,/;"	v	module:global_parameters
+mtdiag	module.f90	/^       idiag,ncycle,mtdiag,/;"	v	module:global_parameters
+mtheta	module.f90	/^  integer,dimension(:),allocatable :: mtheta$/;"	v	module:global_parameters
+mthetamax	module.f90	/^  integer micell,mi,mimax,me,memax,mgrid,mpsi,mthetamax,/;"	v	module:global_parameters
+my_ZL	module.f90	/^  integer my_nf, my_nfL, my_ZL(/;"	v	module:diagnosis_array
+my_nf	module.f90	/^  integer my_nf,/;"	v	module:diagnosis_array
+my_nfL	module.f90	/^  integer my_nf, my_nfL,/;"	v	module:diagnosis_array
+mype	module.f90	/^       stdout,mype,/;"	v	module:global_parameters
+myrank_partd	module.f90	/^  integer  :: partd_comm,nproc_partd,myrank_partd$/;"	v	module:particle_decomp
+myrank_toroidal	module.f90	/^  integer  :: toroidal_comm,nproc_toroidal,myrank_toroidal$/;"	v	module:particle_decomp
+mzetamax	module.f90	/^       mzetamax,/;"	v	module:global_parameters
+nF	escZ_march03.c	/^static int nF=128;$/;"	v	file:
+n_0	module.f90	/^  real(wp)  n_0,/;"	v	module:global_parameters
+n_T_u_group	function_gg.f90	/^subroutine n_T_u_group$/;"	s
+n_T_u_group_e	function_gg.f90	/^subroutine n_T_u_group_e$/;"	s
+n_node	module.f90	/^  integer Er_from_GTC_Neo,n_node$/;"	v	module:global_parameters
+na1	escZ_march03.c	/^      integer na1,np1,n$/;"	v
+nag.F	nag.F	1;"	F
+nbad	Theory_jb.f90	/^  integer nbad$/;"	v	module:data_pass
+nbin_a	module.f90	/^  integer,parameter :: mflux=5,num_mode=8,m_poloidal=9,nrbin=5,nbin_a=/;"	v	module:diagnosis_array
+nbound	module.f90	/^       stdout,mype,numberpe,mode00,nbound,/;"	v	module:global_parameters
+ncolm	module.f90	/^  integer,parameter :: nn=13, ncolm=/;"	v	module:diagnosis_array
+ncycle	module.f90	/^       idiag,ncycle,/;"	v	module:global_parameters
+ndiag	module.f90	/^       mzetamax,istep,ndiag,/;"	v	module:global_parameters
+ndum	spl_profile.F90	/^    integer ndum,/;"	v	module:profile_array
+ne_50	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor,ne_50,/;"	v	module:profile_array
+ne_51	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor2,ne_51,/;"	v	module:profile_array
+ne_node	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: Ti_node,dTi_node,ne_node,/;"	v	module:profile_array
+nelectron	module.f90	/^       nelectron,/;"	v	module:global_parameters
+neumbcfix	solver_petsc.F90	/^subroutine neumbcfix(/;"	s	module:solver_data_class
+new_fem_masssolver	solver_petsc.F90	/^  subroutine new_fem_masssolver(/;"	s	module:solver_data_class
+new_fem_solver	solver_petsc.F90	/^  subroutine new_fem_solver(/;"	s	module:solver_data_class
+new_gk_matid	solver_petsc.F90	/^  subroutine new_gk_matid(/;"	s	module:solver_data_class
+new_gk_solver	solver_petsc.F90	/^  subroutine new_gk_solver(/;"	s	module:solver_data_class
+new_phit_matrix	solver_petsc.F90	/^  subroutine new_phit_matrix(/;"	s	module:phit_matrix_class
+nf	module.f90	/^  integer,dimension(:),allocatable :: nf,/;"	v	module:diagnosis_array
+nfL	module.f90	/^  integer,dimension(:),allocatable :: nf,nfL,/;"	v	module:diagnosis_array
+nfL_e	module.f90	/^  integer,dimension(:),allocatable :: nf,nfL,nf_e,nfL_e$/;"	v	module:diagnosis_array
+nf_e	module.f90	/^  integer,dimension(:),allocatable :: nf,nfL,nf_e,/;"	v	module:diagnosis_array
+nfile	module.f90	/^  integer my_nf, my_nfL, my_ZL(2),nfile$/;"	v	module:diagnosis_array
+nmode	module.f90	/^  integer nmode(/;"	v	module:diagnosis_array
+nn	module.f90	/^  integer,parameter :: nn=/;"	v	module:diagnosis_array
+nonlinear	module.f90	/^  real(wp) nonlinear,/;"	v	module:global_parameters
+np1	escZ_march03.c	/^      integer na1,np1,n$/;"	v
+npartdom	module.f90	/^  integer  :: ntoroidal,npartdom$/;"	v	module:particle_decomp
+nprobe	module.f90	/^  integer,parameter :: nprobe=/;"	v	module:global_parameters
+nproc_partd	module.f90	/^  integer  :: partd_comm,nproc_partd,/;"	v	module:particle_decomp
+nproc_toroidal	module.f90	/^  integer  :: toroidal_comm,nproc_toroidal,/;"	v	module:particle_decomp
+nrbin	module.f90	/^  integer,parameter :: mflux=5,num_mode=8,m_poloidal=9,nrbin=/;"	v	module:diagnosis_array
+nss	module.f90	/^  integer plasma,linterp_from_nodes,icollision,nss,/;"	v	module:global_parameters
+ntoroidal	module.f90	/^  integer  :: ntoroidal,/;"	v	module:particle_decomp
+ntracer	module.f90	/^       mzetamax,istep,ndiag,istart,movie_3D_h5,ntracer,/;"	v	module:global_parameters
+ntracer00	module.f90	/^       nelectron,ntracer_e,ntracer00,/;"	v	module:global_parameters
+ntracer_e	module.f90	/^       nelectron,ntracer_e,/;"	v	module:global_parameters
+nullify_solver	solver_petsc.F90	/^  subroutine nullify_solver(/;"	s	module:solver_data_class
+num_mode	module.f90	/^  integer,parameter :: mflux=5,num_mode=/;"	v	module:diagnosis_array
+numbdy	solver_petsc.F90	/^     integer :: numbdy,/;"	k	type:phit_matrix_data
+numberpe	module.f90	/^       stdout,mype,numberpe,/;"	v	module:global_parameters
+nv	module.f90	/^  integer   nv$/;"	v	module:global_parameters
+object_1	function_gg.f90	/^FUNCTION object_1(/;"	f
+object_10	function_gg.f90	/^FUNCTION object_10(/;"	f
+object_11	function_gg.f90	/^real*8 FUNCTION object_11(/;"	f
+object_12	function_gg.f90	/^FUNCTION object_12(/;"	f
+object_2	function_gg.f90	/^FUNCTION object_2(/;"	f
+object_3	function_gg.f90	/^FUNCTION object_3(/;"	f
+object_4	function_gg.f90	/^FUNCTION object_4(/;"	f
+object_5	function_gg.f90	/^FUNCTION object_5(/;"	f
+object_6	function_gg.f90	/^FUNCTION object_6(/;"	f
+object_7	function_gg.f90	/^FUNCTION object_7(/;"	f
+object_8	function_gg.f90	/^FUNCTION object_8(/;"	f
+object_9	function_gg.f90	/^FUNCTION object_9(/;"	f
+object_9s	function_gg.f90	/^FUNCTION object_9s(/;"	f
+object_u0	function_gg.f90	/^FUNCTION object_u0(/;"	f
+object_u1	function_gg.f90	/^FUNCTION object_u1(/;"	f
+object_u2	function_gg.f90	/^FUNCTION object_u2(/;"	f
+object_u3	function_gg.f90	/^FUNCTION object_u3(/;"	f
+on_grid	module.f90	/^  real(wp),dimension(:,:),allocatable :: on_grid,/;"	v	module:field_array
+open_files	open_files.f90	/^subroutine open_files$/;"	s
+open_files.f90	open_files.f90	1;"	F
+order	module.f90	/^  integer ::  order=/;"	v	module:global_parameters
+order	solver_petsc.F90	/^     integer order$/;"	k	type:solver_data
+output_profiles	output_profiles.f90	/^Subroutine output_profiles$/;"	s
+output_profiles.f90	output_profiles.f90	1;"	F
+pZei	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+partd_comm	module.f90	/^  integer  :: partd_comm,/;"	v	module:particle_decomp
+particle_array	module.f90	/^module particle_array$/;"	m
+particle_decomp	module.f90	/^module particle_decomp$/;"	m
+particle_domain_location	module.f90	/^  integer  :: toroidal_domain_location,particle_domain_location$/;"	v	module:particle_decomp
+perm_c	c_superlu_pdgssv.c	/^    int *perm_c;$/;"	m	struct:__anon1	file:
+perm_r	c_superlu_pdgssv.c	/^    int *perm_r;$/;"	m	struct:__anon1	file:
+petsc_init	solver_petsc.F90	/^  subroutine petsc_init(/;"	s	module:solver_data_class
+petsc_solve	solver_petsc.F90	/^  subroutine petsc_solve(/;"	s	module:solver_data_class
+pflux_e	module.f90	/^  real(wp),dimension(:,:,:),allocatable :: evector,pflux_i,pflux_e$/;"	v	module:field_array
+pflux_i	module.f90	/^  real(wp),dimension(:,:,:),allocatable :: evector,pflux_i,/;"	v	module:field_array
+pfluxe	module.f90	/^  real(wp) efluxi,efluxe,pfluxi,pfluxe,/;"	v	module:diagnosis_array
+pfluxi	module.f90	/^  real(wp) efluxi,efluxe,pfluxi,/;"	v	module:diagnosis_array
+pgyro	module.f90	/^  real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,/;"	v	module:field_array
+phase	main.F90	/^      real,pointer,dimension(:,:) :: phase,/;"	v
+phase0	main.F90	/^      real,pointer,dimension(:,:) :: phase,phase0$/;"	v
+phi	module.f90	/^  real(wp),dimension(:,:),allocatable :: phi,/;"	v	module:field_array
+phi00	module.f90	/^  real(wp),dimension(:),allocatable :: phi00,/;"	v	module:field_array
+phi_tmp	module.f90	/^                                       phi_tmp,/;"	v	module:field_array
+phip00	module.f90	/^  real(wp),dimension(:),allocatable :: phi00,phip00,/;"	v	module:field_array
+phit_matrix_class	solver_petsc.F90	/^module phit_matrix_class$/;"	m
+phit_matrix_data	solver_petsc.F90	/^  type phit_matrix_data$/;"	t	module:phit_matrix_type
+phit_matrix_type	solver_petsc.F90	/^module phit_matrix_type$/;"	m
+phitilda_solve	solver_petsc.F90	/^  subroutine phitilda_solve(/;"	s	module:solver_data_class
+pi	module.f90	/^  real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,/;"	v	module:global_parameters
+plasma	module.f90	/^  integer plasma,/;"	v	module:global_parameters
+plenth	module.f90	/^      pmarki,pmarke,zonali,zonale,psi_grid,plenth,/;"	v	module:field_array
+plot_array	solver_petsc.F90	/^subroutine plot_array(/;"	s
+pmarke	module.f90	/^      pmarki,pmarke,/;"	v	module:field_array
+pmarki	module.f90	/^      pmarki,/;"	v	module:field_array
+pmass0	module.f90	/^                        pmass0=/;"	v	module:global_parameters
+poisson	poisson.F90	/^subroutine poisson(/;"	s
+poisson.F90	poisson.F90	1;"	F
+poisson_initial	poisson.F90	/^subroutine poisson_initial(/;"	s
+profile_array	spl_profile.F90	/^module profile_array$/;"	m
+profile_data_name	module.f90	/^  character(25) :: Er_data_name,profile_data_name,/;"	v	module:global_parameters
+psi_grid	module.f90	/^      pmarki,pmarke,zonali,zonale,psi_grid,/;"	v	module:field_array
+pushe	pushe_new.F90	/^subroutine pushe(/;"	s
+pushe_new.F90	pushe_new.F90	1;"	F
+pusheon	pushe_new.F90	/^subroutine pusheon(/;"	s
+pushi	pushi_new.F90	/^subroutine pushi$/;"	s
+pushi_new.F90	pushi_new.F90	1;"	F
+pushion	pushi_new.F90	/^subroutine pushion$/;"	s
+q0	module.f90	/^  real(wp) nonlinear,a0,a1,a,q0,/;"	v	module:global_parameters
+q1	module.f90	/^  real(wp) nonlinear,a0,a1,a,q0,q1,/;"	v	module:global_parameters
+q2	module.f90	/^  real(wp) nonlinear,a0,a1,a,q0,q1,q2,/;"	v	module:global_parameters
+q_grid	module.f90	/^      pmarki,pmarke,zonali,zonale,psi_grid,plenth,allnodes,r_grid,q_grid,/;"	v	module:field_array
+qelectron	module.f90	/^           deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,/;"	v	module:global_parameters
+qion	module.f90	/^           deltaz,zetamax,zetamin,umax,rc,rw,qion,/;"	v	module:global_parameters
+qp	escZ_march03.c	/^,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;$/;"	v	file:
+qtinv	module.f90	/^  real(wp),dimension(:),allocatable :: phi00,phip00,rtemi,rteme,rden,qtinv,/;"	v	module:field_array
+r	escZ_march03.c	/^static REAL *r=NULL,*ra=NULL,*rq=NULL,*z=NULL,*za=NULL,*zq=NULL$/;"	v	file:
+r0	module.f90	/^  real(wp) r0,/;"	v	module:global_parameters
+r2cfftgl	fft_gl.f90	/^Subroutine r2cfftgl(/;"	s
+r8_erf	specfun.F	/^      function r8_erf /;"	f
+r8_erfc	specfun.F	/^      function r8_erfc /;"	f
+r8_erfcx	specfun.F	/^      function r8_erfcx /;"	f
+r8_gamma	specfun.F	/^      function r8_gamma /;"	f
+r8_psi	specfun.F	/^      function r8_psi /;"	f
+r_grid	module.f90	/^      pmarki,pmarke,zonali,zonale,psi_grid,plenth,allnodes,r_grid,/;"	v	module:field_array
+ra	escZ_march03.c	/^static REAL *r=NULL,*ra=NULL,*rq=NULL,*z=NULL,*za=NULL,*zq=NULL$/;"	v	file:
+ra	module.f90	/^          rr,ra,/;"	v	module:esi_interface
+raT	escZ_march03.c	/^static REAL aTe=15.,aTi=15.,raT;$/;"	v	file:
+ratio_Er401	module.f90	/^  real(wp) ratio_Er401,/;"	v	module:control_parameters
+ratio_Er_grid	module.f90	/^  real(wp) ratio_Er401,ratio_Er_grid,/;"	v	module:control_parameters
+ratio_dthe0	module.f90	/^  real(wp) ratio_dthe0,/;"	v	module:control_parameters
+ratio_dthe1	module.f90	/^  real(wp) ratio_dthe0,ratio_dthe1,/;"	v	module:control_parameters
+rc	module.f90	/^           deltaz,zetamax,zetamin,umax,rc,/;"	v	module:global_parameters
+rcor	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor,/;"	v	module:profile_array
+rcor2	spl_profile.F90	/^    real(wp), dimension(:), allocatable :: rcor2,/;"	v	module:profile_array
+rden	module.f90	/^  real(wp),dimension(:),allocatable :: phi00,phip00,rtemi,rteme,rden,/;"	v	module:field_array
+rdtem	module.f90	/^           amp_mode(2,num_mode,2),rdtem(/;"	v	module:diagnosis_array
+rdtem0	module.f90	/^           rdtem0(/;"	v	module:diagnosis_array
+rdtem_all	module.f90	/^           amp_mode(2,num_mode,2),rdtem(nrbin),rtden(nrbin),rdtem_all(/;"	v	module:diagnosis_array
+read1	setup_v2.F90	/^  namelist\/ read1 /;"	n	subroutine:read_input_params
+read2	setup_v2.F90	/^  namelist\/ read2 /;"	n	subroutine:read_input_params
+read_control_params	setup_v2.F90	/^  subroutine read_control_params$/;"	s
+read_input_params	setup_v2.F90	/^  Subroutine read_input_params$/;"	s
+read_profiles	spl_profile.F90	/^subroutine read_profiles(/;"	s
+read_profiles_NSTX	spl_profile.F90	/^subroutine read_profiles_NSTX(/;"	s
+reducedjacobian	function_gg.f90	/^FUNCTION reducedjacobian(/;"	f
+ren	specfun.F	/^      function ren /;"	f
+restart.F90	restart.F90	1;"	F
+restart_read	restart.F90	/^subroutine restart_read$/;"	s
+restart_write	restart.F90	/^subroutine restart_write$/;"	s
+rhF	escZ_march03.c	/^static double F0[128],F1[128],F2[128],F3[128],tF1=5.,hF,rhF;$/;"	v	file:
+rha	escZ_march03.c	/^static REAL A,ha,rha,hq,rhq,cgq0,crgq0;\/* period and inverse period in gq *\/$/;"	v	file:
+rho0	module.f90	/^           uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,/;"	v	module:global_parameters
+rho1	module.f90	/^           uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,/;"	v	module:global_parameters
+rho2a_zero	function_gg.f90	/^FUNCTION rho2a_zero(/;"	f
+rho_grid	module.f90	/^      den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,rho_grid,/;"	v	module:field_array
+rhq	escZ_march03.c	/^static REAL A,ha,rha,hq,rhq,cgq0,crgq0;\/* period and inverse period in gq *\/$/;"	v	file:
+ribesl	specfun.F	/^      subroutine ribesl /;"	s
+right_pe	module.f90	/^  integer  :: left_pe,right_pe$/;"	v	module:particle_decomp
+rjbesl	specfun.F	/^      subroutine rjbesl /;"	s
+rkbesl	specfun.F	/^      subroutine rkbesl /;"	s
+rmarker	module.f90	/^           entropye,efield,eradial,eflux(mflux),rmarker(/;"	v	module:diagnosis_array
+rmax	module.f90	/^  real(wp) lmin, lmax, rmin, rmax$/;"	v	module:global_parameters
+rmin	module.f90	/^  real(wp) lmin, lmax, rmin,/;"	v	module:global_parameters
+rprobe	module.f90	/^  real(wp)  rprobe(/;"	v	module:global_parameters
+rq	escZ_march03.c	/^static REAL *r=NULL,*ra=NULL,*rq=NULL,*z=NULL,*za=NULL,*zq=NULL$/;"	v	file:
+rq	module.f90	/^          rr,ra,rq,/;"	v	module:esi_interface
+rr	module.f90	/^          rr,/;"	v	module:esi_interface
+rtden	module.f90	/^           amp_mode(2,num_mode,2),rdtem(nrbin),rtden(/;"	v	module:diagnosis_array
+rteme	module.f90	/^  real(wp),dimension(:),allocatable :: phi00,phip00,rtemi,rteme,/;"	v	module:field_array
+rtemi	module.f90	/^  real(wp),dimension(:),allocatable :: phi00,phip00,rtemi,/;"	v	module:field_array
+run_parameters	setup_v2.F90	/^  namelist \/run_parameters\//;"	n	subroutine:setup
+rw	module.f90	/^           deltaz,zetamax,zetamin,umax,rc,rw,/;"	v	module:global_parameters
+rybesl	specfun.F	/^      subroutine rybesl /;"	s
+s0	module.f90	/^           s0,/;"	v	module:global_parameters
+s1	module.f90	/^           s0,s1,/;"	v	module:global_parameters
+s2a_zero	function_gg.f90	/^FUNCTION s2a_zero(/;"	f
+s_grid	module.f90	/^      den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,rho_grid,s_grid,/;"	v	module:field_array
+sa	escZ_march03.c	/^static REAL *sa,*gq,*aF,*daF,*dgF,*d2gF,*dgY,*d2gY,*aT,*daT,*aP,*daP;$/;"	v	file:
+save_flux_ave	module.f90	/^  real,dimension(:),allocatable :: save_flux_ave$/;"	v	module:field_array
+scaleuporigeq	escZ_march03.c	/^void scaleuporigeq(double *Sc)$/;"	f
+scaleuporigeq	escZ_march03.c	19;"	d	file:
+seed	module.f90	/^  integer seed$/;"	v	module:global_parameters
+sega	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+segb	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+sendtotrap	Theory_jb.f90	170;"	c	function:trap
+sendtotrap	Theory_jb.f90	37;"	c	subroutine:theory
+set_particle_decomp	setup_v2.F90	/^    Subroutine set_particle_decomp$/;"	s
+setparticletype	escZ_march03.c	/^int setparticletype($/;"	f
+settemperatures	escZ_march03.c	/^void settemperatures(double *Te,double *Ti)$/;"	f
+setup	setup_v2.F90	/^Subroutine setup$/;"	s
+setup_v2.F90	setup_v2.F90	1;"	F
+shifte	shifte.F90	/^subroutine shifte$/;"	s
+shifte.F90	shifte.F90	1;"	F
+shifti	shifti.F90	/^subroutine shifti$/;"	s
+shifti.F90	shifti.F90	1;"	F
+singleprec	module.f90	/^                       &singleprec=/;"	v
+smga	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+smgb	escZ_march03.c	/^static double sega,smga,gmga,Zga,pZei,segb,smgb,gmgb,Zgb;$/;"	v	file:
+smooth	smooth.F90	/^subroutine smooth(/;"	s
+smooth.F90	smooth.F90	1;"	F
+smooth_phi	smooth.F90	/^subroutine smooth_phi$/;"	s
+sn0	module.f90	/^  real(wp) sn0(/;"	v	module:diagnosis_array
+sn0_g	module.f90	/^  real(wp),dimension(:),allocatable :: fluxpsi,jaco_sum,En_00,En_tur,En_tot,sn0_g,/;"	v	module:diagnosis_array
+sn_box	module.f90	/^            sn_box(/;"	v	module:global_parameters
+snapout	module.f90	/^  integer,parameter :: ihistory=22,snapout=/;"	v	module:global_parameters
+snapshot	snapshot.f90	/^subroutine snapshot$/;"	s
+snapshot.f90	snapshot.f90	1;"	F
+sne	escZ_march03.c	/^static REAL *sne,*dsne;$/;"	v	file:
+solve	solver_petsc.F90	/^  subroutine solve(/;"	s	module:solver_data_class
+solve_dphidt	solve_dphidt.F90	/^subroutine solve_dphidt(/;"	s
+solve_dphidt.F90	solve_dphidt.F90	1;"	F
+solver_data	solver_petsc.F90	/^  type solver_data$/;"	t	module:solver_data_type
+solver_data_class	solver_petsc.F90	/^module solver_data_class$/;"	m
+solver_data_type	solver_petsc.F90	/^module solver_data_type$/;"	m
+solver_init	solver_petsc.F90	/^  subroutine solver_init(/;"	s	module:solver_data_class
+solver_petsc.F90	solver_petsc.F90	1;"	F
+spEr	spl_profile.F90	/^  type(ezspline1_r8):: spn,spTi,spO,spTe,spEr,/;"	v	module:spl_profiles
+spEr0	spl_profile.F90	/^  type(ezspline1_r8):: spn,spTi,spO,spTe,spEr,spEr0,/;"	v	module:spl_profiles
+spO	spl_profile.F90	/^  type(ezspline1_r8):: spn,spTi,spO,/;"	v	module:spl_profiles
+spPHI	spl_profile.F90	/^  type(ezspline1_r8):: spn,spTi,spO,spTe,spEr,spEr0,spPHI$/;"	v	module:spl_profiles
+spTe	spl_profile.F90	/^  type(ezspline1_r8):: spn,spTi,spO,spTe,/;"	v	module:spl_profiles
+spTi	spl_profile.F90	/^  type(ezspline1_r8):: spn,spTi,/;"	v	module:spl_profiles
+specfun.F	specfun.F	1;"	F
+species	escZ_march03.c	/^int species(double *mass, double *mass0, double *charge, double *charge0)$/;"	f
+species	escZ_march03.c	18;"	d	file:
+spl_free	spl_profile.F90	/^subroutine spl_free$/;"	s
+spl_init	spl_profile.F90	/^subroutine spl_init$/;"	s
+spl_init2	spl_profile.F90	/^subroutine spl_init2$/;"	s
+spl_profile.F90	spl_profile.F90	1;"	F
+spl_profiles	spl_profile.F90	/^module spl_profiles$/;"	m
+spn	spl_profile.F90	/^  type(ezspline1_r8):: spn,/;"	v	module:spl_profiles
+sr	escZ_march03.c	/^static REAL *sr,*sra,*srq,*sraq;$/;"	v	file:
+sra	escZ_march03.c	/^static REAL *sr,*sra,*srq,*sraq;$/;"	v	file:
+sraq	escZ_march03.c	/^static REAL *sr,*sra,*srq,*sraq;$/;"	v	file:
+srq	escZ_march03.c	/^static REAL *sr,*sra,*srq,*sraq;$/;"	v	file:
+stdout	module.f90	/^       stdout,/;"	v	module:global_parameters
+stupidpass	Theory_jb.f90	169;"	c	function:trap
+stupidpass	Theory_jb.f90	191;"	c	function:R2_inverse
+stupidpass	Theory_jb.f90	36;"	c	subroutine:theory
+stupidpass	function_gg.f90	139;"	c	function:reducedjacobian
+stupidpass	function_gg.f90	269;"	c	function:surface_average
+stupidpass	function_gg.f90	295;"	c	function:density_vary
+stupidpass	function_gg.f90	319;"	c	function:object_1
+stupidpass	function_gg.f90	344;"	c	function:object_2
+stupidpass	function_gg.f90	372;"	c	function:object_3
+stupidpass	function_gg.f90	392;"	c	function:object_4
+stupidpass	function_gg.f90	415;"	c	function:object_5
+stupidpass	function_gg.f90	438;"	c	function:object_6
+stupidpass	function_gg.f90	462;"	c	function:object_7
+stupidpass	function_gg.f90	488;"	c	function:object_8
+stupidpass	function_gg.f90	511;"	c	function:object_9
+stupidpass	function_gg.f90	535;"	c	function:object_9s
+stupidpass	function_gg.f90	559;"	c	function:object_10
+stupidpass	function_gg.f90	581;"	c	function:object_11
+stupidpass	function_gg.f90	605;"	c	function:object_u0
+stupidpass	function_gg.f90	631;"	c	function:object_u1
+stupidpass	function_gg.f90	671;"	c	function:object_u2
+stupidpass	function_gg.f90	703;"	c	function:object_u3
+stupidpass	function_gg.f90	731;"	c	function:object_12
+stupidpass	function_gg.f90	796;"	c	subroutine:general_flux_average
+stupidpass	function_gg.f90	856;"	c	function:arclength
+stupidpass	setup_v2.F90	68;"	c	subroutine:setup
+subtarget.mk	subtarget.mk	1;"	F
+sumfluxpsi	module.f90	/^  real(wp),dimension(:),allocatable :: sumfluxpsi,/;"	v	module:diagnosis_array
+surface_average	function_gg.f90	/^FUNCTION surface_average(/;"	f
+sw	escZ_march03.c	/^static int *sw;$/;"	v	file:
+sw	module.f90	/^          rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw$/;"	v	module:esi_interface
+sz	escZ_march03.c	/^static REAL *sz,*sza,*szq,*szaq;$/;"	v	file:
+sza	escZ_march03.c	/^static REAL *sz,*sza,*szq,*szaq;$/;"	v	file:
+szaq	escZ_march03.c	/^static REAL *sz,*sza,*szq,*szaq;$/;"	v	file:
+szq	escZ_march03.c	/^static REAL *sz,*sza,*szq,*szaq;$/;"	v	file:
+tF1	escZ_march03.c	/^static double F0[128],F1[128],F2[128],F3[128],tF1=5.,hF,rhF;$/;"	v	file:
+target.mk	target.mk	1;"	F
+tem_nrbin	module.f90	/^           rdtem0(nrbin),tem_nrbin(/;"	v	module:diagnosis_array
+temconst	module.f90	/^  real(wp) r0,b0,edensity0,temconst,/;"	v	module:global_parameters
+temperature	function_gg.f90	/^FUNCTION temperature(/;"	f
+temperature_e	function_gg.f90	/^FUNCTION temperature_e(/;"	f
+testAxb	solver_petsc.F90	/^  subroutine testAxb(/;"	s	module:solver_data_class
+testmasssolve	solver_petsc.F90	/^  subroutine testmasssolve(/;"	s	module:solver_data_class
+testsolve	solver_petsc.F90	/^  subroutine testsolve(/;"	s	module:solver_data_class
+tga	escZ_march03.c	/^static char tga,tgb;$/;"	v	file:
+tgb	escZ_march03.c	/^static char tga,tgb;$/;"	v	file:
+tgyro	module.f90	/^  real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,/;"	v	module:field_array
+theory	Theory_jb.f90	/^subroutine theory$/;"	s
+theta	escZ_march03.c	/^c     coordinates gr_parallel,a,theta,phi of n particles with magnetic $/;"	v
+timer	main.F90	/^subroutine timer(/;"	s
+timestamp	specfun.F	/^      subroutine timestamp /;"	s
+tite	module.f90	/^  real(wp),dimension(:),allocatable :: tite$/;"	v	module:global_parameters
+toroidal_comm	module.f90	/^  integer  :: toroidal_comm,/;"	v	module:particle_decomp
+toroidal_domain_location	module.f90	/^  integer  :: toroidal_domain_location,/;"	v	module:particle_decomp
+tphi	module.f90	/^  real(wp),dimension(:),allocatable :: tphi,/;"	v	module:field_array
+tprobe	module.f90	/^  real(wp)  rprobe(nprobe),tprobe(/;"	v	module:global_parameters
+trans	module.f90	/^                        trans=/;"	v	module:global_parameters
+trap	Theory_jb.f90	/^real*8 FUNCTION trap(/;"	f
+trap_fraction	Theory_jb.f90	/^real*8 FUNCTION trap_fraction(/;"	f
+tstep	module.f90	/^  real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,tstep,/;"	v	module:global_parameters
+twopi	module.f90	/^  real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,/;"	v	module:global_parameters
+u_0	module.f90	/^  real(wp)  du,xu,Au,Bu,u_0$/;"	v	module:global_parameters
+u_parallel	function_gg.f90	/^FUNCTION u_parallel(/;"	f
+uflow	module.f90	/^  real(wp)  rprobe(nprobe),tprobe(nprobe),uflow(/;"	v	module:global_parameters
+ulength	module.f90	/^           kappan,flow0,flow1,flow2,ulength,/;"	v	module:global_parameters
+umax	module.f90	/^           deltaz,zetamax,zetamin,umax,/;"	v	module:global_parameters
+utime	module.f90	/^           kappan,flow0,flow1,flow2,ulength,utime,/;"	v	module:global_parameters
+uveloci	module.f90	/^           uveloci,/;"	v	module:global_parameters
+var_control	setup_v2.F90	/^  namelist\/var_control\//;"	n	subroutine:read_control_params
+view_distribution	view_distribution.f90	/^Subroutine view_distribution(/;"	s
+view_distribution.f90	view_distribution.f90	1;"	F
+view_orbit	view_orbit.F90	/^Subroutine view_orbit$/;"	s
+view_orbit.F90	view_orbit.F90	1;"	F
+vth_grid	module.f90	/^      den_grid,vth_grid,/;"	v	module:field_array
+vth_inv	module.f90	/^      den_grid,vth_grid,vth_inv,/;"	v	module:field_array
+vthc	module.f90	/^           uveloci,Tem_00,vthi,vthe,vthc,/;"	v	module:global_parameters
+vthe	module.f90	/^           uveloci,Tem_00,vthi,vthe,/;"	v	module:global_parameters
+vthi	module.f90	/^           uveloci,Tem_00,vthi,/;"	v	module:global_parameters
+vthprobe	module.f90	/^  real(wp)  rprobe(nprobe),tprobe(nprobe),uflow(nprobe),vthprobe(/;"	v	module:global_parameters
+vthprobe_e	module.f90	/^  real(wp)  rprobe(nprobe),tprobe(nprobe),uflow(nprobe),vthprobe(nprobe),vthprobe_e(/;"	v	module:global_parameters
+w2_eon0	module.f90	/^  real(wp) w2_ion0(nbin_a), w2_ion1(nbin_a), w2_eon0(/;"	v	module:diagnosis_array
+w2_eon1	module.f90	/^  real(wp) w2_ion0(nbin_a), w2_ion1(nbin_a), w2_eon0(nbin_a), w2_eon1(/;"	v	module:diagnosis_array
+w2_ion0	module.f90	/^  real(wp) w2_ion0(/;"	v	module:diagnosis_array
+w2_ion1	module.f90	/^  real(wp) w2_ion0(nbin_a), w2_ion1(/;"	v	module:diagnosis_array
+w_initial_in	module.f90	/^  real(wp) ratio_Er401,ratio_Er_grid,w_initial_in$/;"	v	module:control_parameters
+weight_damping_eon	weight_damping_eon_new2.F90	/^subroutine weight_damping_eon$/;"	s
+weight_damping_eon_new2.F90	weight_damping_eon_new2.F90	1;"	F
+weight_damping_ion	weight_damping_new.F90	/^subroutine weight_damping_ion$/;"	s
+weight_damping_new.F90	weight_damping_new.F90	1;"	F
+weight_damping_rate	module.f90	/^  real(wp),parameter :: weight_damping_rate=/;"	v	module:global_parameters
+weight_field	weight_damping_new.F90	/^subroutine weight_field(/;"	s
+weight_field_eon	weight_damping_eon_new2.F90	/^subroutine weight_field_eon(/;"	s
+wimcompressibility	module.f90	/^  integer,parameter  :: wimcompressibility=/;"	v	module:global_parameters
+wp	module.f90	/^                       &wp=/;"	v
+wpeon	module.f90	/^  real(wp),dimension(:),allocatable :: wzion,wzeon,wpeon,/;"	v	module:particle_array
+wpion	module.f90	/^  real(wp),dimension(:,:),allocatable :: wpion,/;"	v	module:particle_array
+write	escZ_march03.c	/^      write(*,'(1p6a10)')'r','z','ra','za','rq','zq'$/;"	v
+wteon0	module.f90	/^  real(wp),dimension(:),allocatable :: wzion,wzeon,wpeon,wteon0,/;"	v	module:particle_array
+wteon1	module.f90	/^  real(wp),dimension(:),allocatable :: wzion,wzeon,wpeon,wteon0,wteon1$/;"	v	module:particle_array
+wtion0	module.f90	/^  real(wp),dimension(:,:),allocatable :: wpion,wtion0,/;"	v	module:particle_array
+wtion1	module.f90	/^  real(wp),dimension(:,:),allocatable :: wpion,wtion0,wtion1$/;"	v	module:particle_array
+wtp1	module.f90	/^  real(wp),dimension(:,:),allocatable :: wtp1,/;"	v	module:field_array
+wtp2	module.f90	/^  real(wp),dimension(:,:),allocatable :: wtp1,wtp2,/;"	v	module:field_array
+wzeon	module.f90	/^  real(wp),dimension(:),allocatable :: wzion,wzeon,/;"	v	module:particle_array
+wzion	module.f90	/^  real(wp),dimension(:),allocatable :: wzion,/;"	v	module:particle_array
+xD	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+xF	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+xn	module.f90	/^  real(wp)  n_0,dn,xn,/;"	v	module:global_parameters
+xt	module.f90	/^  real(wp)  T_0,dTemi,xt,/;"	v	module:global_parameters
+xt_e	module.f90	/^  real(wp)  T_0,dTemi,xt,At,Bt,Tc,T_e0,dTeme,xt_e,/;"	v	module:global_parameters
+xu	module.f90	/^  real(wp)  du,xu,/;"	v	module:global_parameters
+y	escZ_march03.c	/^static REAL y,Y,yy,YY;$/;"	v	file:
+yD	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+yF	escZ_march03.c	/^static REAL xF,XF,xD,XD,dX,dxD,dXD,yF,YF,yD,YD,dY,dyD,dYD;$/;"	v	file:
+yy	escZ_march03.c	/^static REAL y,Y,yy,YY;$/;"	v	file:
+z	escZ_march03.c	/^c4.   Example of getting r,z,B in a number of points$/;"	v
+z	escZ_march03.c	/^static REAL *r=NULL,*ra=NULL,*rq=NULL,*z=NULL,*za=NULL,*zq=NULL$/;"	v	file:
+z	module.f90	/^          rr,ra,rq,z,/;"	v	module:esi_interface
+za	escZ_march03.c	/^static REAL *r=NULL,*ra=NULL,*rq=NULL,*z=NULL,*za=NULL,*zq=NULL$/;"	v	file:
+za	module.f90	/^          rr,ra,rq,z,za,/;"	v	module:esi_interface
+zeon	module.f90	/^  real(wp),pointer,dimension(:,:) :: zion,zion0,zeon,/;"	v	module:particle_array
+zeon0	module.f90	/^  real(wp),pointer,dimension(:,:) :: zion,zion0,zeon,zeon0,/;"	v	module:particle_array
+zeon00	module.f90	/^  real(wp),pointer,dimension(:,:) :: zion,zion0,zeon,zeon0,zeon00$/;"	v	module:particle_array
+zeondim	module.f90	/^          ifdphi,zeondim$/;"	v	module:global_parameters
+zero01	solver_petsc.F90	/^     real(doubleprec),allocatable,dimension(:) :: zero01,/;"	k	type:solver_data
+zero10	solver_petsc.F90	/^     real(doubleprec),allocatable,dimension(:) :: zero01, zero10$/;"	k	type:solver_data
+zetamax	module.f90	/^           deltaz,zetamax,/;"	v	module:global_parameters
+zetamin	module.f90	/^           deltaz,zetamax,zetamin,/;"	v	module:global_parameters
+zion	module.f90	/^  real(wp),pointer,dimension(:,:) :: zion,/;"	v	module:particle_array
+zion0	module.f90	/^  real(wp),pointer,dimension(:,:) :: zion,zion0,/;"	v	module:particle_array
+zonale	module.f90	/^      pmarki,pmarke,zonali,zonale,/;"	v	module:field_array
+zonali	module.f90	/^      pmarki,pmarke,zonali,/;"	v	module:field_array
+zq	escZ_march03.c	/^static REAL *r=NULL,*ra=NULL,*rq=NULL,*z=NULL,*za=NULL,*zq=NULL$/;"	v	file:
+zq	module.f90	/^          rr,ra,rq,z,za,zq,/;"	v	module:esi_interface

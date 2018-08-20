@@ -67,7 +67,7 @@ program GTS
   end if
 
   ! input parameters, setup equilibrium, allocate memory 
-  CALL SETUP
+  call setup
 
   ! solver
   ! which solver to use
@@ -139,36 +139,36 @@ program GTS
   endif
 
   ! initialize particle position and velocity
-  CALL LOAD
-
+  call load
+  
   if(mype==0) then 
      call check_eq
 !     call view_distribution(0)
   end if
 
   istep=0
-!  if(mype==0) CALL view_orbit
+!  if(mype==0) call view_orbit
 
 ! initial field
   irk=2
   idiag=1
-  CALL CHARGE_ION
+  call charge_ion
 
-  if(ifelectron/=0) CALL CHARGE_EON
+  if(ifelectron/=0) call charge_eon
 
-  CALL POISSON( solver1, masssolver  )
-!  CALL POISSON( solver_dphi_dt )
+  call poisson( solver1, masssolver  )
+!  call poisson( solver_dphi_dt )
 
-  CALL SMOOTH(0)
+  call smooth(0)
 
-  CALL SMOOTH(1)
+  call smooth(1)
 
-  CALL FIELD(masssolver)
+  call field(masssolver)
 
   if(ifelectron==2.and.ifdphi==1) then
-     CALL CURRENT_ION
-     CALL CURRENT_EON
-     CALL SOLVE_DPHIDT(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
+     call current_ion
+     call current_eon
+     call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
   end if
 
 !  call check_temperature
@@ -178,7 +178,9 @@ program GTS
 ! ********************
 if(irun==0) then 
    istep=0
-   CALL SNAPSHOT     ! snapshot at t=0
+   call snapshot     ! snapshot at t=0
+   call check_tracer_e
+   call check_tracer_i 
 end if 
 
 if(irun==-100) then
@@ -204,15 +206,15 @@ end if
         idiag=mod(irk+1,2)+mod(istep,ndiag)
 
 ! calculate test like-particle collisions
-        CALL COLLISION  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
+        call collision  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
 
         call timer(t0,dt,t0wc,dtwc)
         time(8)=time(8)+dt
         timewc(8)=timewc(8)+dtwc
 
 ! push ion
-      !  CALL PUSHI
-        CALL PUSHION
+      !  call pushi
+        call pushion
 
         call timer(t0,dt,t0wc,dtwc)
         time(1)=time(1)+dt
@@ -231,20 +233,20 @@ end if
         endif
         
 ! redistribute ion across PEs
-        CALL SHIFTI
+        call shifti
 
         call timer(t0,dt,t0wc,dtwc)
         time(2)=time(2)+dt
         timewc(2)=timewc(2)+dtwc
 
 ! Calculate ion weight damping 
-        if(irk==2.and.wimcompressibility==2) call WEIGHT_DAMPING_ION
+        if(irk==2.and.wimcompressibility==2) call weight_damping_ion
 
         if(irk==2) call check_tracer_i
 ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
 ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
 ! in PUSHI for calculating electric force on ions
-        CALL CHARGE_ION
+        call charge_ion
 
         call timer(t0,dt,t0wc,dtwc)
         time(3)=time(3)+dt
@@ -263,18 +265,18 @@ end if
          !  but give almost identical results for particle weight and ererything else according to a short test (20 steps) 
 
          ! calculate electron collisions
-              CALL COLLISION_EON  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
+              call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
               call timer(t0,dt,t0wc,dtwc)
               time(9)=time(9)+dt
               timewc(9)=timewc(9)+dtwc
 
          !     CALL PUSHE(irk)
-              CALL PUSHEON(solver1, masssolver, irk)
+              call pusheon(solver1, masssolver, irk)
               call timer(t0,dt,t0wc,dtwc)
               time(10)=time(10)+dt
               timewc(10)=timewc(10)+dtwc
 
-              CALL SHIFTE
+              call shifte
               call timer(t0,dt,t0wc,dtwc)
               time(11)=time(11)+dt
               timewc(11)=timewc(11)+dtwc
@@ -308,24 +310,24 @@ end if
 ! get_fluexs_e in pushe
 ! push electron -- the 1st step of 2nd order Runge-Kutta
              !    CALL PUSHE(1)
-                 CALL PUSHEON(solver1, masssolver, 1)
+                 call pusheon(solver1, masssolver, 1)
                  call timer(t0,dt,t0wc,dtwc)
                  time(10)=time(10)+dt
                  timewc(10)=timewc(10)+dtwc
 
-                 CALL SHIFTE
+                 call shifte
                  call timer(t0,dt,t0wc,dtwc)
                  time(11)=time(11)+dt
                  timewc(11)=timewc(11)+dtwc
 
 ! push electron -- the 2nd step of 2nd order Runge-Kutta
              !    CALL PUSHE(2)
-                 CALL PUSHEON(solver1, masssolver, 2)
+                 call pusheon(solver1, masssolver, 2)
                  call timer(t0,dt,t0wc,dtwc)
                  time(10)=time(10)+dt
                  timewc(10)=timewc(10)+dtwc
 
-                 CALL SHIFTE
+                 call shifte
                  call timer(t0,dt,t0wc,dtwc)
                  time(11)=time(11)+dt
                  timewc(11)=timewc(11)+dtwc
@@ -334,12 +336,12 @@ end if
               end do
            end if    ! end if(nelectron==1)
 
-           if(irk==2.and.wimcompressibility==2) CALL WEIGHT_DAMPING_EON
+           if(irk==2.and.wimcompressibility==2) call weight_damping_eon
 
 ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
 ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
 ! for calculating gamma_e
-           CALL CHARGE_EON
+           call charge_eon
            call timer(t0,dt,t0wc,dtwc)
            time(12)=time(12)+dt
            timewc(12)=timewc(12)+dtwc
@@ -347,15 +349,15 @@ end if
         endif    ! end if(ifelectron/=0)
 
 ! solve GK Poisson equation using adiabatic electron
-        CALL POISSON( solver1, masssolver )
-!        CALL POISSON( solver_dphi_dt )
+        call poisson( solver1, masssolver )
+!        call poisson( solver_dphi_dt )
 
         call timer(t0,dt,t0wc,dtwc)
         time(4)=time(4)+dt
         timewc(4)=timewc(4)+dtwc
 
 ! smoothing,field diagnosis and finite difference for e_field
-        CALL SMOOTH(0)
+        call smooth(0)
 
         call timer(t0,dt,t0wc,dtwc)
         time(5)=time(5)+dt
@@ -363,7 +365,7 @@ end if
 
         idiag=mod(irk,2)+mod(istep+1,ndiag)
 
-        CALL SMOOTH(1)  ! 1. solve zonal flow for nonlinear run;
+        call smooth(1)  ! 1. solve zonal flow for nonlinear run;
                         ! 2. smooth the complete phi;
                         ! 3. fft and filter       
 
@@ -372,16 +374,16 @@ end if
         timewc(5)=timewc(5)+dtwc
 
 ! field
-        CALL FIELD(masssolver)
+        call field(masssolver)
 
         call timer(t0,dt,t0wc,dtwc)
         time(6)=time(6)+dt
         timewc(6)=timewc(6)+dtwc
 
         if(ifelectron==2.and.ifdphi==1) then
-           CALL CURRENT_ION
-           CALL CURRENT_EON
-           CALL SOLVE_DPHIDT(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
+           call current_ion
+           call current_eon
+           call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
         end if
 
      enddo  ! enddo irk=1,2
@@ -390,7 +392,7 @@ end if
         !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
         if(mod(istep,msnap) .eq. 0) then 
            !  phi_tmp=phi_tmp/real(msnap,wp)
-           CALL SNAPSHOT
+           call snapshot
 
            !  phi_tmp=0.0_wp
         end if

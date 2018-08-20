@@ -16,7 +16,7 @@ end module precision
  module global_parameters
   use precision
   integer,parameter :: ihistory=22,snapout=33
-  integer micell,mi,mimax,me,memax,mgrid,mpsi,mthetamax,& ! ,mzeta
+  integer micell,mi,mimax,me,ini_me, ini_mi, memax,mgrid,mpsi,mthetamax,& ! ,mzeta
        mzetamax,istep,ndiag,istart,movie_3D_h5,ntracer,msnap,mstep,mstepall,&
        stdout,mype,numberpe,mode00,nbound,irun,iload,irk,&
        idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,maintnT,&
@@ -33,15 +33,16 @@ end module precision
   real(wp),parameter :: B_00=1.0e4_wp,  &  ! code unit for B, in unit gauss
                         R_00=100._wp,  &  ! code unit for length, in cm
                         c=2.9979e10_wp, &
-                      !  pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
-                      !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
                         pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
                         amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
-                      !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
                         amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
                         dlni=16.0_wp, &
                         dsda_power=0.2_wp
+                      !  pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
+                      !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
+                      !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
+
   integer jr
 
   real(wp)  T_0,dTemi,xt,At,Bt,Tc,T_e0,dTeme,xt_e,At_e,Bt_e,Tc_e
@@ -124,6 +125,9 @@ module particle_array
 ! so that we can pass them as dummy arguments to a subroutine and be allowed
 ! to reallocate them inside that subroutine if needed.
   real(wp),pointer,dimension(:,:) :: zion,zion0,zeon,zeon0,zeon00
+  real(wp), dimension(:), allocatable :: elabels, ilabels
+  integer, parameter:: num_of_etracers = 50, num_of_itracers =50, nstep_for_tracer_record = 5
+  real(wp), dimension(:) :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
   real(wp),dimension(:),allocatable :: enion
   real(wp),dimension(:),allocatable :: backn,backu,backT,dlnnda,dlnTda,&
                                        backne,backue,backTe,dlnndae,&

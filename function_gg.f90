@@ -943,7 +943,7 @@ FUNCTION dn_da(adum,thedum)
             x=temconst*(adum-rc)
 !cj            dn_da=kappan*exp(-x**edensity0) ! dlnn/da
 !cj            dn_da=densi*dn_da               ! dn/da
-            tmp=kappan*exp(-x**edensity0) ! dlnn/da
+            tmp=kappan*exp(-ABS(x)**edensity0) ! dlnn/da
             tmp2=densi*tmp               ! dn/da
 
             dn_da=tmp2
@@ -1087,7 +1087,7 @@ FUNCTION dT_da(adum,thedum)
             x=rw*(adum-rc)
 !cj            dT_da=q1*exp(-x**q0)
 !cj            dT_da=tempi*dT_da
-            tmp=q1*exp(-x**q0)
+            tmp=q1*exp(-ABS(x)**q0)
             tmp2=tempi*tmp
 
             dT_da=tmp2
@@ -1139,7 +1139,7 @@ FUNCTION dT_da_e(adum,thedum)
             x=flow2*(adum-rc)
 !cj            dT_da_e=flow1*exp(-x**flow0)
 !cj            dT_da_e=tempe*dT_da_e
-            tmp=flow1*exp(-x**flow0)
+            tmp=flow1*exp(-ABS(x)**flow0)
             tmp2=tempe*tmp
 
             dT_da_e=tmp2
@@ -1185,7 +1185,7 @@ FUNCTION domega_da(adum,thedum,omega_t)
             tempe=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)     
             omega_t=u_0+Au*tempe         ! omega_t
             x=Bu*(adum-rc)
-            domega_da=Au*exp(-x**xu)
+            domega_da=Au*exp(-ABS(x)**xu)
          end if
       end if
 
@@ -1366,19 +1366,19 @@ subroutine n_T_u_group
                backT(i)=T_0*exp(q1*tempi)                              ! Ti at particles
 
                tempi=rw*(zion(1,i)-rc)
-               dlnTda(i)=q1*exp(-tempi**q0)                            ! =dlnT/da
+               dlnTda(i)=q1*exp(-ABS(tempi)**q0)                            ! =dlnT/da
 
                tempi=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
                backn(i)=n_0*exp(kappan*tempi)                              ! ne at particles
 
                tempi=temconst*(zion(1,i)-rc)
-               dlnnda(i)=kappan*exp(-tempi**edensity0)                     ! =dlnn/da
+               dlnnda(i)=kappan*exp(-ABS(tempi)**edensity0)                     ! =dlnn/da
 
                tempi=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)     
                backu(i)=u_0+Au*tempi                                   ! this is omega_t; then u_//=I*backu/B
 
                tempi=Bu*(zion(1,i)-rc)
-               duda(i)  =Au*exp(-tempi**xu)       ! =d[omega_t(a)]/da
+               duda(i)  =Au*exp(-ABS(tempi)**xu)       ! =d[omega_t(a)]/da
             end do
          end if
       end if
@@ -1482,13 +1482,13 @@ subroutine n_T_u_group_e
               backTe(i)=T_e0*exp(flow1*tempe)                              ! Te at particles
 
               tempe=flow2*(zeon(1,i)-rc)
-              dlnTdae(i)=flow1*exp(-tempe**flow0)                            ! =dlnT/da
+              dlnTdae(i)=flow1*exp(-ABS(tempe)**flow0)                            ! =dlnT/da
 
               tempe=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
               backne(i)=n_0*exp(kappan*tempe)                              ! ne at particles
 
               tempe=temconst*(zeon(1,i)-rc)
-              dlnndae(i)=kappan*exp(-tempe**edensity0)                     ! =dlnn/da
+              dlnndae(i)=kappan*exp(-ABS(tempe)**edensity0)                     ! =dlnn/da
 
 !               backu=u_0*(Au+Bu*exp(-du*aa**xu))*(B_0/B)
            end do
@@ -1595,8 +1595,8 @@ FUNCTION FUN3(adum)
       implicit  none
       real(wp) FUN3, x, adum
 
-      x=rw*(adum-rc)
-      FUN3=exp(-x**q0)
+      x=ABS(rw*(adum-rc))
+      FUN3=exp(-ABS(x)**q0)
 
       RETURN
 end function FUN3
@@ -1615,8 +1615,8 @@ FUNCTION FUN3e(adum)
       implicit  none
       real(wp) FUN3e, x, adum
 
-      x=flow2*(adum-rc)
-      FUN3e=exp(-x**flow0)
+      x=ABS(flow2*(adum-rc))
+      FUN3e=exp(-ABS(x)**flow0)
 
       RETURN
 end function FUN3e
@@ -1635,8 +1635,8 @@ FUNCTION FUN3n(adum)
       implicit  none
       real(wp) FUN3n, x, adum
 
-      x=temconst*(adum-rc)
-      FUN3n=exp(-x**edensity0)
+      x=ABS(temconst*(adum-rc))
+      FUN3n=exp(-ABS(x)**edensity0)
 
       RETURN
 end function FUN3n
@@ -1655,8 +1655,8 @@ FUNCTION FUN3u(adum)
       implicit  none
       real(wp) FUN3u, x, adum
 
-      x=Bu*(adum-rc)
-      FUN3u=exp(-x**xu)
+      x=ABS(Bu*(adum-rc))
+      FUN3u=exp(-ABS(x)**xu)
 
       RETURN
 end function FUN3u

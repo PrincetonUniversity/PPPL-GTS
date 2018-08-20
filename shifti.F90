@@ -158,6 +158,13 @@ subroutine shifti
               endif
            endif
         endif
+
+        if( ABS(min(zetaright, 2*pi - 1.0/(real(mzetamax)) - zetaright)) > 1.0/(real(mzetamax))) then
+          open(unit=1111, file="ion_over_two_toroidal_cells.dat", position='append',action='write')
+          write(1111,*) istep, mype, m, mi, zion(1:6,m)       
+          call flush(1111)
+          close(1111)    
+        endif  
      enddo
 
 #endif

@@ -1135,6 +1135,8 @@ end if ! if(mype==0)
 ! number of grids on a poloidal plane
   mgrid=sum(mtheta+1)
   mi=micell*(mgrid-mpsi-1)/npartdom   !# of particle per processor
+  
+  !mi=int(0.1*micell*(mgrid-mpsi-1)/npartdom)   !# of particle per processor
 ! NOTE: misum is now a floating point variable. A 4-byte integer cannot hold
 ! a value larger than about 2 billion and we always use misum as a real anyway.
   misum=real(mi,wp)*real(numberpe,wp)    !# of total particles 
@@ -1784,7 +1786,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
 ! allocate memory
   allocate (zion(7,mimax),zion0(7,mimax),jtion0(4,mimax),jtion1(4,mimax),&
-       wzion(mimax),wpion(4,mimax),wtion0(4,mimax),wtion1(4,mimax),enion(mimax))
+       wzion(mimax),wpion(4,mimax),wtion0(4,mimax),wtion1(4,mimax),enion(mimax), ilabels(mimax))       
   if(ifelectron/=0) then
 
      if(ifdphi/=2) then     ! use dphi/dt equation when ifelectron=2 
@@ -1796,7 +1798,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
      allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
                wteon0(memax),wteon1(memax),markere(mgrid),&
              !   densitye(0:1,mgrid),cij(3,mgrid))
-               densitye(0:1,mgrid),cij(5,mgrid))
+               densitye(0:1,mgrid),cij(5,mgrid), elabels(memax))
 
 if(mype==-100) then  ! before 2012
 
@@ -2746,9 +2748,9 @@ end subroutine setup
   call mpi_comm_size(toroidal_comm,nproc_toroidal,ierror)
   call mpi_comm_rank(toroidal_comm,myrank_toroidal,ierror)
 
-!  write(0,*)'mype=',mype,'  nproc_toroidal=',nproc_toroidal,&
-!       ' myrank_toroidal=',myrank_toroidal,'  nproc_partd=',nproc_partd,&
-!       ' myrank_partd=',myrank_partd
+ write(0,*)'mype=',mype,'  nproc_toroidal=',nproc_toroidal,&
+      ' myrank_toroidal=',myrank_toroidal,'  nproc_partd=',nproc_partd,&
+      ' myrank_partd=',myrank_partd, 'torodial_comm', toroidal_comm, 'partd_comm', partd_comm
 
   if(nproc_partd/=npartdom)then
     write(0,*)'*** nproc_partd=',nproc_partd,' NOT EQUAL to npartdom=',npartdom

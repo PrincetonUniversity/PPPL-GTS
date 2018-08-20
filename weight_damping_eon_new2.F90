@@ -42,28 +42,28 @@ subroutine weight_damping_eon
      wp0=1.0_wp-wpeon(m)
 
      wt00=1.0_wp-wteon0(m)
-     e1=wp0*wt00*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
-     e2=wp0*wt00*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
-     e3=wp0*wt00*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+     e1=wp0*wt00*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
+     e2=wp0*wt00*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
+     e3=wp0*wt00*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
 
      ij=ij+1
      wt10=1.0_wp-wt00
-     e1=e1+wp0*wt10*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
-     e2=e2+wp0*wt10*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
-     e3=e3+wp0*wt10*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+     e1=e1+wp0*wt10*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
+     e2=e2+wp0*wt10*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
+     e3=e3+wp0*wt10*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
 
      ij=jteon1(m)
      wp1=1.0_wp-wp0
      wt01=1.0_wp-wteon1(m)
-     e1=e1+wp1*wt01*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
-     e2=e2+wp1*wt01*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
-     e3=e3+wp1*wt01*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+     e1=e1+wp1*wt01*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
+     e2=e2+wp1*wt01*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
+     e3=e3+wp1*wt01*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
 
      ij=ij+1
      wt11=1.0_wp-wt01
-     e1=e1+wp1*wt11*(wz0*wfield(ij,1,0)+wz1*wfield(ij,1,1))
-     e2=e2+wp1*wt11*(wz0*wfield(ij,2,0)+wz1*wfield(ij,2,1))
-     e3=e3+wp1*wt11*(wz0*wfield(ij,3,0)+wz1*wfield(ij,3,1))
+     e1=e1+wp1*wt11*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
+     e2=e2+wp1*wt11*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
+     e3=e3+wp1*wt11*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
 
      avw=e1+e2*vpara+e3*v2
 
