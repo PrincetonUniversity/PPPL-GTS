@@ -1606,8 +1606,16 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
         pgyro(4,ij)=-pgyro(3,ij)
 
 !        tgyro(3,ij)=(metric(3)/q-metric(6))*dtheta_dx*Bj(1)*rhoi/gFaj(1)
-        tgyro(3,ij)=Bj(1)*rhoi/gFaj(1)/sqrt(metric(1))
-
+        
+        !==============================================================
+        ! MGY modified tgyro definition! (2018/10/24)
+        ! tgyro was divided by cos(alpha) in the previous version.
+        ! This is WRONG. 
+        ! tgyro should be multiplied by cos(alpha) as follows:
+        ! tgyro = 1/sqrt(g_qq_cov)*cos(alpha) = (1/J)*(1/sqrt(gaa_cntv))*(Bgf_cov/B)
+        !==============================================================
+        !tgyro(3,ij)=Bj(1)*rhoi/gFaj(1)/sqrt(metric(1)) ! previous version. wrong.
+        tgyro(3,ij)=rhoi *(Fj(1))/ (jacobian(pdum,tdum)*sqrt(metric(1))*Bj(1))
         tgyro(4,ij)=-tgyro(3,ij)
      enddo
 ! to be safe do the following
