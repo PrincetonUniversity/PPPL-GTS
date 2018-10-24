@@ -10,9 +10,11 @@
 #define esilink2c esilink2c_
 #define gcmotion gcmotion_
 #define gcmotion_em gcmotion_em_
+#define gcmotion_em_MGY gcmotion_em_MGY_
 #define gcmotion_e gcmotion_e_
 #define gcmotion_eon gcmotion_eon_
 #define gcmotion_eon_em gcmotion_eon_em_
+#define gcmotion_eon_em_MGY gcmotion_eon_em_MGY_
 #define get4exb get4exb_
 #define get4exb12 get4exb12_
 #define species species_
@@ -1811,19 +1813,19 @@ int gcmotion(REAL *dXgr,
 	i0	=Na-1;
       }
       i1	=i0+1;
-      x		=(a-sa[i0])*rha;
-      X		=1.-x;
+      x		=(a-sa[i0])*rha; // x=t
+      X		=1.-x;           // X=(1-t)
       XX	=X*X;
       xx	=x*x;
-      XF	=XX*(3.-2.*X);
-      XD	=XX*x*ha;
-      xF	=xx*(3.-2.*x);
-      xD	=-xx*X*ha;
+      XF	=XX*(3.-2.*X);  // XF = h00(t)
+      XD	=XX*x*ha;        // xD = h10(t) 
+      xF	=xx*(3.-2.*x);  // xF = h01(t)
+      xD	=-xx*X*ha;     // xD = h11(t)
       
       dX	=3.*x*X;
-      dXD	=X-dX;
-      dxD	=x-dX;
-      dX	*=2.*rha;
+      dXD	=X-dX;    // d(h10)/dt 
+      dxD	=x-dX;   // d(h11)/dt
+      dX	*=2.*rha; // (dh01/dt) *Delta_a
       
       j00	=Np1*i0+j0;
       j01	=j00+1;
@@ -2044,7 +2046,7 @@ int gcmotion_em(REAL *dXgr,
   REAL y,Y,yy,YY;
   REAL D,Dhh;
   REAL bgr, Xgr,Xa,Xgq,Xgm,wpi1,wpi2,wpi3;
-  REAL ga, gaa, gaq, gaz;
+  REAL ga, gaa, gaq, gaz, dXgf1;
   REAL rD,Gatheta,DD;
 
   int myid;
@@ -2065,7 +2067,7 @@ int gcmotion_em(REAL *dXgr,
 /*                    Pa[k]=r (i.e., major radius R), added Aug. 2011     */
 /*                    T[k]=1/|grad(theta)|            added Aug. 2012     */
 /*                    T[k]=poloidal velocity          changed Oct. 2012   */
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,rD,Gatheta,DD)
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,rD,Gatheta,DD,dXgf1)
   for(k=0; k < n; k++){
     Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
     Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
@@ -2301,6 +2303,11 @@ int gcmotion_em(REAL *dXgr,
     Ta[k]       =-a21*wpi1-D*(-wpi3);          /* dtheta/dt|_EXB, no e and m dependence */
     P[k]        =a22*(-wpi2)-a12*(-wpi3);      /* drho/dt|_EXB, no e and m dependence */
     T[k]        =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
+    dXgf1  = a11 * wpi1 + D * (-wpi2);
+    P[k]      -= gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1; // C.H.Ma's initial modification
+
+ 
+
 #ifdef _TREAT_MAGNETIC_AXIS
     if(sw != NULL && sw[k]){
       BBq	=a*dXgq[k];
@@ -2309,6 +2316,343 @@ int gcmotion_em(REAL *dXgr,
       PP	=sin(Xgq);
       dXa[k]	=BBa*TT-BBq*PP;
       dXgq[k]	=BBa*PP+BBq*TT;
+    }
+#endif
+  }
+/*
+  tt1 = MPI_Wtime();
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  if(myid == 2) printf("in gcmotion: wall = %f\n",(tt1 - tt0));
+*/
+  
+  return(0);
+}
+
+
+int gcmotion_em_MGY(REAL *dXgr,
+             REAL *dXa,
+             REAL *dXgq,
+             REAL *dXgf,
+             REAL *particle_array,
+             REAL *wpi_array,
+             REAL *ga_array,
+             REAL *wga_array,
+             REAL *gat_array,
+             REAL *Er_particle,
+             REAL *nonlinear,
+             int *nval)
+/*
+  Xgr = particle_array[k][3] = zion(4,k+1) (Fortran side)
+  Xa  = particle_array[k][0] = zion(1,k+1) (Fortran side)
+  Xgq = particle_array[k][1] = zion(2,k+1) (Fortran side)
+  Xgm = particle_array[k][5]^2 = zion(6,k+1)**6 (Fortran side)
+
+  zion is dimensioned zion(7,mimax) on the Fortran side. Since we view this
+  array as a 1-dimensional vector on the C side through the pointer
+  "particle_array", we need to use pointer arithmetic:
+      particle_array[k][3] = *(particle_array + k*7 + 3)
+
+  Same trick with the wpi array which is dimensioned wpi(3,mi) on Fortran side
+   wpi1 = wpi_array[k][0] = *(wpi_array+3*k)   = wpi(1,k+1)
+   wpi2 = wpi_array[k][1] = *(wpi_array+3*k+1) = wpi(2,k+1)
+   wpi2 = wpi_array[k][2] = *(wpi_array+3*k+2) = wpi(3,k+1)
+*/
+{
+  int n = *nval;
+  int j0,j1,k;
+  REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP;
+  REAL dHda, dHdgq, dHdgr, dHdgf;
+  REAL a,q,a11,a12,a21,a22;
+
+  REAL x,X,xx,XX;
+  REAL f0,f1,fq0,fq1;
+  REAL y,Y,yy,YY;
+  REAL D,Dhh;
+  REAL bgr, Xgr,Xa,Xgq,Xgm,wpi1,wpi2,wpi3;
+  REAL ga, gaa, gaq, gaz, dXgf1;
+  REAL rD,Gatheta,DD;
+
+  int myid;
+  double tt0,tt1;
+  double MPI_Wtime(void);
+
+/*  tt0 = MPI_Wtime(); */
+/* ADDITIONAL OUTPUT: wpi3=dphi/dzeta;  */
+/*                    B[k]=B;                       */
+/*                    Ba[k]=Ba;                     */
+/*                    Bq[k]=Bq;                     */
+/*                    F[k]=F;                       */
+/*                    Fa[k]=Fa;                     */
+/*                    ghq[k]=da/dt|_EXB             */
+/*                    Ta[k]=dtheta/dt|_EXB          */
+/*                    P[k]=drho/dt|_EXB               added spring 2012   */
+/*                    gha[k]=1/|grad a|             */
+/*                    Pa[k]=r (i.e., major radius R), added Aug. 2011     */
+/*                    T[k]=1/|grad(theta)|            added Aug. 2012     */
+/*                    T[k]=poloidal velocity          changed Oct. 2012   */
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,rD,Gatheta,DD,dXgf1)
+  for(k=0; k < n; k++){
+    Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
+    Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
+    Xgr = *(particle_array+k*7+3);  /* particle_array[k][3] */
+    Xgm = *(particle_array+k*7+5);  /* particle_array[k][5] */
+    Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
+    wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
+    wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
+    wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
+    gaa = *(wga_array + 3 * k);     /* wga[k][0] */
+    gaq = *(wga_array + 3 * k + 1); /* wga[k][1] */  
+    gaz = *(wga_array + 3 * k + 2); /* wga[k][2] */
+    ga = *(ga_array + k);           /* ga[k] */
+    bgr = Xgr + ga;    /* rhohat = rho + alpha */
+    a	=Xa;
+    if(a < 1e-100){
+      a	=0.;
+    }
+    q	=Xgq;
+
+    j1	=q*crgq0;
+    if(q < 0.){
+      j1--;
+    }
+    q	-=cgq0*j1;
+    j0	=q*rhq;
+    if(j0 >= Np){
+      j0	-=Np;
+      q	-=cgq0;
+    }
+    if(j0 < 0){
+      j0	+=Np;
+      q	+=cgq0;
+    }
+    j1	=j0+1;
+    y	=(q-gq[j0])*rhq;
+
+    Y	=1.-y;
+    YY	=Y*Y;
+    yy	=y*y;
+    YF	=YY*(3.-2.*Y);
+    YD	=YY*y*hq;
+    yF	=yy*(3.-2.*y);
+    yD	=-yy*Y*hq;
+    dY	=3.*y*Y;
+    dYD	=Y-dY;
+    dyD	=y-dY;
+    dY	*=2.*rhq;
+
+    if(a < 0.){
+      a	=-a;
+    }
+    i0	=(a-sa[0])*rha;
+    if(a != 0.){
+      if(i0 >= Na){
+	i0	=Na-1;
+      }
+      i1	=i0+1;
+      x		=(a-sa[i0])*rha;
+      X		=1.-x;
+      XX	=X*X;
+      xx	=x*x;
+      XF	=XX*(3.-2.*X);
+      XD	=XX*x*ha;
+      xF	=xx*(3.-2.*x);
+      xD	=-xx*X*ha;
+      
+      dX	=3.*x*X;
+      dXD	=X-dX;
+      dxD	=x-dX;
+      dX	*=2.*rha;
+      
+      j00	=Np1*i0+j0;
+      j01	=j00+1;
+      j10	=j00+Np1;
+      j11	=j10+1;
+      
+      /* r,r'_a,r'_q */
+      f0	=XF*sr [j00]+xF*sr [j10]+XD*sra [j00]+xD*sra [j10];
+      f1	=XF*sr [j01]+xF*sr [j11]+XD*sra [j01]+xD*sra [j11];
+      fq0	=XF*srq[j00]+xF*srq[j10]+XD*sraq[j00]+xD*sraq[j10];
+      fq1	=XF*srq[j01]+xF*srq[j11]+XD*sraq[j01]+xD*sraq[j11];
+      r		=YF*f0+yF*f1+YD*fq0+yD*fq1;
+      rq	=dY*(f1-f0)+dYD*fq0+dyD*fq1;
+      f0	=dX*(sr [j10]-sr [j00])+dXD*sra [j00]+dxD*sra [j10];
+      f1	=dX*(sr [j11]-sr [j01])+dXD*sra [j01]+dxD*sra [j11];
+      fq0	=dX*(srq[j10]-srq[j00])+dXD*sraq[j00]+dxD*sraq[j10];
+      fq1	=dX*(srq[j11]-srq[j01])+dXD*sraq[j01]+dxD*sraq[j11];
+      ra	=YF*f0+yF*f1+YD*fq0+yD*fq1;
+      
+      /* z,z'_a,z'_q */
+      f0	=XF*sz [j00]+xF*sz [j10]+XD*sza [j00]+xD*sza [j10];
+      f1	=XF*sz [j01]+xF*sz [j11]+XD*sza [j01]+xD*sza [j11];
+      fq0	=XF*szq[j00]+xF*szq[j10]+XD*szaq[j00]+xD*szaq[j10];
+      fq1	=XF*szq[j01]+xF*szq[j11]+XD*szaq[j01]+xD*szaq[j11];
+      zq	=dY*(f1-f0)+dYD*fq0+dyD*fq1;
+      f0	=dX*(sz [j10]-sz [j00])+dXD*sza [j00]+dxD*sza [j10];
+      f1	=dX*(sz [j11]-sz [j01])+dXD*sza [j01]+dxD*sza [j11];
+      fq0	=dX*(szq[j10]-szq[j00])+dXD*szaq[j00]+dxD*szaq[j10];
+      fq1	=dX*(szq[j11]-szq[j01])+dXD*szaq[j01]+dxD*szaq[j11];
+      za	=YF*f0+yF*f1+YD*fq0+yD*fq1;
+      
+      /* B,B'_a,B'_q */
+      f0	=XF*aB [j00]+xF*aB [j10]+XD*aBa [j00]+xD*aBa [j10];
+      f1	=XF*aB [j01]+xF*aB [j11]+XD*aBa [j01]+xD*aBa [j11];
+      fq0	=XF*aBq[j00]+xF*aBq[j10]+XD*aBaq[j00]+xD*aBaq[j10];
+      fq1	=XF*aBq[j01]+xF*aBq[j11]+XD*aBaq[j01]+xD*aBaq[j11];
+      BB	=YF*f0+yF*f1+YD*fq0+yD*fq1;
+      BBq	=dY*(f1-f0)+dYD*fq0+dyD*fq1;
+      Bq[k]	=BBq;
+      f0	=dX*(aB [j10]-aB [j00])+dXD*aBa [j00]+dxD*aBa [j10];
+      f1	=dX*(aB [j11]-aB [j01])+dXD*aBa [j01]+dxD*aBa [j11];
+      fq0	=dX*(aBq[j10]-aBq[j00])+dXD*aBaq[j00]+dxD*aBaq[j10];
+      fq1	=dX*(aBq[j11]-aBq[j01])+dXD*aBaq[j01]+dxD*aBaq[j11];
+      BBa	=YF*f0+yF*f1+YD*fq0+yD*fq1;
+      Ba[k]	=BBa;
+
+      FI	=XF*aF[i0]+xF*aF[i1]+XD*daF[i0]+xD*daF[i1];
+      Fa[k]	=dX*(aF[i1]-aF[i0])+dXD*daF[i0]+dxD*daF[i1];  /* output for calculating d(u_//)/da */
+      gFa	=XF*dgF[i0]+xF*dgF[i1]+XD*d2gF[i0]+xD*d2gF[i1];
+      gYa	=XF*dgY[i0]+xF*dgY[i1]+XD*d2gY[i0]+xD*d2gY[i1];
+      TT	=XF*aT[i0]+xF*aT[i1]+XD*daT[i0]+xD*daT[i1];
+      PP	=XF*aP[i0]+xF*aP[i1]+XD*daP[i0]+xD*daP[i1];
+      gFa	*=a;
+      gYa	*=a;
+    }
+    else{	/* a == 0. */
+      r		=sr[0];
+      ra	=YF*sra[j0]+yF*sra[j1]+YD*sraq[j0]+yD*sraq[j1];
+      rq	=dY*(sra[j1]-sra[j0])+dYD*sraq[j0]+dyD*sraq[j1];
+      za	=YF*sza[j0]+yF*sza[j1]+YD*szaq[j0]+yD*szaq[j1];
+      zq	=dY*(sza[j1]-sza[j0])+dYD*szaq[j0]+dyD*szaq[j1];
+      BB	=aB[0];
+      BBa	=YF*aBa[j0]+yF*aBa[j1]+YD*aBaq[j0]+yD*aBaq[j1];
+      Ba[k]	=BBa;
+      BBq	=dY*(aBa[j1]-aBa[j0])+dYD*aBaq[j0]+dyD*aBaq[j1];
+      Bq[k]	=BBq;
+      FI	=aF[0];
+      Fa[k]	=0.;
+      gFa	=dgF[0];
+      gYa	=dgY[0];
+      TT	=aT[0];
+      PP	=aP[0];
+      
+      TT	*=Xgr;
+      D		=za*rq-zq*ra;
+      a21	=1./(D*((FI+TT)/r+Xgr*r*PP));
+#ifdef H
+      r  =cgq0*Xgr*BB;
+      BB*=r;
+      r	=r*Xgr+cgq0*Xgm;
+#endif
+      r  =Xgr*BB;
+      BB	*=r;
+      r	=r*Xgr+Xgm;
+
+      BBa	*=r;
+      BBq	*=-r;
+      dXgr[k]	=0.;
+      BBq	*=a21;
+      BBa	*=a21;
+      dXgf[k]	=BB/FI;
+      TT	=cos(Xgq);
+      PP =sin(Xgq);
+      dXa[k]	=BBq*TT-BBa*PP;
+      dXgq[k]	=BBq*PP+BBa*TT;
+    }
+    B[k]=BB;    /* output of B field */
+    F[k]=FI;    /* output of F function for toroidal momentum diagnosis */
+    Pa[k]=r;    /* output of R (major radius) for toroidal momentum diagnosis; added Aug. 2011 */
+    a21	=FI;
+    TT	*=bgr;
+    D	=za*rq-zq*ra;
+
+    DD  =D*D;              /*     added Oct. 2012   */
+    Gatheta=ra*rq+za*zq;   /*     added Oct. 2012   */
+
+    Dhh =rq*rq+zq*zq;
+
+/*      gha[k]=sqrt(D*D/Dhh);      = 1/|grad_a|       */
+/*      T[k]  =sqrt(D*D/(za*za+ra*ra));   = 1/|grad(theta)|     */
+/*  changed to (Oct. 2012):      */
+    gha[k]=sqrt(DD/Dhh);    /*  1/|grad_a|  */
+
+/*  We calculate v_p at the end instead of  1/|grad(theta)| -- Oct. 2012   */
+/*     T[k]  =sqrt(DD/(za*za+ra*ra));     = 1/|grad(theta)|    */
+
+    a12	=D*((FI+TT)/r+bgr*r*PP);
+/*     D	=-gYa/(r*D);   change to (Oct. 2012): */
+    rD  =r*D;          /* Jacobian = rD = 1/[grad(a).grad(theta)xgrad(phi)] */ 
+    D   =-gYa/rD;
+/*    a11	=(rq*rq+zq*zq)*D;   */
+    a11	=Dhh*D;
+
+/*       D	*=ra*rq+za*zq;  changed to (Oct. 2012):  */
+    D	*=Gatheta;
+
+    Gatheta  *=1./DD;   /*  -grad(theta).grad(a) -- added Oct. 2012   */
+
+    a22	=gYa*(1.+TT/FI);
+    r	=1./(a11*a22-a12*a21);
+    a11	*=r;
+    a12	*=r;
+    a21	*=r;
+    a22	*=r;
+    D	*=r;
+/*    qq	=-gFa/gYa;   */
+#ifdef H
+    r  =Xgr*BB*cgq0;
+    BB	*=r;
+    r	=r*Xgr+Xgm*cgq0;
+#endif
+    r  =Xgr*BB;
+    BB	*=r;         /* =dH/drho//  */
+    dHdgr = BB;
+    r	=r*Xgr+Xgm;
+    BBa	*=r;
+    dHda = BBa; 
+/*  add EXB drift with only radial electric field; Er_particle=d\phi/da  */
+/*    dHda  =dHda+Er_particle[k];  */
+    BBq	*=r;
+    dHdgq = BBq;
+/*  add EXB drift and magnetic perturbations */
+    dHda	 += *nonlinear*wpi1 - dHdgr * gaa;         /* =dH/da      */
+    dHda   =dHda+Er_particle[k];          /* =dH/da, adding E_r0XB drift */   
+    dHdgq	 += *nonlinear*wpi2 - dHdgr * gaq;         /* =dH/dtheta */
+    dHdgf	 = *nonlinear*wpi3 - dHdgr * gaz;             /* =dH/dphi   */
+
+
+    dXgr[k]	=a22*(-dHdgq)-a12*(-dHdgf);            /* = ddt(rhohat) */
+    dXa[k]	=-a21*(-dHdgq)+a11*(-dHdgf);
+    dXgq[k]	=a22*dHdgr-a21*dHda-D*(-dHdgf);
+    dXgf[k]	=-a12*dHdgr+a11*dHda+D*(-dHdgq);
+
+
+    P[k]        =a22*(-(wpi2-dHdgr*gaq))-a12*(-(wpi3-dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
+    ghq[k]	=-a21*(-(wpi2-dHdgr*gaq))+a11*(-(wpi3-dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
+    Ta[k]       =-a21*(wpi1-dHdgr*gaa)-D*(-(wpi3-dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
+    dXgf1  = a11 * (wpi1-dHdgr*gaa) + D * (-(wpi2-dHdgr*gaq));
+    T[k]        =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
+    
+    // transfromation from rho_hat to rho
+    dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
+    P[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
+
+    // // M.G.Yoo's additional modification (09/12/2018) to consider dgadt for further weight calculation in push routines using P[k].
+    // if(nonlinear>0){ // nonlinear simulation (dXa, dXgq, dXgf already have perturbed ExB terms in them.)
+    //     P[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+    // }
+    // else{ // linear simulation (dXa, dXgq, dXgf have only E0xB terms, so that we add perturbed ExB terms to calculate full dgadt)
+    //     P[k] -= gat_array[k] + gaa * (dXa[k] + ghq[k]) + gaq *(dXgq[k]+ Ta[k]) + gaz * (dXgf[k]+ dXgf1);
+    // }
+
+
+#ifdef _TREAT_MAGNETIC_AXIS
+    if(sw != NULL && sw[k]){
+      dHdgq	=a*dXgq[k];
+      dHda	=dXa[k];
+      TT	=cos(Xgq);
+      PP	=sin(Xgq);
+      dXa[k]	=dHda*TT-dHdgq*PP;
+      dXgq[k]	=dHda*PP+dHdgq*TT;
     }
 #endif
   }
@@ -2952,7 +3296,7 @@ int gcmotion_eon_em(REAL *dXgr,
   REAL y,Y,yy,YY;
   REAL D,Dhh;
   REAL bgr, Xgr,Xa,Xgq,Xgm,wpi1,wpi2,wpi3;
-  REAL ga, gaa, gaq, gaz;
+  REAL ga, gaa, gaq, gaz, dXgf1;
 
   int myid;
   double tt0,tt1;
@@ -2968,7 +3312,7 @@ int gcmotion_eon_em(REAL *dXgr,
 /*                    Ta[k]=dtheta/dt|_EXB          */
 /*                    Pa[k]=drho/dt|_EXB            */
 /*                    gha[k]=1/|grad a|             */
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz)
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,dXgf1)
   for(k=0; k < n; k++){
     Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
     Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
@@ -3185,13 +3529,19 @@ int gcmotion_eon_em(REAL *dXgr,
     ghq[k]      =-a21*(-wpi2)+a11*(-wpi3);     /* da/dt|_EXB, no e and m dependence */
     Ta[k]       =-a21*wpi1-D*(-wpi3);          /* dtheta/dt|_EXB, no e and m dependence */
     Pa[k]       =a22*(-wpi2)-a12*(-wpi3);      /* drho/dt|_EXB, no e and m dependence */
+    dXgf1       =a11 * wpi1 + D * (-wpi2); 
+    Pa[k]      -= gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1; //C.H.Ma's initial modification
+
+
 
     dXgr[k]    *=c0cs;      /* = ddt(rhohat) */
     dXgf[k]    *=c0cs;
     dXa[k]     *=c0cs;
     dXgq[k]    *=c0cs;
-
+ 
     dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
+
+  
 
 #ifdef _TREAT_MAGNETIC_AXIS
     if(sw != NULL && sw[k]){
@@ -3213,6 +3563,326 @@ int gcmotion_eon_em(REAL *dXgr,
   return(0);
 }
 
+
+int gcmotion_eon_em_MGY(REAL *dXgr,
+                 REAL *dXa,
+                 REAL *dXgq,
+                 REAL *dXgf,
+                 REAL *particle_array,
+                 REAL *wpi_array,
+                 REAL *ga_array,
+                 REAL *wga_array,
+                 REAL *gat_array,
+                 REAL *Er_particle,
+                 REAL *nonlinear,
+                 int  *nval,
+                 int  *zeondim)
+/*
+  Xgr = particle_array[k][3] = zelectron(4,k+1) (Fortran side)
+  Xa  = particle_array[k][0] = zelectron(1,k+1) (Fortran side)
+  Xgq = particle_array[k][1] = zelectron(2,k+1) (Fortran side)
+  Xgm = particle_array[k][5]^2 = zelectron(6,k+1)**2 (Fortran side)
+
+  zion is dimensioned zion(7,mimax) on the Fortran side. Since we view this
+  array as a 1-dimensional vector on the C side through the pointer
+  "particle_array", we need to use pointer arithmetic:
+      particle_array[k][3] = *(particle_array + k*7 + 3)
+
+  Same trick with the wpi array which is dimensioned wpi(3,mi) on Fortran side
+   wpi1 = wpi_array[k][0] = *(wpi_array+3*k)   = wpi(1,k+1)
+   wpi2 = wpi_array[k][1] = *(wpi_array+3*k+1) = wpi(2,k+1)
+   wpi2 = wpi_array[k][2] = *(wpi_array+3*k+2) = wpi(3,k+1)
+*/
+{
+  int n = *nval;
+  int j0,j1,k;
+  REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P;
+  REAL dHda, dHdgq, dHdgr, dHdgf;
+  REAL a,q,a11,a12,a21,a22;
+
+  REAL x,X,xx,XX;
+  REAL f0,f1,fq0,fq1;
+  REAL y,Y,yy,YY;
+  REAL D,Dhh;
+  REAL bgr, Xgr,Xa,Xgq,Xgm,wpi1,wpi2,wpi3;
+  REAL ga, gaa, gaq, gaz, dXgf1;
+
+  int myid;
+  double tt0,tt1;
+  double MPI_Wtime(void);
+
+/*  tt0 = MPI_Wtime(); */
+/* ADDITIONAL OUTPUT: wpi3=dphi/dzeta; NO CHANGE 6/11/07 */
+/*                    B[k]=B;                       */
+/*                    Ba[k]=Ba;                     */
+/*                    Bq[k]=Bq;                     */
+/*                    F[k]=F;                       */
+/*                    ghq[k]=da/dt|_EXB             */
+/*                    Ta[k]=dtheta/dt|_EXB          */
+/*                    Pa[k]=drho/dt|_EXB            */
+/*                    gha[k]=1/|grad a|             */
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,dXgf1)
+  for(k=0; k < n; k++){
+    Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
+    Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
+    Xgr = *(particle_array+k*(*zeondim)+3);  /* particle_array[k][3] */
+    Xgm = *(particle_array+k*(*zeondim)+5);  /* particle_array[k][5] */
+    Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
+    wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
+    wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
+    wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
+    gaa = *(wga_array + 3 * k);     /* wga[k][0] */
+    gaq = *(wga_array + 3 * k + 1); /* wga[k][1] */  
+    gaz = *(wga_array + 3 * k + 2); /* wga[k][2] */
+    ga = *(ga_array + k);           /* ga[k] */
+    bgr = Xgr + ga;    /* rhohat = rho + alpha */
+    a   =Xa;
+    if(a < 1e-100){
+      a =0.;
+    }
+    q   =Xgq;
+
+    j1  =q*crgq0;
+    if(q < 0.){
+      j1--;
+    }
+    q   -=cgq0*j1;
+    j0  =q*rhq;
+    if(j0 >= Np){
+      j0        -=Np;
+      q         -=cgq0;
+    }
+    if(j0 < 0){
+      j0        +=Np;
+      q         +=cgq0;
+    }
+    j1  =j0+1;
+    y   =(q-gq[j0])*rhq;
+
+    Y   =1.-y;
+    YY  =Y*Y;
+    yy  =y*y;
+    YF  =YY*(3.-2.*Y);
+    YD  =YY*y*hq;
+    yF  =yy*(3.-2.*y);
+    yD  =-yy*Y*hq;
+    dY  =3.*y*Y;
+    dYD =Y-dY;
+    dyD =y-dY;
+    dY  *=2.*rhq;
+
+    if(a < 0.){
+      a =-a;
+    }
+    i0  =(a-sa[0])*rha;
+    if(a != 0.){
+      if(i0 >= Na){
+        i0      =Na-1;
+      }
+      i1        =i0+1;
+      x         =(a-sa[i0])*rha;
+      X         =1.-x;
+      XX        =X*X;
+      xx        =x*x;
+      XF        =XX*(3.-2.*X);
+      XD        =XX*x*ha;
+      xF        =xx*(3.-2.*x);
+      xD        =-xx*X*ha;
+
+      dX        =3.*x*X;
+      dXD       =X-dX;
+      dxD       =x-dX;
+      dX        *=2.*rha;
+
+      j00       =Np1*i0+j0;
+      j01       =j00+1;
+      j10       =j00+Np1;
+      j11       =j10+1;
+
+      /* r,r'_a,r'_q */
+      f0        =XF*sr [j00]+xF*sr [j10]+XD*sra [j00]+xD*sra [j10];
+      f1        =XF*sr [j01]+xF*sr [j11]+XD*sra [j01]+xD*sra [j11];
+      fq0       =XF*srq[j00]+xF*srq[j10]+XD*sraq[j00]+xD*sraq[j10];
+      fq1       =XF*srq[j01]+xF*srq[j11]+XD*sraq[j01]+xD*sraq[j11];
+      r         =YF*f0+yF*f1+YD*fq0+yD*fq1;
+      rq        =dY*(f1-f0)+dYD*fq0+dyD*fq1;
+      f0        =dX*(sr [j10]-sr [j00])+dXD*sra [j00]+dxD*sra [j10];
+      f1        =dX*(sr [j11]-sr [j01])+dXD*sra [j01]+dxD*sra [j11];
+      fq0       =dX*(srq[j10]-srq[j00])+dXD*sraq[j00]+dxD*sraq[j10];
+      fq1       =dX*(srq[j11]-srq[j01])+dXD*sraq[j01]+dxD*sraq[j11];
+      ra        =YF*f0+yF*f1+YD*fq0+yD*fq1;
+
+      /* z,z'_a,z'_q */
+      f0        =XF*sz [j00]+xF*sz [j10]+XD*sza [j00]+xD*sza [j10];
+      f1        =XF*sz [j01]+xF*sz [j11]+XD*sza [j01]+xD*sza [j11];
+      fq0       =XF*szq[j00]+xF*szq[j10]+XD*szaq[j00]+xD*szaq[j10];
+      fq1       =XF*szq[j01]+xF*szq[j11]+XD*szaq[j01]+xD*szaq[j11];
+      zq        =dY*(f1-f0)+dYD*fq0+dyD*fq1;
+      f0        =dX*(sz [j10]-sz [j00])+dXD*sza [j00]+dxD*sza [j10];
+      f1        =dX*(sz [j11]-sz [j01])+dXD*sza [j01]+dxD*sza [j11];
+      fq0       =dX*(szq[j10]-szq[j00])+dXD*szaq[j00]+dxD*szaq[j10];
+      fq1       =dX*(szq[j11]-szq[j01])+dXD*szaq[j01]+dxD*szaq[j11];
+      za        =YF*f0+yF*f1+YD*fq0+yD*fq1;
+
+      /* B,B'_a,B'_q */
+      f0        =XF*aB [j00]+xF*aB [j10]+XD*aBa [j00]+xD*aBa [j10];
+      f1        =XF*aB [j01]+xF*aB [j11]+XD*aBa [j01]+xD*aBa [j11];
+      fq0       =XF*aBq[j00]+xF*aBq[j10]+XD*aBaq[j00]+xD*aBaq[j10];
+      fq1       =XF*aBq[j01]+xF*aBq[j11]+XD*aBaq[j01]+xD*aBaq[j11];
+      BB        =YF*f0+yF*f1+YD*fq0+yD*fq1;
+      BBq       =dY*(f1-f0)+dYD*fq0+dyD*fq1;
+      Bq[k]     =BBq;
+      f0        =dX*(aB [j10]-aB [j00])+dXD*aBa [j00]+dxD*aBa [j10];
+      f1        =dX*(aB [j11]-aB [j01])+dXD*aBa [j01]+dxD*aBa [j11];
+      fq0       =dX*(aBq[j10]-aBq[j00])+dXD*aBaq[j00]+dxD*aBaq[j10];
+      fq1       =dX*(aBq[j11]-aBq[j01])+dXD*aBaq[j01]+dxD*aBaq[j11];
+      BBa       =YF*f0+yF*f1+YD*fq0+yD*fq1;
+      Ba[k]     =BBa;
+
+      FI        =XF*aF[i0]+xF*aF[i1]+XD*daF[i0]+xD*daF[i1];
+      gFa       =XF*dgF[i0]+xF*dgF[i1]+XD*d2gF[i0]+xD*d2gF[i1];
+      gYa       =XF*dgY[i0]+xF*dgY[i1]+XD*d2gY[i0]+xD*d2gY[i1];
+      T         =XF*aT[i0]+xF*aT[i1]+XD*daT[i0]+xD*daT[i1];
+      P         =XF*aP[i0]+xF*aP[i1]+XD*daP[i0]+xD*daP[i1];
+      gFa       *=a;
+      gYa       *=a;
+    }
+    else{       /* a == 0. -- the case must be avoided */
+      r         =sr[0];
+      ra        =YF*sra[j0]+yF*sra[j1]+YD*sraq[j0]+yD*sraq[j1];
+      rq        =dY*(sra[j1]-sra[j0])+dYD*sraq[j0]+dyD*sraq[j1];
+      za        =YF*sza[j0]+yF*sza[j1]+YD*szaq[j0]+yD*szaq[j1];
+      zq        =dY*(sza[j1]-sza[j0])+dYD*szaq[j0]+dyD*szaq[j1];
+      BB        =aB[0];
+      BBa       =YF*aBa[j0]+yF*aBa[j1]+YD*aBaq[j0]+yD*aBaq[j1];
+      Ba[k]     =BBa;
+      BBq       =dY*(aBa[j1]-aBa[j0])+dYD*aBaq[j0]+dyD*aBaq[j1];
+      Bq[k]     =BBq;
+      FI        =aF[0];
+      gFa       =dgF[0];
+      gYa       =dgY[0];
+      T         =aT[0];
+      P         =aP[0];
+
+      T         *=Xgr;
+      D         =za*rq-zq*ra;
+      a21       =1./(D*((FI+T)/r+Xgr*r*P));
+#ifdef H
+      r  =cgq0*Xgr*BB;
+      BB*=r;
+      r =r*Xgr+cgq0*Xgm;
+#endif
+      r  =Xgr*BB;
+      BB        *=r;
+      BB  *=combine;
+      r =r*Xgr*combine+Xgm;
+
+      BBa       *=r;
+      BBq       *=-r;
+      dXgr[k]   =0.;
+      BBq        *=a21;
+      BBa       *=a21;
+      dXgf[k]   =BB/FI;
+      T =cos(Xgq);
+      P =sin(Xgq);
+      dXa[k]    =BBq*T-BBa*P;
+      dXgq[k]   =BBq*P+BBa*T;
+
+      dXgr[k]    *=c0cs;
+      dXgf[k]    *=c0cs;
+      dXa[k]     *=c0cs;
+      dXgq[k]    *=c0cs;
+    }
+    B[k]=BB;    /* output of B field */
+    F[k]=FI;    /* output of F function for toroidal momentum diagnosis */
+    a21 =FI;
+    T   *=bgr;
+    D   =za*rq-zq*ra;
+    Dhh =rq*rq+zq*zq;
+    gha[k]=sqrt(D*D/Dhh);    /*  1/|grad_a|  */
+    a12 =D*((FI+T)/r+bgr*r*P);
+    D   =-gYa/(r*D);
+/*    a11       =(rq*rq+zq*zq)*D;   */
+    a11 =Dhh*D;
+    D   *=ra*rq+za*zq;
+    a22 =gYa*(1.+T/FI);
+    r   =1./(a11*a22-a12*a21);
+    a11 *=r;
+    a12 *=r;
+    a21 *=r;
+    a22 *=r;
+    D   *=r;
+/*    qq        =-gFa/gYa;   */
+#ifdef H
+    r  =Xgr*BB*cgq0;
+    BB  *=r;
+    r   =r*Xgr+Xgm*cgq0;
+#endif
+    r  =Xgr*BB;
+    BB  *=r;
+    BB  *=combine;  
+    dHdgr = BB;  /* =dH/drho//  */
+    r   =r*Xgr*combine+Xgm;
+    BBa *=r;
+    dHda = BBa;
+/*  add EXB drift with only radial electric field; Er_particle=d\phi/da  */
+/*    BBa  =BBa+Er_particle[k];  */
+    BBq *=r;
+    dHdgq = BBq; 
+/*  add EXB drift and magnetic perturbations */
+    dHda  += *nonlinear*wpi1*csc0 - dHdgr * gaa;         /* =dH/da      */
+    dHda  =dHda+Er_particle[k]*csc0;           /* =dH/da, adding E_r0XB drift */
+    dHdgq  +=*nonlinear*wpi2*csc0 - dHdgr * gaq;         /* =-dH/dtheta */
+    dHdgf   =*nonlinear*wpi3*csc0 - dHdgr * gaz;             /* =-dH/dphi   */
+    dXgr[k]	=a22*(-dHdgq)-a12*(-dHdgf);            /* = ddt(rhohat) */
+    dXa[k]	=-a21*(-dHdgq)+a11*(-dHdgf);
+    dXgq[k]	=a22*dHdgr-a21*dHda-D*(-dHdgf);
+    dXgf[k]	=-a12*dHdgr+a11*dHda+D*(-dHdgq);
+
+    dXgr[k]    *=c0cs;      /* = ddt(rhohat) */
+    dXgf[k]    *=c0cs;
+    dXa[k]     *=c0cs;
+    dXgq[k]    *=c0cs;
+
+    Pa[k]       = a22*(-(wpi2-c0cs*dHdgr*gaq))-a12*(-(wpi3-c0cs*dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
+    ghq[k]      =-a21*(-(wpi2-c0cs*dHdgr*gaq))+a11*(-(wpi3-c0cs*dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
+    Ta[k]       =-a21*(wpi1-c0cs*dHdgr*gaa)-D*(-(wpi3-c0cs*dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
+    dXgf1       =a11 * (wpi1-c0cs*dHdgr*gaa) + D * (-(wpi2-c0cs*dHdgr*gaq)); 
+
+
+    // transfromation from rho_hat to rho
+    dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
+    Pa[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
+
+
+
+    // // M.G.Yoo's additional modification (09/12/2018) to consider dgadt for further weight calculation in push routines using P[k].
+    // if(nonlinear>0){ // nonlinear simulation (dXa, dXgq, dXgf already have perturbed ExB terms in them.)
+    //     Pa[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+    // }
+    // else{ // linear simulation (dXa, dXgq, dXgf have only E0xB terms, so that we add perturbed ExB terms to calculate full dgadt)
+    //     Pa[k] -= gat_array[k] + gaa * (dXa[k] + ghq[k]) + gaq *(dXgq[k]+ Ta[k]) + gaz * (dXgf[k]+ dXgf1);
+    // }
+
+#ifdef _TREAT_MAGNETIC_AXIS
+    if(sw != NULL && sw[k]){
+      dHdgq       =a*dXgq[k];
+      dHda       =dXa[k];
+      T =cos(Xgq);
+      P =sin(Xgq);
+      dXa[k]    =dHda*T-dHdgq*P;
+      dXgq[k]   =dHda*P+dHdgq*T;
+    }
+#endif
+  }
+/*
+  tt1 = MPI_Wtime();
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  if(myid == 2) printf("in gcmotion_e: wall = %f\n",(tt1 - tt0));
+*/
+
+  return(0);
+}
 
 
 void esigetpressure(double *p,double *dp,double *a, int *nval)

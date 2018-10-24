@@ -380,12 +380,14 @@ subroutine pusheon(solver1, masssolver, irk_e)
        epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
        zetatmp,e1,e2,e3,wpi(3,me),ga(me),wga(3,me),gat(me),rdel, &
        dgr(me),da(me),dgq(me),dgf(me),mu, &
-       Er_particle(me),dela,fip,weqflow,T_inverse,Ea_00,wdphidt,wdphidt2, & 
+       Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, & 
        vpara, v2, avw, f_rho,  &
 ! following working arrays are defined to use OMP reduction:
        adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
 
-  integer gcmotion_eon, gcmotion_eon_em
+  real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
+  real(wp) MP_phase ! MP_phase(x,t) : time-varying phase angle of given Magnetic Perturbation at specific position in radian unit.
+  integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY
 
   real(wp) tt0,tt1,cput0,cput1,rtc
 
@@ -480,11 +482,33 @@ subroutine pusheon(solver1, masssolver, irk_e)
      wpi(2,m)=e2
      wpi(3,m)=e3
 
-     ga(m) = ga0 * cos(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
-     wga(1,m) = 0.0_wp;
-     wga(2,m) = ga0 * gam * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
-     wga(3,m) = -ga0 * gan * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
-     gat(m) = ga0 * gagw * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+    !  ga(m) = ga0 * cos(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+    !  wga(1,m) = 0.0_wp;
+    !  wga(2,m) = ga0 * gam * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+    !  wga(3,m) = -ga0 * gan * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+    !  gat(m) = ga0 * gagw * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
+
+     !M.G.Yoo (2018/08/27; to include time-varying ga0(t))
+    if (zeon(1,m) > 0.3 .AND. zeon(1,m) < 0.7) then
+
+      MP_phase = gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0     
+      ga_amplitude = (zeon(1,m)/0.5)*(ga0 + dgadt*(istep * tstep))
+
+      ga(m) = ga_amplitude* cos(MP_phase);
+      !wga(1,m) = 0.0_wp;
+      wga(1,m) = ga(m) / zeon(1,m);
+      wga(2,m) = ga_amplitude * gam * sin(MP_phase);
+      wga(3,m) = -ga_amplitude * gan * sin(MP_phase);
+      gat(m) = dgadt*cos(MP_phase) + ga_amplitude * gagw * sin(MP_phase);  ! d(ga*cos(MP))/dt  = d(ga)dt*cos(MP) + ga*gagw*sin(MP); since MP has (-gagw*t) term inside
+      ! gat(m) = 0 ! Caution!! This is not a physical model. This is an artificial test to ignore the parallel electric field (which is time derivative of A_para).
+    else
+      ga(m) = 0
+      wga(1,m) = 0
+      wga(2,m) = 0
+      wga(3,m) = 0
+      gat(m) = 0
+    end if
+
 
   enddo
 
@@ -525,6 +549,7 @@ end if
 
   if(electromagnetic == 1)then
      m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+     !m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
   else
   m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
   endif
@@ -564,7 +589,7 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
 
 ! update GC position
 ! Another OpenMP parallel loop...
-!$omp parallel do private (m,mu,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,&
+!$omp parallel do private (m,mu,energy,kappa,wdrift,wgradB,vdr,wdrive,wdot,xdum,ydum,T_inverse,&
 !$omp& r,ip,Ea_00,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt,wdphidt2,muB,fip,&
 !$omp& instep,outstep,fdamp,vpara,v2,avw,E_f)
   do m=1,me
@@ -593,11 +618,11 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
 
      if(ifneoclassical==1) then
         vdr=da(m)                 !  full da/dt including NC dynamics
-        weqflow=vdr*Ba(m)+dgq(m)*Bq(m)
+        wgradB=vdr*Ba(m)+dgq(m)*Bq(m)
      else
         ! ExB drift in radial direction for w-dot and flux diagnostics
         vdr=ghq(m)             !  da/dt|_EXB
-        weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
+        wgradB=vdr*Ba(m)+Ta(m)*Bq(m)
      end if
 
      wdrive=vdr*kappa
@@ -653,14 +678,14 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
      end if
 
      if(ifneoclassical==1) then   
-        wdrift=(dgr(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+        wdrift=(dgr(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
      else
-        wdrift=(Pa(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+        wdrift=(Pa(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
      end if
 
-     weqflow=weqflow*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
+     wgradB=wgradB*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
 
-     wdot=(wdrive+wdrift+weqflow)
+     wdot=(wdrive+wdrift+wgradB)
 
      wdot=(1.0_wp-E_f)*wdot*fip   ! (1-e*delta_phi/Te)*(...) term -- see note
 
@@ -952,10 +977,10 @@ end if
       !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
       zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
 
-      if (mype ==0 .AND. MOD(m,(me/10))==0) then
-        write(stdout,*) 'my_rank= ',mype, ' zeon(5,m=',m,')= ',zeon(5,m), ' zeon0(5,m=',m,')= ',zeon0(5,m), ' avw= ',avw , ' zeon(8,m=',m,')= ',zeon(8,m), ' zeon00(8,m=',m,')= ',zeon00(8,m)
-        write(stdout,*) 'zeon(6,m=',m,')= ',zeon(6,m), ' zeon0(6,m=',m,')= ',zeon0(6,m) , ' wdphidt= ', wdphidt
-      endif
+      ! if (mype ==0 .AND. MOD(m,(me/10))==0) then
+      !   write(stdout,*) 'my_rank= ',mype, ' zeon(5,m=',m,')= ',zeon(5,m), ' zeon0(5,m=',m,')= ',zeon0(5,m), ' avw= ',avw , ' zeon(8,m=',m,')= ',zeon(8,m), ' zeon00(8,m=',m,')= ',zeon00(8,m)
+      !   write(stdout,*) 'zeon(6,m=',m,')= ',zeon(6,m), ' zeon0(6,m=',m,')= ',zeon0(6,m) , ' wdphidt= ', wdphidt
+      ! endif
 
 !       E_f=E_f+zeon(5,m)
   end do
@@ -1068,7 +1093,7 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
 
 ! update GC position
 ! Another OpenMP parallel loop...
-!$omp parallel do private(m,mu,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,r,ip,Ea_00, &
+!$omp parallel do private(m,mu,energy,kappa,wdrift,wgradB,vdr,wdrive,wdot,xdum,ydum,T_inverse,r,ip,Ea_00, &
 !$omp& e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt,wdphidt2,muB,fip,instep,&
 !$omp& outstep,fdamp,vpara,v2,avw)
   do m=1,me
@@ -1092,11 +1117,11 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
 
      if(ifneoclassical==1) then
         vdr=da(m)
-        weqflow=vdr*Ba(m)+dgq(m)*Bq(m)
+        wgradB=vdr*Ba(m)+dgq(m)*Bq(m)
      else
         !  ExB drift in radial direction for w-dot and flux diagnostics
         vdr=ghq(m)             !  da/dt|_EXB
-        weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
+        wgradB=vdr*Ba(m)+Ta(m)*Bq(m)
      end if
 
      wdrive=vdr*kappa
@@ -1159,14 +1184,14 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
      end if
 
      if(ifneoclassical==1) then
-        wdrift=(dgr(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+        wdrift=(dgr(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
      else
-        wdrift=(Pa(m)*BB(m)+zeon(4,m)*weqflow)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+        wdrift=(Pa(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
      endif
 
-     weqflow=weqflow*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
+     wgradB=wgradB*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
 
-     wdot=(wdrive+wdrift+weqflow+wdphidt)
+     wdot=(wdrive+wdrift+wgradB+wdphidt)
 
      wdot=wdot*fip
 

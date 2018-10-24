@@ -68,7 +68,7 @@ subroutine load
 !!!  if(nonlinear<0.5_wp) w_initial=1.0e-20_wp
 !ZHIXIN: use w_initial_in to set w_initial
   w_initial=w_initial_in*1.0e0_wp
-  if(nonlinear<0.5_wp) w_initial=w_initial_in*1.0e-16_wp
+  if(nonlinear<0.5_wp) w_initial=w_initial_in*1.0e-10_wp
       
 ! uniform load particle in configuration space 
   mtheta_load=256

@@ -560,7 +560,10 @@ subroutine pushion
 
 !  integer ip_index(mimax)   !wx
 
-  integer gcmotion, gcmotion_em
+  real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
+  real(wp) MP_phase ! MP_phase(x,t) : time-varying phase angle of given Magnetic Perturbation at specific position in radian unit.
+     
+  integer gcmotion, gcmotion_em, gcmotion_em_MGY
 
   real(wp) tt0,tt1,cput0,cput1,rtc
 
@@ -662,12 +665,32 @@ subroutine pushion
      wpi(2,m)=0.25_wp*e2
      wpi(3,m)=0.25_wp*e3
 
-     ga(m) = ga0 * cos(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
-     wga(1,m) = 0.0_wp;
-     wga(2,m) = ga0 * gam * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
-     wga(3,m) = -ga0 * gan * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
-     gat(m) = ga0 * gagw * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
+    !  ga(m) = ga0 * cos(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
+    !  wga(1,m) = 0.0_wp;
+    !  wga(2,m) = ga0 * gam * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
+    !  wga(3,m) = -ga0 * gan * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
+    !  gat(m) = ga0 * gagw * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
 
+     
+     !M.G.Yoo (2018/08/27; to include time-varying ga0(t))
+     if (zion(1,m) > 0.3 .AND. zion(1,m) < 0.7) then
+
+      MP_phase = gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0     
+      ga_amplitude = (zion(1,m)/0.5)*(ga0 + dgadt*(istep * tstep))
+ 
+      ga(m) = ga_amplitude* cos(MP_phase);
+      !wga(1,m) = 0.0_wp;
+      wga(1,m) = ga(m)/zion(1,m)
+      wga(2,m) = ga_amplitude * gam * sin(MP_phase);
+      wga(3,m) = -ga_amplitude * gan * sin(MP_phase);
+      gat(m) = dgadt*cos(MP_phase) + ga_amplitude * gagw * sin(MP_phase);  ! d(ga*cos(MP))/dt  = d(ga)dt*cos(MP) + ga*gagw*sin(MP); since MP has (-gagw*t) term inside
+     else
+      ga(m) = 0
+      wga(1,m) = 0
+      wga(2,m) = 0
+      wga(3,m) = 0
+      gat(m) = 0
+    end if
   enddo
 
 !    prepare equilibrium Er=dPhi/da at particles 
@@ -725,6 +748,7 @@ end if
 
   if(electromagnetic == 1) then
      m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
+     !m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
   else
   m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
   end if
@@ -941,10 +965,10 @@ dmaxv=0.0d0
 !     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**0.4_wp*da(m)
      zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**dsda_power*da(m)
 
-     if (mype ==0 .AND. MOD(m,(mi/10))==0) then
-      write(stdout,*) 'I''m= ',mype, ' zion(5,m=',m,')= ',zion(5,m), ' zion0(5,m=',m,')= ',zion0(5,m), ' avw= ',avw 
-      write(stdout,*) 'zion(6,m=',m,')= ',zion(6,m), ' zion0(6,m=',m,')= ',zion0(6,m) , ' wdot= ', wdot
-    end if
+    !  if (mype ==0 .AND. MOD(m,(mi/10))==0) then
+    !   write(stdout,*) 'I''m= ',mype, ' zion(5,m=',m,')= ',zion(5,m), ' zion0(5,m=',m,')= ',zion0(5,m), ' avw= ',avw 
+    !   write(stdout,*) 'zion(6,m=',m,')= ',zion(6,m), ' zion0(6,m=',m,')= ',zion0(6,m) , ' wdot= ', wdot
+    ! end if
 
 
 #ifdef _TREAT_MAGNETIC_AXIS
