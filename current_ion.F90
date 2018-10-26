@@ -38,7 +38,7 @@ subroutine current_ion
      wz1=wzion(m)
      wz0=1.0_wp-wz1
 
-     do larmor=1,4
+     do larmor=1, larmor_num
 
         ij=jtion0(larmor,m)
         wp0=1.0_wp-wpion(larmor,m)
@@ -68,9 +68,9 @@ subroutine current_ion
 
      enddo
 
-     wpi(1,m)=0.25_wp*e1
-     wpi(2,m)=0.25_wp*e2
-     wpi(3,m)=0.25_wp*e3
+     wpi(1,m)=e1/real(larmor_num)
+     wpi(2,m)=e2/real(larmor_num)
+     wpi(3,m)=e3/real(larmor_num)
 
   enddo
 
@@ -117,7 +117,7 @@ subroutine current_ion
      wz1=wz1*rdum
      wz0=wz0*rdum
      
-     do larmor=1,4
+     do larmor=1, larmor_num
         wp1=wpion(larmor,m)
         wp0=1.0_wp-wp1
 
@@ -243,20 +243,22 @@ subroutine current_ion
 !  !     so as to save storage for n_0 at grid points
 !  !$omp parallel do private(ij)
 !    do ij=1,mgrid
-!       pflux_i(1,1,ij)=pflux_i(1,1,ij)*markeri(ij)*0.25  ! Gamma_e/n_0
-!       pflux_i(2,1,ij)=pflux_i(2,1,ij)*markeri(ij)*0.25  ! Gamma_e/n_0
-!       pflux_i(3,1,ij)=pflux_i(3,1,ij)*markeri(ij)*0.25  ! Gamma_e/n_0
-!  !                factor 0.25=1/4 comes from 4-point average
+!       pflux_i(1,1,ij)=pflux_i(1,1,ij)*markeri(ij)*(1.0/real(larmor_num))  ! Gamma_e/n_0
+!       pflux_i(2,1,ij)=pflux_i(2,1,ij)*markeri(ij)*(1.0/real(larmor_num))  ! Gamma_e/n_0
+!       pflux_i(3,1,ij)=pflux_i(3,1,ij)*markeri(ij)*(1.0/real(larmor_num)) ! Gamma_e/n_0
+!                !factor 0.25=1/4 comes from 4-point average ! This is abandoned!!
+!                !Now, factor = (1/larmor_num) to average larmor_num points.
 !    enddo
 
 !$omp parallel do private(i,j,ij)
   do i=0,mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        pflux_i(1,1,ij)=0.25_wp*pflux_i(1,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
-        pflux_i(2,1,ij)=0.25_wp*pflux_i(2,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
-        pflux_i(3,1,ij)=0.25_wp*pflux_i(3,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
-!                factor 0.25=1/4 comes from 4-point average
+        pflux_i(1,1,ij)=(1.0/real(larmor_num))*pflux_i(1,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
+        pflux_i(2,1,ij)=(1.0/real(larmor_num))*cloud_i/dadtdz(i)  ! Gamma_e*J
+        pflux_i(3,1,ij)=(1.0/real(larmor_num))*cloud_i/dadtdz(i)  ! Gamma_e*J
+!                factor 0.25=1/4 comes from 4-point average ! This is abandoned!!
+!                Now, factor = (1/larmor_num) to average larmor_num points.
      enddo
   enddo
 

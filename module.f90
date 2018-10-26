@@ -113,6 +113,11 @@ end module precision
   real(wp) :: ga0, gagw, gagf0, dgadt;
   integer :: gam, gan;
 
+  !==============================================================================
+  !MGYOO (10/24/2018) to control accuracy of gyro-average on Larmor orbit
+  integer :: larmor_num = 16 ! how many points are used to do something on gyro orbit
+  !==============================================================================
+
 end module global_parameters
 
 module particle_array
@@ -127,7 +132,7 @@ module particle_array
   real(wp),pointer,dimension(:,:) :: zion,zion0,zeon,zeon0,zeon00
 
   ! ============================
-  ! M.G.Yoo (07/31/2018)
+  ! MGYOO (07/31/2018)
   ! Information of Multiple-Tracers
   real(wp), dimension(:), allocatable :: elabels, ilabels
   integer :: num_of_etracers = 200, num_of_itracers =200, nstep_for_tracer_record = 5

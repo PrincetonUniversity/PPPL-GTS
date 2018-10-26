@@ -60,6 +60,8 @@ Subroutine setup
   real(wp), dimension(:), allocatable :: coord_X,coord_Y,coord_Z,&
                                          coord_R,coord_Phi,kstar_Te
 
+  real(wp) da_du1, da_du2, dgq_du1, dgq_du2, gyro_phase
+  integer larmor
   integer create_directory
 
   integer,parameter :: nfft=768
@@ -1157,7 +1159,7 @@ end if ! if(mype==0)
   rden=1.0_wp
 
 ! allocate memory
-  allocate ( pgyro(4,mgrid),tgyro(4,mgrid),markeri(mgrid),densityi(0:1,mgrid),&
+  allocate ( pgyro(larmor_num,mgrid),tgyro(larmor_num,mgrid),markeri(mgrid),densityi(0:1,mgrid),&
        phi(0:1,mgrid),jtp1(2,mgrid),jtp2(2,mgrid),&
        wtp1(2,mgrid),wtp2(2,mgrid),dtemper(mgrid),heatflux(mgrid),&
        phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),&
@@ -1573,50 +1575,26 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
         rhoi=sqrt(2.0_wp/Bj(1))     ! rho=rhoi*sqrt(mu)
 
-!        pgyro(1,ij)=-rhoi
-!        pgyro(2,ij)=rhoi
-
-!        pgyro(1,ij)=-((metric(5)*metric(5)-metric(1)*metric(3))/q+  &
-!                      (metric(1)*metric(6)-metric(5)*metric(4)))*dtheta_dx*rhoi   !wx gg
-
-        pgyro(1,ij)=-sqrt(metric(1))*rhoi           ! for tokamak; da/dl
-        rdum=dsda(pdum)                             ! = dsda
-        pgyro(1,ij)=pgyro(1,ij)*rdum                ! ds/dl=(ds/da)*(da/dl)
-
-        pgyro(2,ij)=-pgyro(1,ij)       !wx gg
-
-! non-orthorgonality between psi and theta: tgyro=-rhoi*dtheta_dx*r*sin(tdum)
-!        tgyro(1,ij)=rhoi*dtheta_dx*r*sin(tdum)
-!        tgyro(2,ij)=-rhoi*dtheta_dx*r*sin(tdum)
-
-!        tgyro(1,ij)=-((metric(5)*metric(6)-metric(3)*metric(4))/q+  &
-!                      (metric(4)*metric(6)-metric(2)*metric(5)))*dtheta_dx*rhoi   !wx gg
-
-        tgyro(1,ij)=-metric(4)/sqrt(metric(1))*rhoi   ! for tokamak
-
-        tgyro(2,ij)=-tgyro(1,ij)
-
-! the other two points (3 and 4) are in (grad_zetaxB)xgrad_zeta direction 
-! with rhoi enlarged by a factor JB*|grad_zeta| 
-!        pgyro(3,ij)=-metric(5)*dtheta_dx*Bj(1)*rhoi/gFaj(1)
-        pgyro(3,ij)=-metric(5)*q/sqrt(metric(1))/metric(3)*Bj(1)*rhoi/gFaj(1)
-        pgyro(3,ij)=pgyro(3,ij)*rdum             ! ds/dl=(ds/da)*(da/dl)
-!        pgyro(3,ij)=pgyro(3,ij)*vthc/vth_grid(i) ! ds/dl=(ds/da)*(da/dl)
-
-        pgyro(4,ij)=-pgyro(3,ij)
-
-!        tgyro(3,ij)=(metric(3)/q-metric(6))*dtheta_dx*Bj(1)*rhoi/gFaj(1)
-        
         !==============================================================
-        ! MGY modified tgyro definition! (2018/10/24)
-        ! tgyro was divided by cos(alpha) in the previous version.
-        ! This is WRONG. 
+        ! MGYOO corrected tgyro definition and introduced multi-larmor points! (2018/10/24)        
+        ! Previous version was WRONG becuase tgyro was divided by cos(alpha) in the previous version.        
         ! tgyro should be multiplied by cos(alpha) as follows:
         ! tgyro = 1/sqrt(g_qq_cov)*cos(alpha) = (1/J)*(1/sqrt(gaa_cntv))*(Bgf_cov/B)
+        
+        ! u1 and u2 are coordinate variables 
+        ! u1 = grad(a) direction,  u2 = cross(B,grad(a)) direction
+        da_du1 = sqrt(metric(1))
+        da_du2 = 0
+        dgq_du1 = metric(4) / sqrt(metric(1)) 
+        dgq_du2 = (Fj(1))/ (jacobian(pdum,tdum)*sqrt(metric(1))*Bj(1))
+
+        do larmor=1, larmor_num
+          gyro_phase = (larmor-1)*2.0_wp*pi/real(larmor_num)
+          
+          pgyro(larmor,ij) = dsda(pdum)*rhoi * (cos(gyro_phase)*da_du1 + sin(gyro_phase)*da_du2)
+          tgyro(larmor,ij) = rhoi * (cos(gyro_phase)*dgq_du1 + sin(gyro_phase)*dgq_du2)        
+        enddo
         !==============================================================
-        !tgyro(3,ij)=Bj(1)*rhoi/gFaj(1)/sqrt(metric(1)) ! previous version. wrong.
-        tgyro(3,ij)=rhoi *(Fj(1))/ (jacobian(pdum,tdum)*sqrt(metric(1))*Bj(1))
-        tgyro(4,ij)=-tgyro(3,ij)
      enddo
 ! to be safe do the following
      pgyro(:,igrid(i))=pgyro(:,igrid(i)+mtheta(i)) !(:,igrid(i)) is missing in last do-loop
@@ -1797,8 +1775,17 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
 
 ! allocate memory
-  allocate (zion(7,mimax),zion0(7,mimax),jtion0(4,mimax),jtion1(4,mimax),&
-       wzion(mimax),wpion(4,mimax),wtion0(4,mimax),wtion1(4,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers))       
+
+  !==================================
+  ! MGYOO (10/24/2018) : to extend definition of jtion0, jtion1, wpion, wtion
+  ! These variables has indices from 0 to larmor_num  as jtion0(0:larmor_num, mimax)
+  ! zero index (jtion(0,mi)) is used to represent the GuidingCenter position.
+  ! other 1~larmor_num ((jtion(1:larmor_num,mi))) indices are used to represent the Larmor orbit points 
+  ! Larmor orbit points will be determined using uniformly distribued gyro-phase angle.
+  !==================================
+
+  allocate (zion(7,mimax),zion0(7,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
+       wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers))       
   if(ifelectron/=0) then
 
      if(ifdphi/=2) then     ! use dphi/dt equation when ifelectron=2 

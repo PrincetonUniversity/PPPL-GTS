@@ -10,11 +10,11 @@
 #define esilink2c esilink2c_
 #define gcmotion gcmotion_
 #define gcmotion_em gcmotion_em_
-#define gcmotion_em_MGY gcmotion_em_MGY_
+#define gcmotion_em_MGY gcmotion_em_mgy_
 #define gcmotion_e gcmotion_e_
 #define gcmotion_eon gcmotion_eon_
 #define gcmotion_eon_em gcmotion_eon_em_
-#define gcmotion_eon_em_MGY gcmotion_eon_em_MGY_
+#define gcmotion_eon_em_MGY gcmotion_eon_em_mgy_
 #define get4exb get4exb_
 #define get4exb12 get4exb12_
 #define species species_

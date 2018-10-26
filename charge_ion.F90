@@ -20,6 +20,9 @@ subroutine charge_ion
 
   real(wp), external :: SMOOTHSTEP
 
+  integer inner_ip,outter_ip, inner_jt, outter_jt
+  real(wp) gyro_phase, intpl_pgyro(larmor_num), intpl_tgyro(larmor_num)
+
 #ifdef _OPENMP
 !! We need the following temporary array only when using OpenMP
 !  real,dimension(:,:),allocatable :: dnitmp
@@ -56,11 +59,50 @@ subroutine charge_ion
      ipjt=igrid(ip)+jt     ! note special case of jt=0
      wzion(m)=(zetatmp-zetamin)*delz
 
-     do larmor=1,4
+
+     !==========================================
+     ! MGYOO (10/24/2018) : to store information of GC position.
+     ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
+     inner_ip = max(0,min(mpsi-1,int((r-s0)*delr)))
+     thedum=zion(2,m)-zdum*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane 
+     thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
+     inner_jt = int(thedum)
+     wtion0(0,m) = thedum - int(thedum)
+     jtion0(0,m) = igrid(inner_ip) + inner_jt
+     wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
+    
+     outter_ip = inner_ip+1
+     thedum=zion(2,m)-zdum*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane 
+     thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
+     outter_jt = int(thedum)
+     wtion1(0,m) = thedum - int(thedum)
+     jtion1(0,m) = igrid(outter_ip) + outter_jt
+     !==========================================
+
+
+     !==========================================
+     ! MGYOO (10/25/2018) : to get linear-interpolation of pgyro and tgyro
+      
+     wp0 = 1.0_wp - wpion(0,m)
+     wp1 = wpion(0,m)
+
+     wt00 = 1.0_wp - wtion0(0,m)
+     wt10 = wtion0(0,m)
+
+     wt01 = 1.0_wp - wtion1(0,m)
+     wt11 = wtion1(0,m)
+
+     intpl_pgyro(:) = wp0*(wt00*pgyro(:,jtion0(0,m)) + wt10*pgyro(:,jtion0(0,m)+1)) + wp1*(wt01*pgyro(:,jtion1(0,m)) + wt11*pgyro(:,jtion1(0,m)+1))
+     intpl_tgyro(:) = wp0*(wt00*tgyro(:,jtion0(0,m)) + wt10*tgyro(:,jtion0(0,m)+1)) + wp1*(wt01*tgyro(:,jtion1(0,m)) + wt11*tgyro(:,jtion1(0,m)+1))
+    !==========================================
+                 
+             
+
+     do larmor=1, larmor_num
 !
-!  MODIFIED for FINITE GYRORADIUS CASE
+     !  MODIFIED for FINITE GYRORADIUS CASE
 !
-        pdum=max(psimin,min(psimax,psitmp+rhoi*pgyro(larmor,ipjt)))
+        pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
         rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
         ii=max(0,min(mpsi-1,int(rdum)))
 !        wp1=rdum-real(ii)
@@ -69,7 +111,7 @@ subroutine charge_ion
         wpion(larmor,m)=wp1                               !wx  finite rho_i case
 
 ! particle position in theta
-        tflr=thetatmp+rhoi*tgyro(larmor,ipjt)
+        tflr=thetatmp+rhoi*intpl_tgyro(larmor)
 
 ! inner flux surface
         im=ii
@@ -109,7 +151,7 @@ subroutine charge_ion
      wz1=weight*wzion(m)
      wz0=weight-wz1     
 
-     do larmor=1,4
+     do larmor=1, larmor_num
         wp1=wpion(larmor,m)
         wp0=1.0_wp-wp1
 
@@ -231,7 +273,7 @@ if(ZF_SEPARATION==0) then  !  solve total potential
   do i=0,mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        densityi(1,ij)=0.25*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+        densityi(1,ij)=(1.0/real(larmor_num))*densityi(1,ij)*markeri(ij)  ! =dn/n_0
      enddo
      densityi(1,igrid(i))=densityi(1,igrid(i)+mtheta(i)) ! validate densityi(1,igrid(i))
   enddo
@@ -251,8 +293,8 @@ if(ZF_SEPARATION==0) then  !  solve total potential
 !    do i=0,mpsi
 !       do j=1,mtheta(i)
 !          ij=igrid(i)+j
-!          rdum=rdum+0.25*densityi(1,ij)
-!          densityi(1,ij)=0.25*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+!          rdum=rdum+(1.0/real(larmor_num))*densityi(1,ij)
+!          densityi(1,ij)=(1.0/real(larmor_num))*densityi(1,ij)*markeri(ij)  ! =dn/n_0
 !       enddo
 !    enddo
 !  !$omp end parallel
@@ -265,8 +307,8 @@ if(ZF_SEPARATION==0) then  !  solve total potential
    do i=0,mpsi
       do j=1,mtheta(i)
          ij=j+igrid(i)
-         wdum(i)=wdum(i)+0.25*densityi(1,ij)
-         densityi(1,ij)=0.25*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+         wdum(i)=wdum(i)+(1.0/real(larmor_num))*densityi(1,ij)
+         densityi(1,ij)=(1.0/real(larmor_num))*densityi(1,ij)*markeri(ij)  ! =dn/n_0
       enddo
    enddo
  !$omp end parallel
@@ -352,8 +394,8 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
   do i=0,mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        !  wdum(i)=wdum(i)+0.25*densityi(1,ij)      ! original flux-surface avarage --> zonali; replaced in Jan. 2015
-        densityi(1,ij)=0.25*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+        !  wdum(i)=wdum(i)+(1.0/real(larmor_num))*densityi(1,ij)      ! original flux-surface avarage --> zonali; replaced in Jan. 2015
+        densityi(1,ij)=(1.0/real(larmor_num))*densityi(1,ij)*markeri(ij)  ! =dn/n_0
         wdum(i)=wdum(i)+dtemper(ij)*densityi(1,ij)  ! new flux-surface avarage --> zonali; used in Jan. 2015
      enddo
   enddo

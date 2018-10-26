@@ -87,7 +87,7 @@ subroutine pushi
      wz1=wzion(m)
      wz0=1.0_wp-wz1
 
-     do larmor=1,4
+     do larmor=1, larmor_num
 
         ij=jtion0(larmor,m)
         wp0=1.0_wp-wpion(larmor,m)
@@ -117,9 +117,9 @@ subroutine pushi
 
      enddo
 
-     wpi(1,m)=0.25_wp*e1
-     wpi(2,m)=0.25_wp*e2
-     wpi(3,m)=0.25_wp*e3
+     wpi(1,m)=e1/real(larmor_num)
+     wpi(2,m)=e2/real(larmor_num)
+     wpi(3,m)=e3/real(larmor_num)
 
   enddo
 
@@ -631,7 +631,7 @@ subroutine pushion
      wz1=wzion(m)
      wz0=1.0_wp-wz1
 
-     do larmor=1,4
+     do larmor=1, larmor_num
 
         ij=jtion0(larmor,m)
         wp0=1.0_wp-wpion(larmor,m)
@@ -661,9 +661,9 @@ subroutine pushion
 
      enddo
 
-     wpi(1,m)=0.25_wp*e1
-     wpi(2,m)=0.25_wp*e2
-     wpi(3,m)=0.25_wp*e3
+     wpi(1,m)=e1/real(larmor_num)
+     wpi(2,m)=e2/real(larmor_num)
+     wpi(3,m)=e3/real(larmor_num)
 
     !  ga(m) = ga0 * cos(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
     !  wga(1,m) = 0.0_wp;
@@ -673,7 +673,7 @@ subroutine pushion
 
      
      !M.G.Yoo (2018/08/27; to include time-varying ga0(t))
-     if (zion(1,m) > 0.3 .AND. zion(1,m) < 0.7) then
+     if (zion(1,m) > 0.2 .AND. zion(1,m) < 0.8) then
 
       MP_phase = gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0     
       ga_amplitude = (zion(1,m)/0.5)*(ga0 + dgadt*(istep * tstep))

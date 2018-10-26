@@ -489,7 +489,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
     !  gat(m) = ga0 * gagw * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
 
      !M.G.Yoo (2018/08/27; to include time-varying ga0(t))
-    if (zeon(1,m) > 0.3 .AND. zeon(1,m) < 0.7) then
+    if (zeon(1,m) > 0.2 .AND. zeon(1,m) < 0.8) then
 
       MP_phase = gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0     
       ga_amplitude = (zeon(1,m)/0.5)*(ga0 + dgadt*(istep * tstep))
