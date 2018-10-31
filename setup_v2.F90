@@ -546,8 +546,8 @@ if(mype==0) write(0,*) 'R_0/<L_T>=', R_0/Lc   ! 6.9 is often used in cyclone cas
    
    tstep=tstep*Lc/vthc             ! normalized delta_t
    
-   ! Convert dgadt(growth rate of external magnetic field) in the unit of (Lc/vthc) to unit of utime
-   dgadt=dgadt/(Lc/vthc)           ! normalized dgadt
+   ! Convert dga0dt(growth rate of external magnetic field) in the unit of (Lc/vthc) to unit of utime
+   dga0dt=dga0dt/(Lc/vthc)           ! normalized dga0dt
 
 
 !  kappati=kappati/R_0             ! now -dlnT_i/da=kappati/<|grad_a|>
@@ -2297,7 +2297,7 @@ end subroutine setup
 
   implicit none
 
-  integer,parameter :: n_integers=51, n_reals=62, n_chars=3
+  integer,parameter :: n_integers=51, n_reals=65, n_chars=3
   integer :: integer_params(n_integers)
   character(25),dimension(n_chars) :: char_params
 ! only the first processor will open files...
@@ -2386,7 +2386,8 @@ end subroutine setup
                      ZF_SEPARATION,      &   ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
                      order,              &   ! =0, original solver; =1, linear finite elements; =2 higher order elements
                      electromagnetic,    &   ! =0, original electrostatic code; =1 electromagnetic code
-                     ga0, gam, gan, gagw, gagf0, dgadt
+                     ga0, gam, gan, gagw, gagf0, dga0dt,&
+                     ga_rc, ga_rw, ga_pp     ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
 
   namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
                      its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2504,9 +2505,12 @@ end subroutine setup
      real_params(55:57)=tprobe
      real_params(58)=gama1
      real_params(59)=ga0
-     real_params(60)=gagw
-     real_params(61)=gagf0
-     real_params(62)=dgadt
+     real_params(60)=ga_rc
+     real_params(61)=ga_rw
+     real_params(62)=ga_pp
+     real_params(63)=gagw
+     real_params(64)=gagf0
+     real_params(65)=dga0dt
 
      write(0,*) 'equillibrium=', eq_data_name
      write(0,*) 'irun=', irun
@@ -2533,7 +2537,7 @@ end subroutine setup
      write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
      write(0,*) 'finite element order=', integer_params(47)
      write(0,*) 'electromagnetic=', electromagnetic
-     write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dgadt =', dgadt;
+     write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
   endif 
 
   call mpi_bcast(char_params,25*n_chars,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
@@ -2645,10 +2649,12 @@ end subroutine setup
      tprobe            =real_params(55:57)
      gama1             =real_params(58)
      ga0               =real_params(59)
-     gagw              =real_params(60)
-     gagf0             =real_params(61)
-     dgadt             =real_params(62)
-     
+     ga_rc             =real_params(60)
+     ga_rw             =real_params(61)
+     ga_pp             =real_params(62)
+     gagw              =real_params(63)
+     gagf0             =real_params(64)
+     dga0dt            =real_params(65)     
   end if
 
   nmode=n

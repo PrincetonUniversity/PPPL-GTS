@@ -488,27 +488,29 @@ subroutine pusheon(solver1, masssolver, irk_e)
     !  wga(3,m) = -ga0 * gan * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
     !  gat(m) = ga0 * gagw * sin(gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0);
 
-     !M.G.Yoo (2018/08/27; to include time-varying ga0(t))
-    if (zeon(1,m) > 0.2 .AND. zeon(1,m) < 0.8) then
+    !  !MGYOO (2018/08/27; to include time-varying ga0(t))
+    ! if (zeon(1,m) > 0.2 .AND. zeon(1,m) < 0.8) then
 
-      MP_phase = gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0     
-      ga_amplitude = (zeon(1,m)/0.5)*(ga0 + dgadt*(istep * tstep))
+    !   MP_phase = gan * zeon(3,m) - gam * zeon(2,m) - gagw * istep * tstep + gagf0     
+    !   ga_amplitude = (zeon(1,m)/0.5)*(ga0 + dga0dt*(istep * tstep))
 
-      ga(m) = ga_amplitude* cos(MP_phase);
-      !wga(1,m) = 0.0_wp;
-      wga(1,m) = ga(m) / zeon(1,m);
-      wga(2,m) = ga_amplitude * gam * sin(MP_phase);
-      wga(3,m) = -ga_amplitude * gan * sin(MP_phase);
-      gat(m) = dgadt*cos(MP_phase) + ga_amplitude * gagw * sin(MP_phase);  ! d(ga*cos(MP))/dt  = d(ga)dt*cos(MP) + ga*gagw*sin(MP); since MP has (-gagw*t) term inside
-      ! gat(m) = 0 ! Caution!! This is not a physical model. This is an artificial test to ignore the parallel electric field (which is time derivative of A_para).
-    else
-      ga(m) = 0
-      wga(1,m) = 0
-      wga(2,m) = 0
-      wga(3,m) = 0
-      gat(m) = 0
-    end if
+    !   ga(m) = ga_amplitude* cos(MP_phase);
+    !   !wga(1,m) = 0.0_wp;
+    !   wga(1,m) = ga(m) / zeon(1,m);
+    !   wga(2,m) = ga_amplitude * gam * sin(MP_phase);
+    !   wga(3,m) = -ga_amplitude * gan * sin(MP_phase);
+    !   gat(m) = (zeon(1,m)/0.5)*dga0dt*cos(MP_phase) + ga_amplitude * gagw * sin(MP_phase);  ! d(ga*cos(MP))/dt  = d(ga)dt*cos(MP) + ga*gagw*sin(MP); since MP has (-gagw*t) term inside
+    !   ! gat(m) = 0 ! Caution!! This is not a physical model. This is an artificial test to ignore the parallel electric field (which is time derivative of A_para).
+    ! else
+    !   ga(m) = 0
+    !   wga(1,m) = 0
+    !   wga(2,m) = 0
+    !   wga(3,m) = 0
+    !   gat(m) = 0
+    ! end if
 
+     !MGYOO (10/30/2018; to use analytic profile of ga0(a))
+    call Get_MP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
 
   enddo
 

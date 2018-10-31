@@ -1045,6 +1045,29 @@ FUNCTION temperature_e(adum,thedum)
 end function temperature_e
 
 
+subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+
+
+      use global_parameters
+      implicit  none
+
+      real(wp) MP_phase, ga_amplitude
+      real(wp) in_a, in_theta, in_zeta, in_time
+      real(wp) out_ga, out_grad_ga(3), out_partial_dga0dt
+
+      MP_phase = gan*in_zeta- gam*in_theta - gagw*in_time + gagf0           
+      ga_amplitude = (in_a/ga_rc)*(ga0 + dga0dt*in_time) * exp(-abs((in_a-ga_rc)/ga_rw)**ga_pp)
+      out_ga = ga_amplitude* cos(MP_phase);
+
+      out_grad_ga(1) = out_ga/in_a  + out_ga*(-sign(1.0_wp, in_a-ga_rc)*ga_pp/ga_rw * abs((in_a-ga_rc)/ga_rw)**(ga_pp-1))
+      out_grad_ga(2) =  gam*ga_amplitude*sin(MP_phase)
+      out_grad_ga(3) = -gan*ga_amplitude*sin(MP_phase)
+      out_partial_dga0dt = dga0dt*(in_a/ga_rc)*exp(-abs((in_a-ga_rc)/ga_rw)**ga_pp)*cos(MP_phase) + gagw*ga_amplitude*sin(MP_phase)
+      
+      
+end subroutine Get_MP_alpha_amplitude
+
+
 FUNCTION dT_da(adum,thedum)
       use precision
 !

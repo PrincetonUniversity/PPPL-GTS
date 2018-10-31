@@ -110,7 +110,7 @@ end module precision
   integer,dimension(:),allocatable :: mappingL2G, mappingG2L
 
   integer :: electromagnetic
-  real(wp) :: ga0, gagw, gagf0, dgadt;
+  real(wp) :: ga0, ga_rc, ga_rw, ga_pp, gagw, gagf0, dga0dt;
   integer :: gam, gan;
 
   !==============================================================================
