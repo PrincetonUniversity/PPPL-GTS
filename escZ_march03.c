@@ -2298,13 +2298,19 @@ int gcmotion_em(REAL *dXgr,
     dXgq[k]	=a22*BB-a21*BBa-D*Bf;
     
     dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
-
+    
     ghq[k]	=-a21*(-wpi2)+a11*(-wpi3);     /* da/dt|_EXB, no e and m dependence */
     Ta[k]       =-a21*wpi1-D*(-wpi3);          /* dtheta/dt|_EXB, no e and m dependence */
     P[k]        =a22*(-wpi2)-a12*(-wpi3);      /* drho/dt|_EXB, no e and m dependence */
     T[k]        =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
     dXgf1  = a11 * wpi1 + D * (-wpi2);
-    P[k]      -= gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1; // C.H.Ma's initial modification
+    //P[k]      -= gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1; // C.H.Ma's initial modification
+    
+    //================================================================================
+    // MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(ga))
+    // This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.    
+    P[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+    //==============================================================================
 
  
 
@@ -2634,13 +2640,21 @@ int gcmotion_em_MGY(REAL *dXgr,
     
     // transfromation from rho_hat to rho
     dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
-    P[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
+    //P[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
 
-    // // M.G.Yoo's additional modification (09/12/2018) to consider dgadt for further weight calculation in push routines using P[k].
+    //================================================================================
+    // MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(ga))
+    // This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.    
+    P[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+    //================================================================================
+
+
+
+    // // MGYOO's additional modification (09/12/2018) to consider dga0dt for further weight calculation in push routines using P[k].
     // if(nonlinear>0){ // nonlinear simulation (dXa, dXgq, dXgf already have perturbed ExB terms in them.)
     //     P[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
     // }
-    // else{ // linear simulation (dXa, dXgq, dXgf have only E0xB terms, so that we add perturbed ExB terms to calculate full dgadt)
+    // else{ // linear simulation (dXa, dXgq, dXgf have only E0xB terms, so that we add perturbed ExB terms to calculate full dga0dt)
     //     P[k] -= gat_array[k] + gaa * (dXa[k] + ghq[k]) + gaq *(dXgq[k]+ Ta[k]) + gaz * (dXgf[k]+ dXgf1);
     // }
 
@@ -3530,7 +3544,7 @@ int gcmotion_eon_em(REAL *dXgr,
     Ta[k]       =-a21*wpi1-D*(-wpi3);          /* dtheta/dt|_EXB, no e and m dependence */
     Pa[k]       =a22*(-wpi2)-a12*(-wpi3);      /* drho/dt|_EXB, no e and m dependence */
     dXgf1       =a11 * wpi1 + D * (-wpi2); 
-    Pa[k]      -= gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1; //C.H.Ma's initial modification
+    //Pa[k]      -= gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1; //C.H.Ma's initial modification
 
 
 
@@ -3540,7 +3554,11 @@ int gcmotion_eon_em(REAL *dXgr,
     dXgq[k]    *=c0cs;
  
     dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
-
+    //================================================================================
+    // MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(ga))
+    // This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.    
+    Pa[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+    //================================================================================
   
 
 #ifdef _TREAT_MAGNETIC_AXIS
@@ -3852,18 +3870,16 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 
     // transfromation from rho_hat to rho
     dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
-    Pa[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
+    //Pa[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
+
+    //================================================================================
+    // MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(ga))
+    // This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.    
+    Pa[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+    //==============================================================================
 
 
-
-    // // M.G.Yoo's additional modification (09/12/2018) to consider dgadt for further weight calculation in push routines using P[k].
-    // if(nonlinear>0){ // nonlinear simulation (dXa, dXgq, dXgf already have perturbed ExB terms in them.)
-    //     Pa[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
-    // }
-    // else{ // linear simulation (dXa, dXgq, dXgf have only E0xB terms, so that we add perturbed ExB terms to calculate full dgadt)
-    //     Pa[k] -= gat_array[k] + gaa * (dXa[k] + ghq[k]) + gaq *(dXgq[k]+ Ta[k]) + gaz * (dXgf[k]+ dXgf1);
-    // }
-
+    
 #ifdef _TREAT_MAGNETIC_AXIS
     if(sw != NULL && sw[k]){
       dHdgq       =a*dXgq[k];
