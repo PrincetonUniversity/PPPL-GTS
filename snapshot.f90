@@ -23,6 +23,8 @@ subroutine snapshot
   real(wp) ubin_max,pbin_max,ebin_max
 !  real(wp),dimension(mzeta,0:mpsi,0:mthetamax) :: ftotal,tpara,tperp
 
+  real(wp) gq_0, intpl_dphi, intpl_dni, intpl_dne, intpl_dTe, intpl_dTi
+  integer gq_jump, a_jump
   character(len=13) cdum,date,time
 
   real(wp),dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
@@ -33,9 +35,13 @@ subroutine snapshot
 ! if(mod(istep,40) .eq. 0) call restart_write
   if(mod(istep,irewrite) .eq. 0) call restart_write
 
+    gq_jump = 2
+    a_jump = 1
+
+   
 
 ! number of poloidal grid
-  jm=mtheta(ipsi)/2
+  jm=mtheta(ipsi)/gq_jump
 
 ! zion space grids: parallel velocity, kinetic energy, pitch angle
   if(ifelectron==0) then 
@@ -175,28 +181,28 @@ subroutine snapshot
 !  enddo
 
   icount=mbin_psi*mbin_u
-  call MPI_REDUCE(ubin,bdum,icount,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)ubin=bdum
-  call MPI_REDUCE(dubin,bdum,icount,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)dubin=bdum
-  call MPI_REDUCE(pbin,bdum,icount,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)pbin=bdum
-  call MPI_REDUCE(dpbin,bdum,icount,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)dpbin=bdum
-  call MPI_REDUCE(ebin,bdum,icount,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)ebin=bdum
-  call MPI_REDUCE(debin,bdum,icount,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)debin=bdum
-  call MPI_REDUCE(marker,adum,mpsi+1,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)marker=adum
-  call MPI_REDUCE(fflows,adum,mpsi+1,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)fflows=adum
-  call MPI_REDUCE(dflows,adum,mpsi+1,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)dflows=adum
-  call MPI_REDUCE(ftem,adum,mpsi+1,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)ftem=adum
-  call MPI_REDUCE(dtem,adum,mpsi+1,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierror)
-  if(mype==0)dtem=adum
+  call MPI_REDUCE(ubin,bdum,icount,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)ubin=bdum
+  call MPI_REDUCE(dubin,bdum,icount,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)dubin=bdum
+  call MPI_REDUCE(pbin,bdum,icount,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)pbin=bdum
+  call MPI_REDUCE(dpbin,bdum,icount,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)dpbin=bdum
+  call MPI_REDUCE(ebin,bdum,icount,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)ebin=bdum
+  call MPI_REDUCE(debin,bdum,icount,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)debin=bdum
+  call MPI_REDUCE(marker,adum,mpsi+1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)marker=adum
+  call MPI_REDUCE(fflows,adum,mpsi+1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)fflows=adum
+  call MPI_REDUCE(dflows,adum,mpsi+1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)dflows=adum
+  call MPI_REDUCE(ftem,adum,mpsi+1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)ftem=adum
+  call MPI_REDUCE(dtem,adum,mpsi+1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierror)
+  if(mype==numberpe-1)dtem=adum
 
   where(marker .lt. 1.0)marker=1.0
   fflows=fflows/marker
@@ -213,7 +219,7 @@ subroutine snapshot
   call MPI_GATHER(phisn,jm,mpi_Rsize,eachpsi,&
        jm,mpi_Rsize,0,toroidal_comm,ierror)
   
-  if(mype == 0)then !mype=0 must also have myrank_toroidal=0
+  if(mype == numberpe-1)then !mype=0 must also have myrank_toroidal=0
 ! normalization
      ubin_max=maxval(ubin)
      pbin_max=maxval(pbin)
@@ -230,9 +236,11 @@ subroutine snapshot
          
 ! time step and grid dimension,write every other point in poloidal direction
      write(snapout,102) real(istep)*tstep, q_grid(ipsi)
-     write(snapout,101) mbin_u,mbin_psi,mpsi/2,jm,mzetamax,mpsi/4   ! mpsi/2 specifies  
+     write(snapout,101) mbin_u,mbin_psi,mpsi/a_jump,jm,mzetamax,mpsi/4   ! mpsi/2 specifies  
                     ! how many number of data are written out; don't confuse with ipsi! 
-     
+     write(snapout,102)  vth_grid(ipsi)**2, Te_grid(ipsi) ! Ti and Te at reference position in same unit (normalized unit is Tem_00)
+
+
 ! write velocity space grids: V_para, pitch, energy to data file
 ! number of quantities
      i=9
@@ -259,66 +267,182 @@ subroutine snapshot
 ! radial grid
      i=8
      write(snapout,101)i
-     do i=1,mpsi,2
+     do i=0,mpsi,a_jump
         write(snapout,102)  psi_grid(i)  !  (a0+deltar*real(i))/gyroradius  ????
      enddo
-     write(snapout,102)(marker(i),i=1,mpsi,2)
+     write(snapout,102)(marker(i),i=0,mpsi,a_jump)
 !     write(snapout,102)(phi00(i)/vthc**2,i=1,mpsi)
-     do i=1,mpsi,2
+     do i=0,mpsi,a_jump
         r=psi_grid(i)       !   r=(a0+deltar*real(i))/a  ????
 !        r=r_grid(i)        !   use this minor radiu      
         q=q_grid(i) 
         write(snapout,102)q/r
      enddo
-     write(snapout,102)(phip00(i)/gyroradius,i=1,mpsi,2)   ! ???
-     write(snapout,102)(fflows(i),i=1,mpsi,2)
-     write(snapout,102)(dflows(i),i=1,mpsi,2)
-     write(snapout,102)(ftem(i),i=1,mpsi,2)
-     write(snapout,102)(dtem(i),i=1,mpsi,2)
+     write(snapout,102)(phip00(i)/gyroradius,i=0,mpsi,a_jump)   ! ???
+     write(snapout,102)(fflows(i),i=0,mpsi,a_jump)
+     write(snapout,102)(dflows(i),i=0,mpsi,a_jump)
+     write(snapout,102)(ftem(i),i=0,mpsi,a_jump)
+     write(snapout,102)(dtem(i),i=0,mpsi,a_jump)
+
+     write(snapout,101) 1
+     write(snapout,102)(vth_grid(i)**2,i=0,mpsi,a_jump)      ! Ti in same unit (normalized unit is Tem_00)
+     write(snapout,101) 1
+     write(snapout,102)(Te_grid(i),i=0,mpsi,a_jump)          ! Te in same unit (normalized unit is Tem_00)
 
 ! poloidal cross section: marker,density,potential,parallel flow and temperature
-     i=3
-     write(snapout,101)i
-     do j=0,jm
-        jj=j
-        if(j>jm/2)jj=j-jm
-        do i=1,mpsi,2
+     write(snapout,101) 1
+     do i=0,mpsi,a_jump
+        do j=0,jm
            pdum=psi_grid(i)  !wx
-           tdum=pi+2.0*pi*real(jj)/real(jm)
+           tdum=2.0*pi*real(j)/real(jm)
            aaa(1)=pdum
            the(1)=tdum
            call esigetrzb(rj,zj,Bj,aaa,the,1)  
            write(snapout,102) rj(1)
         enddo
      enddo
-     do j=0,jm
-        jj=j
-        if(j>jm/2)jj=j-jm
-        do i=1,mpsi,2
+
+     write(snapout,101) 1
+     do i=0,mpsi,a_jump
+        do j=0,jm
            pdum=psi_grid(i)      !wx
-           tdum=pi+2.0*pi*real(jj)/real(jm)
+           tdum=2.0*pi*real(j)/real(jm)
            aaa(1)=pdum
            the(1)=tdum
            call esigetrzb(rj,zj,Bj,aaa,the,1)
            write(snapout,102) zj(1) 
         enddo
      enddo
+
+     write(snapout,101) 1
+     do i=0,mpsi,a_jump
+        do j=0,jm
+           pdum=psi_grid(i)    
+           tdum=2.0*pi*real(j)/real(jm)
+           write(snapout,102) pdum
+        enddo
+     enddo 
      
-     do j=0,jm
-        jj=j
-        if(j>jm/2)jj=j-jm
-        do i=1,mpsi,2
-           tdum=pi+2.0*pi*real(jj)/real(jm)
-           jt=max(1,min(mtheta(i),1+int(tdum/deltat(i))))
-           wt=tdum/deltat(i)-real(jt-1)
-           write(snapout,102)(wt*(phi(0,igrid(i)+jt)-real(1-ZF_SEPARATION)*phi00(i))+  &
-                             (1.0-wt)*(phi(0,igrid(i)+jt-1)-real(1-ZF_SEPARATION)*phi00(i)))/  &
-                              vthc**2  ! vth_grid(i)**2  ! should replace by local Ti??
-
-!           write(snapout,102)wt*densityi(0,igrid(i)+jt)+(1.0-wt)*densityi(0,igrid(i)+jt-1)
-
+     write(snapout,101) 1
+     do i=0,mpsi,a_jump
+        do j=0,jm
+           pdum=psi_grid(i)    
+           tdum=2.0*pi*real(j)/real(jm)
+           write(snapout,102) tdum
         enddo
      enddo
+     
+     
+     !==============================================
+     ! MGYOO (11/13/2018) : record potential, density, temperature fluctuation at zeta=0 plane
+     !==============================================
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            gq_0 = mod(qtinv(i)*zetamax,2*pi)
+            tdum=2.0*pi*real(j)/real(jm)
+            if(tdum<gq_0) then
+                tdum = tdum + 2.0*pi
+            endif
+            jt = floor((tdum-gq_0)/deltat(i))
+            wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+
+            intpl_dphi = (wt*phi(1,igrid(i)+jt)+  (1.0-wt)*phi(1,igrid(i)+jt-1)) -real(1-ZF_SEPARATION)*phi00(i)
+            write(snapout,102) intpl_dphi
+        enddo
+    enddo
+
+    ! ion density
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            ! tdum=2.0*pi*real(j)/real(jm)
+            ! jt=max(1,min(mtheta(i),1+int(tdum/deltat(i))))
+            ! wt=tdum/deltat(i)-real(jt-1)
+            gq_0 = mod(qtinv(i)*zetamax,2*pi)
+            tdum=2.0*pi*real(j)/real(jm)
+            if(tdum<gq_0) then
+                tdum = tdum + 2.0*pi
+            endif
+            jt = floor((tdum-gq_0)/deltat(i))
+            wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+
+            intpl_dni = (wt*densityi(1,igrid(i)+jt) + (1.0-wt)*densityi(1,igrid(i)+jt-1))
+            write(snapout,102) intpl_dni
+        enddo
+    enddo
+
+    ! ion temperature fluctuation 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            gq_0 = mod(qtinv(i)*zetamax,2*pi)
+            tdum=2.0*pi*real(j)/real(jm)
+            if(tdum<gq_0) then
+                tdum = tdum + 2.0*pi
+            endif
+            jt = floor((tdum-gq_0)/deltat(i))
+            wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+
+            intpl_dTi = (wt*phi_tmp(igrid(i)+jt)+  (1.0-wt)*phi_tmp(igrid(i)+jt-1))
+            write(snapout,102) intpl_dTi
+        enddo
+    enddo
+
+
+    ! electron density (including adiabatic response for delta-h scheme)
+    write(snapout,101) 1
+    if(ifelectron == 2) then        
+        do i=0,mpsi,a_jump
+            do j=0,jm
+                gq_0 = mod(qtinv(i)*zetamax,2*pi)
+                tdum=2.0*pi*real(j)/real(jm)
+                if(tdum<gq_0) then
+                    tdum = tdum + 2.0*pi
+                endif
+                jt = floor((tdum-gq_0)/deltat(i))
+                wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+
+                intpl_dphi = (wt*phi(1,igrid(i)+jt)+  (1.0-wt)*phi(1,igrid(i)+jt-1)) -real(1-ZF_SEPARATION)*phi00(i)
+                intpl_dne = wt*densitye(1,igrid(i)+jt)+(1.0-wt)*densitye(1,igrid(i)+jt-1)
+
+                write(snapout,102) intpl_dne + intpl_dphi/Te_grid(i)*abs(csc0)
+            enddo
+        enddo
+    else
+        do i=0,mpsi,a_jump
+            do j=0,jm
+                gq_0 = mod(qtinv(i)*zetamax,2*pi)
+                tdum=2.0*pi*real(j)/real(jm)
+                if(tdum<gq_0) then
+                    tdum = tdum + 2.0*pi
+                endif
+                jt = floor((tdum-gq_0)/deltat(i))
+                wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+
+                intpl_dne = wt*densitye(1,igrid(i)+jt)+(1.0-wt)*densitye(1,igrid(i)+jt-1)
+
+                write(snapout,102) intpl_dne
+            enddo
+        enddo       
+    endif
+
+    ! electron temperature fluctuation 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            gq_0 = mod(qtinv(i)*zetamax,2*pi)
+            tdum=2.0*pi*real(j)/real(jm)
+            if(tdum<gq_0) then
+                tdum = tdum + 2.0*pi
+            endif
+            jt = floor((tdum-gq_0)/deltat(i))
+            wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+            
+            intpl_dTe = (wt*heatflux(igrid(i)+jt)+  (1.0-wt)*heatflux(igrid(i)+jt-1))
+            write(snapout,102) intpl_dTe
+        enddo
+    enddo
 
 ! flux surface profile for marker, density, potential, parallel flow and temperature
      i=1
@@ -334,7 +458,7 @@ subroutine snapshot
 ! eigenmode structure
      eigenmode=0._wp
      write(snapout,101)num_mode,m_poloidal,nmode
-     do i=1,mpsi,2
+     do i=0,mpsi,a_jump
         do kz=1,num_mode
            do j=1,m_poloidal
               write(snapout,102)eigenmode(j,kz,i)
@@ -349,7 +473,7 @@ subroutine snapshot
 ! record program end time
   if(istep .eq. mstep)then
      call date_and_time(date,time)
-     if(mype == 0)write(stdout,*) 'Program ends at DATE=', date, 'TIME=', time
+     if(mype == numberpe-1)write(stdout,*) 'Program ends at DATE=', date, 'TIME=', time
   endif
   
 101 format(i6)
