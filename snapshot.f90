@@ -345,9 +345,9 @@ subroutine snapshot
                 tdum = tdum + 2.0*pi
             endif
             jt = floor((tdum-gq_0)/deltat(i))
-            wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+            wt = (tdum-gq_0)/deltat(i) - real(jt)
 
-            intpl_dphi = (wt*phi(1,igrid(i)+jt)+  (1.0-wt)*phi(1,igrid(i)+jt-1)) -real(1-ZF_SEPARATION)*phi00(i)
+            intpl_dphi = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) -real(1-ZF_SEPARATION)*phi00(i)
             write(snapout,102) intpl_dphi
         enddo
     enddo
@@ -365,9 +365,9 @@ subroutine snapshot
                 tdum = tdum + 2.0*pi
             endif
             jt = floor((tdum-gq_0)/deltat(i))
-            wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+            wt = (tdum-gq_0)/deltat(i) - real(jt)
 
-            intpl_dni = (wt*densityi(1,igrid(i)+jt) + (1.0-wt)*densityi(1,igrid(i)+jt-1))
+            intpl_dni = ((1.0-wt)*densityi(1,igrid(i)+jt) + wt*densityi(1,igrid(i)+jt+1))
             write(snapout,102) intpl_dni
         enddo
     enddo
@@ -382,9 +382,9 @@ subroutine snapshot
                 tdum = tdum + 2.0*pi
             endif
             jt = floor((tdum-gq_0)/deltat(i))
-            wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+            wt = (tdum-gq_0)/deltat(i) - real(jt)
 
-            intpl_dTi = (wt*phi_tmp(igrid(i)+jt)+  (1.0-wt)*phi_tmp(igrid(i)+jt-1))
+            intpl_dTi = ((1.0-wt)*phi_tmp(igrid(i)+jt)+  wt*phi_tmp(igrid(i)+jt+1))
             write(snapout,102) intpl_dTi
         enddo
     enddo
@@ -401,10 +401,10 @@ subroutine snapshot
                     tdum = tdum + 2.0*pi
                 endif
                 jt = floor((tdum-gq_0)/deltat(i))
-                wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+                wt = (tdum-gq_0)/deltat(i) - real(jt)
 
-                intpl_dphi = (wt*phi(1,igrid(i)+jt)+  (1.0-wt)*phi(1,igrid(i)+jt-1)) -real(1-ZF_SEPARATION)*phi00(i)
-                intpl_dne = wt*densitye(1,igrid(i)+jt)+(1.0-wt)*densitye(1,igrid(i)+jt-1)
+                intpl_dphi = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) -real(1-ZF_SEPARATION)*phi00(i)
+                intpl_dne = (1.0-wt)*densitye(1,igrid(i)+jt)+wt*densitye(1,igrid(i)+jt+1)
 
                 write(snapout,102) intpl_dne + intpl_dphi/Te_grid(i)*abs(csc0)
             enddo
@@ -418,9 +418,9 @@ subroutine snapshot
                     tdum = tdum + 2.0*pi
                 endif
                 jt = floor((tdum-gq_0)/deltat(i))
-                wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+                wt = (tdum-gq_0)/deltat(i) - real(jt)
 
-                intpl_dne = wt*densitye(1,igrid(i)+jt)+(1.0-wt)*densitye(1,igrid(i)+jt-1)
+                intpl_dne = (1.0-wt)*densitye(1,igrid(i)+jt)+wt*densitye(1,igrid(i)+jt+1)
 
                 write(snapout,102) intpl_dne
             enddo
@@ -437,9 +437,9 @@ subroutine snapshot
                 tdum = tdum + 2.0*pi
             endif
             jt = floor((tdum-gq_0)/deltat(i))
-            wt = (1.0 - ((tdum-gq_0)/deltat(i) - real(jt)))
+            wt = (tdum-gq_0)/deltat(i) - real(jt)
             
-            intpl_dTe = (wt*heatflux(igrid(i)+jt)+  (1.0-wt)*heatflux(igrid(i)+jt-1))
+            intpl_dTe = ((1.0-wt)*heatflux(igrid(i)+jt)+  wt*heatflux(igrid(i)+jt+1))
             write(snapout,102) intpl_dTe
         enddo
     enddo
