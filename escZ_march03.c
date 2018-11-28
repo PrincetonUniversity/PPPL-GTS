@@ -6,6 +6,7 @@
 #define esigetrzb esigetrzb_
 #define esiget2dfunctions esiget2dfunctions_
 #define esiget2dthese  esiget2dthese_
+#define esiget_Intp_B_vec_contravariant esiget_intp_b_vec_contravariant_
 #define esiread esiread_
 #define esilink2c esilink2c_
 #define gcmotion gcmotion_
@@ -4404,6 +4405,197 @@ int esiget2dthese(REAL *Fj,  REAL *Faj, REAL *gFaj, REAL *gYaj, REAL *rj,
   }
   return(0);
 }
+
+void get_mp_alpha_amplitude_(REAL *in_a, REAL *in_theta, REAL *in_zeta, REAL *in_time, REAL *out_ga, REAL *out_grad_ga, REAL *out_partial_dg0dt);
+
+int esiget_Intp_B_vec_contravariant(REAL *in_a, REAL *in_gq, REAL *in_gf, REAL *in_time, REAL *out_B_cntv3)
+{
+  /* Exception: at a=0 the routine returns:
+     dr_q/a, dz_q/a, dB_q/a, dgF/a, dgY/a
+     rather than
+     dr_q=0, dz_q=0, dB_q=0, dgF=0, dgY=0 */
+
+    int j0,j1;
+    REAL x,X,xx,XX;
+    REAL f0,f1,fq0,fq1;
+    REAL a,q;
+
+    // Interpolated variables
+    REAL R, Z, dRda, dRdgq, dZda, dZdgq;
+    REAL B_mag;
+    REAL F, dFda, dgFda, dgYda;
+    REAL P, T;
+
+
+    a	= (*in_a);
+    q	= (*in_gq);
+
+    j1	=q*crgq0;
+    if(q < 0.){
+        j1--;
+    }
+    q	-=cgq0*j1;
+    j0	=q*rhq;
+    if(j0 >= Np){
+        j0	-=Np;
+        q	-=cgq0;
+    }
+    if(j0 < 0){
+        j0	+=Np;
+        q	+=cgq0;
+    }
+    j1	=j0+1;
+    y	=(q-gq[j0])*rhq;
+    Y	=1.-y;
+
+    YY	=Y*Y;
+    yy	=y*y;
+    YF	=YY*(3.-2.*Y);
+    YD	=YY*y*hq;
+    yF	=yy*(3.-2.*y);
+    yD	=-yy*Y*hq;
+
+    dY	=3.*y*Y;
+    dYD	=Y-dY;
+    dyD	=y-dY;
+    dY	*=2.*rhq;
+    if(a < 0.){
+        a	=-a;
+    }
+    i0	=(a-sa[0])*rha;
+    if(a != 0.){
+        if(i0 >= Na){
+    i0	=Na-1;
+        }
+        i1	=i0+1;
+        
+        x	=(a-sa[i0])*rha;
+        X	=1.-x;
+
+        XX	=X*X;
+        xx	=x*x;
+        XF	=XX*(3.-2.*X);
+        XD	=XX*x*ha;
+        xF	=xx*(3.-2.*x);
+        xD	=-xx*X*ha;
+        
+        dX	=3.*x*X;
+        dXD	=X-dX;
+        dxD	=x-dX;
+        dX	*=2.*rha;
+        
+        j00	=Np1*i0+j0;
+        j01	=j00+1;
+        j10	=j00+Np1;
+        j11	=j10+1;
+        
+        /* r,r'_a,r'_q */
+        f0	=XF*sr [j00]+xF*sr [j10]+XD*sra [j00]+xD*sra [j10];
+        f1	=XF*sr [j01]+xF*sr [j11]+XD*sra [j01]+xD*sra [j11];
+        fq0	=XF*srq[j00]+xF*srq[j10]+XD*sraq[j00]+xD*sraq[j10];
+        fq1	=XF*srq[j01]+xF*srq[j11]+XD*sraq[j01]+xD*sraq[j11];
+        R   =YF*f0+yF*f1+YD*fq0+yD*fq1;
+        dRdgq =dY*(f1-f0)+dYD*fq0+dyD*fq1;
+        f0	=dX*(sr [j10]-sr [j00])+dXD*sra [j00]+dxD*sra [j10];
+        f1	=dX*(sr [j11]-sr [j01])+dXD*sra [j01]+dxD*sra [j11];
+        fq0	=dX*(srq[j10]-srq[j00])+dXD*sraq[j00]+dxD*sraq[j10];
+        fq1	=dX*(srq[j11]-srq[j01])+dXD*sraq[j01]+dxD*sraq[j11];
+        dRda =YF*f0+yF*f1+YD*fq0+yD*fq1;
+        
+        /* z,z'_a,z'_q */
+        f0	=XF*sz [j00]+xF*sz [j10]+XD*sza [j00]+xD*sza [j10];
+        f1	=XF*sz [j01]+xF*sz [j11]+XD*sza [j01]+xD*sza [j11];
+        fq0	=XF*szq[j00]+xF*szq[j10]+XD*szaq[j00]+xD*szaq[j10];
+        fq1	=XF*szq[j01]+xF*szq[j11]+XD*szaq[j01]+xD*szaq[j11];
+        Z=YF*f0+yF*f1+YD*fq0+yD*fq1;
+        dZdgq=dY*(f1-f0)+dYD*fq0+dyD*fq1;
+        f0	=dX*(sz [j10]-sz [j00])+dXD*sza [j00]+dxD*sza [j10];
+        f1	=dX*(sz [j11]-sz [j01])+dXD*sza [j01]+dxD*sza [j11];
+        fq0	=dX*(szq[j10]-szq[j00])+dXD*szaq[j00]+dxD*szaq[j10];
+        fq1	=dX*(szq[j11]-szq[j01])+dXD*szaq[j01]+dxD*szaq[j11];
+        dZda=YF*f0+yF*f1+YD*fq0+yD*fq1;
+        
+        /* B */
+        f0	=XF*aB [j00]+xF*aB [j10]+XD*aBa [j00]+xD*aBa [j10];
+        f1	=XF*aB [j01]+xF*aB [j11]+XD*aBa [j01]+xD*aBa [j11];
+        fq0	=XF*aBq[j00]+xF*aBq[j10]+XD*aBaq[j00]+xD*aBaq[j10];
+        fq1	=XF*aBq[j01]+xF*aBq[j11]+XD*aBaq[j01]+xD*aBaq[j11];
+        B_mag=YF*f0+yF*f1+YD*fq0+yD*fq1;
+
+        F	=XF*aF[i0]+xF*aF[i1]+XD*daF[i0]+xD*daF[i1];
+        dFda	=dX*(aF[i1]-aF[i0])+dXD*daF[i0]+dxD*daF[i1];
+        dgFda	=XF*dgF[i0]+xF*dgF[i1]+XD*d2gF[i0]+xD*d2gF[i1];
+        dgYda	=XF*dgY[i0]+xF*dgY[i1]+XD*d2gY[i0]+xD*d2gY[i1];
+        dgFda	*=a;
+        dgYda	*=a;
+
+        T	=XF*aT[i0]+xF*aT[i1]+XD*daT[i0]+xD*daT[i1];
+        P	=XF*aP[i0]+xF*aP[i1]+XD*daP[i0]+xD*daP[i1];        
+    }
+    else{	/* a == 0. */
+        R	=sr[0];
+        dRda	=YF*sra[j0]+yF*sra[j1]+YD*sraq[j0]+yD*sraq[j1];
+        dRdgq	=dY*(sra[j1]-sra[j0])+dYD*sraq[j0]+dyD*sraq[j1];
+        Z	=sz[0];
+        dZda	=YF*sza[j0]+yF*sza[j1]+YD*szaq[j0]+yD*szaq[j1];
+        dZdgq	=dY*(sza[j1]-sza[j0])+dYD*szaq[j0]+dyD*szaq[j1];
+        B_mag	=aB[0];
+        F	=aF[0];
+        dFda	=0.;
+        dgFda	=dgF[0];
+        dgYda	=dgY[0];
+        T         =aT[0];
+        P         =aP[0];
+    }
+
+
+    REAL Jacobian;
+    REAL esi_N, esi_K;
+    
+    Jacobian = R * (dZda*dRdgq - dZdgq*dRda);   
+
+    esi_N = (dRda*dRdgq + dZda*dZdgq)/Jacobian;
+    esi_K = (dRdgq*dRdgq + dZdgq*dZdgq)/Jacobian;
+
+
+    REAL B_cov3[3];
+    B_cov3[0] = -esi_N*dgYda;   // Ba_cov
+    B_cov3[1] = -esi_K*dgYda;   // Bgq_cov
+    B_cov3[2] = F;              // Bgf_cov
+
+    // These are equilibirum B_cntv3
+    out_B_cntv3[0] = 0;                 // Ba_cntv
+    out_B_cntv3[1] = -dgYda/Jacobian;   // Bgq_cntv
+    out_B_cntv3[2] = F/(R*R);           // Bgf_cntv
+
+
+
+    
+    // From Here, perturbed magnetic field will be calculated using esi information.
+    REAL j0_cntv[3], dB_cntv[3]; 
+
+    // j0 is the curl of equilibrium B0 (j0=(nabla)X B0) without mu0 constant. 
+    // This j0 can be obtained from equilibrium condition (jXB=grad(P))
+    j0_cntv[0] = 0;
+    j0_cntv[1] = -dFda/Jacobian;
+    j0_cntv[2] = P + T/(R*R);
+
+    
+    REAL ga, grad_ga[3], partial_dga0dt;
+    get_mp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &ga, grad_ga, &partial_dga0dt);
+
+    dB_cntv[0] = ga*j0_cntv[0] + (B_cov3[2]*grad_ga[1] - B_cov3[1]*grad_ga[2] )/Jacobian;
+    dB_cntv[1] = ga*j0_cntv[1] + (B_cov3[0]*grad_ga[2] - B_cov3[2]*grad_ga[0] )/Jacobian;
+    dB_cntv[2] = ga*j0_cntv[2] + (B_cov3[1]*grad_ga[0] - B_cov3[0]*grad_ga[1] )/Jacobian;
+
+    
+    int k;
+    for(k=0;k<3;++k){
+        out_B_cntv3[k] += dB_cntv[k];        
+    }
+  return(0);
+}
+
 
 
 int esigetb(REAL *particle_array,int *nval, int *nn)

@@ -1045,9 +1045,9 @@ FUNCTION temperature_e(adum,thedum)
 end function temperature_e
 
 
-subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt) bind (C, name="get_mp_alpha_amplitude_")
 
-
+      use iso_c_binding, only : c_double
       use global_parameters
       implicit  none
 
@@ -1055,15 +1055,20 @@ subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_
       real(wp) in_a, in_theta, in_zeta, in_time
       real(wp) out_ga, out_grad_ga(3), out_partial_dga0dt
 
-      MP_phase = gan*in_zeta- gam*in_theta - gagw*in_time + gagf0           
-      ga_amplitude = (in_a/ga_rc)*(ga0 + dga0dt*in_time) * exp(-abs((in_a-ga_rc)/ga_rw)**ga_pp)
-      out_ga = ga_amplitude* cos(MP_phase);
+      if(electromagnetic==0) then ! when electromagnetic is turned off.
+        out_ga = 0
+        out_grad_ga(1:3) = 0
+        out_partial_dga0dt = 0
+      else
+        MP_phase = gan*in_zeta- gam*in_theta - gagw*in_time + gagf0           
+        ga_amplitude = (in_a/ga_rc)*(ga0 + dga0dt*in_time) * exp(-abs((in_a-ga_rc)/ga_rw)**ga_pp)
+        out_ga = ga_amplitude* cos(MP_phase);
 
-      out_grad_ga(1) = out_ga/in_a  + out_ga*(-sign(1.0_wp, in_a-ga_rc)*ga_pp/ga_rw * abs((in_a-ga_rc)/ga_rw)**(ga_pp-1))
-      out_grad_ga(2) =  gam*ga_amplitude*sin(MP_phase)
-      out_grad_ga(3) = -gan*ga_amplitude*sin(MP_phase)
-      out_partial_dga0dt = dga0dt*(in_a/ga_rc)*exp(-abs((in_a-ga_rc)/ga_rw)**ga_pp)*cos(MP_phase) + gagw*ga_amplitude*sin(MP_phase)
-      
+        out_grad_ga(1) = out_ga/in_a  + out_ga*(-sign(1.0_wp, in_a-ga_rc)*ga_pp/ga_rw * abs((in_a-ga_rc)/ga_rw)**(ga_pp-1))
+        out_grad_ga(2) =  gam*ga_amplitude*sin(MP_phase)
+        out_grad_ga(3) = -gan*ga_amplitude*sin(MP_phase)
+        out_partial_dga0dt = dga0dt*(in_a/ga_rc)*exp(-abs((in_a-ga_rc)/ga_rw)**ga_pp)*cos(MP_phase) + gagw*ga_amplitude*sin(MP_phase)
+      endif 
       
 end subroutine Get_MP_alpha_amplitude
 
@@ -1522,6 +1527,122 @@ subroutine n_T_u_group_e
        backue=0._wp    ! neglect rotation
 
 end subroutine n_T_u_group_e
+
+
+subroutine Do_FieldLineFollowing_for_Poincare_Plot
+  
+    use precision
+    use global_parameters
+    
+    type Poincare_Point_Information
+        integer Label  ! Label for each field line        
+        real(wp) a, gq, gf
+        real(wp) R, Z
+    end type
+    
+    real(wp) out_ga, out_grad_ga(3), out_partial_dg0dt
+    real(wp) B_vec_cntv(3)
+
+    real(wp) dgf ! toroidal step for field-line-following integration
+    real(wp) a_RK(4), gq_RK(4)
+
+    real(wp) now_a, now_gq, now_gf, specific_time
+    real(wp) prev_a, prev_gq, prev_gf
+    integer :: maximum_tor_rotation = 100
+    integer tor_dir, aid, num_a, gqid, num_gq, PPI_id
+    type(Poincare_Point_Information), dimension(:,:,:), allocatable:: PPI
+    real(wp) intp_weight, dummy_real
+
+    specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
+    
+    dgf = 2.0*pi/1000.0 ! toroidal step for field-line-following integration
+    num_a = 50
+    num_gq = 7
+
+    allocate( PPI(2*maximum_tor_rotation, num_gq, num_a))
+    !PPI(:,:,:) = 0
+
+    do aid=1,num_a
+        do gqid = 1, num_gq
+
+            PPI_id = 0
+            do tor_dir=-1,1,2
+                dgf = (tor_dir)*2.0*pi/1000.0
+
+                now_a = a0 + (aid-1)*(a1-a0)/(num_a-1.0)
+                now_gq = (gqid-1)*(2.0*pi)/(num_gq) ! To avoid overlap between gq=0 and gq=2pi points
+                now_gf = 0.0        
+
+                prev_a = now_a
+                prev_gq = now_gq
+                prev_gf = now_gf
+
+                do while(.true.)
+
+                    !if( modulo(abs(now_gf), 2*pi) < dgf) then ! When B-line-integrated point just passed gf=0 poloidal plane.
+                    if( floor(now_gf/(2.0*pi)) /= floor(prev_gf/(2.0*pi)) ) then
+                        PPI_id = PPI_id + 1
+
+                        PPI(PPI_id, gqid, aid)%Label = (aid-1)*num_gq + (gqid-1)            
+                        !intp_weight = modulo(abs(now_gf), 2.0*pi) / dgf
+                        intp_weight = abs(min(modulo(now_gf, 2.0*pi), 2.0*pi - modulo(now_gf, 2.0*pi))/dgf) ! interpolation weight for previous point
+
+                        PPI(PPI_id, gqid, aid)%a  = intp_weight*prev_a + (1.0-intp_weight)*now_a
+                        PPI(PPI_id, gqid, aid)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
+                        PPI(PPI_id, gqid, aid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
+
+                        call esigetrzb(PPI(PPI_id, gqid, aid)%R, PPI(PPI_id, gqid, aid)%Z, dummy_real, PPI(PPI_id, gqid, aid)%a, modulo(PPI(PPI_id, gqid, aid)%gq, 2*pi), 1)
+                    endif
+
+                    if(abs(now_gf)>maximum_tor_rotation*(2*pi)) then
+                        exit      
+                    endif
+
+                    prev_a = now_a
+                    prev_gq = now_gq
+                    prev_gf = now_gf
+
+                    ! Runge-Kutta 4th order
+                    call esiget_Intp_B_vec_contravariant(now_a, now_gq, now_gf, specific_time, B_vec_cntv)
+                    a_RK(1)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                    gq_RK(1)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                    call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), now_gq+0.5*gq_RK(1), now_gf+0.5*dgf, specific_time, B_vec_cntv)
+                    a_RK(2)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                    gq_RK(2)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                    call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), now_gq+0.5*gq_RK(2), now_gf+0.5*dgf, specific_time, B_vec_cntv)
+                    a_RK(3)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                    gq_RK(3)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                    call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), now_gq+gq_RK(3), now_gf+dgf, specific_time, B_vec_cntv)
+                    a_RK(4)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                    gq_RK(4)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                    
+                    now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
+                    now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
+                    now_gf = now_gf + dgf                
+
+                end do
+            end do
+        end do 
+    end do
+
+
+    open(181125,file='FLF_Poincare.dat',status='replace',action='write')
+    do aid=1,num_a
+        do gqid = 1, num_gq
+            do tor_dir=1,2*maximum_tor_rotation
+                write(181125, "(I4,1x,5(ES14.6,1x))") PPI(tor_dir,gqid,aid)%Label, PPI(tor_dir,gqid,aid)%a, PPI(tor_dir,gqid,aid)%gq, PPI(tor_dir,gqid,aid)%gf, PPI(tor_dir,gqid,aid)%R, PPI(tor_dir,gqid,aid)%Z
+            enddo
+        enddo
+    enddo
+    flush(181125)
+    close(181125)
+
+    write(*,*) "Do_FieldLineFollowing_for_Poincare_Plot OK"
+
+
+    deallocate(PPI)
+
+end subroutine Do_FieldLineFollowing_for_Poincare_Plot
 
 
 subroutine Ti_at_electrons

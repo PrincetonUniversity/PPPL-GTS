@@ -69,6 +69,9 @@ program GTS
   ! input parameters, setup equilibrium, allocate memory 
   call setup
 
+  if(mype==0) then
+    call Do_FieldLineFollowing_for_Poincare_Plot
+  endif
   ! solver
   ! which solver to use
   ! order = 0 original solver
