@@ -110,8 +110,15 @@ end module precision
   integer,dimension(:),allocatable :: mappingL2G, mappingG2L
 
   integer :: electromagnetic
-  real(wp) :: ga0, ga_rc, ga_rw, ga_pp, gagw, gagf0, dga0dt;
-  integer :: gam, gan;
+  integer :: num_of_EMP
+  type External_Magnetic_Perturbation
+    integer :: gam, gan
+    real(wp) :: ga0, ga_rc, ga_rw, ga_pp, gagw, gagf0, dga0dt
+  end type
+  type(External_Magnetic_Perturbation), dimension(:), allocatable :: EMP
+
+  ! real(wp) :: ga0, ga_rc, ga_rw, ga_pp, gagw, gagf0, dga0dt;
+  ! integer :: gam, gan;
 
   !==============================================================================
   !MGYOO (10/24/2018) to control accuracy of gyro-average on Larmor orbit

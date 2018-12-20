@@ -1050,7 +1050,7 @@ subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_
       use iso_c_binding, only : c_double
       use global_parameters
       implicit  none
-
+      integer k
       real(wp) MP_phase, ga_amplitude
       real(wp) in_a, in_theta, in_zeta, in_time
       real(wp) out_ga, out_grad_ga(3), out_partial_dga0dt
@@ -1060,14 +1060,20 @@ subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_
         out_grad_ga(1:3) = 0
         out_partial_dga0dt = 0
       else
-        MP_phase = gan*in_zeta- gam*in_theta - gagw*in_time + gagf0           
-        ga_amplitude = (in_a/ga_rc)*(ga0 + dga0dt*in_time) * exp(-abs((in_a-ga_rc)/ga_rw)**ga_pp)
-        out_ga = ga_amplitude* cos(MP_phase);
+        out_ga = 0
+        out_grad_ga = 0
+        out_partial_dga0dt = 0
+        do k=1,num_of_EMP
+          MP_phase = EMP(k)%gan*in_zeta- EMP(k)%gam*in_theta - EMP(k)%gagw*in_time + EMP(k)%gagf0           
+          ga_amplitude = (in_a/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
+                    
+          out_ga = out_ga + ga_amplitude* cos(MP_phase);
 
-        out_grad_ga(1) = out_ga/in_a  + out_ga*(-sign(1.0_wp, in_a-ga_rc)*ga_pp/ga_rw * abs((in_a-ga_rc)/ga_rw)**(ga_pp-1))
-        out_grad_ga(2) =  gam*ga_amplitude*sin(MP_phase)
-        out_grad_ga(3) = -gan*ga_amplitude*sin(MP_phase)
-        out_partial_dga0dt = dga0dt*(in_a/ga_rc)*exp(-abs((in_a-ga_rc)/ga_rw)**ga_pp)*cos(MP_phase) + gagw*ga_amplitude*sin(MP_phase)
+          out_grad_ga(1) = out_grad_ga(1) + ga_amplitude* cos(MP_phase)*(1.0/in_a  + (-sign(EMP(k)%ga_pp/EMP(k)%ga_rw, in_a-EMP(k)%ga_rc)*abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**(EMP(k)%ga_pp-1)))
+          out_grad_ga(2) = out_grad_ga(2) + EMP(k)%gam*ga_amplitude*sin(MP_phase)
+          out_grad_ga(3) = out_grad_ga(3) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
+          out_partial_dga0dt = out_partial_dga0dt + EMP(k)%dga0dt*(in_a/EMP(k)%ga_rc)*exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
+        enddo
       endif 
       
 end subroutine Get_MP_alpha_amplitude

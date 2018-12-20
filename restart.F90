@@ -47,7 +47,7 @@ subroutine restart_write
   endif
 
   ! =====================================
-  ! M.G.Yoo (07/31/2018)
+  ! MGYOO (07/31/2018)
   ! Add information of multiple tracers
   write(222) num_of_etracers, num_of_itracers, nstep_for_tracer_record
   write(222) etracers_labels(1:num_of_etracers), itracers_labels(1:num_of_itracers)
@@ -109,7 +109,7 @@ subroutine restart_read
   endif
 
   ! =====================================
-  ! M.G.Yoo (07/31/2018)
+  ! MGYOO (07/31/2018)
   ! Read information of multiple tracers
   read(333) num_of_etracers, num_of_itracers, nstep_for_tracer_record
   deallocate(etracers_labels,itracers_labels)

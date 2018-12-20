@@ -135,32 +135,6 @@ subroutine pushion
      wpi(2,m)=e2*inv_larmor_num
      wpi(3,m)=e3*inv_larmor_num
 
-    !  ga(m) = ga0 * cos(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
-    !  wga(1,m) = 0.0_wp;
-    !  wga(2,m) = ga0 * gam * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
-    !  wga(3,m) = -ga0 * gan * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
-    !  gat(m) = ga0 * gagw * sin(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
-
-     
-    !  !MGYOO (2018/08/27; to include time-varying ga0(t))
-    !  if (zion(1,m) > 0.2 .AND. zion(1,m) < 0.8) then
-
-    !   MP_phase = gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0     
-    !   ga_amplitude = (zion(1,m)/0.5)*(ga0 + dga0dt*(istep * tstep))
- 
-    !   ga(m) = ga_amplitude* cos(MP_phase);
-    !   !wga(1,m) = 0.0_wp;
-    !   wga(1,m) = ga(m)/zion(1,m)
-    !   wga(2,m) = ga_amplitude * gam * sin(MP_phase);
-    !   wga(3,m) = -ga_amplitude * gan * sin(MP_phase);
-    !   gat(m) = (zion(1,m)/0.5)*dga0dt*cos(MP_phase) + ga_amplitude * gagw * sin(MP_phase);  ! d(ga*cos(MP))/dt  = d(ga)dt*cos(MP) + ga*gagw*sin(MP); since MP has (-gagw*t) term inside
-    !  else
-    !   ga(m) = 0
-    !   wga(1,m) = 0
-    !   wga(2,m) = 0
-    !   wga(3,m) = 0
-    !   gat(m) = 0
-    ! end if
 
      !MGYOO (10/30/2018; to use analytic profile of ga0(a))
      call Get_MP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))

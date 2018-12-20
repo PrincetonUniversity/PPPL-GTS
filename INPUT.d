@@ -100,15 +100,16 @@
   ! alpha_phase(theta,zeta) = (gan*zeta - gam*theta - gagw*t + gagf0)
   ! alpha(r,theta,zeta) = alpha_amplitude(r) * cos(alpha_phase)
   electromagnetic=1         ! include electromagnetic perturbation?
-  ga0=1e-4,                 ! Initial magnitude of alpha at r=rc
-  ga_rc=0.5,                ! rc of alpha
-  ga_rw=0.3,                ! rw of alpha
-  ga_pp=6.0,                  ! pp of alpha
-  gam=3,                    ! m mode number of alpha
-  gan=2,                    ! n mode number of alpha
-  gagw=0.00000,             ! frequency (omega) of alpha, in the code normalization unit (1/Omega_ci)
-  gagf0=3.14,               ! Initial phase of alpha
-  dga0dt=0.0		              ! Linear growth rate of ga0, [in unit L_T/v_th]
+  num_of_EMP=2
+  ga0=1e-4, 1e-4                ! Initial magnitude of alpha at r=rc
+  ga_rc=2*0.5,                ! rc of alpha
+  ga_rw=2*0.3,                ! rw of alpha
+  ga_pp=2*6.0,                  ! pp of alpha
+  gam=3,5                    ! m mode number of alpha
+  gan=2,4                   ! n mode number of alpha
+  gagw=2*0.00000,             ! frequency (omega) of alpha, in the code normalization unit (1/Omega_ci)
+  gagf0=2*3.14,               ! Initial phase of alpha
+  dga0dt=2*0.0		              ! Linear growth rate of ga0, [in unit L_T/v_th]
 /
 
 &read2 ! related to a "diagnostic box" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

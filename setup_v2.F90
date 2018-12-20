@@ -545,10 +545,12 @@ if(mype==0) write(0,*) 'R_0/<L_T>=', R_0/Lc   ! 6.9 is often used in cyclone cas
 !  tstep=tstep/(vthi*kappati)*R_0  ! normalized delta_t
    
    tstep=tstep*Lc/vthc             ! normalized delta_t
-   
-   ! Convert dga0dt(growth rate of external magnetic field) in the unit of (Lc/vthc) to unit of utime
-   dga0dt=dga0dt/(Lc/vthc)           ! normalized dga0dt
-
+  
+  do k=1,num_of_EMP
+    ! Convert dga0dt(growth rate of external magnetic field) in the unit of (Lc/vthc) to unit of utime
+    EMP(k)%dga0dt = EMP(k)%dga0dt / (Lc/vthc) ! normalized dga0dt
+    !dga0dt=dga0dt/(Lc/vthc)           ! normalized dga0dt
+  enddo
 
 !  kappati=kappati/R_0             ! now -dlnT_i/da=kappati/<|grad_a|>
 !  kappate=kappate/R_0             ! now -dlnT_e/da=kappate/<|grad_a|>
@@ -2296,12 +2298,11 @@ end subroutine setup
   use profile_array
 
   implicit none
+  integer :: max_EMP_num = 20, k
+  integer ::  gam(20), gan(20)
+  real(wp) :: ga0(20), ga_rc(20), ga_rw(20), ga_pp(20)
+  real(wp) :: gagw(20), gagf0(20), dga0dt(20)
 
-  integer,parameter :: n_integers=51, n_reals=65, n_chars=3
-  integer :: integer_params(n_integers)
-  character(25),dimension(n_chars) :: char_params
-! only the first processor will open files...
-  real*8       :: real_params(n_reals)
   integer ierror,n(num_mode),m(num_mode)
 
   namelist/ read1 /  eq_data_name,       &   ! MHD equilibrium file name
@@ -2386,6 +2387,7 @@ end subroutine setup
                      ZF_SEPARATION,      &   ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
                      order,              &   ! =0, original solver; =1, linear finite elements; =2 higher order elements
                      electromagnetic,    &   ! =0, original electrostatic code; =1 electromagnetic code
+                     num_of_EMP,         &   ! number of EMP (External Magnetic Perturbation) : how many mode number (m,n) are considered?
                      ga0, gam, gan, gagw, gagf0, dga0dt,&
                      ga_rc, ga_rw, ga_pp     ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
 
@@ -2402,260 +2404,57 @@ end subroutine setup
                      gama1                   ! one of two coefficients used in solving Poisson iteratively
 
 
-  if (mype==0) then
      open(unit=5,file='INPUT.d')
      read(unit=5,nml=read1)
      read(unit=5,nml=read2)
      close(5)
 
-     char_params(1)(1:25) = eq_data_name
-     char_params(2)(1:25) = profile_data_name
-     char_params(3)(1:25) = Er_data_name
-     !write(0,*)'char_params(1)=',char_params(1)
-     integer_params(1)=irun
-     integer_params(2)=mstep
-     integer_params(3)=msnap
-     integer_params(4)=ndiag
-     integer_params(5)=mode00
-     integer_params(6)=maintnT
-     integer_params(7)=micell
-     integer_params(8)=mpsi
-     integer_params(9)=ipsi
-     integer_params(10)=mthetamax
-     integer_params(11)=mzetamax
-     integer_params(12)=npartdom
-     integer_params(13)=ifelectron
-     integer_params(14)=stdout
-     integer_params(15)=nbound
-     integer_params(16)=iload
-     integer_params(17)=icollision
-     integer_params(18)=nss
-     integer_params(19)=jr
-     integer_params(20)=plasma
-     integer_params(21)=linterp_from_nodes
-     integer_params(22)=Er_from_GTC_Neo
-     integer_params(23)=n_node
-     integer_params(24)=movie_3D_h5
-     integer_params(25)=ZF_SEPARATION
-     integer_params(26)=its
-     integer_params(27)=its_jacobi
-     integer_params(28)=nelectron
-     integer_params(29:36)=n
-     integer_params(37:44)=m
-     integer_params(45)=nv
-     integer_params(46)=ecollision
-     integer_params(47)= order
-     integer_params(48)= ifdphi
-     integer_params(49)= electromagnetic
-     integer_params(50)= gam;
-     integer_params(51)= gan;
+    if (mype==0) then
+      write(0,*) 'equillibrium=', eq_data_name
+      write(0,*) 'irun=', irun
+      write(0,*) 'mstep=', mstep
+      write(0,*) 'nonlinear=', nonlinear
+      write(0,*) 'ifdphi=', ifdphi
+      write(0,*) 'tstep=', tstep
+      write(0,*) 'micell=', micell
+      write(0,*) 'mpsi=', mpsi
+      write(0,*) 'ipsi=', ipsi
+      write(0,*) 'mthetamax=', mthetamax
+      write(0,*) 'mzetamax=', mzetamax
+      write(0,*) 'kappati=', kappati
+      write(0,*) 'kappan=', kappan
+      write(0,*) 'B0=', b0
+      write(0,*) 'temconst=', temconst
+      write(0,*) 'n_0=',n_0, ' dn=',dn, ' xn=',xn, ' An=', An, ' Bn=', Bn
+      write(0,*) 'T_0=',T_0, ' dTemi=',dTemi, ' xt=',xt, ' At=', At, ' Bt=', Bt
+      write(0,*) 'T_e0=',T_e0, ' dTeme=',dTeme, ' xt_e=',xt_e, ' At_e=', At_e, ' Bt_e=', Bt_e
+      write(0,*) 'n=', n
+      write(0,*) 'm=', m
+      write(0,*) 'jr=', jr, 'print end'
+      write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
+      write(0,*) 'finite element order=', order
 
-     real_params(1)=nonlinear
-     real_params(2)=0.00000000d0  ! spare -- not used for now, April,2013
-     real_params(3)=tstep
-     real_params(4)=a
-     real_params(5)=a0
-     real_params(6)=a1
-     real_params(7)=q0
-     real_params(8)=q1
-     real_params(9)=q2
-     real_params(10)=rc
-     real_params(11)=rw
-     real_params(12)=aion
-     real_params(13)=qion
-     real_params(14)=aelectron
-     real_params(15)=qelectron
-     real_params(16)=kappati
-     real_params(17)=kappate
-     real_params(18)=kappan
-     real_params(19)=flow0
-     real_params(20)=flow1
-     real_params(21)=flow2
-     real_params(22)=r0
-     real_params(23)=b0
-     real_params(24)=temconst
-     real_params(25)=edensity0
-     real_params(26)=n_0
-     real_params(27)=dn
-     real_params(28)=xn
-     real_params(29)=An
-     real_params(30)=Bn
-     real_params(31)=T_0
-     real_params(32)=dTemi
-     real_params(33)=xt
-     real_params(34)=At
-     real_params(35)=Bt
-     real_params(36)=T_e0
-     real_params(37)=dTeme
-     real_params(38)=xt_e
-     real_params(39)=At_e
-     real_params(40)=Bt_e
-     real_params(41)=umax
-     real_params(42)=u_0
-     real_params(43)=du
-     real_params(44)=xu
-     real_params(45)=Au
-     real_params(46)=Bu
-     real_params(47)=coll_enlarge
-     real_params(48)=gama0
-     real_params(49)=delta_v
-     real_params(50)=dradius
-     real_params(51)=dtheta
-     real_params(52:54)=rprobe
-     real_params(55:57)=tprobe
-     real_params(58)=gama1
-     real_params(59)=ga0
-     real_params(60)=ga_rc
-     real_params(61)=ga_rw
-     real_params(62)=ga_pp
-     real_params(63)=gagw
-     real_params(64)=gagf0
-     real_params(65)=dga0dt
 
-     write(0,*) 'equillibrium=', eq_data_name
-     write(0,*) 'irun=', irun
-     write(0,*) 'mstep=', mstep
-     write(0,*) 'nonlinear=', nonlinear
-     write(0,*) 'ifdphi=', ifdphi
-     write(0,*) 'tstep=', tstep
-     write(0,*) 'micell=', micell
-     write(0,*) 'mpsi=', mpsi
-     write(0,*) 'ipsi=', ipsi
-     write(0,*) 'mthetamax=', mthetamax
-     write(0,*) 'mzetamax=', mzetamax
-     write(0,*) 'kappati=', kappati
-     write(0,*) 'kappan=', kappan
-     write(0,*) 'B0=', b0
-     write(0,*) 'temconst=', temconst
-     write(0,*) 'n_0=',n_0, ' dn=',dn, ' xn=',xn, ' An=', An, ' Bn=', Bn
-     write(0,*) 'T_0=',T_0, ' dTemi=',dTemi, ' xt=',xt, ' At=', At, ' Bt=', Bt
-     write(0,*) 'T_e0=',T_e0, ' dTeme=',dTeme, ' xt_e=',xt_e, ' At_e=', At_e, ' Bt_e=', Bt_e
-     write(0,*) 'n=', n
-     write(0,*) 'm=', m
-     write(0,*) 'jr=', jr, 'print end'
+      write(0,*) 'electromagnetic=', electromagnetic
+      write(0,*) 'num_of_EMP =',num_of_EMP
+      write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
+    endif
 
-     write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
-     write(0,*) 'finite element order=', integer_params(47)
-     write(0,*) 'electromagnetic=', electromagnetic
-     write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
-  endif 
 
-  call mpi_bcast(char_params,25*n_chars,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
-!  call mpi_bcast(eq_data_name,25,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
-!  call mpi_bcast(profile_data_name,25,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
-!  call mpi_bcast(Er_data_name,25,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
+    allocate(EMP(num_of_EMP))
+     
+    do k=1,num_of_EMP
+      EMP(k)%gam = gam(k)
+      EMP(k)%gan = gan(k) 
+      EMP(k)%ga0 = ga0(k)
 
-  call mpi_bcast(integer_params,n_integers,MPI_INTEGER,0,MPI_COMM_WORLD,ierror)
-  call mpi_bcast(real_params,n_reals,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
-
-  if (mype/=0) then
-
-     eq_data_name(1:25)      =char_params(1)(1:25)
-     profile_data_name(1:25) =char_params(2)(1:25)
-     Er_data_name(1:25)      =char_params(3)(1:25)
-
-!     write(0,*)'eq_data_name=',eq_data_name
-
-     irun              =integer_params(1)
-     mstep             =integer_params(2)
-     msnap             =integer_params(3)
-     ndiag             =integer_params(4)
-     mode00            =integer_params(5)
-     maintnT           =integer_params(6)
-     micell            =integer_params(7)
-     mpsi              =integer_params(8)
-     ipsi              =integer_params(9)
-     mthetamax         =integer_params(10)
-     mzetamax          =integer_params(11)
-     npartdom          =integer_params(12)
-     ifelectron        =integer_params(13)
-     stdout            =integer_params(14)
-     nbound            =integer_params(15)
-     iload             =integer_params(16)
-     icollision        =integer_params(17)
-     nss               =integer_params(18)
-     jr                =integer_params(19)
-     plasma            =integer_params(20)
-     linterp_from_nodes=integer_params(21)
-     Er_from_GTC_Neo   =integer_params(22)
-     n_node            =integer_params(23)
-     movie_3D_h5       =integer_params(24)
-     ZF_SEPARATION     =integer_params(25)
-     its               =integer_params(26)
-     its_jacobi        =integer_params(27)
-     nelectron         =integer_params(28)
-     n                 =integer_params(29:36)
-     m                 =integer_params(37:44)
-     nv                =integer_params(45)
-     ecollision        =integer_params(46)
-     order             =integer_params(47)
-     ifdphi            =integer_params(48)
-     electromagnetic   =integer_params(49)
-     gam               =integer_params(50)
-     gan               =integer_params(51)
-
-     nonlinear         =real_params(1)
-     real_params(2)    =real_params(2)      ! spare for now, April, 2013
-     tstep             =real_params(3)
-     a                 =real_params(4)
-     a0                =real_params(5)
-     a1                =real_params(6)
-     q0                =real_params(7)
-     q1                =real_params(8)
-     q2                =real_params(9)
-     rc                =real_params(10)
-     rw                =real_params(11)
-     aion              =real_params(12)
-     qion              =real_params(13)
-     aelectron         =real_params(14)
-     qelectron         =real_params(15)
-     kappati           =real_params(16)
-     kappate           =real_params(17)
-     kappan            =real_params(18)
-     flow0             =real_params(19)
-     flow1             =real_params(20)
-     flow2             =real_params(21)
-     r0                =real_params(22)
-     b0                =real_params(23)
-     temconst          =real_params(24)
-     edensity0         =real_params(25)
-     n_0               =real_params(26)
-     dn                =real_params(27)
-     xn                =real_params(28)
-     An                =real_params(29)
-     Bn                =real_params(30)
-     T_0               =real_params(31)
-     dTemi             =real_params(32)
-     xt                =real_params(33)
-     At                =real_params(34)
-     Bt                =real_params(35)
-     T_e0              =real_params(36)
-     dTeme             =real_params(37)
-     xt_e              =real_params(38)
-     At_e              =real_params(39)
-     Bt_e              =real_params(40)
-     umax              =real_params(41)
-     u_0               =real_params(42)
-     du                =real_params(43)
-     xu                =real_params(44)
-     Au                =real_params(45)
-     Bu                =real_params(46)
-     coll_enlarge      =real_params(47)
-     gama0             =real_params(48)
-     delta_v           =real_params(49)
-     dradius           =real_params(50)
-     dtheta            =real_params(51)
-     rprobe            =real_params(52:54)
-     tprobe            =real_params(55:57)
-     gama1             =real_params(58)
-     ga0               =real_params(59)
-     ga_rc             =real_params(60)
-     ga_rw             =real_params(61)
-     ga_pp             =real_params(62)
-     gagw              =real_params(63)
-     gagf0             =real_params(64)
-     dga0dt            =real_params(65)     
-  end if
+      EMP(k)%ga_rc = ga_rc(k)
+      EMP(k)%ga_rw = ga_rw(k)
+      EMP(k)%ga_pp = ga_pp(k)
+      EMP(k)%gagw = gagw(k)
+      EMP(k)%gagf0 = gagf0(k)
+      EMP(k)%dga0dt = dga0dt(k)
+    enddo
 
   nmode=n
   mmode=m
@@ -2756,9 +2555,9 @@ end subroutine setup
   call mpi_comm_size(toroidal_comm,nproc_toroidal,ierror)
   call mpi_comm_rank(toroidal_comm,myrank_toroidal,ierror)
 
- write(0,*)'mype=',mype,'  nproc_toroidal=',nproc_toroidal,&
-      ' myrank_toroidal=',myrank_toroidal,'  nproc_partd=',nproc_partd,&
-      ' myrank_partd=',myrank_partd, 'torodial_comm', toroidal_comm, 'partd_comm', partd_comm
+!  write(0,*)'mype=',mype,'  nproc_toroidal=',nproc_toroidal,&
+!       ' myrank_toroidal=',myrank_toroidal,'  nproc_partd=',nproc_partd,&
+!       ' myrank_partd=',myrank_partd, 'torodial_comm', toroidal_comm, 'partd_comm', partd_comm
 
   if(nproc_partd/=npartdom)then
     write(0,*)'*** nproc_partd=',nproc_partd,' NOT EQUAL to npartdom=',npartdom
