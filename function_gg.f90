@@ -2490,6 +2490,379 @@ subroutine Convert_a_to_s(in_a, out_s)
   endif 
 end subroutine Convert_a_to_s
 
+subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
+
+  use mpi_defs
+  use precision
+  use global_parameters
+  use particle_decomp
+  use field_array
+
+  implicit none
+
+  real(wp),external :: jacobian
+
+  integer i,j,k
+  character(len=64) chdum
+  !integer, parameter:: SAMP_a_num=400, SAMP_gq_num=500, SAMP_gf_num=10 ! number of sampling points for each dimension
+  !integer, parameter:: SAMP_a_num=1000, SAMP_gq_num=4000, SAMP_gf_num=20 ! number of sampling points for each dimension
+  ! integer, parameter:: SAMP_a_num=mpsi*20, SAMP_gq_num=mtheta(ipsi)*20, SAMP_gf_num=20 ! number of sampling points for each dimension
+  ! real(wp) SAMP_X_vec_arr(3, SAMP_a_num*SAMP_gq_num*SAMP_gf_num) ! (a, gq, gf) arr
+  integer SAMP_a_num, SAMP_gq_num, SAMP_gf_num ! number of sampling points for each dimension
+  !real(wp), dimension(:,:), allocatable:: SAMP_X_vec_arr! (a, gq, gf) arr
+ 
+  real(wp) SAMP_da, SAMP_dgq, SAMP_dgf, SAMP_d3x 
+  integer SAMP_id, SAMP_NUM
+  real(wp) dpsi, this_ds
+  
+  real(wp) this_a, this_s, this_gq, this_gf, this_Jacob
+  real(wp) inv_ds, inv_dgq(0:mpsi), inv_dgf
+  real sdum, gqdum, ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
+  integer inner_sid, outter_sid, inner_gqid, outter_gqid, inner_ij, outter_ij
+  real(wp), external :: dsda
+
+  integer ij,ii,jt, ierror
+  real(wp) sendl(mgrid),recvr(mgrid)
+  integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
+  real(wp) t_start, t_finish
+
+  call cpu_time(t_start)
+
+  SAMP_a_num  = mpsi*20
+  SAMP_gq_num = mtheta(ipsi)*20
+  SAMP_gf_num = 20
+  !allocate(SAMP_X_vec_arr(3, SAMP_a_num*SAMP_gq_num*SAMP_gf_num))
+
+  SAMP_da  = (a1-a0)/(SAMP_a_num)
+  SAMP_dgq = 2.0*pi/(SAMP_gq_num)
+  SAMP_dgf = (zetamax-zetamin)/(SAMP_gf_num)
+
+  SAMP_d3x = ((a1-a0)*2.0*pi*(zetamax-zetamin))/real(SAMP_a_num*SAMP_gq_num*SAMP_gf_num) 
+
+
+  ! SAMP_NUM = 0
+  ! do i=0, SAMP_a_num-1
+  !   do j=0, SAMP_gq_num-1
+  !     do k=0, SAMP_gf_num-1
+  !       SAMP_NUM=SAMP_NUM+1
+  !       SAMP_X_vec_arr(1,SAMP_NUM) = a0 + i*SAMP_da
+  !       SAMP_X_vec_arr(2,SAMP_NUM) = j*SAMP_dgq
+  !       SAMP_X_vec_arr(3,SAMP_NUM) = zetamin + k*SAMP_dgf
+  !     enddo
+  !   enddo
+  ! enddo
+
+  inv_ds = real(mpsi)/(s1-s0)
+  inv_dgq = 1.0/deltat
+  inv_dgf = 1.0/deltaz
+
+  Weighted_Vol = 0
+  !do SAMP_id=1, SAMP_NUM
+  do i=0, SAMP_a_num-1
+    do j=0, SAMP_gq_num-1
+      do k=0, SAMP_gf_num-1
+
+        ! this_a  = SAMP_X_vec_arr(1,SAMP_id)
+        ! this_gq = SAMP_X_vec_arr(2,SAMP_id)
+        ! this_gf = SAMP_X_vec_arr(3,SAMP_id)
+        this_a  = a0 + (i+0.5)*SAMP_da
+        this_gq = (j+0.5)*SAMP_dgq
+        this_gf = zetamin + (k+0.5)*SAMP_dgf
+        this_Jacob = jacobian(this_a, this_gq)
+
+        call Convert_a_to_s(this_a, this_s)
+        
+        sdum = (this_s-s0)*inv_ds
+        inner_sid = int(sdum) 
+        ws1  = sdum - inner_sid
+        ws0  = 1.0 - ws1
+        gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+        inner_gqid = int(gqdum)
+        wgq01 = gqdum - inner_gqid
+        wgq00 = 1.0 - wgq01
+        inner_ij = igrid(inner_sid) + inner_gqid    
+
+        outter_sid = inner_sid+1
+        gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+        outter_gqid = int(gqdum)
+        wgq11 = gqdum - outter_gqid
+        wgq10 = 1.0 - wgq11
+        outter_ij = igrid(outter_sid) + outter_gqid
+        
+        wgf1 = (this_gf-zetamin)*inv_dgf
+        wgf0 = 1.0 - wgf1
+
+        Weighted_Vol(0,inner_ij)    = Weighted_Vol(0,inner_ij)    +wgf0*ws0*wgq00*this_Jacob
+        Weighted_Vol(0,inner_ij+1)  = Weighted_Vol(0,inner_ij+1)  +wgf0*ws0*wgq01*this_Jacob
+        Weighted_Vol(0,outter_ij)   = Weighted_Vol(0,outter_ij)   +wgf0*ws1*wgq10*this_Jacob
+        Weighted_Vol(0,outter_ij+1) = Weighted_Vol(0,outter_ij+1) +wgf0*ws1*wgq11*this_Jacob
+        Weighted_Vol(1,inner_ij)    = Weighted_Vol(1,inner_ij)    +wgf1*ws0*wgq00*this_Jacob
+        Weighted_Vol(1,inner_ij+1)  = Weighted_Vol(1,inner_ij+1)  +wgf1*ws0*wgq01*this_Jacob
+        Weighted_Vol(1,outter_ij)   = Weighted_Vol(1,outter_ij)   +wgf1*ws1*wgq10*this_Jacob
+        Weighted_Vol(1,outter_ij+1) = Weighted_Vol(1,outter_ij+1) +wgf1*ws1*wgq11*this_Jacob
+
+  !enddo
+      enddo
+    enddo
+  enddo
+
+  Weighted_Vol = Weighted_Vol * SAMP_d3x ! Calculate the real volume by multiplying d3x, so that (Vol = sum(Jacob*da*dgq*dgf))
+
+  do i=0,mpsi
+    Weighted_Vol(:,igrid(i)+mtheta(i))=Weighted_Vol(:,igrid(i)+mtheta(i))+Weighted_Vol(:,igrid(i))
+    Weighted_Vol(:,igrid(i))=Weighted_Vol(:,igrid(i)+mtheta(i))
+ enddo
+  ! Communicate Weighted_Vol between nodes
+  ! toroidal end cell
+  sendl=Weighted_Vol(0,:)
+  recvr=0.0_wp
+  icount=mgrid
+  idest=left_pe
+  isource=right_pe
+  isendtag=myrank_toroidal
+  irecvtag=isource
+  ! send densityi to left and receive from right
+  call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
+                    mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)      
+  if(myrank_toroidal == ntoroidal-1)then
+  ! B.C. at zeta=2*pi is shifted
+      do i=0,mpsi
+        ii=igrid(i)
+        jt=mtheta(i)
+        Weighted_Vol(1,ii+1:ii+jt)=Weighted_Vol(1,ii+1:ii+jt)+ cshift(recvr(ii+1:ii+jt),itran(i))
+        Weighted_Vol(1,igrid(i))=Weighted_Vol(1,igrid(i)+mtheta(i))    
+      enddo
+  else
+  ! B.C. at zeta<2*pi is continuous
+    Weighted_Vol(1,:)=Weighted_Vol(1,:)+recvr
+  endif
+  
+  
+  
+  call cpu_time(t_finish)
+  write(stdout,*) 'Im=',mype,  'Cal_Vol time =',t_finish-t_start,' seconds'
+  flush(stdout)
+
+  if (myrank_partd==0) then
+    write(chdum,'("Weighted_Vol_",i5.5,".dat")') myrank_toroidal
+    open(181215,file=chdum,status='replace',action='write')
+    do i=0,mpsi
+      do j=0, mtheta(i)
+        ij=igrid(i) + j      
+        if(i==0) then
+          dpsi=(psi_grid(1)-psi_grid(0))*0.5_wp         ! half cell
+          this_ds = 0.5*(1.0/inv_ds)
+        else if(i==mpsi) then
+          dpsi=(psi_grid(mpsi)-psi_grid(mpsi-1))*0.5_wp ! half cell
+          this_ds = 0.5*(1.0/inv_ds)
+        else
+          dpsi=(psi_grid(i+1)-psi_grid(i-1))*0.5_wp     ! full cell
+          this_ds = (1.0/inv_ds)
+        endif
+        !write(181215, "(2(ES14.6,1x))") Weighted_Vol(1,ij), jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*dpsi*deltaz
+        write(181215, "(3(ES14.6,1x))") Weighted_Vol(1,ij),&
+        jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*dpsi*deltaz, &
+        (1.0/dsda(psi_grid(i)))*jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*this_ds*deltaz
+      enddo
+    enddo
+    flush(181215)
+    close(181215)
+  endif
+
+  !deallocate(SAMP_X_vec_arr)
+
+end subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
+
+
+subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
+
+  use mpi_defs
+  use precision
+  use global_parameters
+  use particle_decomp
+  use field_array
+
+  implicit none
+
+  real(wp),external :: jacobian
+
+  integer i,j,k
+  character(len=64) chdum 
+ 
+
+  real(wp) dpsi, this_ds
+  real(wp) this_a, this_s, this_gq, this_gf, this_Jacob
+  real(wp) inv_ds, inv_dgq(0:mpsi), inv_dgf
+  real sdum, gqdum, ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
+  integer inner_sid, outter_sid, inner_gqid, outter_gqid, inner_ij, outter_ij
+  real(wp), external :: dsda
+
+  integer ij,ii,jt, ierror
+  real(wp) sendl(mgrid),recvr(mgrid)
+  integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
+
+  integer(kind=8) :: sobol_seed=0 ! sobol sedd should not be parameter, becuase sobol_seed changes at every sampling
+  integer(kind=8), parameter :: sobol_dim_num=3
+  real(kind=8) sobol_rand_3d(sobol_dim_num)
+  integer :: iteration=0, max_iteration = 1e9
+  real(wp) prev_Weighted_Vol(0:1, mgrid), now_Weighted_Vol(0:1, mgrid), d3X_factor
+  real(wp) :: max_rel_err, rel_tolerance=1e-4
+  real(wp) t_start, t_finish
+
+  call cpu_time(t_start)
+
+  inv_ds = real(mpsi)/(s1-s0)
+  inv_dgq = 1.0/deltat
+  inv_dgf = 1.0/deltaz
+
+  Weighted_Vol = 0
+
+  ! SAMP_da  = (a1-a0)/(SAMP_a_num-1.0)
+  ! SAMP_dgq = 2.0*pi/(SAMP_gq_num-1.0)
+  ! SAMP_dgf = (zetamax-zetamin)/(SAMP_gf_num-1.0)
+
+  ! SAMP_d3x = SAMP_da*SAMP_dgq*SAMP_dgf ! da*dgq*dgf
+
+
+  ! SAMP_NUM = 0
+  ! do i=0, SAMP_a_num-1
+  !   do j=0, SAMP_gq_num-1
+  !     do k=0, SAMP_gf_num-1
+  !       SAMP_NUM=SAMP_NUM+1
+  !       SAMP_X_vec_arr(1,SAMP_NUM) = a0 + i*SAMP_da
+  !       SAMP_X_vec_arr(2,SAMP_NUM) = j*SAMP_dgq
+  !       SAMP_X_vec_arr(3,SAMP_NUM) = zetamin + k*SAMP_dgf
+  !     enddo
+  !   enddo
+  ! enddo
+
+
+  Weighted_Vol = 0
+  prev_Weighted_Vol = 0 
+  do while( iteration < max_iteration)
+
+    call i8_sobol(sobol_dim_num, sobol_seed, sobol_rand_3d)
+    this_a = a0 + (a1-a0)*sobol_rand_3d(1)
+    this_gq = 2.0*pi*sobol_rand_3d(2)
+    this_gf = zetamin + (zetamax-zetamin)*sobol_rand_3d(3)
+    this_Jacob = jacobian(this_a, this_gq)
+    call Convert_a_to_s(this_a, this_s)
+    
+    sdum = (this_s-s0)*inv_ds
+    inner_sid = int(sdum) 
+    ws1  = sdum - inner_sid
+    ws0  = 1.0 - ws1
+    gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+    inner_gqid = int(gqdum)
+    wgq01 = gqdum - inner_gqid
+    wgq00 = 1.0 - wgq01
+    inner_ij = igrid(inner_sid) + inner_gqid    
+
+    outter_sid = inner_sid+1
+    gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+    outter_gqid = int(gqdum)
+    wgq11 = gqdum - outter_gqid
+    wgq10 = 1.0 - wgq11
+    outter_ij = igrid(outter_sid) + outter_gqid
+    
+    wgf1 = (this_gf-zetamin)*inv_dgf
+    wgf0 = 1.0 - wgf1
+
+    Weighted_Vol(0,inner_ij)    = Weighted_Vol(0,inner_ij)    +wgf0*ws0*wgq00*this_Jacob
+    Weighted_Vol(0,inner_ij+1)  = Weighted_Vol(0,inner_ij+1)  +wgf0*ws0*wgq01*this_Jacob
+    Weighted_Vol(0,outter_ij)   = Weighted_Vol(0,outter_ij)   +wgf0*ws1*wgq10*this_Jacob
+    Weighted_Vol(0,outter_ij+1) = Weighted_Vol(0,outter_ij+1) +wgf0*ws1*wgq11*this_Jacob
+    Weighted_Vol(1,inner_ij)    = Weighted_Vol(1,inner_ij)    +wgf1*ws0*wgq00*this_Jacob
+    Weighted_Vol(1,inner_ij+1)  = Weighted_Vol(1,inner_ij+1)  +wgf1*ws0*wgq01*this_Jacob
+    Weighted_Vol(1,outter_ij)   = Weighted_Vol(1,outter_ij)   +wgf1*ws1*wgq10*this_Jacob
+    Weighted_Vol(1,outter_ij+1) = Weighted_Vol(1,outter_ij+1) +wgf1*ws1*wgq11*this_Jacob
+
+    iteration = iteration + 1
+    if( mod(iteration, (max_iteration/100))==0) then
+      
+      d3X_factor = ((a1-a0)*2.0*pi*(zetamax-zetamin))/real(iteration)
+      now_Weighted_Vol = Weighted_Vol*d3X_factor
+      max_rel_err =  maxval( abs((now_Weighted_Vol - prev_Weighted_Vol)/now_Weighted_Vol))
+
+      write(stdout,*) 'iteration=', iteration, 'max_rel_err', max_rel_err
+      if( max_rel_err < rel_tolerance) then
+        exit
+      endif
+      prev_Weighted_Vol = now_Weighted_Vol
+    endif
+  enddo
+
+
+  d3X_factor = ((a1-a0)*2.0*pi*(zetamax-zetamin))/real(iteration)
+  Weighted_Vol = Weighted_Vol*d3X_factor
+
+  if( iteration >= max_iteration) then
+    write(stdout,*) 'Although upto #', max_iteration,  'iterations, max_rel_err = ', max_rel_err
+    flush(stdout)
+  endif
+
+!  Weighted_Vol = Weighted_Vol * SAMP_d3x ! Calculate the real volume by multiplying d3x, so that (Vol = sum(Jacob*da*dgq*dgf))
+  do i=0,mpsi
+    Weighted_Vol(:,igrid(i)+mtheta(i))=Weighted_Vol(:,igrid(i)+mtheta(i))+Weighted_Vol(:,igrid(i))
+    Weighted_Vol(:,igrid(i))=Weighted_Vol(:,igrid(i)+mtheta(i))
+ enddo
+  ! Communicate Weighted_Vol between nodes
+  ! toroidal end cell
+  sendl=Weighted_Vol(0,:)
+  recvr=0.0_wp
+  icount=mgrid
+  idest=left_pe
+  isource=right_pe
+  isendtag=myrank_toroidal
+  irecvtag=isource
+  ! send densityi to left and receive from right
+  call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
+                    mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)      
+  if(myrank_toroidal == ntoroidal-1)then
+  ! B.C. at zeta=2*pi is shifted
+    do i=0,mpsi
+      ii=igrid(i)
+      jt=mtheta(i)
+      Weighted_Vol(1,ii+1:ii+jt)=Weighted_Vol(1,ii+1:ii+jt)+ cshift(recvr(ii+1:ii+jt),itran(i))
+      Weighted_Vol(1,igrid(i))=Weighted_Vol(1,igrid(i)+mtheta(i))        
+    enddo
+  else
+  ! B.C. at zeta<2*pi is continuous
+    Weighted_Vol(1,:)=Weighted_Vol(1,:)+recvr
+  endif
+  
+  
+  call cpu_time(t_finish)
+  write(stdout,*) 'Im=',mype,  'Cal_Vol_by_MCI time =',t_finish-t_start,' seconds'
+  flush(stdout)
+  if (myrank_partd==0) then
+    write(chdum,'("Weighted_Vol_by_MCI_",i5.5,".dat")') myrank_toroidal
+    open(181218,file=chdum,status='replace',action='write')
+    do i=0,mpsi
+      do j=0, mtheta(i)
+        ij=igrid(i) + j      
+        if(i==0) then
+          dpsi=(psi_grid(1)-psi_grid(0))*0.5_wp         ! half cell
+          this_ds = 0.5*(1.0/inv_ds)
+        else if(i==mpsi) then
+          dpsi=(psi_grid(mpsi)-psi_grid(mpsi-1))*0.5_wp ! half cell
+          this_ds = 0.5*(1.0/inv_ds)
+        else
+          dpsi=(psi_grid(i+1)-psi_grid(i-1))*0.5_wp     ! full cell
+          this_ds = (1.0/inv_ds)
+        endif
+        write(181218, "(3(ES14.6,1x))") Weighted_Vol(1,ij),&
+                                        jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*dpsi*deltaz, &
+                                        (1.0/dsda(psi_grid(i)))*jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*this_ds*deltaz
+      enddo
+    enddo
+    flush(181218)
+    close(181218)
+  endif
+
+
+end subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
+
 subroutine Ti_at_electrons
 !
 !   model profiles

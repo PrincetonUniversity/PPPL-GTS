@@ -187,6 +187,7 @@ module field_array
       dni_grid,dne_grid
   real(wp),dimension(:,:),allocatable :: dn_tot, FLA_Denominator, FLA_dphi, FLA_dTe, FLA_dTi, FLA_dne, FLA_dni, FLA_ne_adiabatic
   real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0 
+  real(wp),dimension(:,:),allocatable :: Weighted_Vol
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
   real(wp),dimension(:),allocatable :: tphi, bphi, left1, left2   ! for testing solver
 
