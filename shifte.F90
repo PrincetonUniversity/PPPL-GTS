@@ -176,6 +176,10 @@ end subroutine shifte
 
 
 recursive subroutine quicksort(a, first, last)
+  ! quicksort.f -*-f90-*-
+  ! Author: t-nissie
+  ! License: GPLv3
+  ! Gist: https://gist.github.com/t-nissie/479f0f16966925fa29ea
   implicit none
   integer  a(*), x, t
   integer first, last
@@ -203,6 +207,10 @@ end subroutine quicksort
    
    
 recursive subroutine quicksort2(a, b, first, last)
+  ! quicksort.f -*-f90-*-
+  ! Author: t-nissie
+  ! License: GPLv3
+  ! Gist: https://gist.github.com/t-nissie/479f0f16966925fa29ea  
   implicit none
   integer  a(*),b(*), x, t
   integer first, last

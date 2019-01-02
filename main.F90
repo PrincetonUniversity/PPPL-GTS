@@ -20,6 +20,7 @@ program GTS
   use diagnosis_array
   use solver_data_class
   use fem_data_class
+  use particle_decomp
   implicit none
   
 ! to use parallel random number generator
@@ -69,8 +70,9 @@ program GTS
   ! input parameters, setup equilibrium, allocate memory 
   call setup
 
-  if(mype==0) then
+  if(myrank_partd==nproc_partd-1) then    
     call Do_FieldLineFollowing_for_Poincare_Plot
+    call Construct_gPPI_for_FieldLineAverage
   endif
   ! solver
   ! which solver to use

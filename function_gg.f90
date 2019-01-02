@@ -1539,45 +1539,64 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
   
     use precision
     use global_parameters
+    use particle_decomp
+    use FieldLineFollowing
     
-    type Poincare_Point_Information
-        integer Label  ! Label for each field line        
-        real(wp) a, gq, gf
-        real(wp) R, Z
-    end type
-    
+    implicit  none
+
+    character(len=64) chdum
+
     real(wp) out_ga, out_grad_ga(3), out_partial_dg0dt
     real(wp) B_vec_cntv(3)
 
     real(wp) dgf ! toroidal step for field-line-following integration
     real(wp) a_RK(4), gq_RK(4)
-
+    real(wp) ini_a, ini_gq, ini_gf
     real(wp) now_a, now_gq, now_gf, specific_time
     real(wp) prev_a, prev_gq, prev_gf
     integer :: maximum_tor_rotation = 100
     integer tor_dir, aid, num_a, gqid, num_gq, PPI_id
+    real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
     type(Poincare_Point_Information), dimension(:,:,:), allocatable:: PPI
     real(wp) intp_weight, dummy_real
+    real(wp) t_start, t_finish
+
+    call cpu_time(t_start)
 
     specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
     
     dgf = 2.0*pi/1000.0 ! toroidal step for field-line-following integration
-    num_a = 50
+    num_a = 40
     num_gq = 7
 
     allocate( PPI(2*maximum_tor_rotation, num_gq, num_a))
     !PPI(:,:,:) = 0
 
+    !write(*,*) "Field Line Integration start!", myrank_partd, myrank_toroidal
+
     do aid=1,num_a
         do gqid = 1, num_gq
+        
 
+            ini_a = a0 + (aid-1)*(a1-a0)/(num_a-1.0)
+            ini_gq = (gqid-1)*(2.0*pi)/(num_gq) ! To avoid overlap between gq=0 and gq=2pi points
+            ini_gf = 0.0
+
+            
+            aaa=ini_a
+            the=ini_gq
+            call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+            !PPI(:, gqid, aid)%Jacobian = rj*(zaj*rqj-zqj*raj); ! Jacobian at initial position. 
+            PPI(:, gqid, aid)%Label = (aid-1)*num_gq + (gqid-1)    
+            
             PPI_id = 0
+
             do tor_dir=-1,1,2
                 dgf = (tor_dir)*2.0*pi/1000.0
 
-                now_a = a0 + (aid-1)*(a1-a0)/(num_a-1.0)
-                now_gq = (gqid-1)*(2.0*pi)/(num_gq) ! To avoid overlap between gq=0 and gq=2pi points
-                now_gf = 0.0        
+                now_a = ini_a
+                now_gq = ini_gq
+                now_gf = ini_gf     
 
                 prev_a = now_a
                 prev_gq = now_gq
@@ -1585,22 +1604,38 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
 
                 do while(.true.)
 
-                    !if( modulo(abs(now_gf), 2*pi) < dgf) then ! When B-line-integrated point just passed gf=0 poloidal plane.
-                    if( floor(now_gf/(2.0*pi)) /= floor(prev_gf/(2.0*pi)) ) then
+                    ! When B-line-integrated point just passed gf=zetamax poloidal plane.
+                    if( floor((now_gf-zetamax)/(2.0*pi)) /= floor((prev_gf-zetamax)/(2.0*pi)) ) then 
                         PPI_id = PPI_id + 1
 
-                        PPI(PPI_id, gqid, aid)%Label = (aid-1)*num_gq + (gqid-1)            
                         !intp_weight = modulo(abs(now_gf), 2.0*pi) / dgf
-                        intp_weight = abs(min(modulo(now_gf, 2.0*pi), 2.0*pi - modulo(now_gf, 2.0*pi))/dgf) ! interpolation weight for previous point
+                        intp_weight = abs(min(modulo((now_gf-zetamax), 2.0*pi), 2.0*pi - modulo((now_gf-zetamax), 2.0*pi))/dgf) ! interpolation weight for previous point
 
                         PPI(PPI_id, gqid, aid)%a  = intp_weight*prev_a + (1.0-intp_weight)*now_a
                         PPI(PPI_id, gqid, aid)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
                         PPI(PPI_id, gqid, aid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
+                        PPI(PPI_id, gqid, aid)%target_normalized_gf = zetamax
 
-                        call esigetrzb(PPI(PPI_id, gqid, aid)%R, PPI(PPI_id, gqid, aid)%Z, dummy_real, PPI(PPI_id, gqid, aid)%a, modulo(PPI(PPI_id, gqid, aid)%gq, 2*pi), 1)
-                    endif
+                        call Convert_a_to_s(PPI(PPI_id, gqid, aid)%a, PPI(PPI_id, gqid, aid)%s)                    
 
-                    if(abs(now_gf)>maximum_tor_rotation*(2*pi)) then
+                        !call esigetrzb(PPI(PPI_id, gqid, aid)%R, PPI(PPI_id, gqid, aid)%Z, dummy_real, PPI(PPI_id, gqid, aid)%a, modulo(PPI(PPI_id, gqid, aid)%gq, 2*pi), 1)
+                        
+                        aaa=PPI(PPI_id, gqid, aid)%a
+                        the=modulo(PPI(PPI_id, gqid, aid)%gq, 2.0*pi)
+                        call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+                        PPI(PPI_id, gqid, aid)%inv_B = 1.0/Bj; ! Jacobian at initial position. 
+                        !PPI(PPI_id, gqid, aid)%inv_B = 1.0;
+                        PPI(PPI_id, gqid, aid)%R = rj
+                        PPI(PPI_id, gqid, aid)%Z = zj
+
+                        call esiget_Intp_B_vec_contravariant(aaa, the, modulo(PPI(PPI_id, gqid, aid)%gf,2.0*pi), specific_time, B_vec_cntv)
+                        PPI(PPI_id, gqid, aid)%dl =abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+                                                                  +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
+                                                                  +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
+                                                                  + rj**2  )
+                        endif
+
+                    if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or. PPI_id>= 2*maximum_tor_rotation) then
                         exit      
                     endif
 
@@ -1609,16 +1644,16 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
                     prev_gf = now_gf
 
                     ! Runge-Kutta 4th order
-                    call esiget_Intp_B_vec_contravariant(now_a, now_gq, now_gf, specific_time, B_vec_cntv)
+                    call esiget_Intp_B_vec_contravariant(now_a, modulo(now_gq,2.0*pi), modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
                     a_RK(1)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
                     gq_RK(1)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
-                    call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), now_gq+0.5*gq_RK(1), now_gf+0.5*dgf, specific_time, B_vec_cntv)
+                    call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), modulo(now_gq+0.5*gq_RK(1),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
                     a_RK(2)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
                     gq_RK(2)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
-                    call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), now_gq+0.5*gq_RK(2), now_gf+0.5*dgf, specific_time, B_vec_cntv)
+                    call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), modulo(now_gq+0.5*gq_RK(2),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
                     a_RK(3)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
                     gq_RK(3)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
-                    call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), now_gq+gq_RK(3), now_gf+dgf, specific_time, B_vec_cntv)
+                    call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), modulo(now_gq+gq_RK(3),2.0*pi), modulo(now_gf+dgf,2.0*pi), specific_time, B_vec_cntv)
                     a_RK(4)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
                     gq_RK(4)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
                     
@@ -1631,25 +1666,829 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
         end do 
     end do
 
+    call cpu_time(t_finish)
+    write(stdout,*) "I'm=", mype, "FLF_Poincare Finished! delta_time = ", t_finish-t_start, " seconds."
+    flush(stdout)
 
-    open(181125,file='FLF_Poincare.dat',status='replace',action='write')
+    call system("mkdir -p " // 'VacFieldAnalysis')
+    write(chdum,'("VacFieldAnalysis/FLF_Poincare",i5.5,".dat")') myrank_toroidal
+    open(181125,file=chdum,status='replace',action='write')
     do aid=1,num_a
         do gqid = 1, num_gq
-            do tor_dir=1,2*maximum_tor_rotation
-                write(181125, "(I4,1x,5(ES14.6,1x))") PPI(tor_dir,gqid,aid)%Label, PPI(tor_dir,gqid,aid)%a, PPI(tor_dir,gqid,aid)%gq, PPI(tor_dir,gqid,aid)%gf, PPI(tor_dir,gqid,aid)%R, PPI(tor_dir,gqid,aid)%Z
+            do PPI_id=1,2*maximum_tor_rotation                
+                write(181125, "(I4,1x,10(ES14.6,1x))") PPI(PPI_id,gqid,aid)
             enddo
         enddo
     enddo
     flush(181125)
     close(181125)
 
-    write(*,*) "Do_FieldLineFollowing_for_Poincare_Plot OK"
+    !write(*,*) "Do_FieldLineFollowing_for_Poincare_Plot OK"
 
 
     deallocate(PPI)
 
 end subroutine Do_FieldLineFollowing_for_Poincare_Plot
 
+
+subroutine Construct_gPPI_for_FieldLineAverage
+
+
+    use precision
+    use global_parameters
+    use particle_decomp
+    use FieldLineFollowing
+    use esi_interface
+    use field_array
+    implicit  none
+      
+    character(len=64) chdum
+    ! Global_PPI(num_of_maximum_intersections, 1:num_of_SampledFieldLines)
+    real(wp) dgf ! toroidal step for field-line-following integration
+    real(wp) a_RK(4), gq_RK(4)
+
+    real(wp) ini_a, ini_gq, ini_gf
+    real(wp),dimension(:), allocatable:: ini_a_arr, ini_gq_arr
+    integer target_mode_m, target_mode_n
+    !real(wp) :: target_safety_q(9) = (/0.5,0.75,1.0,1.3333,1.5,1.6666,2.0,2.5,3.0/)
+    real(wp) target_safety_q(200)! Arrange enough initial length for target_safety_q. Later, effective num_of_target_saftegy_q will be calculated.
+    integer num_of_target_safety_q 
+    integer smapling_num_at_each_rational_q, i,j
+    real(wp) Find_a_at_specific_safety_q
+    real(wp) now_a, now_gq, now_gf, specific_time
+    real(wp) prev_a, prev_gq, prev_gf
+    real(wp) out_ga, out_grad_ga(3), out_partial_dg0dt
+    real(wp) B_vec_cntv(3)
+    integer tor_dir, PPI_id, Fid, maximum_tor_rotation
+    integer(kind=8) :: sobol_seed=0, sobol_dim_num=2
+    real(kind=8) sobol_rand_2d(2)
+    real(wp) intp_weight, dummy_real, tmp_rand
+    real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+    integer, parameter:: num_of_target_zeta=1
+    logical record_flag
+    integer :: k, tz_id
+    real(wp)::target_zeta(num_of_target_zeta)
+    real(wp) t_start, t_finish
+
+
+    call cpu_time(t_start)
+
+    maximum_tor_rotation = 200
+    num_of_gPPI_for_each_FieldLine = 2*(num_of_target_zeta)*maximum_tor_rotation
+    !num_of_SampledFieldLines = (mpsi/4)*10  ! num_of_SampledFieldLines might depend more on the radial resolution than poloidal one.
+
+    !maximum_tor_rotation = num_of_gPPI_for_each_FieldLine/2 !  Maximum toroidal roation for each Forward integration & Backward Integration
+
+    specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
+    dgf = 2.0*pi/1000.0 ! toroidal step for field-line-following integration
+    
+    do k=1,num_of_target_zeta
+      target_zeta(k) = zetamin + k*(zetamax-zetamin)/num_of_target_zeta
+    enddo
+    !write(stdout,*) 'mype=', mype, '(zetamin,zetamax)=', zetamin, zetamax,', target_zeta=', target_zeta(1:num_of_target_zeta)
+    !call flush(stdout)
+    k=1
+    do target_mode_n = 1,3
+      do target_mode_m = 1,10
+        target_safety_q(k) = real(target_mode_m)/real(target_mode_n)
+        k=k+1
+        ! target_safety_q(k) = 0.95*real(target_mode_m)/real(target_mode_n)
+        ! k=k+1
+        ! target_safety_q(k) = 1.05*real(target_mode_m)/real(target_mode_n)
+        ! k=k+1
+      enddo
+    enddo
+    !call flush(stdout)
+    call find_unique_sorted_array_and_its_num_of_elements(target_safety_q, 1, k-1, num_of_target_safety_q)
+    if(myrank_toroidal==0) then
+      write(stdout,*) 'num_of_target_safety_q = ', num_of_target_safety_q
+      write(stdout,*) 'target q vals = ',target_safety_q(1:num_of_target_safety_q)
+      call flush(stdout)
+    endif
+
+    smapling_num_at_each_rational_q = 30
+    !smapling_num_at_each_rational_q = 30
+    ! First, find target rational safety q positions for accurate investigation
+    ! Fid = 1
+    ! do target_mode_n = 1,3
+    !   do target_mode_m = 1,10
+    !     ini_a = Find_a_at_specific_safety_q(target_mode_m/real(target_mode_n))
+    !     if(ini_a>0) then
+    !       Fid = Fid + 1
+    !     endif
+    !   enddo
+    ! enddo
+
+    Fid=1
+    do i = 1,num_of_target_safety_q
+        ini_a = Find_a_at_specific_safety_q(target_safety_q(i))
+        if(ini_a>0) then
+          !Fid = Fid + 1
+          Fid = Fid + 3 ! 3 field lines will be sampled at each target_saftey_q and their neighborhoods.
+        endif
+    enddo
+
+    num_of_SampledFieldLines = 50*20 + (smapling_num_at_each_rational_q*(Fid-1))
+    !num_of_SampledFieldLines = 20 + (smapling_num_at_each_rational_q*(Fid-1))
+
+    allocate(gPPI(num_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines))
+    allocate(ini_a_arr(num_of_SampledFieldLines), ini_gq_arr(num_of_SampledFieldLines))
+
+
+
+    ! ! Find ini_a_arr and ini_gq_arr at rational q surface and sobol_rand position
+    ! Fid = 1
+    ! do target_mode_n = 1,3
+    !   do target_mode_m = 1,10
+    !     ini_a = Find_a_at_specific_safety_q(target_mode_m/real(target_mode_n))
+    !     if(ini_a>0) then
+    !       ini_a_arr(Fid:Fid+(smapling_num_at_each_rational_q-1)) = ini_a
+    !       do i=0,smapling_num_at_each_rational_q-1
+    !         ini_gq_arr(Fid+i) = i*(2.0*pi/real(smapling_num_at_each_rational_q))
+    !       enddo
+    !       Fid = Fid + smapling_num_at_each_rational_q
+    !     endif
+    !   enddo
+    ! enddo
+
+  
+    !Find ini_a_arr and ini_gq_arr at rational q surface and sobol_rand position
+    Fid = 1
+    do i = 1, num_of_target_safety_q    
+      ini_a = Find_a_at_specific_safety_q(target_safety_q(i))
+      if(ini_a>0) then
+        ! At exact target_safety_q
+        ini_a_arr(Fid:Fid+(smapling_num_at_each_rational_q-1)) = ini_a
+        do j=0,smapling_num_at_each_rational_q-1
+          ini_gq_arr(Fid+j) = j*(2.0*pi/real(smapling_num_at_each_rational_q))
+        enddo
+        Fid = Fid + smapling_num_at_each_rational_q
+
+        ! Sligtly left from target_safety_q
+        ini_a_arr(Fid:Fid+(smapling_num_at_each_rational_q-1)) = ini_a - 0.01
+        do j=0,smapling_num_at_each_rational_q-1
+          ini_gq_arr(Fid+j) = j*(2.0*pi/real(smapling_num_at_each_rational_q))
+        enddo
+        Fid = Fid + smapling_num_at_each_rational_q
+
+        ! Slightly right from target_safety_q
+        ini_a_arr(Fid:Fid+(smapling_num_at_each_rational_q-1)) = ini_a + 0.01
+        do j=0,smapling_num_at_each_rational_q-1
+          ini_gq_arr(Fid+j) = j*(2.0*pi/real(smapling_num_at_each_rational_q))
+        enddo
+        Fid = Fid + smapling_num_at_each_rational_q
+      endif      
+    enddo
+
+
+    do while(Fid<=num_of_SampledFieldLines)
+      call i8_sobol(sobol_dim_num, sobol_seed, sobol_rand_2d)
+      ini_a_arr(Fid) = a0 + (a1-a0)*sobol_rand_2d(1)
+      ini_gq_arr(Fid) = 2.0*pi*sobol_rand_2d(2)
+      Fid = Fid+1
+    enddo
+      
+    !write(stdout,*) 'mype=', mype,', before quicksort_real_together'
+    call flush(stdout)
+    call quicksort_real_together(ini_a_arr, ini_gq_arr, 1,num_of_SampledFieldLines)
+    !write(stdout,*) 'mype=', mype,', after quicksort_real_together'
+    !write(stdout,*) 'mype=', mype,', ini_a_arr(1:3)', ini_a_arr(1:3), ', ini_a_arr(end-3:end)', ini_a_arr(num_of_SampledFieldLines-3:num_of_SampledFieldLines)
+    !write(stdout,*) 'mype=', mype,', ini_gq_arr(1:3)', ini_gq_arr(1:3), ', ini_gq_arr(end-3:end)', ini_gq_arr(num_of_SampledFieldLines-3:num_of_SampledFieldLines)
+    call flush(stdout)
+
+    do Fid = 1, num_of_SampledFieldLines
+
+        ! call i8_sobol(2, sobol_seed, sobol_rand_2d)
+        ! ini_a = a0 + (a1-a0)*sobol_rand_2d(1)
+        ! ini_gq = 2.0*pi*sobol_rand_2d(2)
+        ! call random_number(tmp_rand)
+        ! ini_a = a0 + (a1-a0)*tmp_rand
+        ! call random_number(tmp_rand)        
+        ! ini_gq = 2.0*pi*tmp_rand
+        ini_a = ini_a_arr(Fid)
+        ini_gq = ini_gq_arr(Fid)
+        ini_gf = 0
+        
+
+        aaa=ini_a
+        the=ini_gq
+        call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+        !gPPI(:, Fid)%Jacobian = rj*(zaj*rqj-zqj*raj); ! Jacobian at initial position. 
+        gPPI(:, Fid)%Label = Fid  
+
+        PPI_id = 0
+
+        do tor_dir=-1,1,2  ! Forward integration & Backward Integration
+
+            dgf = (tor_dir)*2.0*pi/1000.0
+
+            now_a = ini_a
+            now_gq = ini_gq
+            now_gf = ini_gf
+
+            prev_a = now_a
+            prev_gq = now_gq
+            prev_gf = now_gf
+
+            do while(.true.)
+                record_flag=.false.
+                !if( modulo(now_gf,2*pi)>zetamin-abs(dgf) .and.  modulo(now_gf,2*pi)<=zetamax+abs(dgf)) then
+                  do k=1,num_of_target_zeta
+                    if(floor((now_gf-target_zeta(k))/(2.0*pi)) /= floor((prev_gf-target_zeta(k))/(2.0*pi))) then
+                      record_flag=.true.
+                      tz_id = k
+                      exit
+                    endif
+                  enddo
+                !endif
+
+                if(record_flag) then
+                !if( floor((now_gf-zetamax)/(2.0*pi)) /= floor((prev_gf-zetamax)/(2.0*pi)) ) then 
+                    PPI_id = PPI_id + 1
+
+                    gPPI(PPI_id, Fid)%Label = Fid          
+                    !intp_weight = modulo(abs(now_gf), 2.0*pi) / dgf
+                    !intp_weight = abs(min(modulo((now_gf-zetamax), 2.0*pi), 2.0*pi - modulo((now_gf-zetamax), 2.0*pi))/dgf) ! interpolation weight for previous point
+                    intp_weight = abs(min(modulo((now_gf-target_zeta(tz_id)), 2.0*pi), 2.0*pi - modulo((now_gf-target_zeta(tz_id)), 2.0*pi))/dgf) ! interpolation weight for previous point
+
+                    gPPI(PPI_id, Fid)%a  = intp_weight*prev_a + (1.0-intp_weight)*now_a
+                    gPPI(PPI_id, Fid)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
+                    gPPI(PPI_id, Fid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
+                    gPPI(PPI_id, Fid)%target_normalized_gf = target_zeta(tz_id)
+                    
+                    call Convert_a_to_s(gPPI(PPI_id, Fid)%a, gPPI(PPI_id, Fid)%s)                    
+                    
+                    !call esigetrzb(gPPI(PPI_id, Fid)%R, gPPI(PPI_id, Fid)%Z, dummy_real, gPPI(PPI_id, Fid)%a, modulo(gPPI(PPI_id, Fid)%gq, 2*pi), 1)
+
+                    aaa=gPPI(PPI_id, Fid)%a
+                    the=modulo(gPPI(PPI_id, Fid)%gq, 2.0*pi)
+                    call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+                    gPPI(PPI_id, Fid)%inv_B = 1.0/Bj; ! Jacobian at initial position. 
+                    !gPPI(PPI_id, Fid)%inv_B = 1.0; ! Jacobian at initial position. 
+                    gPPI(PPI_id, Fid)%R = rj
+                    gPPI(PPI_id, Fid)%Z = zj
+
+                    call esiget_Intp_B_vec_contravariant(aaa, the, modulo(gPPI(PPI_id, Fid)%gf,2.0*pi), specific_time, B_vec_cntv)
+                    gPPI(PPI_id, Fid)%dl = abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+                                                        +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
+                                                        +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
+                                                        + rj**2  )
+                endif
+
+                if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or.  PPI_id>=num_of_gPPI_for_each_FieldLine ) then
+                    exit      
+                endif
+
+                prev_a = now_a
+                prev_gq = now_gq
+                prev_gf = now_gf
+
+                ! Runge-Kutta 4th order
+                call esiget_Intp_B_vec_contravariant(now_a, modulo(now_gq,2.0*pi), modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+                a_RK(1)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                gq_RK(1)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), modulo(now_gq+0.5*gq_RK(1),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+                a_RK(2)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                gq_RK(2)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), modulo(now_gq+0.5*gq_RK(2),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+                a_RK(3)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                gq_RK(3)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), modulo(now_gq+gq_RK(3),2.0*pi), modulo(now_gf+dgf,2.0*pi), specific_time, B_vec_cntv)
+                a_RK(4)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                gq_RK(4)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                
+                now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
+                now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
+                now_gf = now_gf + dgf                  
+                
+            enddo            
+        enddo
+    enddo
+
+   ! write(stdout,*) 'mype=', mype,', before Cal_FLA_Denominator_using_gPPI'
+    !call flush(stdout)
+    !test to get test_FLA_a
+    call Cal_FLA_Denominator_using_gPPI
+    
+    !write(stdout,*) 'mype=', mype,', before Get_FLA_Te0_Ti0_n0'
+    !call flush(stdout)
+    call Get_FLA_Te0_Ti0_n0
+
+
+    call cpu_time(t_finish)
+    write(stdout,*) "I'm=", mype, "gPPI Construction Finished! delta_time = ", t_finish-t_start, " seconds."
+    flush(stdout)
+
+    call system("mkdir -p " // 'VacFieldAnalysis')
+    write(chdum,'("VacFieldAnalysis/gPPI_",i5.5,".dat")') myrank_toroidal
+    open(181202,file=chdum,status='replace',action='write')
+    do Fid = 1, num_of_SampledFieldLines   
+        do PPI_id =1,num_of_gPPI_for_each_FieldLine
+            write(181202, "(I4,1x,10(ES14.6,1x))") gPPI(PPI_id,Fid)
+        enddo
+    enddo
+    flush(181202)
+    close(181202)
+
+    deallocate(ini_a_arr, ini_gq_arr)
+    
+
+end subroutine Construct_gPPI_for_FieldLineAverage
+
+function Find_a_at_specific_safety_q(target_safety_q) result(out_a)
+
+  use global_parameters
+  use field_array
+  use precision
+
+  implicit none
+
+  integer aid
+  real(wp) prev_q, this_q, prev_a, this_a
+  real(wp) target_safety_q, out_a
+
+  
+  do aid=1,mpsi
+    prev_q = q_grid(aid-1)
+    this_q = q_grid(aid)
+
+    if ( (prev_q-target_safety_q)*(this_q-target_safety_q) < 0 ) then 
+      ! Take linear interpolation to find solution
+      prev_a = psi_grid(aid-1)
+      this_a = psi_grid(aid)         
+      out_a = prev_a + ((this_a-prev_a)/(this_q-prev_q))*(target_safety_q-prev_q) 
+      return      
+    endif
+  enddo
+  
+  !write(*,*) ("We cannot find q=",target_safety_q)
+  out_a = -100.0
+
+end function
+
+
+subroutine Cal_FLA_Denominator_using_gPPI
+  use mpi_defs
+  use precision
+  use global_parameters
+  use particle_decomp
+  use FieldLineFollowing
+  use field_array
+
+  implicit none
+
+  real(wp) each_FLA_denominator(num_of_SampledFieldLines), test_FLA_val(num_of_SampledFieldLines) ! FLA=Field Line Average  
+  real(wp) this_a, this_gq, this_s, this_gf, sdum, gqdum,inv_ds, inv_dgq(0:mpsi), inv_gf
+  real(wp) ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
+  real(wp) tmp_weight
+  integer Fid, Pid ! (Fid=Field ID), (Pid=gPPI ID)
+  integer inner_sid, outter_sid, inner_gqid, outter_gqid, inner_ij, outter_ij
+  integer i,ii,jt, ierror
+
+  real(wp) sendl(mgrid),recvr(mgrid)
+  integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
+
+  if (num_of_SampledFieldLines ==0) then
+    write(*,*) "Error! Please construct gPPI first before using FieldLineAverage!!"
+    STOP
+  endif
+  
+  ! if(myrank_toroidal==0) then
+  !   write(*,*) "Do_FieldLineAverage_by_using_gPPI"
+  ! endif
+  inv_ds = real(mpsi)/(s1-s0)
+  inv_dgq = 1.0/deltat
+  inv_gf = 1.0/deltaz
+  
+
+  FLA_Denominator = 0.0 ! Initial zero value can result NaN (FLA_ResultData/FLA_Denominator) in the case of no touching grid nodes
+  each_FLA_denominator = 0.0
+  test_FLA_val = 0.0
+  do Fid=1,num_of_SampledFieldLines
+    do Pid=1,num_of_gPPI_for_each_FieldLine
+      
+      this_s = gPPI(Pid,Fid)%s
+      this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
+      !this_gf = modulo(gPPI(Pid,Fid)%gf, 2.0*pi) 
+      this_gf = gPPI(Pid,Fid)%target_normalized_gf
+
+      sdum = (this_s-s0)*inv_ds
+      inner_sid = int(sdum) 
+      ws1  = sdum - inner_sid
+      ws0  = 1.0 - ws1
+      gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+      inner_gqid = int(gqdum)
+      wgq01 = gqdum - inner_gqid
+      wgq00 = 1.0 - wgq01
+      inner_ij = igrid(inner_sid) + inner_gqid    
+
+      outter_sid = inner_sid+1
+      gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+      outter_gqid = int(gqdum)
+      wgq11 = gqdum - outter_gqid
+      wgq10 = 1.0 - wgq11
+      outter_ij = igrid(outter_sid) + outter_gqid
+      
+      !wgf1 = min(modulo(this_gf-zetamin,2.0*pi),2.0*pi-modulo(this_gf-zetamin,2.0*pi))*inv_gf
+      wgf1 = (this_gf-zetamin)*inv_gf
+      wgf0 = 1.0 - wgf1
+ 
+
+      tmp_weight = gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+      !FLA_Denominator(0,inner_ij)    = FLA_Denominator(0,inner_ij)    +wgf0*ws0*wgq00*gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+      !FLA_Denominator(0,inner_ij)    = FLA_Denominator(0,inner_ij)    +wgf0*ws0*wgq00*tmp_weight
+      FLA_Denominator(0,inner_ij)    = FLA_Denominator(0,inner_ij)    +wgf0*ws0*wgq00
+      FLA_Denominator(0,inner_ij+1)  = FLA_Denominator(0,inner_ij+1)  +wgf0*ws0*wgq01
+      FLA_Denominator(0,outter_ij)   = FLA_Denominator(0,outter_ij)   +wgf0*ws1*wgq10
+      FLA_Denominator(0,outter_ij+1) = FLA_Denominator(0,outter_ij+1) +wgf0*ws1*wgq11
+      FLA_Denominator(1,inner_ij)    = FLA_Denominator(1,inner_ij)    +wgf1*ws0*wgq00
+      FLA_Denominator(1,inner_ij+1)  = FLA_Denominator(1,inner_ij+1)  +wgf1*ws0*wgq01
+      FLA_Denominator(1,outter_ij)   = FLA_Denominator(1,outter_ij)   +wgf1*ws1*wgq10
+      FLA_Denominator(1,outter_ij+1) = FLA_Denominator(1,outter_ij+1) +wgf1*ws1*wgq11
+
+      each_FLA_denominator(Fid) = each_FLA_denominator(Fid) + tmp_weight
+      test_FLA_val(Fid) = test_FLA_val(Fid) + gPPI(Pid,Fid)%a*tmp_weight
+    enddo
+  enddo
+  
+
+  call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+  each_FLA_denominator = recvr(1:num_of_SampledFieldLines)  
+  call MPI_ALLREDUCE(test_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+  test_FLA_val = recvr(1:num_of_SampledFieldLines)
+
+  test_FLA_val = test_FLA_val/each_FLA_denominator
+  do Fid=1,num_of_SampledFieldLines
+    do Pid=1,num_of_gPPI_for_each_FieldLine
+      gPPI(Pid,Fid)%test_FLA_a = test_FLA_val(Fid)
+    enddo
+  enddo
+
+
+  ! This part is the required post-processing and/or communication to get correct FLA_Denominator
+  ! poloidal end cell; need valid data for densityi(:,igrid(i))
+  do i=0,mpsi
+    FLA_Denominator(:,igrid(i)+mtheta(i))=FLA_Denominator(:,igrid(i)+mtheta(i))+FLA_Denominator(:,igrid(i))
+    FLA_Denominator(:,igrid(i))=FLA_Denominator(:,igrid(i)+mtheta(i))
+ enddo
+  ! Communicate FLA_Denominator between nodes
+  ! toroidal end cell
+  sendl=FLA_Denominator(0,:)
+  recvr=0.0_wp
+  icount=mgrid
+  idest=left_pe
+  isource=right_pe
+  isendtag=myrank_toroidal
+  irecvtag=isource
+  ! send densityi to left and receive from right
+  call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
+                    mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)      
+  if(myrank_toroidal == ntoroidal-1)then
+  ! B.C. at zeta=2*pi is shifted
+      do i=0,mpsi
+        ii=igrid(i)
+        jt=mtheta(i)
+        FLA_Denominator(1,ii+1:ii+jt)=FLA_Denominator(1,ii+1:ii+jt)+ cshift(recvr(ii+1:ii+jt),itran(i))
+        FLA_Denominator(1,igrid(i))=FLA_Denominator(1,igrid(i)+mtheta(i))
+      enddo
+  else
+  ! B.C. at zeta<2*pi is continuous
+    FLA_Denominator(1,:)=FLA_Denominator(1,:)+recvr
+  endif
+
+end subroutine Cal_FLA_Denominator_using_gPPI
+
+subroutine Get_FLA_Te0_Ti0_n0
+
+  use mpi_defs
+  use precision
+  use global_parameters
+  use particle_decomp
+  use FieldLineFollowing
+  use field_array
+
+  implicit none
+
+  real(wp) Te0_Data(0:1,mgrid), Ti0_Data(0:1,mgrid), n0_Data(0:1,mgrid), radial_psi(0:1, mgrid)
+  integer i,j, ij
+  
+  do i=0,mpsi   
+    Te0_Data(:,igrid(i):igrid(i)+mtheta(i)) = Te_grid(i)
+    Ti0_Data(:,igrid(i):igrid(i)+mtheta(i)) = vth_grid(i)**2
+    n0_Data(:,igrid(i):igrid(i)+mtheta(i)) = den_grid(i)
+    radial_psi(:,igrid(i):igrid(i)+mtheta(i)) = psi_grid(i)
+  enddo
+
+  call Do_FieldLineAverage_by_using_gPPI(Te0_Data, FLA_Te0)
+  call Do_FieldLineAverage_by_using_gPPI(Ti0_Data, FLA_Ti0)
+  call Do_FieldLineAverage_by_using_gPPI(n0_Data, FLA_n0)
+  call Do_FieldLineAverage_by_using_gPPI(radial_psi, FLA_psi0)
+  
+end subroutine Get_FLA_Te0_Ti0_n0
+
+
+
+subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
+  use mpi_defs
+  use precision
+  use global_parameters
+  use particle_decomp
+  use FieldLineFollowing
+  use field_array
+
+  implicit none
+
+  real(wp) TargetData(0:1,mgrid), FLA_ResultData(0:1,mgrid)!, FLA_Denominator(0:1,mgrid)
+
+  real(wp) each_FLA_val(num_of_SampledFieldLines), each_FLA_denominator(num_of_SampledFieldLines), intpl_val ! FLA=Field Line Average
+  real(wp) this_a, this_gq, this_s, this_gf, sdum, gqdum,inv_ds, inv_dgq(0:mpsi), inv_gf
+  real(wp) ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
+  integer Fid, Pid ! (Fid=Field ID), (Pid=gPPI ID)
+  integer inner_sid, outter_sid, inner_gqid, outter_gqid, inner_ij, outter_ij
+  integer i,ii,jt, ierror
+
+  real(wp) tmp_weight
+  real(wp) sendl(mgrid),recvr(mgrid)
+  integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
+
+
+  if (num_of_SampledFieldLines ==0) then
+    write(*,*) "Error! Please construct gPPI first before using FieldLineAverage!!"
+    STOP
+  endif
+  
+  if(myrank_toroidal==0) then
+    write(*,*) "Do_FieldLineAverage_by_using_gPPI"
+  endif
+  inv_ds = real(mpsi)/(s1-s0)
+  inv_dgq = 1.0/deltat
+  inv_gf = 1.0/deltaz
+
+  ! Get FieldLineAverages of Target_data 
+  do Fid=1,num_of_SampledFieldLines
+    each_FLA_val(Fid)=0
+    each_FLA_denominator(Fid)=0
+    do Pid=1,num_of_gPPI_for_each_FieldLine
+      
+      !this_a = gPPI(Pid,Fid)%a
+      this_s = gPPI(Pid,Fid)%s
+      this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
+      !this_gf = modulo(gPPI(Pid,Fid)%gf, 2.0*pi)
+      this_gf = gPPI(Pid,Fid)%target_normalized_gf
+      ! Warning!!!
+      !Interpolation 하려면 a값으로부터 s grid 값 알아야함..
+      !일단 아래 같은 함수 통해서 알 수 있다고 가정하고 코딩 진행..
+      !call Convert_a_to_s(this_a, this_s)
+
+     !sid = max(0, min(mpsi, int((this_s-s0)*inv_ds)))
+      !gqid = max(0, min(mtheta(sid), int(gqdum*inv_dgq(sid))))
+      sdum = (this_s-s0)*inv_ds
+      inner_sid = int(sdum) 
+      ws1  = sdum - inner_sid
+      ws0  = 1.0 - ws1
+      gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.      
+      inner_gqid = int(gqdum)
+      wgq01 = gqdum - inner_gqid
+      wgq00 = 1.0 - wgq01
+      inner_ij = igrid(inner_sid) + inner_gqid    
+
+      outter_sid = inner_sid+1
+      gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+      outter_gqid = int(gqdum)
+      wgq11 = gqdum - outter_gqid
+      wgq10 = 1.0 - wgq11
+      outter_ij = igrid(outter_sid) + outter_gqid
+      
+      
+      !wgf1 = min(modulo(this_gf-zetamin,2.0*pi),2.0*pi-modulo(this_gf-zetamin,2.0*pi))*inv_gf
+      wgf1 = (this_gf-zetamin)*inv_gf
+      wgf0 = 1.0 - wgf1
+ 
+      intpl_val = wgf0*(ws0*(wgq00*TargetData(0,inner_ij) + wgq01*TargetData(0,inner_ij+1)) + ws1*(wgq10*TargetData(0,outter_ij)+wgq11*TargetData(0,outter_ij+1))) &
+                 +wgf1*(ws0*(wgq00*TargetData(1,inner_ij) + wgq01*TargetData(1,inner_ij+1)) + ws1*(wgq10*TargetData(1,outter_ij)+wgq11*TargetData(1,outter_ij+1)))
+
+      each_FLA_val(Fid) = each_FLA_val(Fid) + intpl_val*gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+      each_FLA_denominator(Fid) = each_FLA_denominator(Fid) + gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+
+    enddo
+  enddo
+
+  ! Do Allreduce across toroidal_comm to get a sum of FLA 
+  call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+  each_FLA_val = recvr(1:num_of_SampledFieldLines)
+  call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+  each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+ 
+  each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
+ 
+
+
+  
+  ! Scatter Averaged data to grid nodes
+  FLA_ResultData = 0.0
+  do Fid=1,num_of_SampledFieldLines
+    do Pid=1,num_of_gPPI_for_each_FieldLine
+      
+      !this_a = gPPI(Pid,Fid)%a
+      this_s = gPPI(Pid,Fid)%s
+      this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
+      !this_gf = modulo(gPPI(Pid,Fid)%gf, 2.0*pi)
+      this_gf = gPPI(Pid,Fid)%target_normalized_gf
+
+      ! Warning!!!
+      !Interpolation 하려면 a값으로부터 s grid 값 알아야함..
+      !일단 아래 같은 함수 통해서 알 수 있다고 가정하고 코딩 진행..
+      !call Convert_a_to_s(this_a, this_s)
+      
+      sdum = (this_s-s0)*inv_ds
+      inner_sid = int(sdum) 
+      ws1  = sdum - inner_sid
+      ws0  = 1.0 - ws1
+      gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+      inner_gqid = int(gqdum)
+      wgq01 = gqdum - inner_gqid
+      wgq00 = 1.0 - wgq01
+      inner_ij = igrid(inner_sid) + inner_gqid    
+
+      outter_sid = inner_sid+1
+      gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
+      outter_gqid = int(gqdum)
+      wgq11 = gqdum - outter_gqid
+      wgq10 = 1.0 - wgq11
+      outter_ij = igrid(outter_sid) + outter_gqid
+      
+      
+      !wgf1 = min(modulo(this_gf-zetamin,2.0*pi),2.0*pi-modulo(this_gf-zetamin,2.0*pi))*inv_gf
+      wgf1 = (this_gf-zetamin)*inv_gf
+      wgf0 = 1.0 - wgf1
+
+      !tmp_weight = gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+!      FLA_ResultData(0,inner_ij)    = FLA_ResultData(0,inner_ij)    +wgf0*ws0*wgq00*each_FLA_val(Fid)*gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+      !FLA_ResultData(0,inner_ij)    = FLA_ResultData(0,inner_ij)    +wgf0*ws0*wgq00*each_FLA_val(Fid)*tmp_weight
+      FLA_ResultData(0,inner_ij)    = FLA_ResultData(0,inner_ij)    +wgf0*ws0*wgq00*each_FLA_val(Fid)
+      FLA_ResultData(0,inner_ij+1)  = FLA_ResultData(0,inner_ij+1)  +wgf0*ws0*wgq01*each_FLA_val(Fid)
+      FLA_ResultData(0,outter_ij)   = FLA_ResultData(0,outter_ij)   +wgf0*ws1*wgq10*each_FLA_val(Fid)
+      FLA_ResultData(0,outter_ij+1) = FLA_ResultData(0,outter_ij+1) +wgf0*ws1*wgq11*each_FLA_val(Fid)
+      FLA_ResultData(1,inner_ij)    = FLA_ResultData(1,inner_ij)    +wgf1*ws0*wgq00*each_FLA_val(Fid)
+      FLA_ResultData(1,inner_ij+1)  = FLA_ResultData(1,inner_ij+1)  +wgf1*ws0*wgq01*each_FLA_val(Fid)
+      FLA_ResultData(1,outter_ij)   = FLA_ResultData(1,outter_ij)   +wgf1*ws1*wgq10*each_FLA_val(Fid)
+      FLA_ResultData(1,outter_ij+1) = FLA_ResultData(1,outter_ij+1) +wgf1*ws1*wgq11*each_FLA_val(Fid)
+    enddo
+  enddo
+
+  ! This part is the required post-processing and/or communication to get correct FLA_ResultData
+  ! poloidal end cell; need valid data for densityi(:,igrid(i))
+  do i=0,mpsi
+    FLA_ResultData(:,igrid(i)+mtheta(i))=FLA_ResultData(:,igrid(i)+mtheta(i))+FLA_ResultData(:,igrid(i))
+    FLA_ResultData(:,igrid(i))=FLA_ResultData(:,igrid(i)+mtheta(i))
+ enddo
+  ! Communicate FLA_ResultData between nodes
+  ! toroidal end cell
+  sendl=FLA_ResultData(0,:)
+  recvr=0.0_wp
+  icount=mgrid
+  idest=left_pe
+  isource=right_pe
+  isendtag=myrank_toroidal
+  irecvtag=isource
+  ! send densityi to left and receive from right
+  call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
+                    mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)      
+  if(myrank_toroidal == ntoroidal-1)then
+  ! B.C. at zeta=2*pi is shifted
+      do i=0,mpsi
+        ii=igrid(i)
+        jt=mtheta(i)
+        FLA_ResultData(1,ii+1:ii+jt)=FLA_ResultData(1,ii+1:ii+jt)+ cshift(recvr(ii+1:ii+jt),itran(i))
+        FLA_ResultData(1,igrid(i))=FLA_ResultData(1,igrid(i)+mtheta(i))
+      enddo
+  else
+  ! B.C. at zeta<2*pi is continuous
+    FLA_ResultData(1,:)=FLA_ResultData(1,:)+recvr
+  endif
+
+
+  ! Last part is to divide FLA_ResultData by FLA_Denominator to get correct line-averaged FLA_ResultData
+  FLA_ResultData = FLA_ResultData/FLA_Denominator
+  
+end subroutine Do_FieldLineAverage_by_using_gPPI
+
+
+
+
+recursive subroutine quicksort_real(a, first, last)
+! quicksort.f -*-f90-*-
+! Author: t-nissie
+! License: GPLv3
+! Gist: https://gist.github.com/t-nissie/479f0f16966925fa29ea
+!!
+  use precision
+  implicit none
+
+  real(wp)  a(*), x, t
+  integer first, last
+  integer i, j
+
+  x = a( (first+last) / 2 )
+  i = first
+  j = last
+  do
+     do while (a(i) < x)
+        i=i+1
+     end do
+
+     do while (x < a(j))
+        j=j-1
+     end do
+
+     if (i >= j) exit
+     t = a(i);  a(i) = a(j);  a(j) = t
+     i=i+1
+     j=j-1
+  end do
+
+  if (first < i-1) call quicksort_real(a, first, i-1)
+  if (j+1 < last)  call quicksort_real(a, j+1, last)
+end subroutine quicksort_real
+
+
+recursive subroutine quicksort_real_together(a, b, first, last)
+! quicksort.f -*-f90-*-
+! Author: t-nissie
+! License: GPLv3
+! Gist: https://gist.github.com/t-nissie/479f0f16966925fa29ea
+!!
+  use precision
+  implicit none
+
+  real(wp)  a(*), b(*), x, t
+  integer first, last
+  integer i, j
+
+  x = a( (first+last) / 2 )
+  i = first
+  j = last
+  do
+     do while (a(i) < x)
+        i=i+1
+     end do
+
+     do while (x < a(j))
+        j=j-1
+     end do
+
+     if (i >= j) exit
+     t = a(i);  a(i) = a(j);  a(j) = t
+     t = b(i);  b(i) = b(j);  b(j) = t
+     i=i+1
+     j=j-1
+  end do
+
+  if (first < i-1) call quicksort_real_together(a, b, first, i-1)
+  if (j+1 < last)  call quicksort_real_together(a, b, j+1, last)
+end subroutine quicksort_real_together
+
+
+subroutine find_unique_sorted_array_and_its_num_of_elements(a, first, last, num_of_unique_elements)
+  
+  use precision
+  implicit none
+
+  real(wp) a(*), x, t
+  integer first, last, i, j, num_of_unique_elements
+
+  call quicksort_real(a, first, last)
+
+  i=first
+  j=i+1  
+  do while(i<last)    
+    do while(j<=last .and. a(j)==a(i))   
+      j=j+1
+    enddo  
+    if(j>last) exit
+    if(j/=i+1) then
+      a(i+1)=a(j)
+    endif 
+    i=i+1
+  enddo
+  num_of_unique_elements = i
+end subroutine find_unique_sorted_array_and_its_num_of_elements
+
+subroutine Convert_a_to_s(in_a, out_s)
+  use global_parameters
+
+  implicit none
+
+  real(wp) in_a, out_s
+  integer ierr
+  
+  if (dsda_power == 0) then
+    out_s = s0 + (in_a-a0) !! 
+  else
+    write(*,*) "Error! dsda_power is not 0!! Test case is only available when dsda_power=0"
+    STOP       
+  endif 
+end subroutine Convert_a_to_s
 
 subroutine Ti_at_electrons
 !

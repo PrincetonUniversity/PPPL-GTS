@@ -38,7 +38,8 @@ end module precision
                         amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
                         dlni=16.0_wp, &
-                        dsda_power=0.2_wp
+                        !dsda_power=0.2_wp
+                        dsda_power =0.0
                       !  pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
                       !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
@@ -128,6 +129,27 @@ end module precision
 
 end module global_parameters
 
+module FieldLineFollowing
+
+    use precision
+    type Poincare_Point_Information
+        integer Label  ! Label for each field line
+        real(wp) target_normalized_gf  ! target_zeta in [0,...,2*pi]   
+        real(wp) s, a, gq, gf
+        real(wp) R, Z
+        real(wp) dl, inv_B 
+        ! abandon weight..
+        ! weight is the Jacobian at initial position to reflect accurate importance of each gPPI when using uniform distribution (s,gq,gf)
+        real(wp) test_FLA_a        
+    end type
+
+    integer :: num_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines
+
+    ! Global PPI ==> gPPI
+    ! gPPI(gPPI_max_tor_rotation, 1:num_of_SampledFieldLines)
+    type(Poincare_Point_Information), dimension(:,:), allocatable:: gPPI    
+
+end module FieldLineFollowing
 module particle_array
   use precision
   integer,dimension(:),allocatable :: jteon0,jteon1
@@ -163,6 +185,8 @@ module field_array
       den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,rho_grid,s_grid,eta_grid,&
       Er_grid,Er_grid0,dphidt00,ddT_da,Te_grid,gsgaa,&
       dni_grid,dne_grid
+  real(wp),dimension(:,:),allocatable :: dn_tot, FLA_Denominator, FLA_dphi, FLA_dTe, FLA_dTi, FLA_dne, FLA_dni, FLA_ne_adiabatic
+  real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0 
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
   real(wp),dimension(:),allocatable :: tphi, bphi, left1, left2   ! for testing solver
 
