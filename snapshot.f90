@@ -16,16 +16,17 @@ subroutine snapshot
   integer i,ibin,ip,iu,j,jj,jm,jt,k,kz,m,nsnap,ierror,icount,ij
   real(wp) Emax,eright,uright,uleft,pdum,tdum,b,upara,energy,pitch,q,dela,&
            delu,g_inv,qdum,r,delr,delz,phisn(mtheta(ipsi)/2),&
-           eachpsi(mtheta(ipsi)/2*mzetamax),wt,delt(0:mpsi),&
+           eachpsi(mtheta(ipsi)/2*mzetamax),wt,inv_dgq(0:mpsi),&
            weight,adum(0:mpsi),bdum(mbin_u,mbin_psi)
   real(wp),dimension(0:mpsi) :: marker,fflows,dflows,ftem,dtem
   real(wp),dimension(mbin_u,mbin_psi) :: ubin,dubin,pbin,dpbin,ebin,debin
   real(wp) ubin_max,pbin_max,ebin_max
 !  real(wp),dimension(mzeta,0:mpsi,0:mthetamax) :: ftotal,tpara,tperp
 
-  real(wp) gq_0, intpl_dphi, intpl_dni, intpl_dne, intpl_dTe, intpl_dTi
+  real(wp) intpl_dphi, intpl_dTe, intpl_dTi, intpl_dni, intpl_dne, dn_adiabatic, intpl_dphi_NZ
+  real(wp) tmp_full_dphi(0:1,mgrid), tmp_ne_adiabatic(0:1,mgrid), intp_val  
   integer gq_jump, a_jump
-  character(len=13) cdum,date,time
+  character(len=32) cdum,date,time
 
   real(wp),dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 
@@ -56,7 +57,7 @@ subroutine snapshot
   eright=1.0/Emax !checked,same for e and i with T_e ~ T_i ?why Emax=umax^2/4.0
   g_inv=1.0/vthc
   delr=1.0/deltar
-  delt=1.0/deltat
+  inv_dgq=1.0/deltat
   delz=1.0/deltaz
 
 ! radial and 3-d volume data
@@ -72,6 +73,23 @@ subroutine snapshot
   ftem=0.0
   dtem=0.0
 
+  !====================================================================
+  ! MGYOO(01/09/2019) : To measure FLA(Field Line Average) component 
+  ! This FLA might be important in the case of external magnetic perturbation
+
+  do i=0,mpsi
+    do j=0,mtheta(i)
+      ij=igrid(i) + j
+      tmp_full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)        
+    enddo
+  enddo
+
+  if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+    call Do_FieldLineAverage_by_using_gPPI(tmp_full_dphi, FLA_dphi)    
+    call Do_FieldLineAverage_by_using_gPPI(tmp_ne_adiabatic, FLA_ne_adiabatic)
+  endif
+  !=========================================================================
+
   if(ifelectron==0) then
 
 !     call esigetb(zion(1,:),zion(2,:),mi)   ! get B
@@ -83,7 +101,7 @@ subroutine snapshot
         ibin=max(1,min(mbin_psi,1+int((r-a0)*dela)))
         ip=max(0,min(mpsi,int((zion(7,m)-s0)*delr+0.5)))
                            ! zion(2,*) and zion(3,*) are within [0,2*pi)
-        jt=max(0,min(mtheta(ip),int(zion(2,m)*delt(ip)+0.5)))
+        jt=max(0,min(mtheta(ip),int(zion(2,m)*inv_dgq(ip)+0.5)))
  
         upara=zion(4,m)*BB(m)*qion/aion*vth_inv(ip)
         energy=max(1.0e-20,0.5*aion*upara*upara+&
@@ -132,7 +150,7 @@ subroutine snapshot
         r=zeon(1,m)       ! r=sqrt(2.0*zeon(1,m))
         ibin=max(1,min(mbin_psi,1+int((r-a0)*dela))) 
         ip=max(0,min(mpsi,int((r-a0)*delr+0.5))) 
-        jt=max(0,min(mtheta(ip),int(zeon(2,m)*delt(ip)+0.5)))
+        jt=max(0,min(mtheta(ip),int(zeon(2,m)*inv_dgq(ip)+0.5)))
  
         upara=zeon(4,m)*BB(m)*qelectron/aelectron*g_inv
         energy=max(1.0e-20,0.5*aelectron*upara*upara+  &
@@ -284,10 +302,36 @@ subroutine snapshot
      write(snapout,102)(ftem(i),i=0,mpsi,a_jump)
      write(snapout,102)(dtem(i),i=0,mpsi,a_jump)
 
+
+
+     !==========================================================
+     ! MGYOO (01/09/2019): From here, most outputs are re-scaled to be SI unit.
+     ! EX) density in (#/m^3), temperature in (eV), potential in (V)
+     !=========================================================
+     ! Equilibrium density and temperatures
      write(snapout,101) 1
-     write(snapout,102)(vth_grid(i)**2,i=0,mpsi,a_jump)      ! Ti in same unit (normalized unit is Tem_00)
+     write(snapout,102)(1e6*den_grid(i),i=0,mpsi,a_jump)    ! density in (#/m^3) unit  
      write(snapout,101) 1
-     write(snapout,102)(Te_grid(i),i=0,mpsi,a_jump)          ! Te in same unit (normalized unit is Tem_00)
+     write(snapout,102)(1e3*Tem_00*(vth_grid(i)**2),i=0,mpsi,a_jump)      ! Ti in (eV) unit
+     write(snapout,101) 1
+     write(snapout,102)(1e3*Tem_00*Te_grid(i),i=0,mpsi,a_jump)          ! Te in same unit (normalized unit is Tem_00)
+
+     ! Zonal component of potential, density and temperatures
+     write(snapout,101) 1
+     write(snapout,102)(((E_00*c)/(charg0*1e8))*phi00(i),i=0,mpsi,a_jump)   ! potential in (V) unit
+     write(snapout,101) 1
+     write(snapout,102)(((E_00*c)/(charg0*1e8))*phip00(i),i=0,mpsi,a_jump)  ! potential derivative in (V/ psi) unit
+     write(snapout,101) 1
+     write(snapout,102)(1e6*den_grid(i)*zonali(i),i=0,mpsi,a_jump)   ! zonal ion density in (#/m^3) unit  
+
+     write(snapout,101) 1
+     write(snapout,102) (1e6*den_grid(i)*zonale(i),i=0,mpsi,a_jump)   ! zonal electron density in (#/m^3) unit  
+     
+
+     write(snapout,101) 1
+     write(snapout,102)(1e3*Tem_00*zonal_dTi(i),i=0,mpsi,a_jump)  ! zonal_dTi is (eV) unit
+     write(snapout,101) 1
+     write(snapout,102)(1e3*Tem_00*zonal_dTe(i),i=0,mpsi,a_jump)   !zonal_dTe is (eV) unit
 
 ! poloidal cross section: marker,density,potential,parallel flow and temperature
      write(snapout,101) 1
@@ -339,36 +383,25 @@ subroutine snapshot
     write(snapout,101) 1
     do i=0,mpsi,a_jump
         do j=0,jm
-            gq_0 = mod(qtinv(i)*zetamax,2*pi)
-            tdum=2.0*pi*real(j)/real(jm)
-            if(tdum<gq_0) then
-                tdum = tdum + 2.0*pi
-            endif
-            jt = floor((tdum-gq_0)/deltat(i))
-            wt = (tdum-gq_0)/deltat(i) - real(jt)
-
-            intpl_dphi = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) -real(1-ZF_SEPARATION)*phi00(i)
-            write(snapout,102) intpl_dphi
-        enddo
+          tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+          jt = int(tdum)
+          wt = tdum - jt
+        
+          intpl_dphi = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) +real(ZF_SEPARATION)*phi00(i)
+          write(snapout,102) ((E_00*c)/(charg0*1e8))*intpl_dphi ! total delta-phi (including zonal phi) in (V) unit
+      enddo
     enddo
 
     ! ion density
     write(snapout,101) 1
     do i=0,mpsi,a_jump
         do j=0,jm
-            ! tdum=2.0*pi*real(j)/real(jm)
-            ! jt=max(1,min(mtheta(i),1+int(tdum/deltat(i))))
-            ! wt=tdum/deltat(i)-real(jt-1)
-            gq_0 = mod(qtinv(i)*zetamax,2*pi)
-            tdum=2.0*pi*real(j)/real(jm)
-            if(tdum<gq_0) then
-                tdum = tdum + 2.0*pi
-            endif
-            jt = floor((tdum-gq_0)/deltat(i))
-            wt = (tdum-gq_0)/deltat(i) - real(jt)
-
-            intpl_dni = ((1.0-wt)*densityi(1,igrid(i)+jt) + wt*densityi(1,igrid(i)+jt+1))
-            write(snapout,102) intpl_dni
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                      
+            intpl_dni = ((1.0-wt)*tot_dni(1,igrid(i)+jt) + wt*tot_dni(1,igrid(i)+jt+1)) 
+            write(snapout,102) 1e6*intpl_dni ! ion total perturbed density (dni) in (#/m^3) unit            
         enddo
     enddo
 
@@ -376,71 +409,172 @@ subroutine snapshot
     write(snapout,101) 1
     do i=0,mpsi,a_jump
         do j=0,jm
-            gq_0 = mod(qtinv(i)*zetamax,2*pi)
-            tdum=2.0*pi*real(j)/real(jm)
-            if(tdum<gq_0) then
-                tdum = tdum + 2.0*pi
-            endif
-            jt = floor((tdum-gq_0)/deltat(i))
-            wt = (tdum-gq_0)/deltat(i) - real(jt)
-
-            intpl_dTi = ((1.0-wt)*phi_tmp(igrid(i)+jt)+  wt*phi_tmp(igrid(i)+jt+1))
-            write(snapout,102) intpl_dTi
+          tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+          jt = int(tdum)
+          wt = tdum - jt
+          
+          intpl_dTi = (vth_grid(i)**2)*((1.0-wt)*phi_tmp(igrid(i)+jt)+  wt*phi_tmp(igrid(i)+jt+1)) +real(ZF_SEPARATION)*(zonal_dTi(i))
+          write(snapout,102) 1e3*Tem_00*intpl_dTi ! dTi in (eV) unit
         enddo
     enddo
 
-
-    ! electron density (including adiabatic response for delta-h scheme)
+    ! electron density
     write(snapout,101) 1
-    if(ifelectron == 2) then        
-        do i=0,mpsi,a_jump
-            do j=0,jm
-                gq_0 = mod(qtinv(i)*zetamax,2*pi)
-                tdum=2.0*pi*real(j)/real(jm)
-                if(tdum<gq_0) then
-                    tdum = tdum + 2.0*pi
-                endif
-                jt = floor((tdum-gq_0)/deltat(i))
-                wt = (tdum-gq_0)/deltat(i) - real(jt)
-
-                intpl_dphi = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) -real(1-ZF_SEPARATION)*phi00(i)
-                intpl_dne = (1.0-wt)*densitye(1,igrid(i)+jt)+wt*densitye(1,igrid(i)+jt+1)
-
-                write(snapout,102) intpl_dne + intpl_dphi/Te_grid(i)*abs(csc0)
-            enddo
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                      
+            intpl_dne = ((1.0-wt)*tot_dne(1,igrid(i)+jt) + wt*tot_dne(1,igrid(i)+jt+1)) 
+            write(snapout,102) 1e6*intpl_dne ! electron total perturbed density (dne) in (#/m^3) unit            
         enddo
-    else
-        do i=0,mpsi,a_jump
-            do j=0,jm
-                gq_0 = mod(qtinv(i)*zetamax,2*pi)
-                tdum=2.0*pi*real(j)/real(jm)
-                if(tdum<gq_0) then
-                    tdum = tdum + 2.0*pi
-                endif
-                jt = floor((tdum-gq_0)/deltat(i))
-                wt = (tdum-gq_0)/deltat(i) - real(jt)
-
-                intpl_dne = (1.0-wt)*densitye(1,igrid(i)+jt)+wt*densitye(1,igrid(i)+jt+1)
-
-                write(snapout,102) intpl_dne
-            enddo
-        enddo       
-    endif
+    enddo
 
     ! electron temperature fluctuation 
     write(snapout,101) 1
     do i=0,mpsi,a_jump
         do j=0,jm
-            gq_0 = mod(qtinv(i)*zetamax,2*pi)
-            tdum=2.0*pi*real(j)/real(jm)
-            if(tdum<gq_0) then
-                tdum = tdum + 2.0*pi
-            endif
-            jt = floor((tdum-gq_0)/deltat(i))
-            wt = (tdum-gq_0)/deltat(i) - real(jt)
+          tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+          jt = int(tdum)
+          wt = tdum - jt
+                    
+          intpl_dTe = Te_grid(i)*(((1.0-wt)*heatflux(igrid(i)+jt)+  wt*heatflux(igrid(i)+jt+1))) +real(ZF_SEPARATION)*(zonal_dTe(i))
+          write(snapout,102) 1e3*Tem_00*intpl_dTe  ! dTi in (eV) unit
+        enddo
+    enddo
+
+
+
+  !====================================================================
+  ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component 
+    ! FLA_psi0 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                 
+            intp_val = ((1.0-wt)*FLA_psi0(1,igrid(i)+jt)+  wt*FLA_psi0(1,igrid(i)+jt+1))
+            write(snapout,102) intp_val
+        enddo
+    enddo
+
+    ! FLA_Ti0 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                 
+            intp_val = ((1.0-wt)*FLA_Ti0(1,igrid(i)+jt)+  wt*FLA_Ti0(1,igrid(i)+jt+1))
+            write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
+        enddo
+    enddo
+    
+     ! FLA_Te0 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                   
+            intp_val = ((1.0-wt)*FLA_Te0(1,igrid(i)+jt)+  wt*FLA_Te0(1,igrid(i)+jt+1))
+            write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
+        enddo
+    enddo   
+
+    ! FLA_n0 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                   
+            intp_val = ((1.0-wt)*FLA_n0(1,igrid(i)+jt)+  wt*FLA_n0(1,igrid(i)+jt+1))
+            write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
+        enddo
+    enddo  
+    
+    ! FLA_dphi 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                  
+            intp_val = ((1.0-wt)*FLA_dphi(1,igrid(i)+jt)+  wt*FLA_dphi(1,igrid(i)+jt+1))
+            write(snapout,102) ((E_00*c)/(charg0*1e8))*intp_val  ! potential in (V) unit
+        enddo
+    enddo    
+
+    ! FLA_dTi 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+          
+            intp_val = ((1.0-wt)*FLA_dTi(1,igrid(i)+jt)+  wt*FLA_dTi(1,igrid(i)+jt+1))
+            write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
+        enddo
+    enddo
+
+    ! FLA_dni 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                    
+            intp_val = ((1.0-wt)*FLA_dni(1,igrid(i)+jt)+  wt*FLA_dni(1,igrid(i)+jt+1))
+            write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
+        enddo
+    enddo    
+
+    ! FLA_dTe
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                   
+            intp_val = ((1.0-wt)*FLA_dTe(1,igrid(i)+jt)+  wt*FLA_dTe(1,igrid(i)+jt+1))
+            write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
+        enddo
+    enddo
+
+    ! FLA_dne 
+    write(snapout,101) 1   
+    do i=0,mpsi,a_jump
+      do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
+                        
+            intp_val = ((1.0-wt)*(FLA_dne(1,igrid(i)+jt))+  wt*(FLA_dne(1,igrid(i)+jt+1)))
+            write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
+      enddo
+    enddo
+
+    ! FLA_ne_adiabatic 
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt = int(tdum)
+            wt = tdum - jt
             
-            intpl_dTe = ((1.0-wt)*heatflux(igrid(i)+jt)+  wt*heatflux(igrid(i)+jt+1))
-            write(snapout,102) intpl_dTe
+            intp_val = ((1.0-wt)*(FLA_ne_adiabatic(1,igrid(i)+jt))+  wt*(FLA_ne_adiabatic(1,igrid(i)+jt+1)))
+            write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
         enddo
     enddo
 
@@ -531,6 +665,38 @@ subroutine snapshot
      call flush(888)
   end if
 
+  if(istep==0 .and. myrank_partd==nproc_partd-1) then
+    call Print_FLA_Denominator
+  endif
+
 !   if(mype==0) print*, 'Write DENs + PHIs at ', 'istep=', istep,  'irk=', irk
 
 end subroutine snapshot
+
+
+subroutine Print_FLA_Denominator
+
+
+  use global_parameters
+  use precision
+  use global_parameters
+  use particle_decomp
+  use FieldLineFollowing
+  use field_array
+
+  implicit none
+
+  integer i, j,ij
+  character(len=32) chdum
+  
+  write(chdum,'("FLA_Denominator_",i5.5,".dat")') myrank_toroidal
+  open(181206,file=chdum,status='replace',action='write')
+  do i=0,mpsi
+    do j=0, mtheta(i)
+      ij=igrid(i) + j
+      write(181206, "((ES14.6,1x))") FLA_Denominator(1,ij)
+    enddo
+  enddo
+
+  close(181206)
+end subroutine Print_FLA_Denominator

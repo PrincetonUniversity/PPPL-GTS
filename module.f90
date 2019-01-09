@@ -185,7 +185,8 @@ module field_array
       den_grid,vth_grid,vth_inv,gaa,B2_s,dVda,rho_grid,s_grid,eta_grid,&
       Er_grid,Er_grid0,dphidt00,ddT_da,Te_grid,gsgaa,&
       dni_grid,dne_grid
-  real(wp),dimension(:,:),allocatable :: dn_tot, FLA_Denominator, FLA_dphi, FLA_dTe, FLA_dTi, FLA_dne, FLA_dni, FLA_ne_adiabatic
+  real(wp),dimension(:),allocatable :: zonal_dTe, zonal_dTi
+  real(wp),dimension(:,:),allocatable :: tot_dne,tot_dni, FLA_Denominator, FLA_dphi, FLA_dTe, FLA_dTi, FLA_dne, FLA_dni, FLA_ne_adiabatic
   real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0 
   real(wp),dimension(:,:),allocatable :: Weighted_Vol
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt

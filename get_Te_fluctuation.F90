@@ -14,7 +14,7 @@ subroutine get_Te_fluctuation(wpi2)
   real(wp) weight,rdum,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00
   real(wp) sendl(mgrid),recvr(mgrid)
   real(wp) dnitmp(0:1,mgrid),buff(0:1,mgrid)
-
+  real(wp) mype_zonal_dTe(0:mpsi) ! zonal component of dTe in my cpu part
   real(wp) wpi2(me)
 
   heatflux=0.0_wp   ! borrow array heatflux(mgrid) to calculate Te fluctuations
@@ -147,16 +147,53 @@ subroutine get_Te_fluctuation(wpi2)
      buff(1,ij)=buff(1,ij)*markere(ij)  ! Te fluctuations on grid
   enddo
 
-  do j=0,mpsi
-     buff(1,igrid(j))=buff(1,igrid(j)+mtheta(j))
+  !==============================================================================
+  ! MGYOO (01/09/2019)
+  ! Convert buff to get a correct form of dTe by considering dne.
+  ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+  ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
+  do i=0,mpsi
+    do j=0,mtheta(i)
+      ij = igrid(i) + j
+      buff(1,ij) = den_grid(i)/(den_grid(i)+tot_dne(1,ij))*buff(1,ij)
+    enddo
+  enddo
+  !==============================================================================
 
+
+  !====================================================
+  ! MGYOO (11/27/2018) : implementation of zonal and non-zonal terms
+  ! zonal_dTe is the zonal component of delta_Te   
+  !====================================================
+  mype_zonal_dTe = 0.0    
+  do i=0,mpsi
+    do j=1,mtheta(i) ! j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
+      ij=igrid(i)+j
+      mype_zonal_dTe(i) = mype_zonal_dTe(i) + dtemper(ij)*buff(1,ij) ! 
+    enddo    
+  enddo
+
+  call MPI_ALLREDUCE(mype_zonal_dTe, zonal_dTe, mpsi+1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
+  zonal_dTe = zonal_dTe/jaco_sum
+
+  !====================================================================
+  ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component 
+  ! This FLA might be important in the case of external magnetic perturbation
+  if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+    call Do_FieldLineAverage_by_using_gPPI(buff, FLA_dTe)
+  endif
+  !=================================================================== 
+
+  ! IF ZE_SEPARATION=0: heatflux is (1/Te0)*(full delta_Te (zonal+non-zonal)): i.e. heatflux = (delta_Te)/Te0
+  ! IF ZE_SEPARATION=1: heatflux is now calculated from non-zonal delta_Te : i.e. heatflux = (delta_Te-zonal_dTe)/Te0  
+  do j=0,mpsi
      rdum=1.0/Te_grid(j)         ! = 1/Te_0 with Te_0 normalized with same unit as Ti
-     !  rdum=rdum*2.0_wp/3.0_wp
      !$omp parallel do private(i,ij)
      do i=0,mtheta(j)
         ij=igrid(j)+i
-        buff(1,ij)=buff(1,ij)*rdum    ! = delta-Te/Te_0 on grid   !  added Oct. 2012
+        buff(1,ij)=(buff(1,ij)-(ZF_SEPARATION)*zonal_dTe(j))*rdum    ! = delta-Te/Te_0 on grid   !  added Oct. 2012
      end do
+     buff(1,igrid(j))=buff(1,igrid(j)+mtheta(j))  		 
   enddo
 
   heatflux(1:mgrid)= buff(1,1:mgrid)   ! use heatflux(1:mgrid) to store Te fluctuations and write to output DENs at SNAPSHOT

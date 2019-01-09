@@ -17,6 +17,7 @@ subroutine charge_eon
   real(wp) sendl(mgrid),recvr(mgrid)
   real(wp) dnitmp(0:1,mgrid)
 
+  real(wp) dphi_NZ(0:1), dn_adiabatic(0:1)  
   real(wp), external :: SMOOTHSTEP
 
   call electron_locator
@@ -257,6 +258,58 @@ if(ZF_SEPARATION==0) then  !  solve total potential
 !
   endif    ! end its_jacobi = 0 or 1 
 
+
+  !============================================================
+  ! MGYOO (01/08/2019): To diagnose zonal component for later snapshot, 
+  ! This zonal component is only used in the snapshot routine to separate zonal and non-zonal components
+  !============================================================
+  ! flux surface average and normalization
+  if(mod(istep,msnap) .eq. 0) then   
+    wdum=0.0_wp
+    !$omp parallel private(i,j,ij) reduction(+:wdum)
+    !$omp do
+    do i=0,mpsi
+      do j=1,mtheta(i) ! j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
+        ij=igrid(i)+j
+        wdum(i)=wdum(i)+dtemper(ij)*densitye(1,ij)  ! new flux-surface avarage --> zonale; used in Jan. 2015
+      enddo
+    enddo
+    !$omp end parallel
+    call MPI_ALLREDUCE(wdum,zonale,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+    zonale=zonale/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonale; used in Jan. 2015; two give almost identical result 
+  endif
+
+
+  !====================================================================
+  ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component 
+  ! This FLA might be important in the case of external magnetic perturbation
+  ! MGYOO(01/08/2019) : tot_dne is calculated rather than (dh/f0 or df/f0)
+  if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+
+    if(ifelectron==2) then ! delta-h scheme
+      do i=0,mpsi
+        do j=0,mtheta(i)
+          ij = igrid(i)+j  
+          dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
+          dn_adiabatic = den_grid(i)*abs(csc0)*dphi_NZ/Te_grid(i)          
+          tot_dne(:,ij) = (dn_adiabatic+densitye(:,ij)*den_grid(i)) ! Here, (delta-h) = (densitye*den_grid), because densitye=(delta-h)/n0
+        enddo
+      enddo
+    else ! delta-f scheme
+      do i=0,mpsi
+        do j=0,mtheta(i)
+          ij = igrid(i)+j              
+          tot_dne(:,ij) = densitye(:,ij)*den_grid(i)  ! Here, (delta-f) = (densitye*den_grid), because densitye=(delta-f)/n0
+        enddo
+      enddo
+    endif
+
+    call Do_FieldLineAverage_by_using_gPPI(tot_dne, FLA_dne)
+    !call Do_FieldLineAverage_by_using_gPPI(densitye, FLA_dne)
+  endif
+  !===================================================================  
+
+
 ! zero out charge in boundary cell
 !  do i=0,nbound-1
 !     densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
@@ -308,6 +361,36 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
   !  zonale=zonale*pmarke   ! =dn_00/n_0  -- original flux-surface avarage --> zonale; replaced in Jan. 2015
   !  total_w=sum(wdum)      ! total particle weight (appro to int(delta-n d^3x) )
   zonale=zonale/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonale; used in Jan. 2015; two give almost identical result 
+
+
+  !====================================================================
+  ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component 
+  ! This FLA might be important in the case of external magnetic perturbation
+  ! MGYOO(01/08/2019) : tot_dne is calculated rather than (dh/f0 or df/f0)
+  if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+
+    if(ifelectron==2) then ! delta-h scheme
+      do i=0,mpsi
+        do j=0,mtheta(i)
+          ij = igrid(i)+j  
+          dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
+          dn_adiabatic = den_grid(i)*abs(csc0)*dphi_NZ/Te_grid(i)          
+          tot_dne(:,ij) = (dn_adiabatic+densitye(:,ij)*den_grid(i)) ! Here, (delta-h) = (densitye*den_grid), because densitye=(delta-h)/n0
+        enddo
+      enddo
+    else ! delta-f scheme
+      do i=0,mpsi
+        do j=0,mtheta(i)
+          ij = igrid(i)+j              
+          tot_dne(:,ij) = densitye(:,ij)*den_grid(i)  ! Here, (delta-f) = (densitye*den_grid), because densitye=(delta-f)/n0
+        enddo
+      enddo
+    endif
+
+    call Do_FieldLineAverage_by_using_gPPI(tot_dne, FLA_dne)
+    !call Do_FieldLineAverage_by_using_gPPI(densitye, FLA_dne)
+  endif
+  !===================================================================  
 
 ! densitye subtracted (0,0) mode
 !$omp parallel do private(i,j,ij)

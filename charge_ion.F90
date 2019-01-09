@@ -356,6 +356,43 @@ if(ZF_SEPARATION==0) then  !  solve total potential
 
   endif    ! end if(its_jacobi==0)
 
+  !============================================================
+  ! MGYOO (01/08/2019): To diagnose zonal component for later snapshot, 
+  ! This zonal component is only used in the snapshot routine to separate zonal and non-zonal components
+  !============================================================
+  if(mod(istep,msnap) .eq. 0) then 
+    ! flux surface average and normalization  
+    wdum=0.0
+    !$omp parallel private(i,j,ij) reduction(+:wdum)
+    !$omp do
+    do i=0,mpsi
+      do j=1,mtheta(i) ! j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
+        ij=igrid(i)+j
+        wdum(i)=wdum(i)+dtemper(ij)*densityi(1,ij)  ! new flux-surface avarage --> zonali; used in Jan. 2015
+      enddo
+    enddo
+    !$omp end parallel
+    call MPI_ALLREDUCE(wdum,zonali,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+    zonali=zonali/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonali; used in Jan. 2015
+  endif
+
+
+  !====================================================================
+  ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component 
+  ! This FLA might be important in the case of external magnetic perturbation
+  ! MGYOO(12/13/2018) : tot_dni is calculated rather than (dh/f or df/f)
+  if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+    do i=0,mpsi
+      do j=0,mtheta(i)
+        ij = igrid(i)+j              
+        tot_dni(:,ij) = densityi(:,ij)*den_grid(i)  ! Here, (delta-f) = (densityi*den_grid), because densityi=(delta-f)/n0
+      enddo
+    enddo
+    call Do_FieldLineAverage_by_using_gPPI(tot_dni, FLA_dni)
+    !call Do_FieldLineAverage_by_using_gPPI(densityi, FLA_dni)
+  endif
+  !===================================================================  
+
 ! zero out charge in boundary cell
 !  do i=0,nbound-1
 !     densityi(:,igrid(i):igrid(i)+mtheta(i))=   &
@@ -407,6 +444,23 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
   !  zonali=zonali*pmarki   ! =dn_00/n_0  -- original flux-surface avarage --> zonali; replaced in Jan. 2015
   !  total_w=sum(wdum)      ! total particle weight (appro to int(delta-n d^3x) )
   zonali=zonali/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonali; used in Jan. 2015
+
+  !====================================================================
+  ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component 
+  ! This FLA might be important in the case of external magnetic perturbation
+  ! MGYOO(01/08/2019) : tot_dni is calculated rather than (dh/f0 or df/f0)
+  if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+    do i=0,mpsi
+      do j=0,mtheta(i)
+        ij = igrid(i)+j              
+        tot_dni(:,ij) = densityi(:,ij)*den_grid(i)  ! Here, (delta-f) = (densityi*den_grid), because densityi=(delta-f)/n0
+      enddo
+    enddo
+    call Do_FieldLineAverage_by_using_gPPI(tot_dni, FLA_dni)
+    !call Do_FieldLineAverage_by_using_gPPI(densityi, FLA_dni)
+  endif
+  !===================================================================  
+
 
 ! densityi subtracted (0,0) mode
 !$omp parallel do private(i,j,ij)

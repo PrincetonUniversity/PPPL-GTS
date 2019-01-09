@@ -605,11 +605,12 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
   allocate (qtinv(0:mpsi),itran(0:mpsi),mtheta(0:mpsi),deltat(0:mpsi),&
        rtemi(0:mpsi),rden(0:mpsi),igrid(0:mpsi),pmarki(0:mpsi),pmarke(0:mpsi),&
        phi00(0:mpsi),phip00(0:mpsi),fluxpsi(0:mpsi),zonali(0:mpsi),sumfluxpsi(0:mpsi),flux_11(0:mpsi), &
-       zonale(0:mpsi),jaco_sum(0:mpsi),eigenmode(m_poloidal,num_mode,mpsi), & 
+       zonale(0:mpsi),jaco_sum(0:mpsi),eigenmode(m_poloidal,num_mode,0:mpsi), & 
        allnodes(0:mpsi),gaa(0:mpsi),B2_s(0:mpsi),dVda(0:mpsi),En_00(0:mpsi),&
        En_tur(0:mpsi),En_tot(0:mpsi),sn0_g(0:mpsi),dnty_on_bin_g(0:mpsi),&
        dphidt00(0:mpsi),gsgaa(0:mpsi))
 
+  allocate(zonal_dTi(0:mpsi), zonal_dTe(0:mpsi))
 ! grid spacing
 !  deltar=(a1-a0)/real(mpsi)
 !  deltar=(rho1-rho0)/real(mpsi)
@@ -1170,7 +1171,7 @@ end if ! if(mype==0)
        pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),   &
        dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
 
-  allocate(dn_tot(0:1,mgrid), FLA_Denominator(0:1,mgrid), FLA_dphi(0:1,mgrid), FLA_dTe(0:1,mgrid), FLA_dTi(0:1,mgrid), FLA_dne(0:1,mgrid), FLA_dni(0:1,mgrid), FLA_ne_adiabatic(0:1,mgrid))
+  allocate(tot_dni(0:1,mgrid), tot_dne(0:1,mgrid), FLA_Denominator(0:1,mgrid), FLA_dphi(0:1,mgrid), FLA_dTe(0:1,mgrid), FLA_dTi(0:1,mgrid), FLA_dne(0:1,mgrid), FLA_dni(0:1,mgrid), FLA_ne_adiabatic(0:1,mgrid))
   allocate(FLA_psi0(0:1,mgrid), FLA_Te0(0:1,mgrid), FLA_Ti0(0:1,mgrid), FLA_n0(0:1,mgrid))
   allocate(Weighted_Vol(0:1,mgrid))
 ! Added for flow visualization, Feb. 2011
