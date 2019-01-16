@@ -27,6 +27,11 @@ subroutine pushion
        v2, avw,   &
 ! following working arrays are defined to use OMP reduction:
        adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi) 
+  real(wp) vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
+  real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
+  real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
+  real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis. 
+                                     !(gf component is 0 due to the toroidal axisymmetric assumption )
 
 !  integer ip_index(mimax)   !wx
 
@@ -282,10 +287,12 @@ dmaxv=0.0d0
      if(ifneoclassical==1) then 
         vdr=da(m)              !  full da/at      -- including NC dynamics
         vdq=dgq(m)             !  full dtheta/dt  -- including NC dynamics
+        vdgf=dgf(m)            !  full dzeta/dt   -- including NC dynamics
      else
         !   ExB drift in radial direction for w-dot and flux diagnostics
         vdr=ghq(m)             !  da/at|_EXB
         vdq=Ta(m)              !  dtheta/dt|_EXB
+        vdgf=dvi_gf(m)
      endif
 
      wdrive=vdr*kappa
@@ -378,14 +385,49 @@ dmaxv=0.0d0
 
 !     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB+w_anti_relax)
 
-      if(wimcompressibility==1) then     ! for weight imcompressibility
-         !  wdot=(zion0(6,m)-nonlinear*avw)*(wdrive*fip+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
-         wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+wKH+wgradB)*fip   ! Correct statement for weight_damping
-      else
-         wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)*fip
-      end if
+      ! if(wimcompressibility==1) then     ! for weight imcompressibility
+      !    !  wdot=(zion0(6,m)-nonlinear*avw)*(wdrive*fip+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
+      !    wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+wKH+wgradB)*fip   ! Correct statement for weight_damping
+      ! else
+      !    wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)*fip
+      ! end if
+
+      wdot = (wdrive+wdrift+wKH+wgradB)*fip
 
 
+
+     !==================================================
+     !MGYOO(01/14/2019)
+     !Note that f0 is toroidally symmetric so that grad_lnf0_gf=0 and we do not need vd_para_gf or vd_perp_gf terms to calculate weight evolution
+      if(irk==2)then
+        grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) + (duda(m)*F(m)+Fa(m)*omega_t-Ba(m)*backu(m))*B_inverse*vpara*T_inverse
+        grad_lnf0_gq_cov = -T_inverse*mu*Bq(m) - Bq(m)*backu(m)*B_inverse*vpara*T_inverse
+      
+        call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+        vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+        
+        vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+        vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+        
+        vd_perp_a_cntv = vdr - vd_para_a_cntv
+        vd_perp_gq_cntv = vdq - vd_para_gq_cntv
+        
+        wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
+        wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
+        wdot_accel  = wdrift
+        
+        if(wimcompressibility==1) then
+          now_w = avw
+        else
+          now_w = zion(5,m)
+        endif
+
+        wi_vpara(m) = wi_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip - fdamp*zion(5,m) )
+        wi_vperp(m) = wi_vperp(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vperp*fip - fdamp*zion(5,m) )
+        wi_accel(m) = wi_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip - fdamp*zion(5,m) )
+      endif
+     !=================================================
+      
 
 
       
@@ -409,7 +451,13 @@ dmaxv=0.0d0
      !     wfix=1.0_wp
      !  endif
 
-     zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))
+    ! zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))
+    if(wimcompressibility==1) then     ! for weight imcompressibility    
+      zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*avw)*wdot-fdamp*zion(5,m))
+    else
+      zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*zion(5,m))*wdot-fdamp*zion(5,m))
+    end if
+
 !     zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))*wfix
 !     zion(7,m) = zion0(7,m)+dtime*sqrt(Tc*T_inverse)*da(m)
 !     zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**0.4_wp*da(m)

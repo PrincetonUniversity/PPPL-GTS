@@ -34,9 +34,11 @@ subroutine shifte
   dim_zeon = size(zeon,1)
   dim_zeon0 = size(zeon0,1)
 
-  dim_Ptl_package = dim_zeon + dim_zeon0 + 1  ! zeon + zeon0 + elabels
+  !dim_Ptl_package = dim_zeon + dim_zeon0 + 1  ! zeon + zeon0 + elabels
   ! write(4321,*) "dim_zeon=", dim_zeon, "dim_zeon0=",dim_zeon0
   ! call flush(4321)
+
+  dim_Ptl_package = dim_zeon + dim_zeon0 + 6  ! zeon + zeon0 + elabels + 6 values about we evolution
 
   
   call MPI_Type_contiguous( dim_Ptl_package, MPI_Rsize, MPI_Ptl_type, ierr);
@@ -125,6 +127,11 @@ subroutine shifte
     tor_send_Ptls_data(1:dim_zeon, i) =  zeon(:,send_mid_arr(i))
     tor_send_Ptls_data(dim_zeon+1:dim_zeon+dim_zeon0, i) =  zeon0(:,send_mid_arr(i))
     tor_send_Ptls_data(dim_zeon+dim_zeon0+1, i) =  elabels(send_mid_arr(i))
+    tor_send_Ptls_data(dim_zeon+dim_zeon0+2, i) =  we_init(send_mid_arr(i))  
+    tor_send_Ptls_data(dim_zeon+dim_zeon0+3, i) =  we_vpara(send_mid_arr(i))
+    tor_send_Ptls_data(dim_zeon+dim_zeon0+4, i) =  we_vperp(send_mid_arr(i))  
+    tor_send_Ptls_data(dim_zeon+dim_zeon0+5, i) =  we_accel(send_mid_arr(i))
+    tor_send_Ptls_data(dim_zeon+dim_zeon0+6, i) =  we_adiab(send_mid_arr(i))
   enddo
   
 
@@ -149,17 +156,36 @@ subroutine shifte
         lasth=lasth-1
     enddo
 
-    zeon(:, m) = zeon(:, mtop)
+    zeon(:, m)  = zeon(:, mtop)
     zeon0(:, m) = zeon0(:, mtop)
-    elabels(m) = elabels(mtop)
+    elabels(m)  = elabels(mtop)
+    we_init(m)  = we_init(mtop)
+    we_vpara(m) = we_vpara(mtop)
+    we_vperp(m) = we_vperp(mtop)
+    we_accel(m) = we_accel(mtop)
+    we_adiab(m) = we_adiab(mtop)
+
     mtop = mtop -1
   enddo
 
 
+  ! ! append recv particles
+  ! zeon(:, me+1:me+tot_recv_num) = tor_recv_Ptls_data(1:dim_zeon, :)
+  ! zeon0(:, me+1:me+tot_recv_num) = tor_recv_Ptls_data(dim_zeon+1:dim_zeon+dim_zeon0, :)  
+  ! elabels(me+1:me+tot_recv_num) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+1, :)  
+
   ! append recv particles
-  zeon(:, me+1:me+tot_recv_num) = tor_recv_Ptls_data(1:dim_zeon, :)
-  zeon0(:, me+1:me+tot_recv_num) = tor_recv_Ptls_data(dim_zeon+1:dim_zeon+dim_zeon0, :)  
-  elabels(me+1:me+tot_recv_num) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+1, :)  
+  do i=1, tot_recv_num
+    zeon(:,me+i) = tor_recv_Ptls_data(1:dim_zeon, i)
+    zeon0(:,me+i) = tor_recv_Ptls_data(dim_zeon+1:dim_zeon+dim_zeon0, i)
+    elabels(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+1, i)   
+    we_init(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+2, i) 
+    we_vpara(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+3, i) 
+    we_vperp(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+4, i) 
+    we_accel(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+5, i) 
+    we_adiab(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+6, i)
+  enddo
+
   me = me + tot_recv_num  
 
   deallocate(tor_send_Ptls_data, tor_recv_Ptls_data)

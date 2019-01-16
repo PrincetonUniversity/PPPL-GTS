@@ -1214,7 +1214,7 @@ static REAL *r=NULL,*ra=NULL,*rq=NULL,*z=NULL,*za=NULL,*zq=NULL
 ,*B=NULL,*Ba=NULL,*Bq=NULL,*gh=NULL,*gha=NULL,*ghq=NULL,*ap=NULL,*qp=NULL;
 static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL
 ,*T=NULL,*Ta=NULL,*P=NULL,*Pa=NULL;
-
+static REAL *dvi_gf=NULL, *dve_gf=NULL;
 static REAL *Ne=NULL,*dNe=NULL;
 static REAL aTe=15.,aTi=15.,raT;
 
@@ -1227,7 +1227,8 @@ void esilink2c(REAL *XaF,REAL *XaFa
 		,REAL *Xz,REAL *Xza,REAL *Xzq
 		,REAL *XB,REAL *XBa,REAL *XBq
 		,REAL *Xgh,REAL *Xgha,REAL *Xghq
-		,int *Xsw)
+		,int *Xsw
+    ,REAL *Xdvi_gf, REAL *Xdve_gf)
 {
   F	=XaF;
   Fa	=XaFa;
@@ -1252,7 +1253,8 @@ void esilink2c(REAL *XaF,REAL *XaFa
   gha	=Xgha;
   ghq	=Xghq;
   sw	=Xsw;
-
+  dvi_gf =Xdvi_gf;
+  dve_gf =Xdve_gf;
   return;
 }
 
@@ -2637,7 +2639,7 @@ int gcmotion_em_MGY(REAL *dXgr,
     P[k]        =a22*(-(wpi2-dHdgr*gaq))-a12*(-(wpi3-dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
     ghq[k]	=-a21*(-(wpi2-dHdgr*gaq))+a11*(-(wpi3-dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
     Ta[k]       =-a21*(wpi1-dHdgr*gaa)-D*(-(wpi3-dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
-    dXgf1  = a11 * (wpi1-dHdgr*gaa) + D * (-(wpi2-dHdgr*gaq));
+    dvi_gf[k]  = a11 * (wpi1-dHdgr*gaa) + D * (-(wpi2-dHdgr*gaq));
     T[k]        =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
     
     // transfromation from rho_hat to rho
@@ -3867,7 +3869,7 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
     Pa[k]       = a22*(-(wpi2-c0cs*dHdgr*gaq))-a12*(-(wpi3-c0cs*dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
     ghq[k]      =-a21*(-(wpi2-c0cs*dHdgr*gaq))+a11*(-(wpi3-c0cs*dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
     Ta[k]       =-a21*(wpi1-c0cs*dHdgr*gaa)-D*(-(wpi3-c0cs*dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
-    dXgf1       =a11 * (wpi1-c0cs*dHdgr*gaa) + D * (-(wpi2-c0cs*dHdgr*gaq)); 
+    dve_gf[k]   =a11 * (wpi1-c0cs*dHdgr*gaa) + D * (-(wpi2-c0cs*dHdgr*gaq)); 
 
 
     // transfromation from rho_hat to rho

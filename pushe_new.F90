@@ -24,6 +24,12 @@ subroutine pusheon(solver1, masssolver, irk_e)
 ! following working arrays are defined to use OMP reduction:
        adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
 
+  real(wp) vdq, vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
+  real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
+  real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
+  real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis. 
+                                     !(gf component is 0 due to the toroidal axisymmetric assumption )
+
   real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
   real(wp) MP_phase ! MP_phase(x,t) : time-varying phase angle of given Magnetic Perturbation at specific position in radian unit.
   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY
@@ -232,14 +238,17 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
 
      if(ifneoclassical==1) then
         vdr=da(m)                 !  full da/dt including NC dynamics
-        wgradB=vdr*Ba(m)+dgq(m)*Bq(m)
+        vdq=dgq(m)
+        vdgf=dgf(m)
      else
         ! ExB drift in radial direction for w-dot and flux diagnostics
         vdr=ghq(m)             !  da/dt|_EXB
-        wgradB=vdr*Ba(m)+Ta(m)*Bq(m)
+        vdq=Ta(m)
+        vdgf=dve_gf(m)
      end if
 
      wdrive=vdr*kappa
+     wgradB=vdr*Ba(m)+vdq*Bq(m)
 
 
         ! calculate d(delta_phi)/dt at particles along trajactory
@@ -349,6 +358,43 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
 
     end if
 
+
+
+    !==================================================
+    !MGYOO(01/14/2019)
+    !Note that f0 is toroidally symmetric so that grad_lnf0_gf=0 and we do not need vd_para_gf or vd_perp_gf terms to calculate weight evolution
+    if(irk_e==2) then
+      grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
+      grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
+
+      call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+      vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+
+      vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+      vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+
+      vd_perp_a_cntv = vdr - vd_para_a_cntv
+      vd_perp_gq_cntv = vdq - vd_para_gq_cntv
+
+      wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
+      wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
+      wdot_accel  = wdrift
+
+      wdot_vpara = (1.0_wp-E_f)*wdot_vpara
+      wdot_vperp = (1.0_wp-E_f)*wdot_vperp
+      wdot_accel = (1.0_wp-E_f)*wdot_accel
+
+      if(wimcompressibility==1) then
+      now_w = avw
+      else
+      now_w = zeon(5,m)
+      endif
+
+      we_vpara(m) = we_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip - fdamp*zeon(5,m) )
+      we_vperp(m) = we_vperp(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vperp*fip - fdamp*zeon(5,m) )
+      we_accel(m) = we_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip - fdamp*zeon(5,m) )
+    endif
+    !=================================================
 
      zeon(1,m) = zeon0(1,m)+dtime*da(m)
      zeon(2,m) = zeon0(2,m)+dtime*dgq(m)
@@ -594,6 +640,14 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
       !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
       zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
 
+      !==================================================
+      !MGYOO(01/14/2019)
+      ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
+      if(irk_e==2) then
+        we_adiab(m) = we_adiab(m) + (zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime    
+      endif
+      !=================================================         
+
 
 
       ! if (mype ==0 .AND. MOD(m,(me/10))==0) then
@@ -682,14 +736,17 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
 
      if(ifneoclassical==1) then
         vdr=da(m)
-        wgradB=vdr*Ba(m)+dgq(m)*Bq(m)
+        vdq=dgq(m)
+        vdgf=dgf(m)
      else
         !  ExB drift in radial direction for w-dot and flux diagnostics
         vdr=ghq(m)             !  da/dt|_EXB
-        wgradB=vdr*Ba(m)+Ta(m)*Bq(m)
+        vdq=Ta(m)
+        vdgf=dve_gf(m)
      end if
 
      wdrive=vdr*kappa
+     wgradB=vdr*Ba(m)+vdq*Bq(m)
 
 
      if(ifelectron==2) then 
@@ -802,6 +859,45 @@ if(wimcompressibility==1) then     ! for weight imcompressibility
 !     if(mype==200.and.m==me/8) print*, 'AVW=', avw, zeon(5,m), mype
 
 end if
+
+
+
+    !==================================================
+    !MGYOO(01/14/2019)
+    !Note that f0 is toroidally symmetric so that grad_lnf0_gf=0 and we do not need vd_para_gf or vd_perp_gf terms to calculate weight evolution
+    if(irk_e==2) then
+      grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
+      grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
+
+      call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+      vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+
+      vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+      vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+
+      vd_perp_a_cntv = vdr - vd_para_a_cntv
+      vd_perp_gq_cntv = vdq - vd_para_gq_cntv
+
+      wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
+      wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
+      wdot_accel  = wdrift
+
+      wdot_vpara = (1.0_wp-E_f)*wdot_vpara
+      wdot_vperp = (1.0_wp-E_f)*wdot_vperp
+      wdot_accel = (1.0_wp-E_f)*wdot_accel
+
+      if(wimcompressibility==1) then
+        now_w = avw
+      else
+        now_w = zeon(5,m)
+      endif
+
+      we_vpara(m) = we_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip - fdamp*zeon(5,m) )
+      we_vperp(m) = we_vperp(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vperp*fip - fdamp*zeon(5,m) )
+      we_accel(m) = we_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip - fdamp*zeon(5,m) )
+    endif
+    !=================================================
+
 
 
      zeon(1,m) = zeon0(1,m)+dtime*da(m)

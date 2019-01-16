@@ -346,6 +346,14 @@ subroutine load
   do m=1,mi
      zion(5,m)=zion(5,m)-pdum
   enddo
+
+  do m=1,mi
+    wi_init(m)  = zion(5,m)
+    wi_vpara(m) = 0
+    wi_vperp(m) = 0
+    wi_accel(m) = 0
+  enddo
+
 if(mype==0) print*, 'average weight at t=0 is ', pdum
 
   
@@ -379,6 +387,16 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
         zeon0(6,m)=1.0_wp
      enddo
  
+     do m=1,me
+      we_init(m)  = zeon(5,m)
+      we_vpara(m) = 0
+      we_vperp(m) = 0
+      we_accel(m) = 0
+      we_adiab(m) = 0
+    enddo
+
+
+
      call n_T_u_group_e               ! get Te  
 !$omp parallel do private(m)
      do m=1,me

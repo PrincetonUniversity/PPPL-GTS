@@ -36,8 +36,8 @@ subroutine shifti
   dim_zion = size(zion,1)
   dim_zion0 = size(zion0,1)
 
-  dim_Ptl_package = dim_zion + dim_zion0 + 1  ! zeon + zeon0 + ilables
-
+  !dim_Ptl_package = dim_zion + dim_zion0 + 1  ! zeon + zeon0 + ilables
+  dim_Ptl_package = dim_zion + dim_zion0 + 5  ! zeon + zeon0 + ilables + 4 values about wi evolution
   ! write(4321,*) "dim_zion=", dim_zion, "dim_zion0=",dim_zion0
   ! call flush(4321)
 
@@ -130,6 +130,10 @@ subroutine shifti
     tor_send_Ptls_data(1:dim_zion, i) =  zion(:,send_mid_arr(i))
     tor_send_Ptls_data(dim_zion+1:dim_zion+dim_zion0, i) =  zion0(:,send_mid_arr(i))
     tor_send_Ptls_data(dim_zion+dim_zion0+1, i) =  ilabels(send_mid_arr(i))  
+    tor_send_Ptls_data(dim_zion+dim_zion0+2, i) =  wi_init(send_mid_arr(i))  
+    tor_send_Ptls_data(dim_zion+dim_zion0+3, i) =  wi_vpara(send_mid_arr(i))
+    tor_send_Ptls_data(dim_zion+dim_zion0+4, i) =  wi_vperp(send_mid_arr(i))  
+    tor_send_Ptls_data(dim_zion+dim_zion0+5, i) =  wi_accel(send_mid_arr(i))    
   enddo
   
 
@@ -157,14 +161,35 @@ subroutine shifti
     zion(:, m) = zion(:, mtop)
     zion0(:, m) = zion0(:, mtop)
     ilabels(m) = ilabels(mtop)
+    wi_init(m)     = wi_init(mtop)
+    wi_vpara(m)   = wi_vpara(mtop)
+    wi_vperp(m)  = wi_vperp(mtop)
+    wi_accel(m)= wi_accel(mtop)
+
     mtop = mtop -1
   enddo
 
 
   ! append recv particles
-  zion(:, mi+1:mi+tot_recv_num) = tor_recv_Ptls_data(1:dim_zion, :)
-  zion0(:, mi+1:mi+tot_recv_num) = tor_recv_Ptls_data(dim_zion+1:dim_zion+dim_zion0, :)
-  ilabels(mi+1:mi+tot_recv_num) =  tor_recv_Ptls_data(dim_zion+dim_zion0+1, :)   
+  ! zion(:, mi+1:mi+tot_recv_num) = tor_recv_Ptls_data(1:dim_zion, :)
+  ! zion0(:, mi+1:mi+tot_recv_num) = tor_recv_Ptls_data(dim_zion+1:dim_zion+dim_zion0, :)
+  ! ilabels(mi+1:mi+tot_recv_num) =  tor_recv_Ptls_data(dim_zion+dim_zion0+1, :)   
+  ! wi_init(mi+1:mi+tot_recv_num) =  tor_recv_Ptls_data(dim_zion+dim_zion0+2, :) 
+  ! wi_vpara(mi+1:mi+tot_recv_num) =  tor_recv_Ptls_data(dim_zion+dim_zion0+3, :) 
+  ! wi_vperp(mi+1:mi+tot_recv_num) =  tor_recv_Ptls_data(dim_zion+dim_zion0+4, :) 
+  ! wi_accel(mi+1:mi+tot_recv_num) =  tor_recv_Ptls_data(dim_zion+dim_zion0+5, :) 
+ 
+  ! append recv particles
+  do i=1, tot_recv_num
+    zion(:,mi+i) = tor_recv_Ptls_data(1:dim_zion, i)
+    zion0(:,mi+i) = tor_recv_Ptls_data(dim_zion+1:dim_zion+dim_zion0, i)
+    ilabels(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+1, i)   
+    wi_init(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+2, i) 
+    wi_vpara(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+3, i) 
+    wi_vperp(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+4, i) 
+    wi_accel(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+5, i) 
+  enddo
+
   mi = mi + tot_recv_num  
 
   deallocate(tor_send_Ptls_data, tor_recv_Ptls_data)

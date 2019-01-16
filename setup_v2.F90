@@ -1700,12 +1700,12 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
             ghq(mimax),sw(mimax),backn(mimax),backu(mimax),backT(mimax),&
             dlnnda(mimax),dlnTda(mimax),backne(mimax),backue(mimax),&
             backTe(mimax),dlnndae(mimax),dlnTdae(mimax),duda(mimax))
-
+  allocate(dvi_gf(mimax), dve_gf(memax))
 ! c1.     Making link with C-ESI
 !  1. Supplying addresses to C-code (not a, gq)
-      call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
-                   rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw)
-
+      !call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
+      !             rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw)
+  call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw, dvi_gf, dve_gf)
   call get_table_4_dlnAda    ! get ready for dln<A>/da and make A table;
                              ! where A=exp(u^2/2T). NOTE: must be put after
                              ! call to esilink2c to have F, Fa, ... defined
@@ -1806,6 +1806,11 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
                wteon0(memax),wteon1(memax),markere(mgrid),&
              !   densitye(0:1,mgrid),cij(3,mgrid))
                densitye(0:1,mgrid),cij(5,mgrid), elabels(memax), etracers_labels(num_of_etracers))
+
+      allocate(wi_init(mimax), wi_vpara(mimax), wi_vperp(mimax), wi_accel(mimax))
+      allocate(we_init(memax), we_vpara(memax), we_vperp(memax), we_accel(memax), we_adiab(memax))
+
+
 
 if(mype==-100) then  ! before 2012
 

@@ -169,6 +169,14 @@ module particle_array
   !real(wp), dimension(:), allocatable :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
   real(wp), dimension(:), allocatable :: etracers_labels, itracers_labels
   ! ===========================
+  
+  ! ============================
+  ! MGYOO (07/31/2018)
+  ! Additional information about weight component ratio
+  real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel ! for ion weight
+  real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab ! for electron weight  
+  ! ============================
+
 
   real(wp),dimension(:),allocatable :: enion
   real(wp),dimension(:),allocatable :: backn,backu,backT,dlnnda,dlnTda,&
@@ -243,6 +251,7 @@ module esi_interface
   use precision
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
           rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw
+   real(wp), dimension(:), allocatable :: dve_gf, dvi_gf  ! gf(zeta) component of delta_v (due to plasma potential and magnetic perturbation)
    real(wp)  metric(6)
    real(wp)  djr
    real(wp), dimension(:), allocatable :: flux_it,dlnA_da,flux_A
