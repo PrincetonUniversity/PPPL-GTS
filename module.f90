@@ -173,8 +173,8 @@ module particle_array
   ! ============================
   ! MGYOO (07/31/2018)
   ! Additional information about weight component ratio
-  real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel ! for ion weight
-  real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab ! for electron weight  
+  real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp ! for ion weight
+  real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp ! for electron weight  
   ! ============================
 
 
@@ -200,10 +200,10 @@ module field_array
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
   real(wp),dimension(:),allocatable :: tphi, bphi, left1, left2   ! for testing solver
 
-  real(wp),dimension(:,:),allocatable :: dni_init, dni_vpara, dni_vperp, dni_accel
-  real(wp),dimension(:,:),allocatable :: dne_init, dne_vpara, dne_vperp, dne_accel, dne_adiab
-  real(wp),dimension(:,:),allocatable :: dTi_init, dTi_vpara, dTi_vperp, dTi_accel
-  real(wp),dimension(:,:),allocatable :: dTe_init, dTe_vpara, dTe_vperp, dTe_accel, dTe_adiab
+  real(wp),dimension(:,:),allocatable :: dni_init, dni_vpara, dni_vperp, dni_accel, dni_fdamp
+  real(wp),dimension(:,:),allocatable :: dne_init, dne_vpara, dne_vperp, dne_accel, dne_adiab, dne_fdamp
+  real(wp),dimension(:,:),allocatable :: dTi_init, dTi_vpara, dTi_vperp, dTi_accel, dTi_fdamp
+  real(wp),dimension(:,:),allocatable :: dTe_init, dTe_vpara, dTe_vperp, dTe_accel, dTe_adiab, dTe_fdamp
 ! Added for flow visualization, Feb. 2011
   real(wp),dimension(:,:),allocatable :: on_grid, flow_grid
 

@@ -311,7 +311,7 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
      wdot=(wdrive+wdrift+wgradB)
 
      !MGYOO changed this part. (10/31/2018)
-     wdot=(1.0_wp-E_f)*wdot*fip 
+     wdot=(1.0_wp-E_f)*wdot
 
 
 
@@ -394,9 +394,10 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
         now_w = zeon(5,m)
       endif
 
-      we_vpara(m) = we_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip - fdamp*zeon(5,m) )
-      we_vperp(m) = we_vperp(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vperp*fip - fdamp*zeon(5,m) )
-      we_accel(m) = we_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip - fdamp*zeon(5,m) )
+      we_vpara(m) = we_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip)
+      we_vperp(m) = we_vperp(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vperp*fip)
+      we_accel(m) = we_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip)
+      we_fdamp(m) = we_fdamp(m) + dtime*(-fdamp*zeon(5,m))
     endif
     !=================================================
 
@@ -426,7 +427,7 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
      !  endif
 
      !  zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot-fdamp*zeon(5,m))*dtime*wfix  ! weight advanced w/o including dphi/dt term yet
-     zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot-fdamp*zeon(5,m))*dtime       ! weight advanced w/o including dphi/dt term yet
+     zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot*fip-fdamp*zeon(5,m))*dtime       ! weight advanced w/o including dphi/dt term yet
                                                                                                 ! unified expression April, 2013
     
 
@@ -567,10 +568,10 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
          fdamp=0.0_wp
       end if
 
-      wdphidt=wdphidt*fip
+      wdphidt=wdphidt
 
         !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
-      zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
+      zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
 
     
 
@@ -639,16 +640,16 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
          fdamp=0.0_wp
       end if
 
-      wdphidt=wdphidt*fip
+      wdphidt=wdphidt
 
       !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
-      zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
+      zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
 
       !==================================================
       !MGYOO(01/14/2019)
       ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
       if(irk_e==2) then
-        we_adiab(m) = we_adiab(m) + (zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime    
+        we_adiab(m) = we_adiab(m) + (zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime    
       endif
       !=================================================         
 
@@ -819,7 +820,7 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
 
      wdot=(wdrive+wdrift+wgradB+wdphidt)
 
-     wdot=wdot*fip
+     wdot=wdot
 
 
 !!!!!  if(nonlinear>0.5_wp) then     ! for nonlinear run
@@ -900,9 +901,10 @@ end if
         now_w = zeon(5,m)
       endif
 
-      we_vpara(m) = we_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip - fdamp*zeon(5,m) )
-      we_vperp(m) = we_vperp(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vperp*fip - fdamp*zeon(5,m) )
-      we_accel(m) = we_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip - fdamp*zeon(5,m) )
+      we_vpara(m) = we_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip)
+      we_vperp(m) = we_vperp(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vperp*fip)
+      we_accel(m) = we_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip)
+      we_fdamp(m) = we_fdamp(m) + dtime*(-fdamp*zeon(5,m))
     endif
     !=================================================
 
@@ -919,9 +921,9 @@ end if
 !     zeon(5,m) = 1.0_wp-(1.0_wp-zeon0(5,m))*exp(-dtime*wdot)
 
       if(wimcompressibility==1) then     ! for weight imcompressibility
-         zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*avw)*wdot-fdamp*zeon(5,m))*dtime
+         zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*avw)*wdot*fip-fdamp*zeon(5,m))*dtime
       else
-         zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(5,m))*wdot-fdamp*zeon(5,m))*dtime
+         zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(5,m))*wdot*fip-fdamp*zeon(5,m))*dtime
       end if
 
 

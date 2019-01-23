@@ -392,7 +392,7 @@ dmaxv=0.0d0
       !    wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)*fip
       ! end if
 
-      wdot = (wdrive+wdrift+wKH+wgradB)*fip
+      wdot = (wdrive+wdrift+wKH+wgradB)
 
 
 
@@ -426,9 +426,10 @@ dmaxv=0.0d0
           now_w = zion(5,m)
         endif
       
-        wi_vpara(m) = wi_vpara(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_vpara*fip - fdamp*zion(5,m) )
-        wi_vperp(m) = wi_vperp(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_vperp*fip - fdamp*zion(5,m) )
-        wi_accel(m) = wi_accel(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_accel*fip - fdamp*zion(5,m) )
+        wi_vpara(m) = wi_vpara(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_vpara*fip)
+        wi_vperp(m) = wi_vperp(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_vperp*fip)
+        wi_accel(m) = wi_accel(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_accel*fip)
+        wi_fdamp(m) = wi_fdamp(m) + dtime*(-fdamp*zion(5,m) )
 
       endif
      !=================================================
@@ -458,9 +459,9 @@ dmaxv=0.0d0
 
     ! zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))
     if(wimcompressibility==1) then     ! for weight imcompressibility    
-      zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*avw)*wdot-fdamp*zion(5,m))
+      zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*avw)*wdot*fip-fdamp*zion(5,m))
     else
-      zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*zion(5,m))*wdot-fdamp*zion(5,m))
+      zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*zion(5,m))*wdot*fip-fdamp*zion(5,m))
     end if
 
 !     zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))*wfix

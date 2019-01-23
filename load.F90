@@ -352,6 +352,7 @@ subroutine load
     wi_vpara(m) = 0
     wi_vperp(m) = 0
     wi_accel(m) = 0
+    wi_fdamp(m) = 0
   enddo
 
 if(mype==0) print*, 'average weight at t=0 is ', pdum
@@ -393,6 +394,7 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
       we_vperp(m) = 0
       we_accel(m) = 0
       we_adiab(m) = 0
+      we_fdamp(m) = 0
     enddo
 
 
