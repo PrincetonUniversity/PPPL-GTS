@@ -1174,6 +1174,10 @@ end if ! if(mype==0)
   allocate(tot_dni(0:1,mgrid), tot_dne(0:1,mgrid), FLA_Denominator(0:1,mgrid), FLA_dphi(0:1,mgrid), FLA_dTe(0:1,mgrid), FLA_dTi(0:1,mgrid), FLA_dne(0:1,mgrid), FLA_dni(0:1,mgrid), FLA_ne_adiabatic(0:1,mgrid))
   allocate(FLA_psi0(0:1,mgrid), FLA_Te0(0:1,mgrid), FLA_Ti0(0:1,mgrid), FLA_n0(0:1,mgrid))
   allocate(Weighted_Vol(0:1,mgrid))
+  allocate(dni_init(0:1,mgrid), dni_vpara(0:1,mgrid), dni_vperp(0:1,mgrid), dni_accel(0:1,mgrid))
+  allocate(dne_init(0:1,mgrid), dne_vpara(0:1,mgrid), dne_vperp(0:1,mgrid), dne_accel(0:1,mgrid), dne_adiab(0:1,mgrid))
+  allocate(dTi_init(0:1,mgrid), dTi_vpara(0:1,mgrid), dTi_vperp(0:1,mgrid), dTi_accel(0:1,mgrid))
+  allocate(dTe_init(0:1,mgrid), dTe_vpara(0:1,mgrid), dTe_vperp(0:1,mgrid), dTe_accel(0:1,mgrid), dTe_adiab(0:1,mgrid))
 ! Added for flow visualization, Feb. 2011
   allocate (on_grid(6,mgrid))
 

@@ -200,6 +200,10 @@ module field_array
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
   real(wp),dimension(:),allocatable :: tphi, bphi, left1, left2   ! for testing solver
 
+  real(wp),dimension(:,:),allocatable :: dni_init, dni_vpara, dni_vperp, dni_accel
+  real(wp),dimension(:,:),allocatable :: dne_init, dne_vpara, dne_vperp, dne_accel, dne_adiab
+  real(wp),dimension(:,:),allocatable :: dTi_init, dTi_vpara, dTi_vperp, dTi_accel
+  real(wp),dimension(:,:),allocatable :: dTe_init, dTe_vpara, dTe_vperp, dTe_accel, dTe_adiab
 ! Added for flow visualization, Feb. 2011
   real(wp),dimension(:,:),allocatable :: on_grid, flow_grid
 
