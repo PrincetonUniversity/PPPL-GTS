@@ -399,19 +399,23 @@ dmaxv=0.0d0
      !==================================================
      !MGYOO(01/14/2019)
      !Note that f0 is toroidally symmetric so that grad_lnf0_gf=0 and we do not need vd_para_gf or vd_perp_gf terms to calculate weight evolution
+     !Caution!! Following routine is only available for neoclassical case which use full velocity.
       if(irk==2)then
+        if(ifneoclassical==1) then
+          call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+          vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)          
+          vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+          vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))  
+        else
+          vd_para_a_cntv = vpara_dvi_a(m)
+          vd_para_gq_cntv = vpara_dvi_gq(m)   
+        endif
+        vd_perp_a_cntv = vdr -vd_para_a_cntv
+        vd_perp_gq_cntv = vdq -vd_para_gq_cntv  
+
         grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) + (duda(m)*F(m)+Fa(m)*omega_t-Ba(m)*backu(m))*B_inverse*vpara*T_inverse
         grad_lnf0_gq_cov = -T_inverse*mu*Bq(m) - Bq(m)*backu(m)*B_inverse*vpara*T_inverse
-      
-        call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-        vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
-        
-        vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
-        vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
-        
-        vd_perp_a_cntv = vdr - vd_para_a_cntv
-        vd_perp_gq_cntv = vdq - vd_para_gq_cntv
-        
+              
         wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
         wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
         wdot_accel  = wdrift
@@ -421,10 +425,11 @@ dmaxv=0.0d0
         else
           now_w = zion(5,m)
         endif
+      
+        wi_vpara(m) = wi_vpara(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_vpara*fip - fdamp*zion(5,m) )
+        wi_vperp(m) = wi_vperp(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_vperp*fip - fdamp*zion(5,m) )
+        wi_accel(m) = wi_accel(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_accel*fip - fdamp*zion(5,m) )
 
-        wi_vpara(m) = wi_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip - fdamp*zion(5,m) )
-        wi_vperp(m) = wi_vperp(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vperp*fip - fdamp*zion(5,m) )
-        wi_accel(m) = wi_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip - fdamp*zion(5,m) )
       endif
      !=================================================
       

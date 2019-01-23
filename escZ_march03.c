@@ -1215,6 +1215,8 @@ static REAL *r=NULL,*ra=NULL,*rq=NULL,*z=NULL,*za=NULL,*zq=NULL
 static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL
 ,*T=NULL,*Ta=NULL,*P=NULL,*Pa=NULL;
 static REAL *dvi_gf=NULL, *dve_gf=NULL;
+static REAL *vpara_dvi_a=NULL, *vpara_dvi_gq=NULL, *vpara_dvi_gf=NULL;
+static REAL *vpara_dve_a=NULL, *vpara_dve_gq=NULL, *vpara_dve_gf=NULL;
 static REAL *Ne=NULL,*dNe=NULL;
 static REAL aTe=15.,aTi=15.,raT;
 
@@ -1228,7 +1230,9 @@ void esilink2c(REAL *XaF,REAL *XaFa
 		,REAL *XB,REAL *XBa,REAL *XBq
 		,REAL *Xgh,REAL *Xgha,REAL *Xghq
 		,int *Xsw
-    ,REAL *Xdvi_gf, REAL *Xdve_gf)
+    ,REAL *Xdvi_gf, REAL *Xdve_gf
+    ,REAL *Xvpara_dvi_a, REAL *Xvpara_dvi_gq, REAL *Xvpara_dvi_gf
+    ,REAL *Xvpara_dve_a, REAL *Xvpara_dve_gq, REAL *Xvpara_dve_gf )
 {
   F	=XaF;
   Fa	=XaFa;
@@ -1255,6 +1259,13 @@ void esilink2c(REAL *XaF,REAL *XaFa
   sw	=Xsw;
   dvi_gf =Xdvi_gf;
   dve_gf =Xdve_gf;
+  vpara_dvi_a=Xvpara_dvi_a;
+  vpara_dvi_gq=Xvpara_dvi_gq;
+  vpara_dvi_gf=Xvpara_dvi_gf;
+  vpara_dve_a=Xvpara_dve_a;
+  vpara_dve_gq=Xvpara_dve_gq;
+  vpara_dve_gf=Xvpara_dve_gf;
+
   return;
 }
 
@@ -2370,9 +2381,10 @@ int gcmotion_em_MGY(REAL *dXgr,
 {
   int n = *nval;
   int j0,j1,k;
-  REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP;
+  REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,TT,PP;
   REAL dHda, dHdgq, dHdgr, dHdgf;
   REAL a,q,a11,a12,a21,a22;
+  REAL a12_MPterm, a22_MPterm, major_R;
 
   REAL x,X,xx,XX;
   REAL f0,f1,fq0,fq1;
@@ -2520,6 +2532,7 @@ int gcmotion_em_MGY(REAL *dXgr,
 
       FI	=XF*aF[i0]+xF*aF[i1]+XD*daF[i0]+xD*daF[i1];
       Fa[k]	=dX*(aF[i1]-aF[i0])+dXD*daF[i0]+dxD*daF[i1];  /* output for calculating d(u_//)/da */
+      dFda=Fa[k];
       gFa	=XF*dgF[i0]+xF*dgF[i1]+XD*d2gF[i0]+xD*d2gF[i1];
       gYa	=XF*dgY[i0]+xF*dgY[i1]+XD*d2gY[i0]+xD*d2gY[i1];
       TT	=XF*aT[i0]+xF*aT[i1]+XD*daT[i0]+xD*daT[i1];
@@ -2540,6 +2553,7 @@ int gcmotion_em_MGY(REAL *dXgr,
       Bq[k]	=BBq;
       FI	=aF[0];
       Fa[k]	=0.;
+      dFda=Fa[k];
       gFa	=dgF[0];
       gYa	=dgY[0];
       TT	=aT[0];
@@ -2572,7 +2586,9 @@ int gcmotion_em_MGY(REAL *dXgr,
     F[k]=FI;    /* output of F function for toroidal momentum diagnosis */
     Pa[k]=r;    /* output of R (major radius) for toroidal momentum diagnosis; added Aug. 2011 */
     a21	=FI;
-    TT	*=bgr;
+    
+    major_R=r;
+
     D	=za*rq-zq*ra;
 
     DD  =D*D;              /*     added Oct. 2012   */
@@ -2588,7 +2604,7 @@ int gcmotion_em_MGY(REAL *dXgr,
 /*  We calculate v_p at the end instead of  1/|grad(theta)| -- Oct. 2012   */
 /*     T[k]  =sqrt(DD/(za*za+ra*ra));     = 1/|grad(theta)|    */
 
-    a12	=D*((FI+TT)/r+bgr*r*PP);
+    a12	=D*((FI+TT*bgr)/r+bgr*r*PP);
 /*     D	=-gYa/(r*D);   change to (Oct. 2012): */
     rD  =r*D;          /* Jacobian = rD = 1/[grad(a).grad(theta)xgrad(phi)] */ 
     D   =-gYa/rD;
@@ -2600,13 +2616,22 @@ int gcmotion_em_MGY(REAL *dXgr,
 
     Gatheta  *=1./DD;   /*  -grad(theta).grad(a) -- added Oct. 2012   */
 
-    a22	=gYa*(1.+TT/FI);
+    a22	=gYa*(1.+TT*bgr/FI);
     r	=1./(a11*a22-a12*a21);
     a11	*=r;
     a12	*=r;
     a21	*=r;
     a22	*=r;
     D	*=r;
+
+    //============================================
+    // MGYOO(01/17/2019)
+    // Calculate MP term (ga*j0) in a12 and a22 coefficients, which should be considered as the perturbed motions due to MP
+    // Please note that these terms were missed in previous versions.
+    a12_MPterm = r*major_R*(za*rq-zq*ra)*(PP+TT/(major_R*major_R))*ga; // (1/(-J*(B0^2+...))* Jacob * (jgf_cntv) * ga  :This is a "-1*ga*jgf_cntv" term.
+    a22_MPterm = r*dFda*ga;  // 1/(-J*(B0^2+...))*(Jacob*(-jgq_cntv))*ga   :This is a "ga*jgq_cntv" term.    
+    // ============================================
+
 /*    qq	=-gFa/gYa;   */
 #ifdef H
     r  =Xgr*BB*cgq0;
@@ -2625,7 +2650,7 @@ int gcmotion_em_MGY(REAL *dXgr,
     dHdgq = BBq;
 /*  add EXB drift and magnetic perturbations */
     dHda	 += *nonlinear*wpi1 - dHdgr * gaa;         /* =dH/da      */
-    dHda   =dHda+Er_particle[k];          /* =dH/da, adding E_r0XB drift */   
+    dHda   += Er_particle[k];          /* =dH/da, adding E_r0XB drift */   
     dHdgq	 += *nonlinear*wpi2 - dHdgr * gaq;         /* =dH/dtheta */
     dHdgf	 = *nonlinear*wpi3 - dHdgr * gaz;             /* =dH/dphi   */
 
@@ -2635,13 +2660,17 @@ int gcmotion_em_MGY(REAL *dXgr,
     dXgq[k]	=a22*dHdgr-a21*dHda-D*(-dHdgf);
     dXgf[k]	=-a12*dHdgr+a11*dHda+D*(-dHdgq);
 
+    P[k]      = a22*(-(wpi2-dHdgr*gaq)) +a22_MPterm*(-BBq) -a12*(-(wpi3-dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
+    ghq[k]	  =-a21*(-(wpi2-dHdgr*gaq)) +a11*(-(wpi3-dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
+    Ta[k]     = a22_MPterm*dHdgr -a21*(wpi1-dHdgr*gaa) -D*(-(wpi3-dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
+    dvi_gf[k] =-a12_MPterm*dHdgr +a11*(wpi1-dHdgr*gaa) +D*(-(wpi2-dHdgr*gaq));
+    T[k]      =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
 
-    P[k]        =a22*(-(wpi2-dHdgr*gaq))-a12*(-(wpi3-dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
-    ghq[k]	=-a21*(-(wpi2-dHdgr*gaq))+a11*(-(wpi3-dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
-    Ta[k]       =-a21*(wpi1-dHdgr*gaa)-D*(-(wpi3-dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
-    dvi_gf[k]  = a11 * (wpi1-dHdgr*gaa) + D * (-(wpi2-dHdgr*gaq));
-    T[k]        =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
-    
+
+    vpara_dvi_a[k]  = dHdgr*(-a21*gaq +a11*gaz );
+    vpara_dvi_gq[k] = dHdgr*(a22_MPterm +a21*gaa -D*gaz);
+    vpara_dvi_gf[k] = dHdgr*(-a12_MPterm -a11*gaa +D*gaq) ;  
+
     // transfromation from rho_hat to rho
     dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
     //P[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
@@ -3618,9 +3647,10 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 {
   int n = *nval;
   int j0,j1,k;
-  REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P;
+  REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,T,P;
   REAL dHda, dHdgq, dHdgr, dHdgf;
   REAL a,q,a11,a12,a21,a22;
+  REAL a12_MPterm, a22_MPterm, major_R;
 
   REAL x,X,xx,XX;
   REAL f0,f1,fq0,fq1;
@@ -3762,6 +3792,7 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
       Ba[k]     =BBa;
 
       FI        =XF*aF[i0]+xF*aF[i1]+XD*daF[i0]+xD*daF[i1];
+      dFda      =dX*(aF[i1]-aF[i0])+dXD*daF[i0]+dxD*daF[i1];
       gFa       =XF*dgF[i0]+xF*dgF[i1]+XD*d2gF[i0]+xD*d2gF[i1];
       gYa       =XF*dgY[i0]+xF*dgY[i1]+XD*d2gY[i0]+xD*d2gY[i1];
       T         =XF*aT[i0]+xF*aT[i1]+XD*daT[i0]+xD*daT[i1];
@@ -3781,6 +3812,7 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
       BBq       =dY*(aBa[j1]-aBa[j0])+dYD*aBaq[j0]+dyD*aBaq[j1];
       Bq[k]     =BBq;
       FI        =aF[0];
+      dFda      =0;
       gFa       =dgF[0];
       gYa       =dgY[0];
       T         =aT[0];
@@ -3818,22 +3850,33 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
     B[k]=BB;    /* output of B field */
     F[k]=FI;    /* output of F function for toroidal momentum diagnosis */
     a21 =FI;
-    T   *=bgr;
+
+    major_R = r;
     D   =za*rq-zq*ra;
     Dhh =rq*rq+zq*zq;
     gha[k]=sqrt(D*D/Dhh);    /*  1/|grad_a|  */
-    a12 =D*((FI+T)/r+bgr*r*P);
+    a12 =D*((FI+T*bgr)/r+bgr*r*P);
     D   =-gYa/(r*D);
 /*    a11       =(rq*rq+zq*zq)*D;   */
     a11 =Dhh*D;
     D   *=ra*rq+za*zq;
-    a22 =gYa*(1.+T/FI);
+    a22 =gYa*(1.+T*bgr/FI);
     r   =1./(a11*a22-a12*a21);
     a11 *=r;
     a12 *=r;
     a21 *=r;
     a22 *=r;
     D   *=r;
+
+    //============================================
+    // MGYOO(01/17/2019)
+    // Calculate MP term (ga*j0) in a12 and a22 coefficients, which should be considered as the perturbed motions due to MP
+    // Please note that these terms were missed in previous versions.
+    a12_MPterm = r*major_R*(za*rq-zq*ra)*(P+T/(major_R*major_R))*ga; // (1/(-J*(B0^2+...))* Jacob * (jgf_cntv) * ga  :This is a "-1*ga*jgf_cntv" term.
+    a22_MPterm = r*dFda*ga;  // 1/(-J*(B0^2+...))*(Jacob*(-jgq_cntv))*ga   :This is a "ga*jgq_cntv" term.    
+    // ============================================
+
+
 /*    qq        =-gFa/gYa;   */
 #ifdef H
     r  =Xgr*BB*cgq0;
@@ -3853,7 +3896,7 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
     dHdgq = BBq; 
 /*  add EXB drift and magnetic perturbations */
     dHda  += *nonlinear*wpi1*csc0 - dHdgr * gaa;         /* =dH/da      */
-    dHda  =dHda+Er_particle[k]*csc0;           /* =dH/da, adding E_r0XB drift */
+    dHda  += Er_particle[k]*csc0;           /* =dH/da, adding E_r0XB drift */
     dHdgq  +=*nonlinear*wpi2*csc0 - dHdgr * gaq;         /* =-dH/dtheta */
     dHdgf   =*nonlinear*wpi3*csc0 - dHdgr * gaz;             /* =-dH/dphi   */
     dXgr[k]	=a22*(-dHdgq)-a12*(-dHdgf);            /* = ddt(rhohat) */
@@ -3866,11 +3909,15 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
     dXa[k]     *=c0cs;
     dXgq[k]    *=c0cs;
 
-    Pa[k]       = a22*(-(wpi2-c0cs*dHdgr*gaq))-a12*(-(wpi3-c0cs*dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
-    ghq[k]      =-a21*(-(wpi2-c0cs*dHdgr*gaq))+a11*(-(wpi3-c0cs*dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
-    Ta[k]       =-a21*(wpi1-c0cs*dHdgr*gaa)-D*(-(wpi3-c0cs*dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
-    dve_gf[k]   =a11 * (wpi1-c0cs*dHdgr*gaa) + D * (-(wpi2-c0cs*dHdgr*gaq)); 
+   
+    Pa[k]       = a22*(-(wpi2-c0cs*dHdgr*gaq)) +a22_MPterm*(-c0cs*BBq) -a12*(-(wpi3-c0cs*dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
+    ghq[k]      =-a21*(-(wpi2-c0cs*dHdgr*gaq)) +a11*(-(wpi3-c0cs*dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
+    Ta[k]       = a22_MPterm*c0cs*dHdgr -a21*(wpi1-c0cs*dHdgr*gaa) -D*(-(wpi3-c0cs*dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
+    dve_gf[k]   =-a12_MPterm*c0cs*dHdgr +a11*(wpi1-c0cs*dHdgr*gaa) +D*(-(wpi2-c0cs*dHdgr*gaq)); 
 
+    vpara_dve_a[k]  = c0cs*dHdgr*(-a21*gaq +a11*gaz);
+    vpara_dve_gq[k] = c0cs*dHdgr*(a22_MPterm +a21*gaa -D*gaz);
+    vpara_dve_gf[k] = c0cs*dHdgr*(-a12_MPterm -a11*gaa +D*gaq);
 
     // transfromation from rho_hat to rho
     dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */

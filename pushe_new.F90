@@ -364,17 +364,21 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
     !MGYOO(01/14/2019)
     !Note that f0 is toroidally symmetric so that grad_lnf0_gf=0 and we do not need vd_para_gf or vd_perp_gf terms to calculate weight evolution
     if(irk_e==2) then
+      if(ifneoclassical==1) then
+        !Caution!! Following routine is only available for neoclassical case which use full velocity.
+        call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+        vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+        vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+        vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+      else ! perturbed components only (ignoring neoclassical parts)
+        vd_para_a_cntv = vpara_dve_a(m)
+        vd_para_gq_cntv = vpara_dve_gq(m)      
+      endif
+      vd_perp_a_cntv = vdr -vd_para_a_cntv
+      vd_perp_gq_cntv = vdq -vd_para_gq_cntv
+
       grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
       grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
-
-      call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-      vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
-
-      vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
-      vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
-
-      vd_perp_a_cntv = vdr - vd_para_a_cntv
-      vd_perp_gq_cntv = vdq - vd_para_gq_cntv
 
       wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
       wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
@@ -385,9 +389,9 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
       wdot_accel = (1.0_wp-E_f)*wdot_accel
 
       if(wimcompressibility==1) then
-      now_w = avw
+        now_w = avw
       else
-      now_w = zeon(5,m)
+        now_w = zeon(5,m)
       endif
 
       we_vpara(m) = we_vpara(m) + dtime*( (1.0-nonlinear*now_w)*wdot_vpara*fip - fdamp*zeon(5,m) )
@@ -866,17 +870,21 @@ end if
     !MGYOO(01/14/2019)
     !Note that f0 is toroidally symmetric so that grad_lnf0_gf=0 and we do not need vd_para_gf or vd_perp_gf terms to calculate weight evolution
     if(irk_e==2) then
+      if(ifneoclassical==1) then
+        !Caution!! Following routine is only available for neoclassical case which use full velocity.
+        call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+        vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+        vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+        vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+      else ! perturbed components only (ignoring neoclassical parts)
+        vd_para_a_cntv = vpara_dve_a(m)
+        vd_para_gq_cntv = vpara_dve_gq(m)      
+      endif
+      vd_perp_a_cntv = vdr -vd_para_a_cntv
+      vd_perp_gq_cntv = vdq -vd_para_gq_cntv
+
       grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
       grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
-
-      call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-      vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
-
-      vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
-      vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
-
-      vd_perp_a_cntv = vdr - vd_para_a_cntv
-      vd_perp_gq_cntv = vdq - vd_para_gq_cntv
 
       wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
       wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
@@ -897,6 +905,7 @@ end if
       we_accel(m) = we_accel(m) + dtime*( (1.0-nonlinear*now_w)*wdot_accel*fip - fdamp*zeon(5,m) )
     endif
     !=================================================
+
 
 
 

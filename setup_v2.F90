@@ -1701,11 +1701,16 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
             dlnnda(mimax),dlnTda(mimax),backne(mimax),backue(mimax),&
             backTe(mimax),dlnndae(mimax),dlnTdae(mimax),duda(mimax))
   allocate(dvi_gf(mimax), dve_gf(memax))
+  allocate(vpara_dvi_a(mimax), vpara_dvi_gq(mimax),vpara_dvi_gf(mimax))
+  allocate(vpara_dve_a(memax), vpara_dve_gq(memax),vpara_dve_gf(memax))
+  
 ! c1.     Making link with C-ESI
 !  1. Supplying addresses to C-code (not a, gq)
       !call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
       !             rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw)
-  call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw, dvi_gf, dve_gf)
+  call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw, dvi_gf, dve_gf,&
+                 vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf)
+
   call get_table_4_dlnAda    ! get ready for dln<A>/da and make A table;
                              ! where A=exp(u^2/2T). NOTE: must be put after
                              ! call to esilink2c to have F, Fa, ... defined
