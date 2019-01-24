@@ -398,6 +398,7 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
         densityi(1,ij)=(inv_larmor_num)*densityi(1,ij)*markeri(ij)  ! =dn/n_0
         wdum(i)=wdum(i)+dtemper(ij)*densityi(1,ij)  ! new flux-surface avarage --> zonali; used in Jan. 2015
      enddo
+     densityi(1,igrid(i))=densityi(1,igrid(i)+mtheta(i))
   enddo
 !$omp end parallel
 

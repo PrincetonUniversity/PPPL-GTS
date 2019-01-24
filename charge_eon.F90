@@ -209,6 +209,7 @@ if(ZF_SEPARATION==0) then  !  solve total potential
         wdum(i)=wdum(i)+densitye(1,ij)
         densitye(1,ij)=densitye(1,ij)*markere(ij)  ! =dn_e/n_0
      enddo
+     densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))
   enddo
 !$omp end parallel
 
@@ -298,6 +299,7 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
         densitye(1,ij)=densitye(1,ij)*markere(ij)   ! =dn_e/n_0
         wdum(i)=wdum(i)+dtemper(ij)*densitye(1,ij)  ! new flux-surface avarage --> zonale; used in Jan. 2015
      enddo
+     densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))
   enddo
 !$omp end parallel
 
