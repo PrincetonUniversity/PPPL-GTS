@@ -1,3 +1,7 @@
+!=======================================================
+! This is snapshot ver.5 (01/24/2019)
+!=======================================================
+
 subroutine snapshot
   use precision
   use mpi_defs
@@ -257,7 +261,7 @@ subroutine snapshot
      write(snapout,102) real(istep)*tstep, q_grid(ipsi)
      write(snapout,101) mbin_u,mbin_psi,mpsi/a_jump,jm,mzetamax,mpsi/4   ! mpsi/2 specifies  
                     ! how many number of data are written out; don't confuse with ipsi! 
-     write(snapout,102)  vth_grid(ipsi)**2, Te_grid(ipsi) ! Ti and Te at reference position in same unit (normalized unit is Tem_00)
+     write(snapout,102)  1e3*Tem_00*(vth_grid(ipsi)**2), 1e3*Tem_00*Te_grid(ipsi) ! Ti and Te at reference position in eV unit
 
 
 ! write velocity space grids: V_para, pitch, energy to data file
@@ -392,12 +396,26 @@ subroutine snapshot
     enddo
 
     ! ion density
+    ! from tot_dni with no enforced charge-conservation
     write(snapout,101) 1
     do i=0,mpsi,a_jump
         do j=0,jm
             tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
             jt=int(tdum);  wt=tdum-jt
             intpl_dni = ((1.0-wt)*tot_dni(1,igrid(i)+jt) + wt*tot_dni(1,igrid(i)+jt+1)) 
+            write(snapout,102) 1e6*intpl_dni ! ion total perturbed density (dni) in (#/m^3) unit            
+        enddo
+    enddo
+
+    ! CAUTION!! Following routine is just for test
+    ! from densityi directly
+    ! if(its_jacobi=1) This is the result enforced by charge-conservation
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt=int(tdum);  wt=tdum-jt
+            intpl_dni = den_grid(i)*((1.0-wt)*densityi(1,igrid(i)+jt) + wt*densityi(1,igrid(i)+jt+1) + real(ZF_SEPARATION)*zonali(i)) 
             write(snapout,102) 1e6*intpl_dni ! ion total perturbed density (dni) in (#/m^3) unit            
         enddo
     enddo
@@ -414,12 +432,26 @@ subroutine snapshot
     enddo
 
     ! electron density
+    ! from tot_dne with no enforced charge-conservation    
     write(snapout,101) 1
     do i=0,mpsi,a_jump
         do j=0,jm
             tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
             jt=int(tdum);  wt=tdum-jt
             intpl_dne = ((1.0-wt)*tot_dne(1,igrid(i)+jt) + wt*tot_dne(1,igrid(i)+jt+1)) 
+            write(snapout,102) 1e6*intpl_dne ! electron total perturbed density (dne) in (#/m^3) unit            
+        enddo
+    enddo
+
+    ! CAUTION!! Following routine is just for test
+    ! from densitye directly
+    ! if(its_jacobi=1) This is the result enforced by charge-conservation
+    write(snapout,101) 1
+    do i=0,mpsi,a_jump
+        do j=0,jm
+            tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+            jt=int(tdum);  wt=tdum-jt
+            intpl_dne = den_grid(i)*((1.0-wt)*densitye(1,igrid(i)+jt) + wt*densitye(1,igrid(i)+jt+1) + real(ZF_SEPARATION)*zonale(i)) 
             write(snapout,102) 1e6*intpl_dne ! electron total perturbed density (dne) in (#/m^3) unit            
         enddo
     enddo
