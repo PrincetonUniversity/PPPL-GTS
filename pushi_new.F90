@@ -413,12 +413,24 @@ dmaxv=0.0d0
         vd_perp_a_cntv = vdr -vd_para_a_cntv
         vd_perp_gq_cntv = vdq -vd_para_gq_cntv  
 
-        grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) + (duda(m)*F(m)+Fa(m)*omega_t-Ba(m)*backu(m))*B_inverse*vpara*T_inverse
-        grad_lnf0_gq_cov = -T_inverse*mu*Bq(m) - Bq(m)*backu(m)*B_inverse*vpara*T_inverse
+        ! grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) + (duda(m)*F(m)+Fa(m)*omega_t-Ba(m)*backu(m))*B_inverse*vpara*T_inverse
+        ! grad_lnf0_gq_cov = -T_inverse*mu*Bq(m) - Bq(m)*backu(m)*B_inverse*vpara*T_inverse
               
+        ! wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
+        ! wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
+        ! wdot_accel  = wdrift
+        
+        !=================================================================
+        !MGYOO (01/30/2019)
+        ! grad_lnf0 includes (wdrive + wKH) terms
+        ! wdot_accel includes (wdrift + wgradB) terms
+        grad_lnf0_a_cov = -kappa + (duda(m)*F(m)+Fa(m)*omega_t-Ba(m)*backu(m))*B_inverse*vpara*T_inverse
+        grad_lnf0_gq_cov = - Bq(m)*backu(m)*B_inverse*vpara*T_inverse
+
         wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
         wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
-        wdot_accel  = wdrift
+        wdot_accel  = wdrift + wgradB
+        !=================================================================
         
         if(wimcompressibility==1) then
           now_w = avw

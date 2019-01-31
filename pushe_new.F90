@@ -377,12 +377,24 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
       vd_perp_a_cntv = vdr -vd_para_a_cntv
       vd_perp_gq_cntv = vdq -vd_para_gq_cntv
 
-      grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
-      grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
+      !grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
+      !grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
+
+      ! wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
+      ! wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
+      ! wdot_accel  = wdrift
+      
+      !=================================================================
+      !MGYOO (01/30/2019)
+      ! grad_lnf0 includes (wdrive) terms
+      ! wdot_accel includes (wdrift + wgradB) terms
+      grad_lnf0_a_cov = -kappa 
+      grad_lnf0_gq_cov = 0.0
 
       wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
       wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
-      wdot_accel  = wdrift
+      wdot_accel  = wdrift + wgradB
+      !=================================================================
 
       wdot_vpara = (1.0_wp-E_f)*wdot_vpara
       wdot_vperp = (1.0_wp-E_f)*wdot_vperp
@@ -884,12 +896,24 @@ end if
       vd_perp_a_cntv = vdr -vd_para_a_cntv
       vd_perp_gq_cntv = vdq -vd_para_gq_cntv
 
-      grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
-      grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
+      ! grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
+      ! grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
+     
+      ! wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
+      ! wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
+      ! wdot_accel  = wdrift
+
+      !=================================================================
+      !MGYOO (01/30/2019)
+      ! grad_lnf0 includes (wdrive) term
+      ! wdot_accel includes (wdrift + wgradB + wdphidt) terms
+      grad_lnf0_a_cov = -kappa 
+      grad_lnf0_gq_cov = 0.0
 
       wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
       wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
-      wdot_accel  = wdrift
+      wdot_accel  = wdrift + wgradB + wdphidt
+      !=================================================================      
 
       wdot_vpara = (1.0_wp-E_f)*wdot_vpara
       wdot_vperp = (1.0_wp-E_f)*wdot_vperp
