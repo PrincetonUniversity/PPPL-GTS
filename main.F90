@@ -74,6 +74,8 @@ program GTS
   ! order = 0 original solver
   ! order = 1 linear finite element
   ! order = 2 2nd order finite element
+  ! mat_type=2: stiffness matrix for alpha=0
+  ! mat_type=1: stiffness matrix for alpha!=0
   ! which bc_type to use
   ! bc_type=0 neumann bc at a0, neumann bc at a1
   ! bc_type=1 dirichlet bc at a0, neumann bc at a1
@@ -290,8 +292,13 @@ end if
      if(mype == 0) write (0, *) ""
 
          !     CALL PUSHE(irk)
+#ifdef TODO
 !cj2017-nov-08CALL PUSHEON(solver1, masssolver, irk)
               CALL PUSHEON(solver0, masssolver, irk)
+#else
+              CALL PUSHEON(solver1, masssolver, irk)
+!cj2017-nov-08CALL PUSHEON(solver0, masssolver, irk)
+#endif
               call timer(t0,dt,t0wc,dtwc)
               time(10)=time(10)+dt
               timewc(10)=timewc(10)+dtwc

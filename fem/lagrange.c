@@ -786,6 +786,7 @@ int lagrange_element_matrix_(/*int *node,*/
 #endif
 */
 #ifdef RTHETA
+//circular coordinate (r,theta) for test
           m[  j][i] += weight[n] * jacobian[n] * NN[j*(*nw)+n] * NN[i*(*nw)+n]*ravg;
           s[  j][i] -= weight[n] * jacobian[n] * (dnx[j][n]*dnx[i][n]*ravg + dny[j][n]*dny[i][n]/ravg);
           rr[j][i] -= weight[n] * jacobian[n] * (dnx[j][n]*dnx[i][n]*ravg);

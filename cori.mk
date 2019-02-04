@@ -28,11 +28,17 @@ ifeq ($(F90),ftn)
              COPT:=-fast -no-ipo
              OMPFLAG:=-qopenmp -DUSE_OPENMP
              NOOMPFLAG:=
+             SPRNG_DIR=/project/projectdirs/mp288/jinchen/LIB/INTEL_cori_haswell
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
              SPRNG_INC:=-I${SPRNG_DIR}/include
+             PSPLINE_DIR=/project/projectdirs/mp288/jinchen/LIB/INTEL_cori_haswell
              PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
+             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
+             PETSC_DIR=/global/project/projectdirs/mp288/jinchen/PETSC/petsc-3.7.7
+             PETSC_ARCH=cori-hsw-intel1801163-mpich773
+             PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
+             ###PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
+             PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lHYPRE -lflapack -lfblas -lscalapack -lsuperlu -lsuperlu_dist -lcmumps -ldmumps -lsmumps -lzmumps -lmumps_common -lpord -lparmetis -lmetis -ldl -lstdc++
           else  # Using the CRAY compiler (cce)
              #initialize array to zero: -e0 -ez
              #check all array bound:-m2 -R bcsp, but too slow, so not used unless debug code
@@ -47,15 +53,20 @@ ifeq ($(F90),ftn)
              NOOMPFLAG:=-hnoomp
              #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
              #SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper
+             SPRNG_DIR=/project/projectdirs/mp288/jinchen/LIB/CRAY_cori_haswell
              SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod 
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
              #PSPLINE_DIR:=/usr/common/usg/pspline/nersc1.1/cray
              #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
+             PSPLINE_DIR=/project/projectdirs/mp288/jinchen/LIB/CRAY_cori_haswell
              PSPLINE_INC:=-I${PSPLINE_DIR}/include -I${PSPLINE_DIR}/mod -I$(NETCDF_DIR)/include
-             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
-             PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include -I${HYPRE_DIR}/include
-             PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
-             #PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lmetis -lparmetis -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
+             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
+             PETSC_DIR=/global/project/projectdirs/mp288/jinchen/PETSC/petsc-3.7.7
+             #PETSC_ARCH=cori-hsw-cray604-mpich773
+             PETSC_ARCH=cori-hsw-cray604-mpich773-noomp
+             PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
+             #PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
+             PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lHYPRE -lflapack -lfblas -lscalapack -lsuperlu -lsuperlu_dist -lcmumps -ldmumps -lsmumps -lzmumps -lmumps_common -lpord -lparmetis -lmetis -ldl -lstdc++
           endif
        endif
 
@@ -68,7 +79,7 @@ ifeq ($(F90),ftn)
    CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC} $(PETSC_FINC)
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5)
 
-   FFLAGS:=$(FFLAGS) -DUSERZ
+   #FFLAGS:=$(FFLAGS) -DUSERZ
 endif
 
    ifeq ($(DEBUG),y)

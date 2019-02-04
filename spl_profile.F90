@@ -518,8 +518,17 @@ subroutine get_profiles_on_nodes
      real(doubleprec) xx,dxx
      integer i
 
-     allocate(Ti_node(0:jr),dTi_node(0:jr),ne_node(0:jr),dne_node(0:jr),&
-              Te_node(0:jr),dTe_node(0:jr),Iomg_node(0:jr),dIomg_node(0:jr))
+!changed to avoid conflict , there are allocated again in a different subroutin
+!     allocate(Ti_node(0:jr),dTi_node(0:jr),ne_node(0:jr),dne_node(0:jr),&
+!              Te_node(0:jr),dTe_node(0:jr),Iomg_node(0:jr),dIomg_node(0:jr))
+     if(.not.allocated(Ti_node)) allocate(Ti_node(0:jr))
+     if(.not.allocated(dTi_node)) allocate(dTi_node(0:jr))
+     if(.not.allocated(ne_node)) allocate(ne_node(0:jr))
+     if(.not.allocated(dne_node)) allocate(dne_node(0:jr))
+     if(.not.allocated(Te_node)) allocate(Te_node(0:jr))
+     if(.not.allocated(dTe_node)) allocate(dTe_node(0:jr))
+     if(.not.allocated(Iomg_node)) allocate(Iomg_node(0:jr))
+     if(.not.allocated(dIomg_node)) allocate(dIomg_node(0:jr))
 
      dxx=(a1-a0)/real(jr,doubleprec)
      do i=0,jr

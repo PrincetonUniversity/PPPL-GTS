@@ -3669,12 +3669,14 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   fe_Pijk(:,:,:)= fem%Pijk(:,:,:)
     call MPI_ALLREDUCE(fe_Pijk,fem%Pijk,fe_ns*fe_nvar*fe_nvar,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
 #ifdef CJTEST
+        if(mype==0) then
   do i=1,fe_nvar
      do j=1,fe_nvar
-        if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
+        write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
         115 format("	Pijk:", 2(2x,i4), 3(1x,d13.6))
      enddo
   enddo
+        endif
 #endif
 
 #ifdef USERZ
@@ -4015,12 +4017,14 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   fe_Pijk(:,:,:)= fem%Pijk(:,:,:)
     call MPI_ALLREDUCE(fe_Pijk,fem%Pijk,fe_ns*fe_nvar*fe_nvar,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
 #ifdef CJTEST
+        if(mype==0) then
   do i=1,fe_nvar
      do j=1,fe_nvar
-        if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
+        write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
         115 format("	RZcoor Pijk:", 2(2x,i4), 3(1x,d13.6))
      enddo
   enddo
+        endif
 #endif
 
   if(mype .eq. 0) write(0,*) '	form_tangent_RZcoor: iemax=', fem%iemax
