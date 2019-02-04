@@ -38,7 +38,7 @@ subroutine pushion
   real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
   real(wp) MP_phase ! MP_phase(x,t) : time-varying phase angle of given Magnetic Perturbation at specific position in radian unit.
      
-  integer gcmotion, gcmotion_em, gcmotion_em_MGY
+  integer gcmotion, gcmotion_em, gcmotion_em_MGY_vec_form
 
   real(wp) tt0,tt1,cput0,cput1,rtc
 
@@ -203,7 +203,8 @@ end if
 
   if(electromagnetic == 1) then
      !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
-     m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
+     !m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
+    m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
   else
   m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
   end if
