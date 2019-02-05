@@ -147,18 +147,18 @@ subroutine get_Te_fluctuation(wpi2)
      buff(1,ij)=buff(1,ij)*markere(ij)  ! Te fluctuations on grid
   enddo
 
-  !==============================================================================
-  ! MGYOO (01/09/2019)
-  ! Convert buff to get a correct form of dTe by considering dne.
-  ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
-  ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
-  do i=0,mpsi
-    do j=0,mtheta(i)
-      ij = igrid(i) + j
-      buff(1,ij) = den_grid(i)/(den_grid(i)+tot_dne(1,ij))*buff(1,ij)
-    enddo
-  enddo
-  !==============================================================================
+  ! !==============================================================================
+  ! ! MGYOO (01/09/2019)
+  ! ! Convert buff to get a correct form of dTe by considering dne.
+  ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+  ! ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
+  ! do i=0,mpsi
+  !   do j=0,mtheta(i)
+  !     ij = igrid(i) + j
+  !     buff(1,ij) = den_grid(i)/(den_grid(i)+tot_dne(1,ij))*buff(1,ij)
+  !   enddo
+  ! enddo
+  ! !==============================================================================
 
 
   !====================================================

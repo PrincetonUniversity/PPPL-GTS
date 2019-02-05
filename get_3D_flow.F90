@@ -246,18 +246,18 @@ end do   ! do i=1,4
   enddo
   
 
-  !==============================================================================
-  ! MGYOO (01/09/2019)
-  ! Convert pflux_i to get a correct form of dTi by considering dni.
-  ! pflux_i = Sigma(weight*(2/3*energy-T0))*markeri = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
-  ! dTi = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*pflux_i
-  do i=0,mpsi
-    do j=0,mtheta(i)
-      ij = igrid(i) + j
-      pflux_i(1,1,ij) = den_grid(i)/(den_grid(i)+tot_dni(1,ij))*pflux_i(1,1,ij)
-    enddo
-  enddo
-  !==============================================================================
+  ! !==============================================================================
+  ! ! MGYOO (01/09/2019)
+  ! ! Convert pflux_i to get a correct form of dTi by considering dni.
+  ! ! pflux_i = Sigma(weight*(2/3*energy-T0))*markeri = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+  ! ! dTi = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*pflux_i
+  ! do i=0,mpsi
+  !   do j=0,mtheta(i)
+  !     ij = igrid(i) + j
+  !     pflux_i(1,1,ij) = den_grid(i)/(den_grid(i)+tot_dni(1,ij))*pflux_i(1,1,ij)
+  !   enddo
+  ! enddo
+  ! !==============================================================================
 
   !====================================================
   ! MGYOO (01/08/2019) : implementation of zonal and non-zonal terms

@@ -1270,20 +1270,20 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
       dni_fdamp(1,ij) = den_grid(i)*dni_fdamp(1,ij)        
     enddo
   enddo  
-  ! Convert dTe to get a correct form of dTe by considering dne.
-  ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
-  ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
-  do i=0,mpsi
-    do j=0,mtheta(i)
-      ij = igrid(i) + j
-      tmp1 =  den_grid(i)/(den_grid(i)+tot_dni(1,ij))
-      dTi_init(1,ij)  = tmp1*dTi_init(1,ij)
-      dTi_vpara(1,ij) = tmp1*dTi_vpara(1,ij)
-      dTi_vperp(1,ij) = tmp1*dTi_vperp(1,ij)
-      dTi_accel(1,ij) = tmp1*dTi_accel(1,ij)    
-      dTi_fdamp(1,ij) = tmp1*dTi_fdamp(1,ij)  
-    enddo
-  enddo
+  ! ! Convert dTe to get a correct form of dTe by considering dne.
+  ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+  ! ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
+  ! do i=0,mpsi
+  !   do j=0,mtheta(i)
+  !     ij = igrid(i) + j
+  !     tmp1 =  den_grid(i)/(den_grid(i)+tot_dni(1,ij))
+  !     dTi_init(1,ij)  = tmp1*dTi_init(1,ij)
+  !     dTi_vpara(1,ij) = tmp1*dTi_vpara(1,ij)
+  !     dTi_vperp(1,ij) = tmp1*dTi_vperp(1,ij)
+  !     dTi_accel(1,ij) = tmp1*dTi_accel(1,ij)    
+  !     dTi_fdamp(1,ij) = tmp1*dTi_fdamp(1,ij)  
+  !   enddo
+  ! enddo
   !============================================================================== 
 
 end subroutine Cal_dni_dTi_from_each_ion_weight_component
@@ -1689,22 +1689,22 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
     enddo
   enddo
 
-  ! Convert dTe to get a correct form of dTe by considering dne.
-  ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
-  ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
-  do i=0,mpsi
-    do j=0,mtheta(i)
-      ij = igrid(i) + j
-      tmp1 =  den_grid(i)/(den_grid(i)+tot_dne(1,ij))
-      dTe_init(1,ij)  = tmp1*dTe_init(1,ij)
-      dTe_vpara(1,ij) = tmp1*dTe_vpara(1,ij)
-      dTe_vperp(1,ij) = tmp1*dTe_vperp(1,ij)
-      dTe_accel(1,ij) = tmp1*dTe_accel(1,ij)    
-      dTe_adiab(1,ij) = tmp1*dTe_adiab(1,ij)    
-      dTe_fdamp(1,ij) = tmp1*dTe_fdamp(1,ij)    
-    enddo
-  enddo
-  !==============================================================================
+  ! ! Convert dTe to get a correct form of dTe by considering dne.
+  ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+  ! ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
+  ! do i=0,mpsi
+  !   do j=0,mtheta(i)
+  !     ij = igrid(i) + j
+  !     tmp1 =  den_grid(i)/(den_grid(i)+tot_dne(1,ij))
+  !     dTe_init(1,ij)  = tmp1*dTe_init(1,ij)
+  !     dTe_vpara(1,ij) = tmp1*dTe_vpara(1,ij)
+  !     dTe_vperp(1,ij) = tmp1*dTe_vperp(1,ij)
+  !     dTe_accel(1,ij) = tmp1*dTe_accel(1,ij)    
+  !     dTe_adiab(1,ij) = tmp1*dTe_adiab(1,ij)    
+  !     dTe_fdamp(1,ij) = tmp1*dTe_fdamp(1,ij)    
+  !   enddo
+  ! enddo
+  ! !==============================================================================
 
 
 end subroutine Cal_dne_dTe_from_each_electron_weight_component
