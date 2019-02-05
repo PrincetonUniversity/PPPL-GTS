@@ -1221,6 +1221,7 @@ static REAL *vpara_dvi_a=NULL, *vpara_dvi_gq=NULL, *vpara_dvi_gf=NULL;
 static REAL *vpara_dve_a=NULL, *vpara_dve_gq=NULL, *vpara_dve_gf=NULL;
 static REAL *Ne=NULL,*dNe=NULL;
 static REAL aTe=15.,aTi=15.,raT;
+static int *Streaming_Flag=NULL;
 
 void esilink2c(REAL *XaF,REAL *XaFa	 
 		,REAL *XgFa,REAL *XgFaa
@@ -1234,7 +1235,7 @@ void esilink2c(REAL *XaF,REAL *XaFa
 		,int *Xsw
     ,REAL *Xdvi_gf, REAL *Xdve_gf
     ,REAL *Xvpara_dvi_a, REAL *Xvpara_dvi_gq, REAL *Xvpara_dvi_gf
-    ,REAL *Xvpara_dve_a, REAL *Xvpara_dve_gq, REAL *Xvpara_dve_gf )
+    ,REAL *Xvpara_dve_a, REAL *Xvpara_dve_gq, REAL *Xvpara_dve_gf, int* Fortran_Streaming_Flag)
 {
   F	=XaF;
   Fa	=XaFa;
@@ -1267,6 +1268,7 @@ void esilink2c(REAL *XaF,REAL *XaFa
   vpara_dve_a=Xvpara_dve_a;
   vpara_dve_gq=Xvpara_dve_gq;
   vpara_dve_gf=Xvpara_dve_gf;
+  Streaming_Flag = Fortran_Streaming_Flag;
 
   return;
 }
@@ -2990,20 +2992,38 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 
 
     // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.   
-    P[k] = 0.0; // d(rho_para)/dt
-    for(int i=0;i<3;++i) {
-      P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+    if((*Streaming_Flag)==1){  // including the streaming term and perturbed mirror force
+      P[k] = 0.0; // d(rho_para)/dt
+      for(int i=0;i<3;++i) {
+        P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+      }
+      P[k] = Coeff*P[k];
+
+      ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
+      Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
+      dvi_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + (B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+
+      //Components of delta_v due to the parallel streaming
+      vpara_dvi_a[k]  = Coeff*(dH0dgr*(dB_cntv3[0]));
+      vpara_dvi_gq[k] = Coeff*(dH0dgr*(dB_cntv3[1]));
+      vpara_dvi_gf[k] = Coeff*(dH0dgr*(dB_cntv3[2]));
     }
-    P[k] = Coeff*P[k];
+    else{ //excluding the streaming term and perturbed mirror force
+      P[k] = 0.0; // d(rho_para)/dt
+      for(int i=0;i<3;++i) {
+        P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]); // excluding the mirror force due to streaming along dB
+      }
+      P[k] = Coeff*P[k];
 
-    ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
-    Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
-    dvi_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + (B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+      ghq[k]      = Coeff*((B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
+      Ta[k]       = Coeff*((B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
+      dvi_gf[k]   = Coeff*((B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);      
 
-    // Components of delta_v due to the parallel streaming
-    vpara_dvi_a[k]  = Coeff*(dH0dgr*(dB_cntv3[0]));
-    vpara_dvi_gq[k] = Coeff*(dH0dgr*(dB_cntv3[1]));
-    vpara_dvi_gf[k] = Coeff*(dH0dgr*(dB_cntv3[2]));
+      //Components of delta_v due to the parallel streaming
+      vpara_dvi_a[k]  = 0.0;
+      vpara_dvi_gq[k] = 0.0;
+      vpara_dvi_gf[k] = 0.0;
+    }
 
   }
     
@@ -4503,7 +4523,8 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
                                             (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian, 
                                             (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
-                                         
+    
+    // Calculate Full Velocity and acceleration of Guiding Center
     dXgr[k] = 0.0;
     for(int i=0;i<3;++i) {
       dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
@@ -4515,22 +4536,40 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
     dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
     
 
+    // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.   
+    if((*Streaming_Flag)==1){  // including the streaming term and perturbed mirror force
+      Pa[k] = 0.0; // d(rho_para)/dt
+      for(int i=0;i<3;++i) {
+        Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+      }
+      Pa[k] = Coeff*Pa[k];
 
+      ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
+      Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
+      dve_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + csc0*(B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
 
-    Pa[k] = 0.0; // d(rho_para)/dt
-    for(int i=0;i<3;++i) {
-      Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+      // Components of delta_v due to the parallel streaming
+      vpara_dve_a[k]  = Coeff*(dH0dgr*(dB_cntv3[0]));
+      vpara_dve_gq[k] = Coeff*(dH0dgr*(dB_cntv3[1]));
+      vpara_dve_gf[k] = Coeff*(dH0dgr*(dB_cntv3[2]));      
     }
-    Pa[k] = Coeff*Pa[k];
+    else{ //excluding the streaming term and perturbed mirror force
+      Pa[k] = 0.0; // d(rho_para)/dt
+      for(int i=0;i<3;++i) {
+        Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]); // excluding the mirror force due to streaming along dB
+      }
+      Pa[k] = Coeff*Pa[k];
 
-    ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
-    Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
-    dve_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + csc0*(B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+      ghq[k]      = Coeff*( csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
+      Ta[k]       = Coeff*( csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
+      dve_gf[k]   = Coeff*( csc0*(B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
 
-    // Components of delta_v due to the parallel streaming
-    vpara_dve_a[k]  = Coeff*(dH0dgr*(dB_cntv3[0]));
-    vpara_dve_gq[k] = Coeff*(dH0dgr*(dB_cntv3[1]));
-    vpara_dve_gf[k] = Coeff*(dH0dgr*(dB_cntv3[2]));
+      // Components of delta_v due to the parallel streaming
+      vpara_dve_a[k]  = 0.0;
+      vpara_dve_gq[k] = 0.0;
+      vpara_dve_gf[k] = 0.0; 
+    }
+
   }
     
 /*

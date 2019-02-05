@@ -110,7 +110,7 @@ end module precision
 
   integer,dimension(:),allocatable :: mappingL2G, mappingG2L
 
-  integer :: electromagnetic
+  integer :: electromagnetic, Streaming_Flag
   integer :: num_of_EMP
   type External_Magnetic_Perturbation
     integer :: gam, gan

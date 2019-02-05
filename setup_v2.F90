@@ -1713,7 +1713,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
       !call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
       !             rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw)
   call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw, dvi_gf, dve_gf,&
-                 vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf)
+                 vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf, Streaming_Flag)
 
   call get_table_4_dlnAda    ! get ready for dln<A>/da and make A table;
                              ! where A=exp(u^2/2T). NOTE: must be put after
@@ -2405,6 +2405,7 @@ end subroutine setup
                      ZF_SEPARATION,      &   ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
                      order,              &   ! =0, original solver; =1, linear finite elements; =2 higher order elements
                      electromagnetic,    &   ! =0, original electrostatic code; =1 electromagnetic code
+                     Streaming_Flag,     &   ! (include=1) or (exclude=0) perturbed streaming term and mirror force
                      num_of_EMP,         &   ! number of EMP (External Magnetic Perturbation) : how many mode number (m,n) are considered?
                      ga0, gam, gan, gagw, gagf0, dga0dt,&
                      ga_rc, ga_rw, ga_pp     ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
@@ -2454,6 +2455,7 @@ end subroutine setup
 
 
       write(0,*) 'electromagnetic=', electromagnetic
+      write(0,*) 'Streaming_Flag=', Streaming_Flag
       write(0,*) 'num_of_EMP =',num_of_EMP
       write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
     endif

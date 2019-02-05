@@ -100,6 +100,7 @@
   ! alpha_phase(theta,zeta) = (gan*zeta - gam*theta - gagw*t + gagf0)
   ! alpha(r,theta,zeta) = alpha_amplitude(r) * cos(alpha_phase)
   electromagnetic=1         ! include electromagnetic perturbation?
+  Streaming_Flag=1          ! (include=1) or (exclude=0) perturbed streaming term and mirror force
   num_of_EMP=2
   ga0=1e-4, 1e-4                ! Initial magnitude of alpha at r=rc
   ga_rc=2*0.5,                ! rc of alpha
