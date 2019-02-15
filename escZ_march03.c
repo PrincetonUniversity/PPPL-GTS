@@ -2961,9 +2961,9 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
     }
     Coeff = 1.0/Coeff;
 
-    const REAL B0_cross_gradH0_cntv[3] = {  (B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian, 
-                                            (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian, 
-                                            (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
+    const REAL totB_cross_gradH0_cntv[3] = {(totB_cov3[1]*gradH0_cov3[2] -totB_cov3[2]*gradH0_cov3[1])/Jacobian, 
+                                            (totB_cov3[2]*gradH0_cov3[0] -totB_cov3[0]*gradH0_cov3[2])/Jacobian, 
+                                            (totB_cov3[0]*gradH0_cov3[1] -totB_cov3[1]*gradH0_cov3[0])/Jacobian};
 
 
     // Calculate Full Velocity and acceleration of Guiding Center  
@@ -2973,9 +2973,9 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
     }
     dXgr[k] = Coeff*dXgr[k];
 
-    dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
-    dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
-    dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
+    dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + totB_cross_gradH0_cntv[0]);
+    dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + totB_cross_gradH0_cntv[1]);
+    dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + totB_cross_gradH0_cntv[2]);
     
 
     // Calculate poloidal velocity... 
@@ -2999,9 +2999,9 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
       }
       P[k] = Coeff*P[k];
 
-      ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
-      Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
-      dvi_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + (B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+      ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + (totB_cov3[1]*gradPhi[2]-totB_cov3[2]*gradPhi[1])/Jacobian);
+      Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + (totB_cov3[2]*gradPhi[0]-totB_cov3[0]*gradPhi[2])/Jacobian);
+      dvi_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + (totB_cov3[0]*gradPhi[1]-totB_cov3[1]*gradPhi[0])/Jacobian);
 
       //Components of delta_v due to the parallel streaming
       vpara_dvi_a[k]  = Coeff*(dH0dgr*(dB_cntv3[0]));
@@ -3015,9 +3015,9 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
       }
       P[k] = Coeff*P[k];
 
-      ghq[k]      = Coeff*((B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
-      Ta[k]       = Coeff*((B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
-      dvi_gf[k]   = Coeff*((B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);      
+      ghq[k]      = Coeff*((totB_cov3[1]*gradPhi[2]-totB_cov3[2]*gradPhi[1])/Jacobian);
+      Ta[k]       = Coeff*((totB_cov3[2]*gradPhi[0]-totB_cov3[0]*gradPhi[2])/Jacobian);
+      dvi_gf[k]   = Coeff*((totB_cov3[0]*gradPhi[1]-totB_cov3[1]*gradPhi[0])/Jacobian);      
 
       //Components of delta_v due to the parallel streaming
       vpara_dvi_a[k]  = 0.0;
@@ -4519,9 +4519,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
     }
     Coeff = c0cs/Coeff;
 
-    const REAL B0_cross_gradH0_cntv[3] = {  (B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian, 
-                                            (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian, 
-                                            (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
+    const REAL totB_cross_gradH0_cntv[3] = {(totB_cov3[1]*gradH0_cov3[2] -totB_cov3[2]*gradH0_cov3[1])/Jacobian, 
+                                            (totB_cov3[2]*gradH0_cov3[0] -totB_cov3[0]*gradH0_cov3[2])/Jacobian, 
+                                            (totB_cov3[0]*gradH0_cov3[1] -totB_cov3[1]*gradH0_cov3[0])/Jacobian};
 
     
     // Calculate Full Velocity and acceleration of Guiding Center
@@ -4531,9 +4531,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
     }
     dXgr[k] = Coeff*dXgr[k];
 
-    dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
-    dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
-    dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
+    dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + totB_cross_gradH0_cntv[0]);
+    dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + totB_cross_gradH0_cntv[1]);
+    dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + totB_cross_gradH0_cntv[2]);
     
 
     // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.   
@@ -4544,9 +4544,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
       }
       Pa[k] = Coeff*Pa[k];
 
-      ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
-      Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
-      dve_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + csc0*(B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+      ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + csc0*(totB_cov3[1]*gradPhi[2]-totB_cov3[2]*gradPhi[1])/Jacobian);
+      Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + csc0*(totB_cov3[2]*gradPhi[0]-totB_cov3[0]*gradPhi[2])/Jacobian);
+      dve_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + csc0*(totB_cov3[0]*gradPhi[1]-totB_cov3[1]*gradPhi[0])/Jacobian);
 
       // Components of delta_v due to the parallel streaming
       vpara_dve_a[k]  = Coeff*(dH0dgr*(dB_cntv3[0]));
@@ -4560,9 +4560,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
       }
       Pa[k] = Coeff*Pa[k];
 
-      ghq[k]      = Coeff*( csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
-      Ta[k]       = Coeff*( csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
-      dve_gf[k]   = Coeff*( csc0*(B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+      ghq[k]      = Coeff*( csc0*(totB_cov3[1]*gradPhi[2]-totB_cov3[2]*gradPhi[1])/Jacobian);
+      Ta[k]       = Coeff*( csc0*(totB_cov3[2]*gradPhi[0]-totB_cov3[0]*gradPhi[2])/Jacobian);
+      dve_gf[k]   = Coeff*( csc0*(totB_cov3[0]*gradPhi[1]-totB_cov3[1]*gradPhi[0])/Jacobian);
 
       // Components of delta_v due to the parallel streaming
       vpara_dve_a[k]  = 0.0;
