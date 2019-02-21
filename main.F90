@@ -187,6 +187,7 @@ if(irun==0) then
    istep=0
    call snapshot     ! snapshot at t=0
    call snapshot_hdf5
+   call snapshot_Magnetic_Information
    call check_tracer_e
    call check_tracer_i 
 end if 

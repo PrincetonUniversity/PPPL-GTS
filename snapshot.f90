@@ -1681,6 +1681,198 @@ subroutine snapshot_hdf5
 
 end subroutine snapshot_hdf5
 
+
+subroutine snapshot_Magnetic_Information
+
+  use precision  
+  use global_parameters
+  use control_parameters
+  use particle_decomp
+  use field_array
+  use hdf5
+  use h5lt
+
+  implicit none
+
+  integer, parameter :: gq_jump=2, a_jump=1
+  integer :: dim_a, dim_gq
+  real(wp) :: intp_val, inv_dgq(0:mpsi)
+  integer :: i,j,ij,k,jt,jm
+  
+  real(wp), dimension(:), allocatable :: a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
+  real(wp), dimension(:), allocatable ::Jacobian_, esi_N_, esi_K_, g_aa_, g_agq_, g_gqgq_, g_gfgf_  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
+  real(wp), dimension(:,:), allocatable :: B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_
+  real(wp), dimension(:), allocatable :: ini_ga_, ini_dga0dt_ ! initial magnetic perturbation
+  real(wp), dimension(:,:), allocatable :: ini_dB_cov3_, ini_dB_cntv3_, ini_grad_ga_cov3_! initial magnetic perturbation at t=0
+
+  character(LEN=128) :: file_path
+  integer(HSIZE_T) :: h5dims(3)
+  integer(HID_T) :: file_id, gid_MP ! gid_MP: group id for MP (Magnetic Perturbation)
+  integer :: h5err
+
+  inv_dgq=1.0/deltat
+  jm=mtheta(ipsi)/gq_jump  
+  dim_a = (mpsi+1)/a_jump
+  dim_gq = jm+1
+
+
+  if(mype == numberpe-1)then !mype=0 must also have myrank_toroidal=0
+
+
+    allocate(a_(dim_gq*dim_a))
+    allocate(gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,mold=a_)
+    allocate(Jacobian_, esi_N_,esi_K_,g_aa_,g_agq_,g_gqgq_,g_gfgf_, mold=a_)
+    allocate(B0_cov3_(3,size(a_)))
+    allocate(B0_cntv3_,j0_cov3_,j0_cntv3_, mold=B0_cov3_)
+    
+    if(electromagnetic==1) then
+      allocate(ini_ga_,ini_dga0dt_, mold=a_)
+      allocate(ini_dB_cov3_,ini_dB_cntv3_, ini_grad_ga_cov3_, mold=B0_cov3_)
+    endif
+
+    k=1
+    do i=0,mpsi,a_jump
+      do j=0,jm
+        a_(k)=psi_grid(i)
+        gq_(k)=2.0*pi*real(j)/real(jm)
+        k=k+1
+      enddo
+    enddo
+    call esiget2dthese_more(F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,a_,gq_, dim_gq*dim_a)
+
+    Jacobian_ = R_*(dZda_*dRdgq_-dZdgq_*dRda_)
+    esi_N_ = (dRda_*dRdgq_+dZda_*dZdgq_)/Jacobian_
+    esi_K_ = (dRdgq_*dRdgq_+dZdgq_*dZdgq_)/Jacobian_
+
+    B0_cov3_(1,:) = -esi_N_*dgYda_
+    B0_cov3_(2,:) = -esi_K_*dgYda_
+    B0_cov3_(3,:) = F_
+
+    B0_cntv3_(1,:) = 0.0
+    B0_cntv3_(2,:) = -dgYda_/Jacobian_
+    B0_cntv3_(3,:) = F_/(R_**2)
+
+    j0_cntv3_(1,:) = 0.0
+    j0_cntv3_(2,:) = -dFda_/Jacobian_
+    j0_cntv3_(3,:) = P_ + T_/(R_**2)
+    
+    g_aa_   = dRda_*dRda_+dZda_*dZda_;
+    g_agq_  = dRda_*dRdgq_+dZda_*dZdgq_;
+    g_gqgq_ = dRdgq_*dRdgq_+dZdgq_*dZdgq_;
+    g_gfgf_ = R_**2
+
+    j0_cov3_(1,:) = g_aa_*j0_cntv3_(1,:) + g_agq_*j0_cntv3_(2,:)
+    j0_cov3_(2,:) = g_agq_*j0_cntv3_(1,:) + g_gqgq_*j0_cntv3_(2,:)
+    j0_cov3_(3,:) = g_gfgf_*j0_cntv3_(3,:)
+
+
+    if(electromagnetic==1)then
+      ! Get initial magnetic perturbation information
+      do k=1,size(a_)
+        call Get_MP_alpha_amplitude(a_(k), gq_(k),modulo(zetamax,2.0*pi),0.0, ini_ga_(k), ini_grad_ga_cov3_(1:3,k), ini_dga0dt_(k))
+      enddo
+      
+      ini_dB_cntv3_(1,:) = ini_ga_*j0_cntv3_(1,:) + (ini_grad_ga_cov3_(2,:)*B0_cov3_(3,:) - ini_grad_ga_cov3_(3,:)*B0_cov3_(2,:))/Jacobian_
+      ini_dB_cntv3_(2,:) = ini_ga_*j0_cntv3_(2,:) + (ini_grad_ga_cov3_(3,:)*B0_cov3_(1,:) - ini_grad_ga_cov3_(1,:)*B0_cov3_(3,:))/Jacobian_
+      ini_dB_cntv3_(3,:) = ini_ga_*j0_cntv3_(3,:) + (ini_grad_ga_cov3_(1,:)*B0_cov3_(2,:) - ini_grad_ga_cov3_(2,:)*B0_cov3_(1,:))/Jacobian_        
+      
+      ini_dB_cov3_(1,:) = g_aa_*ini_dB_cntv3_(1,:) + g_agq_*ini_dB_cntv3_(2,:)
+      ini_dB_cov3_(2,:) = g_agq_*ini_dB_cntv3_(1,:) + g_gqgq_*ini_dB_cntv3_(2,:)
+      ini_dB_cov3_(3,:) = g_gfgf_*ini_dB_cntv3_(3,:)  
+    endif
+
+
+    ! Record Information using hdf5 format 
+    call system("mkdir -p " // 'snapshots_hdf5')
+    write(file_path, '("SnapMagneticInfo.h5")')
+
+    call h5open_f(h5err)
+    call h5fcreate_f(file_path, H5F_ACC_TRUNC_F, file_id, h5err)
+
+    ! 0D data
+    h5dims(1) = 1
+    call h5ltmake_dataset_f(file_id, "/mpsi",1,h5dims,H5T_NATIVE_INTEGER, mpsi/a_jump, h5err)
+    call h5ltmake_dataset_f(file_id, "/mtheta",1,h5dims,H5T_NATIVE_INTEGER, jm, h5err)
+    call h5ltmake_dataset_f(file_id, "/zeta",1,h5dims,H5T_NATIVE_DOUBLE, zetamax, h5err)
+
+    ! 2D data
+    h5dims(1:2)=(/dim_gq, dim_a/)
+    call h5ltmake_dataset_f(file_id, "/a",2,h5dims,H5T_NATIVE_DOUBLE, a_,h5err)
+    call h5ltmake_dataset_f(file_id, "/gq",2,h5dims,H5T_NATIVE_DOUBLE, gq_,h5err)
+    call h5ltmake_dataset_f(file_id, "/F",2,h5dims,H5T_NATIVE_DOUBLE, F_,h5err)
+    call h5ltmake_dataset_f(file_id, "/dFda",2,h5dims,H5T_NATIVE_DOUBLE, dFda_,h5err)
+    call h5ltmake_dataset_f(file_id, "/dgFda",2,h5dims,H5T_NATIVE_DOUBLE, dgFda_,h5err)
+    call h5ltmake_dataset_f(file_id, "/dgYda",2,h5dims,H5T_NATIVE_DOUBLE, dgYda_,h5err)
+    call h5ltmake_dataset_f(file_id, "/R",2,h5dims,H5T_NATIVE_DOUBLE, R_,h5err)
+    call h5ltmake_dataset_f(file_id, "/dRda",2,h5dims,H5T_NATIVE_DOUBLE, dRda_,h5err)
+    call h5ltmake_dataset_f(file_id, "/dRdgq",2,h5dims,H5T_NATIVE_DOUBLE, dRdgq_,h5err)
+    call h5ltmake_dataset_f(file_id, "/Z",2,h5dims,H5T_NATIVE_DOUBLE, Z_,h5err)
+    call h5ltmake_dataset_f(file_id, "/dZda",2,h5dims,H5T_NATIVE_DOUBLE, dZda_,h5err)
+    call h5ltmake_dataset_f(file_id, "/dZdgq",2,h5dims,H5T_NATIVE_DOUBLE, dZdgq_,h5err)
+    call h5ltmake_dataset_f(file_id, "/BB",2,h5dims,H5T_NATIVE_DOUBLE, BB_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/dBBda",2,h5dims,H5T_NATIVE_DOUBLE, dBBda_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/dBBdgq",2,h5dims,H5T_NATIVE_DOUBLE, dBBdgq_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/P",2,h5dims,H5T_NATIVE_DOUBLE, P_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/T",2,h5dims,H5T_NATIVE_DOUBLE, T_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/Jacobian",2,h5dims,H5T_NATIVE_DOUBLE, Jacobian_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/esi_N",2,h5dims,H5T_NATIVE_DOUBLE, esi_N_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/esi_K",2,h5dims,H5T_NATIVE_DOUBLE, esi_K_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/g_aa",2,h5dims,H5T_NATIVE_DOUBLE, g_aa_,h5err)    
+    call h5ltmake_dataset_f(file_id, "/g_agq",2,h5dims,H5T_NATIVE_DOUBLE, g_agq_,h5err)
+    call h5ltmake_dataset_f(file_id, "/g_gqgq",2,h5dims,H5T_NATIVE_DOUBLE, g_gqgq_,h5err)
+    call h5ltmake_dataset_f(file_id, "/g_gfgf",2,h5dims,H5T_NATIVE_DOUBLE, g_gfgf_,h5err)
+
+    call h5ltset_attribute_string_f(file_id, "/a", "unit", "norm_psi_t", h5err)
+    call h5ltset_attribute_string_f(file_id, "/gq", "unit", "radians", h5err)
+    call h5ltset_attribute_string_f(file_id, "/R", "unit", "m", h5err)    
+    call h5ltset_attribute_string_f(file_id, "/Z", "unit", "m", h5err)
+    call h5ltset_attribute_string_f(file_id, "/BB", "unit", "T", h5err)
+    call h5ltset_attribute_string_f(file_id, "/BB", "description", "magnitude of equilibrium B field (B0)", h5err)
+    
+    ! 3D data (vectors on 2D grids)
+    h5dims(1:3)=(/3, dim_gq, dim_a/)
+    call h5ltmake_dataset_f(file_id, "/B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, B0_cov3_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, B0_cntv3_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/j0_cov",3,h5dims,H5T_NATIVE_DOUBLE, j0_cov3_,h5err) 
+    call h5ltmake_dataset_f(file_id, "/j0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, j0_cntv3_,h5err) 
+    
+
+
+    if(electromagnetic==1) then
+      call h5gcreate_f(file_id, "iniMP", gid_MP, h5err)
+      ! 2D data
+      h5dims(1:2)=(/dim_gq, dim_a/)
+      call h5ltmake_dataset_f(file_id, "/iniMP/ga",2,h5dims,H5T_NATIVE_DOUBLE, ini_ga_,h5err)
+      call h5ltmake_dataset_f(file_id, "/iniMP/dga0dt",2,h5dims,H5T_NATIVE_DOUBLE, ini_dga0dt_,h5err)
+
+      ! 3D data (vectors on 2D grids)
+      h5dims(1:3)=(/3, dim_gq, dim_a/)
+      call h5ltmake_dataset_f(file_id, "/iniMP/dB_cov",3,h5dims,H5T_NATIVE_DOUBLE, ini_dB_cov3_,h5err)
+      call h5ltmake_dataset_f(file_id, "/iniMP/dB_cntv",3,h5dims,H5T_NATIVE_DOUBLE, ini_dB_cntv3_,h5err)
+      call h5ltmake_dataset_f(file_id, "/iniMP/grad_ga_cov",3,h5dims,H5T_NATIVE_DOUBLE, ini_grad_ga_cov3_,h5err)
+     
+
+      call h5gclose_f(gid_MP, h5err)
+    endif
+
+    call h5fclose_f(file_id, h5err)
+    call h5close_f(h5err)
+
+
+    deallocate(a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_)
+    deallocate(Jacobian_, esi_N_, esi_K_, g_aa_, g_agq_, g_gqgq_, g_gfgf_)
+    deallocate(B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_)
+    if(electromagnetic==1)then
+      deallocate(ini_ga_,ini_dga0dt_)
+      deallocate(ini_dB_cov3_,ini_dB_cntv3_, ini_grad_ga_cov3_)
+    endif
+
+  endif
+
+
+end subroutine snapshot_Magnetic_Information
+
+
 subroutine Print_FLA_Denominator
 
 
