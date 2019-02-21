@@ -186,6 +186,7 @@ program GTS
 if(irun==0) then 
    istep=0
    call snapshot     ! snapshot at t=0
+   call snapshot_hdf5
    call check_tracer_e
    call check_tracer_i 
 end if 
@@ -400,6 +401,7 @@ end if
         if(mod(istep,msnap) .eq. 0) then 
            !  phi_tmp=phi_tmp/real(msnap,wp)
            call snapshot
+           call snapshot_hdf5
 
            !  phi_tmp=0.0_wp
         end if
