@@ -144,8 +144,8 @@ module FieldLineFollowing
         real(wp) test_FLA_a        
     end type
 
-    integer :: num_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines
-
+    integer :: MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines
+    integer, dimension(:), allocatable :: num_of_gPPI_for_each_FieldLine
     ! Global PPI ==> gPPI
     ! gPPI(gPPI_max_tor_rotation, 1:num_of_SampledFieldLines)
     type(Poincare_Point_Information), dimension(:,:), allocatable:: gPPI    

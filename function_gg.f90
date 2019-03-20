@@ -1653,7 +1653,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
     real(wp) ini_a, ini_gq, ini_gf
     real(wp) now_a, now_gq, now_gf, specific_time
     real(wp) prev_a, prev_gq, prev_gf
-    integer :: maximum_tor_rotation = 100
+    integer :: maximum_tor_rotation = 400
     integer tor_dir, aid, num_a, gqid, num_gq, PPI_id
     real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
     type(Poincare_Point_Information), dimension(:,:,:), allocatable:: PPI
@@ -1833,10 +1833,10 @@ subroutine Construct_gPPI_for_FieldLineAverage
     call cpu_time(t_start)
 
     maximum_tor_rotation = 200
-    num_of_gPPI_for_each_FieldLine = 2*(num_of_target_zeta)*maximum_tor_rotation
+    MaxNum_of_gPPI_for_every_FieldLines = 2*(num_of_target_zeta)*maximum_tor_rotation
     !num_of_SampledFieldLines = (mpsi/4)*10  ! num_of_SampledFieldLines might depend more on the radial resolution than poloidal one.
 
-    !maximum_tor_rotation = num_of_gPPI_for_each_FieldLine/2 !  Maximum toroidal roation for each Forward integration & Backward Integration
+    !maximum_tor_rotation = MaxNum_of_gPPI_for_every_FieldLines/2 !  Maximum toroidal roation for each Forward integration & Backward Integration
 
     specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
     dgf = 2.0*pi/1000.0 ! toroidal step for field-line-following integration
@@ -1890,9 +1890,9 @@ subroutine Construct_gPPI_for_FieldLineAverage
     num_of_SampledFieldLines = 50*20 + (smapling_num_at_each_rational_q*(Fid-1))
     !num_of_SampledFieldLines = 20 + (smapling_num_at_each_rational_q*(Fid-1))
 
-    allocate(gPPI(num_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines))
+    allocate(gPPI(MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines))
     allocate(ini_a_arr(num_of_SampledFieldLines), ini_gq_arr(num_of_SampledFieldLines))
-
+    allocate(num_of_gPPI_for_each_FieldLine(num_of_SampledFieldLines))
 
 
     ! ! Find ini_a_arr and ini_gq_arr at rational q surface and sobol_rand position
@@ -2034,7 +2034,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
                                                         + rj**2  )
                 endif
 
-                if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or.  PPI_id>=num_of_gPPI_for_each_FieldLine ) then
+                if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or.  PPI_id>=MaxNum_of_gPPI_for_every_FieldLines) then
                     exit      
                 endif
 
@@ -2060,8 +2060,13 @@ subroutine Construct_gPPI_for_FieldLineAverage
                 now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
                 now_gf = now_gf + dgf                  
                 
+                if (now_a<a0 .or. now_a>a1) then
+                  exit
+                endif
             enddo            
         enddo
+
+        num_of_gPPI_for_each_FieldLine(Fid) = PPI_id
     enddo
 
    ! write(stdout,*) 'mype=', mype,', before Cal_FLA_Denominator_using_gPPI'
@@ -2082,7 +2087,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
     write(chdum,'("VacFieldAnalysis/gPPI_",i5.5,".dat")') myrank_toroidal
     open(181202,file=chdum,status='replace',action='write')
     do Fid = 1, num_of_SampledFieldLines   
-        do PPI_id =1,num_of_gPPI_for_each_FieldLine
+        do PPI_id =1,num_of_gPPI_for_each_FieldLine(Fid)
             write(181202, "(I4,1x,10(ES14.6,1x))") gPPI(PPI_id,Fid)
         enddo
     enddo
@@ -2164,7 +2169,7 @@ subroutine Cal_FLA_Denominator_using_gPPI
   each_FLA_denominator = 0.0
   test_FLA_val = 0.0
   do Fid=1,num_of_SampledFieldLines
-    do Pid=1,num_of_gPPI_for_each_FieldLine
+    do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
       
       this_s = gPPI(Pid,Fid)%s
       this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
@@ -2218,7 +2223,7 @@ subroutine Cal_FLA_Denominator_using_gPPI
 
   test_FLA_val = test_FLA_val/each_FLA_denominator
   do Fid=1,num_of_SampledFieldLines
-    do Pid=1,num_of_gPPI_for_each_FieldLine
+    do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
       gPPI(Pid,Fid)%test_FLA_a = test_FLA_val(Fid)
     enddo
   enddo
@@ -2327,7 +2332,7 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
   do Fid=1,num_of_SampledFieldLines
     each_FLA_val(Fid)=0
     each_FLA_denominator(Fid)=0
-    do Pid=1,num_of_gPPI_for_each_FieldLine
+    do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
       
       !this_a = gPPI(Pid,Fid)%a
       this_s = gPPI(Pid,Fid)%s
@@ -2386,7 +2391,7 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
   ! Scatter Averaged data to grid nodes
   FLA_ResultData = 0.0
   do Fid=1,num_of_SampledFieldLines
-    do Pid=1,num_of_gPPI_for_each_FieldLine
+    do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
       
       !this_a = gPPI(Pid,Fid)%a
       this_s = gPPI(Pid,Fid)%s
