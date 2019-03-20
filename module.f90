@@ -27,6 +27,7 @@ end module precision
            deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,&
            uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
            s0,s1,B_0,R_0,Cs   ! B_0=normalized on-axis B, R_0=normalized major radius 
+  real(wp) MM_Cs, MM_Lc_over_vthci, MM_LcTi, MM_LcTe, MM_Lcn, MM_Lcu, MM_vthci, MM_vthce, MM_R_axis, MM_B_axis ! Variables for MeasureMent
   integer,dimension(:),allocatable :: mtheta
   real(wp),dimension(:),allocatable :: deltat
 
@@ -197,7 +198,13 @@ module field_array
   real(wp),dimension(:,:),allocatable :: tot_dne,tot_dni, FLA_Denominator, FLA_dphi, FLA_dTe, FLA_dTi, FLA_dne, FLA_dni, FLA_ne_adiabatic
   real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0 
   real(wp),dimension(:,:),allocatable :: Weighted_Vol
+  real(wp),dimension(:),allocatable :: Node_simple_Vol
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
+  real(wp),dimension(:),allocatable :: cum_phi00, cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ
+  real(wp),dimension(:),allocatable :: cum_zonal_dTe, cum_zonal_dTe_SQ, cum_zonal_dTi, cum_zonal_dTi_SQ
+  real(wp),dimension(:,:),allocatable :: cum_full_dphi, cum_full_dphi_SQ, cum_full_dne, cum_full_dne_SQ, cum_full_dni, cum_full_dni_SQ
+  real(wp),dimension(:,:),allocatable :: cum_full_dTe, cum_full_dTe_SQ, cum_full_dTi, cum_full_dTi_SQ
+
   real(wp),dimension(:),allocatable :: tphi, bphi, left1, left2   ! for testing solver
 
   real(wp),dimension(:,:),allocatable :: dni_init, dni_vpara, dni_vperp, dni_accel, dni_fdamp

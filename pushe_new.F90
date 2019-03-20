@@ -510,7 +510,7 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
      call get_fluxes_e(wpi)
 
      !   im=mod(istep,100)
-     im=mod(istep,msnap)
+     im=mod(istep,ndiag)
      if(im==0) then
         call get_Te_fluctuation(wpi(2,:))
      end if
@@ -1040,7 +1040,7 @@ end if
     call get_fluxes_e(wpi)
 
 !   im=mod(istep,100)
-   im=mod(istep,msnap)
+   im=mod(istep,ndiag)
    if(im==0) then
       call get_Te_fluctuation(wpi(2,:))
    end if

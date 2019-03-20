@@ -155,7 +155,8 @@ Subroutine setup
 
 ! c2.    Reading data file (s) File names: <A-Z,a-z>,<0-9>,<_>,<.>
   k=esiread(B_0,R_0,eq_data_name) ! B_0=B on axis; R_0=major radius (normalized)
-
+  MM_R_axis = R_0
+  MM_B_axis = B_0
 ! scale B by a factor of tdum: B --> tdum*B
   tdum=1.0d0
   call scaleuporigeq(tdum)
@@ -474,6 +475,7 @@ endif
   backnc=density(a_ref,0.0_wp)  ! plasma density at a_ref in cm^-3
 
   Cs=sqrt(Tc_e*msm0)                 ! normalized Cs
+  MM_Cs = Cs
 
   if(mype==1) call get_profiles
 
@@ -539,7 +541,14 @@ if(mype==0) write(0,*) 'Tc=', Tc*Tem_00,  'in KeV', backnc, &
    stop
  end select
 
+  MM_vthci = vthc
+  MM_vthce = vthc_e
 
+  MM_Lc_over_vthci = Lc/vthc
+  MM_LcTi = Lci
+  MM_LcTe = Lce
+  MM_Lcn  = Lcn
+  MM_LcU  = Lcu
 if(mype==0) write(0,*) 'R_0/<L_T>=', R_0/Lc   ! 6.9 is often used in cyclone case 
 
 !  tstep=tstep/(vthi*kappati)*R_0  ! normalized delta_t
@@ -1171,9 +1180,17 @@ end if ! if(mype==0)
        pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),   &
        dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
 
+  allocate(cum_phi00(0:mpsi))
+  allocate(cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ, mold=cum_phi00)
+  allocate(cum_zonal_dTe, cum_zonal_dTe_SQ, cum_zonal_dTi, cum_zonal_dTi_SQ, mold=cum_phi00)
+  allocate(cum_full_dphi(0:1,mgrid))
+  allocate(cum_full_dphi_SQ, cum_full_dne, cum_full_dne_SQ, cum_full_dni, cum_full_dni_SQ, mold=cum_full_dphi)
+  allocate(cum_full_dTe, cum_full_dTe_SQ, cum_full_dTi, cum_full_dTi_SQ,mold=cum_full_dphi)
+
   allocate(tot_dni(0:1,mgrid), tot_dne(0:1,mgrid), FLA_Denominator(0:1,mgrid), FLA_dphi(0:1,mgrid), FLA_dTe(0:1,mgrid), FLA_dTi(0:1,mgrid), FLA_dne(0:1,mgrid), FLA_dni(0:1,mgrid), FLA_ne_adiabatic(0:1,mgrid))
   allocate(FLA_psi0(0:1,mgrid), FLA_Te0(0:1,mgrid), FLA_Ti0(0:1,mgrid), FLA_n0(0:1,mgrid))
   allocate(Weighted_Vol(0:1,mgrid))
+  allocate(Node_simple_Vol(mgrid))
   allocate(dni_init(0:1,mgrid), dni_vpara(0:1,mgrid), dni_vperp(0:1,mgrid), dni_accel(0:1,mgrid), dni_fdamp(0:1,mgrid))
   allocate(dne_init(0:1,mgrid), dne_vpara(0:1,mgrid), dne_vperp(0:1,mgrid), dne_accel(0:1,mgrid), dne_adiab(0:1,mgrid), dne_fdamp(0:1,mgrid))
   allocate(dTi_init(0:1,mgrid), dTi_vpara(0:1,mgrid), dTi_vperp(0:1,mgrid), dTi_accel(0:1,mgrid), dTi_fdamp(0:1,mgrid))
@@ -1242,6 +1259,8 @@ end if ! if(mype==0)
 
         dtemper(ij)=dtemper(ij)*deltaz*deltat(i)   ! =J*dtheta*dzeta
         jaco_sum(i)=jaco_sum(i)+dtemper(ij)
+        
+        Node_simple_Vol(ij) = Jacobian(pdum,tdum)*dpsi*deltat(i)*deltaz
 
         !cj 2015-03-16 added to optimize solver
         ne0=density(pdum,0.0_wp)

@@ -705,7 +705,7 @@ dmaxv=0.0d0
    call get_fluxes(wpi,dgf,dgq)
 
 !   im=mod(istep,100)
-   im=mod(istep,msnap)
+   im=mod(istep,ndiag)
    if(im==0) then
       call get_3D_flow(da,dgq,dgf,wpi(2,:))
    end if

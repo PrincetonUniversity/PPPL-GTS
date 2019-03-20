@@ -895,33 +895,136 @@ subroutine snapshot
 
 end subroutine snapshot
 
+! module snapsnap
+
+!   implicit none
+
+!   contains
+
+!     subroutine Interpolate_Data_into_Coarser_Grids(in_Data_Arr1D, gq_jump, a_jump, unit_coeff, out_intpl_Arr1D)
+
+!       use precision
+!       use global_parameters
+!       use field_array
+!       !implicit none
+
+!       integer, intent(in) :: gq_jump, a_jump 
+!       real(wp), intent(in) :: unit_coeff
+!       real(wp), dimension(:), intent(inout) :: in_Data_Arr1D
+!       real(wp), dimension(:), intent(inout) :: out_intpl_Arr1D
+!       integer i,j,ij,k,jm,jt
+
+!       real(wp) inv_dgq(0:mpsi), gqdum, wt
+
+!       inv_dgq=1.0/deltat
+
+!       jm=mtheta(ipsi)/gq_jump   
+
+!       k=1
+!       do i=0,mpsi,a_jump
+!         do j=0,jm
+!           gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+!           jt=int(gqdum);  wt=gqdum-jt
+!           out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)      
+!           k=k+1
+!         enddo
+!       enddo
+!       out_intpl_Arr1D = unit_coeff*out_intpl_Arr1D 
+
+!     end subroutine Interpolate_Data_into_Coarser_Grids
+! end module snapsnap
+
+
+subroutine Interpolate_Data_into_Coarser_Grids(in_Data_Arr1D, gq_jump, a_jump, out_intpl_Arr1D)
+
+  use precision
+  use global_parameters
+  use field_array
+  implicit none
+
+  integer, intent(in) :: gq_jump, a_jump 
+  real(wp), dimension(mgrid), intent(inout) :: in_Data_Arr1D
+  real(wp), dimension(((mpsi+1)/a_jump)*(mtheta(ipsi)/gq_jump+1)), intent(inout) :: out_intpl_Arr1D
+  integer i,j,ij,k,jt,jm
+
+  real(wp) inv_dgq(0:mpsi), gqdum, wt
+
+  inv_dgq=1.0/deltat
+
+  jm=mtheta(ipsi)/gq_jump   
+
+  k=1
+  do i=0,mpsi,a_jump
+    do j=0,jm
+      gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
+      jt=int(gqdum);  wt=gqdum-jt
+      out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)      
+      k=k+1
+    enddo
+  enddo
+
+end subroutine Interpolate_Data_into_Coarser_Grids
+
 
 subroutine snapshot_hdf5
   use precision  
   use global_parameters
-  use  control_parameters
+  use control_parameters
   use particle_decomp
   use field_array 
+  use mpi_defs
   use hdf5
   use h5lt
 
   implicit none
 
   integer, parameter :: gq_jump=2, a_jump=1
+  integer :: msnap_for_All
   integer :: dim_a, dim_gq
   real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
   ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
   integer(HSIZE_T) :: h5dims(3)
   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP
   integer :: h5err
+  logical :: snap_flag=.false.
   ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
   real(wp) :: intp_val, intp_val2
   real(wp), dimension(:), allocatable ::intp_val_Arr  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3)) 
-  integer :: i,j,ij,k,jt,jm
-  real(wp) tmp_full_dphi(0:1,mgrid), intpl_dphi_NZ(0:1,mgrid), dne_adiabatic(0:1,mgrid)
-  real(wp) full_dni(0:1,mgrid), full_dne(0:1,mgrid), FLA_full_dni(0:1,mgrid), FLA_full_dne(0:1,mgrid) !
+  integer :: i,j,ij,k,jt,jm,istatus(MPI_STATUS_SIZE),ierror
+  real(wp) full_dphi(0:1,mgrid), intpl_dphi_NZ(0:1), dne_adiabatic(0:1,mgrid)
+  real(wp) full_dni(0:1,mgrid), full_dne(0:1,mgrid), FLA_full_dni(0:1,mgrid), FLA_full_dne(0:1,mgrid)
+  real(wp) inv_msnap,ndiag_over_msnap, mean_full_dni(0:1,mgrid), mean_full_dne(0:1,mgrid), mean_full_dphi(0:1,mgrid), mean_dne_adiab(0:1)
+  real(wp) mean_zonal_dne(0:mpsi), mean_zonal_dni(0:mpsi), mean_zonal_dphi(0:mpsi)
+  real(wp) mean_zonal_dTe(0:mpsi), mean_zonal_dTi(0:mpsi), mean_full_dTe(0:1,mgrid), mean_full_dTi(0:1,mgrid)
+  
+  real(wp) mean_zonal_dphi_SQ(0:mpsi), mean_zonal_dni_SQ(0:mpsi), mean_zonal_dne_SQ(0:mpsi), mean_zonal_dTi_SQ(0:mpsi), mean_zonal_dTe_SQ(0:mpsi)
+  real(wp) mean_full_dphi_SQ(0:1,mgrid), mean_full_dni_SQ(0:1,mgrid), mean_full_dne_SQ(0:1,mgrid), mean_full_dTe_SQ(0:1,mgrid), mean_full_dTi_SQ(0:1,mgrid)
+  
+  real(wp) Unit_Conv_Coeff ! Converstion coefficient from CGS to SI
+  real(wp) Device_simple_Vol, EE_tot, EE_Z,EE_NZ, EE_FLA, EE_NFLA, recv_0D, tmp_FLA_dphi_nonNaN(0:1,mgrid) ! Electric Energy (EE) with total, Z(Zonal), NZ(NonZonal), FLA and NFLA components of dphi
+
+  real(wp) coarser_dgq, coarser_dpsi1, coarser_dpsi2
+  real(wp), dimension(:), allocatable :: intp_a_1D, recvl, recvr
+  real(wp), dimension(:,:), allocatable :: intp_mean_full_dphi, right_intp_mean_full_dphi, left_intp_mean_full_dphi
+  real(wp), dimension(:,:), allocatable :: intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi
+  real(wp), dimension(:,:,:), allocatable :: intp_mean_dE_cov3, right_mean_dE_cov3, left_mean_dE_cov3, intp_FLA_dE_cov3, right_FLA_dE_cov3, left_FLA_dE_cov3
+  real(wp) dE_cov3(3,0:1,mgrid)  ! (-evector)=-grad(Phi) , This is instantaneous electric fields which might have many noises.
+  real(wp), dimension(:), allocatable :: intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D
   real(wp),dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
   character(LEN=128) :: file_path
+
+  
+
+  msnap_for_All = msnap*50
+
+
+  if(istep==0) then
+    inv_msnap=1.0
+    ndiag_over_msnap=1.0
+  else
+    inv_msnap=(1.0/msnap)
+    ndiag_over_msnap=(real(ndiag)/real(msnap)) ! The quantities cumulated at every ndiag step have (ndiag/msnap) times accumulated data at each msnap step.
+  endif
 
 
   inv_dgq=1.0/deltat
@@ -929,6 +1032,7 @@ subroutine snapshot_hdf5
   dim_a = (mpsi+1)/a_jump
   dim_gq = jm+1
 
+  coarser_dgq = 2.0*pi/(dim_gq-1) 
   ! Write Restart files
   !if(mod(istep,irewrite) .eq. 0) call restart_write
 
@@ -937,34 +1041,207 @@ subroutine snapshot_hdf5
   call Cal_dni_dTi_from_each_ion_weight_component
   call Cal_dne_dTe_from_each_electron_weight_component
 
+  mean_zonal_dphi = inv_msnap*cum_phi00
+  mean_zonal_dni  = inv_msnap*den_grid*cum_zonali
+  mean_zonal_dne  = inv_msnap*den_grid*cum_zonale
+  mean_zonal_dTe  = ndiag_over_msnap*cum_zonal_dTe
+  mean_zonal_dTi  = ndiag_over_msnap*cum_zonal_dTi
+
+  mean_zonal_dphi_SQ = inv_msnap*cum_phi00_SQ
+  mean_zonal_dni_SQ  = inv_msnap*den_grid*cum_zonali_SQ
+  mean_zonal_dne_SQ  = inv_msnap*den_grid*cum_zonale_SQ
+  mean_zonal_dTe_SQ  = ndiag_over_msnap*cum_zonal_dTe_SQ
+  mean_zonal_dTi_SQ  = ndiag_over_msnap*cum_zonal_dTi_SQ
+
+  mean_full_dphi  = inv_msnap*cum_full_dphi
+  mean_full_dne   = inv_msnap*cum_full_dne
+  mean_full_dni   = inv_msnap*cum_full_dni
+  mean_full_dTe   = ndiag_over_msnap*cum_full_dTe
+  mean_full_dTi   = ndiag_over_msnap*cum_full_dTi
+
+  mean_full_dphi_SQ  = inv_msnap*cum_full_dphi_SQ
+  mean_full_dne_SQ   = inv_msnap*cum_full_dne_SQ
+  mean_full_dni_SQ   = inv_msnap*cum_full_dni_SQ
+  mean_full_dTe_SQ   = ndiag_over_msnap*cum_full_dTe_SQ
+  mean_full_dTi_SQ  = ndiag_over_msnap*cum_full_dTi_SQ
+
   do i=0,mpsi
     do j=0,mtheta(i)
       ij=igrid(i) + j
-      tmp_full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)  
-      intpl_dphi_NZ(:,ij) = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-      dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ(:,ij)/Te_grid(i)  
-      full_dne(:,ij) =  den_grid(i)*(densitye(:,ij)+real(ZF_SEPARATIOn)*zonale(i)) + int(ifelectron/2)*dne_adiabatic(:,ij)
-      full_dni(:,ij) =  den_grid(i)*(densityi(:,ij)+real(ZF_SEPARATIOn)*zonali(i))
+      full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)  
+      intpl_dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
+      dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ/Te_grid(i)  
+      full_dne(:,ij) =  den_grid(i)*(densitye(:,ij)+real(ZF_SEPARATION)*zonale(i)) + int(ifelectron/2)*dne_adiabatic(:,ij)
+      full_dni(:,ij) =  den_grid(i)*(densityi(:,ij)+real(ZF_SEPARATION)*zonali(i))      
     enddo
   enddo
-
+  
+  !==============================================
+  ! Record Information at zeta=0 poloidal plane
+  !==============================================  
   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
-    call Do_FieldLineAverage_by_using_gPPI(tmp_full_dphi, FLA_dphi)    
+    ! call Do_FieldLineAverage_by_using_gPPI(full_dphi, FLA_dphi)    
+    ! call Do_FieldLineAverage_by_using_gPPI(dne_adiabatic, FLA_ne_adiabatic)
+    ! call Do_FieldLineAverage_by_using_gPPI(full_dne, FLA_full_dne)
+    ! call Do_FieldLineAverage_by_using_gPPI(full_dni, FLA_full_dni)
+    call Do_FieldLineAverage_by_using_gPPI(mean_full_dphi, FLA_dphi)    
     call Do_FieldLineAverage_by_using_gPPI(dne_adiabatic, FLA_ne_adiabatic)
-    call Do_FieldLineAverage_by_using_gPPI(full_dne, FLA_full_dne)
-    call Do_FieldLineAverage_by_using_gPPI(full_dni, FLA_full_dni)
+    call Do_FieldLineAverage_by_using_gPPI(mean_full_dne, FLA_full_dne)
+    call Do_FieldLineAverage_by_using_gPPI(mean_full_dni, FLA_full_dni)
+    call Do_FieldLineAverage_by_using_gPPI(mean_full_dTe, FLA_dTe) 
+    call Do_FieldLineAverage_by_using_gPPI(mean_full_dTi, FLA_dTi) 
   endif
+
+
+  !=================================
+  ! Calculate electrostatic energy (EE) in the system 
+  !================================
+  tmp_FLA_dphi_nonNaN = FLA_dphi
+  where(FLA_Denominator==0.0) tmp_FLA_dphi_nonNaN=0.0 ! Remove NaN elements in FLA_dphi to get nonNaN EE values for FLA and NFLA components
+
+  ! Calculate EE on each poloidal plane
+
+  Device_simple_Vol = sum(Node_simple_Vol)
+  EE_tot  = sum(Node_simple_Vol*(mean_full_dni(1,:) +csc0*mean_full_dne(1,:))*mean_full_dphi(1,:))  
+  EE_FLA  = sum(Node_simple_Vol*(mean_full_dni(1,:) +csc0*mean_full_dne(1,:))*(tmp_FLA_dphi_nonNaN(1,:)))
+  EE_NFLA = sum(Node_simple_Vol*(mean_full_dni(1,:) +csc0*mean_full_dne(1,:))*(mean_full_dphi(1,:)-tmp_FLA_dphi_nonNaN(1,:)))
+  EE_Z  = 0.0
+  EE_NZ = 0.0
+  do i=0,mpsi
+    do j=0,mtheta(i)
+      ij=igrid(i) +j
+      EE_Z  = EE_Z  +Node_simple_Vol(ij)*(mean_full_dni(1,ij)+csc0*mean_full_dne(1,ij))*mean_zonal_dphi(i)
+      EE_NZ = EE_NZ +Node_simple_Vol(ij)*(mean_full_dni(1,ij)+csc0*mean_full_dne(1,ij))*(mean_full_dphi(1,ij)-mean_zonal_dphi(i))
+    enddo
+  enddo
+  ! Take a summation over toroidal_comm to get overall EE energy
+  call MPI_ALLREDUCE(Device_simple_Vol,recv_0D, 1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
+  Device_simple_Vol = recv_0D
+  call MPI_ALLREDUCE(EE_tot,recv_0D, 1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
+  EE_tot = recv_0D
+  call MPI_ALLREDUCE(EE_FLA,recv_0D, 1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
+  EE_FLA = recv_0D
+  call MPI_ALLREDUCE(EE_NFLA,recv_0D, 1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
+  EE_NFLA = recv_0D
+  call MPI_ALLREDUCE(EE_Z,recv_0D, 1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
+  EE_Z = recv_0D
+  call MPI_ALLREDUCE(EE_NZ,recv_0D, 1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
+  EE_NZ = recv_0D
+
+
+  !=================================
+  ! Calculate Electric fields & mean electric fields
+  !================================
+  dE_cov3 = -evector ! This is an instanteneous 
+
+  allocate(intp_a_1D(dim_a), recvl(dim_gq*dim_a), recvr(dim_gq*dim_a), intp_val_Arr(dim_gq*dim_a))
+  allocate(intp_mean_full_dphi(dim_gq, dim_a), right_intp_mean_full_dphi(dim_gq, dim_a), left_intp_mean_full_dphi(dim_gq, dim_a))
+  allocate(intp_FLA_dphi(dim_gq, dim_a), right_intp_FLA_dphi(dim_gq, dim_a), left_intp_FLA_dphi(dim_gq, dim_a))
+  allocate(intp_mean_dE_cov3(3,dim_gq,dim_a), right_mean_dE_cov3(3,dim_gq,dim_a),left_mean_dE_cov3(3,dim_gq,dim_a))
+  allocate(intp_FLA_dE_cov3(3,dim_gq,dim_a), right_FLA_dE_cov3(3,dim_gq,dim_a), left_FLA_dE_cov3(3,dim_gq,dim_a))
+
+
+  k=1
+  do i=0,mpsi,a_jump
+    intp_a_1D(k) = psi_grid(i)
+    k=k+1    
+  enddo
+    
+
+  ! Cal interpolated phi
+  call Interpolate_Data_into_Coarser_Grids(mean_full_dphi(1,:),gq_jump,a_jump,intp_val_Arr)
+   ! send phi to right and receive from left
+  call MPI_SENDRECV(intp_val_Arr, dim_gq*dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
+                    recvl, dim_gq*dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
+  ! send phi to left and receive from right
+  call MPI_SENDRECV(intp_val_Arr, dim_gq*dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
+                    recvr, dim_gq*dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
+  intp_mean_full_dphi = reshape(intp_val_Arr,(/dim_gq, dim_a/))
+  left_intp_mean_full_dphi = reshape(recvl,(/dim_gq, dim_a/))
+  right_intp_mean_full_dphi = reshape(recvr,(/dim_gq, dim_a/))
+
+  ! Cal interpolated FLA phi
+  call Interpolate_Data_into_Coarser_Grids(FLA_dphi(1,:),gq_jump,a_jump,intp_val_Arr)
+   ! send phi to right and receive from left
+  call MPI_SENDRECV(intp_val_Arr, dim_gq*dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
+                    recvl, dim_gq*dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
+  ! send phi to left and receive from right
+  call MPI_SENDRECV(intp_val_Arr, dim_gq*dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
+                    recvr, dim_gq*dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
+  intp_FLA_dphi = reshape(intp_val_Arr,(/dim_gq, dim_a/))
+  left_intp_FLA_dphi = reshape(recvl,(/dim_gq, dim_a/))
+  right_intp_FLA_dphi = reshape(recvr,(/dim_gq, dim_a/))
+
+  deallocate(recvl, recvr, intp_val_Arr)
+
+
+  ! Radial electric fields (delta_a may not be constant; so it should be calculated at each )
+  intp_mean_dE_cov3(1,:,1) = -(intp_mean_full_dphi(:,2)-intp_mean_full_dphi(:,1))/(intp_a_1D(2)-intp_a_1D(1))
+  do i=2,dim_a-1
+    coarser_dpsi1 = intp_a_1D(i)-intp_a_1D(i-1)
+    coarser_dpsi2 = intp_a_1D(i+1)-intp_a_1D(i)
+    intp_mean_dE_cov3(1,:,i) = -(coarser_dpsi2*(intp_mean_full_dphi(:,i)-intp_mean_full_dphi(:,i-1))/coarser_dpsi1 + coarser_dpsi1*(intp_mean_full_dphi(:,i+1)-intp_mean_full_dphi(:,i))/coarser_dpsi2)/(coarser_dpsi1+coarser_dpsi2)
+  enddo
+  intp_mean_dE_cov3(1,:,dim_a) = -(intp_mean_full_dphi(:,dim_a)-intp_mean_full_dphi(:,dim_a-1))/(intp_a_1D(dim_a)-intp_a_1D(dim_a-1))
+  ! theta electric fields
+  intp_mean_dE_cov3(2,1,:)    = -(intp_mean_full_dphi(dim_gq-1,:)-intp_mean_full_dphi(2,:))/(2.0*coarser_dgq)
+  do j=2,dim_gq-1
+    intp_mean_dE_cov3(2,j,:)  = -(intp_mean_full_dphi(j+1,:)-intp_mean_full_dphi(j-1,:))/(2.0*coarser_dgq)
+  enddo
+  intp_mean_dE_cov3(2,dim_gq,:) = intp_mean_dE_cov3(2,1,:)
+  ! toroidal electric fields
+  intp_mean_dE_cov3(3,:,:) = -(right_intp_mean_full_dphi-left_intp_mean_full_dphi)/(2.0*deltaz)
+
+
+  ! Radial electric fields (delta_a may not be constant; so it should be calculated at each )
+  intp_FLA_dE_cov3(1,:,1) = -(intp_FLA_dphi(:,2)-intp_FLA_dphi(:,1))/(intp_a_1D(2)-intp_a_1D(1))
+  do i=2,dim_a-1
+    coarser_dpsi1 = intp_a_1D(i)-intp_a_1D(i-1)
+    coarser_dpsi2 = intp_a_1D(i+1)-intp_a_1D(i)
+    intp_FLA_dE_cov3(1,:,i) = -(coarser_dpsi2*(intp_FLA_dphi(:,i)-intp_FLA_dphi(:,i-1))/coarser_dpsi1 + coarser_dpsi1*(intp_FLA_dphi(:,i+1)-intp_FLA_dphi(:,i))/coarser_dpsi2)/(coarser_dpsi1+coarser_dpsi2)
+  enddo
+  intp_FLA_dE_cov3(1,:,dim_a) = -(intp_FLA_dphi(:,dim_a)-intp_FLA_dphi(:,dim_a-1))/(intp_a_1D(dim_a)-intp_a_1D(dim_a-1))
+  ! theta electric fields
+  intp_FLA_dE_cov3(2,1,:)    = -(intp_FLA_dphi(dim_gq-1,:)-intp_FLA_dphi(2,:))/(2.0*coarser_dgq)
+  do j=2,dim_gq-1
+    intp_FLA_dE_cov3(2,j,:)  = -(intp_FLA_dphi(j+1,:)-intp_FLA_dphi(j-1,:))/(2.0*coarser_dgq)
+  enddo
+  intp_FLA_dE_cov3(2,dim_gq,:) = intp_FLA_dE_cov3(2,1,:)
+  ! toroidal electric fields
+  intp_FLA_dE_cov3(3,:,:) = -(right_intp_FLA_dphi-left_intp_FLA_dphi)/(2.0*deltaz)
+
+  ! Send&Recv intp_mean_dE_cov3 b.t.w. adjacent polodial planes
+  call MPI_SENDRECV(intp_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
+                    left_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)  
+  call MPI_SENDRECV(intp_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
+                    right_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
+  ! Send&Recv intp_FLA_dE_cov3 b.t.w. adjacent polodial planes
+  call MPI_SENDRECV(intp_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
+                    left_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)  
+  call MPI_SENDRECV(intp_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
+                    right_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
+
+
+
 
 
   ! ==================================
   ! Record some data on sparse grid points
   ! ==================================
+  snap_flag=.false.
+  if(mod(istep,msnap_for_All)==0 .and. myrank_partd==0) then
+    call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
+    write(file_path, '("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
+    snap_flag=.true.
+  endif
   if(mype == numberpe-1)then !mype=0 must also have myrank_toroidal=0
-
     call system("mkdir -p " // 'snapshots_hdf5')
     write(file_path, '("snapshots_hdf5/snap",i5.5,".h5")') istep/msnap
     !open(snapout,file=file_path,status='replace')
+    snap_flag=.true.
+  endif
 
+  if(snap_flag) then
     call h5open_f(h5err)
     call h5fcreate_f(file_path, H5F_ACC_TRUNC_F, file_id, h5err)
 
@@ -973,80 +1250,150 @@ subroutine snapshot_hdf5
     call h5gcreate_f(file_id, "DCOMP", gid_DCOMP, h5err)
     !
     h5dims(1) = 1
-    call h5ltmake_dataset_f(file_id, "/time",1,h5dims,H5T_NATIVE_DOUBLE, real(istep)*tstep,h5err)
-    call h5ltset_attribute_string_f(file_id, "/time", "unit", "L_T/v_th", h5err)
-      
+    call h5ltmake_dataset_f(file_id, "time_s",1,h5dims,H5T_NATIVE_DOUBLE, real(istep)*tstep*utime,h5err)
+    call h5ltset_attribute_string_f(file_id, "time_s", "unit", "sec", h5err)
+    call h5ltmake_dataset_f(file_id, "norm_time",1,h5dims,H5T_NATIVE_DOUBLE, real(istep)*tstep/MM_Lc_over_vthci,h5err)
+    call h5ltset_attribute_string_f(file_id, "norm_time", "unit", "L_T/v_th", h5err)
 
 
     ! PARAMS: parameters about the simulation and diagnostic
     h5dims(1) = 1
-    call h5ltmake_dataset_f(file_id, "/PARAMS/tstep",1,h5dims,H5T_NATIVE_DOUBLE, tstep,h5err)
-    call h5ltmake_dataset_f(file_id, "/PARAMS/mpsi",1,h5dims,H5T_NATIVE_INTEGER, mpsi/a_jump, h5err)
-    call h5ltmake_dataset_f(file_id, "/PARAMS/mtheta",1,h5dims,H5T_NATIVE_INTEGER, jm, h5err)
-    call h5ltmake_dataset_f(file_id, "/PARAMS/mzetamax",1,h5dims,H5T_NATIVE_INTEGER, mzetamax, h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/zetamax",1,h5dims,H5T_NATIVE_DOUBLE, zetamax,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/zetamax", "unit", "rad", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/utime_s",1,h5dims,H5T_NATIVE_DOUBLE, utime,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/utime_s", "unit", "sec", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/dt_s",1,h5dims,H5T_NATIVE_DOUBLE, tstep*utime,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/dt_s", "unit", "sec", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/norm_dt",1,h5dims,H5T_NATIVE_DOUBLE, tstep/MM_Lc_over_vthci,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/norm_dt", "unit", "L_T/v_th", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/mpsi",1,h5dims,H5T_NATIVE_INTEGER, mpsi/a_jump, h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/mtheta",1,h5dims,H5T_NATIVE_INTEGER, jm, h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/mzetamax",1,h5dims,H5T_NATIVE_INTEGER, mzetamax, h5err)
 
+    call h5ltmake_dataset_f(file_id, "PARAMS/Lc_over_vthci",1,h5dims,H5T_NATIVE_DOUBLE, MM_Lc_over_vthci*utime,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/Lc_over_vthci", "unit", "sec", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/Cs",1,h5dims,H5T_NATIVE_DOUBLE, MM_Cs/utime,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/Cs", "unit", "m/s", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/vthci",1,h5dims,H5T_NATIVE_DOUBLE, MM_vthci/utime,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/vthci", "unit", "m/s", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/vthce",1,h5dims,H5T_NATIVE_DOUBLE, MM_vthce/utime,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/vthce", "unit", "m/s", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/LcTi",1,h5dims,H5T_NATIVE_DOUBLE, MM_LcTi,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/LcTi", "unit", "m", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/LcTe",1,h5dims,H5T_NATIVE_DOUBLE, MM_LcTe,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/LcTe", "unit", "m", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/Lcn",1,h5dims,H5T_NATIVE_DOUBLE, MM_Lcn,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/Lcn", "unit", "m", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/LcU",1,h5dims,H5T_NATIVE_DOUBLE, MM_LcU,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/LcU", "unit", "m", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/axis_R",1,h5dims,H5T_NATIVE_DOUBLE, MM_R_axis,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/axis_R", "unit", "m", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/axis_B",1,h5dims,H5T_NATIVE_DOUBLE, MM_B_axis,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/axis_B", "unit", "T", h5err)
+    call h5ltmake_dataset_f(file_id, "PARAMS/Device_Simple_Vol",1,h5dims,H5T_NATIVE_DOUBLE, Device_simple_Vol,h5err)
+    call h5ltset_attribute_string_f(file_id, "PARAMS/Device_Simple_Vol", "unit", "m^3", h5err)
+
+
+
+
+    ! 0D Data
+    h5dims(1) = 1    
+    Unit_Conv_Coeff = (charg0*10/c)*1e6*((E_00*c)/(charg0*1e8))  ! e*n*phi =  (Charge)*(Density)*(Volatege) Conversion  
+    call h5ltmake_dataset_f(file_id, "EE_tot",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_tot, h5err)
+    call h5ltset_attribute_string_f(file_id, "EE_tot", "unit", "J", h5err)  
+    call h5ltmake_dataset_f(file_id, "EE_Z",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_Z, h5err)
+    call h5ltset_attribute_string_f(file_id, "EE_Z", "unit", "J", h5err)  
+    call h5ltmake_dataset_f(file_id, "EE_NZ",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_NZ, h5err)
+    call h5ltset_attribute_string_f(file_id, "EE_NZ", "unit", "J", h5err)  
+    call h5ltmake_dataset_f(file_id, "EE_FLA",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_FLA, h5err)
+    call h5ltset_attribute_string_f(file_id, "EE_FLA", "unit", "J", h5err)  
+    call h5ltmake_dataset_f(file_id, "EE_NFLA",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_NFLA, h5err)
+    call h5ltset_attribute_string_f(file_id, "EE_NFLA", "unit", "J", h5err)  
 
 
     ! EQ: About the equilibrium information
       ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
     h5dims(1) = dim_a    
-    call h5ltmake_dataset_f(file_id, "/a_1D",1,h5dims,H5T_NATIVE_DOUBLE, psi_grid(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/a_1D", "unit", "norm_psi_t", h5err) 
-    call h5ltmake_dataset_f(file_id, "/n0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/n0_1D", "unit", "#/m^3", h5err)
-    call h5ltmake_dataset_f(file_id, "/Ti0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(vth_grid(0:mpsi:a_jump)**2), h5err)
-    call h5ltset_attribute_string_f(file_id, "/Ti0_1D", "unit", "eV", h5err)
-    call h5ltmake_dataset_f(file_id, "/Te0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*Te_grid(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/Te0_1D", "unit", "eV", h5err)
-    call h5ltmake_dataset_f(file_id, "/zonal_dphi_1D",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*phi00(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/zonal_dphi_1D", "unit", "V", h5err) 
-    call h5ltmake_dataset_f(file_id, "/zonal_ddphidr_1D",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*phip00(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/zonal_ddphidr_1D", "unit", "V/(norm_psi_t)", h5err) 
-    call h5ltmake_dataset_f(file_id, "/zonal_dni_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump)*zonali(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/zonal_dni_1D", "unit", "#/m^3", h5err) 
-    call h5ltmake_dataset_f(file_id, "/zonal_dne_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump)*zonale(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/zonal_dne_1D", "unit", "#/m^3", h5err) 
-    call h5ltmake_dataset_f(file_id, "/zonal_dTi_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*zonal_dTi(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/zonal_dTi_1D", "unit", "eV", h5err) 
-    call h5ltmake_dataset_f(file_id, "/zonal_dTe_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*zonal_dTe(0:mpsi:a_jump), h5err)
-    call h5ltset_attribute_string_f(file_id, "/zonal_dTe_1D", "unit", "eV", h5err)  
+    call h5ltmake_dataset_f(file_id, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, psi_grid(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "a_1D", "unit", "norm_psi_t", h5err) 
+    call h5ltmake_dataset_f(file_id, "n0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "n0_1D", "unit", "#/m^3", h5err)
+    call h5ltmake_dataset_f(file_id, "Ti0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(vth_grid(0:mpsi:a_jump)**2), h5err)
+    call h5ltset_attribute_string_f(file_id, "Ti0_1D", "unit", "eV", h5err)
+    call h5ltmake_dataset_f(file_id, "Te0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*Te_grid(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "Te0_1D", "unit", "eV", h5err)
+    call h5ltmake_dataset_f(file_id, "zonal_dphi",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*phi00(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "zonal_dphi", "unit", "V", h5err) 
+    call h5ltmake_dataset_f(file_id, "zonal_ddphidr",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*phip00(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "zonal_ddphidr", "unit", "V/(norm_psi_t)", h5err) 
+    call h5ltmake_dataset_f(file_id, "zonal_dni",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump)*zonali(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "zonal_dni", "unit", "#/m^3", h5err) 
+    call h5ltmake_dataset_f(file_id, "zonal_dne",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump)*zonale(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "zonal_dne", "unit", "#/m^3", h5err) 
+    call h5ltmake_dataset_f(file_id, "zonal_dTi",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*zonal_dTi(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "zonal_dTi", "unit", "eV", h5err) 
+    call h5ltmake_dataset_f(file_id, "zonal_dTe",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*zonal_dTe(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "zonal_dTe", "unit", "eV", h5err)  
 
-
+    ! 1D mean zonal quantities
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dphi",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*mean_zonal_dphi(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dphi", "unit", "V", h5err) 
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dni",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*mean_zonal_dni(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dni", "unit", "#/m^3", h5err)  
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dne",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*mean_zonal_dne(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dne", "unit", "#/m^3", h5err)  
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dTe",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*mean_zonal_dTe(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dTe", "unit", "eV", h5err)  
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dTi",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*mean_zonal_dTi(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dTi", "unit", "eV", h5err)  
+    
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dphi_SQ",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))**2.0*mean_zonal_dphi_SQ(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dphi_SQ", "unit", "V", h5err)  
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dni_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e6)**2.0*mean_zonal_dni_SQ(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dni_SQ", "unit", "#/m^3", h5err)  
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dne_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e6)**2.0*mean_zonal_dne_SQ(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dne_SQ", "unit", "#/m^3", h5err)  
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dTi_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e3)**2.0*Tem_00*mean_zonal_dTi_SQ(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dTi_SQ", "unit", "eV", h5err)  
+    call h5ltmake_dataset_f(file_id, "mean_zonal_dTe_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e3)**2.0*Tem_00*mean_zonal_dTe_SQ(0:mpsi:a_jump), h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_zonal_dTe_SQ", "unit", "eV", h5err)  
 
     ! =======================
     ! 2D data
     ! =======================
     h5dims(1:2)=(/dim_gq, dim_a/)
     allocate(intp_val_Arr(dim_a*dim_gq))
+    allocate(intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D, mold=intp_val_Arr)  
 
+    k=1
+    do i=0,mpsi,a_jump
+      do j=0,jm
+        aaa(1)=psi_grid(i)
+        the(1)=2.0*pi*real(j)/real(jm)     
+        call esigetrzb(rj,zj,Bj,aaa,the,1)  
+        intp_R_2D(k) = rj(1)
+        intp_Z_2D(k) = zj(1)
+        intp_x_2D(k) = rj(1)*cos(zetamax)
+        intp_y_2D(k) = rj(1)*sin(zetamax)
+        k=k+1
+      enddo
+    enddo    
 
     ! R_2D
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        aaa(1)=psi_grid(i)
-        the(1)=2.0*pi*real(j)/real(jm)     
-        call esigetrzb(rj,zj,Bj,aaa,the,1)  
-        intp_val_Arr(k) = rj(1)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/R_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/R_2D", "unit", "m", h5err)
-
+    call h5ltmake_dataset_f(file_id, "R_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_R_2D,h5err)
+    call h5ltset_attribute_string_f(file_id, "R_2D", "unit", "m", h5err)
     ! Z_2D
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        aaa(1)=psi_grid(i)
-        the(1)=2.0*pi*real(j)/real(jm)     
-        call esigetrzb(rj,zj,Bj,aaa,the,1)  
-        intp_val_Arr(k) = zj(1)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/Z_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/Z_2D", "unit", "m", h5err)
+    call h5ltmake_dataset_f(file_id, "Z_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_Z_2D,h5err)
+    call h5ltset_attribute_string_f(file_id, "Z_2D", "unit", "m", h5err)
+    ! x_2D
+    call h5ltmake_dataset_f(file_id, "x_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_x_2D,h5err)
+    call h5ltset_attribute_string_f(file_id, "x_2D", "unit", "m", h5err)
+    ! y_2D
+    call h5ltmake_dataset_f(file_id, "y_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_y_2D,h5err)
+    call h5ltset_attribute_string_f(file_id, "y_2D", "unit", "m", h5err)
+
+    deallocate(intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D)
+
 
     ! a_2D
     k=1
@@ -1056,8 +1403,8 @@ subroutine snapshot_hdf5
         k=k+1
       enddo
     enddo
-    call h5ltmake_dataset_f(file_id, "/a_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/a_2D", "unit", "norm_psi_t", h5err)
+    call h5ltmake_dataset_f(file_id, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "a_2D", "unit", "norm_psi_t", h5err)
 
     ! gq_2D
     k=1
@@ -1067,8 +1414,8 @@ subroutine snapshot_hdf5
         k=k+1
       enddo
     enddo
-    call h5ltmake_dataset_f(file_id, "/gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/gq_2D", "unit", "radians", h5err)
+    call h5ltmake_dataset_f(file_id, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "gq_2D", "unit", "radians", h5err)
 
 
     ! dphi_2D
@@ -1082,39 +1429,26 @@ subroutine snapshot_hdf5
         k=k+1
       enddo
     enddo
-    call h5ltmake_dataset_f(file_id, "/dphi",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/dphi", "unit", "V", h5err)
+    call h5ltmake_dataset_f(file_id, "dphi",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "dphi", "unit", "V", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(phi(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "test_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "test_dphi", "unit", "V", h5err)
+
 
     ! ion density
     ! from tot_dni with no enforced charge-conservation
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt
-        intp_val = ((1.0-wt)*tot_dni(1,igrid(i)+jt) + wt*tot_dni(1,igrid(i)+jt+1)) 
-        intp_val_Arr(k) = 1e6*intp_val 
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/dni_from_tot_dni",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/dni_from_tot_dni", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(tot_dni(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "dni_from_tot_dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "dni_from_tot_dni", "unit", "#/m^3", h5err)
 
 
     ! from densityi directly
     ! If(its_jacobi=1). this is the result enforced by charge-conservation
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt
-        intp_val =(1.0-wt)*full_dni(1,igrid(i)+jt) + wt*full_dni(1,igrid(i)+jt+1)
-        intp_val_Arr(k) = 1e6*intp_val 
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/full_dni",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/full_dni", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(full_dni(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "full_dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "full_dni", "unit", "#/m^3", h5err)
 
     ! ion temperature fluctuation 
     k=1
@@ -1127,23 +1461,14 @@ subroutine snapshot_hdf5
         k=k+1
       enddo
     enddo
-    call h5ltmake_dataset_f(file_id, "/dTi",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/dTi", "unit", "eV", h5err)
+    call h5ltmake_dataset_f(file_id, "dTi",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "dTi", "unit", "eV", h5err)
 
     ! electron density
     ! from tot_dne with no enforced charge-conservation    
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt
-        intp_val = ((1.0-wt)*tot_dne(1,igrid(i)+jt) + wt*tot_dne(1,igrid(i)+jt+1)) 
-        intp_val_Arr(k) = 1e6*intp_val 
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/dne_from_tot_dne",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/dne_from_tot_dne", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(tot_dne(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "dne_from_tot_dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "dne_from_tot_dne", "unit", "#/m^3", h5err)
 
 
     ! from densitye directly
@@ -1158,22 +1483,14 @@ subroutine snapshot_hdf5
         k=k+1
       enddo
     enddo
-    call h5ltmake_dataset_f(file_id, "/full_dne",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/full_dne", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(full_dne(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "full_dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "full_dne", "unit", "#/m^3", h5err)
 
     ! Adiabatic density calculated from nonzonal dphi
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val = (1.0-wt)*dne_adiabatic(1,igrid(i)+jt) + wt*dne_adiabatic(1,igrid(i)+jt+1)
-        intp_val_Arr(k) = 1e6*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/dne_adiabatic",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/dne_adiabatic", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(dne_adiabatic(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "dne_adiabatic",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "dne_adiabatic", "unit", "#/m^3", h5err)
 
     ! Electron temperature fluctuation
     k=1
@@ -1186,444 +1503,268 @@ subroutine snapshot_hdf5
         k=k+1
       enddo
     enddo
-    call h5ltmake_dataset_f(file_id, "/dTe",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/dTe", "unit", "eV", h5err)
+    call h5ltmake_dataset_f(file_id, "dTe",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "dTe", "unit", "eV", h5err)
+
+
+    ! (temporal) Mean full_dni
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dni(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dni", "unit", "#/m^3", h5err)
+
+    ! (temporal) Mean full_dne
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dne(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dne", "unit", "#/m^3", h5err)
+
+    ! (temporal) Mean full_dphi
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dphi(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dphi", "unit", "V", h5err)
+
+    ! Mean full_dphi of Right poloidal plane
+    call h5ltmake_dataset_f(file_id, "mean_full_dphi_Right",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*right_intp_mean_full_dphi,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dphi_Right", "unit", "V", h5err)
+
+    call h5ltmake_dataset_f(file_id, "mean_full_dphi_Left",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*left_intp_mean_full_dphi,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dphi_Left", "unit", "V", h5err)
+
+
+    ! (temporal) Mean dTe
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dTe(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dTe",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dTe", "unit", "eV", h5err)
+
+    ! (temporal) Mean dTi
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dTi(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dTi",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dTi", "unit", "eV", h5err)
+
+
+    ! (temporal) Mean of full dphi_SQ
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dphi_SQ(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dphi_SQ",2,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))**2.0*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dphi_SQ", "unit", "V", h5err)
+
+    ! (temporal) Mean of full dni_SQ
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dni_SQ(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dni_SQ",2,h5dims,H5T_NATIVE_DOUBLE, (1e6)**2.0*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dni_SQ", "unit", "#/m^3", h5err)
+
+    ! (temporal) Mean of full dne_SQ
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dne_SQ(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dne_SQ",2,h5dims,H5T_NATIVE_DOUBLE, (1e6)**2.0*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dne_SQ", "unit", "#/m^3", h5err)
+
+    ! (temporal) Mean of full dTi_SQ
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dTi_SQ(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dTi_SQ",2,h5dims,H5T_NATIVE_DOUBLE,  (1e3*Tem_00)**2.0*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dTi_SQ", "unit", "eV", h5err)
+
+    ! (temporal) Mean of full dTe_SQ
+    call Interpolate_Data_into_Coarser_Grids(mean_full_dTe_SQ(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "mean_full_dTe_SQ",2,h5dims,H5T_NATIVE_DOUBLE, (1e3*Tem_00)**2.0*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_full_dTe_SQ", "unit", "eV", h5err)
 
 
     ! FLA psi0
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val = ((1.0-wt)*FLA_psi0(1,igrid(i)+jt)+  wt*FLA_psi0(1,igrid(i)+jt+1))
-        intp_val_Arr(k) = (intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/psi0",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/psi0", "unit", "norm_psi_t", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_psi0(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/psi0",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/psi0", "unit", "norm_psi_t", h5err)
 
     ! FLA Ti0
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val = ((1.0-wt)*FLA_Ti0(1,igrid(i)+jt)+  wt*FLA_Ti0(1,igrid(i)+jt+1))
-        intp_val_Arr(k) = 1e3*Tem_00*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/Ti0",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/Ti0", "unit", "eV", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_Ti0(1,:),gq_jump,a_jump,intp_val_Arr)  
+    call h5ltmake_dataset_f(file_id, "FLA/Ti0",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/Ti0", "unit", "eV", h5err)
 
    ! FLA Te0
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val = ((1.0-wt)*FLA_Te0(1,igrid(i)+jt)+  wt*FLA_Te0(1,igrid(i)+jt+1))
-        intp_val_Arr(k) = 1e3*Tem_00*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/Te0",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/Te0", "unit", "eV", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_Te0(1,:),gq_jump,a_jump,intp_val_Arr)  
+    call h5ltmake_dataset_f(file_id, "FLA/Te0",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/Te0", "unit", "eV", h5err)
 
    ! FLA n0
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val = ((1.0-wt)*FLA_n0(1,igrid(i)+jt)+  wt*FLA_n0(1,igrid(i)+jt+1))
-        intp_val_Arr(k) = 1e6*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/n0",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/n0", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_n0(1,:),gq_jump,a_jump,intp_val_Arr)      
+    call h5ltmake_dataset_f(file_id, "FLA/n0",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/n0", "unit", "#/m^3", h5err)
 
    ! FLA dphi
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val = ((1.0-wt)*FLA_dphi(1,igrid(i)+jt)+  wt*FLA_dphi(1,igrid(i)+jt+1))
-        intp_val_Arr(k) = ((E_00*c)/(charg0*1e8))*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/dphi",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/dphi", "unit", "V", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_dphi(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dphi", "unit", "V", h5err)
+
+    ! FLA dphi of Right poloidal plane
+    call h5ltmake_dataset_f(file_id, "FLA/dphi_Right",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*right_intp_FLA_dphi,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dphi_Right", "unit", "V", h5err)
+    ! FLA dphi of Left poloidal plane
+    call h5ltmake_dataset_f(file_id, "FLA/dphi_Left",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*left_intp_FLA_dphi,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dphi_Left", "unit", "V", h5err)
+
 
    ! FLA dTi
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*FLA_dTi(1,igrid(i)+jt)+  wt*FLA_dTi(1,igrid(i)+jt+1))
-        intp_val_Arr(k) =  1e3*Tem_00*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/dTi",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/dTi", "unit", "eV", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_dTi(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/dTi",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dTi", "unit", "eV", h5err)
 
     ! FLA dni
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*FLA_dni(1,igrid(i)+jt)+  wt*FLA_dni(1,igrid(i)+jt+1))
-        intp_val_Arr(k) =  1e6*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/dni_from_tot_dni",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/dni_from_tot_dni", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_dni(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/dni_from_tot_dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dni_from_tot_dni", "unit", "#/m^3", h5err)
 
     ! FLA dni
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*FLA_full_dni(1,igrid(i)+jt)+  wt*FLA_full_dni(1,igrid(i)+jt+1))
-        intp_val_Arr(k) =  1e6*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/full_dni",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/full_dni", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_full_dni(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/full_dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/full_dni", "unit", "#/m^3", h5err)
    
     ! FLA dTe
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*FLA_dTe(1,igrid(i)+jt)+  wt*FLA_dTe(1,igrid(i)+jt+1))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/dTe",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/dTe", "unit", "eV", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_dTe(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/dTe",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dTe", "unit", "eV", h5err)
 
     ! FLA_dne 
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(FLA_dne(1,igrid(i)+jt))+  wt*(FLA_dne(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/dne_from_tot_dne",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/dne_from_tot_dne", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_dne(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/dne_from_tot_dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dne_from_tot_dne", "unit", "#/m^3", h5err)
 
     ! FLA dne
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*FLA_full_dne(1,igrid(i)+jt)+  wt*FLA_full_dne(1,igrid(i)+jt+1))
-        intp_val_Arr(k) =  1e6*(intp_val)
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/full_dne",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/full_dne", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_full_dne(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/full_dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/full_dne", "unit", "#/m^3", h5err)
    
 
     ! FLA_ne_adiabatic 
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(FLA_dne(1,igrid(i)+jt))+  wt*(FLA_dne(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/FLA/dne_adiabatic",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/FLA/dne_adiabatic", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(FLA_dne(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "FLA/dne_adiabatic",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dne_adiabatic", "unit", "#/m^3", h5err)
 
 
 
     ! Decomposition
     ! dni each components 
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dni_init(1,igrid(i)+jt))+  wt*(dni_init(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dni_init",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dni_init", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dni_vpara(1,igrid(i)+jt))+  wt*(dni_vpara(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dni_vpara",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dni_vpara", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dni_vperp(1,igrid(i)+jt))+  wt*(dni_vperp(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dni_vperp",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dni_vperp", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dni_accel(1,igrid(i)+jt))+  wt*(dni_accel(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dni_accel",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dni_accel", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dni_fdamp(1,igrid(i)+jt))+  wt*(dni_fdamp(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dni_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dni_fdamp", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(dni_init(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dni_init",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dni_init", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dni_vpara(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dni_vpara",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dni_vpara", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dni_vperp(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dni_vperp",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dni_vperp", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dni_accel(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dni_accel",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dni_accel", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dni_fdamp(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dni_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dni_fdamp", "unit", "#/m^3", h5err)
 
     ! dTi each components
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTi_init(1,igrid(i)+jt))+  wt*(dTi_init(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTi_init",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTi_init", "unit", "eV", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTi_vpara(1,igrid(i)+jt))+  wt*(dTi_vpara(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTi_vpara",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTi_vpara", "unit", "eV", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTi_vperp(1,igrid(i)+jt))+  wt*(dTi_vperp(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTi_vperp",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTi_vperp", "unit", "eV", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTi_fdamp(1,igrid(i)+jt))+  wt*(dTi_fdamp(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTi_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTi_fdamp", "unit", "eV", h5err)
+    call Interpolate_Data_into_Coarser_Grids(dTi_init(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTi_init",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTi_init", "unit", "eV", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dTi_vpara(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTi_vpara",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTi_vpara", "unit", "eV", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dTi_vperp(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTi_vperp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTi_vperp", "unit", "eV", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dTi_fdamp(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTi_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTi_fdamp", "unit", "eV", h5err)
 
     ! dne each components 
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dne_init(1,igrid(i)+jt))+  wt*(dne_init(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dne_init",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dne_init", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dne_vpara(1,igrid(i)+jt))+  wt*(dne_vpara(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dne_vpara",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dne_vpara", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dne_vperp(1,igrid(i)+jt))+  wt*(dne_vperp(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dne_vperp",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dne_vperp", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dne_accel(1,igrid(i)+jt))+  wt*(dne_accel(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dne_accel",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dne_accel", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dne_adiab(1,igrid(i)+jt))+  wt*(dne_adiab(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dne_dADdt",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dne_dADdt", "unit", "#/m^3", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dne_fdamp(1,igrid(i)+jt))+  wt*(dne_fdamp(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e6*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dne_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dne_fdamp", "unit", "#/m^3", h5err)
+    call Interpolate_Data_into_Coarser_Grids(dne_init(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dne_init",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dne_init", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dne_vpara(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dne_vpara",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dne_vpara", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dne_vperp(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dne_vperp",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dne_vperp", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dne_accel(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dne_accel",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dne_accel", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dne_adiab(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dne_dADdt",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dne_dADdt", "unit", "#/m^3", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dne_fdamp(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dne_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dne_fdamp", "unit", "#/m^3", h5err)
 
     ! dTe each components
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTe_init(1,igrid(i)+jt))+  wt*(dTe_init(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTe_init",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTe_init", "unit", "eV", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTe_vpara(1,igrid(i)+jt))+  wt*(dTe_vpara(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTe_vpara",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTe_vpara", "unit", "eV", h5err)
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTe_vperp(1,igrid(i)+jt))+  wt*(dTe_vperp(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTe_vperp",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTe_vperp", "unit", "eV", h5err)  
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTe_accel(1,igrid(i)+jt))+  wt*(dTe_accel(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTe_accel",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTe_accel", "unit", "eV", h5err)  
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTe_adiab(1,igrid(i)+jt))+  wt*(dTe_adiab(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTe_dADdt",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTe_dADdt", "unit", "eV", h5err)  
-    k=1
-    do i=0,mpsi,a_jump
-      do j=0,jm
-        gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-        jt=int(gqdum);  wt=gqdum-jt        
-        intp_val =  ((1.0-wt)*(dTe_fdamp(1,igrid(i)+jt))+  wt*(dTe_fdamp(1,igrid(i)+jt+1)))
-        intp_val_Arr(k) =  1e3*Tem_00*intp_val
-        k=k+1
-      enddo
-    enddo
-    call h5ltmake_dataset_f(file_id, "/DCOMP/dTe_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-    call h5ltset_attribute_string_f(file_id, "/DCOMP/dTe_fdamp", "unit", "eV", h5err)  
+    call Interpolate_Data_into_Coarser_Grids(dTe_init(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTe_init",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_init", "unit", "eV", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dTe_vpara(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTe_vpara",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_vpara", "unit", "eV", h5err)
+
+    call Interpolate_Data_into_Coarser_Grids(dTe_vperp(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTe_vperp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_vperp", "unit", "eV", h5err)  
+    
+    call Interpolate_Data_into_Coarser_Grids(dTe_accel(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTe_accel",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_accel", "unit", "eV", h5err)  
+
+    call Interpolate_Data_into_Coarser_Grids(dTe_adiab(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTe_dADdt",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_dADdt", "unit", "eV", h5err)  
+
+    call Interpolate_Data_into_Coarser_Grids(dTe_fdamp(1,:),gq_jump,a_jump,intp_val_Arr)
+    call h5ltmake_dataset_f(file_id, "DCOMP/dTe_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_fdamp", "unit", "eV", h5err)  
 
     ! 2D data record finished
     deallocate(intp_val_Arr)
+
+
+
+
+    !===========================
+    !3D data  (vector data on 2D grids)
+    !==========================
+
+    h5dims(1:3)=(/3,dim_gq,dim_a/)
+    allocate(intp_val_Arr(3*dim_gq*dim_a))
+    call Interpolate_Data_into_Coarser_Grids(dE_cov3(1,1,:),gq_jump,a_jump,intp_val_Arr(1:3*dim_gq*dim_a:3))
+    call Interpolate_Data_into_Coarser_Grids(dE_cov3(2,1,:),gq_jump,a_jump,intp_val_Arr(2:3*dim_gq*dim_a:3))
+    call Interpolate_Data_into_Coarser_Grids(dE_cov3(3,1,:),gq_jump,a_jump,intp_val_Arr(3:3*dim_gq*dim_a:3))
+    call h5ltmake_dataset_f(file_id, "dE_cov",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
+    call h5ltset_attribute_string_f(file_id, "dE_cov", "unit", "V/L", h5err)
+    call h5ltset_attribute_string_f(file_id, "dE_cov", "description", "This is -grad(phi) in PEST coordinate. The length unit is parametric length in PEST coordinate", h5err)
+
+    call h5ltmake_dataset_f(file_id, "mean_dE_cov",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_mean_dE_cov3,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_dE_cov", "unit", "V/L", h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_dE_cov", "description", "This is -grad(phi) in PEST coordinate. The length unit is parametric length in PEST coordinate", h5err)
+    call h5ltmake_dataset_f(file_id, "mean_dE_cov_Right",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*right_mean_dE_cov3,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_dE_cov_Right", "unit", "V/L", h5err)
+    call h5ltmake_dataset_f(file_id, "mean_dE_cov_Left",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*left_mean_dE_cov3,h5err)
+    call h5ltset_attribute_string_f(file_id, "mean_dE_cov_Left", "unit", "V/L", h5err)
+
+    call h5ltmake_dataset_f(file_id, "FLA/dE_cov",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_FLA_dE_cov3,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dE_cov", "unit", "V/L", h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dE_cov", "description", "This is -grad(phi) in PEST coordinate. The length unit is parametric length in PEST coordinate", h5err)
+    call h5ltmake_dataset_f(file_id, "FLA/dE_cov_Right",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*right_FLA_dE_cov3,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dE_cov_Right", "unit", "V/L", h5err)
+    call h5ltmake_dataset_f(file_id, "FLA/dE_cov_Left",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*left_FLA_dE_cov3,h5err)
+    call h5ltset_attribute_string_f(file_id, "FLA/dE_cov_Left", "unit", "V/L", h5err)
+
+
+    deallocate(intp_val_Arr)
+
 
 
     call h5gclose_f(gid_PARAMS, h5err)
@@ -1636,45 +1777,52 @@ subroutine snapshot_hdf5
     !close(snapout)
   endif ! if(mype == numberpe-1)then !mype=0 must also have myrank_toroidal=0
 
-  ! ===========================
-  ! Following part is for 3D full data 
-  ! ===========================
-  ! Adiitional Information
-  ! REcord Potential. Each myrank_toroidal has its own file (see open_file).
-  if(movie_3D_h5==0) then  ! no 3D movie data created
-    !ZHIXIN use flag to output PHI
-    !     if(istep>0 .and. myrank_partd==0) then
-    if(istep>0 .and. myrank_partd==0.and.flag_PHI>0) then
-      write(777) istep
-      write(777) phi(1,1:mgrid)  ! Note(5/08): phi contains zonal flow when ZF_SEPARATION=0 (solving total potential)
-      call flush(777)  ! otherwise, if job crashes PHI data is not completed, which cause problem for reading PHI 
-    endif
-  endif
+
+  deallocate(intp_a_1D)
+  deallocate(intp_mean_full_dphi, right_intp_mean_full_dphi, left_intp_mean_full_dphi)
+  deallocate(intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi)
+  deallocate(intp_mean_dE_cov3,intp_FLA_dE_cov3)
+
+
+  ! ! ===========================
+  ! ! Following part is for 3D full data 
+  ! ! ===========================
+  ! ! Adiitional Information
+  ! ! REcord Potential. Each myrank_toroidal has its own file (see open_file).
+  ! if(movie_3D_h5==0) then  ! no 3D movie data created
+  !   !ZHIXIN use flag to output PHI
+  !   !     if(istep>0 .and. myrank_partd==0) then
+  !   if(istep>0 .and. myrank_partd==0.and.flag_PHI>0) then
+  !     write(777) istep
+  !     write(777) phi(1,1:mgrid)  ! Note(5/08): phi contains zonal flow when ZF_SEPARATION=0 (solving total potential)
+  !     call flush(777)  ! otherwise, if job crashes PHI data is not completed, which cause problem for reading PHI 
+  !   endif
+  ! endif
     
-  ! Record Density. Each myrank_toroidal has its own file (see open_file).
-  !ZHIXIN use flag to output DEN
-  if(istep>0 .and. myrank_partd==1.and.flag_DEN>0) then
-    write(888) istep
-    if(ifelectron==0) then
-      write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid)
-    else 
-      !   Total electron density fluctuations = adiabatic + nonadiabatic
-      !$omp parallel do private(i,j,ij)
-      do i=0,mpsi
-        do j=1,mtheta(i)
-          ij=igrid(i)+j
-          densitye(1,ij)=densitye(1,ij)+phi(1,ij)/Te_grid(i)*abs(csc0)  ! total electron density fluctuation dn_e/n_0
-        enddo
-        densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))  ! validate densitye(:,igrid(i)
-      enddo
+  ! ! Record Density. Each myrank_toroidal has its own file (see open_file).
+  ! !ZHIXIN use flag to output DEN
+  ! if(istep>0 .and. myrank_partd==1.and.flag_DEN>0) then
+  !   write(888) istep
+  !   if(ifelectron==0) then
+  !     write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid)
+  !   else 
+  !     !   Total electron density fluctuations = adiabatic + nonadiabatic
+  !     !$omp parallel do private(i,j,ij)
+  !     do i=0,mpsi
+  !       do j=1,mtheta(i)
+  !         ij=igrid(i)+j
+  !         densitye(1,ij)=densitye(1,ij)+phi(1,ij)/Te_grid(i)*abs(csc0)  ! total electron density fluctuation dn_e/n_0
+  !       enddo
+  !       densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))  ! validate densitye(:,igrid(i)
+  !     enddo
   
-      write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid),densitye(1,1:mgrid),heatflux(1:mgrid)   ! delta-ne output added Oct. 2012
-                              !  phi_tmp:  Ti fluctuations
-                              !  heatflux: Te fluctuations
-      !          print*, 'mype= ', mype, 'istep=', istep, phi_tmp(mgrid/2), heatflux(mgrid/2), densitye(1,mgrid/2), densityi(1,mgrid/2)
-    endif
-    call flush(888)
-  endif
+  !     write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid),densitye(1,1:mgrid),heatflux(1:mgrid)   ! delta-ne output added Oct. 2012
+  !                             !  phi_tmp:  Ti fluctuations
+  !                             !  heatflux: Te fluctuations
+  !     !          print*, 'mype= ', mype, 'istep=', istep, phi_tmp(mgrid/2), heatflux(mgrid/2), densitye(1,mgrid/2), densityi(1,mgrid/2)
+  !   endif
+  !   call flush(888)
+  ! endif
 
   
 
@@ -1700,7 +1848,8 @@ subroutine snapshot_Magnetic_Information
   integer :: i,j,ij,k,jt,jm
   
   real(wp), dimension(:), allocatable :: a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
-  real(wp), dimension(:), allocatable ::Jacobian_, esi_N_, esi_K_, g_aa_, g_agq_, g_gqgq_, g_gfgf_  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
+  real(wp), dimension(:), allocatable ::Jacobian_, esi_N_, esi_K_, g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
+  real(wp), dimension(:), allocatable :: D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_
   real(wp), dimension(:,:), allocatable :: B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_
   real(wp), dimension(:), allocatable :: ini_ga_, ini_dga0dt_ ! initial magnetic perturbation
   real(wp), dimension(:,:), allocatable :: ini_dB_cov3_, ini_dB_cntv3_, ini_grad_ga_cov3_! initial magnetic perturbation at t=0
@@ -1721,7 +1870,8 @@ subroutine snapshot_Magnetic_Information
 
     allocate(a_(dim_gq*dim_a))
     allocate(gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,mold=a_)
-    allocate(Jacobian_, esi_N_,esi_K_,g_aa_,g_agq_,g_gqgq_,g_gfgf_, mold=a_)
+    allocate(Jacobian_, esi_N_,esi_K_,g_aa_cov_,g_aq_cov_,g_qq_cov_,g_ff_cov_, mold=a_)
+    allocate(D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_, mold=a_)
     allocate(B0_cov3_(3,size(a_)))
     allocate(B0_cntv3_,j0_cov3_,j0_cntv3_, mold=B0_cov3_)
     
@@ -1756,14 +1906,21 @@ subroutine snapshot_Magnetic_Information
     j0_cntv3_(2,:) = -dFda_/Jacobian_
     j0_cntv3_(3,:) = P_ + T_/(R_**2)
     
-    g_aa_   = dRda_*dRda_+dZda_*dZda_;
-    g_agq_  = dRda_*dRdgq_+dZda_*dZdgq_;
-    g_gqgq_ = dRdgq_*dRdgq_+dZdgq_*dZdgq_;
-    g_gfgf_ = R_**2
+    g_aa_cov_   = dRda_*dRda_+dZda_*dZda_;
+    g_aq_cov_  = dRda_*dRdgq_+dZda_*dZdgq_;
+    g_qq_cov_ = dRdgq_*dRdgq_+dZdgq_*dZdgq_;
+    g_ff_cov_ = R_**2
 
-    j0_cov3_(1,:) = g_aa_*j0_cntv3_(1,:) + g_agq_*j0_cntv3_(2,:)
-    j0_cov3_(2,:) = g_agq_*j0_cntv3_(1,:) + g_gqgq_*j0_cntv3_(2,:)
-    j0_cov3_(3,:) = g_gfgf_*j0_cntv3_(3,:)
+    D_=dZda_*dRdgq_-dZdgq_*dRda_
+  
+    g_aa_cntv_=(dRdgq_**2+dZdgq_**2)/D_**2   ! grada^2
+    g_qq_cntv_=(dZda_**2+dRda_**2)/D_**2   ! gradtheta^2
+    g_ff_cntv_=1.0_wp/R_**2                 ! gradphi^2
+    g_aq_cntv_=(-dRda_*dRdgq_-dZda_*dZdgq_)/D_**2  ! gradagradtheta  
+
+    j0_cov3_(1,:) = g_aa_cov_*j0_cntv3_(1,:) + g_aq_cov_*j0_cntv3_(2,:)
+    j0_cov3_(2,:) = g_aq_cov_*j0_cntv3_(1,:) + g_qq_cov_*j0_cntv3_(2,:)
+    j0_cov3_(3,:) = g_ff_cov_*j0_cntv3_(3,:)
 
 
     if(electromagnetic==1)then
@@ -1776,9 +1933,9 @@ subroutine snapshot_Magnetic_Information
       ini_dB_cntv3_(2,:) = ini_ga_*j0_cntv3_(2,:) + (ini_grad_ga_cov3_(3,:)*B0_cov3_(1,:) - ini_grad_ga_cov3_(1,:)*B0_cov3_(3,:))/Jacobian_
       ini_dB_cntv3_(3,:) = ini_ga_*j0_cntv3_(3,:) + (ini_grad_ga_cov3_(1,:)*B0_cov3_(2,:) - ini_grad_ga_cov3_(2,:)*B0_cov3_(1,:))/Jacobian_        
       
-      ini_dB_cov3_(1,:) = g_aa_*ini_dB_cntv3_(1,:) + g_agq_*ini_dB_cntv3_(2,:)
-      ini_dB_cov3_(2,:) = g_agq_*ini_dB_cntv3_(1,:) + g_gqgq_*ini_dB_cntv3_(2,:)
-      ini_dB_cov3_(3,:) = g_gfgf_*ini_dB_cntv3_(3,:)  
+      ini_dB_cov3_(1,:) = g_aa_cov_*ini_dB_cntv3_(1,:) + g_aq_cov_*ini_dB_cntv3_(2,:)
+      ini_dB_cov3_(2,:) = g_aq_cov_*ini_dB_cntv3_(1,:) + g_qq_cov_*ini_dB_cntv3_(2,:)
+      ini_dB_cov3_(3,:) = g_ff_cov_*ini_dB_cntv3_(3,:)  
     endif
 
 
@@ -1791,50 +1948,56 @@ subroutine snapshot_Magnetic_Information
 
     ! 0D data
     h5dims(1) = 1
-    call h5ltmake_dataset_f(file_id, "/mpsi",1,h5dims,H5T_NATIVE_INTEGER, mpsi/a_jump, h5err)
-    call h5ltmake_dataset_f(file_id, "/mtheta",1,h5dims,H5T_NATIVE_INTEGER, jm, h5err)
-    call h5ltmake_dataset_f(file_id, "/zeta",1,h5dims,H5T_NATIVE_DOUBLE, zetamax, h5err)
+    call h5ltmake_dataset_f(file_id, "mpsi",1,h5dims,H5T_NATIVE_INTEGER, mpsi/a_jump, h5err)
+    call h5ltmake_dataset_f(file_id, "mtheta",1,h5dims,H5T_NATIVE_INTEGER, jm, h5err)
+    call h5ltmake_dataset_f(file_id, "zeta",1,h5dims,H5T_NATIVE_DOUBLE, zetamax, h5err)
 
     ! 2D data
     h5dims(1:2)=(/dim_gq, dim_a/)
-    call h5ltmake_dataset_f(file_id, "/a",2,h5dims,H5T_NATIVE_DOUBLE, a_,h5err)
-    call h5ltmake_dataset_f(file_id, "/gq",2,h5dims,H5T_NATIVE_DOUBLE, gq_,h5err)
-    call h5ltmake_dataset_f(file_id, "/F",2,h5dims,H5T_NATIVE_DOUBLE, F_,h5err)
-    call h5ltmake_dataset_f(file_id, "/dFda",2,h5dims,H5T_NATIVE_DOUBLE, dFda_,h5err)
-    call h5ltmake_dataset_f(file_id, "/dgFda",2,h5dims,H5T_NATIVE_DOUBLE, dgFda_,h5err)
-    call h5ltmake_dataset_f(file_id, "/dgYda",2,h5dims,H5T_NATIVE_DOUBLE, dgYda_,h5err)
-    call h5ltmake_dataset_f(file_id, "/R",2,h5dims,H5T_NATIVE_DOUBLE, R_,h5err)
-    call h5ltmake_dataset_f(file_id, "/dRda",2,h5dims,H5T_NATIVE_DOUBLE, dRda_,h5err)
-    call h5ltmake_dataset_f(file_id, "/dRdgq",2,h5dims,H5T_NATIVE_DOUBLE, dRdgq_,h5err)
-    call h5ltmake_dataset_f(file_id, "/Z",2,h5dims,H5T_NATIVE_DOUBLE, Z_,h5err)
-    call h5ltmake_dataset_f(file_id, "/dZda",2,h5dims,H5T_NATIVE_DOUBLE, dZda_,h5err)
-    call h5ltmake_dataset_f(file_id, "/dZdgq",2,h5dims,H5T_NATIVE_DOUBLE, dZdgq_,h5err)
-    call h5ltmake_dataset_f(file_id, "/BB",2,h5dims,H5T_NATIVE_DOUBLE, BB_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/dBBda",2,h5dims,H5T_NATIVE_DOUBLE, dBBda_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/dBBdgq",2,h5dims,H5T_NATIVE_DOUBLE, dBBdgq_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/P",2,h5dims,H5T_NATIVE_DOUBLE, P_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/T",2,h5dims,H5T_NATIVE_DOUBLE, T_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/Jacobian",2,h5dims,H5T_NATIVE_DOUBLE, Jacobian_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/esi_N",2,h5dims,H5T_NATIVE_DOUBLE, esi_N_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/esi_K",2,h5dims,H5T_NATIVE_DOUBLE, esi_K_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/g_aa",2,h5dims,H5T_NATIVE_DOUBLE, g_aa_,h5err)    
-    call h5ltmake_dataset_f(file_id, "/g_agq",2,h5dims,H5T_NATIVE_DOUBLE, g_agq_,h5err)
-    call h5ltmake_dataset_f(file_id, "/g_gqgq",2,h5dims,H5T_NATIVE_DOUBLE, g_gqgq_,h5err)
-    call h5ltmake_dataset_f(file_id, "/g_gfgf",2,h5dims,H5T_NATIVE_DOUBLE, g_gfgf_,h5err)
+    call h5ltmake_dataset_f(file_id, "a",2,h5dims,H5T_NATIVE_DOUBLE, a_,h5err)
+    call h5ltmake_dataset_f(file_id, "gq",2,h5dims,H5T_NATIVE_DOUBLE, gq_,h5err)
+    call h5ltmake_dataset_f(file_id, "F",2,h5dims,H5T_NATIVE_DOUBLE, F_,h5err)
+    call h5ltmake_dataset_f(file_id, "dFda",2,h5dims,H5T_NATIVE_DOUBLE, dFda_,h5err)
+    call h5ltmake_dataset_f(file_id, "dgFda",2,h5dims,H5T_NATIVE_DOUBLE, dgFda_,h5err)
+    call h5ltmake_dataset_f(file_id, "dgYda",2,h5dims,H5T_NATIVE_DOUBLE, dgYda_,h5err)
+    call h5ltmake_dataset_f(file_id, "R",2,h5dims,H5T_NATIVE_DOUBLE, R_,h5err)
+    call h5ltmake_dataset_f(file_id, "dRda",2,h5dims,H5T_NATIVE_DOUBLE, dRda_,h5err)
+    call h5ltmake_dataset_f(file_id, "dRdgq",2,h5dims,H5T_NATIVE_DOUBLE, dRdgq_,h5err)
+    call h5ltmake_dataset_f(file_id, "Z",2,h5dims,H5T_NATIVE_DOUBLE, Z_,h5err)
+    call h5ltmake_dataset_f(file_id, "dZda",2,h5dims,H5T_NATIVE_DOUBLE, dZda_,h5err)
+    call h5ltmake_dataset_f(file_id, "dZdgq",2,h5dims,H5T_NATIVE_DOUBLE, dZdgq_,h5err)
+    call h5ltmake_dataset_f(file_id, "BB",2,h5dims,H5T_NATIVE_DOUBLE, BB_,h5err) 
+    call h5ltmake_dataset_f(file_id, "dBBda",2,h5dims,H5T_NATIVE_DOUBLE, dBBda_,h5err) 
+    call h5ltmake_dataset_f(file_id, "dBBdgq",2,h5dims,H5T_NATIVE_DOUBLE, dBBdgq_,h5err) 
+    call h5ltmake_dataset_f(file_id, "P",2,h5dims,H5T_NATIVE_DOUBLE, P_,h5err) 
+    call h5ltmake_dataset_f(file_id, "T",2,h5dims,H5T_NATIVE_DOUBLE, T_,h5err) 
+    call h5ltmake_dataset_f(file_id, "Jacobian",2,h5dims,H5T_NATIVE_DOUBLE, Jacobian_,h5err) 
+    call h5ltmake_dataset_f(file_id, "esi_N",2,h5dims,H5T_NATIVE_DOUBLE, esi_N_,h5err) 
+    call h5ltmake_dataset_f(file_id, "esi_K",2,h5dims,H5T_NATIVE_DOUBLE, esi_K_,h5err) 
+    call h5ltmake_dataset_f(file_id, "g_aa_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_aa_cov_,h5err)    
+    call h5ltmake_dataset_f(file_id, "g_aq_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_aq_cov_,h5err)
+    call h5ltmake_dataset_f(file_id, "g_qq_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_qq_cov_,h5err)
+    call h5ltmake_dataset_f(file_id, "g_ff_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_ff_cov_,h5err)
+    call h5ltmake_dataset_f(file_id, "g_aa_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_aa_cntv_,h5err)    
+    call h5ltmake_dataset_f(file_id, "g_aq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_aq_cntv_,h5err)
+    call h5ltmake_dataset_f(file_id, "g_qq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_qq_cntv_,h5err)
+    call h5ltmake_dataset_f(file_id, "g_ff_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_ff_cntv_,h5err)
+    call h5ltmake_dataset_f(file_id, "Jaco_over_R",2,h5dims,H5T_NATIVE_DOUBLE, D_,h5err)
 
-    call h5ltset_attribute_string_f(file_id, "/a", "unit", "norm_psi_t", h5err)
-    call h5ltset_attribute_string_f(file_id, "/gq", "unit", "radians", h5err)
-    call h5ltset_attribute_string_f(file_id, "/R", "unit", "m", h5err)    
-    call h5ltset_attribute_string_f(file_id, "/Z", "unit", "m", h5err)
-    call h5ltset_attribute_string_f(file_id, "/BB", "unit", "T", h5err)
-    call h5ltset_attribute_string_f(file_id, "/BB", "description", "magnitude of equilibrium B field (B0)", h5err)
+
+    call h5ltset_attribute_string_f(file_id, "a", "unit", "norm_psi_t", h5err)
+    call h5ltset_attribute_string_f(file_id, "gq", "unit", "radians", h5err)
+    call h5ltset_attribute_string_f(file_id, "R", "unit", "m", h5err)    
+    call h5ltset_attribute_string_f(file_id, "Z", "unit", "m", h5err)
+    call h5ltset_attribute_string_f(file_id, "BB", "unit", "T", h5err)
+    call h5ltset_attribute_string_f(file_id, "BB", "description", "magnitude of equilibrium B field (B0)", h5err)
     
     ! 3D data (vectors on 2D grids)
     h5dims(1:3)=(/3, dim_gq, dim_a/)
-    call h5ltmake_dataset_f(file_id, "/B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, B0_cov3_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, B0_cntv3_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/j0_cov",3,h5dims,H5T_NATIVE_DOUBLE, j0_cov3_,h5err) 
-    call h5ltmake_dataset_f(file_id, "/j0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, j0_cntv3_,h5err) 
+    call h5ltmake_dataset_f(file_id, "B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, B0_cov3_,h5err) 
+    call h5ltmake_dataset_f(file_id, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, B0_cntv3_,h5err) 
+    call h5ltmake_dataset_f(file_id, "j0_cov",3,h5dims,H5T_NATIVE_DOUBLE, j0_cov3_,h5err) 
+    call h5ltmake_dataset_f(file_id, "j0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, j0_cntv3_,h5err) 
     
 
 
@@ -1842,14 +2005,14 @@ subroutine snapshot_Magnetic_Information
       call h5gcreate_f(file_id, "iniMP", gid_MP, h5err)
       ! 2D data
       h5dims(1:2)=(/dim_gq, dim_a/)
-      call h5ltmake_dataset_f(file_id, "/iniMP/ga",2,h5dims,H5T_NATIVE_DOUBLE, ini_ga_,h5err)
-      call h5ltmake_dataset_f(file_id, "/iniMP/dga0dt",2,h5dims,H5T_NATIVE_DOUBLE, ini_dga0dt_,h5err)
+      call h5ltmake_dataset_f(file_id, "iniMP/ga",2,h5dims,H5T_NATIVE_DOUBLE, ini_ga_,h5err)
+      call h5ltmake_dataset_f(file_id, "iniMP/dga0dt",2,h5dims,H5T_NATIVE_DOUBLE, ini_dga0dt_,h5err)
 
       ! 3D data (vectors on 2D grids)
       h5dims(1:3)=(/3, dim_gq, dim_a/)
-      call h5ltmake_dataset_f(file_id, "/iniMP/dB_cov",3,h5dims,H5T_NATIVE_DOUBLE, ini_dB_cov3_,h5err)
-      call h5ltmake_dataset_f(file_id, "/iniMP/dB_cntv",3,h5dims,H5T_NATIVE_DOUBLE, ini_dB_cntv3_,h5err)
-      call h5ltmake_dataset_f(file_id, "/iniMP/grad_ga_cov",3,h5dims,H5T_NATIVE_DOUBLE, ini_grad_ga_cov3_,h5err)
+      call h5ltmake_dataset_f(file_id, "iniMP/dB_cov",3,h5dims,H5T_NATIVE_DOUBLE, ini_dB_cov3_,h5err)
+      call h5ltmake_dataset_f(file_id, "iniMP/dB_cntv",3,h5dims,H5T_NATIVE_DOUBLE, ini_dB_cntv3_,h5err)
+      call h5ltmake_dataset_f(file_id, "iniMP/grad_ga_cov",3,h5dims,H5T_NATIVE_DOUBLE, ini_grad_ga_cov3_,h5err)
      
 
       call h5gclose_f(gid_MP, h5err)
@@ -1860,7 +2023,8 @@ subroutine snapshot_Magnetic_Information
 
 
     deallocate(a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_)
-    deallocate(Jacobian_, esi_N_, esi_K_, g_aa_, g_agq_, g_gqgq_, g_gfgf_)
+    deallocate(Jacobian_, esi_N_, esi_K_, g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_)
+    deallocate(D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_)
     deallocate(B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_)
     if(electromagnetic==1)then
       deallocate(ini_ga_,ini_dga0dt_)

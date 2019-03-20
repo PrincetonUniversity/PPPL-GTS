@@ -1535,6 +1535,105 @@ subroutine n_T_u_group_e
 end subroutine n_T_u_group_e
 
 
+
+subroutine Cumulate_Some_Variables_for_Measure
+
+  use global_parameters
+  use field_array
+  implicit none
+
+  integer i,j,ij
+  real(wp) full_dphi(0:1), full_dni(0:1), full_dne(0:1), adiab_dne_n0(0:1), full_dTe, full_dTi
+
+  
+
+
+  cum_phi00       = cum_phi00    +phi00
+  cum_phi00_SQ    = cum_phi00_SQ +phi00**2.0
+   
+  cum_zonali      = cum_zonali    +zonali
+  cum_zonali_SQ   = cum_zonali_SQ +zonali**2.0
+
+  cum_zonale    = cum_zonale    +zonale
+  cum_zonale_SQ = cum_zonale_SQ +zonale**2.0
+  
+
+  do i=0,mpsi    
+    do j=0,mtheta(i)
+      ij=igrid(i)+j
+
+      full_dphi     = phi(:,ij)+(ZF_SEPARATION)*phi00(i)
+      full_dni      = den_grid(i)*(densityi(:,ij) +(ZF_SEPARATION)*zonali(i))
+      adiab_dne_n0  = abs(csc0)*(full_dphi-(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+      full_dne      = den_grid(i)*(densitye(:,ij) +(ZF_SEPARATION)*zonale(i) +int(ifelectron/2)*adiab_dne_n0)
+
+      cum_full_dphi(:,ij)    = cum_full_dphi(:,ij)    +full_dphi
+      cum_full_dphi_SQ(:,ij) = cum_full_dphi_SQ(:,ij) +full_dphi**2.0
+      
+      cum_full_dni(:,ij)    = cum_full_dni(:,ij)    +full_dni
+      cum_full_dni_SQ(:,ij) = cum_full_dni_SQ(:,ij) +full_dni**2.0
+      
+      cum_full_dne(:,ij)    = cum_full_dne(:,ij)    +full_dne
+      cum_full_dne_SQ(:,ij) = cum_full_dne_SQ(:,ij) +full_dne**2.0
+    enddo
+  enddo
+
+
+  if(mod(istep,ndiag)==0) then
+    cum_zonal_dTe    = cum_zonal_dTe    +zonal_dTe
+    cum_zonal_dTe_SQ = cum_zonal_dTe_SQ +zonal_dTe**2.0
+    cum_zonal_dTi     = cum_zonal_dTi   +zonal_dTi
+    cum_zonal_dTi_SQ  = cum_zonal_dTi_SQ+zonal_dTi**2.0
+       
+    do i=0,mpsi    
+      do j=0,mtheta(i)   
+        ij=igrid(i)+j
+        
+        full_dTe = Te_grid(i)*heatflux(ij) +(ZF_SEPARATION)*zonal_dTe(i)
+        full_dTi = (vth_grid(i)**2.0)*phi_tmp(ij) +(ZF_SEPARATION)*zonal_dTi(i)
+        
+        cum_full_dTe(:,ij)    =cum_full_dTe(:,ij)   +full_dTe
+        cum_full_dTe_SQ(:,ij) =cum_full_dTe_SQ(:,ij)+full_dTe**2.0
+
+        cum_full_dTi(:,ij)    =cum_full_dTi(:,ij)   +full_dTi
+        cum_full_dTi_SQ(:,ij) =cum_full_dTi_SQ(:,ij)+full_dTi**2.0
+      enddo
+    enddo
+  endif
+
+end subroutine Cumulate_Some_Variables_for_Measure
+
+subroutine SetZeros_Cumulative_Variables
+  use field_array
+  implicit none
+    
+  cum_phi00       =0.0
+  cum_phi00_SQ    =0.0
+  cum_full_dphi    =0.0
+  cum_full_dphi_SQ =0.0
+
+  cum_zonali      =0.0
+  cum_zonali_SQ   =0.0
+  cum_full_dni    =0.0
+  cum_full_dni_SQ =0.0
+
+  cum_zonale      =0.0
+  cum_zonale_SQ   =0.0
+  cum_full_dne    =0.0
+  cum_full_dne_SQ =0.0
+
+  cum_zonal_dTe   =0.0
+  cum_zonal_dTe_SQ=0.0
+  cum_full_dTe    =0.0
+  cum_full_dTe_SQ =0.0
+
+  cum_zonal_dTi   =0.0
+  cum_zonal_dTi_SQ=0.0
+  cum_full_dTi    =0.0
+  cum_full_dTi_SQ =0.0
+  
+end subroutine SetZeros_Cumulative_Variables
+
 subroutine Do_FieldLineFollowing_for_Poincare_Plot
   
     use precision

@@ -69,9 +69,10 @@ program GTS
 
   ! input parameters, setup equilibrium, allocate memory 
   call setup
+  call snapshot_Magnetic_Information
 
-  call Cal_Weighted_Neighboring_Volume_on_each_GridNode
-  call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
+  !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
+  !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
   if(myrank_partd==nproc_partd-1) then    
     call Do_FieldLineFollowing_for_Poincare_Plot
     call Construct_gPPI_for_FieldLineAverage
@@ -185,9 +186,10 @@ program GTS
 ! ********************
 if(irun==0) then 
    istep=0
+   call SetZeros_Cumulative_Variables
+   call Cumulate_Some_Variables_for_Measure   
    call snapshot     ! snapshot at t=0
    call snapshot_hdf5
-   call snapshot_Magnetic_Information
    call check_tracer_e
    call check_tracer_i 
 end if 
@@ -399,11 +401,13 @@ end if
 
 ! profile snapshots, write particle information to restart file
         !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
+        call Cumulate_Some_Variables_for_Measure
+
         if(mod(istep,msnap) .eq. 0) then 
            !  phi_tmp=phi_tmp/real(msnap,wp)
            call snapshot
            call snapshot_hdf5
-
+           call SetZeros_Cumulative_Variables
            !  phi_tmp=0.0_wp
         end if
 
