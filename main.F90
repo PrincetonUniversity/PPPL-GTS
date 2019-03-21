@@ -412,7 +412,10 @@ end if
            call snapshot_hdf5
            call SetZeros_Cumulative_Variables
            !  phi_tmp=0.0_wp
+           call check_abnormal_weight_electrons
+           call check_abnormal_weight_ions
         end if
+        
 
 !        if(movie_3D_h5>0) then                   ! write potential 3D-data
 !           if(mod(istep,movie_3D_h5)==0) then    ! every movie_3D_h5 step

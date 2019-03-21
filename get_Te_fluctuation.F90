@@ -31,6 +31,8 @@ subroutine get_Te_fluctuation(wpi2)
      weight=zeon0(5,m)*(wpi2(m)*2.0_wp/3.0_wp-backTe(m)*msm0)    ! calculation using zeon0 at irk_e=1 determined by idiag_e=0
                                                                  ! wzeon, wpeon, wteon0, wteon1 etc are calculated in pusheon
 
+     if (zeon0(5,m)<min_thold_weight .or. zeon0(5,m)>max_thold_weight) cycle
+
      wz1=weight*wzeon(m)
      wz0=weight-wz1     
 

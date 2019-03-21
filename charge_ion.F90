@@ -147,6 +147,8 @@ subroutine charge_ion
 !$omp do private(m,larmor,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
   do m=1,mi
      weight=zion(5,m)
+     
+     if (weight<min_thold_weight .or. weight>max_thold_weight) cycle
 
      wz1=weight*wzion(m)
      wz0=weight-wz1     

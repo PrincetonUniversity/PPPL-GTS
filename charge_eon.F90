@@ -41,6 +41,8 @@ subroutine charge_eon
   do m=1,me
      weight=zeon(5,m)
 
+     if (weight<min_thold_weight .or. weight>max_thold_weight) cycle
+
      wz1=weight*wzeon(m)
      wz0=weight-wz1     
 

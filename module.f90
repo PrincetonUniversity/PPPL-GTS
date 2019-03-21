@@ -44,6 +44,9 @@ end module precision
                       !  pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
                       !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
+  
+  ! When particle weight exceeds threshold value, it would not contribute to charge or current deposition
+  real(wp), parameter :: min_thold_weight = -2.0, max_thold_weight = 1.0
 
   integer jr
 
