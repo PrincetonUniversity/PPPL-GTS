@@ -46,7 +46,7 @@ end module precision
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
   
   ! When particle weight exceeds threshold value, it would not contribute to charge or current deposition
-  real(wp), parameter :: min_thold_weight = -2.0, max_thold_weight = 1.0
+  real(wp), parameter :: min_thold_weight = -50.0, max_thold_weight = 1.0
 
   integer jr
 
