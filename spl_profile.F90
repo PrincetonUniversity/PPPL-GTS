@@ -355,7 +355,7 @@ subroutine read_profiles_NSTX(profile_data_name)
      end do
      close(3)
   endif
-20 format(ES14.6)
+20 format(ES16.8)
 
 ! The root process broadcast the work array "worka"
   call mpi_bcast(worka,5*ndum,mpi_Rsize,0,MPI_COMM_WORLD,ierr)

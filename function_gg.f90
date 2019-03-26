@@ -1775,7 +1775,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
     do aid=1,num_a
         do gqid = 1, num_gq
             do PPI_id=1,2*maximum_tor_rotation                
-                write(181125, "(I4,1x,10(ES14.6,1x))") PPI(PPI_id,gqid,aid)
+                write(181125, "(I4,1x,10(ES16.8,1x))") PPI(PPI_id,gqid,aid)
             enddo
         enddo
     enddo
@@ -2088,7 +2088,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
     open(181202,file=chdum,status='replace',action='write')
     do Fid = 1, num_of_SampledFieldLines   
         do PPI_id =1,num_of_gPPI_for_each_FieldLine(Fid)
-            write(181202, "(I4,1x,10(ES14.6,1x))") gPPI(PPI_id,Fid)
+            write(181202, "(I4,1x,10(ES16.8,1x))") gPPI(PPI_id,Fid)
         enddo
     enddo
     flush(181202)
@@ -2763,8 +2763,8 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
           dpsi=(psi_grid(i+1)-psi_grid(i-1))*0.5_wp     ! full cell
           this_ds = (1.0/inv_ds)
         endif
-        !write(181215, "(2(ES14.6,1x))") Weighted_Vol(1,ij), jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*dpsi*deltaz
-        write(181215, "(3(ES14.6,1x))") Weighted_Vol(1,ij),&
+        !write(181215, "(2(ES16.8,1x))") Weighted_Vol(1,ij), jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*dpsi*deltaz
+        write(181215, "(3(ES16.8,1x))") Weighted_Vol(1,ij),&
         jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*dpsi*deltaz, &
         (1.0/dsda(psi_grid(i)))*jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*this_ds*deltaz
       enddo
@@ -2955,7 +2955,7 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
           dpsi=(psi_grid(i+1)-psi_grid(i-1))*0.5_wp     ! full cell
           this_ds = (1.0/inv_ds)
         endif
-        write(181218, "(3(ES14.6,1x))") Weighted_Vol(1,ij),&
+        write(181218, "(3(ES16.8,1x))") Weighted_Vol(1,ij),&
                                         jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*dpsi*deltaz, &
                                         (1.0/dsda(psi_grid(i)))*jacobian(psi_grid(i), modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi))*deltat(i)*this_ds*deltaz
       enddo

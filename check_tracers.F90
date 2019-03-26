@@ -35,9 +35,9 @@ subroutine check_tracer_e
 
   allocate( send_buf_TRI(each_TRI_length, num_of_etracers), recv_buf_TRI(each_TRI_length, num_of_etracers), send_buf_TRI_Poincare(each_TRI_length, num_of_etracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_etracers))
 
-! 102 format(1x,i7,6(1x,ES14.6),1x,i6)
-  !102 format(13(1x,ES14.6))
-  102 format(999(1x,ES14.6))
+! 102 format(1x,i7,6(1x,ES16.8),1x,i6)
+  !102 format(13(1x,ES16.8))
+  102 format(999(1x,ES16.8))
 
     !call MPI_Type_contiguous(13, MPI_Rsize, MPI_TRI_Type, ierr);
     call MPI_Type_contiguous(each_TRI_length, MPI_Rsize, MPI_TRI_Type, ierr);
@@ -236,9 +236,9 @@ subroutine check_tracer_i
     allocate( send_buf_TRI(each_TRI_length, num_of_itracers), recv_buf_TRI(each_TRI_length, num_of_itracers), send_buf_TRI_Poincare(each_TRI_length, num_of_itracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_itracers))
 
   
-  ! 102 format(1x,i7,6(1x,ES14.6),1x,i6)
-  ! 102 format(13(1x,ES14.6))
-    102 format(999(1x,ES14.6))
+  ! 102 format(1x,i7,6(1x,ES16.8),1x,i6)
+  ! 102 format(13(1x,ES16.8))
+    102 format(999(1x,ES16.8))
       !call MPI_Type_contiguous(13, MPI_Rsize, MPI_TRI_Type, ierr);
       call MPI_Type_contiguous(each_TRI_length, MPI_Rsize, MPI_TRI_Type, ierr);
       call MPI_Type_commit(MPI_TRI_Type, ierr);

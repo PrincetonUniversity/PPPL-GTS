@@ -2057,7 +2057,7 @@ subroutine Print_FLA_Denominator
   do i=0,mpsi
     do j=0, mtheta(i)
       ij=igrid(i) + j
-      write(181206, "((ES14.6,1x))") FLA_Denominator(1,ij)
+      write(181206, "((ES16.8,1x))") FLA_Denominator(1,ij)
     enddo
   enddo
 
