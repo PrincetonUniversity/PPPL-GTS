@@ -8,7 +8,7 @@ subroutine shifte
 
   implicit none
     
-  integer i,tid, m, mtop,lasth, dest_tor_rank, dim_zeon, dim_zeon0, dim_Ptl_package,ierr
+  integer i,k,tid, m, mtop,lasth, dest_tor_rank, dim_zeon, dim_zeon0, dim_RK_cum_zeon, dim_Ptl_package,ierr
   integer tor_send_counts(ntoroidal), tor_send_displs(ntoroidal), tot_send_num
   integer tor_recv_counts(ntoroidal), tor_recv_displs(ntoroidal), tot_recv_num
   integer send_mid_arr(memax), send_dest_arr(memax)
@@ -33,12 +33,16 @@ subroutine shifte
 
   dim_zeon = size(zeon,1)
   dim_zeon0 = size(zeon0,1)
-
+  if(RK4_Flag==1) then
+    dim_RK_cum_zeon = size(RK_cum_zeon,1)
+  else
+    dim_RK_cum_zeon = 0
+  endif
   !dim_Ptl_package = dim_zeon + dim_zeon0 + 1  ! zeon + zeon0 + elabels
   ! write(4321,*) "dim_zeon=", dim_zeon, "dim_zeon0=",dim_zeon0
   ! call flush(4321)
 
-  dim_Ptl_package = dim_zeon + dim_zeon0 + 9  ! zeon + zeon0 + elabels + 7 values about we evolution + 2 Unnormalized angles
+  dim_Ptl_package = dim_zeon + dim_zeon0 + dim_RK_cum_zeon + 7  ! zeon + zeon0 + elabels + 7 values about we evolution
 
   
   call MPI_Type_contiguous( dim_Ptl_package, MPI_Rsize, MPI_Ptl_type, ierr);
@@ -124,17 +128,22 @@ subroutine shifte
 
   ! copy all information of sending particles into tor_send_Ptls
   do i=1, tot_send_num
-    tor_send_Ptls_data(1:dim_zeon, i) =  zeon(:,send_mid_arr(i))
-    tor_send_Ptls_data(dim_zeon+1:dim_zeon+dim_zeon0, i) =  zeon0(:,send_mid_arr(i))
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+1, i) =  elabels(send_mid_arr(i))
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+2, i) =  we_init(send_mid_arr(i))  
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+3, i) =  we_vpara(send_mid_arr(i))
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+4, i) =  we_vperp(send_mid_arr(i))  
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+5, i) =  we_accel(send_mid_arr(i))
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+6, i) =  we_adiab(send_mid_arr(i))
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+7, i) =  we_fdamp(send_mid_arr(i))
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+8, i) =  UnNorm_theta_e(send_mid_arr(i))
-    tor_send_Ptls_data(dim_zeon+dim_zeon0+9, i) =  UnNorm_zeta_e(send_mid_arr(i))
+    k=0
+    tor_send_Ptls_data(k+1:k+dim_zeon, i) =  zeon(:,send_mid_arr(i))
+    k=k+dim_zeon
+    tor_send_Ptls_data(k+1:k+dim_zeon0, i) =  zeon0(:,send_mid_arr(i))
+    k=k+dim_zeon0
+    if(RK4_Flag==1) then
+      tor_send_Ptls_data(k+1:k+dim_RK_cum_zeon, i) =  RK_cum_zeon(:,send_mid_arr(i))
+      k=k+dim_RK_cum_zeon
+    endif
+    tor_send_Ptls_data(k+1, i) =  elabels(send_mid_arr(i))  
+    tor_send_Ptls_data(k+2, i) =  we_init(send_mid_arr(i))  
+    tor_send_Ptls_data(k+3, i) =  we_vpara(send_mid_arr(i))
+    tor_send_Ptls_data(k+4, i) =  we_vperp(send_mid_arr(i))  
+    tor_send_Ptls_data(k+5, i) =  we_accel(send_mid_arr(i))    
+    tor_send_Ptls_data(k+6, i) =  we_adiab(send_mid_arr(i))
+    tor_send_Ptls_data(k+7, i) =  we_fdamp(send_mid_arr(i))  
   enddo
   
 
@@ -159,18 +168,17 @@ subroutine shifte
         lasth=lasth-1
     enddo
 
-    zeon(:, m)  = zeon(:, mtop)
-    zeon0(:, m) = zeon0(:, mtop)
-    elabels(m)  = elabels(mtop)
-    we_init(m)  = we_init(mtop)
-    we_vpara(m) = we_vpara(mtop)
-    we_vperp(m) = we_vperp(mtop)
-    we_accel(m) = we_accel(mtop)
-    we_adiab(m) = we_adiab(mtop)
-    we_fdamp(m)  = we_fdamp(mtop)
-
-    UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
-    UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+    zeon(:, m)      = zeon(:, mtop)
+    zeon0(:, m)     = zeon0(:, mtop)
+    elabels(m)      = elabels(mtop)
+    we_init(m)      = we_init(mtop)
+    we_vpara(m)     = we_vpara(mtop)
+    we_vperp(m)     = we_vperp(mtop)
+    we_accel(m)     = we_accel(mtop)
+    we_adiab(m)     = we_adiab(mtop)
+    we_fdamp(m)     = we_fdamp(mtop)
+    
+    if(RK4_Flag==1) RK_cum_zeon(:,m)= RK_cum_zeon(:,mtop)
 
     mtop = mtop -1
   enddo
@@ -183,17 +191,22 @@ subroutine shifte
 
   ! append recv particles
   do i=1, tot_recv_num
-    zeon(:,me+i) = tor_recv_Ptls_data(1:dim_zeon, i)
-    zeon0(:,me+i) = tor_recv_Ptls_data(dim_zeon+1:dim_zeon+dim_zeon0, i)
-    elabels(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+1, i)   
-    we_init(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+2, i) 
-    we_vpara(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+3, i) 
-    we_vperp(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+4, i) 
-    we_accel(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+5, i) 
-    we_adiab(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+6, i)
-    we_fdamp(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+7, i)     
-    UnNorm_theta_e(me+i)= tor_recv_Ptls_data(dim_zeon+dim_zeon0+8, i) 
-    UnNorm_zeta_e(me+i) = tor_recv_Ptls_data(dim_zeon+dim_zeon0+9, i) 
+    k=0
+    zeon(:,me+i)    = tor_recv_Ptls_data(k+1:k+dim_zeon, i)
+    k=k+dim_zeon
+    zeon0(:,me+i)   = tor_recv_Ptls_data(k+1:k+dim_zeon0, i)
+    k=k+dim_zeon0
+    if(RK4_Flag==1) then
+      RK_cum_zeon(:,me+i) = tor_send_Ptls_data(k+1:k+dim_RK_cum_zeon, i)
+      k=k+dim_RK_cum_zeon
+    endif
+    elabels(me+i)   =  tor_recv_Ptls_data(k+1, i) 
+    we_init(me+i)   =  tor_recv_Ptls_data(k+2, i) 
+    we_vpara(me+i)  =  tor_recv_Ptls_data(k+3, i) 
+    we_vperp(me+i)  =  tor_recv_Ptls_data(k+4, i) 
+    we_accel(me+i)  =  tor_recv_Ptls_data(k+5, i) 
+    we_adiab(me+i)  =  tor_recv_Ptls_data(k+6, i)
+    we_fdamp(me+i)  =  tor_recv_Ptls_data(k+7, i)    
   enddo
 
   me = me + tot_recv_num  

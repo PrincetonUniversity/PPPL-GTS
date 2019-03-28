@@ -92,7 +92,7 @@ end module precision
   integer,parameter  :: wimcompressibility=0       ! switch  added April, 2013 for implementing weight imcompressibility
 !     integer  :: wimcompressibility=1       ! switch  added April, 2013 for implementing weight imcompressibility
   real(wp),parameter :: weight_damping_rate=2.0d-7 ! =eta_w*tstep
-
+  
 ! finite element order
 ! order = 0 original solver
 ! order = 1 linear finite element
@@ -131,6 +131,8 @@ end module precision
   real(wp) inv_larmor_num ! (=1.0/larmor_num) For faster calculation
   !==============================================================================
 
+  integer :: RK4_Flag=1 ! Default value is 1 (ON), but it could be changed by reading the INPUT.d file
+
 end module global_parameters
 
 module FieldLineFollowing
@@ -164,7 +166,7 @@ module particle_array
 ! so that we can pass them as dummy arguments to a subroutine and be allowed
 ! to reallocate them inside that subroutine if needed.
   real(wp),pointer,dimension(:,:) :: zion,zion0,zeon,zeon0,zeon00
-
+  real(wp), dimension(:,:),allocatable :: RK_cum_zion, RK_cum_zeon
   ! ============================
   ! MGYOO (07/31/2018)
   ! Information of Multiple-Tracers

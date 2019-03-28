@@ -8,7 +8,7 @@ subroutine shifti
 
   implicit none
     
-  integer i,tid, m, mtop,lasth, dest_tor_rank, dim_zion, dim_zion0, dim_Ptl_package, ierr
+  integer i,k,tid, m, mtop,lasth, dest_tor_rank, dim_zion, dim_zion0, dim_RK_cum_zion, dim_Ptl_package, ierr
   integer tor_send_counts(ntoroidal), tor_send_displs(ntoroidal), tot_send_num
   integer tor_recv_counts(ntoroidal), tor_recv_displs(ntoroidal), tot_recv_num
   integer send_mid_arr(mimax), send_dest_arr(mimax)
@@ -35,9 +35,14 @@ subroutine shifti
 
   dim_zion = size(zion,1)
   dim_zion0 = size(zion0,1)
+  if(RK4_Flag==1) then
+    dim_RK_cum_zion = size(RK_cum_zion,1)
+  else 
+    dim_RK_cum_zion =0
+  endif
 
   !dim_Ptl_package = dim_zion + dim_zion0 + 1  ! zeon + zeon0 + ilables
-  dim_Ptl_package = dim_zion + dim_zion0 + 8  ! zion + zion0 + ilables + 5 values about wi evolution + 2 Unnormalized angles
+  dim_Ptl_package = dim_zion + dim_zion0 + dim_RK_cum_zion + 6  ! zeon + zeon0 + RK_cum_zion+ ilables + 5 values about wi evolution
   ! write(4321,*) "dim_zion=", dim_zion, "dim_zion0=",dim_zion0
   ! call flush(4321)
 
@@ -127,16 +132,21 @@ subroutine shifti
 
   ! copy all information of sending particles into tor_send_Ptls
   do i=1, tot_send_num
-    tor_send_Ptls_data(1:dim_zion, i) =  zion(:,send_mid_arr(i))
-    tor_send_Ptls_data(dim_zion+1:dim_zion+dim_zion0, i) =  zion0(:,send_mid_arr(i))
-    tor_send_Ptls_data(dim_zion+dim_zion0+1, i) =  ilabels(send_mid_arr(i))  
-    tor_send_Ptls_data(dim_zion+dim_zion0+2, i) =  wi_init(send_mid_arr(i))  
-    tor_send_Ptls_data(dim_zion+dim_zion0+3, i) =  wi_vpara(send_mid_arr(i))
-    tor_send_Ptls_data(dim_zion+dim_zion0+4, i) =  wi_vperp(send_mid_arr(i))  
-    tor_send_Ptls_data(dim_zion+dim_zion0+5, i) =  wi_accel(send_mid_arr(i))    
-    tor_send_Ptls_data(dim_zion+dim_zion0+6, i) =  wi_fdamp(send_mid_arr(i))  
-    tor_send_Ptls_data(dim_zion+dim_zion0+7, i) =  UnNorm_theta_i(send_mid_arr(i))    
-    tor_send_Ptls_data(dim_zion+dim_zion0+8, i) =  UnNorm_zeta_i(send_mid_arr(i))   
+    k=0
+    tor_send_Ptls_data(k+1:k+dim_zion, i) =  zion(:,send_mid_arr(i))
+    k=k+dim_zion
+    tor_send_Ptls_data(k+1:k+dim_zion0, i) =  zion0(:,send_mid_arr(i))
+    k=k+dim_zion0
+    if(RK4_Flag==1) then
+      tor_send_Ptls_data(k+1:k+dim_RK_cum_zion, i) =  RK_cum_zion(:,send_mid_arr(i))
+      k=k+dim_RK_cum_zion
+    endif
+    tor_send_Ptls_data(k+1, i) =  ilabels(send_mid_arr(i))  
+    tor_send_Ptls_data(k+2, i) =  wi_init(send_mid_arr(i))  
+    tor_send_Ptls_data(k+3, i) =  wi_vpara(send_mid_arr(i))
+    tor_send_Ptls_data(k+4, i) =  wi_vperp(send_mid_arr(i))  
+    tor_send_Ptls_data(k+5, i) =  wi_accel(send_mid_arr(i))    
+    tor_send_Ptls_data(k+6, i) =  wi_fdamp(send_mid_arr(i))   
   enddo
   
 
@@ -161,17 +171,16 @@ subroutine shifti
         lasth=lasth-1
     enddo
 
-    zion(:, m) = zion(:, mtop)
-    zion0(:, m) = zion0(:, mtop)
-    ilabels(m) = ilabels(mtop)
-    wi_init(m)     = wi_init(mtop)
-    wi_vpara(m)   = wi_vpara(mtop)
-    wi_vperp(m)  = wi_vperp(mtop)
-    wi_accel(m)= wi_accel(mtop)
-    wi_fdamp(m) = wi_fdamp(mtop)
+    zion(:, m)      = zion(:, mtop)
+    zion0(:, m)     = zion0(:, mtop)
+    ilabels(m)      = ilabels(mtop)
+    wi_init(m)      = wi_init(mtop)
+    wi_vpara(m)     = wi_vpara(mtop)
+    wi_vperp(m)     = wi_vperp(mtop)
+    wi_accel(m)     = wi_accel(mtop)
+    wi_fdamp(m)     = wi_fdamp(mtop)
 
-    UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
-    UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
+    if(RK4_Flag==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
 
     mtop = mtop -1
   enddo
@@ -180,16 +189,21 @@ subroutine shifti
  
   ! append recv particles
   do i=1, tot_recv_num
-    zion(:,mi+i) = tor_recv_Ptls_data(1:dim_zion, i)
-    zion0(:,mi+i) = tor_recv_Ptls_data(dim_zion+1:dim_zion+dim_zion0, i)
-    ilabels(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+1, i)   
-    wi_init(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+2, i) 
-    wi_vpara(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+3, i) 
-    wi_vperp(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+4, i) 
-    wi_accel(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+5, i) 
-    wi_fdamp(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+6, i) 
-    UnNorm_theta_i(mi+i)= tor_recv_Ptls_data(dim_zion+dim_zion0+7, i) 
-    UnNorm_zeta_i(mi+i) = tor_recv_Ptls_data(dim_zion+dim_zion0+8, i) 
+    k=0
+    zion(:,mi+i)    = tor_recv_Ptls_data(k+1:k+dim_zion, i)
+    k=k+dim_zion
+    zion0(:,mi+i)   = tor_recv_Ptls_data(k+1:k+dim_zion0, i)
+    k=k+dim_zion0
+    if(RK4_Flag==1) then
+      RK_cum_zion(:,mi+i) = tor_send_Ptls_data(k+1:k+dim_RK_cum_zion, i)
+      k=k+dim_RK_cum_zion
+    endif
+    ilabels(mi+i)   =  tor_recv_Ptls_data(k+1, i) 
+    wi_init(mi+i)   =  tor_recv_Ptls_data(k+2, i) 
+    wi_vpara(mi+i)  =  tor_recv_Ptls_data(k+3, i) 
+    wi_vperp(mi+i)  =  tor_recv_Ptls_data(k+4, i) 
+    wi_accel(mi+i)  =  tor_recv_Ptls_data(k+5, i) 
+    wi_fdamp(mi+i)  =  tor_recv_Ptls_data(k+6, i) 
   enddo
 
   mi = mi + tot_recv_num  
