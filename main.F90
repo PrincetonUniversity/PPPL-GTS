@@ -446,7 +446,7 @@ end if
 
       ! Solve GK equation of motion using Runge-Kutta 4th order method
       do irk=1,4
-        idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+        idiag=mod(irk+3,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
         call pushion_RK4(irk)
         call timer(t0,dt,t0wc,dtwc)
         time(1)=time(1)+dt
@@ -483,7 +483,7 @@ end if
         timewc(9)=timewc(9)+dtwc
 
         do irk=1,4
-          idiag_e=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+          idiag_e=mod(irk+3,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
           call pusheon_RK4(irk)
           call timer(t0,dt,t0wc,dtwc)
           time(10)=time(10)+dt
@@ -516,13 +516,15 @@ end if
       time(4)=time(4)+dt
       timewc(4)=timewc(4)+dtwc
 
+      call smooth_PHI
+
       ! smoothing,field diagnosis and finite difference for e_field
       call smooth(0)
       call timer(t0,dt,t0wc,dtwc)
       time(5)=time(5)+dt
       timewc(5)=timewc(5)+dtwc
 
-      idiag=mod(irk,2)+mod(istep+1,ndiag)
+      !idiag=mod(irk,2)+mod(istep+1,ndiag)
 
       call smooth(1)  ! 1. solve zonal flow for nonlinear run;
                       ! 2. smooth the complete phi;
@@ -558,6 +560,12 @@ end if
         call check_abnormal_weight_ions
       end if
       
+      if(mype==0) then
+        write(stdout,*)'istep=',istep
+        call flush(stdout)
+      endif
+
+      CALL DIAGNOSIS
 
       ! Find a specific tracer and print Tracer Information
       ! This routine may need to use multi-tracers.. etracers_labels, itracers_labels

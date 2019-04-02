@@ -887,9 +887,9 @@ subroutine snapshot
      call flush(888)
   end if
 
-  if(istep==0 .and. myrank_partd==nproc_partd-1) then
-    call Print_FLA_Denominator
-  endif
+  ! if(istep==0 .and. myrank_partd==nproc_partd-1) then
+  !   call Print_FLA_Denominator
+  ! endif
 
 !   if(mype==0) print*, 'Write DENs + PHIs at ', 'istep=', istep,  'irk=', irk
 

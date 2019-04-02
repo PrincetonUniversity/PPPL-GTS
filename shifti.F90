@@ -32,6 +32,15 @@ subroutine shifti
   ! call flush(4321)
  
 
+  ! do m=1,mi
+  !   if(isnan(zion(3,m)) .or. isnan(zion(5,m)) .or. isnan(RK_cum_zion(3,m))) then
+  !     write(stdout,*) 'Before Shifti, Im=',mype,', m=',m,', zion=', zion(:,m)
+  !     write(stdout,*) 'Before Shifti, Im=',mype,', m=',m,', zion0=', zion0(:,m)
+  !     write(stdout,*) 'Before Shifti, Im=',mype,', m=',m,', RK_cum_zion=', RK_cum_zion(:,m)
+  !     call flush(stdout)
+  !   endif 
+  ! enddo
+
 
   dim_zion = size(zion,1)
   dim_zion0 = size(zion0,1)
@@ -66,7 +75,8 @@ subroutine shifti
   send_mid_arr = 0
   send_dest_arr = 0
   do m=1, mi 
-    normalized_zeta =  zion(3,m) - floor(zion(3,m)/(2.0*pi)) * 2.0*pi
+    ! normalized_zeta =  zion(3,m) - floor(zion(3,m)/(2.0*pi)) * 2.0*pi
+    normalized_zeta =  modulo(zion(3,m),2.0*pi)
     dest_tor_rank = floor(normalized_zeta / Delta_zeta)
     
     if(dest_tor_rank<0 .OR. dest_tor_rank>ntoroidal) then
@@ -195,7 +205,7 @@ subroutine shifti
     zion0(:,mi+i)   = tor_recv_Ptls_data(k+1:k+dim_zion0, i)
     k=k+dim_zion0
     if(RK4_Flag==1) then
-      RK_cum_zion(:,mi+i) = tor_send_Ptls_data(k+1:k+dim_RK_cum_zion, i)
+      RK_cum_zion(:,mi+i) = tor_recv_Ptls_data(k+1:k+dim_RK_cum_zion, i)
       k=k+dim_RK_cum_zion
     endif
     ilabels(mi+i)   =  tor_recv_Ptls_data(k+1, i) 
@@ -211,6 +221,17 @@ subroutine shifti
   deallocate(tor_send_Ptls_data, tor_recv_Ptls_data)
   
   
+
+  ! do m=1,mi
+  !   if(isnan(zion(3,m)) .or. isnan(zion(5,m)) .or. isnan(RK_cum_zion(3,m))) then
+  !     write(stdout,*) 'After Shifti, Im=',mype,', m=',m,', zion=', zion(:,m)
+  !     write(stdout,*) 'After Shifti, Im=',mype,', m=',m,', zion0=', zion0(:,m)
+  !     write(stdout,*) 'After Shifti, Im=',mype,', m=',m,', RK_cum_zion=', RK_cum_zion(:,m)
+  !     call flush(stdout)
+  !   endif 
+  ! enddo
+
+
   !close(4321)
 
 

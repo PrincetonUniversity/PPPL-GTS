@@ -17,9 +17,11 @@ subroutine get_Te_fluctuation(wpi2)
   real(wp) mype_zonal_dTe(0:mpsi) ! zonal component of dTe in my cpu part
   real(wp) wpi2(me)
 
+  !call electron_locator
+
   heatflux=0.0_wp   ! borrow array heatflux(mgrid) to calculate Te fluctuations
   buff=0.0_wp
-
+  dnitmp=0.0_wp
 #ifdef _OPENMP
 !$omp parallel private(dnitmp)
   dnitmp=0._wp   ! Set array elements to zero
@@ -30,6 +32,13 @@ subroutine get_Te_fluctuation(wpi2)
      !                               ! wzeon, wpeon, wteon0, wteon1 etc are calculated in pusheon
      weight=zeon0(5,m)*(wpi2(m)*2.0_wp/3.0_wp-backTe(m)*msm0)    ! calculation using zeon0 at irk_e=1 determined by idiag_e=0
                                                                  ! wzeon, wpeon, wteon0, wteon1 etc are calculated in pusheon
+
+    if(zeon0(5,m)==0 .or. wpi2(m)==0 .or. zeon0(5,m)<min_thold_weight .or. zeon0(5,m)>max_thold_weight) then
+      write(stdout,*) 'm=',m, 'zeon0(5,m)=',zeon0(5,m), 'wpi2(m)=',wpi2(m)
+      write(stdout,*) 'zeon0(:,m)=',zeon0(:,m)
+      write(stdout,*) 'zeon(:,m)=',zeon(:,m)
+      call flush(stdout)
+    endif
 
      if (zeon0(5,m)<min_thold_weight .or. zeon0(5,m)>max_thold_weight) cycle
 
@@ -194,8 +203,14 @@ subroutine get_Te_fluctuation(wpi2)
      do i=0,mtheta(j)
         ij=igrid(j)+i
         buff(1,ij)=(buff(1,ij)-(ZF_SEPARATION)*zonal_dTe(j))*rdum    ! = delta-Te/Te_0 on grid   !  added Oct. 2012
-     end do
-     buff(1,igrid(j))=buff(1,igrid(j)+mtheta(j))  		 
+
+
+        ! if( abs(buff(1,ij))<1e-4 ) then
+        !   write(stdout,*) 'get_Te2, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'buff(:,ij)=',buff(:,ij)
+        !   call flush(stdout)
+        ! endif  
+      end do
+     buff(1,igrid(j))=buff(1,igrid(j)+mtheta(j))  
   enddo
 
   heatflux(1:mgrid)= buff(1,1:mgrid)   ! use heatflux(1:mgrid) to store Te fluctuations and write to output DENs at SNAPSHOT

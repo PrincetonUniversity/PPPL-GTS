@@ -131,7 +131,7 @@ end module precision
   real(wp) inv_larmor_num ! (=1.0/larmor_num) For faster calculation
   !==============================================================================
 
-  integer :: RK4_Flag=1 ! Default value is 1 (ON), but it could be changed by reading the INPUT.d file
+  integer :: RK4_Flag ! Default value is 1 (ON), but it could be changed by reading the INPUT.d file
 
 end module global_parameters
 

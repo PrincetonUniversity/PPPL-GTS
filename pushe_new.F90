@@ -1083,7 +1083,8 @@ subroutine pusheon_RK4(irk_e)
        vpara, v2, avw, f_rho,  &
        ! following working arrays are defined to use OMP reduction:
        adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
-
+  real(wp) tdum,thetatmp
+  real(Wp) tmp_old_AD, tmp_new_AD, tmp_old_dADdt, tmp_new_dADdt
   real(wp) vdq, vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
   real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
   real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
@@ -1138,13 +1139,14 @@ subroutine pusheon_RK4(irk_e)
     RK_adv_coeff =1.0
   elseif(irk_e==4) then
     RK_cum_coeff =(1.0/6.0)
-    RK_adv_coeff =0.0 ! adv is not needed for 4th RK step
+    RK_adv_coeff =1.0 ! adv is not needed for 4th RK step
   else
     write(stdout,*) "In pushe_RK4, irk_e=",irk_e,", is weird. Please Check It!!"
     call flush(stdout)
   endif
   
   call electron_locator
+  call n_T_u_group_e             ! get Te at electron position
 
   !  mu(1:me)=zeon(6,1:me)**2
 
@@ -1329,8 +1331,9 @@ subroutine pusheon_RK4(irk_e)
       ! zeon(8,m): d(q*dphi_NZ/Te)/dt @t=(n-1/2)
       !======================================================
       if(irk_e==1) then
-        zeon(8,m)   = (E_f-zeon0(8,m))/tstep 
-        zeon0(8,m)  = E_f ! So zeon0(8,m) now has a value at t=(n), and this would be used at t=(n+1) as the past information
+        tmp_old_AD = zeon0(8,m)
+        tmp_old_dADdt = (E_f-tmp_old_AD)/tstep 
+        !zeon0(8,m)  = E_f ! So zeon0(8,m) now has a value at t=(n), and this would be used at t=(n+1) as the past information
       endif
 
       if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
@@ -1464,10 +1467,10 @@ subroutine pusheon_RK4(irk_e)
       RK_cum_zeon(3,m) = RK_cum_zeon(3,m) +RK_cum_coeff*tstep*dgf(m)
       RK_cum_zeon(4,m) = RK_cum_zeon(4,m) +RK_cum_coeff*tstep*dgr(m)
       ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
-      RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+      ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
       RK_cum_zeon(7,m) = RK_cum_zeon(7,m) +RK_cum_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
 
-      ! Advance particle information for the next RK step
+      ! Advance particle position for the next RK step
       if(irk_e<4) then
 
         zeon(1,m) = zeon0(1,m)+RK_adv_coeff*tstep*da(m)
@@ -1475,24 +1478,19 @@ subroutine pusheon_RK4(irk_e)
         zeon(3,m) = zeon0(3,m)+RK_adv_coeff*tstep*dgf(m)
         zeon(4,m) = zeon0(4,m)+RK_adv_coeff*tstep*dgr(m)
         ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
-        zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
-        zeon(7,m) = zeon0(7,m) +RK_cum_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+        ! zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+        zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
 
       else if(irk_e==4) then !irk_i==4
         ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
-        zeon(1:5,m) = zeon0(1:5,m) +RK_cum_zeon(1:5,m)
+        ! zeon(1:5,m) = zeon0(1:5,m) +RK_cum_zeon(1:5,m)
+        zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)        
         zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
       endif
 
 
-
-      ! use f90 modulo to normalize theta and zeta to [0,2*pi)
-      ! If P > 0, then the function modulo(A,P) determines the positive difference between A and then
-      ! next lowest multiple of P. If P < 0, then the function modulo(A,P) determines the negative
-      ! difference between A and then next highest multiple of P.
       zeon(2,m)=modulo(zeon(2,m),twopi)
       zeon(3,m)=modulo(zeon(3,m),twopi)
-
 
       ! store GC information for flux measurements
       wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
@@ -1501,22 +1499,96 @@ subroutine pusheon_RK4(irk_e)
 
     enddo
 
-
     !   fluxes diagnose
     if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
-    !$omp parallel do private(m)
-      do m=1,me
-          wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
-      end do
-
-      call get_fluxes_e(wpi)
-
-      !   im=mod(istep,100)
-      im=mod(istep,ndiag)
-      if(im==0) then
-          call get_Te_fluctuation(wpi(2,:))
-      end if
+      !$omp parallel do private(m)
+        do m=1,me
+            wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
+        end do
+  
+        call get_fluxes_e(wpi)
+  
+        !   im=mod(istep,100)
+        im=mod(istep,ndiag)
+        if(im==0) then
+            call get_Te_fluctuation(wpi(2,:))
+            ! write(stdout,*) 'irk=',irk,', energy(1:me:100) in keV'
+            ! write(stdout,*) (wpi(2,i)*Tem_00,i=1,me,me/20)
+            ! call flush(stdout)
+        end if
     endif
+
+    call shifte
+    call electron_locator
+    call n_T_u_group_e
+
+    do m=1,me
+      ! calculate d(delta_phi)/dt at particles along trajactory
+
+      T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+
+      wz1=wzeon(m)
+      wz0=1.0_wp-wz1
+      ij=jteon0(m)
+      wp0=1.0_wp-wpeon(m)
+      wt00=1.0_wp-wteon0(m)
+      e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+      ij=ij+1
+      wt10=1.0_wp-wt00
+      e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+      ij=jteon1(m)
+      wp1=1.0_wp-wp0
+      wt01=1.0_wp-wteon1(m)
+      e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+      ij=ij+1
+      wt11=1.0_wp-wt01
+      e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+      if(ZF_SEPARATION==0) then
+        !    calculate <phi> at electrons (no FLR effect -- x=R)
+        r=zeon(7,m)-s0       ! in radial coordinator s
+        r=r*delr
+        ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+        fip=r-real(ip,wp)
+        Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+      end if
+      E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+
+      zeon(8,m)   = (E_f-zeon0(8,m))/(tstep+ RK_adv_coeff*tstep)
+
+      ! Calculate dADdt and evolve weight
+      ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
+      RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+      ! Advance particle information for the next RK step
+      if(irk_e<4) then
+        ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
+        zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+      else if(irk_e==4) then !irk_i==4
+        ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
+        zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
+        zeon0(8,m)   = E_f  ! So zeon0(8,m) now has a value at t=(n) based on phi(t(n)), and this would be used at t=(n+1) as the past information
+      endif
+
+      if(elabels(m) == etracers_labels((num_of_etracers/2))) then           
+        write(stdout,*) 'irk=',irk,', wdot=',wdot, 'zeon(8,m)=',zeon(8,m)
+        write(stdout,*) 'irk=',irk,', old_AD=',tmp_old_AD, ', new_AD=',E_f, ', old_dADdt=',tmp_old_dADdt, ', new_dADdt=',(E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
+        ! write(stdout,*) 'irk=',irk,', zeon=', zeon(:,m)
+        ! write(stdout,*) 'irk=',irk,', zeon0=', zeon0(:,m)        
+        call flush(stdout)
+      endif
+
+      ! use f90 modulo to normalize theta and zeta to [0,2*pi)
+      ! If P > 0, then the function modulo(A,P) determines the positive difference between A and then
+      ! next lowest multiple of P. If P < 0, then the function modulo(A,P) determines the negative
+      ! difference between A and then next highest multiple of P.
+      ! zeon(2,m)=modulo(zeon(2,m),twopi)
+      ! zeon(3,m)=modulo(zeon(3,m),twopi)
+
+
+    enddo
+
+
 
     if(irk_e==4)then
     ! out of boundary particle

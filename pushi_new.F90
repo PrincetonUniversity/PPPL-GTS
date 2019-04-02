@@ -805,6 +805,13 @@ subroutine pushion_RK4(irk_i)
     call flush(stdout)
   endif
 
+  !========================================
+  ! MGYOO (03/29/2018): Following ion_locator and n_T_u_groupt are required
+  !========================================
+  call ion_locator_at_larmor_points ! This is required to get correct wpi values which would use ion location info. such as jtion, wpion, wtion.
+  call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc.
+
+
   !  mu(1:mi)=zion(6,1:mi)**2
 
   ! gather e_field using 4-point gyro-averaging, sorting in poloidal angle
@@ -1044,6 +1051,14 @@ subroutine pushion_RK4(irk_i)
 
     wdot = (wdrive+wdrift+wKH+wgradB)
 
+    if(isnan(wdot)) then
+      write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
+      write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
+      write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
+      write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', now_w=', now_w,', wdot=',wdot,', wdrive=',wdrive,', wdrift=',wdrift,', wKH=',wKH,', wgradB=',wgradB
+      call flush(stdout)
+    endif 
+
       
     !==================================================
     ! MGYOO(03/27/2019)
@@ -1112,6 +1127,16 @@ subroutine pushion_RK4(irk_i)
       zion(7,m) = zion0(7,m) +RK_cum_zion(7,m)
     endif
 
+
+    
+    if(isnan(zion(5,m))) then
+      write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
+      write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
+      write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
+      write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0(6,m)=',zion0(6,m),', now_w=', now_w, ', wdot=',wdot
+      call flush(stdout)
+    endif 
+  
 
 
     ! use f90 modulo to normalize theta and zeta to [0,2*pi)
@@ -1294,3 +1319,123 @@ subroutine pushion_RK4(irk_i)
 
 
 end subroutine pushion_RK4
+
+
+
+!========================================
+! MGYOO (03/29/2018) :
+!========================================
+subroutine ion_locator_at_larmor_points
+
+  use precision
+  use global_parameters
+  use particle_array
+  use field_array
+  implicit none
+
+  integer m,i,im,j,k,ip,jt,ii,j11,j10,j01,j00,larmor,ij,ipjt
+
+  real(wp) rdum,tdum,delr,delt(0:mpsi),delz,r,wp1,wp0,wt11,wt10,wt01,wt00,&
+          tflr,pi2_inv,psitmp,thetatmp,zetatmp,rhoi,psimax,psimin,pdum,thedum
+
+
+  integer inner_ip,outter_ip, inner_jt, outter_jt
+  real(wp) gyro_phase, intpl_pgyro(larmor_num), intpl_tgyro(larmor_num)
+
+  delr=1.0_wp/deltar 
+  delt=2.0_wp*pi/deltat
+  delz=1.0_wp/deltaz
+  pi2_inv=0.5_wp/pi
+  !  psimin=psi_grid(0)
+  !  psimax=psi_grid(mpsi)
+  psimin=s_grid(0)
+  psimax=s_grid(mpsi)
+
+
+  !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
+  !$omp& pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
+  do m=1,mi
+    !psitmp=zion(1,m)   ! =a  
+    psitmp=zion(7,m)   ! =s
+    thetatmp=zion(2,m)
+    zetatmp=zion(3,m)
+    rhoi=zion(6,m)
+
+    r=psitmp
+    ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
+    !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
+    thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane 
+    thedum=thedum*pi2_inv+100.0_wp
+    thedum=2.0_wp*pi*(thedum-aint(thedum))       ! bring back to range [0,2pi]
+    jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))
+    ipjt=igrid(ip)+jt     ! note special case of jt=0
+    wzion(m)=(zetatmp-zetamin)*delz
+
+
+    !==========================================
+    ! MGYOO (10/24/2018) : to store information of GC position.
+    ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
+    inner_ip = max(0,min(mpsi-1,int((r-s0)*delr)))
+    thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane 
+    thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
+    inner_jt = int(thedum)
+    wtion0(0,m) = thedum - int(thedum)
+    jtion0(0,m) = igrid(inner_ip) + inner_jt
+    wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
+  
+    outter_ip = inner_ip+1
+    thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane 
+    thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
+    outter_jt = int(thedum)
+    wtion1(0,m) = thedum - int(thedum)
+    jtion1(0,m) = igrid(outter_ip) + outter_jt
+    !==========================================
+
+
+    !==========================================
+    ! MGYOO (10/25/2018) : to get linear-interpolation of pgyro and tgyro      
+    wp0 = 1.0_wp - wpion(0,m)
+    wp1 = wpion(0,m)
+
+    wt00 = 1.0_wp - wtion0(0,m)
+    wt10 = wtion0(0,m)
+
+    wt01 = 1.0_wp - wtion1(0,m)
+    wt11 = wtion1(0,m)
+
+    intpl_pgyro(:) = wp0*(wt00*pgyro(:,jtion0(0,m)) + wt10*pgyro(:,jtion0(0,m)+1)) + wp1*(wt01*pgyro(:,jtion1(0,m)) + wt11*pgyro(:,jtion1(0,m)+1))
+    intpl_tgyro(:) = wp0*(wt00*tgyro(:,jtion0(0,m)) + wt10*tgyro(:,jtion0(0,m)+1)) + wp1*(wt01*tgyro(:,jtion1(0,m)) + wt11*tgyro(:,jtion1(0,m)+1))
+  !==========================================
+
+    do larmor=1, larmor_num
+    !  MODIFIED for FINITE GYRORADIUS CASE
+      pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
+      rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
+      ii=max(0,min(mpsi-1,int(rdum)))
+      !        wp1=rdum-real(ii)
+      !        wpion(larmor,m)=wp1
+      wp1=(pdum-s_grid(ii))/(s_grid(ii+1)-s_grid(ii))   !wx  finite rho_i case
+      wpion(larmor,m)=wp1                               !wx  finite rho_i case
+
+      ! particle position in theta
+      tflr=thetatmp+rhoi*intpl_tgyro(larmor)
+
+      ! inner flux surface
+      im=ii
+      tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
+      tdum=(tdum-aint(tdum))*delt(im)
+      j00=max(0,min(mtheta(im)-1,int(tdum)))
+      jtion0(larmor,m)=igrid(im)+j00  ! pay attention to j00=0 case
+      wtion0(larmor,m)=tdum-real(j00)
+
+      ! outer flux surface
+      im=ii+1
+      tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
+      tdum=(tdum-aint(tdum))*delt(im)
+      j01=max(0,min(mtheta(im)-1,int(tdum)))
+      jtion1(larmor,m)=igrid(im)+j01  ! pay attention to j01=0 case
+      wtion1(larmor,m)=tdum-real(j01)
+    enddo
+  enddo
+
+end subroutine ion_locator_at_larmor_points

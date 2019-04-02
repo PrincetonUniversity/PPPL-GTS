@@ -92,6 +92,12 @@ subroutine charge_eon
         densitye(1,ij) = densitye(1,ij) + wz1*wt11
 #endif
 
+      if(isnan(densitye(0,ij)) .or. isnan(densitye(1,ij))) then
+        write(stdout,*) 'charge_eon, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densitye(:,ij)=',densitye(:,ij)
+        call flush(stdout)
+      endif
+
+
   enddo
 
 #ifdef _OPENMP
@@ -106,6 +112,9 @@ subroutine charge_eon
 !$omp end critical
 #endif
 !$omp end parallel
+
+
+
 
 ! If we have a particle decomposition on the toroidal domains, do a reduce
 ! operation to add up all the contributions to charge density on the grid

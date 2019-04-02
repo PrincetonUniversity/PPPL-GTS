@@ -23,7 +23,14 @@ subroutine shifte
   ! write(file_name,'("shifte_out_",i2.2,".dat")')mype
   ! open(unit=4321, file=file_name, position='append', action='write')
 
-  
+  ! do m=1,me
+  !   if(isnan(zeon(3,m)) .or. isnan(RK_cum_zeon(3,m))) then
+  !     write(stdout,*) 'Before Shifte, Im=',mype,', m=',m,', zeon=', zeon(:,m)
+  !     write(stdout,*) 'Before Shifte, Im=',mype,', m=',m,', zeon0=', zeon0(:,m)
+  !     write(stdout,*) 'Before Shifte, Im=',mype,', m=',m,', RK_cum_zeon=', RK_cum_zeon(:,m)
+  !     call flush(stdout)
+  !   endif 
+  ! enddo
   
   ! write(4321,*) "shift_e start! I'm=",mype,"mytorrank",myrank_toroidal,"ntoroidal",ntoroidal, "toroidal_comm", toroidal_comm
   ! write(4321,*) "zetamin", zetamin, "zetamax", zetamax
@@ -64,7 +71,8 @@ subroutine shifte
   send_mid_arr = 0
   send_dest_arr = 0
   do m=1, me 
-    normalized_zeta =  zeon(3,m) - floor(zeon(3,m)/(2.0*pi)) * 2.0*pi
+    ! normalized_zeta =  zeon(3,m) - floor(zeon(3,m)/(2.0*pi)) * 2.0*pi
+    normalized_zeta =  modulo(zeon(3,m),2.0*pi)
     dest_tor_rank = floor(normalized_zeta / Delta_zeta)
     
     if(dest_tor_rank<0 .OR. dest_tor_rank>ntoroidal) then
@@ -197,7 +205,7 @@ subroutine shifte
     zeon0(:,me+i)   = tor_recv_Ptls_data(k+1:k+dim_zeon0, i)
     k=k+dim_zeon0
     if(RK4_Flag==1) then
-      RK_cum_zeon(:,me+i) = tor_send_Ptls_data(k+1:k+dim_RK_cum_zeon, i)
+      RK_cum_zeon(:,me+i) = tor_recv_Ptls_data(k+1:k+dim_RK_cum_zeon, i)
       k=k+dim_RK_cum_zeon
     endif
     elabels(me+i)   =  tor_recv_Ptls_data(k+1, i) 
@@ -215,6 +223,15 @@ subroutine shifte
   
   
   ! close(4321)
+
+  ! do m=1,me
+  !   if(isnan(zeon(3,m)) .or. isnan(RK_cum_zeon(3,m))) then
+  !     write(stdout,*) 'After Shifte, Im=',mype,', m=',m,', zeon=', zeon(:,m)
+  !     write(stdout,*) 'After Shifte, Im=',mype,', m=',m,', zeon0=', zeon0(:,m)
+  !     write(stdout,*) 'After Shifte, Im=',mype,', m=',m,', RK_cum_zeon=', RK_cum_zeon(:,m)
+  !     call flush(stdout)
+  !   endif 
+  ! enddo
 
 
 end subroutine shifte
