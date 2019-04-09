@@ -539,6 +539,16 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
   endif
 
 
+  do m=1,mi
+    wi_init(m)  = zion(5,m)
+    UnNorm_theta_i(m) =zion(2,m)
+    UnNorm_zeta_i(m)  =zion(3,m)
+  enddo
+  do m=1,me
+    we_init(m)  = zeon(5,m)
+    UnNorm_theta_e(m) =zeon(2,m)
+    UnNorm_zeta_e(m)  =zeon(3,m)
+  enddo
 
   call MPI_BCAST(etracers_labels,num_of_etracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
   call MPI_BCAST(itracers_labels,num_of_itracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)

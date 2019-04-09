@@ -38,7 +38,7 @@ subroutine shifte
   ! write(4321,*) "dim_zeon=", dim_zeon, "dim_zeon0=",dim_zeon0
   ! call flush(4321)
 
-  dim_Ptl_package = dim_zeon + dim_zeon0 + 7  ! zeon + zeon0 + elabels + 7 values about we evolution
+  dim_Ptl_package = dim_zeon + dim_zeon0 + 9  ! zeon + zeon0 + elabels + 7 values about we evolution + 2 Unnormalized angles
 
   
   call MPI_Type_contiguous( dim_Ptl_package, MPI_Rsize, MPI_Ptl_type, ierr);
@@ -133,6 +133,8 @@ subroutine shifte
     tor_send_Ptls_data(dim_zeon+dim_zeon0+5, i) =  we_accel(send_mid_arr(i))
     tor_send_Ptls_data(dim_zeon+dim_zeon0+6, i) =  we_adiab(send_mid_arr(i))
     tor_send_Ptls_data(dim_zeon+dim_zeon0+7, i) =  we_fdamp(send_mid_arr(i))
+    tor_send_Ptls_data(dim_zeon+dim_zeon0+8, i) =  UnNorm_theta_e(send_mid_arr(i))
+    tor_send_Ptls_data(dim_zeon+dim_zeon0+9, i) =  UnNorm_zeta_e(send_mid_arr(i))
   enddo
   
 
@@ -167,6 +169,9 @@ subroutine shifte
     we_adiab(m) = we_adiab(mtop)
     we_fdamp(m)  = we_fdamp(mtop)
 
+    UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
+    UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+
     mtop = mtop -1
   enddo
 
@@ -187,6 +192,8 @@ subroutine shifte
     we_accel(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+5, i) 
     we_adiab(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+6, i)
     we_fdamp(me+i) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+7, i)     
+    UnNorm_theta_e(me+i)= tor_recv_Ptls_data(dim_zeon+dim_zeon0+8, i) 
+    UnNorm_zeta_e(me+i) = tor_recv_Ptls_data(dim_zeon+dim_zeon0+9, i) 
   enddo
 
   me = me + tot_recv_num  

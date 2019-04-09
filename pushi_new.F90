@@ -515,6 +515,10 @@ dmaxv=0.0d0
      wpi(2,m)=energy    ! =(v_para-u//)^2/2+v_perp^2/2
      wpi(3,m)=muB       ! =v_perp^2/2, need for calculate distribution function in get_fluxes
 
+     if(irk==2) then
+      UnNorm_theta_i(m) = UnNorm_theta_i(m) +dtime*dgq(m)
+      UnNorm_zeta_i(m)  = UnNorm_zeta_i(m)  +dtime*dgf(m)
+     endif
   enddo
       
 

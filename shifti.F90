@@ -37,7 +37,7 @@ subroutine shifti
   dim_zion0 = size(zion0,1)
 
   !dim_Ptl_package = dim_zion + dim_zion0 + 1  ! zeon + zeon0 + ilables
-  dim_Ptl_package = dim_zion + dim_zion0 + 6  ! zeon + zeon0 + ilables + 5 values about wi evolution
+  dim_Ptl_package = dim_zion + dim_zion0 + 8  ! zion + zion0 + ilables + 5 values about wi evolution + 2 Unnormalized angles
   ! write(4321,*) "dim_zion=", dim_zion, "dim_zion0=",dim_zion0
   ! call flush(4321)
 
@@ -135,6 +135,8 @@ subroutine shifti
     tor_send_Ptls_data(dim_zion+dim_zion0+4, i) =  wi_vperp(send_mid_arr(i))  
     tor_send_Ptls_data(dim_zion+dim_zion0+5, i) =  wi_accel(send_mid_arr(i))    
     tor_send_Ptls_data(dim_zion+dim_zion0+6, i) =  wi_fdamp(send_mid_arr(i))  
+    tor_send_Ptls_data(dim_zion+dim_zion0+7, i) =  UnNorm_theta_i(send_mid_arr(i))    
+    tor_send_Ptls_data(dim_zion+dim_zion0+8, i) =  UnNorm_zeta_i(send_mid_arr(i))   
   enddo
   
 
@@ -168,6 +170,9 @@ subroutine shifti
     wi_accel(m)= wi_accel(mtop)
     wi_fdamp(m) = wi_fdamp(mtop)
 
+    UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
+    UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
+
     mtop = mtop -1
   enddo
 
@@ -183,6 +188,8 @@ subroutine shifti
     wi_vperp(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+4, i) 
     wi_accel(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+5, i) 
     wi_fdamp(mi+i) =  tor_recv_Ptls_data(dim_zion+dim_zion0+6, i) 
+    UnNorm_theta_i(mi+i)= tor_recv_Ptls_data(dim_zion+dim_zion0+7, i) 
+    UnNorm_zeta_i(mi+i) = tor_recv_Ptls_data(dim_zion+dim_zion0+8, i) 
   enddo
 
   mi = mi + tot_recv_num  

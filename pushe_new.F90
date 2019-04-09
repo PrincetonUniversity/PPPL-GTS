@@ -489,6 +489,10 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
      wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
      wpi(3,m)=muB       ! normalizd electron perpendicular energy
 
+     if(irk_e==2) then
+      UnNorm_theta_e(m) = UnNorm_theta_e(m) +dtime*dgq(m)
+      UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +dtime*dgf(m)
+     endif
   enddo
 
 
@@ -992,6 +996,10 @@ end if
      wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
      wpi(3,m)=muB       ! normalizd electron perpendicular energy
 
+     if(irk_e==2) then
+      UnNorm_theta_e(m) = UnNorm_theta_e(m) +dtime*dgq(m)
+      UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +dtime*dgf(m)
+     endif     
   enddo
 
  if(irk_e==2)then

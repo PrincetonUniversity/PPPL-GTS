@@ -1822,6 +1822,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
   allocate (zion(7,mimax),zion0(7,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
        wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers))       
+  allocate(UnNorm_zeta_i(mimax), UnNorm_theta_i(mimax))
   if(ifelectron/=0) then
 
      if(ifdphi/=2) then     ! use dphi/dt equation when ifelectron=2 
@@ -1834,6 +1835,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
                wteon0(memax),wteon1(memax),markere(mgrid),&
              !   densitye(0:1,mgrid),cij(3,mgrid))
                densitye(0:1,mgrid),cij(5,mgrid), elabels(memax), etracers_labels(num_of_etracers))
+     allocate(UnNorm_zeta_e(memax), UnNorm_theta_e(memax))
 
       allocate(wi_init(mimax), wi_vpara(mimax), wi_vperp(mimax), wi_accel(mimax), wi_fdamp(mimax))
       allocate(we_init(memax), we_vpara(memax), we_vperp(memax), we_accel(memax), we_adiab(memax), we_fdamp(memax))

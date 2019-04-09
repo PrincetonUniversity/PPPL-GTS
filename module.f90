@@ -169,6 +169,8 @@ module particle_array
   integer :: num_of_etracers, num_of_itracers, nstep_for_tracer_record 
   !real(wp), dimension(:), allocatable :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
   real(wp), dimension(:), allocatable :: etracers_labels, itracers_labels
+  ! Unnormalized zeta&theta (not normalized into [0,2*pi))
+  real(wp), dimension(:), allocatable :: UnNorm_zeta_e, UnNorm_theta_e, UnNorm_zeta_i, UnNorm_theta_i  ! These are not perfectly consistent when the particle touches the boundaries
   ! ===========================
   
   ! ============================

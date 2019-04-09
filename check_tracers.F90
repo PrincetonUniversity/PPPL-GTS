@@ -31,7 +31,7 @@ subroutine check_tracer_e
   endif
 
 
-  each_TRI_length = 19 ! including we_adiab + we_fdamp
+  each_TRI_length = 21 ! including we_adiab + we_fdamp + 2 Unnormalized Angles
 
   allocate( send_buf_TRI(each_TRI_length, num_of_etracers), recv_buf_TRI(each_TRI_length, num_of_etracers), send_buf_TRI_Poincare(each_TRI_length, num_of_etracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_etracers))
 
@@ -101,6 +101,8 @@ subroutine check_tracer_e
             send_buf_TRI(17,m) = we_accel(my_tracer_indices(m))
             send_buf_TRI(18,m) = we_adiab(my_tracer_indices(m))
             send_buf_TRI(19,m) = we_fdamp(my_tracer_indices(m))
+            send_buf_TRI(20,m) = UnNorm_theta_e(my_tracer_indices(m))
+            send_buf_TRI(21,m) = UnNorm_zeta_e(my_tracer_indices(m))
         enddo
 
         ! Gather tracers_information to Root Rank.
@@ -174,7 +176,8 @@ subroutine check_tracer_e
             send_buf_TRI_Poincare(17,num_of_MY_tracers_Poincare) = we_accel(my_tracer_indices(m))
             send_buf_TRI_Poincare(18,num_of_MY_tracers_Poincare) = we_adiab(my_tracer_indices(m))
             send_buf_TRI_Poincare(19,num_of_MY_tracers_Poincare) = we_fdamp(my_tracer_indices(m))
-
+            send_buf_TRI_Poincare(20,num_of_MY_tracers_Poincare) = UnNorm_theta_e(my_tracer_indices(m))
+            send_buf_TRI_Poincare(21,num_of_MY_tracers_Poincare) = UnNorm_zeta_e(my_tracer_indices(m))
         endif         
     enddo
     
@@ -242,7 +245,7 @@ subroutine check_tracer_i
       call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
     endif
   
-    each_TRI_length = 18 
+    each_TRI_length = 20 ! + 2 Unnormalized Angles
     allocate( send_buf_TRI(each_TRI_length, num_of_itracers), recv_buf_TRI(each_TRI_length, num_of_itracers), send_buf_TRI_Poincare(each_TRI_length, num_of_itracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_itracers))
 
   
@@ -310,6 +313,8 @@ subroutine check_tracer_i
               send_buf_TRI(16,m) = wi_vperp(my_tracer_indices(m))
               send_buf_TRI(17,m) = wi_accel(my_tracer_indices(m))
               send_buf_TRI(18,m) = wi_fdamp(my_tracer_indices(m))
+              send_buf_TRI(19,m) = UnNorm_theta_i(my_tracer_indices(m))
+              send_buf_TRI(20,m) = UnNorm_zeta_i(my_tracer_indices(m))
           enddo
      
           ! Gather tracers_information to Root Rank.
@@ -381,6 +386,8 @@ subroutine check_tracer_i
               send_buf_TRI_Poincare(16,num_of_MY_tracers_Poincare) = wi_vperp(my_tracer_indices(m))
               send_buf_TRI_Poincare(17,num_of_MY_tracers_Poincare) = wi_accel(my_tracer_indices(m))              
               send_buf_TRI_Poincare(18,num_of_MY_tracers_Poincare) = wi_fdamp(my_tracer_indices(m))
+              send_buf_TRI_Poincare(19,num_of_MY_tracers_Poincare) = UnNorm_theta_i(my_tracer_indices(m))
+              send_buf_TRI_Poincare(20,num_of_MY_tracers_Poincare) = UnNorm_zeta_i(my_tracer_indices(m))
           endif         
       enddo
       
