@@ -111,6 +111,11 @@
   gagw=2*0.00000,             ! frequency (omega) of alpha, in the code normalization unit (1/Omega_ci)
   gagf0=2*3.14,               ! Initial phase of alpha
   dga0dt=2*0.0		              ! Linear growth rate of ga0, [in unit L_T/v_th]
+
+  !Multi-Tracers information
+  num_of_etracers=200 ! number of multi-tracers for the electrons
+  num_of_itracers=200 ! number of multi-tracers for the ions
+  nstep_for_tracer_record=5 ! Every 'nstep_for_tracer_record' steps, multi-tracers' information is written into the output file
 /
 
 &read2 ! related to a "diagnostic box" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
