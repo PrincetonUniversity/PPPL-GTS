@@ -49,7 +49,17 @@ subroutine check_tracer_e
         do i=1,num_of_etracers
         if (elabels(m) == etracers_labels(i)) then
             num_of_MY_tracers = num_of_MY_tracers + 1      
-            my_tracer_indices(num_of_MY_tracers) = m      
+            my_tracer_indices(num_of_MY_tracers) = m
+
+            ! Print out a reference tracer information
+            if(elabels(m) == etracers_labels((num_of_etracers/2))) then
+              aaa(1)=zeon(1,m)
+              the(1)=zeon(2,m)
+              call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)        
+              tracer_energy=0.5_wp*(zeon(4,m)*Bj(1))**2*m0ms*csc0**2+zeon(6,m)**2*Bj(1)               
+              write(stdout,*) 'istep=',istep,', KE=',tracer_energy*Tem_00, 'keV',', etracer(',num_of_etracers/2,') =', zeon(:,m)
+              call flush(stdout)
+            endif
         endif
         enddo
     enddo
@@ -97,7 +107,7 @@ subroutine check_tracer_e
         call MPI_Gatherv(send_buf_TRI, num_of_MY_tracers, MPI_TRI_Type, recv_buf_TRI, recv_TRI_counts, recv_TRI_displs, MPI_TRI_Type, 0, toroidal_comm, ierror)
 
         if (mype == 0) then
-            open(unit=1515, file="real_tracers_electron.dat", position='append',action='write')
+            open(unit=1515, file="multi_tracers_electron.dat", position='append',action='write')
             do i=1, recv_num_of_TRI 
                 !write(1515,*) recv_buf_TRI(:,i)
                 write(1515,102) recv_buf_TRI(:,i)
@@ -182,7 +192,7 @@ subroutine check_tracer_e
     call MPI_Gatherv(send_buf_TRI_Poincare, num_of_MY_tracers_Poincare, MPI_TRI_Type, recv_buf_TRI_Poincare, recv_TRI_Poincare_counts, recv_TRI_Poincare_displs, MPI_TRI_Type, 0, toroidal_comm, ierror)
 
     if (mype == 0) then
-        open(unit=1516, file="real_tracers_electron_Poincare.dat", position='append',action='write')
+        open(unit=1516, file="multi_tracers_electron_Poincare.dat", position='append',action='write')
         do i=1, recv_num_of_TRI_Poincare 
             !write(1516,*) recv_buf_TRI_Poincare(:,i)
             write(1516,102) recv_buf_TRI_Poincare(:,i)
@@ -250,6 +260,17 @@ subroutine check_tracer_i
           if (ilabels(m) == itracers_labels(i)) then
               num_of_MY_tracers = num_of_MY_tracers + 1      
               my_tracer_indices(num_of_MY_tracers) = m      
+            
+            ! Print out a reference tracer information
+            if(ilabels(m) == itracers_labels((num_of_itracers/2))) then
+              aaa(1)=zion(1,m)
+              the(1)=zion(2,m)
+              call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)        
+              tracer_energy=0.5_wp*(zion(4,m)*Bj(1))**2+zion(6,m)**2*Bj(1)  ! Ion energy 
+         
+              write(stdout,*) 'istep=', istep,', KE=',tracer_energy*Tem_00, 'keV',', itracer(',num_of_itracers/2,') =', zion(:,m)
+              call flush(stdout)
+            endif
           endif
           enddo
       enddo
@@ -295,7 +316,7 @@ subroutine check_tracer_i
           call MPI_Gatherv(send_buf_TRI, num_of_MY_tracers, MPI_TRI_Type, recv_buf_TRI, recv_TRI_counts, recv_TRI_displs, MPI_TRI_Type, 0, toroidal_comm, ierror)
   
           if (mype == 0) then
-              open(unit=1515, file="real_tracers_ion.dat", position='append',action='write')
+              open(unit=1515, file="multi_tracers_ion.dat", position='append',action='write')
               do i=1, recv_num_of_TRI 
                   !write(1515,*) recv_buf_TRI(:,i)
                   write(1515,102) recv_buf_TRI(:,i)
@@ -377,7 +398,7 @@ subroutine check_tracer_i
       call MPI_Gatherv(send_buf_TRI_Poincare, num_of_MY_tracers_Poincare, MPI_TRI_Type, recv_buf_TRI_Poincare, recv_TRI_Poincare_counts, recv_TRI_Poincare_displs, MPI_TRI_Type, 0, toroidal_comm, ierror)
   
       if (mype == 0) then
-          open(unit=1516, file="real_tracers_ion_Poincare.dat", position='append',action='write')
+          open(unit=1516, file="multi_tracers_ion_Poincare.dat", position='append',action='write')
           do i=1, recv_num_of_TRI_Poincare 
               !write(1516,*) recv_buf_TRI_Poincare(:,i)
               write(1516,102) recv_buf_TRI_Poincare(:,i)

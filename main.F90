@@ -253,7 +253,6 @@ end if
 ! Calculate ion weight damping 
         if(irk==2.and.wimcompressibility==2) call weight_damping_ion
 
-        if(irk==2) call check_tracer_i
 ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
 ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
 ! in PUSHI for calculating electric force on ions
@@ -292,7 +291,6 @@ end if
               time(11)=time(11)+dt
               timewc(11)=timewc(11)+dtwc
 
-              if(irk==2) call check_tracer_e
            else                   ! 1 ion step = nelectron(>1) electron steps
                                   ! originally, 1 ion step = 2*nelectron electron steps
               if(irk==1) then
@@ -343,7 +341,6 @@ end if
                  time(11)=time(11)+dt
                  timewc(11)=timewc(11)+dtwc
 
-                 if(irk==2) call check_tracer_e
               end do
            end if    ! end if(nelectron==1)
 
@@ -358,6 +355,12 @@ end if
            timewc(12)=timewc(12)+dtwc
 
         endif    ! end if(ifelectron/=0)
+
+        if(irk==2) then
+          call check_tracer_e
+          call check_tracer_i
+        endif
+
 
 ! solve GK Poisson equation using adiabatic electron
         call poisson( solver1, masssolver )
