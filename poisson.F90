@@ -596,29 +596,11 @@ subroutine poisson_initial( mat )
            
            do kr=1,mring
               
-              ! FLR from grid point and weight of 8-point for each ring
-              do kp=1,8
-                 if(kp<5)then
-                    ddelr=pgyro(kp,ipjt)
-                    ddelt=tgyro(kp,ipjt)
-                    wght=0.0625_wp*fring(kr)
-                 elseif(kp==5)then
-                    ddelr=0.5_wp*(pgyro(1,ipjt)+pgyro(3,ipjt))
-                    ddelt=0.5_wp*(tgyro(1,ipjt)+tgyro(3,ipjt))
-                    wght=0.125_wp*fring(kr)
-                 elseif(kp==6)then
-                    ddelr=0.5_wp*(pgyro(2,ipjt)+pgyro(3,ipjt))
-                    ddelt=0.5_wp*(tgyro(2,ipjt)+tgyro(3,ipjt))
-                    wght=0.125_wp*fring(kr)
-                 elseif(kp==7)then
-                    ddelr=0.5_wp*(pgyro(2,ipjt)+pgyro(4,ipjt))
-                    ddelt=0.5_wp*(tgyro(2,ipjt)+tgyro(4,ipjt))
-                    wght=0.125_wp*fring(kr)
-                 elseif(kp==8)then
-                    ddelr=0.5_wp*(pgyro(1,ipjt)+pgyro(4,ipjt))
-                    ddelt=0.5_wp*(tgyro(1,ipjt)+tgyro(4,ipjt))
-                    wght=0.125_wp*fring(kr)
-                 endif
+              ! FLR from grid point and weight of larmor_num-points for each ring
+              do kp=1,larmor_num
+                ddelr=pgyro(kp,ipjt)
+                ddelt=tgyro(kp,ipjt)
+                wght=(1.0/real(larmor_num))*fring(kr)
 
 ! position for each point with rho_i=2.0*vring
                  r=max(psimin,min(psimax,rgrid+ddelr*2.0_wp*vring_r(kr)*sqrt(0.5_wp/Bj(1)))) ! r is s

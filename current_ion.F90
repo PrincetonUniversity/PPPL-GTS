@@ -255,9 +255,8 @@ subroutine current_ion
      do j=1,mtheta(i)
         ij=igrid(i)+j
         pflux_i(1,1,ij)=(1.0/real(larmor_num))*pflux_i(1,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
-        pflux_i(2,1,ij)=(1.0/real(larmor_num))*cloud_i/dadtdz(i)  ! Gamma_e*J
-        pflux_i(3,1,ij)=(1.0/real(larmor_num))*cloud_i/dadtdz(i)  ! Gamma_e*J
-!                factor 0.25=1/4 comes from 4-point average ! This is abandoned!!
+        pflux_i(2,1,ij)=(1.0/real(larmor_num))*pflux_i(2,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
+        pflux_i(3,1,ij)=(1.0/real(larmor_num))*pflux_i(3,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
 !                Now, factor = (1/larmor_num) to average larmor_num points.
      enddo
   enddo
