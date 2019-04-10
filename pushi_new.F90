@@ -550,7 +550,7 @@ subroutine pushion
        xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
        epara,psimax,psimin,pdum,wdrive,ainv,psitmp,thetatmp,&
        zetatmp,rhoi,e1,e2,e3,wpi(3,mi),rdel, &
-       dgr(mi),da(mi),dgq(mi),dgf(mi),mu, &
+       dgr(mi),da(mi),da2(mi),dgq(mi),dgf(mi),mu, &
        Er_particle(mi),dela,fip,weqflow,T_inverse,& 
        B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
        v2, avw,   &
@@ -1143,13 +1143,21 @@ dmaxv=0.0d0
     call MPI_ALLREDUCE(adum_tot,En_tot,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
     En_tot=En_tot/jaco_sum     ! =<E^2> -- total field energy
 
-   call get_fluxes(wpi,dgf,dgq)
-
 !   im=mod(istep,100)
    im=mod(istep,msnap)
    if(im==0) then
       call get_3D_flow(da,dgq,dgf,wpi(2,:))
    end if
+
+   !  below is modified to add calculation of NC fluxes in purely NC simulations -- April, 2019
+
+   do m=1,mi
+      da2(m)=da(m)*gha(m)       ! now da(:)=dr/dt|_full=da/dt|_full *(1/|grad a|) --> total radial drift velocity
+                               ! this is needed particularly for calculating fluxes in purely NC simulations 
+                               ! for which the fluxes are mainly associated with magnetic drift rather than ExB drift
+   end do
+
+   call get_fluxes(wpi,da2,dgf,dgq)
 
  endif
 

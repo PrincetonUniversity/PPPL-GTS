@@ -379,7 +379,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
        xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
        epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
        zetatmp,e1,e2,e3,wpi(3,me),rdel, &
-       dgr(me),da(me),dgq(me),dgf(me),mu, &
+       dgr(me),da(me),da2(me),dgq(me),dgf(me),mu, &
        Er_particle(me),dela,fip,weqflow,T_inverse,Ea_00,wdphidt,wdphidt2, & 
        vpara, v2, avw, f_rho,  &
 ! following working arrays are defined to use OMP reduction:
@@ -790,9 +790,11 @@ end if
 !$omp parallel do private(m)
      do m=1,me
         wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
+        !  added to calculate radial fluxes with full radial drift
+        da2(m)=da(me)*gha(m)            ! now da(:)= dr/dt|_full=da/dt|_full *(1/|grad a|)
      end do
 
-     call get_fluxes_e(wpi)
+     call get_fluxes_e(wpi,da2)
 
      !   im=mod(istep,100)
      im=mod(istep,msnap)

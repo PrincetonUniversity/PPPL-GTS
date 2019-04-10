@@ -125,7 +125,7 @@ subroutine theory
          ajavbs_e=ajavbs_e*Fj(1)*rm2avx*utime/(charg0/3.0d9)/1.0d6   ! in unit e0*v_00*B_00
 
 !         write(21,1299) r, ajavbs, pvale, pvali, ppvale, ppvali, tempxe, tempxi, tempxpe, tempxpi
-         write(21,1299) r, ajavbs, ajavbs_e
+         write(21,1299) r, ajavbs, ajavbs_e, xnusi, xnuse
 1299     format(10(2x,ES13.6))
 
 19    continue

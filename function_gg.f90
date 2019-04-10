@@ -888,7 +888,14 @@ FUNCTION density(adum,thedum)
          call ezspline_interp(spn,adum,density,ier)
 
       else               ! use model n(r) profile
-         if(q2.gt.0.0) then
+         if(profile_case == 1)then
+            tmp = tanh((adum - 0.5) / 0.3)
+            tmp2 = n_0 * exp(- ifflat * kappan * 0.3 / R_0 * tmp);
+            density = tmp2;
+            ! if(mype == 0)then
+            !    write(0, *) "density =", density, "adum =", adum, "kappan =", kappan, "n_0 =", n_0;
+            ! end if
+         else if(q2.gt.0.0) then
             density=n_0*(An+Bn*dexp(-dn*adum**xn))
          else
             r=adum-a0
@@ -896,7 +903,7 @@ FUNCTION density(adum,thedum)
             ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
             fip=r-real(ip,wp)
             tmp=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
-            tmp2=n_0*exp(kappan*tmp)      ! ne
+            tmp2=n_0*exp(ifflat*kappan*tmp)      ! ne
             density=tmp2
 !cj            density=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
 !cj            density=n_0*exp(kappan*density)      ! ne
@@ -918,8 +925,9 @@ FUNCTION dn_da(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) dn_da,densi, tmp, tmp2
+      real(wp) dn_da,densi, tmp, tmp2, ntmp, dlnn_da
       real(wp) adum,thedum
+      real(wp) density
 
       integer i, ip
       real(wp)  r, fip, dela, x
@@ -931,7 +939,12 @@ FUNCTION dn_da(adum,thedum)
          call ezspline_derivative(spn,1,adum,dn_da,ier)
 
       else               ! use model n(r) profile
-         if(q2.gt.0.0) then
+         if(profile_case == 1)then
+            ntmp = density(adum, thedum);
+            tmp = 1 / cosh((adum - 0.5) / 0.3);
+            dlnn_da = - kappan / R_0 * tmp * tmp;
+            dn_da = dlnn_da * ntmp;
+         else if(q2.gt.0.0) then
             dn_da=n_0*Bn*dexp(-dn*adum**xn)*(-dn*xn*adum**(xn-1.0_wp))
          else
             r=adum-a0
@@ -939,7 +952,7 @@ FUNCTION dn_da(adum,thedum)
             ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
             fip=r-real(ip,wp)
             densi=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
-            densi=n_0*exp(kappan*densi)     ! ne
+            densi=n_0*exp(ifflat*kappan*densi)     ! ne
             x=temconst*(adum-rc)
 !cj            dn_da=kappan*exp(-x**edensity0) ! dlnn/da
 !cj            dn_da=densi*dn_da               ! dn/da
@@ -977,7 +990,11 @@ FUNCTION temperature(adum,thedum)
            call ezspline_interp(spTi,adum,temperature,ier)
 
          else               ! use model Ti(r) profile
-           if(q2.gt.0.0) then
+           if(profile_case == 1)then
+              tmp = tanh((adum - 0.5) / 0.3)
+              tmp2 = T_0 * exp(- ifflat * kappati * 0.3 / R_0 * tmp);
+              temperature = tmp2;
+           else if(q2.gt.0.0) then
               temperature=Tc*(T_0*(At+Bt*exp(-dTemi*adum**xt))/Tc)**r0 ! model Ti profile
            else
               r=adum-a0
@@ -987,7 +1004,7 @@ FUNCTION temperature(adum,thedum)
 !cj              temperature=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     ! Ti at particles
 !cj              temperature=T_0*exp(q1*temperature)
               tmp=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     ! Ti at particles
-              tmp2=T_0*exp(q1*tmp)
+              tmp2=T_0*exp(ifflat*q1*tmp)
 
               temperature=tmp2
            end if
@@ -1020,7 +1037,11 @@ FUNCTION temperature_e(adum,thedum)
            call ezspline_interp(spTe,adum,temperature_e,ier)
 
       else               ! use model Te(r) profile
-        if(q2.gt.0.0) then 
+        if(profile_case == 1)then
+           tmp = tanh((adum - 0.5) / 0.3)
+           tmp2 = T_e0 * exp(- ifflat * kappate * 0.3 / R_0 * tmp);
+           temperature_e = tmp2;
+        else if(q2.gt.0.0) then 
            tmp=T_e0*(At_e+Bt_e*exp(-dTeme*adum**xt_e)) ! model Te profil, the same as Ti
            tmp2=Tc_e*(tmp/Tc_e)**b0
 
@@ -1033,7 +1054,7 @@ FUNCTION temperature_e(adum,thedum)
            ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
            fip=r-real(ip,wp)
            tmp=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     
-           tmp2=T_e0*exp(flow1*tmp)    ! =Te
+           tmp2=T_e0*exp(ifflat*flow1*tmp)    ! =Te
 
            temperature_e=tmp2
 !cj           temperature_e=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     
@@ -1055,8 +1076,9 @@ FUNCTION dT_da(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) dT_da,tempi, tmp, tmp2
+      real(wp) dT_da,tempi, tmp, tmp2, ttmp, dlnt_da
       real(wp) adum,thedum
+      real(wp) temperature
 
       integer i, ip
       real(wp)  r, fip, dela, x
@@ -1069,7 +1091,12 @@ FUNCTION dT_da(adum,thedum)
          call ezspline_derivative(spTi,1,adum,dT_da,ier)
 
       else               ! use model Ti(r) profile
-         if(q2.gt.0.0) then
+         if(profile_case == 1)then
+            ttmp = temperature(adum, thedum);
+            tmp = 1 / cosh((adum - 0.5) / 0.3);
+            dlnt_da = - kappati / R_0 * tmp * tmp;
+            dT_da = dlnt_da * ttmp;
+         else if(q2.gt.0.0) then
             tempi=T_0*(At+Bt*exp(-dTemi*adum**xt))     ! original Ti profile
 !cj            dT_da=T_0*Bt*exp(-dTemi*adum**xt)*(-dTemi*xt*adum**(xt-1.0_wp)) ! for original Ti profile
 !cj            dT_da=r0*(tempi/Tc)**(r0-1.0d0)*dT_da      ! for new model Ti profile
@@ -1083,7 +1110,7 @@ FUNCTION dT_da(adum,thedum)
             ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
             fip=r-real(ip,wp)
             tempi=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     ! Ti at particles
-            tempi=T_0*exp(q1*tempi)
+            tempi=T_0*exp(ifflat*q1*tempi)
             x=rw*(adum-rc)
 !cj            dT_da=q1*exp(-x**q0)
 !cj            dT_da=tempi*dT_da
@@ -1108,8 +1135,9 @@ FUNCTION dT_da_e(adum,thedum)
       use profile_array
 
       implicit  none
-      real(wp) dT_da_e, tempe, tmp, tmp2
+      real(wp) dT_da_e, tempe, tmp, tmp2, ttmp, dlnt_da
       real(wp) adum,thedum
+      real(wp) temperature_e
 
       integer i, ip
       real(wp)  r, fip, dela, x
@@ -1121,7 +1149,12 @@ FUNCTION dT_da_e(adum,thedum)
          call ezspline_derivative(spTe,1,adum,dT_da_e,ier)
 
       else               ! use model Te(r) profile
-         if(q2.gt.0.0) then
+         if(profile_case == 1)then
+            ttmp = temperature_e(adum, thedum);
+            tmp = 1 / cosh((adum - 0.5) / 0.3);
+            dlnt_da = - kappate / R_0 * tmp * tmp;
+            dT_da_e = dlnt_da * ttmp;
+         else if(q2.gt.0.0) then
             tempe=T_e0*(At_e+Bt_e*exp(-dTeme*adum**xt_e))   ! original Te profile
 !cj            dT_da_e=T_e0*Bt_e*exp(-dTeme*adum**xt_e)*(-dTeme*xt_e*adum**(xt_e-1.0_wp))  ! for original Te profile
 !cj            dT_da_e=b0*(tempe/Tc_e)**(b0-1.0d0)*dT_da_e     ! for new model Te profile
@@ -1135,7 +1168,7 @@ FUNCTION dT_da_e(adum,thedum)
             ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
             fip=r-real(ip,wp)
             tempe=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     ! Ti at particles
-            tempe=T_e0*exp(flow1*tempe)
+            tempe=T_e0*exp(ifflat*flow1*tempe)
             x=flow2*(adum-rc)
 !cj            dT_da_e=flow1*exp(-x**flow0)
 !cj            dT_da_e=tempe*dT_da_e
@@ -1174,7 +1207,9 @@ FUNCTION domega_da(adum,thedum,omega_t)
          call ezspline_interp(spO,adum,omega_t,ier)
 
       else               ! use model omega_t(r) profile
-         if(q2.gt.0.0) then  ! model profile I
+         if(profile_case == 1) then
+            domega_da = 0.0_wp;
+         else if(q2.gt.0.0) then  ! model profile I
             domega_da=u_0*Bu*exp(-du*adum**xu)*(-du*xu*adum**(xu-1.0_wp)) 
             omega_t=u_0*(Au+Bu*exp(-du*adum**xu))
          else                ! model profile II
@@ -1244,6 +1279,9 @@ FUNCTION u_parallel(adum,thedum)
 !           u_parallel=u_parallel*(B_0/Bj(1))
 
       u_parallel=tmp2
+      if(profile_case == 1)then
+         u_parallel = 0.0_wp
+      end if
 
       return
 end function u_parallel
@@ -1271,7 +1309,8 @@ subroutine n_T_u_group
 
       implicit  none
       integer i, ip
-      real(wp)  r, fip, dela, tempi
+      real(wp)  r, fip, dela, tempi, tmp
+      real(wp) density, temperature
 
       dela=(a1-a0)/real(jr,wp)
       dela=1.0_wp/dela
@@ -1323,8 +1362,20 @@ subroutine n_T_u_group
          end do
 
       else                  ! use model profiles
+         if(profile_case == 1)then
+!$omp parallel do private(i,r,ip,fip,tmp)
+            do i=1,mi
+               backn(i) = density(zion(1,i), 0.0_wp);
+               backT(i) = temperature(zion(1,i), 0.0_wp);
+               backu(i) = 0.0_wp;
 
-         if(q2.gt.0.0) then  ! first analytic profile
+               tmp = 1 / cosh((zion(1,i) - 0.5) / 0.3)
+               dlnnda(i) = - kappan / R_0 * tmp * tmp;
+               dlnTda(i) = - kappati / R_0 * tmp * tmp;
+               duda(i) = 0.0_wp;
+               gh(i) = 0.0_wp;
+            end do
+         else if(q2.gt.0.0) then  ! first analytic profile
 !$omp parallel do private(i,r,ip,fip)
             do i=1,mi
                backn(i)=n_0*Bn*exp(-dn*zion(1,i)**xn)
@@ -1363,16 +1414,16 @@ subroutine n_T_u_group
                gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
 
                tempi=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     
-               backT(i)=T_0*exp(q1*tempi)                              ! Ti at particles
+               backT(i)=T_0*exp(ifflat*q1*tempi)                              ! Ti at particles
 
                tempi=rw*(zion(1,i)-rc)
-               dlnTda(i)=q1*exp(-tempi**q0)                            ! =dlnT/da
+               dlnTda(i)=q1*exp(-abs(tempi)**q0)                            ! =dlnT/da
 
                tempi=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
-               backn(i)=n_0*exp(kappan*tempi)                              ! ne at particles
+               backn(i)=n_0*exp(ifflat*kappan*tempi)                              ! ne at particles
 
                tempi=temconst*(zion(1,i)-rc)
-               dlnnda(i)=kappan*exp(-tempi**edensity0)                     ! =dlnn/da
+               dlnnda(i)=kappan*exp(-abs(tempi)**edensity0)                     ! =dlnn/da
 
                tempi=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)     
                backu(i)=u_0+Au*tempi                                   ! this is omega_t; then u_//=I*backu/B
@@ -1410,7 +1461,8 @@ subroutine n_T_u_group_e
 
       implicit  none
       integer i, ip
-      real(wp)  r, fip, dela, tempe
+      real(wp)  r, fip, dela, tempe, tmp
+      real(wp) density, temperature_e
 
       if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
          if(linterp_from_nodes==1) then
@@ -1448,7 +1500,17 @@ subroutine n_T_u_group_e
 
       else                  ! use model profiles
 
-        if(q2.gt.0.0) then  ! first analytic profile
+        if(profile_case == 1)then
+!$omp parallel do private(i,r,ip,fip,tmp)
+           do i=1,me
+              backne(i) = density(zeon(1,i), 0.0_wp);
+              backTe(i) = temperature_e(zeon(1,i), 0.0_wp);
+
+              tmp = 1 / cosh((zeon(1,i) - 0.5) / 0.3)
+              dlnndae(i) = - kappan / R_0 * tmp * tmp;
+              dlnTdae(i) = - kappate / R_0 * tmp * tmp;
+           end do
+        else if(q2.gt.0.0) then  ! first analytic profile
 !$omp parallel do private(i)
            do i=1,me
               backne(i)=n_0*Bn*exp(-dn*zeon(1,i)**xn)
@@ -1479,16 +1541,16 @@ subroutine n_T_u_group_e
               fip=r-real(ip,wp)
 
               tempe=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)
-              backTe(i)=T_e0*exp(flow1*tempe)                              ! Te at particles
+              backTe(i)=T_e0*exp(ifflat*flow1*tempe)                              ! Te at particles
 
               tempe=flow2*(zeon(1,i)-rc)
-              dlnTdae(i)=flow1*exp(-tempe**flow0)                            ! =dlnT/da
+              dlnTdae(i)=flow1*exp(-abs(tempe)**flow0)                            ! =dlnT/da
 
               tempe=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
-              backne(i)=n_0*exp(kappan*tempe)                              ! ne at particles
+              backne(i)=n_0*exp(ifflat*kappan*tempe)                              ! ne at particles
 
               tempe=temconst*(zeon(1,i)-rc)
-              dlnndae(i)=kappan*exp(-tempe**edensity0)                     ! =dlnn/da
+              dlnndae(i)=kappan*exp(-abs(tempe)**edensity0)                     ! =dlnn/da
 
 !               backu=u_0*(Au+Bu*exp(-du*aa**xu))*(B_0/B)
            end do
@@ -1516,7 +1578,8 @@ subroutine Ti_at_electrons
 
       implicit  none
       integer i, ip
-      real(wp)  r, fip, dela, tempi
+      real(wp)  r, fip, dela, tempi, tmp
+      real(wp) temperature
 
       if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
          if(linterp_from_nodes==1) then
@@ -1538,7 +1601,12 @@ subroutine Ti_at_electrons
 
       else                  ! use model profiles
 
-         if(q2.gt.0.0) then  ! first analytic profile
+        if(profile_case == 1)then
+!$omp parallel do private(i,r,ip,fip,tmp)
+           do i=1,me
+              backT(i) = temperature(zeon(1,i), 0.0_wp);
+           end do
+        else if(q2.gt.0.0) then  ! first analytic profile
 !$omp parallel do private(i)
             do i=1,me
                backT(i)=T_0*Bt*exp(-dTemi*zeon(1,i)**xt)
@@ -1554,7 +1622,7 @@ subroutine Ti_at_electrons
                ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
                fip=r-real(ip,wp)
                tempi=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)
-               backT(i)=T_0*exp(q1*tempi)                              ! Ti at particles
+               backT(i)=T_0*exp(ifflat*q1*tempi)                              ! Ti at particles
             end do
          end if
 
@@ -1590,13 +1658,13 @@ FUNCTION FUN3(adum)
 !
 !    provide function FUN3=exp{-[(r-rc)/rw]**q0} for calculating A=int(FUN3*dr) 
 !
-      use global_parameters, only: rc, rw, q0
+      use global_parameters, only: rc, rw, q0, ifflat
 
       implicit  none
       real(wp) FUN3, x, adum
 
       x=rw*(adum-rc)
-      FUN3=exp(-x**q0)
+      FUN3=ifflat*exp(-x**q0)
 
       RETURN
 end function FUN3
@@ -1610,13 +1678,13 @@ FUNCTION FUN3e(adum)
 !    provide function FUN3e=exp{-[(r-rc)/flow2]**flow0} for calculating A=int(FUN3e*dr)
 !    with rw -> flow2, q0 -> flow0
 !
-      use global_parameters, only: rc, flow2, flow0
+      use global_parameters, only: rc, flow2, flow0, ifflat
 
       implicit  none
       real(wp) FUN3e, x, adum
 
       x=flow2*(adum-rc)
-      FUN3e=exp(-x**flow0)
+      FUN3e=ifflat*exp(-x**flow0)
 
       RETURN
 end function FUN3e
@@ -1630,13 +1698,13 @@ FUNCTION FUN3n(adum)
 !    provide function FUN3n=exp{-[(r-rc)/temconst]**edensity0} for calculating A=int(FUN3n*dr)
 !    with rw -> temconst, q0 -> edensity0
 !
-      use global_parameters, only: rc, edensity0, temconst
+      use global_parameters, only: rc, edensity0, temconst, ifflat
 
       implicit  none
       real(wp) FUN3n, x, adum
 
       x=temconst*(adum-rc)
-      FUN3n=exp(-x**edensity0)
+      FUN3n=ifflat*exp(-x**edensity0)
 
       RETURN
 end function FUN3n
@@ -1650,13 +1718,13 @@ FUNCTION FUN3u(adum)
 !    provide function FUN3u=exp{-[(r-rc)/Bu]**xu} for calculating A=int(FUN3u*dr)
 !    with rw -> Bu, q0 -> xu
 !
-      use global_parameters, only: rc, xu, Bu
+      use global_parameters, only: rc, xu, Bu, ifflat
 
       implicit  none
       real(wp) FUN3u, x, adum
 
       x=Bu*(adum-rc)
-      FUN3u=exp(-x**xu)
+      FUN3u=ifflat*exp(-x**xu)
 
       RETURN
 end function FUN3u

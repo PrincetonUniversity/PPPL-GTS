@@ -307,12 +307,24 @@ enddo    ! enddo  m=1,mi
    !                      icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
 
    ! replaced by (Feb. 2019): 
-   icount=mgrid
-   do i=1,9
-      call MPI_SENDRECV(dnitmp(i,:,0),icount,mpi_Rsize,idest,isendtag,dnitmp(i,:,1),&
-                        icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-   enddo
+   !  icount=mgrid
+   !  do i=1,9
+   !     call MPI_SENDRECV(dnitmp(i,:,0),icount,mpi_Rsize,idest,isendtag,dnitmp(i,:,1),&
+   !                       icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+   !  enddo
 
+   ! replacement suggested by Min-Gu
+      k=9 ! k is the total number of small communications instead of 1 large communication.
+      do i=1,k-1
+         icount = (mgrid/k)
+         call MPI_SENDRECV(dnitmp(:,(1+(i-1)*icount):(i*icount),0),icount,mpi_Rsize,idest,isendtag, & 
+                           dnitmp(:,(1+(i-1)*icount):(i*icount),1), &
+                           icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+      enddo
+      icount = mgrid-(k-1)*(mgrid/k)
+      call MPI_SENDRECV(dnitmp(:,(1+(k-1)*(mgrid/k)):mgrid,0),icount,mpi_Rsize,idest,isendtag, &
+                        dnitmp(:,(1+(k-1)*(mgrid/k)):mgrid,1), &
+                        icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
    
   if(myrank_toroidal == ntoroidal-1) then
 ! B.C. at zeta=2*pi is shifted

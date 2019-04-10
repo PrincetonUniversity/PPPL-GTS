@@ -1461,7 +1461,7 @@ if(mype==0) write(0,*) 'average density=', density_ave
      end if
   enddo
 
-     !   if(mype==0)  call theory
+     if(mype==0)  call theory
  
      r=rc
      tdum=temperature(r,0.0_wp)

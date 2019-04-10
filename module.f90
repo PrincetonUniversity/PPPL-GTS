@@ -39,6 +39,7 @@ end module precision
                         amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
                       !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
                         amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
+                      !  amasse=1.8219e-27_wp, charge=-4.8032e-10_wp, &  ! m=2*m_e (for benchmarking with Goler CBC case)
                         trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
                         dlni=16.0_wp, &
                         dsda_power=0.2_wp
@@ -56,6 +57,7 @@ end module precision
   real(wp),dimension(:),allocatable :: tite
   integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,ifelectron,ecollision,  &
           ifdphi,zeondim
+  integer, parameter :: profile_case = 0
 
   real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,csc0_i,c0cs_i
   real(wp)  etracer_i0, etracer_e0
@@ -75,6 +77,8 @@ end module precision
             Ti_box(nprobe),Te_box(nprobe)
   integer   nv
   real(wp)  dradius, dtheta, delta_v
+  real(wp) :: fltr = 1.0_wp, fltr_field = 1.0_wp, fltr_source = 0.0_wp;
+  integer :: deltam = 0;
 
 ! The following input parameters are specified in setup for radial boundary layers with damping
   real(wp) lmin, lmax, rmin, rmax
@@ -109,6 +113,7 @@ end module precision
   integer,dimension(:),allocatable :: mappingL2G, mappingG2L
 
   integer pade
+  integer, parameter :: ifflat = 1
 
 end module global_parameters
 
@@ -176,12 +181,13 @@ module diagnosis_array
            rdtem0(nrbin),tem_nrbin(nrbin)   !wx
   real(wp) sn0(nbin_a),dnty_on_bin(nbin_a),Tr(nbin_a),Tr_e(nbin_a), &
            dnty_r(nbin_a),dO_10(nbin_a),dT_10(nbin_a)
+  real(wp) :: fltr_out = 0.0_wp;
   real(wp),dimension(:),allocatable :: fluxpsi,jaco_sum,En_00,En_tur,En_tot,sn0_g,dnty_on_bin_g
   real(wp),dimension(:),allocatable :: sumfluxpsi,flux_11
   real(wp),dimension(:,:,:),allocatable :: eigenmode
   integer,dimension(:),allocatable :: nf,nfL,nf_e,nfL_e
   integer my_nf, my_nfL, my_ZL(2),nfile
-  integer,parameter :: nn=13, ncolm=20
+  integer,parameter :: nn=16, ncolm=20
 
 
 

@@ -91,6 +91,16 @@ subroutine open_files
 !ZHIXIN add 2 file to record particle/energy flux on grids
         open(86,file='fort.86',status='replace',RECL=8192)
         open(87,file='fort.87',status='replace',RECL=8192)
+!WX added 
+        open(75,file='fort.95F',status='replace',RECL=8192)
+        open(76,file='fort.86F',status='replace',RECL=8192)
+        open(77,file='fort.87F',status='replace',RECL=8192)
+
+        open(186,file='fort.186',status='replace',RECL=8192)
+        open(187,file='fort.187',status='replace',RECL=8192)
+        open(176,file='fort.186F',status='replace',RECL=8192)
+        open(177,file='fort.187F',status='replace',RECL=8192)
+        open(175,file='fort.195F',status='replace',RECL=8192)
 
      end if
      if(mype==1)then
@@ -163,6 +173,17 @@ subroutine open_files
 !ZHIXIN add 2 file to record particle/energy flux on grids
         open(86,file='fort.86',status='old',position='append',RECL=8192)
         open(87,file='fort.87',status='old',position='append',RECL=8192)
+!WX added
+        open(75,file='fort.95F',status='old',position='append',RECL=8192)
+        open(76,file='fort.86F',status='old',position='append',RECL=8192)
+        open(77,file='fort.87F',status='old',position='append',RECL=8192)
+
+        open(186,file='fort.186',status='old',position='append',RECL=8192)
+        open(187,file='fort.187',status='old',position='append',RECL=8192)
+        open(176,file='fort.186F',status='old',position='append',RECL=8192)
+        open(177,file='fort.187F',status='old',position='append',RECL=8192)
+        open(175,file='fort.195F',status='old',position='append',RECL=8192)
+
      end if
      if(mype==1)then
         open(201,file='fort.201',status='old',position='append',RECL=8192)

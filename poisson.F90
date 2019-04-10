@@ -22,7 +22,8 @@ subroutine poisson( solver, masssolver )
   real(wp) tmp,rms ! gamma0,
   
   real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi),adum_11(0:mpsi),  &
-           add_gp_ave(0:mpsi), add_hp_ave(0:mpsi)
+           add_gp_ave(0:mpsi), add_hp_ave(0:mpsi), &
+           adum_16(0:mpsi), dphi_zero(0:mpsi)
   
   !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
   real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
@@ -350,6 +351,36 @@ end if
 !                  adum_11=phi_flux_ave*abs(csc0)/Te_grid   ! =(e/e0)*(m0/ms)*<delta-phi>/T_e with <phi>, T_e normalized, which should be zero by defination
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+!!!!!!!!! added in March 2019 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!  NOTE: <delta-phi> is observed to be much smaller (~ 3 orders smaller) than both delta-phi and  <phi>=phi00. 
+!        This says the sover does right job in terms to producing <delta-phi>=0. 
+!        Therefor, the following operation, which substracts <delta-phi> from delta-phi in solving Poisson eauation is 
+!        not essential. 
+
+              adum_16=0.0_wp
+              !$omp parallel private(i,j,ij) reduction(+:adum_16)
+              !$omp do
+              do i=0,mpsi
+                 do j=1,mtheta(i)
+                    ij=igrid(i)+j
+                    adum_16(i)=adum_16(i)+dtemper(ij)*xx(ij)  ! surface averaged <delta-phi>
+                 enddo
+              enddo
+              !$omp end parallel
+    
+              dphi_zero=0.0_wp
+              call MPI_ALLREDUCE(adum_16,dphi_zero,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+              dphi_zero=dphi_zero/jaco_sum       ! =<delta-phi> should be 0 by definition
+              do i=0,mpsi
+                 do j=0,mtheta(i)
+                    ij=igrid(i)+j
+                    xx(ij)=xx(ij)-dphi_zero(i)
+                 enddo
+              enddo
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
               !  call find_dxda( masssolver, mgrid, xx, add_phi, ierr )          
               !  call find_dxdt( masssolver, mgrid, add_phi, yy, ierr )          
 
@@ -427,6 +458,22 @@ end if
            do i=1,mpsi
               phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
            enddo
+           
+           !   if(mype==10) then
+           !      write(71,802) istep, (phi00(i),i=0,mpsi)
+           !      call flush(71)
+           !      write(72,802) istep, (dphi_zero(i),i=0,mpsi)
+           !      call flush(72)
+           !   end if
+           !   802     format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
+
+!   if(mype==0.and.istep==80) then
+!      do i=1,mgrid
+!         write(18, 100) i, phi(1,i)
+!      end do
+!   end if
+! 100 format(1x,i6, 2x,d13.6)
+!     call flush(18)
 
         end if
 
@@ -562,6 +609,19 @@ endif
 ! 100 format(1x,i6, 3(2x,d12.6))
 !     call flush(18)
 !
+
+   if(fltr > 0.5) then
+      phi(1,igrid(0):igrid(0)+mtheta(0))=0.0_wp
+      phi(1,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0_wp
+      call fd_sync_scalar(phi);
+      deltam = 0;
+      fltr_out = 0.0_wp;
+      if(deltam == 0) then
+         call smooth_fft(phi);
+      else
+         call smooth_fft_2d(phi);
+      end if
+   end if
   
 end subroutine poisson
 

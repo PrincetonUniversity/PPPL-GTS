@@ -1,4 +1,4 @@
-subroutine get_fluxes_e(wpi)
+subroutine get_fluxes_e(wpi,da)
   use precision
   use mpi_defs
   use global_parameters
@@ -9,13 +9,13 @@ subroutine get_fluxes_e(wpi)
   
   implicit none
 
-  real(wp)  wpi(3,me)
+  real(wp)  wpi(3,me), da(me)
   integer   m, i, j, k, kc, j1, j2, m1, m2, l1, l2, mc, k1, k2,ierr
   real(wp)  adot,thedot,cosx,sinx,aj,da_table,yy,part,f_rho
   real(wp)  my_eon,total_eon
 
   real(wp), dimension((nn-2),nbin_a) :: ONE_me,TOTAL_pe
-  real(wp), dimension(5,0:mpsi) :: ONE_me_g,TOTAL_pe_g
+  real(wp), dimension(10,0:mpsi) :: ONE_me_g,TOTAL_pe_g
 
 ! add for diagnosis of distribution functions
   real(wp), dimension(7,nprobe,-nv:nv,0:nv) :: df, df_tot
@@ -34,7 +34,8 @@ subroutine get_fluxes_e(wpi)
          angular_m,diff_c,delta_sumv2,wmean_0,w2mean_0,w2mean_1, &
          vt,av2,Tg,dTi,avz,sum_n,sum_sn0,da_size,bootstrap,  &
          v2_lab, veloc, part_k1,  &
-         En_tur_sum,En_00_sum,En_tot_sum,enk_sum,da_size_g
+         En_tur_sum,En_00_sum,En_tot_sum,enk_sum,da_size_g, &
+         flux_PIfull, flux_pfull, flux_Efull, flux_qfull
 
   real(wp) r,upara,energy
 
@@ -89,8 +90,20 @@ subroutine get_fluxes_e(wpi)
         ONE_me(6,j1)=ONE_me(6,j1)+part*zeon0(5,m)*wpi(1,m)       ! particle flux; wpi(1,m)=dr/dt|_EXB, not da/dt|_EXB
         ONE_me(6,j2)=ONE_me(6,j2)+(1.0_wp-part)*zeon0(5,m)*wpi(1,m)
 
+
+        ! added to calculate NC fluxes associated with total (magnetic) drift which is da(m) April, 2019
+        ONE_me(12,j1)=ONE_me(12,j1)+part*zeon0(5,m)*da(m)       ! particle flux; da=dr/dt|_full, not da/dt|_EXB
+        ONE_me(12,j2)=ONE_me(12,j2)+(1.0_wp-part)*zeon0(5,m)*da(m)
+
+
         ONE_me(7,j1)=ONE_me(7,j1)+part*zeon0(5,m)*wpi(1,m)*energy ! energy flux
         ONE_me(7,j2)=ONE_me(7,j2)+(1.0_wp-part)*zeon0(5,m)*wpi(1,m)*energy
+
+
+       ! added to calculate NC fluxes associated with total (magnetic) drift which is da(m) April, 2019
+        ONE_me(13,j1)=ONE_me(13,j1)+part*zeon0(5,m)*da(m)*energy ! energy flux
+        ONE_me(13,j2)=ONE_me(13,j2)+(1.0_wp-part)*zeon0(5,m)*da(m)*energy
+
 
         ONE_me(8,j1)=ONE_me(8,j1)+part*zeon0(5,m)*upara ! v_// in delta-f
         ONE_me(8,j2)=ONE_me(8,j2)+(1.0_wp-part)*zeon0(5,m)*upara
@@ -100,6 +113,12 @@ subroutine get_fluxes_e(wpi)
 
         ONE_me(10,j1)=ONE_me(10,j1)+part*zeon0(5,m)*wpi(1,m)*zeon0(4,m)*F(m)        ! angular momentum flux
         ONE_me(10,j2)=ONE_me(10,j2)+(1.0_wp-part)*zeon0(5,m)*wpi(1,m)*zeon0(4,m)*F(m)
+
+
+       ! added to calculate NC fluxes associated with total (magnetic) drift which is da(m) April, 2019
+        ONE_me(14,j1)=ONE_me(14,j1)+part*zeon0(5,m)*da(m)*zeon0(4,m)*F(m)        ! angular momentum flux
+        ONE_me(14,j2)=ONE_me(14,j2)+(1.0_wp-part)*zeon0(5,m)*da(m)*zeon0(4,m)*F(m)
+
 
         ONE_me(11,j1)=ONE_me(11,j1)+part*zeon0(5,m)*upara*BB(m) ! electron bootstrap current = v_//*B
         ONE_me(11,j2)=ONE_me(11,j2)+(1.0_wp-part)*zeon0(5,m)*upara*BB(m)
@@ -272,10 +291,26 @@ subroutine get_fluxes_e(wpi)
           delta_sumv2=2.0_wp*TOTAL_pe(5,kc)*sum_sn0
 
           flux_p=TOTAL_pe(6,kc)*sum_sn0*dnty_on_bin(kc)    ! in unit v_00, Gamma_r=int(dr/dt...)
+
+          ! p-flux with full radial drift
+          flux_pfull=TOTAL_pe(12,kc)*sum_sn0*dnty_on_bin(kc)    ! in unit v_00, Gamma_r=int(dr/dt...)
+
           flux_E=TOTAL_pe(7,kc)*sum_sn0*dnty_on_bin(kc)    ! in unit E_00*v_00
+
+          ! E-flux with full radial drift
+          flux_Efull=TOTAL_pe(13,kc)*sum_sn0*dnty_on_bin(kc)    ! in unit E_00*v_00
+
           flux_vz=TOTAL_pe(8,kc)*sum_sn0
           flux_q=flux_E-5.0_wp/2.0_wp*Tr_e(kc)*flux_p          ! in unit E_00*v_00
+
+          ! h-flux with full radial drift
+          flux_qfull=flux_Efull-5.0_wp/2.0_wp*Tr_e(kc)*flux_pfull          ! in unit E_00*v_00
+
           flux_PI=TOTAL_pe(10,kc)*sum_sn0*dnty_on_bin(kc)
+
+          ! m-flux with full radial drift
+          flux_PIfull=TOTAL_pe(14,kc)*sum_sn0*dnty_on_bin(kc)
+
           angular_m=TOTAL_pe(9,kc)*sum_sn0*dnty_on_bin(kc)
           jb=TOTAL_pe(11,kc)*sum_sn0*dnty_on_bin(kc)*csc0  ! "boostrap current" in unit e0*v_00*B_00; 2010
 
@@ -286,8 +321,13 @@ subroutine get_fluxes_e(wpi)
           flux_E=flux_E*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
           flux_q=flux_q*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
 
+          flux_pfull=flux_pfull*uveloci*1.0e4_wp         ! convert to 1/m^2.s
+          flux_Efull=flux_Efull*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
+          flux_qfull=flux_qfull*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
+
           write(nf_e(kc),800) istep,w2mean_0,wmean_0,TOTAL_pe(1,kc),Tg,dTi,flux_vz,angular_m, &
-                                  flux_PI,flux_p,flux_E,flux_q,jb,total_eon/mesum
+                                  flux_PI,flux_p,flux_E,flux_q,jb,total_eon/mesum, &
+                                  flux_PIfull, flux_pfull, flux_Efull, flux_qfull
           call flush(nf_e(kc))
 
           w2_eon1(kc)=w2mean_0
@@ -330,10 +370,28 @@ subroutine get_fluxes_e(wpi)
         ONE_me_g(5,j1)=ONE_me_g(5,j1)+part*zeon0(5,m)*Fa(m)            ! E_//*delta-n_e add 2017
         ONE_me_g(5,j2)=ONE_me_g(5,j2)+(1.0_wp-part)*zeon0(5,m)*Fa(m)
 
+! WX added for culculting radial fluxes in grids of flux surfaces; April, 2019
+        ONE_me_g(6,j1)=ONE_me_g(6,j1)+part*zeon0(5,m)*wpi(1,m)       ! particle flux; wpi(1,m)=dr/dt|_EXB, not da/dt|_EXB
+        ONE_me_g(6,j2)=ONE_me_g(6,j2)+(1.0_wp-part)*zeon0(5,m)*wpi(1,m)
+
+        ! added to calculate NC fluxes associated with total (magnetic) drift which is da(m) April, 2019
+        ONE_me_g(7,j1)=ONE_me_g(7,j1)+part*zeon0(5,m)*da(m)       ! particle flux; da=dr/dt|_full, not da/dt|_EXB
+        ONE_me_g(7,j2)=ONE_me_g(7,j2)+(1.0_wp-part)*zeon0(5,m)*da(m)
+
+        ONE_me_g(8,j1)=ONE_me_g(8,j1)+part*zeon0(5,m)*wpi(1,m)*energy ! energy flux
+        ONE_me_g(8,j2)=ONE_me_g(8,j2)+(1.0_wp-part)*zeon0(5,m)*wpi(1,m)*energy
+
+        ! added to calculate NC fluxes associated with total (magnetic) drift which is da(m) April, 2019
+        ONE_me_g(9,j1)=ONE_me_g(9,j1)+part*zeon0(5,m)*da(m)*energy ! energy flux
+        ONE_me_g(9,j2)=ONE_me_g(9,j2)+(1.0_wp-part)*zeon0(5,m)*da(m)*energy
+
+        ONE_me_g(10,j1)=ONE_me_g(10,j1)+part*zeon0(5,m)*da(m)*zeon0(4,m)*F(m) ! angular momentum flux
+        ONE_me_g(10,j2)=ONE_me_g(10,j2)+(1.0_wp-part)*zeon0(5,m)*da(m)*zeon0(4,m)*F(m)
+
      enddo
 !$omp end parallel
 
-  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,5*(mpsi+1),MPI_REAL8,MPI_SUM,numberpe-3,MPI_COMM_WORLD,ierr)
+  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,10*(mpsi+1),MPI_REAL8,MPI_SUM,numberpe-3,MPI_COMM_WORLD,ierr)
   if(mype==numberpe-3) then 
      ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_Te>
 
@@ -342,8 +400,25 @@ subroutine get_fluxes_e(wpi)
 
      TOTAL_pe_g(3,0:mpsi)=TOTAL_pe_g(3,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)*csc0    ! electron bootstrap current profile
      TOTAL_pe_g(4,0:mpsi)=TOTAL_pe_g(4,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)/for_rho ! angular momentum flux
+     TOTAL_pe_g(10,0:mpsi)=TOTAL_pe_g(10,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)/for_rho ! angular momentum flux
 
      TOTAL_pe_g(5,0:mpsi)=TOTAL_pe_g(5,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)    ! ~ E_//*delta-n_e contribution to electron current density; 2017 
+
+! p-flux 
+     TOTAL_pe_g(6,0:mpsi)=TOTAL_pe_g(6,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)   ! in unit v_00, Gamma_r=int(dr/dt...); with ExB drift
+     TOTAL_pe_g(7,0:mpsi)=TOTAL_pe_g(7,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)   ! in unit v_00, Gamma_r=int(dr/dt...); with full drift
+
+     TOTAL_pe_g(6,0:mpsi)=TOTAL_pe_g(6,0:mpsi)*uveloci*1.0e4_wp         ! convert to 1/m^2.s
+     TOTAL_pe_g(7,0:mpsi)=TOTAL_pe_g(7,0:mpsi)*uveloci*1.0e4_wp         ! convert to 1/m^2.s
+
+
+! E-flux
+     TOTAL_pe_g(8,0:mpsi)=TOTAL_pe_g(8,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! energy flux; with ExB drift 
+     TOTAL_pe_g(9,0:mpsi)=TOTAL_pe_g(9,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! energy flux; with ExB drift 
+
+     TOTAL_pe_g(8,0:mpsi)=TOTAL_pe_g(8,0:mpsi)*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
+     TOTAL_pe_g(9,0:mpsi)=TOTAL_pe_g(9,0:mpsi)*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
+
 
      enk_sum=0.0_wp
      do i=1,mpsi
@@ -359,6 +434,7 @@ subroutine get_fluxes_e(wpi)
      write(194,802) istep, (TOTAL_pe_g(2,i),i=0,mpsi)
      call flush(194)
 
+! 195 --> fort.195  = electron m-flux with ExB drift 
      write(195,802) istep, (TOTAL_pe_g(4,i),i=0,mpsi)
      call flush(195)
 
@@ -367,6 +443,25 @@ subroutine get_fluxes_e(wpi)
 
      write(198,802) istep, (TOTAL_pe_g(5,i),i=0,mpsi)
      call flush(198)
+
+! WX added April, 2019
+! 186 --> fort.186  = electron p-flux with ExB drift 
+! 176 --> fort.186F = electron p-flux with full drift 
+! 187 --> fort.187  = electron E-flux with ExB drift 
+! 177 --> fort.187F = electron E-flux with full drift 
+! 175 --> fort.195F = electron m-flux with full drift 
+     write(186,802) istep, (TOTAL_pe_g(6,i),i=0,mpsi)
+     call flush(186)
+     write(176,802) istep, (TOTAL_pe_g(7,i),i=0,mpsi)
+     call flush(176)
+
+     write(187,802) istep, (TOTAL_pe_g(8,i),i=0,mpsi)
+     call flush(187)
+     write(177,802) istep, (TOTAL_pe_g(9,i),i=0,mpsi)
+     call flush(177)
+
+     write(175,802) istep, (TOTAL_pe_g(10,i),i=0,mpsi)
+     call flush(175)
 
      dne_grid(:)=TOTAL_pe_g(2,:)
   end if
@@ -395,7 +490,7 @@ subroutine get_fluxes_e(wpi)
     end if
 
 
-800 format(1x,i6,1x,16(d13.6,1x))
+800 format(1x,i6,1x,20(d13.6,1x))
 801 format(1x,i6, 21(1x,d13.6))
 802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
 ! 802 format(1x,i6, 10(1x,d13.6)) ! for maxium mpsi=500
