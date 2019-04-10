@@ -15,6 +15,7 @@
 #define get4exb12 get4exb12_
 #define species species_
 #define scaleuporigeq scaleuporigeq_
+#define bipdirections bipdirections_
 
 #endif
 
@@ -3775,5 +3776,45 @@ void scaleuporigeq(double *Sc)
       ij++;
     }
   }
+  return;
+}
+
+
+
+void bipdirections_(int *Fl)    /*
+                                  Fl  Btor Iplasma;
+                                  0   > 0  > 0;
+                                  1   < 0  > 0;
+                                  2   > 0  < 0;
+                                  3   < 0  < 0;
+                                 */
+{
+  int i,j,ij;
+  static int Fl0=0;
+  static int isgnB=1,isgnI=1;
+
+  if(Fl0 == *Fl) return;
+
+  if((Fl0 & 0x01) != ((*Fl) & 0x01)){
+    for(i=0; i < Na1; i++){
+      aF[i]     =-aF[i];
+      daF[i]    =-daF[i];
+      dgF[i]    =-dgF[i];
+      d2gF[i]   =-d2gF[i];
+    }
+  }
+
+  if((Fl0 & 0x02) != ((*Fl) & 0x02)){
+    for(i=0; i < Na1; i++){
+      dgY[i]    =-dgY[i];
+      d2gY[i]   =-d2gY[i];
+      aT[i]     =-aT[i];
+      daT[i]    =-daT[i];
+      aP[i]     =-aP[i];
+      daP[i]    =-daP[i];
+    }
+  }
+
+  Fl0   =*Fl;
   return;
 }

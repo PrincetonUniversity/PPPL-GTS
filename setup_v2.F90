@@ -15,7 +15,7 @@ Subroutine setup
 
   implicit none
 
-  integer i,j,k,ierror,ij,n(num_mode),m(num_mode),mid_theta,ip,jt,indp,indt
+  integer i,j,k,ierror,ij,n(num_mode),m(num_mode),mid_theta,ip,jt,indp,indt,kdir
   real(wp) tdum,r,q,sint,dtheta_dx,rhoi,b,zdum,delr,delt,wt,a_minor,&
            N_on_ring, Vol_ring
 
@@ -36,7 +36,7 @@ Subroutine setup
   real(wp) low_lim(3),up_lim(3),wrkstr(lenwrk),acc,error_8,finval,low1(2),up1(2)
   real(wp) rtden_allnodes(nrbin),rtden_global
   real(wp),external :: f_jaco,object_1,object_5,object_12,reducedjacobian,FUN1,FUN3,FUN3e,FUN3n,FUN3u, &
-                       rho2a_zero,dsda,s2a_zero,FUN_J,smoothstep,gs
+                       rho2a_zero,dsda,s2a_zero,FUN_J,smoothstep,gs,gp
 
   namelist /run_parameters/ micell,misum,mpsi,mthetamax,mzetamax,numberpe,&
        nonlinear,ndiag,tstep,ifelectron,delr,delt,mid_theta,mgrid,mtdiag,&
@@ -70,6 +70,7 @@ Subroutine setup
 
   real(wp) vb(2),vp(nprobe,2)
   real(wp) ne0
+  real(wp) hp 
 
 
 #ifdef USE_OPENMP
@@ -157,6 +158,20 @@ Subroutine setup
   call scaleuporigeq(tdum)
   B_0=tdum*B_0
 
+! set up magnetic geometry (directions of Ip and Bt) of ESC equilibrium to be consistent with experiment
+! added Feb. 2018
+
+  kdir=0  ! no change, i.e., default ESI EQ
+!  kdir=1  ! Btor --> -Btor; no change for Ip
+
+!               kdir = 0, 1, 2, 3
+!               kdir   Bt   Ip
+!                 0   > 0  > 0; default ESI EQ
+!                 1   < 0  > 0;
+!                 2   > 0  < 0;
+!                 3   < 0  < 0;
+
+  call bipdirections(kdir)
 
   if(k/=0) then
      write(0,*)'bad file for reading'
@@ -184,7 +199,8 @@ Subroutine setup
             den_grid(0:mpsi),vth_grid(0:mpsi),vth_inv(0:mpsi),Te_grid(0:mpsi), &
             rho_grid(0:mpsi),s_grid(0:mpsi), &
             eta_grid(0:mpsi),Er_grid(0:mpsi),Er_grid0(0:mpsi),tite(0:mpsi),dadtdz(0:mpsi),ddT_da(0:mpsi), &
-            dni_grid(0:mpsi),dne_grid(0:mpsi))
+            dni_grid(0:mpsi),dne_grid(0:mpsi),    &
+            dnda_grid(0:mpsi))
 
 !reference zeta point
   zeta_ref=0.0_wp
@@ -259,9 +275,9 @@ if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert t
 
          call read_profiles(profile_data_name)         ! for JET data output
 
-         tdum=6.0_wp    ! for testing DTEM in DIII-D geometry with NSTX profiles
+         !  tdum=6.0_wp    ! for testing DTEM in DIII-D geometry with NSTX profiles
          !  tdum=4.0_wp    ! change rho* by changing Te and Ti for size scaling
-         !  tdum=1.0_wp
+         tdum=1.0_wp
          Ti_50=Ti_50*tdum
          Te_50=Te_50*tdum
          !  ne_50=ne_50*tdum*5.0_wp   ! test the way for changing frequency
@@ -672,6 +688,7 @@ if(mype==0) write(0,*) 'time step size=', tstep*utime, gyroradius*ulength, vthc*
      r=abs(rj(1)-rj(2))/2.0_wp    ! minor radius
      r_grid(i)=r                  ! minor radius
      den_grid(i)=density(psi_grid(i),0.0_wp)                ! density
+     dnda_grid(i)=dn_da(psi_grid(i),0.0_wp)                 ! --> dn/da -- added in Jan. 2019 for using Pade
      vthi=temperature(psi_grid(i),0.0_wp)
 
 ! NOTE!!!!  if all procs write the same thing into the same file, it take terribly long time when using many procs
@@ -1157,9 +1174,12 @@ end if ! if(mype==0)
        wtp1(2,mgrid),wtp2(2,mgrid),dtemper(mgrid),heatflux(mgrid),            &
        phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),          &
        pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),                    &
-       dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
+       dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid),      &
+       gpij(mgrid), hpij(mgrid) )
 
   allocate (jflux(mgrid))
+
+  if(pade==1) allocate (bb_a(mgrid), bb_t(mgrid))    ! array needed when solving GK Poisson with Pade approximation 
 
 ! Added for flow visualization, Feb. 2011
   allocate (on_grid(6,mgrid))
@@ -1221,7 +1241,9 @@ end if ! if(mype==0)
         gij(3,ij)=metric(3)         
         gij(4,ij)=metric(4)         
 
-        gsij(ij)=gs(pdum,tdum)   ! gsij=gs at grid point
+        gsij(ij)=gs(pdum,tdum)           ! gsij=gs at grid point
+        gpij(ij)=gp(pdum,tdum,hp)        ! gpij=gp at grid point
+        hpij(ij)=hp                      ! hpij=hp at grid point
 
         dtemper(ij)=dtemper(ij)*deltaz*deltat(i)   ! =J*dtheta*dzeta
         jaco_sum(i)=jaco_sum(i)+dtemper(ij)
@@ -1282,6 +1304,8 @@ end if ! if(mype==0)
      gij(:,igrid(i))=gij(:,igrid(i)+mtheta(i))
      gsij(igrid(i))=gsij(igrid(i)+mtheta(i))
      gbeta(igrid(i))=gbeta(igrid(i)+mtheta(i))
+     gpij(igrid(i))=gpij(igrid(i)+mtheta(i))
+     hpij(igrid(i))=hpij(igrid(i)+mtheta(i))
   enddo
   
 ! pmarki is the inverse of total particle # (sum over nodes) at an annulus i
@@ -1437,7 +1461,7 @@ if(mype==0) write(0,*) 'average density=', density_ave
      end if
   enddo
 
-     if(mype==0)  call theory
+     !   if(mype==0)  call theory
  
      r=rc
      tdum=temperature(r,0.0_wp)
@@ -1775,6 +1799,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 ! need a separate directory with ZF data copied 
 !  i=21616    ! number of lines in ZF data files
 !  i=7203    ! number of lines in ZF data files
+!  i=10228    ! number of lines in ZF data files
 !  call get_ZF_shear(i)
 !  call mpi_finalize(ierror)
 !  STOP
@@ -2197,7 +2222,7 @@ end subroutine setup
   use control_parameters
 
   implicit none
-  integer,parameter :: n_integers=8, n_reals=16
+  integer,parameter :: n_integers=9, n_reals=16
   integer :: integer_params(n_integers)
   real*8       :: real_params(n_reals)
   integer ierror
@@ -2208,7 +2233,7 @@ end subroutine setup
             flag_Lc,a_ref_in, &
             flag_DEN,flag_FLOW,flag_PHI,flag_RESTART,flag_GRID,&
             irewrite,ifneoclassical,ratio_Er401,ratio_Er_grid,w_initial_in,&
-            flip_rotation,ain,aout
+            flip_rotation,ain,aout,pade
 
   if(mype==0) then
      open(unit=5,file='INPUT.d')
@@ -2223,6 +2248,7 @@ end subroutine setup
   integer_params(6)=flag_GRID
   integer_params(7)=iratio_dthe
   integer_params(8)=irewrite
+  integer_params(9)=pade
 
   real_params(1)=lmin
   real_params(2)=lmax
@@ -2255,6 +2281,7 @@ end subroutine setup
   flag_GRID=integer_params(6)
   iratio_dthe=integer_params(7)
   irewrite=integer_params(8)
+  pade=integer_params(9)
 
   lmin=real_params(1)
   lmax=real_params(2)

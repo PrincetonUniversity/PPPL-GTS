@@ -54,10 +54,7 @@ subroutine get_fluxes_e(wpi)
 !!     call esigetb(zeon0(1,:),zeon0(2,:),me)   ! get B
 !     call esigetb(zeon0,me)   ! get B
 
-!$omp parallel private(m,r,yy,kc,j1,j2,part,upara,upara0,energy, &
-!$omp& r_area, the_area, the1, the2, vper, mc, am, &
-!$omp& k, k1, k2, part_k1, l1, l2, part_l1, &
-!$omp& ss1, ss2, ss3, ss4, qq1, qq2, qq3, qq4) reduction(+:ONE_me,my_eon)
+!$omp parallel private(m,r,yy,kc,j1,j2,part,upara,upara0,energy) reduction(+:ONE_me,my_eon)
 !$omp do
      do m=1,me
         r=zeon0(1,m)        

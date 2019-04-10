@@ -49,7 +49,8 @@ subroutine charge_ion
      r=psitmp
      ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
      !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
-     thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane 
+     !   thedum=thetatmp-zdum*qtinv(ip)    ! corresponding theta on zeta=0 plane  Wrong! zdum should be toroidal angle of particle zion(3,m)
+     thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane;  correction by Min-gu: replace zdum by zetatmp  Dec. 2018
      thedum=thedum*pi2_inv+100.0_wp
      thedum=2.0_wp*pi*(thedum-aint(thedum))       ! bring back to range [0,2pi]
      jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))

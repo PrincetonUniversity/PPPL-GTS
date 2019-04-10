@@ -1679,7 +1679,7 @@ FUNCTION gs(adum,thedum)
 
       real(wp), dimension(10) :: Fj,Faj,gFaj,gYaj,raj,rqj,zaj,zqj
 
-      integer ns, i 
+      integer ns, i
       real(wp)  Zs
 
       real(wp), external :: density
@@ -1699,3 +1699,45 @@ FUNCTION gs(adum,thedum)
 
       return
 end function gs
+
+
+
+FUNCTION gp(adum,thedum,hp)
+      use precision
+!
+!      gp=-1/B^2*(e0/es)^2*(ms/m0)^2*(|e|/e0)*(m0/me)*Ti/Te
+!      hp=-1/B^2*(e0/es)^2*(ms/m0)^2*Ti
+!
+      use global_parameters
+      use esi_interface
+      use spl_profiles
+      use profile_array
+
+      implicit  none
+      real(wp) gp, hp
+      real(wp) adum,thedum,aaa(10),the(10),rj(10),zz(10),Bj(10)
+
+      real(wp), dimension(10) :: Fj,Faj,gFaj,gYaj,raj,rqj,zaj,zqj
+
+      integer ns, i
+      real(wp)  Zs
+
+      real(wp), external :: temperature, temperature_e
+
+      ns=1        ! one ion species
+      Zs=1.0_wp   ! ion charge
+
+      aaa(1)=adum
+      the(1)=thedum
+
+      gp=0.0_wp
+      hp=0.0_wp
+      do i=1,ns
+         call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zz,zaj,zqj,Bj,aaa,the,1)
+         hp=-c0cs_i**2*msm0_i**2*temperature(adum,thedum)/(Bj(1)*Bj(1))
+         gp=hp*abs(csc0)*m0ms/temperature_e(adum,thedum)
+         !  gp=-c0cs_i**2*msm0_i**2*abs(csc0)*m0ms*temperature(adum,thedum)/temperature_e(adum,thedum)/(Bj(1)*Bj(1))
+      end do
+
+      return
+end function gp

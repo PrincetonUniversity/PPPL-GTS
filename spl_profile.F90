@@ -33,8 +33,8 @@ subroutine read_profiles(profile_data_name)
 
   real(wp), dimension(:,:), allocatable :: worka
   integer i,j,ierr
-  character(23) chdum
-  character(len=23),dimension(6) :: profname
+  character(36) chdum
+  character(len=36),dimension(6) :: profname
   character(25)  profile_data_name
 
   integer  jj1,jj2,k
@@ -44,20 +44,21 @@ subroutine read_profiles(profile_data_name)
   real(wp), external :: D01AHF
 
 ! Names of the profiles that we want to read out of the file
-  profname(1)=' Zone centrs = sq_rt(no'   ! radii (r/a)
-  profname(2)=' Electron dens         '   ! Ne
-  profname(3)=' Hydrogenic Temperature'   ! Ti
-  profname(4)=' Electron Temperature  '   ! Te
-  profname(5)=' thermal plasma toroida'   ! Toroidal rotation
-  profname(6)=' Radial Electrical Pote'   ! Equilibrium Radial electric potential
+  profname(1)=' Zone centrs = sq_rt(norm toroidal f'   ! radii (r/a)
+  profname(2)=' Electron dens                      '   ! Ne
+  profname(3)=' Hydrogenic Temperature             '   ! Ti
+  profname(4)=' Electron Temperature               '   ! Te
+  profname(5)=' thermal plasma toroidal rotation   '   ! Toroidal rotation
+  profname(6)=' Radial Potential due to rotation NC'   ! Equilibrium Radial electric potential
+  !    profname(6)=' Radial Electrical Potential        '   ! Equilibrium Radial electric potential
   
 ! The root process reads the file containing the profiles.
 ! We first read the number of radial grid points there are for each profile.
   if(mype == 0)then
      open(unit=3,file=profile_data_name)
-     read(3,'(a23)')chdum
+     read(3,'(a36)')chdum
      do while(chdum(2:7)/='Nzones')
-        read(3,'(a23)')chdum
+        read(3,'(a36)')chdum
 Print*, chdum
      enddo
      read(3,10) ndum 
@@ -79,7 +80,7 @@ Print*, chdum
   if(mype == 0)then
      do i=1,6
         do while(chdum/=profname(i))
-           read(3,'(a23)')chdum
+           read(3,'(a36)')chdum
         enddo
        read(3,20) worka(1:ndum,i)
      enddo
@@ -518,17 +519,8 @@ subroutine get_profiles_on_nodes
      real(doubleprec) xx,dxx
      integer i
 
-!changed to avoid conflict , there are allocated again in a different subroutin
-!     allocate(Ti_node(0:jr),dTi_node(0:jr),ne_node(0:jr),dne_node(0:jr),&
-!              Te_node(0:jr),dTe_node(0:jr),Iomg_node(0:jr),dIomg_node(0:jr))
-     if(.not.allocated(Ti_node)) allocate(Ti_node(0:jr))
-     if(.not.allocated(dTi_node)) allocate(dTi_node(0:jr))
-     if(.not.allocated(ne_node)) allocate(ne_node(0:jr))
-     if(.not.allocated(dne_node)) allocate(dne_node(0:jr))
-     if(.not.allocated(Te_node)) allocate(Te_node(0:jr))
-     if(.not.allocated(dTe_node)) allocate(dTe_node(0:jr))
-     if(.not.allocated(Iomg_node)) allocate(Iomg_node(0:jr))
-     if(.not.allocated(dIomg_node)) allocate(dIomg_node(0:jr))
+     allocate(Ti_node(0:jr),dTi_node(0:jr),ne_node(0:jr),dne_node(0:jr),&
+              Te_node(0:jr),dTe_node(0:jr),Iomg_node(0:jr),dIomg_node(0:jr))
 
      dxx=(a1-a0)/real(jr,doubleprec)
      do i=0,jr

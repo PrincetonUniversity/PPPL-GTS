@@ -237,8 +237,18 @@ enddo    ! enddo  m=1,me
    irecvtag=isource
 
 ! send pflux_e to left and receive from right
-   call MPI_SENDRECV(dnitmp(:,:,0),icount,mpi_Rsize,idest,isendtag,dnitmp(:,:,1),&
-                   icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+   ! the following MPI_SENDRECV often causes jobs crash for errors like 
+   ! "Fatal error in MPI_Sendrecv: Not enough space for file , error stack:" 
+
+   !    call MPI_SENDRECV(dnitmp(:,:,0),icount,mpi_Rsize,idest,isendtag,dnitmp(:,:,1),&
+   !                    icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+
+   ! replaced by (Feb. 2019): 
+   icount=mgrid
+   do i=1,9
+      call MPI_SENDRECV(dnitmp(i,:,0),icount,mpi_Rsize,idest,isendtag,dnitmp(i,:,1),&
+                        icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+   enddo
 
   if(myrank_toroidal == ntoroidal-1) then
 ! B.C. at zeta=2*pi is shifted

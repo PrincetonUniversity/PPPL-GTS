@@ -21,11 +21,13 @@ subroutine poisson( solver, masssolver )
   
   real(wp) tmp,rms ! gamma0,
   
-  real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi),adum_11(0:mpsi)
+  real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi),adum_11(0:mpsi),  &
+           add_gp_ave(0:mpsi), add_hp_ave(0:mpsi)
   
   !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
   real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
-  real(wp) add_phi(mgrid), yy(mgrid), bb2(mgrid)
+  real(wp) add_phi(mgrid), yy(mgrid), bb2(mgrid),  &
+           add_gp(mgrid), add_hp(mgrid)
 
   real(wp), external :: SMOOTHSTEP
   real(wp) instep,outstep
@@ -36,7 +38,7 @@ subroutine poisson( solver, masssolver )
 
   real(doubleprec),save :: t0=0.0_wp
   real(doubleprec) t1,rtc
-  
+
   !gamma0=0.8: max. resolution for k=0.5. for k=[0,0.8], err=0.08%
   ! gamma0=0.75
   ! iteration=10
@@ -226,6 +228,42 @@ subroutine poisson( solver, masssolver )
 
         else             ! FEM solver solves delta-phi and d<phi>/da interatively
 
+           if(pade==1) then    !  calculate <h_p*grad_perp(dni/n_0-dne/n_0).grad(a)> used for GK Poission with Pade approximation      
+
+              call find_dxdadxdt( masssolver, mgrid, dentmp, bb_a, bb_t, ierr )
+              !  bb_a=d/da(dentmp), bb_t=d/dtheta(dentmp) are used by subroutine add_pade2bb in  solve_petsc
+
+              call add_pade2bb(solver%fem, masssolver, yy, ierr)
+              do i=0, mpsi
+                 yy(igrid(i))=yy(igrid(i)+mtheta(i))  !validate yy(igrid(i)) for safe
+              enddo
+              dentmp=dentmp+yy
+
+              add_hp(:)=(bb_a(:)*gij(1,:)+bb_t(:)*gij(4,:))*hpij(:)   ! --> h_p*grad_perp(dni/n_0-dne/n_0).grad(a)
+              adum=0.0_wp
+              !$omp parallel private(i,j,ij) reduction(+:adum)
+              !$omp do
+              do i=0,mpsi
+                 do j=1,mtheta(i)
+                    ij=igrid(i)+j
+                    adum(i)=adum(i)+dtemper(ij)*add_hp(ij)   ! surface averaging
+                 enddo
+              enddo
+              !$omp end parallel
+
+              add_hp_ave=0.0_wp
+              call MPI_ALLREDUCE(adum,add_hp_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+              add_hp_ave=add_hp_ave/jaco_sum    !  =<hp*grad_perp(dni/n_0-dne/n_0).grad(a)>
+
+              adum_11=0.0_wp
+              do i=1,mpsi
+                 adum_11(i)=adum_11(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
+                            (-dnda_grid(i-1)*dVda(i-1)*add_hp_ave(i-1)  &
+                            -dnda_grid(i)*dVda(i)*add_hp_ave(i))
+              enddo
+
+           end if    ! end pade==1
+
            !   adum_11=0.0_wp
            do it=1,its
 
@@ -317,7 +355,28 @@ end if
 
               call find_dxdadxdt( masssolver, mgrid, xx, add_phi, yy, ierr )          
 
-              add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))*gsij(:)   ! --> sum(gs)*grad_perp(delta-phi).grad(a)
+              add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))
+
+              if(pade==1) then    !  Solve GK Poission with Pade approximation 
+                 add_gp(:)=add_phi(:)*gpij(:)    ! --> gp*grad_perp(delta-phi).grad(a)
+                 adum=0.0_wp
+                 !$omp parallel private(i,j,ij) reduction(+:adum)
+                 !$omp do
+                 do i=0,mpsi
+                    do j=1,mtheta(i)
+                       ij=igrid(i)+j
+                       adum(i)=adum(i)+dtemper(ij)*add_gp(ij)   ! surface averaging
+                    enddo
+                 enddo
+                 !$omp end parallel
+
+                 add_gp_ave=0.0_wp
+                 call MPI_ALLREDUCE(adum,add_gp_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+                 add_gp_ave=add_gp_ave/jaco_sum    !  =<gp*grad_perp(delta-phi).grad(a)>
+              end if    ! end pade==1
+
+              add_phi(:)=add_phi(:)*gsij(:)               ! --> sum(gs)*grad_perp(delta-phi).grad(a)
+
               adum=0.0_wp
               !$omp parallel private(i,j,ij) reduction(+:adum)
               !$omp do
@@ -343,7 +402,21 @@ end if
               phip00=phip00/dVda/gsgaa
               phip00=phip00 -(phi_flux_ave*dVda-phi_flux_ave(0)*dVda(0))/dVda/gsgaa   ! --> phip00=dphi_00/da with phip00(0)=0
 
-              phip00=phip00+Er_a0        ! --> phip00=dphi_00/da with phip00(0)=Er_a0 which is Er_NC when ifneoclassical=1
+              if(pade==1) then    !  additional terms due to Pade approximation used
+                 adum=0.0_wp
+                 do i=1,mpsi
+                    adum(i)=adum(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
+                            (-dnda_grid(i-1)*dVda(i-1)*add_gp_ave(i-1)  &
+                            -dnda_grid(i)*dVda(i)*add_gp_ave(i))
+                 enddo
+                 phip00=phip00 + adum/dVda/gsgaa - adum_11/dVda/gsgaa +   &
+                        (add_gp_ave*dVda*den_grid - add_gp_ave(0)*dVda(0)*den_grid(0))/dVda/gsgaa - & 
+                        (add_hp_ave*dVda*den_grid - add_hp_ave(0)*dVda(0)*den_grid(0))/dVda/gsgaa
+              end if
+
+              !     phip00=phip00+Er_a0        ! --> phip00=dphi_00/da with phip00(0)=Er_a0 which is Er_NC when ifneoclassical=1
+              !     modified in Jan. 2019
+              phip00=phip00+gsgaa(0)*dVda(0)/(gsgaa*dVda)*Er_a0        ! --> phip00=dphi_00/da with phip00(0)=Er_a0 which is Er_NC when ifneoclassical=1
 
            end do     !  end iteration for FEM   
 

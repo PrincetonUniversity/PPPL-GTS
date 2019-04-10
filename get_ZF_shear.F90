@@ -199,9 +199,17 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
           read(126,*) istep, (phia00(i),i=80,99)
 !          read(126,801) istep, (phia00(i),i=80,mpsi)
           read(127,*) istep, (phia00(i),i=100,119)
-          read(128,801) istep, (phia00(i),i=120,mpsi)
-!          read(128,*) istep, (phia00(i),i=120,139)
-!          read(129,*) istep, (phia00(i),i=140,159)
+!          read(128,801) istep, (phia00(i),i=120,mpsi)
+          read(128,*) istep, (phia00(i),i=120,139)
+          read(129,*) istep, (phia00(i),i=140,159)
+          read(130,*) istep, (phia00(i),i=160,179)
+          read(131,*) istep, (phia00(i),i=180,199)
+          read(132,*) istep, (phia00(i),i=200,219)
+          read(133,*) istep, (phia00(i),i=220,239)
+          read(134,*) istep, (phia00(i),i=240,259)
+          read(135,*) istep, (phia00(i),i=260,279)
+          read(136,*) istep, (phia00(i),i=280,mpsi)
+!          read(132,*) istep, (phia00(i),i=200,mpsi)
 !          read(129,801) istep, (phia00(i),i=140,mpsi)
 !          read(130,*) istep, (phia00(i),i=160,mpsi)
 !          read(131,801) istep, (phia00(i),i=180,mpsi)
@@ -210,6 +218,7 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
 !         if calculate total shear ZF +equilibrium Er, use:
 !          phia00=phia00+Er_grid     ! --> phia00= total Er=d<phi>/da +d(phi_0)/da 
 !          phia00=phia00+Er_grid_TRANSP     ! --> phia00= total Er=d<phi>/da + d(phi_0)/da with d(phi_0)/da from TRANSP 
+!          phia00=Er_grid_TRANSP     ! --> phia00=  d(phi_0)/da with d(phi_0)/da from TRANSP 
 !         -------------------------------------------------------------------------
 
           call ezspline_init(spEr,mpsi+1,(/1,1/),ierror) ! 1st derivative boundary condition for both left and right

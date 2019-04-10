@@ -366,7 +366,7 @@ contains
        call MatMult(Amat, oneVec, rhsVec, ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call VecNorm(rhsVec,NORM_1,norm, ierr);
-       if(mype.eq.0) write(0, *) "	nullspace created for ",trim(prefix), norm/neq
+       if(mype.eq.0) write(0, *) "	nullspace created for",prefix, norm/neq
        ! whichone=4 nullspace created for=dphidt_ 1.211923845185931E-14
        ! whichone=5 nullspace created for=dphidt_ 4.89611458334855338E-15
 
@@ -376,7 +376,7 @@ contains
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call MatNullSpaceTest(nullsp, Amat, isNull,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-       if(mype.eq.0 .and. isNull) write(0,*) "	nullspace test for ", trim(prefix)
+       if(mype.eq.0 .and. isNull) write(0,*) "	nullspace test for", prefix
        call MatSetNullSpace(Amat,nullsp,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        !call KSPSetNullSpace(ksp, nullsp,ierr)
@@ -395,8 +395,8 @@ contains
        call VecDestroy( rhsVec, ierr )
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
-
-    call KSPSetOptionsPrefix( ksp, trim(prefix), ierr )
+        
+    call KSPSetOptionsPrefix( ksp, prefix, ierr )
     call KSPSetFromOptions( ksp, ierr )
 
     if( mype / nproc_partd .ne. 0 ) then
@@ -929,6 +929,7 @@ contains
     !     
     !use global_parameters
     use precision,only:wp,doubleprec
+    !   use global_parameters, only:mype,mtheta,mpsi,mgrid,ZF_SEPARATION,ifelectron,ifdphi, pade
     use global_parameters, only:mype,mtheta,mpsi,mgrid,ZF_SEPARATION,ifelectron,ifdphi
     use field_array, only: phip00,gsij
     use linear_solve_log
@@ -939,6 +940,7 @@ contains
     integer,intent(out) :: ierr
     real(wp),intent(in) :: bb_gk(nn) 
     real(wp),intent(inout) :: xx_gk(nn)
+    !   real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, hh, bh, bpade, hh_ho, bh_ho
     real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, hh, bh, hh_ho, bh_ho
     real(doubleprec),allocatable,dimension(:) :: hh_gk
     real(wp),allocatable,dimension(:) :: gs, neuma, neumt
@@ -961,11 +963,13 @@ contains
 
     !set Neumann bc for rhs vector sept19-2013
     !at present it only works for order=1
+    !  allocate(hh(neq),bh(neq),bn(neq),bpade(neq))
     allocate(hh(neq),bh(neq),bn(neq))
     allocate(hh_gk(mgrid))
     hh=0.
     bh=0.
     bn=0.
+    !  bpade=0.
 
     ivsl = 0
     ivgts = 0
@@ -1009,6 +1013,7 @@ contains
     endif
     
     !cj2014.05.02 solver1 uses homogeneous Neumann BC, so don't call neumbcfix
+#ifdef CJTEST
     if( solver%order .ge. 1) then
        if(solver%mat%bc_type==0 .or. solver%mat%bc_type==1) then
           it= sum( mtheta ) - mtheta(mpsi)
@@ -1021,6 +1026,7 @@ contains
           call neumbcfix(ir,mtheta(ir),it,neq,solver%fem,gs,neuma,neumt,bn)
        endif
     endif
+#endif
 
     if( solver%fem%order .eq. 2) then
         ! interpolate linear to ho array
@@ -1057,6 +1063,10 @@ contains
             call add_hh2bb(solver%fem, masssolver, neq, hh, bh, ierr)
 #else
             call add_hh2bb(solver%fem, masssolver, neq, hh_gk, bh, ierr)
+
+            !  the following is moved to poisson.F90 through "call add_pade2bb(solver%fem, masssolver, yy, ierr)"
+            !  if(pade==1) call add_pade2bb_0(solver%fem, masssolver, neq, bpade, ierr)
+
 #endif
             !  set bh to 0 if don't want to add it
             !  bh=bh+bn
@@ -1067,7 +1077,11 @@ contains
     !cj 2015-03-12 changes for debugging
     !cj now bh is added to bb and then multiplied by Mmat,
     !cj instead of using finite element Pijk
-    bb=bb+bh+bn
+    bb=bb+bh
+
+    !    the following is moved to  poisson.F90 through "dentmp=dentmp+yy"
+    !    if(pade==1) bb=bb + bpade
+
     bh=0.
     call petsc_solve( solver, neq, bb, xx, bh, ierr)
     endif
@@ -1090,6 +1104,7 @@ contains
 !cj       enddo
 !cj    enddo
 
+    !  deallocate(bb,xx,hh,bh,bn,bpade) 
     deallocate(bb,xx,hh,bh,bn) 
     deallocate(gs,neuma,neumt) 
     deallocate(hh_gk) 
@@ -1996,7 +2011,9 @@ contains
 
 
     if(solver%order .gt. 0) then
-       stop '	find_dxdadxdt L2001: not implemented for high order elements'
+       stop '	find_dxdadxdt: not implemented for high order elements'
+    else
+       if(mype.eq.0) write(0, *) "	find_dxdadxdt: find dxdr dxdz begin"
     endif
 
 !    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
@@ -2010,6 +2027,9 @@ contains
        ix=3
        iy=4
     endif
+#ifdef CJTEST
+    if(mype.eq.0) write(0, *) "	finite element: find dxda dxdt for solve",whichone,ix,iy
+#endif
 
     fe_order=solver%fem%order
     fe_ns=3
@@ -2931,7 +2951,6 @@ contains
 !========================================================================
 subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
     use precision,only:wp,doubleprec
-    use global_parameters,only: mype,pi
     use fem_data_class
     use esi_interface, only : metric
     implicit none
@@ -2945,11 +2964,6 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
     real(wp), dimension(2) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj, fcj
     integer :: j,i1,i2,mt
     integer, external :: metric_elements
-    real(wp) :: eps, big
-
-
-      eps=pi/6.
-      big=pi*1.5
 
        !set gs, dphida, dphidt as a place holder for input into "solve" subroutine
        do j=1,mtheta_i
@@ -2974,19 +2988,10 @@ subroutine neumbcfix(i,mtheta_i,offset,neq,fem,gs,dphida,dphidt,bn)
           fcj = (zaj*rqj-zqj*raj)  !/rj
 
           ! if (it, ir) makes one edge
-#ifdef USERZ
-          x1=fem%points(1,i1)
-          y1=fem%points(2,i1)
-          x2=fem%points(1,i2)
-          y2=fem%points(2,i2)
-#else
           x1=fem%points(3,i1)
           y1=fem%points(4,i1)
           x2=fem%points(3,i2)
           y2=fem%points(4,i2)
-          if( y1.lt.eps .and. y2.gt.big ) y1 = 2.*pi + y1
-          if( y2.lt.eps .and. y1.gt.big ) y2 = 2.*pi + y2
-#endif
           l12=(x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)
 
           mt=metric_elements(aaa(1),the(1),0.)
@@ -3238,6 +3243,187 @@ end subroutine neumbcfix
     deallocate(tmpr, tmpz, dxdr, dxdz)
 #endif
   end subroutine add_hh2bb
+
+
+
+!========================================================================
+!         add_pade2bb
+!========================================================================
+  subroutine add_pade2bb( fem, masssolver, bpade_gk, ierr )
+    !     add grad_perp . [ h_p grad_perp b] term to bb(rhs) before KSPSolve
+    !     
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mgrid,mtheta,mpsi
+    use field_array,only: Jcbn,gij,bb_a, bb_t, q_grid, hpij
+    use fem_data_class
+    implicit none
+    type(fem_data) :: fem
+    type(solver_data) :: masssolver
+    integer,intent(out) :: ierr
+    ! locals
+    real(doubleprec),allocatable,dimension(:) :: phbjgaa,phbjgat,phbjgpp,qq2
+    integer :: fe_order, fe_ns, fe_nvar, fe_ndof
+    logical :: flg
+    integer :: whichone = 5
+    real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt
+    real(wp) :: bpade_gk(mgrid)
+    integer :: ivsl, ivgts, ioffset, ir, itmax
+
+    if(mype==0) write(*,*)"	finite element: add pade to bb fem_order=", fem%order
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+#ifdef OLD2014
+#else
+    whichone=1
+#endif
+
+    !cal hp * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
+    fe_ns=3
+    fe_ndof=1
+    allocate(phbjgaa(mgrid*fe_ndof), phbjgat(mgrid*fe_ndof), phbjgpp(mgrid*fe_ndof))
+    allocate(dxdr(mgrid*fe_ndof), dxdz(mgrid*fe_ndof))
+    allocate(tmpr(mgrid*fe_ndof), tmpz(mgrid*fe_ndof))
+    allocate(bb_at(mgrid*fe_ndof), bb_tt(mgrid*fe_ndof))
+    allocate(qq2(mgrid*fe_ndof))
+
+! find the derivatives d(bb)/da  d(bb)/dt of bb
+    ! already calculated in poisson.F90
+
+    !       bb_a=0.
+    !       bb_t=0.
+    !       call find_dxdadxdt( masssolver, mgrid, bb, bb_a, bb_t, ierr )
+
+!find the derivatives d(bb_t)/da  d(bb_t)/dt of d(bb)/dt
+    bb_at=0.
+    bb_tt=0.
+    call find_dxdadxdt( masssolver, mgrid, bb_t, bb_at, bb_tt, ierr )
+ 
+    ivsl = 0
+    ivgts = 0
+    ioffset = 0
+    do ir=0,mpsi
+       itmax=mtheta(ir)
+       qq2(ioffset+1:ioffset+itmax+1)=q_grid(ir)**2
+       ioffset = ioffset+itmax+1
+    enddo
+
+!compute 
+    do ivgts = 1, mgrid
+       phbjgaa(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(1,ivgts)*bb_a(ivgts)+gij(4,ivgts)*bb_t(ivgts) )
+       phbjgat(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(4,ivgts)*bb_a(ivgts)+gij(2,ivgts)*bb_t(ivgts) )
+       phbjgpp(ivgts) = hpij(ivgts)/qq2(ivgts) *( gij(3,ivgts)*bb_tt(ivgts) )
+    enddo
+
+    
+    !cj 2015-03-12 using (r,z) coor in masssolver
+    dxdr=0.
+    dxdz=0.
+    call find_dxdadxdt( masssolver, mgrid, phbjgaa, dxdr, dxdz, ierr )
+    tmpr=dxdr
+
+    dxdr=0.
+    dxdz=0.
+    call find_dxdadxdt( masssolver, mgrid, phbjgat, dxdr, dxdz, ierr )
+    tmpz=dxdz
+
+    bpade_gk= 1./Jcbn*(tmpr+tmpz)+phbjgpp
+
+    deallocate(phbjgaa, phbjgat, phbjgpp)
+    deallocate(bb_at, bb_tt, tmpr, tmpz, dxdr, dxdz, qq2)
+  end subroutine add_pade2bb
+
+
+
+!========================================================================
+!         add_pade2bb
+!========================================================================
+  subroutine add_pade2bb_0( fem, masssolver, nn, bpade, ierr )
+    !     add grad_perp . [ h_p grad_perp b] term to bb(rhs) before KSPSolve
+    !     
+    use precision,only:wp,doubleprec
+    use global_parameters, only:mype,mgrid,mtheta,mpsi
+    use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij, bb_a, bb_t, q_grid, hpij
+    use fem_data_class
+    implicit none
+    type(fem_data) :: fem
+    type(solver_data) :: masssolver
+    integer,intent(in) :: nn
+    real(wp),intent(out) :: bpade(nn)  !dimension of neq
+    integer,intent(out) :: ierr
+    ! locals
+    integer :: neq
+    real(doubleprec),allocatable,dimension(:) :: phbjgaa,phbjgat,phbjgpp,qq2
+    integer :: fe_order, fe_ns, fe_nvar, fe_ndof
+    logical :: flg
+    integer :: whichone = 5
+    real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt, bpade_gk
+    integer :: ivsl, ivgts, ioffset, ir, itmax
+
+    if(mype==0) write(*,*)"     finite element: add pade to bb fem_order=", fem%order
+    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+#ifdef OLD2014
+#else
+    whichone=1
+#endif
+
+    !cal hp * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
+    fe_ns=3
+    fe_ndof=1
+    neq = sum(mtheta)
+    allocate(phbjgaa(mgrid*fe_ndof), phbjgat(mgrid*fe_ndof), phbjgpp(mgrid*fe_ndof))
+    allocate(dxdr(mgrid*fe_ndof), dxdz(mgrid*fe_ndof))
+    allocate(tmpr(mgrid*fe_ndof), tmpz(mgrid*fe_ndof))
+    allocate(bb_at(mgrid*fe_ndof), bb_tt(mgrid*fe_ndof))
+    allocate(bpade_gk(mgrid*fe_ndof))
+    allocate(qq2(mgrid*fe_ndof))
+
+! find the derivatives d(bb)/da  d(bb)/dt of bb
+    ! already calculated in poisson.F90
+
+    !       bb_a=0.
+    !       bb_t=0.
+    !       call find_dxdadxdt( masssolver, mgrid, bb, bb_a, bb_t, ierr )
+
+!find the derivatives d(bb_t)/da  d(bb_t)/dt of d(bb)/dt
+    bb_at=0.
+    bb_tt=0.
+    call find_dxdadxdt( masssolver, mgrid, bb_t, bb_at, bb_tt, ierr )
+
+    ivsl = 0
+    ivgts = 0
+    ioffset = 0
+    do ir=0,mpsi
+       itmax=mtheta(ir)
+       qq2(ioffset+1:ioffset+itmax+1)=q_grid(ir)**2
+       ioffset = ioffset+itmax+1
+    enddo
+
+!compute 
+    do ivgts = 1, mgrid
+       phbjgaa(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(1,ivgts)*bb_a(ivgts)+gij(4,ivgts)*bb_t(ivgts) )
+       phbjgat(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(4,ivgts)*bb_a(ivgts)+gij(2,ivgts)*bb_t(ivgts) )
+       phbjgpp(ivgts) = hpij(ivgts)/qq2(ivgts) *( gij(3,ivgts)*bb_tt(ivgts) )
+    enddo
+
+
+    !cj 2015-03-12 using (r,z) coor in masssolver
+    dxdr=0.
+    dxdz=0.
+    call find_dxdadxdt( masssolver, mgrid, phbjgaa, dxdr, dxdz, ierr )
+    tmpr=dxdr
+
+    dxdr=0.
+    dxdz=0.
+    call find_dxdadxdt( masssolver, mgrid, phbjgat, dxdr, dxdz, ierr )
+    tmpz=dxdz
+
+    bpade=0.
+    bpade_gk= 1./Jcbn*(tmpr+tmpz)+phbjgpp
+    call mappingGlobal2Local(bpade_gk, bpade, mgrid, neq)
+
+    deallocate(phbjgaa, phbjgat, phbjgpp)
+    deallocate(bpade_gk)
+    deallocate(bb_at, bb_tt, tmpr, tmpz, dxdr, dxdz, qq2)
+  end subroutine add_pade2bb_0
 
 
 
@@ -3561,7 +3747,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   use field_array,only: psi_grid,qtinv,Jcbn, dRda, dRdt, dZda, dZdt
 #endif
   use particle_decomp,only:myrank_partd,nproc_partd
-  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi
+  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi, pade
   use esi_interface, only : metric
   use fem_data_class
   implicit none
@@ -3591,13 +3777,13 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
 ! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 ! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
   real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-  real(wp), dimension(:),allocatable :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
+  real(wp), dimension(:),allocatable :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0, gp3
 #ifdef USERZ
   real(wp), dimension(:),allocatable :: coef_rr, coef_rz, coef_zr, coef_zz
 #endif
-  real(wp) :: Zs, gs,qq
+  real(wp) :: Zs, gs, qq, gpfem, adum
 
-  real(wp), external ::temperature_e, density
+  real(wp), external :: temperature_e, density, gp
   integer, external :: metric_elements
 
   ! Lagrange finite elements
@@ -3660,6 +3846,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
 
   allocate( aaa(fe_ns),the(fe_ns),Fj(fe_ns),Faj(fe_ns),gFaj(fe_ns),gYaj(fe_ns),rj(fe_ns),raj(fe_ns),rqj(fe_ns),zj(fe_ns),zaj(fe_ns),zqj(fe_ns),Bj(fe_ns) )
   allocate( gaa(fe_ns),gtt(fe_ns),gpp(fe_ns),gat(fe_ns),vthe3(fe_ns),q(fe_ns),ns0(fe_ns),ne0(fe_ns) )
+  allocate( gp3(fe_ns))
 #ifdef USERZ
   allocate( coef_rr(fe_ns),coef_rz(fe_ns),coef_zr(fe_ns),coef_zz(fe_ns) )
 #endif
@@ -3669,14 +3856,12 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   fe_Pijk(:,:,:)= fem%Pijk(:,:,:)
     call MPI_ALLREDUCE(fe_Pijk,fem%Pijk,fe_ns*fe_nvar*fe_nvar,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
 #ifdef CJTEST
-        if(mype==0) then
   do i=1,fe_nvar
      do j=1,fe_nvar
-        write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
+        if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
         115 format("	Pijk:", 2(2x,i4), 3(1x,d13.6))
      enddo
   enddo
-        endif
 #endif
 
 #ifdef USERZ
@@ -3712,11 +3897,11 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         rarr = 0.; zarr = 0.
 #ifdef USEGTSFE
         if(mype==0 .and. ie==1 ) &
-        write(0,*) "	form_tangent: use historical gts elements whichone,fcj,alpha=", whichone, fcj, alpha
+        write(0,*) "	form_tangent: use historical gts elements whichone,fcj=", whichone, fcj
         call therm2d(c1,c2,ul,xlt,sarr,marr,rrarr,rzarr,zrarr,zzarr,rarr,zarr,nel,nst,2,1)
 #else
         if(mype==0 .and. ie==1 ) &
-        write(0,*) "	form_tangent: use lagrange elements whichone,fcj,alpha=", whichone, fcj, alpha
+        write(0,*) "	form_tangent: use lagrange elements whichone,fcj=", whichone, fcj
         call lagrange_element_matrix(fe_ns, fe_nw, fe_ndof, fe_nvar, &
                                      xlt(1,:), xlt(2,:),  &
                                      fe_weight, fe_NN, fe_dN1, fe_Eij, fe_bEij, &
@@ -3761,7 +3946,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
              sarr2(kk) = fcj*( cf1*rrarr(i,j) + 2.*cf2*rzarr(i,j) + cf3*zzarr(i,j) )
                 else
              sarr2(kk) = alpha * fcj * marr(i,j) &
-                       + beta * fcj * gs * ( cf1*rrarr(i,j) &
+                       + fcj * (beta * gs + gpfem) * ( cf1*rrarr(i,j) &
                        +                     cf2*rzarr(i,j) &
                        +                     cf2*zrarr(i,j) &
                        +                     cf3*zzarr(i,j) &
@@ -3789,6 +3974,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   deallocate( rrarr,rzarr,zrarr,zzarr,pparr )
   deallocate( aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj )
   deallocate( gaa,gtt,gpp,gat,vthe3,q,ns0,ne0 )
+  deallocate( gp3 )
 #ifdef USERZ
   deallocate( coef_rr,coef_rz,coef_zr,coef_zz )
 #endif
@@ -3826,6 +4012,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         gtt(i)=metric(2)
         gpp(i)=metric(3)
         gat(i)=metric(4)
+        if(pade==1) gp3(i)=gp(aaa(i),the(i),adum)
      end do
 
      q(:)=-gFaj(:)/gYaj(:)
@@ -3888,8 +4075,26 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
      gs = Zs / mean(Bj*Bj, fe_ns) &
         * mean(ns0, fe_ns) &
         * c0cs_i * msm0_i
+     if(pade==1) then   ! include additional term due to Pade approximation
+        gpfem = mean(gp3, fe_ns)
+        !     gpfem=0.0   ! test
+     else
+        gpfem=0.0_wp
+     end if 
 
     END SUBROUTINE cmp_phy_qty
+
+    FUNCTION mean(vals,nn)
+    use precision
+    implicit none
+
+    real(wp) :: mean
+
+    integer, intent(in) :: nn
+    real(wp), dimension(nn), intent(in) :: vals
+    
+    mean = sum(vals)/real(nn,wp)
+    END FUNCTION mean
 end subroutine form_tangent
 
 !========================================================================
@@ -3957,9 +4162,11 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
   logical :: flg
-  integer :: whichone = 1
+  integer :: whichone = 5
 
 
+  call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+  whichone=1
   !cj2014.05.02 c1 = alpha
   !cj2014.05.02 c2 = beta
   eps = pi/6.
@@ -4017,14 +4224,12 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   fe_Pijk(:,:,:)= fem%Pijk(:,:,:)
     call MPI_ALLREDUCE(fe_Pijk,fem%Pijk,fe_ns*fe_nvar*fe_nvar,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
 #ifdef CJTEST
-        if(mype==0) then
   do i=1,fe_nvar
      do j=1,fe_nvar
-        write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
+        if(mype==0) write(*,115) i,j,fem%Pijk(1,j,i),fem%Pijk(2,j,i),fem%Pijk(3,j,i)
         115 format("	RZcoor Pijk:", 2(2x,i4), 3(1x,d13.6))
      enddo
   enddo
-        endif
 #endif
 
   if(mype .eq. 0) write(0,*) '	form_tangent_RZcoor: iemax=', fem%iemax
@@ -4202,8 +4407,6 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
         * c0cs_i * msm0_i
 
     END SUBROUTINE cmp_phy_qty
-end subroutine form_tangent_RZcoor
-
 
     FUNCTION mean(vals,nn)
     use precision
@@ -4216,56 +4419,8 @@ end subroutine form_tangent_RZcoor
     
     mean = sum(vals)/real(nn,wp)
     END FUNCTION mean
+end subroutine form_tangent_RZcoor
 
-
-! added 2017-nov-03 set alpha=0 in the solver
-#ifdef GIVEUP
-subroutine solver_reset( this )
-  use global_parameters,only: ifelectron, mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi, ifdphi, R_0
-  implicit none
-  type(solver_data) :: this
-  Vec tmpVec10
-  PetscScalar alpha
-  real(wp), dimension(:),allocatable :: vthe3, aaa
-  integer, dimension(:),allocatable :: ind
-  integer ierr, i, ie, fe_ns, neq
-  real(wp), external ::temperature_e
-
-
-     if(mype==0) write(*,*) "reset poisson solver to alpha=0"
-     !this%order=1
-     fe_ns=3
-     neq = this%fem%nmesh_pts
-
-     allocate( ind(fe_ns) )
-     allocate( vthe3(fe_ns), aaa(fe_ns) )
-     allocate( alpha(neq),this%zero10(neq))
-
-  do ie=1,this%fem%iemax
-     ind(:)=this%fem%iet(:,ie)
-
-     aaa(:)=this%fem%points(3,ind(:))
-     do i=1,fe_ns
-        vthe3(i)=temperature_e(aaa(i),0.0_wp)
-     enddo
-
-     if(ifelectron==1 .or. this%mat%mat_type==2) then
-        alpha = 0.0_wp
-     else
-        alpha = abs(csc0) * m0ms / mean(vthe3, fe_ns)
-     endif
-  enddo
-
-     deallocate( vthe3, aaa )
-
-     call VecDuplicate(this%zeroVec10, tmpVec10, ierr)
-     call VecCopy(this%zeroVec10, tmpVec10, ierr)
-
-     call VecScale(tmpVec10, -alpha, ierr)
-     call MatDiagonalSet(this%mat%data, tmpVec10, ADD_VALUES, ierr)
-     call VecDestroy(tmpVec10, ierr)
-end subroutine solver_reset
-#endif
 end module solver_data_class
 
 
