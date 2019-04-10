@@ -600,7 +600,7 @@ subroutine poisson_initial( mat )
               do kp=1,larmor_num
                 ddelr=pgyro(kp,ipjt)
                 ddelt=tgyro(kp,ipjt)
-                wght=(1.0/real(larmor_num))*fring(kr)
+                wght=(inv_larmor_num)*fring(kr)
 
 ! position for each point with rho_i=2.0*vring
                  r=max(psimin,min(psimax,rgrid+ddelr*2.0_wp*vring_r(kr)*sqrt(0.5_wp/Bj(1)))) ! r is s

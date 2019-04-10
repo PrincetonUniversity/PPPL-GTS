@@ -68,9 +68,9 @@ subroutine current_ion
 
      enddo
 
-     wpi(1,m)=e1/real(larmor_num)
-     wpi(2,m)=e2/real(larmor_num)
-     wpi(3,m)=e3/real(larmor_num)
+     wpi(1,m)=e1*inv_larmor_num
+     wpi(2,m)=e2*inv_larmor_num
+     wpi(3,m)=e3*inv_larmor_num
 
   enddo
 
@@ -243,9 +243,9 @@ subroutine current_ion
 !  !     so as to save storage for n_0 at grid points
 !  !$omp parallel do private(ij)
 !    do ij=1,mgrid
-!       pflux_i(1,1,ij)=pflux_i(1,1,ij)*markeri(ij)*(1.0/real(larmor_num))  ! Gamma_e/n_0
-!       pflux_i(2,1,ij)=pflux_i(2,1,ij)*markeri(ij)*(1.0/real(larmor_num))  ! Gamma_e/n_0
-!       pflux_i(3,1,ij)=pflux_i(3,1,ij)*markeri(ij)*(1.0/real(larmor_num)) ! Gamma_e/n_0
+!       pflux_i(1,1,ij)=pflux_i(1,1,ij)*markeri(ij)*(inv_larmor_num)  ! Gamma_e/n_0
+!       pflux_i(2,1,ij)=pflux_i(2,1,ij)*markeri(ij)*(inv_larmor_num)  ! Gamma_e/n_0
+!       pflux_i(3,1,ij)=pflux_i(3,1,ij)*markeri(ij)*(inv_larmor_num) ! Gamma_e/n_0
 !                !factor 0.25=1/4 comes from 4-point average ! This is abandoned!!
 !                !Now, factor = (1/larmor_num) to average larmor_num points.
 !    enddo
@@ -254,9 +254,9 @@ subroutine current_ion
   do i=0,mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        pflux_i(1,1,ij)=(1.0/real(larmor_num))*pflux_i(1,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
-        pflux_i(2,1,ij)=(1.0/real(larmor_num))*pflux_i(2,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
-        pflux_i(3,1,ij)=(1.0/real(larmor_num))*pflux_i(3,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
+        pflux_i(1,1,ij)=(inv_larmor_num)*pflux_i(1,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
+        pflux_i(2,1,ij)=(inv_larmor_num)*pflux_i(2,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
+        pflux_i(3,1,ij)=(inv_larmor_num)*pflux_i(3,1,ij)*cloud_i/dadtdz(i)  ! Gamma_e*J
 !                Now, factor = (1/larmor_num) to average larmor_num points.
      enddo
   enddo

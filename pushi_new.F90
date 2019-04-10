@@ -117,9 +117,9 @@ subroutine pushi
 
      enddo
 
-     wpi(1,m)=e1/real(larmor_num)
-     wpi(2,m)=e2/real(larmor_num)
-     wpi(3,m)=e3/real(larmor_num)
+     wpi(1,m)=e1*inv_larmor_num
+     wpi(2,m)=e2*inv_larmor_num
+     wpi(3,m)=e3*inv_larmor_num
 
   enddo
 
@@ -661,9 +661,9 @@ subroutine pushion
 
      enddo
 
-     wpi(1,m)=e1/real(larmor_num)
-     wpi(2,m)=e2/real(larmor_num)
-     wpi(3,m)=e3/real(larmor_num)
+     wpi(1,m)=e1*inv_larmor_num
+     wpi(2,m)=e2*inv_larmor_num
+     wpi(3,m)=e3*inv_larmor_num
 
     !  ga(m) = ga0 * cos(gan * zion(3,m) - gam * zion(2,m) - gagw * istep * tstep + gagf0);
     !  wga(1,m) = 0.0_wp;

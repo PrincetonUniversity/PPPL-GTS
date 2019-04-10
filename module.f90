@@ -116,6 +116,7 @@ end module precision
   !==============================================================================
   !MGYOO (10/24/2018) to control accuracy of gyro-average on Larmor orbit
   integer :: larmor_num = 16 ! how many points are used to do something on gyro orbit
+  real(wp) inv_larmor_num ! (=1.0/larmor_num) For faster calculation
   !==============================================================================
 
 end module global_parameters

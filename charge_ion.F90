@@ -273,7 +273,7 @@ if(ZF_SEPARATION==0) then  !  solve total potential
   do i=0,mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        densityi(1,ij)=(1.0/real(larmor_num))*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+        densityi(1,ij)=(inv_larmor_num)*densityi(1,ij)*markeri(ij)  ! =dn/n_0
      enddo
      densityi(1,igrid(i))=densityi(1,igrid(i)+mtheta(i)) ! validate densityi(1,igrid(i))
   enddo
@@ -293,8 +293,8 @@ if(ZF_SEPARATION==0) then  !  solve total potential
 !    do i=0,mpsi
 !       do j=1,mtheta(i)
 !          ij=igrid(i)+j
-!          rdum=rdum+(1.0/real(larmor_num))*densityi(1,ij)
-!          densityi(1,ij)=(1.0/real(larmor_num))*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+!          rdum=rdum+(inv_larmor_num)*densityi(1,ij)
+!          densityi(1,ij)=(inv_larmor_num)*densityi(1,ij)*markeri(ij)  ! =dn/n_0
 !       enddo
 !    enddo
 !  !$omp end parallel
@@ -307,8 +307,8 @@ if(ZF_SEPARATION==0) then  !  solve total potential
    do i=0,mpsi
       do j=1,mtheta(i)
          ij=j+igrid(i)
-         wdum(i)=wdum(i)+(1.0/real(larmor_num))*densityi(1,ij)
-         densityi(1,ij)=(1.0/real(larmor_num))*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+         wdum(i)=wdum(i)+(inv_larmor_num)*densityi(1,ij)
+         densityi(1,ij)=(inv_larmor_num)*densityi(1,ij)*markeri(ij)  ! =dn/n_0
       enddo
    enddo
  !$omp end parallel
@@ -394,8 +394,8 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
   do i=0,mpsi
      do j=1,mtheta(i)
         ij=igrid(i)+j
-        !  wdum(i)=wdum(i)+(1.0/real(larmor_num))*densityi(1,ij)      ! original flux-surface avarage --> zonali; replaced in Jan. 2015
-        densityi(1,ij)=(1.0/real(larmor_num))*densityi(1,ij)*markeri(ij)  ! =dn/n_0
+        !  wdum(i)=wdum(i)+(inv_larmor_num)*densityi(1,ij)      ! original flux-surface avarage --> zonali; replaced in Jan. 2015
+        densityi(1,ij)=(inv_larmor_num)*densityi(1,ij)*markeri(ij)  ! =dn/n_0
         wdum(i)=wdum(i)+dtemper(ij)*densityi(1,ij)  ! new flux-surface avarage --> zonali; used in Jan. 2015
      enddo
   enddo

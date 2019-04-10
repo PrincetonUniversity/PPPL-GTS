@@ -88,6 +88,8 @@ Subroutine setup
 ! Read control parameters from input file
   call read_control_params  !ZHIXIN
 
+  inv_larmor_num = 1.0_wp/real(larmor_num)
+
 !  kappan=kappati*kappan        ! =R_0*<grad(n)/n>=R_0/L_n
   aelectron=1.0/aelectron      ! aelectron=1.0/1837.0
 
@@ -1589,7 +1591,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
         dgq_du2 = (Fj(1))/ (jacobian(pdum,tdum)*sqrt(metric(1))*Bj(1))
 
         do larmor=1, larmor_num
-          gyro_phase = (larmor-1)*2.0_wp*pi/real(larmor_num)
+          gyro_phase = (larmor-1)*2.0_wp*pi*inv_larmor_num
           
           pgyro(larmor,ij) = dsda(pdum)*rhoi * (cos(gyro_phase)*da_du1 + sin(gyro_phase)*da_du2)
           tgyro(larmor,ij) = rhoi * (cos(gyro_phase)*dgq_du1 + sin(gyro_phase)*dgq_du2)        
