@@ -53,13 +53,13 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
      wz1=weight*wzion(m)
      wz0=weight-wz1
 
-        wp1=wpion(1,m)
+        wp1=wpion(0,m)
         wp0=1.0_wp-wp1
 
-        wt10=wp0*wtion0(1,m)
+        wt10=wp0*wtion0(0,m)
         wt00=wp0-wt10
 
-        wt11=wp1*wtion1(1,m)
+        wt11=wp1*wtion1(0,m)
         wt01=wp1-wt11
   
         if(i==1) then 
@@ -76,7 +76,7 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
 
 #ifdef _OPENMP
 ! Use thread-private temporary array dnitmp to store the results
-        ij=jtion0(1,m)
+        ij=jtion0(0,m)
         dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt00*rdum
         dnitmp(1,ij) = dnitmp(1,ij) + wz1*wt00*rdum
 
@@ -84,7 +84,7 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
         dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt10*rdum
         dnitmp(1,ij) = dnitmp(1,ij) + wz1*wt10*rdum
 
-        ij=jtion1(1,m)
+        ij=jtion1(0,m)
         dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt01*rdum
         dnitmp(1,ij) = dnitmp(1,ij) + wz1*wt01*rdum
 
@@ -94,7 +94,7 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
 #else
 ! If no loop-level parallelism, use original algorithm (write directly
 ! into array "pflux_e(*,*,*)".
-        ij=jtion0(1,m)
+        ij=jtion0(0,m)
         if(i < 4) then
            pflux_e(i,0,ij) = pflux_e(i,0,ij) + wz0*wt00*rdum
            pflux_e(i,1,ij) = pflux_e(i,1,ij) + wz1*wt00*rdum
@@ -112,7 +112,7 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
         end if
 
 
-        ij=jtion1(1,m)
+        ij=jtion1(0,m)
         if(i < 4) then
            pflux_e(i,0,ij) = pflux_e(i,0,ij) + wz0*wt01*rdum
            pflux_e(i,1,ij) = pflux_e(i,1,ij) + wz1*wt01*rdum
@@ -357,23 +357,23 @@ subroutine ion_locator0  ! Added to calculate delta-vi and delta Ti on grid
      rdum=delr*max(0.0_wp,min(s1-s0,rdum-s0))
      ii=max(0,min(mpsi-1,int(rdum)))
      wp1=rdum-real(ii,wp)
-     wpion(1,m)=wp1
+     wpion(0,m)=wp1
 
 ! inner flux surface
      im=ii
      tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
      tdum=(tdum-aint(tdum))*delt(im)
      j00=max(0,min(mtheta(im)-1,int(tdum)))
-     jtion0(1,m)=igrid(im)+j00  ! pay attention to j00=0 case
-     wtion0(1,m)=tdum-real(j00,wp)
+     jtion0(0,m)=igrid(im)+j00  ! pay attention to j00=0 case
+     wtion0(0,m)=tdum-real(j00,wp)
 
 ! outer flux surface
      im=ii+1
      tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
      tdum=(tdum-aint(tdum))*delt(im)
      j01=max(0,min(mtheta(im)-1,int(tdum)))
-     jtion1(1,m)=igrid(im)+j01  ! pay attention to j01=0 case
-     wtion1(1,m)=tdum-real(j01,wp)
+     jtion1(0,m)=igrid(im)+j01  ! pay attention to j01=0 case
+     wtion1(0,m)=tdum-real(j01,wp)
   enddo
 
 end subroutine ion_locator0
@@ -418,23 +418,23 @@ subroutine ion_locator  ! Added to calculate delta-vi and delta Ti on grid
      rdum=delr*max(0.0_wp,min(s1-s0,rdum-s0))
      ii=max(0,min(mpsi-1,int(rdum)))
      wp1=rdum-real(ii,wp)
-     wpion(1,m)=wp1
+     wpion(0,m)=wp1
 
 ! inner flux surface
      im=ii
      tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
      tdum=(tdum-aint(tdum))*delt(im)
      j00=max(0,min(mtheta(im)-1,int(tdum)))
-     jtion0(1,m)=igrid(im)+j00  ! pay attention to j00=0 case
-     wtion0(1,m)=tdum-real(j00,wp)
+     jtion0(0,m)=igrid(im)+j00  ! pay attention to j00=0 case
+     wtion0(0,m)=tdum-real(j00,wp)
 
 ! outer flux surface
      im=ii+1
      tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
      tdum=(tdum-aint(tdum))*delt(im)
      j01=max(0,min(mtheta(im)-1,int(tdum)))
-     jtion1(1,m)=igrid(im)+j01  ! pay attention to j01=0 case
-     wtion1(1,m)=tdum-real(j01,wp)
+     jtion1(0,m)=igrid(im)+j01  ! pay attention to j01=0 case
+     wtion1(0,m)=tdum-real(j01,wp)
   enddo
 
 end subroutine ion_locator

@@ -34,10 +34,10 @@ subroutine weight_damping_ion
      wz1=wzion(m)
      wz0=1.0_wp-wz1
 
-     ij=jtion0(1,m)
-     wp0=1.0_wp-wpion(1,m)
+     ij=jtion0(0,m)
+     wp0=1.0_wp-wpion(0,m)
 
-     wt00=1.0_wp-wtion0(1,m)
+     wt00=1.0_wp-wtion0(0,m)
      e1=wp0*wt00*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
      e2=wp0*wt00*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
      e3=wp0*wt00*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
@@ -48,9 +48,9 @@ subroutine weight_damping_ion
      e2=e2+wp0*wt10*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
      e3=e3+wp0*wt10*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
 
-     ij=jtion1(1,m)
+     ij=jtion1(0,m)
      wp1=1.0_wp-wp0
-     wt01=1.0_wp-wtion1(1,m)
+     wt01=1.0_wp-wtion1(0,m)
      e1=e1+wp1*wt01*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
      e2=e2+wp1*wt01*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
      e3=e3+wp1*wt01*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
@@ -135,13 +135,13 @@ do m=1,mi
      wz1=wzion(m)
      wz0=1.0-wz1
 
-        wp1=wpion(1,m)
+        wp1=wpion(0,m)
         wp0=1.0_wp-wp1
 
-        wt10=wp0*wtion0(1,m)
+        wt10=wp0*wtion0(0,m)
         wt00=wp0-wt10
 
-        wt11=wp1*wtion1(1,m)
+        wt11=wp1*wtion1(0,m)
         wt01=wp1-wt11
   
         vz=zion(4,m)*BB(m)          ! =v_//; BB is obtained from call gcmotion in pushi
@@ -159,7 +159,7 @@ do m=1,mi
         rdum(9)=enew*zion(5,m)
 
 #ifdef _OPENMP
-        ij=jtion0(1,m)
+        ij=jtion0(0,m)
         dampf(1:9,ij,0) =dampf(1:9,ij,0) + wz0*wt00*rdum(1:9)
         dampf(1:9,ij,1) =dampf(1:9,ij,1) + wz1*wt00*rdum(1:9)
 
@@ -167,7 +167,7 @@ do m=1,mi
         dampf(1:9,ij,0) =dampf(1:9,ij,0) + wz0*wt10*rdum(1:9)
         dampf(1:9,ij,1) =dampf(1:9,ij,1) + wz1*wt10*rdum(1:9)
 
-        ij=jtion1(1,m)
+        ij=jtion1(0,m)
         dampf(1:9,ij,0) =dampf(1:9,ij,0) + wz0*wt01*rdum(1:9)
         dampf(1:9,ij,1) =dampf(1:9,ij,1) + wz1*wt01*rdum(1:9)
 
@@ -175,7 +175,7 @@ do m=1,mi
         dampf(1:9,ij,0) =dampf(1:9,ij,0) + wz0*wt11*rdum(1:9)
         dampf(1:9,ij,1) =dampf(1:9,ij,1) + wz1*wt11*rdum(1:9)
 #else
-        ij=jtion0(1,m)
+        ij=jtion0(0,m)
         dnitmp(1:9,ij,0) =dnitmp(1:9,ij,0) + wz0*wt00*rdum(1:9)
         dnitmp(1:9,ij,1) =dnitmp(1:9,ij,1) + wz1*wt00*rdum(1:9)
 
@@ -183,7 +183,7 @@ do m=1,mi
         dnitmp(1:9,ij,0) =dnitmp(1:9,ij,0) + wz0*wt10*rdum(1:9)
         dnitmp(1:9,ij,1) =dnitmp(1:9,ij,1) + wz1*wt10*rdum(1:9)
 
-        ij=jtion1(1,m)
+        ij=jtion1(0,m)
         dnitmp(1:9,ij,0) =dnitmp(1:9,ij,0) + wz0*wt01*rdum(1:9)
         dnitmp(1:9,ij,1) =dnitmp(1:9,ij,1) + wz1*wt01*rdum(1:9)
 

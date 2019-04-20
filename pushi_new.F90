@@ -338,10 +338,10 @@ dmaxv=0.0d0
      wz1=wzion(m)
      wz0=1.0_wp-wz1
 
-     ij=jtion0(1,m)
-     wp0=1.0_wp-wpion(1,m)
+     ij=jtion0(0,m)
+     wp0=1.0_wp-wpion(0,m)
 
-     wt00=1.0_wp-wtion0(1,m)
+     wt00=1.0_wp-wtion0(0,m)
      e1=wp0*wt00*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
      e2=wp0*wt00*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
      e3=wp0*wt00*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
@@ -352,9 +352,9 @@ dmaxv=0.0d0
      e2=e2+wp0*wt10*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
      e3=e3+wp0*wt10*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
 
-     ij=jtion1(1,m)
+     ij=jtion1(0,m)
      wp1=1.0_wp-wp0
-     wt01=1.0_wp-wtion1(1,m)
+     wt01=1.0_wp-wtion1(0,m)
      e1=e1+wp1*wt01*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
      e2=e2+wp1*wt01*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
      e3=e3+wp1*wt01*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
