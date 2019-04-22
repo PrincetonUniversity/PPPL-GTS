@@ -2324,7 +2324,7 @@ end subroutine setup
 
   implicit none
 
-  integer,parameter :: n_integers=48, n_reals=58, n_chars=3
+  integer,parameter :: n_integers=48, n_reals=59, n_chars=3
   integer :: integer_params(n_integers)
   character(25),dimension(n_chars) :: char_params
 ! only the first processor will open files...
@@ -2411,7 +2411,8 @@ end subroutine setup
                      Er_data_name,       &   ! name of Er data file
                      movie_3D_h5,        &   ! =0, 3D-movie data off; >0, write 3D-movie data every movie_3D_h5 step
                      ZF_SEPARATION,      &   ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
-                     order                   ! =0, original solver; =1, linear finite elements; =2 higher order elements
+                     order,              &   ! =0, original solver; =1, linear finite elements; =2 higher order elements
+                     fltr
 
   namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
                      its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2525,6 +2526,7 @@ end subroutine setup
      real_params(52:54)=rprobe
      real_params(55:57)=tprobe
      real_params(58)=gama1
+     real_params(59)=fltr
 
      write(0,*) 'equillibrium=', eq_data_name
      write(0,*) 'irun=', irun
@@ -2550,6 +2552,7 @@ end subroutine setup
 
      write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
      write(0,*) 'finite element order=', integer_params(47)
+     write(0,*) 'fltr=', fltr;
   endif 
 
   call mpi_bcast(char_params,25*n_chars,MPI_CHARACTER,0,MPI_COMM_WORLD,ierror)
@@ -2657,6 +2660,7 @@ end subroutine setup
      rprobe            =real_params(52:54)
      tprobe            =real_params(55:57)
      gama1             =real_params(58)
+     fltr              =real_params(59)
      
      
   end if

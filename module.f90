@@ -77,7 +77,7 @@ end module precision
             Ti_box(nprobe),Te_box(nprobe)
   integer   nv
   real(wp)  dradius, dtheta, delta_v
-  real(wp) :: fltr = 1.0_wp, fltr_field = 1.0_wp, fltr_source = 0.0_wp;
+  real(wp) :: fltr = 0.0_wp, fltr_field = 1.0_wp, fltr_source = 0.0_wp;
   integer :: deltam = 0;
 
 ! The following input parameters are specified in setup for radial boundary layers with damping
