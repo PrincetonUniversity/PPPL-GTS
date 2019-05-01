@@ -1189,6 +1189,8 @@ subroutine pusheon_RK4(irk_e)
      wpi(2,m)=e2
      wpi(3,m)=e3
 
+     ! (MGYOO: 05/01/2019)
+     ! For RK4 method, the time here must be updated as well.
      !MGYOO (10/30/2018; to use analytic profile of ga0(a))
     call Get_MP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
 
@@ -1497,6 +1499,10 @@ subroutine pusheon_RK4(irk_e)
       wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
       wpi(3,m)=muB       ! normalizd electron perpendicular energy
 
+      if(irk_e==4) then
+        UnNorm_theta_e(m) = UnNorm_theta_e(m) +RK_cum_zeon(2,m)
+        UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +RK_cum_zeon(3,m)
+      endif
     enddo
 
     !   fluxes diagnose

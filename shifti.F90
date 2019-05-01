@@ -51,7 +51,7 @@ subroutine shifti
   endif
 
   !dim_Ptl_package = dim_zion + dim_zion0 + 1  ! zeon + zeon0 + ilables
-  dim_Ptl_package = dim_zion + dim_zion0 + dim_RK_cum_zion + 6  ! zeon + zeon0 + RK_cum_zion+ ilables + 5 values about wi evolution
+  dim_Ptl_package = dim_zion + dim_zion0 + dim_RK_cum_zion + 8  ! zeon + zeon0 + RK_cum_zion+ ilables + 5 values about wi evolution +2 Unnormalized Angles
   ! write(4321,*) "dim_zion=", dim_zion, "dim_zion0=",dim_zion0
   ! call flush(4321)
 
@@ -157,6 +157,8 @@ subroutine shifti
     tor_send_Ptls_data(k+4, i) =  wi_vperp(send_mid_arr(i))  
     tor_send_Ptls_data(k+5, i) =  wi_accel(send_mid_arr(i))    
     tor_send_Ptls_data(k+6, i) =  wi_fdamp(send_mid_arr(i))   
+    tor_send_Ptls_data(k+7, i) =  UnNorm_theta_i(send_mid_arr(i))    
+    tor_send_Ptls_data(k+8, i) =  UnNorm_zeta_i(send_mid_arr(i))   
   enddo
   
 
@@ -190,6 +192,8 @@ subroutine shifti
     wi_accel(m)     = wi_accel(mtop)
     wi_fdamp(m)     = wi_fdamp(mtop)
 
+    UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
+    UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)    
     if(RK4_Flag==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
 
     mtop = mtop -1
@@ -214,6 +218,8 @@ subroutine shifti
     wi_vperp(mi+i)  =  tor_recv_Ptls_data(k+4, i) 
     wi_accel(mi+i)  =  tor_recv_Ptls_data(k+5, i) 
     wi_fdamp(mi+i)  =  tor_recv_Ptls_data(k+6, i) 
+    UnNorm_theta_i(mi+i)= tor_recv_Ptls_data(k+7, i) 
+    UnNorm_zeta_i(mi+i) = tor_recv_Ptls_data(k+8, i) 
   enddo
 
   mi = mi + tot_recv_num  

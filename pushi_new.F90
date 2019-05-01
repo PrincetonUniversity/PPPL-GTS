@@ -1151,6 +1151,10 @@ subroutine pushion_RK4(irk_i)
     wpi(2,m)=energy    ! =(v_para-u//)^2/2+v_perp^2/2
     wpi(3,m)=muB       ! =v_perp^2/2, need for calculate distribution function in get_fluxes
 
+    if(irk_i==4) then
+      UnNorm_theta_i(m) = UnNorm_theta_i(m) +RK_cum_zion(2,m)
+      UnNorm_zeta_i(m)  = UnNorm_zeta_i(m)  +RK_cum_zion(3,m)
+    endif
   enddo ! do m=1,mi
       
 

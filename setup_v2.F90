@@ -1836,14 +1836,16 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
       allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))      
     else    
       allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))      
-        allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))
-      allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))      
     end if
 
      allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
                wteon0(memax),wteon1(memax),markere(mgrid),&
              !   densitye(0:1,mgrid),cij(3,mgrid))
                densitye(0:1,mgrid),cij(5,mgrid), elabels(memax), etracers_labels(num_of_etracers))
+      
+      
+      allocate(UnNorm_zeta_i(mimax), UnNorm_theta_i(mimax))
+      allocate(UnNorm_zeta_e(memax), UnNorm_theta_e(memax))
 
       allocate(wi_init(mimax), wi_vpara(mimax), wi_vperp(mimax), wi_accel(mimax), wi_fdamp(mimax))
       allocate(we_init(memax), we_vpara(memax), we_vperp(memax), we_accel(memax), we_adiab(memax), we_fdamp(memax))
@@ -2439,7 +2441,8 @@ end subroutine setup
                      Streaming_Flag,     &   ! (include=1) or (exclude=0) perturbed streaming term and mirror force
                      num_of_EMP,         &   ! number of EMP (External Magnetic Perturbation) : how many mode number (m,n) are considered?
                      ga0, gam, gan, gagw, gagf0, dga0dt,&
-                     ga_rc, ga_rw, ga_pp     ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
+                     ga_rc, ga_rw, ga_pp, &   ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
+                     num_of_etracers, num_of_itracers, nstep_for_tracer_record ! Multi-tracers information
 
   namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
                      its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2490,6 +2493,7 @@ end subroutine setup
       write(0,*) 'Streaming_Flag=', Streaming_Flag
       write(0,*) 'num_of_EMP =',num_of_EMP
       write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
+      write(0,*) 'num_of_etracers=', num_of_etracers,', num_of_itracers=',num_of_itracers, ', nstep_for_tracer_record=', nstep_for_tracer_record
     endif
 
 
