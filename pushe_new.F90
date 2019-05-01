@@ -1503,6 +1503,10 @@ subroutine pusheon_RK4(irk_e)
         UnNorm_theta_e(m) = UnNorm_theta_e(m) +RK_cum_zeon(2,m)
         UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +RK_cum_zeon(3,m)
       endif
+
+      ! MGYOO(05/06/2019) : To pass wdot information which are needed in the following for m=1:me routines after shift
+      zeon(8,m) = wdot
+
     enddo
 
     !   fluxes diagnose
@@ -1561,15 +1565,27 @@ subroutine pusheon_RK4(irk_e)
       end if
       E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
 
+      if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
+        instep =smoothstep(lmin,lmax,zeon(1,m))
+        outstep=smoothstep(rmin,rmax,zeon(1,m))
+        fip=instep*(1.0_wp-outstep)
+        !  wdrive=wdrive*fip
+        fdamp=(1.0_wp-fip)*fdamp0
+     else
+        fip=1.0_wp
+        fdamp=0.0_wp
+     end if
+
+      wdot = zeon(8,m)
       zeon(8,m)   = (E_f-zeon0(8,m))/(tstep+ RK_adv_coeff*tstep)
 
       ! Calculate dADdt and evolve weight
       ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
-      RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+      RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
       ! Advance particle information for the next RK step
       if(irk_e<4) then
         ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
-        zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+        zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
       else if(irk_e==4) then !irk_i==4
         ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
         zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
