@@ -111,7 +111,7 @@ end module precision
 
   integer,dimension(:),allocatable :: mappingL2G, mappingG2L
 
-  integer :: electromagnetic, Streaming_Flag
+  integer :: electromagnetic, Streaming_Flag=1 ! Default Value: Streaming_Flag=1(ON)
   integer :: num_of_EMP
   type External_Magnetic_Perturbation
     integer :: gam, gan
@@ -166,7 +166,7 @@ module particle_array
   ! MGYOO (07/31/2018)
   ! Information of Multiple-Tracers
   real(wp), dimension(:), allocatable :: elabels, ilabels  
-  integer :: num_of_etracers, num_of_itracers, nstep_for_tracer_record 
+  integer :: num_of_etracers=200, num_of_itracers=200, nstep_for_tracer_record=5 ! Default values 
   !real(wp), dimension(:), allocatable :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
   real(wp), dimension(:), allocatable :: etracers_labels, itracers_labels
   ! Unnormalized zeta&theta (not normalized into [0,2*pi))
