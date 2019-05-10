@@ -1128,6 +1128,8 @@ subroutine pusheon_RK4(irk_e)
     RK_adv_coeff =0.5
     do m=1,me
       ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity
+      ! Also note that zeon0(5,m) and zeon0(8,m) will be updated 
+      ! just after calculating the weight evolution due to wdphidt term at irk_e=1 step.
       zeon0(1:5,m)=zeon(1:5,m)
       zeon0(7,m)=zeon(7,m)
     enddo
@@ -1326,17 +1328,7 @@ subroutine pusheon_RK4(irk_e)
       end if
 
       E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
-      
-      !======================================================
-      ! MGYOO(03/27/2019) : 
-      ! zeon0(8,m): (q*dphi_NZ/Te) @t=(n-1)
-      ! zeon(8,m): d(q*dphi_NZ/Te)/dt @t=(n-1/2)
-      !======================================================
-      if(irk_e==1) then
-        tmp_old_AD = zeon0(8,m)
-        tmp_old_dADdt = (E_f-tmp_old_AD)/tstep 
-        !zeon0(8,m)  = E_f ! So zeon0(8,m) now has a value at t=(n), and this would be used at t=(n+1) as the past information
-      endif
+     
 
       if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
         instep =smoothstep(lmin,lmax,zeon(1,m))
@@ -1350,6 +1342,27 @@ subroutine pusheon_RK4(irk_e)
         fip=1.0_wp
         fdamp=0.0_wp
       end if
+
+      if(irk_e==1) then
+        !======================================================
+        ! MGYOO(05/10/2019) : Calculate weight evolution due to dphidt term in the delta-h scheme
+        ! Please note that E_f and zeon0(8,m) are the same adiabatic terms but with different time level
+        ! E_f         = (q*dphi_NZ/Te) @ t{n}, x{n}
+        ! zeon0(8,m)  = (q*dphi_NZ/Te) @ t{n-1}, x{n}
+        wdphidt = (E_f-zeon0(8,m))/tstep
+        zeon(5,m) = zeon0(5,m) +tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdphidt)*fip-fdamp*zeon(5,m))
+
+        ! Update zeon0(5,m) and zeon0(8,m) for next RK steps
+        ! Note that zeon0(8,m) is not the past value of zeon(8,m).
+        ! They are totally different things. zeon0(8,m) is E_f term, zeon(8,m) is a pouch to bring wdot later.
+        zeon0(5,m) = zeon(5,m)
+        zeon0(8,m) = E_f
+        ! Now, zeon0(8,m) means (q*dphi_NZ/Te) @ t{n}, x{n}
+        !======================================================
+
+        tmp_old_AD = zeon0(8,m)
+        tmp_old_dADdt = (E_f-tmp_old_AD)/tstep        
+      endif
 
       if(ifneoclassical==1) then   
         wdrift=(dgr(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
@@ -1577,24 +1590,29 @@ subroutine pusheon_RK4(irk_e)
      end if
 
       wdot = zeon(8,m)
-      zeon(8,m)   = (E_f-zeon0(8,m))/(tstep+ RK_adv_coeff*tstep)
 
+      !======================================================
+      ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
+      ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level      
+      !======================================================
+      ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
+      wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)  
       ! Calculate dADdt and evolve weight
       ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
-      RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+      RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
       ! Advance particle information for the next RK step
       if(irk_e<4) then
         ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
-        zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+        zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
       else if(irk_e==4) then !irk_i==4
         ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
         zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
-        zeon0(8,m)   = E_f  ! So zeon0(8,m) now has a value at t=(n) based on phi(t(n)), and this would be used at t=(n+1) as the past information
+        zeon0(8,m)   = E_f  ! So zeon0(8,m) now has a value at t{n} and x{n+1} and this will be used at t{n+1} level as the past information
       endif
 
       if(elabels(m) == etracers_labels((num_of_etracers/2))) then           
-        write(stdout,*) 'irk=',irk,', wdot=',wdot, 'zeon(8,m)=',zeon(8,m)
-        write(stdout,*) 'irk=',irk,', old_AD=',tmp_old_AD, ', new_AD=',E_f, ', old_dADdt=',tmp_old_dADdt, ', new_dADdt=',(E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
+        write(stdout,*) 'irk=',irk,', wdot=',wdot, 'wdphidt=',wdphidt
+        write(stdout,*) 'irk=',irk,', old_AD=',tmp_old_AD, ', new_AD=',E_f, ', old_dADdt=',tmp_old_dADdt
         ! write(stdout,*) 'irk=',irk,', zeon=', zeon(:,m)
         ! write(stdout,*) 'irk=',irk,', zeon0=', zeon0(:,m)        
         call flush(stdout)
