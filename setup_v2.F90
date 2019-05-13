@@ -1830,7 +1830,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
     if(ifdphi==3 .and. RK4_Flag==1) then  ! use dphi/dt @ t=(n-1/2) for ifdphi==3
       ! zeon0(8,m): (q*dphi_NZ/Te)  @t=(n-1)
       ! zeon(8,m) : d(q*dphi_NZ/Te)/dt @t=(n-1/2)
-      allocate (zeon(8,memax),zeon0(8,memax)) 
+      allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax)) 
       allocate (RK_cum_zeon(7,memax))
     else if(ifdphi==2) then   ! use direct dphi/dt when ifelectron==2
       allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))      
