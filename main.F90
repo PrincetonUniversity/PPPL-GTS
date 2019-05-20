@@ -444,7 +444,7 @@ end if
         timewc(8)=timewc(8)+dtwc
 
         ! Solve GK equation of motion using Runge-Kutta 4th order method
-        idiag=mod(irk+3,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+        idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
         call pushion_RK4(irk)
         call timer(t0,dt,t0wc,dtwc)
         time(1)=time(1)+dt
@@ -457,9 +457,9 @@ end if
         timewc(2)=timewc(2)+dtwc
 
         ! Calculate ion weight damping 
-        if(wimcompressibility==2) call weight_damping_ion
+        if(irk==4 .and. wimcompressibility==2) call weight_damping_ion
   
-        call check_tracer_i
+        if(irk==4) call check_tracer_i
         ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
         ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
         ! in PUSHI for calculating electric force on ions
@@ -478,7 +478,7 @@ end if
           time(9)=time(9)+dt
           timewc(9)=timewc(9)+dtwc
 
-          idiag_e=mod(irk+3,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+          idiag_e=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
           call pusheon_RK4(solver1, masssolver, irk)
           call timer(t0,dt,t0wc,dtwc)
           time(10)=time(10)+dt
@@ -489,11 +489,11 @@ end if
           time(11)=time(11)+dt
           timewc(11)=timewc(11)+dtwc
 
-          call check_tracer_e
+          if(irk==4) call check_tracer_e
             
         endif ! end if(ifelectron/=0)
   
-        if(wimcompressibility==2) call weight_damping_eon
+        if(irk==4 .and. wimcompressibility==2) call weight_damping_eon
   
         ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
         ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
@@ -516,7 +516,7 @@ end if
         time(5)=time(5)+dt
         timewc(5)=timewc(5)+dtwc
 
-        !idiag=mod(irk,2)+mod(istep+1,ndiag)
+        idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag        
 
         call smooth(1)  ! 1. solve zonal flow for nonlinear run;
                         ! 2. smooth the complete phi;
@@ -536,7 +536,7 @@ end if
           call current_eon
           call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
         endif
-      enddo
+      enddo !do irk=1,4
  
       ! profile snapshots, write particle information to restart file
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
