@@ -1259,7 +1259,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
   dminv=0.0d0
   dmaxv=0.0d0
 
-  IF(ifelectron==2.and.ifdphi==3) then  ! ifdphi==3 uses the backward differntial d(phi)/dt=(phi_(n)-phi_(n-1))/dt to evolve the particle weight
+  IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
 
     ! update GC position
     ! Another OpenMP parallel loop...
@@ -1711,11 +1711,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
     endif
 
-  ELSE
+  ELSE    !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
     write(stdout,*) "In pushe_RK4, wrong flags are observed!! Please Check It!!"
     write(stdout,*) "Pushe_RK4 routine cannot deal with, ifelectron=", ifelectron,", ifdphi=", ifdphi
     call flush(stdout)
-  ENDIF   !IF(ifelectron==2.and.ifdphi==3) then  ! ifdphi==3 uses the backward differntial d(phi)/dt=(phi_(n)-phi_(n-1))/dt to evolve the particle weight
+  ENDIF   !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
 
 end subroutine pusheon_RK4
 

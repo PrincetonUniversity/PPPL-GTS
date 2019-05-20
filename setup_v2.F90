@@ -99,7 +99,7 @@ Subroutine setup
 
   if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases 
   zeondim=7
-  if(ifdphi==2 .or. ifdphi==3) zeondim=8
+  if(ifdphi>=2) zeondim=8
 
 !  r0=rmajor    !wx  normalized
 !  b0=b_axis    !wx  normalized
@@ -1827,12 +1827,9 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
   if(ifelectron/=0) then
 
-    if(ifdphi==3 .and. RK4_Flag==1) then  ! use dphi/dt @ t=(n-1/2) for ifdphi==3
-      ! zeon0(8,m): (q*dphi_NZ/Te)  @t=(n-1)
-      ! zeon(8,m) : d(q*dphi_NZ/Te)/dt @t=(n-1/2)
-      allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax)) 
-      allocate (RK_cum_zeon(7,memax))
-    else if(ifdphi==2) then   ! use direct dphi/dt when ifelectron==2
+    if(RK4_Flag==1) allocate(RK_cum_zeon(7,memax))
+    
+    if(ifdphi>=2) then   ! use direct dphi/dt when ifelectron==2
       allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))      
     else    
       allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))      
