@@ -1578,18 +1578,67 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       wdot = zeon(8,m)
 
-      ! !======================================================
-      ! ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
-      ! ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level      
-      ! !======================================================
-      ! ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
-      ! wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)  
-      ! ! Advance particle information for the next RK step
-      ! ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
-      ! zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+      !======================================================
+      ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
+      ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level      
+      !======================================================
+      ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
+      wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)  
+      ! Advance particle information for the next RK step
+      ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
+      zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+    enddo
 
 
+    call charge_eon
+    call poisson( solver1, masssolver )
+    call smooth_PHI
 
+    
+    do m=1,me
+      ! calculate d(delta_phi)/dt at particles along trajactory
+
+      T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+      wz1=wzeon(m)
+      wz0=1.0_wp-wz1
+      ij=jteon0(m)
+      wp0=1.0_wp-wpeon(m)
+      wt00=1.0_wp-wteon0(m)
+      e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+      ij=ij+1
+      wt10=1.0_wp-wt00
+      e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+      ij=jteon1(m)
+      wp1=1.0_wp-wp0
+      wt01=1.0_wp-wteon1(m)
+      e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+      ij=ij+1
+      wt11=1.0_wp-wt01
+      e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+      if(ZF_SEPARATION==0) then
+        !    calculate <phi> at electrons (no FLR effect -- x=R)
+        r=zeon(7,m)-s0       ! in radial coordinator s
+        r=r*delr
+        ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+        fip=r-real(ip,wp)
+        Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+      end if
+      E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+
+      if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
+        instep =smoothstep(lmin,lmax,zeon(1,m))
+        outstep=smoothstep(rmin,rmax,zeon(1,m))
+        fip=instep*(1.0_wp-outstep)
+        !  wdrive=wdrive*fip
+        fdamp=(1.0_wp-fip)*fdamp0
+     else
+        fip=1.0_wp
+        fdamp=0.0_wp
+     end if
+
+      wdot = zeon(8,m)
 
       !======================================================
       ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
@@ -1610,90 +1659,17 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       else if(irk_e==4) then !irk_i==4
         ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
         zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
-      endif      
-    enddo
+      endif
 
 
-    ! call charge_eon
-    ! call poisson( solver1, masssolver )
-    ! call smooth_PHI
-
-    
-    ! do m=1,me
-    !   ! calculate d(delta_phi)/dt at particles along trajactory
-
-    !   T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
-
-    !   wz1=wzeon(m)
-    !   wz0=1.0_wp-wz1
-    !   ij=jteon0(m)
-    !   wp0=1.0_wp-wpeon(m)
-    !   wt00=1.0_wp-wteon0(m)
-    !   e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-    !   ij=ij+1
-    !   wt10=1.0_wp-wt00
-    !   e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-    !   ij=jteon1(m)
-    !   wp1=1.0_wp-wp0
-    !   wt01=1.0_wp-wteon1(m)
-    !   e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-    !   ij=ij+1
-    !   wt11=1.0_wp-wt01
-    !   e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-
-    !   if(ZF_SEPARATION==0) then
-    !     !    calculate <phi> at electrons (no FLR effect -- x=R)
-    !     r=zeon(7,m)-s0       ! in radial coordinator s
-    !     r=r*delr
-    !     ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-    !     fip=r-real(ip,wp)
-    !     Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-    !   end if
-    !   E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
-
-    !   if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-    !     instep =smoothstep(lmin,lmax,zeon(1,m))
-    !     outstep=smoothstep(rmin,rmax,zeon(1,m))
-    !     fip=instep*(1.0_wp-outstep)
-    !     !  wdrive=wdrive*fip
-    !     fdamp=(1.0_wp-fip)*fdamp0
-    !  else
-    !     fip=1.0_wp
-    !     fdamp=0.0_wp
-    !  end if
-
-    !   wdot = zeon(8,m)
-
-    !   !======================================================
-    !   ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
-    !   ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level      
-    !   !======================================================
-    !   ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
-    !   wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)  
-    !   ! Advance particle information for the next RK step
-
-    !   ! Calculate dADdt and evolve weight
-    !   ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))     
-    !   RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
-
-    !  ! Advance particle information for the next RK step
-    !   if(irk_e<4) then
-    !     ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
-    !     zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
-    !   else if(irk_e==4) then !irk_i==4
-    !     ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
-    !     zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
-    !   endif
-
-
-    !   !==================================================
-    !   !MGYOO(05/10/2019)
-    !   ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
-    !   if(irk_e==4) then
-    !     we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt    
-    !   endif
+      !==================================================
+      !MGYOO(05/10/2019)
+      ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
+      if(irk_e==4) then
+        we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt    
+      endif
       
-    ! enddo  
+    enddo  
 
 
 
