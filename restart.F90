@@ -38,10 +38,17 @@ subroutine restart_write
      write(222) me,ntracer_e,ntracer_energy_electron0,mesum
      if(ifdphi/=2) then
         write(222) zeon(1:7,1:me)
-     else
-        write(222) zeon(1:8,1:me)
+     elseif(ifdphi>=2) then
+        write(222) zeon(1:8,1:me)     
      endif
+
      write(222) zeon0(6,1:me)
+
+     write(222) UnNorm_zeta_i(1:mi), UnNorm_theta_i(1:mi)
+     write(222) UnNorm_zeta_e(1:mi), UnNorm_theta_e(1:mi)
+     write(222) wi_init(1:mi), wi_vpara(1:mi), wi_vperp(1:mi), wi_accel(1:mi), wi_fdamp(1:mi)
+     write(222) we_init(1:me), we_vpara(1:me), we_vperp(1:me), we_accel(1:me), we_adiab(1:me), we_fdamp(1:me)
+
      write(222) pmarke,markere,cloud_e    ! these are calculated in load.f90 and should be saved for check point
 !     write(222) dphidt,dphidt00  ! these are saved for check point only when using Jacobian iteration for solving dphidt
   endif
@@ -100,10 +107,16 @@ subroutine restart_read
      read(333) me,ntracer_e,ntracer_energy_electron0,mesum
      if(ifdphi/=2) then
         read(333) zeon(1:7,1:me)
-     else
+     elseif(ifdphi>=2) then
         read(333) zeon(1:8,1:me)
      endif
      read(333) zeon0(6,1:me)
+
+     read(333) UnNorm_zeta_i(1:mi), UnNorm_theta_i(1:mi)
+     read(333) UnNorm_zeta_e(1:mi), UnNorm_theta_e(1:mi)
+     read(333) wi_init(1:mi), wi_vpara(1:mi), wi_vperp(1:mi), wi_accel(1:mi), wi_fdamp(1:mi)
+     read(333) we_init(1:me), we_vpara(1:me), we_vperp(1:me), we_accel(1:me), we_adiab(1:me), we_fdamp(1:me)
+
      read(333) pmarke,markere,cloud_e
 !     read(333) dphidt,dphidt00  ! these are needed only when using Jacobian iteration for solving dphidt
   endif
