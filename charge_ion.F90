@@ -147,6 +147,8 @@ subroutine charge_ion
 !$omp do private(m,larmor,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
   do m=1,mi
      weight=zion(5,m)
+     
+     if (weight<min_thold_weight .or. weight>max_thold_weight) cycle
 
      wz1=weight*wzion(m)
      wz0=weight-wz1     
@@ -198,9 +200,16 @@ subroutine charge_ion
         densityi(1,ij) = densityi(1,ij) + wz1*wt11
 #endif
 
+        if(isnan(densityi(0,ij)) .or. isnan(densityi(1,ij))) then
+          write(stdout,*) 'charge_ion, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
+          call flush(stdout)
+        endif
+
      enddo
   enddo
 
+
+  
 #ifdef _OPENMP
 ! For OpenMP, we now write the results accumulated in each thread-private
 ! array dnitmp() back into the shared array densityi(). The loop is enclosed
@@ -228,10 +237,24 @@ subroutine charge_ion
                        partd_comm,ierror)
   endif
 
+  do ij=1,mgrid
+    if(isnan(densityi(0,ij)) .or. isnan(densityi(1,ij))) then
+      write(stdout,*) 'charge_ion2, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
+      call flush(stdout)
+    endif
+  enddo
+
 ! poloidal end cell; need valid data for densityi(:,igrid(i))
   do i=0,mpsi
      densityi(:,igrid(i)+mtheta(i))=densityi(:,igrid(i)+mtheta(i))+densityi(:,igrid(i))
      densityi(:,igrid(i))=densityi(:,igrid(i)+mtheta(i))
+  enddo
+
+  do ij=1,mgrid
+    if(isnan(densityi(0,ij)) .or. isnan(densityi(1,ij))) then
+      write(stdout,*) 'charge_ion3, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
+      call flush(stdout)
+    endif
   enddo
 
 ! toroidal end cell
@@ -261,6 +284,13 @@ subroutine charge_ion
      densityi(1,:)=densityi(1,:)+recvr
   endif
   
+  do ij=1,mgrid
+    if(isnan(densityi(0,ij)) .or. isnan(densityi(1,ij))) then
+      write(stdout,*) 'charge_ion4, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
+      call flush(stdout)
+    endif
+  enddo
+
 if(ZF_SEPARATION==0) then  !  solve total potential
 
 ! #ifdef _NO_DENSITY_CONSERV
@@ -445,6 +475,14 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
   !  total_w=sum(wdum)      ! total particle weight (appro to int(delta-n d^3x) )
   zonali=zonali/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonali; used in Jan. 2015
 
+  do i=0,mpsi
+    if(isnan(zonali(i))) then
+      write(stdout,*) 'charge_ion,hello0, mype=',mype,',zonali=',zonali
+      call flush(stdout)
+      exit
+    endif
+  enddo
+
   !====================================================================
   ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component 
   ! This FLA might be important in the case of external magnetic perturbation
@@ -599,8 +637,16 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      zonali(i)=zonali(nbound)*rdum
      zonali(mpsi-i)=zonali(mpsi-nbound)*rdum
   enddo
-
+  
   end if   ! end (its_jacobi==1)
+
+  do i=0,mpsi
+    if(isnan(zonali(i))) then
+      write(stdout,*) 'charge_ion,hello1, mype=',mype,',zonali=',zonali
+      call flush(stdout)
+      exit
+    endif
+  enddo
 
 end if
 

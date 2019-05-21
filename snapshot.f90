@@ -887,9 +887,9 @@ subroutine snapshot
      call flush(888)
   end if
 
-  if(istep==0 .and. myrank_partd==nproc_partd-1) then
-    call Print_FLA_Denominator
-  endif
+  ! if(istep==0 .and. myrank_partd==nproc_partd-1) then
+  !   call Print_FLA_Denominator
+  ! endif
 
 !   if(mype==0) print*, 'Write DENs + PHIs at ', 'istep=', istep,  'irk=', irk
 
@@ -2091,6 +2091,8 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
 
   do m=1,mi
 
+    if (zion(5,m)<min_thold_weight .or. zion(5,m)>max_thold_weight) cycle
+
     wgf1=wzion(m)
     wgf0=1.0-wgf1
 
@@ -2460,6 +2462,8 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
 
 
   do m=1,me
+
+    if (zeon(5,m)<min_thold_weight .or. zeon(5,m)>max_thold_weight) cycle
 
     wgf1=wzeon(m)
     wgf0=1.0-wgf1

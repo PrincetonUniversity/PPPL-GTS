@@ -5,7 +5,8 @@
   nonlinear=1.0d0, ! nonlinear for 1.0, linear for 0.0
   maintnT=0,     ! don't restore T profile if =0, do if =1 (caution!)
   ifelectron=2,  ! electron model: 0=adiabatic, 1=full delta-f, 2=delta-h (non-adiabatic)
-  ifdphi=2,      ! usage of dphi/dt equation, related to ifelectron
+  ifdphi=3,      ! usage of dphi/dt equation, related to ifelectron
+  RK4_Flag=1,    ! use RK4 (1) or not (0) : Note that if this in ON, then ifdphi is supposed to be 3
   mode00=1,      ! include (0,0) mode if =1, not if =0
   ZF_SEPARATION=1, ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
   order=1        ! =0, original solver; =1, linear finite elements; =2 higher order elements (for ZonalFlows only!?)
@@ -20,10 +21,10 @@
   ! Numerics: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   irun=0,        ! restart run if >0
   mstep=100000,   ! number of timesteps
-  tstep=0.0020d0,   ! time step size [in unit L_T/v_th]
+  tstep=0.020d0,   ! time step size [in unit L_T/v_th]
   micell=50,   ! number of markers per cell for first ion species
   mpsi=100,      ! number of radial grid points
-  ipsi=55,       ! radial grid point, where mode spectrum is calculated (usually most unstable region)
+  ipsi=50,       ! radial grid point, where mode spectrum is calculated (usually most unstable region)
   mthetamax=1,   ! factor by which (standard) poloidal grid points are increased
   mzetamax=16,    ! number of toroidal grid points (=poloidal planes)
   npartdom=12,   ! number of MPI tasks between which the particles are divided within a toroidal domain
@@ -39,8 +40,8 @@
 
   ! Output settings: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   stdout=6,      ! file pointer for job output file (why?)
-  msnap=5,      ! step interval for writing out PHI record
-  ndiag=2,       ! step interval for fluxes, tur intensity, energy
+  msnap=50,      ! step interval for writing out PHI record
+  ndiag=10,       ! step interval for fluxes, tur intensity, energy
   movie_3D_h5=0, ! =0, 3D-movie data off; >0, write 3D-movie data every movie_3D_h5 step
 
 

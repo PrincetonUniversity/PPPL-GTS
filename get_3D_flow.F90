@@ -50,6 +50,8 @@ do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
   do m=1,mi
      weight=zion0(5,m)
 
+     if (weight< min_thold_weight .or. weight>max_thold_weight) cycle
+
      wz1=weight*wzion(m)
      wz0=weight-wz1
 

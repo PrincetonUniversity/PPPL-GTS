@@ -42,6 +42,7 @@ subroutine load
 
   real(wp)  fip, dela
   integer   ip
+  real(wp) test_u
 
   if(irun==0) ddT_da=0.0_wp
   if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
@@ -503,7 +504,25 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
     ! Assign Electron tracer labels
     do i=1, num_of_etracers
       m = (real(i)/(num_of_etracers+1.0)) * ini_me
-      etracers_labels(i) = elabels(m)    
+      etracers_labels(i) = elabels(m)
+      
+      !MGYOO (04/02/2019) : to test particles behavior depending on the initial energy
+      ! test_u from 1 to 10
+      test_u = 1 + (9/(num_of_etracers-1.0))*(i-1)      
+      zeon(1,m)=0.62
+      zeon(2,m)=0.0_wp
+      zeon(3,m)=1e-5
+      pdum=temperature_e(zeon(1,m),0.0_wp)
+      zeon(4,m)=test_u*sqrt(pdum)/B_0*msm0*c0cs      ! using v_par=v_th for tracer ion
+      zeon(5,m)=0.1*w_initial;
+      zeon(6,m)=test_u*sqrt(msm0*pdum)/sqrt(B_0)   ! using v_per=v_th for tracer ion
+      zeon(6,m)=0.25*zeon(6,m) ! Reduce magnetic moment to make passing electrons
+
+      zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,IFAIL)
+      zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+      zeon0(1:5,m)=zeon(1:5,m)
+      zeon0(7,m)=zeon(7,m)      
+
     enddo
 
     ! Assign Ion tracer labels
@@ -512,6 +531,25 @@ if(mype==0) print*, 'average weight at t=0 is ', pdum
 
       itracers_labels(i) = ilabels(m)
     
+      !MGYOO (04/02/2019) : to test particles behavior depending on the initial energy
+      ! test_u from 1 to 10
+      test_u = 1 + (9/(num_of_itracers-1.0))*(i-1)      
+      zion(1,m)=0.62
+      zion(2,m)=0.0_wp
+      zion(3,m)=1e-5
+      pdum=temperature(zion(1,m),0.0_wp)
+      backu(m)=u_parallel(zion(1,m),zion(2,m))
+      zion(4,m)=test_u*(sqrt(pdum)+backu(m))/B_0      ! using v_par=v_th for tracer ion
+      zion(5,m)=0.1*w_initial;
+      zion(6,m)=test_u*sqrt(pdum)/sqrt(B_0)   ! using v_per=v_th for tracer ion
+      zion(6,m)=0.25*zion(6,m) ! Reduce magnetic moment to make passing electrons
+
+      zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,IFAIL)
+      zion(7,m)=min(s1,max(s0,zion(7,m)))
+      zion0(1:5,m)=zion(1:5,m)
+      zion0(7,m)=zion(7,m)
+
+
       ! zion(1,m)= i*((a1-a0)/(num_of_itracers+1.0)) + a0
       ! zion(2,m)=0.0_wp
       ! zion(3,m)=0.5_wp*(zetamin+zetamax)
