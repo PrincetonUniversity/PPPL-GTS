@@ -2439,7 +2439,8 @@ end subroutine setup
                      num_of_EMP,         &   ! number of EMP (External Magnetic Perturbation) : how many mode number (m,n) are considered?
                      ga0, gam, gan, gagw, gagf0, dga0dt,&
                      ga_rc, ga_rw, ga_pp, &   ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
-                     num_of_etracers, num_of_itracers, nstep_for_tracer_record ! Multi-tracers information
+                     num_of_etracers, num_of_itracers, nstep_for_tracer_record, & ! Multi-tracers information
+                     larmor_num              !how many points are used to do something on gyro orbit
 
   namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
                      its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2484,7 +2485,7 @@ end subroutine setup
       write(0,*) 'jr=', jr, 'print end'
       write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
       write(0,*) 'finite element order=', order
-
+      write(0,*) 'larmor_num=', larmor_num
 
       write(0,*) 'electromagnetic=', electromagnetic
       write(0,*) 'Streaming_Flag=', Streaming_Flag
