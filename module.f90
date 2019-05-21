@@ -132,7 +132,7 @@ end module precision
   !==============================================================================
 
   integer :: RK4_Flag=0 ! Default value is 0 (OFF), it can be controlled by INPUT.d file
-
+  integer :: Poisson_Flag=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
 end module global_parameters
 
 module FieldLineFollowing

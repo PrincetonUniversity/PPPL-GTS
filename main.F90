@@ -181,8 +181,8 @@ program GTS
 
   if(ifelectron/=0) call charge_eon
 
-  call poisson( solver1, masssolver  )
-!  call poisson( solver_dphi_dt )
+  if(Poisson_Flag==1) call poisson( solver1, masssolver  )
+!  if(Poisson_Flag==1) call poisson( solver_dphi_dt )
 
   call smooth(0)
 
@@ -390,8 +390,8 @@ end if
           endif    ! end if(ifelectron/=0)
 
     ! solve GK Poisson equation using adiabatic electron
-          call poisson( solver1, masssolver )
-    !        call poisson( solver_dphi_dt )
+          if(Poisson_Flag==1) call poisson( solver1, masssolver )
+          !if(Poisson_Flag==1) call poisson( solver_dphi_dt )
 
           call timer(t0,dt,t0wc,dtwc)
           time(4)=time(4)+dt
@@ -557,8 +557,8 @@ end if
         timewc(12)=timewc(12)+dtwc
   
         ! solve GK Poisson equation using adiabatic electron
-        call poisson( solver1, masssolver )
-        !call poisson( solver_dphi_dt ) 
+        if(Poisson_Flag==1) call poisson( solver1, masssolver )
+        !if(Poisson_Flag==1) call poisson( solver_dphi_dt ) 
         call timer(t0,dt,t0wc,dtwc)
         time(4)=time(4)+dt
         timewc(4)=timewc(4)+dtwc

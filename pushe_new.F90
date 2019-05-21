@@ -596,11 +596,13 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
       !       E_a=E_a+zeon(5,m)
 
   end do
-
-  call charge_eon
-  call poisson( solver1, masssolver )
-  call smooth_PHI
-
+  
+  if(Poisson_Flag==1) then
+    call charge_eon
+    call poisson( solver1, masssolver )
+    call smooth_PHI
+  endif
+  
 !$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00,instep,outstep,fdamp, &
 !$omp& e1,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt)
   do m=1,me
@@ -1589,11 +1591,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
     enddo
 
-
-    call charge_eon
-    call poisson( solver1, masssolver )
-    call smooth_PHI
-
+    if(Poisson_Flag==1) then
+      call charge_eon
+      call poisson( solver1, masssolver )
+      call smooth_PHI
+    endif
     
     do m=1,me
       ! calculate d(delta_phi)/dt at particles along trajactory

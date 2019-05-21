@@ -2361,7 +2361,8 @@ end subroutine setup
                                              ! =1 --> use dphi/dt equation when ifelectron=2;
                                              ! =2 --> use direct dphi/dt when ifelectron=2
                                              ! =3 --> use dphi/dt at t=(n-1/2) : dphi/dt=(dAD_(n)-dAD(n-1))/tstep
-                     RK4_Flag,           &
+                     RK4_Flag,           &   ! Default=0 (OFF), can be set =1(ON) by INPUT.d
+                     Poisson_Flag,       &   ! Default=1 (ON), can be set =0(OFF) by INPUT.d
                      mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
                      maintnT,            &   ! =0, no T profile restore; =1, T profile restore (be careful!)
                      tstep,              &   ! time step size ((in unit L_T/V_th)
@@ -2467,6 +2468,7 @@ end subroutine setup
       write(0,*) 'nonlinear=', nonlinear
       write(0,*) 'ifdphi=', ifdphi
       write(0,*) 'RK4_Flag=',RK4_Flag
+      write(0,*) 'Poisson_Flag=', Poisson_Flag
       write(0,*) 'tstep=', tstep
       write(0,*) 'micell=', micell
       write(0,*) 'mpsi=', mpsi
