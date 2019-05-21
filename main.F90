@@ -32,8 +32,8 @@ program GTS
  character buffer1(MAX_PACKED_LENGTH)
 
   integer i,ierror,rng_type
-  integer,parameter :: nc=13
-  real(doubleprec) t0,t0wc,time(nc),timewc(nc),dt,dtwc,loop_time
+  integer,parameter :: nc=15
+  real(doubleprec) starting_t0, starting_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc,loop_time
   character(len=16) ic(nc)
   type(solver_data) :: solver1,solver_dphi_dt,masssolver
   type(fem_data) :: fem1,femt,femm
@@ -57,8 +57,25 @@ program GTS
   t0wc=0.0_wp
 
   call timer(t0,dt,t0wc,dtwc)
-  time(nc)=t0
-  timewc(nc)=t0wc
+  starting_t0=t0
+  starting_t0wc=t0wc
+
+  ! Set name of each clock
+  ic(1)='push_ion'
+  ic(2)='shifti'
+  ic(3)='charge_ion'
+  ic(4)='poisson'
+  ic(5)='smooth'
+  ic(6)='field'
+  ic(7)='init'
+  ic(8)='collision_ion'
+  ic(9)='collision_eon'
+  ic(10)='push_eon'
+  ic(11)='shifte'
+  ic(12)='charge_eon'
+  ic(13)='check_tracers'
+  ic(14)='snapshot'
+  ic(nc)='Total'
 
   if(irun==0) then      !  SPRNG initialize
      seed=985456376     !  random number seed advised in sprng 1.0 docum.
@@ -208,6 +225,10 @@ end if
   timewc(7)=timewc(7)+dtwc
   loop_time=t0wc
 
+
+  open(unit=190515,file='elapsed_Time.dat',action='write')
+
+
 !           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP 
   if (RK4_Flag<=0) then
     do istep=istart,mstep
@@ -254,6 +275,9 @@ end if
           if(irk==2.and.wimcompressibility==2) call weight_damping_ion
 
           if(irk==2) call check_tracer_i
+          call timer(t0,dt,t0wc,dtwc)
+          time(13)=time(13)+dt
+          timewc(13)=timewc(13)+dtwc           
     ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
     ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
     ! in PUSHI for calculating electric force on ions
@@ -293,6 +317,9 @@ end if
                 timewc(11)=timewc(11)+dtwc
 
                 if(irk==2) call check_tracer_e
+                call timer(t0,dt,t0wc,dtwc)
+                time(13)=time(13)+dt
+                timewc(13)=timewc(13)+dtwc                
             else                   ! 1 ion step = nelectron(>1) electron steps
                                     ! originally, 1 ion step = 2*nelectron electron steps
                 if(irk==1) then
@@ -344,6 +371,9 @@ end if
                   timewc(11)=timewc(11)+dtwc
 
                   if(irk==2) call check_tracer_e
+                  call timer(t0,dt,t0wc,dtwc)
+                  time(13)=time(13)+dt
+                  timewc(13)=timewc(13)+dtwc                   
                 end do
             end if    ! end if(nelectron==1)
 
@@ -412,7 +442,10 @@ end if
             call check_abnormal_weight_electrons
             call check_abnormal_weight_ions
           end if
-          
+
+          call timer(t0,dt,t0wc,dtwc)
+          time(14)=time(14)+dt
+          timewc(14)=timewc(14)+dtwc
 
     !        if(movie_3D_h5>0) then                   ! write potential 3D-data
     !           if(mod(istep,movie_3D_h5)==0) then    ! every movie_3D_h5 step
@@ -429,9 +462,24 @@ end if
     !  call check_temperature
 
       call timer(t0,dt,t0wc,dtwc) 
+      time(nc)=t0-starting_t0
+      timewc(nc)=t0wc-starting_t0wc
+
+      ! Print Elapsed Times
+      if(mype==0 .and. mod(istep,msnap)==0) then
+         write(190515,*) 'istep=', istep
+         write(190515,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
+         write(190515,'(4a16)')'==========      ',' =============',' ===============',' ==============='
+         do i=1,nc
+            write(190515,'(a16,2f16.6, f16.4)')ic(i),time(i),timewc(i), timewc(i)/timewc(nc)*100
+         enddo
+         write(190515,*) ' '
+         write(190515,*) ' '
+         write(190515,*) ' '          
+         call flush(190515)
+      endif
 
     enddo      !    MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
-  
   
   
   else if (RK4_Flag==1 .and. nelectron==1) then! When RK4_Flag>=1
@@ -460,6 +508,9 @@ end if
         if(irk==4 .and. wimcompressibility==2) call weight_damping_ion
   
         if(irk==4) call check_tracer_i
+        call timer(t0,dt,t0wc,dtwc)
+        time(13)=time(13)+dt
+        timewc(13)=timewc(13)+dtwc         
         ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
         ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
         ! in PUSHI for calculating electric force on ions
@@ -490,7 +541,9 @@ end if
           timewc(11)=timewc(11)+dtwc
 
           if(irk==4) call check_tracer_e
-            
+          call timer(t0,dt,t0wc,dtwc)
+          time(13)=time(13)+dt
+          timewc(13)=timewc(13)+dtwc   
         endif ! end if(ifelectron/=0)
   
         if(irk==4 .and. wimcompressibility==2) call weight_damping_eon
@@ -509,6 +562,8 @@ end if
         call timer(t0,dt,t0wc,dtwc)
         time(4)=time(4)+dt
         timewc(4)=timewc(4)+dtwc
+
+        !call smooth_PHI
 
         ! smoothing,field diagnosis and finite difference for e_field
         call smooth(0)
@@ -535,9 +590,9 @@ end if
           call current_ion
           call current_eon
           call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
-        endif
-      enddo !do irk=1,4
- 
+        endif 
+      enddo !end do irk=1,4
+
       ! profile snapshots, write particle information to restart file
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
@@ -552,18 +607,38 @@ end if
         call check_abnormal_weight_ions
       end if
       
+      call timer(t0,dt,t0wc,dtwc)
+      time(14)=time(14)+dt
+      timewc(14)=timewc(14)+dtwc
+
       if(mype==0) then
         write(stdout,*)'istep=',istep
         call flush(stdout)
       endif
 
-      CALL DIAGNOSIS
+      !CALL DIAGNOSIS
 
       ! Find a specific tracer and print Tracer Information
       ! This routine may need to use multi-tracers.. etracers_labels, itracers_labels
       ! For example, zeon(1:6, etracer_labels(etracer_num/2))
        call timer(t0,dt,t0wc,dtwc) 
- 
+       time(nc)=t0-starting_t0
+       timewc(nc)=t0wc-starting_t0wc 
+
+       if(mype==0 .and. mod(istep,msnap)==0) then
+          write(190515,*) 'istep=', istep
+          write(190515,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
+          write(190515,'(4a16)')'==========      ',' =============',' ===============',' ==============='
+          do i=1,nc
+            write(190515,'(a16,2f16.6, f16.4)')ic(i),time(i),timewc(i), timewc(i)/timewc(nc)*100
+          enddo
+          write(190515,*) ' '
+          write(190515,*) ' '
+          write(190515,*) ' '          
+          call flush(190515)
+       endif
+
+
    enddo      !    MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
 
   else
@@ -571,6 +646,8 @@ end if
     call flush(stdout)
   endif
 
+
+  close(190515)
 
   loop_time=t0wc-loop_time
 
@@ -581,26 +658,14 @@ end if
   end if
 
   call timer(t0,dt,t0wc,dtwc)
-  time(nc)=t0-time(nc)
-  timewc(nc)=t0wc-timewc(nc)
-  ic(1)='push_ion'
-  ic(2)='shifti'
-  ic(3)='charge_ion'
-  ic(4)='poisson'
-  ic(5)='smooth'
-  ic(6)='field'
-  ic(7)='init'
-  ic(8)='collision_ion'
-  ic(9)='collision_eon'
-  ic(10)='push_eon'
-  ic(11)='shifte'
-  ic(12)='charge_eon'
-  ic(13)='Total'
+  time(nc)=t0-starting_t0
+  timewc(nc)=t0wc-starting_t0wc
+
   if(mype==0)then
-     write(stdout,'(3a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME'
-     write(stdout,'(3a16)')'==========      ',' =============',' ==============='
+     write(stdout,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
+     write(stdout,'(4a16)')'==========      ',' =============',' ===============',' ==============='
      do i=1,nc
-        write(stdout,'(a16,2f16.6)')ic(i),time(i),timewc(i)
+        write(stdout,'(a16,2f16.6, f16.4)')ic(i),time(i),timewc(i), timewc(i)/timewc(nc)*100
      enddo
      write(stdout,'(/,"MAIN LOOP TIME(SEC):",f15.6,/)')loop_time
   endif
