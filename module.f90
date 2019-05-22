@@ -207,6 +207,8 @@ module field_array
   real(wp),dimension(:,:),allocatable :: Weighted_Vol
   real(wp),dimension(:),allocatable :: Node_simple_Vol
   real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
+  real(wp),dimension(:,:),allocatable :: old_phi, tmp_old_phi ! phi at previous time step
+  real(wp),dimension(:),allocatable :: old_phi00, tmp_old_phi00 ! phi00 at previous time step
   real(wp),dimension(:),allocatable :: cum_phi00, cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ
   real(wp),dimension(:),allocatable :: cum_zonal_dTe, cum_zonal_dTe_SQ, cum_zonal_dTi, cum_zonal_dTi_SQ
   real(wp),dimension(:,:),allocatable :: cum_full_dphi, cum_full_dphi_SQ, cum_full_dne, cum_full_dne_SQ, cum_full_dni, cum_full_dni_SQ

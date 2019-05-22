@@ -1180,6 +1180,11 @@ end if ! if(mype==0)
        pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),   &
        dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
 
+  if(ifdphi==3) then
+   allocate(old_phi(0:1,mgrid),tmp_old_phi(0:1,mgrid))
+   allocate(old_phi00(0:mpsi),tmp_old_phi00(0:mpsi))
+  endif
+
   allocate(cum_phi00(0:mpsi))
   allocate(cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ, mold=cum_phi00)
   allocate(cum_zonal_dTe, cum_zonal_dTe_SQ, cum_zonal_dTi, cum_zonal_dTi_SQ, mold=cum_phi00)
@@ -1827,7 +1832,14 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
   if(ifelectron/=0) then
 
-    if(RK4_Flag==1) allocate(RK_cum_zeon(7,memax))
+    if(RK4_Flag==1) then
+      if(ifdphi==3) then
+        ! 8th element stores cumulative weight increase due to partial derivative of dphidt
+        allocate(RK_cum_zeon(8,memax)) 
+      else
+        allocate(RK_cum_zeon(7,memax))
+      endif
+    endif
     
     if(ifdphi>=2) then   ! use direct dphi/dt when ifelectron==2
       allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))      

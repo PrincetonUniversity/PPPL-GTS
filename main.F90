@@ -482,7 +482,7 @@ end if
     enddo      !    MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
   
   
-  else if (RK4_Flag==1 .and. nelectron==1) then! When RK4_Flag>=1
+  else if (RK4_Flag==1 .and. nelectron==1 .and. ifdphi==2) then! When RK4_Flag>=1
     do istep=istart,mstep
       do irk=1,4
         ! calculate test like-particle collisions
@@ -639,6 +639,196 @@ end if
        endif
 
 
+   enddo      !    MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
+
+  else if (RK4_Flag==1 .and. nelectron==1 .and. ifdphi==3) then! When RK4_Flag>=1
+    do istep=istart,mstep
+      ! calculate test like-particle collisions
+      irk=1 ! This is for the collision routines.
+      call collision  ! collision is on when icollision>0 and calculated every icollision-step at irk=2 (This might be a typo, collision is calculated when irk==1)
+      call timer(t0,dt,t0wc,dtwc)
+      time(8)=time(8)+dt
+      timewc(8)=timewc(8)+dtwc
+
+      do irk=1,4
+        ! Solve GK equation of motion using Runge-Kutta 4th order method
+        idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+        call pushion_RK4(irk)
+        call timer(t0,dt,t0wc,dtwc)
+        time(1)=time(1)+dt
+        timewc(1)=timewc(1)+dtwc
+
+        ! redistribute ion across PEs
+        call shifti 
+        call timer(t0,dt,t0wc,dtwc)
+        time(2)=time(2)+dt
+        timewc(2)=timewc(2)+dtwc
+      enddo
+      ! Calculate ion weight damping 
+      if(wimcompressibility==2) call weight_damping_ion
+
+      call check_tracer_i
+      call timer(t0,dt,t0wc,dtwc)
+      time(13)=time(13)+dt
+      timewc(13)=timewc(13)+dtwc         
+      ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
+      ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
+      ! in PUSHI for calculating electric force on ions
+      call charge_ion
+      call timer(t0,dt,t0wc,dtwc)
+      time(3)=time(3)+dt
+      timewc(3)=timewc(3)+dtwc
+
+
+      if(ifelectron/=0) then    ! include kinetic electrons 
+        ! NOTE: nelectron must take 1 or even number due to the use of 2nd order Runge-Kutta
+
+        ! calculate electron collisions
+        irk=1 ! This is for the collision_eon routine.
+        call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2 (This might be a typo, collision is calculated when irk==1)
+        call timer(t0,dt,t0wc,dtwc)
+        time(9)=time(9)+dt
+        timewc(9)=timewc(9)+dtwc
+
+        do irk=1,4
+          idiag_e=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+          call pusheon_RK4_ifdphi3(irk)
+          call timer(t0,dt,t0wc,dtwc)
+          time(10)=time(10)+dt
+          timewc(10)=timewc(10)+dtwc
+
+          call shifte
+          call timer(t0,dt,t0wc,dtwc)
+          time(11)=time(11)+dt
+          timewc(11)=timewc(11)+dtwc
+        enddo
+
+        call check_tracer_e
+        call timer(t0,dt,t0wc,dtwc)
+        time(13)=time(13)+dt
+        timewc(13)=timewc(13)+dtwc   
+      endif ! end if(ifelectron/=0)
+
+      if(wimcompressibility==2) call weight_damping_eon
+
+      ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
+      ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
+      ! for calculating gamma_e
+      call charge_eon
+      call timer(t0,dt,t0wc,dtwc)
+      time(12)=time(12)+dt
+      timewc(12)=timewc(12)+dtwc
+
+
+      if(Poisson_Flag==1) then
+  
+        ! Set old_phi representing the previous potential which will be needed to calculate the adiabatic driving term
+        ! Here, phi and so tmp_old_phi are @ t={n} since this is before poission solver.
+        tmp_old_phi=phi
+        tmp_old_phi00=phi00
+        ! solve GK Poisson equation using adiabatic electron
+        call poisson( solver1, masssolver )
+        call timer(t0,dt,t0wc,dtwc)
+        time(4)=time(4)+dt
+        timewc(4)=timewc(4)+dtwc
+          
+        call smooth(1)  ! 1. solve zonal flow for nonlinear run;
+                        ! 2. smooth the complete phi;
+                        ! 3. fft and filter       
+        call timer(t0,dt,t0wc,dtwc)
+        time(5)=time(5)+dt
+        timewc(5)=timewc(5)+dtwc
+  
+        !========================
+        ! MGYOO (05/22/2019): Update zeon weights again by using the predicted future phi (t{n+1})
+        call Update_ElectronWeights_using_New_wdphidt_partial
+        !========================
+  
+        call charge_eon
+        call timer(t0,dt,t0wc,dtwc)
+        time(12)=time(12)+dt
+        timewc(12)=timewc(12)+dtwc
+  
+        call poisson( solver1, masssolver )
+        call timer(t0,dt,t0wc,dtwc)
+        time(4)=time(4)+dt
+        timewc(4)=timewc(4)+dtwc
+        
+        old_phi=tmp_old_phi
+        phi00=tmp_old_phi00
+        ! Now phi is @ t={n+1};  and old_phi is @ t={n};
+      endif
+
+      ! smoothing,field diagnosis and finite difference for e_field
+      call smooth(0)
+      call timer(t0,dt,t0wc,dtwc)
+      time(5)=time(5)+dt
+      timewc(5)=timewc(5)+dtwc
+
+      !idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag      
+      call smooth(1)  ! 1. solve zonal flow for nonlinear run;
+                      ! 2. smooth the complete phi;
+                      ! 3. fft and filter       
+      call timer(t0,dt,t0wc,dtwc)
+      time(5)=time(5)+dt
+      timewc(5)=timewc(5)+dtwc
+
+      ! field
+      call field(masssolver)
+      call timer(t0,dt,t0wc,dtwc)
+      time(6)=time(6)+dt
+      timewc(6)=timewc(6)+dtwc
+
+      if(ifelectron==2.and.ifdphi==1) then
+        call current_ion
+        call current_eon
+        call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
+      endif 
+
+      ! profile snapshots, write particle information to restart file
+      !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
+      call Cumulate_Some_Variables_for_Measure
+ 
+      if(mod(istep,msnap) .eq. 0) then 
+        !  phi_tmp=phi_tmp/real(msnap,wp)
+        call snapshot
+        call snapshot_hdf5
+        call SetZeros_Cumulative_Variables
+        !  phi_tmp=0.0_wp
+        call check_abnormal_weight_electrons
+        call check_abnormal_weight_ions
+      end if
+      
+      call timer(t0,dt,t0wc,dtwc)
+      time(14)=time(14)+dt
+      timewc(14)=timewc(14)+dtwc
+
+      if(mype==0) then
+        write(stdout,*)'istep=',istep
+        call flush(stdout)
+      endif
+
+      !CALL DIAGNOSIS
+
+      ! Find a specific tracer and print Tracer Information
+      ! This routine may need to use multi-tracers.. etracers_labels, itracers_labels
+      ! For example, zeon(1:6, etracer_labels(etracer_num/2))
+       call timer(t0,dt,t0wc,dtwc) 
+       time(nc)=t0-starting_t0
+       timewc(nc)=t0wc-starting_t0wc 
+
+       if(mype==0 .and. mod(istep,msnap)==0) then
+          write(190515,*) 'istep=', istep
+          write(190515,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
+          write(190515,'(4a16)')'==========      ',' =============',' ===============',' ==============='
+          do i=1,nc
+            write(190515,'(a16,2f16.6, f16.4)')ic(i),time(i),timewc(i), timewc(i)/timewc(nc)*100
+          enddo
+          write(190515,*) ' '
+          write(190515,*) ' '
+          write(190515,*) ' '          
+          call flush(190515)
+       endif
    enddo      !    MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
 
   else
