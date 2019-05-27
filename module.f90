@@ -149,7 +149,9 @@ module FieldLineFollowing
         real(wp) test_FLA_a        
     end type
 
-    integer :: MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines
+    integer :: FLF_max_tor_num = 400, gPPI_max_tor_num = 200
+
+    integer :: num_of_SampledFieldLines
     integer, dimension(:), allocatable :: num_of_gPPI_for_each_FieldLine
     ! Global PPI ==> gPPI
     ! gPPI(gPPI_max_tor_rotation, 1:num_of_SampledFieldLines)

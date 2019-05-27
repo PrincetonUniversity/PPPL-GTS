@@ -1653,7 +1653,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
     real(wp) ini_a, ini_gq, ini_gf
     real(wp) now_a, now_gq, now_gf, specific_time
     real(wp) prev_a, prev_gq, prev_gf
-    integer :: maximum_tor_rotation = 400
+    integer :: maximum_tor_rotation 
     integer tor_dir, aid, num_a, gqid, num_gq, PPI_id
     real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
     type(Poincare_Point_Information), dimension(:,:,:), allocatable:: PPI
@@ -1662,6 +1662,8 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
 
     call cpu_time(t_start)
 
+
+    maximum_tor_rotation= FLF_max_tor_num
     specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
     
     dgf = 2.0*pi/1000.0 ! toroidal step for field-line-following integration
@@ -1812,7 +1814,8 @@ subroutine Construct_gPPI_for_FieldLineAverage
     !real(wp) :: target_safety_q(9) = (/0.5,0.75,1.0,1.3333,1.5,1.6666,2.0,2.5,3.0/)
     real(wp) target_safety_q(200)! Arrange enough initial length for target_safety_q. Later, effective num_of_target_saftegy_q will be calculated.
     integer num_of_target_safety_q 
-    integer smapling_num_at_each_rational_q, i,j
+    integer sampling_num_at_each_rational_q, i,j
+    integer MaxNum_of_gPPI_for_every_FieldLines
     real(wp) Find_a_at_specific_safety_q
     real(wp) now_a, now_gq, now_gf, specific_time
     real(wp) prev_a, prev_gq, prev_gf
@@ -1832,7 +1835,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
 
     call cpu_time(t_start)
 
-    maximum_tor_rotation = 200
+    maximum_tor_rotation = gPPI_max_tor_num
     MaxNum_of_gPPI_for_every_FieldLines = 2*(num_of_target_zeta)*maximum_tor_rotation
     !num_of_SampledFieldLines = (mpsi/4)*10  ! num_of_SampledFieldLines might depend more on the radial resolution than poloidal one.
 
@@ -1865,8 +1868,8 @@ subroutine Construct_gPPI_for_FieldLineAverage
       call flush(stdout)
     endif
 
-    smapling_num_at_each_rational_q = 30
-    !smapling_num_at_each_rational_q = 30
+    sampling_num_at_each_rational_q = 30
+    !sampling_num_at_each_rational_q = 30
     ! First, find target rational safety q positions for accurate investigation
     ! Fid = 1
     ! do target_mode_n = 1,3
@@ -1887,8 +1890,8 @@ subroutine Construct_gPPI_for_FieldLineAverage
         endif
     enddo
 
-    num_of_SampledFieldLines = 50*20 + (smapling_num_at_each_rational_q*(Fid-1))
-    !num_of_SampledFieldLines = 20 + (smapling_num_at_each_rational_q*(Fid-1))
+    num_of_SampledFieldLines = 50*20 + (sampling_num_at_each_rational_q*(Fid-1))
+    !num_of_SampledFieldLines = 20 + (sampling_num_at_each_rational_q*(Fid-1))
 
     allocate(gPPI(MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines))
     allocate(ini_a_arr(num_of_SampledFieldLines), ini_gq_arr(num_of_SampledFieldLines))
@@ -1901,11 +1904,11 @@ subroutine Construct_gPPI_for_FieldLineAverage
     !   do target_mode_m = 1,10
     !     ini_a = Find_a_at_specific_safety_q(target_mode_m/real(target_mode_n))
     !     if(ini_a>0) then
-    !       ini_a_arr(Fid:Fid+(smapling_num_at_each_rational_q-1)) = ini_a
-    !       do i=0,smapling_num_at_each_rational_q-1
-    !         ini_gq_arr(Fid+i) = i*(2.0*pi/real(smapling_num_at_each_rational_q))
+    !       ini_a_arr(Fid:Fid+(sampling_num_at_each_rational_q-1)) = ini_a
+    !       do i=0,sampling_num_at_each_rational_q-1
+    !         ini_gq_arr(Fid+i) = i*(2.0*pi/real(sampling_num_at_each_rational_q))
     !       enddo
-    !       Fid = Fid + smapling_num_at_each_rational_q
+    !       Fid = Fid + sampling_num_at_each_rational_q
     !     endif
     !   enddo
     ! enddo
@@ -1917,25 +1920,25 @@ subroutine Construct_gPPI_for_FieldLineAverage
       ini_a = Find_a_at_specific_safety_q(target_safety_q(i))
       if(ini_a>0) then
         ! At exact target_safety_q
-        ini_a_arr(Fid:Fid+(smapling_num_at_each_rational_q-1)) = ini_a
-        do j=0,smapling_num_at_each_rational_q-1
-          ini_gq_arr(Fid+j) = j*(2.0*pi/real(smapling_num_at_each_rational_q))
+        ini_a_arr(Fid:Fid+(sampling_num_at_each_rational_q-1)) = ini_a
+        do j=0,sampling_num_at_each_rational_q-1
+          ini_gq_arr(Fid+j) = j*(2.0*pi/real(sampling_num_at_each_rational_q))
         enddo
-        Fid = Fid + smapling_num_at_each_rational_q
+        Fid = Fid + sampling_num_at_each_rational_q
 
         ! Sligtly left from target_safety_q
-        ini_a_arr(Fid:Fid+(smapling_num_at_each_rational_q-1)) = ini_a - 0.01
-        do j=0,smapling_num_at_each_rational_q-1
-          ini_gq_arr(Fid+j) = j*(2.0*pi/real(smapling_num_at_each_rational_q))
+        ini_a_arr(Fid:Fid+(sampling_num_at_each_rational_q-1)) = ini_a - 0.01
+        do j=0,sampling_num_at_each_rational_q-1
+          ini_gq_arr(Fid+j) = j*(2.0*pi/real(sampling_num_at_each_rational_q))
         enddo
-        Fid = Fid + smapling_num_at_each_rational_q
+        Fid = Fid + sampling_num_at_each_rational_q
 
         ! Slightly right from target_safety_q
-        ini_a_arr(Fid:Fid+(smapling_num_at_each_rational_q-1)) = ini_a + 0.01
-        do j=0,smapling_num_at_each_rational_q-1
-          ini_gq_arr(Fid+j) = j*(2.0*pi/real(smapling_num_at_each_rational_q))
+        ini_a_arr(Fid:Fid+(sampling_num_at_each_rational_q-1)) = ini_a + 0.01
+        do j=0,sampling_num_at_each_rational_q-1
+          ini_gq_arr(Fid+j) = j*(2.0*pi/real(sampling_num_at_each_rational_q))
         enddo
-        Fid = Fid + smapling_num_at_each_rational_q
+        Fid = Fid + sampling_num_at_each_rational_q
       endif      
     enddo
 

@@ -2354,6 +2354,7 @@ end subroutine setup
   use esi_interface
   use spl_profiles
   use profile_array
+  use FieldLineFollowing
 
   implicit none
   integer :: max_EMP_num = 20, k
@@ -2453,7 +2454,9 @@ end subroutine setup
                      ga0, gam, gan, gagw, gagf0, dga0dt,&
                      ga_rc, ga_rw, ga_pp, &   ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
                      num_of_etracers, num_of_itracers, nstep_for_tracer_record, & ! Multi-tracers information
-                     larmor_num              !how many points are used to do something on gyro orbit
+                     larmor_num,         &    !how many points are used to do something on gyro orbit
+                     FLF_max_tor_num,    &    ! For FieldLineFollowing routine, Maximum toroidal rotation in each direction (+,-)
+                     gPPI_max_tor_num         ! For gPPI routine, Maximum toroidal rotation in each direction (+,-)
 
   namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
                      its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2506,6 +2509,7 @@ end subroutine setup
       write(0,*) 'num_of_EMP =',num_of_EMP
       write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
       write(0,*) 'num_of_etracers=', num_of_etracers,', num_of_itracers=',num_of_itracers, ', nstep_for_tracer_record=', nstep_for_tracer_record
+      write(0,*) 'FLF_max_tor_num=', FLF_max_tor_num,', gPPI_max_tor_num=',gPPI_max_tor_num
     endif
 
 
