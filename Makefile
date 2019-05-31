@@ -81,7 +81,7 @@ $(CMD): $(OBJ)
 libcm:
 	(cd $(VPATH)/cmlib; $(MAKE) FC=$(F77) FFLAGS="$(OPT)" ; cd ..)
 
-	#finite element and mesh generator
+#finite element and mesh generator
 libfem: module.o
 	(cd $(VPATH)/fem; $(MAKE) FC=$(F90) FFLAGS="$(OPT)" CC=$(CC) CFLAGS="$(COPT)" DEBUG="$(GOPT)"; cd ..)
 

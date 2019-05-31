@@ -1,38 +1,38 @@
 subroutine collision
-  use mpi_defs
-  use global_parameters
-  use particle_array
-  use field_array
-  use esi_interface
+   use mpi_defs
+   use global_parameters
+   use particle_array
+   use field_array
+   use esi_interface
 
-  implicit none
+   implicit none
 
-  integer i
+   integer i
 
-!    NOTE: output from call n_T_u_group is omega_t and d(omega_t)/da;  12/07
-!          B(=BB) and I(=F) at particles are needed for calculating u_//=I*omega_t/B;
-!          BB, I can be obtained after call gcmotion, or call esigetbf, esiget2dfunctions.
+   !    NOTE: output from call n_T_u_group is omega_t and d(omega_t)/da;  12/07
+   !          B(=BB) and I(=F) at particles are needed for calculating u_//=I*omega_t/B;
+   !          BB, I can be obtained after call gcmotion, or call esigetbf, esiget2dfunctions.
 
-  call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc., which are also used in PUSHI/PUSHION
- 
-  if(icollision.gt.0) then   ! include collision
-     i=mod(istep,icollision) 
-     if(i==0) then           ! calculate collisions every icollision-step
-        if(irk==1) then      ! calculate collisions at irk=1
-!           call esigetb(zion(1,:),zion(2,:),mi)   ! get B
-!           call esigetb(zion,mi)   ! get B-->BB
-           call esigetbf(zion,mi,7)   ! get B-->BB, I-->F  12/07
+   call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc., which are also used in PUSHI/PUSHION
 
-!  output backu from call n_T_u_group is omega_t
-           backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
+   if(icollision.gt.0) then   ! include collision
+      i=mod(istep,icollision) 
+      if(i==0) then           ! calculate collisions every icollision-step
+         if(irk==1) then      ! calculate collisions at irk=1
+            !           call esigetb(zion(1,:),zion(2,:),mi)   ! get B
+            !           call esigetb(zion,mi)   ! get B-->BB
+            call esigetbf(zion,mi,7)   ! get B-->BB, I-->F  12/07
 
-           call CTPandCELL
+            !  output backu from call n_T_u_group is omega_t
+            backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
 
-!  make sure output backu=omega_t after exit this subroutine
-           backu(1:mi)=backu(1:mi)*BB(1:mi)/F(1:mi) ! =omega_t
+            call CTPandCELL
 
-        end if
-     end if
-  end if   
+            !  make sure output backu=omega_t after exit this subroutine
+            backu(1:mi)=backu(1:mi)*BB(1:mi)/F(1:mi) ! =omega_t
+
+         end if
+      end if
+   end if   
 
 end subroutine collision

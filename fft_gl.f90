@@ -1,338 +1,338 @@
 subroutine fftr1d(isign,irank,scale,x,y,icount)
-  use precision
-  implicit none
-  integer, intent(in) :: isign,irank,icount
-  real(wp), intent(in) :: scale
-  real(wp), intent(inout), dimension(0:irank-1) :: x
-  complex(wp), intent(inout), dimension(0:irank/2) :: y
+   use precision
+   implicit none
+   integer, intent(in) :: isign,irank,icount
+   real(wp), intent(in) :: scale
+   real(wp), intent(inout), dimension(0:irank-1) :: x
+   complex(wp), intent(inout), dimension(0:irank/2) :: y
 
-  if (icount.gt.0.and.icount.le.3) then
-     if(isign==1)then
-        call r2cfftgl(1,irank,scale,x,y)
-     else
-        call c2rfftgl(-1,irank,scale,y,x)
-     endif
-  endif
+   if (icount.gt.0.and.icount.le.3) then
+      if(isign==1)then
+         call r2cfftgl(1,irank,scale,x,y)
+      else
+         call c2rfftgl(-1,irank,scale,y,x)
+      endif
+   endif
 end subroutine fftr1d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! only for parallel direction
 subroutine fftc1d(isign,irank,scale,x)
-  use precision
-  implicit none
-  integer, intent(in) :: isign,irank
-  real(wp), intent(in) :: scale
-  complex(wp), intent(inout), dimension(0:irank-1) :: x
-  complex(wp),  dimension(0:irank-1) :: y
+   use precision
+   implicit none
+   integer, intent(in) :: isign,irank
+   real(wp), intent(in) :: scale
+   complex(wp), intent(inout), dimension(0:irank-1) :: x
+   complex(wp),  dimension(0:irank-1) :: y
 
-  call c2cfftgl(isign,irank,scale,x,y)
-  x=y
+   call c2cfftgl(isign,irank,scale,x,y)
+   x=y
 end subroutine fftc1d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Subroutine r2cfftgl(isign,n,scale,rin,cout)
-! real to complex transform. n: array size, must be power of 2
-! rin: real array to be transformed,cout=\int{rin*exp(-i*k*x)}dx
-! cout: complex array of output for Fourier modes=[0,n/2+1], normalized by n
+   ! real to complex transform. n: array size, must be power of 2
+   ! rin: real array to be transformed,cout=\int{rin*exp(-i*k*x)}dx
+   ! cout: complex array of output for Fourier modes=[0,n/2+1], normalized by n
 
-  use precision
-  implicit none
-  integer,intent(in) :: n,isign
-  real(wp),intent(in) :: rin(n)
-  real(wp),intent(in) :: scale
-  complex(wp),intent(out) :: cout(n/2+1)  
-  integer i
-  complex(wp),dimension(n) :: fdata,dwork
-  
-  do i=1,n
-     fdata(i)=cmplx(rin(i),0.0)
-  enddo
-  
-  call spcfft(fdata,n,-isign,dwork,scale)
-  
-  do i=1,n/2+1
-     cout(i)=fdata(i)
-  enddo
+   use precision
+   implicit none
+   integer,intent(in) :: n,isign
+   real(wp),intent(in) :: rin(n)
+   real(wp),intent(in) :: scale
+   complex(wp),intent(out) :: cout(n/2+1)  
+   integer i
+   complex(wp),dimension(n) :: fdata,dwork
+
+   do i=1,n
+      fdata(i)=cmplx(rin(i),0.0)
+   enddo
+
+   call spcfft(fdata,n,-isign,dwork,scale)
+
+   do i=1,n/2+1
+      cout(i)=fdata(i)
+   enddo
 
 end Subroutine r2cfftgl
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Subroutine c2rfftgl(isign,n,scale,cin,rout)
-! complex to real transform. n: array size
-! cin: complex array of Fourier modes=[0,n/2+1] to be transformed
-! rout: real array for output, rout=\int{cin*exp(ikx)}dk
+   ! complex to real transform. n: array size
+   ! cin: complex array of Fourier modes=[0,n/2+1] to be transformed
+   ! rout: real array for output, rout=\int{cin*exp(ikx)}dk
 
-  use precision
-  implicit none
-  integer,intent(in) :: isign,n
-  real(wp),intent(in) :: scale
-  complex,intent(in) :: cin(n/2+1)
-  real(wp),intent(out) :: rout(n)  
-  integer i
-  complex(wp),dimension(n) :: fdata,dwork
-  
-  do i=1,n/2+1
-     fdata(i)=cin(i)
-  enddo
-! For next n/2-1 values, for the complex conjugate of first n/2 values.
-  do i=1,n/2-1
-     fdata(n/2+1+i)=cmplx(real(cin(n/2+1-i)),-aimag(cin(n/2+1-i)))
-  enddo
-  
-  call spcfft(fdata,n,-isign,dwork,scale)
-  
-! The 1/n factor for the inverse FFT is added inside spcfft
-  do i=1,n
-     rout(i)=real(fdata(i))
-  enddo
+   use precision
+   implicit none
+   integer,intent(in) :: isign,n
+   real(wp),intent(in) :: scale
+   complex,intent(in) :: cin(n/2+1)
+   real(wp),intent(out) :: rout(n)  
+   integer i
+   complex(wp),dimension(n) :: fdata,dwork
+
+   do i=1,n/2+1
+      fdata(i)=cin(i)
+   enddo
+   ! For next n/2-1 values, for the complex conjugate of first n/2 values.
+   do i=1,n/2-1
+      fdata(n/2+1+i)=cmplx(real(cin(n/2+1-i)),-aimag(cin(n/2+1-i)))
+   enddo
+
+   call spcfft(fdata,n,-isign,dwork,scale)
+
+   ! The 1/n factor for the inverse FFT is added inside spcfft
+   do i=1,n
+      rout(i)=real(fdata(i))
+   enddo
 
 end Subroutine c2rfftgl
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Subroutine c2cfftgl(isign,n,scale,cin,cout)
-! complex to complex transform. isign: direction of transform
-! n: array size
-! cin: complex array to be transformed, cout=\int{cin*exp(ifft*i*k*x)}dx
-! cout: complex array of output for Fourier modes=[0,n-1], normalized by n
-
-  use precision
-  implicit none
-  integer,intent(in) :: isign,n
-  complex(wp),intent(in),dimension(n) :: cin
-  complex(wp),intent(out),dimension(n) :: cout
-  complex(wp),dimension(n) :: dwork
-  real(wp) :: cfac,scale
-  integer i
-  
-  cout=cin
-  call spcfft(cout,n,-isign,dwork,scale)
-  
-end
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! complex to complex transform. isign: direction of transform
+   ! n: array size
+   ! cin: complex array to be transformed, cout=\int{cin*exp(ifft*i*k*x)}dx
+   ! cout: complex array of output for Fourier modes=[0,n-1], normalized by n
 
-!!Subroutine fft(isign,nn,fdata)
+   use precision
+   implicit none
+   integer,intent(in) :: isign,n
+   complex(wp),intent(in),dimension(n) :: cin
+   complex(wp),intent(out),dimension(n) :: cout
+   complex(wp),dimension(n) :: dwork
+   real(wp) :: cfac,scale
+   integer i
 
-!=======================================================================
-! Single Precision Complex Fast Fourier Transform
-!
-!  A subroutine to compute the discrete Fourier transform by the fastest
-! available algorithm for any length input series.
-!
-! Reference:
-!        Ferguson, W., (1979),   A Simple Derivation of Glassmans's
-!          General N Fast Fourier Transform, MRC Tech. Summ. Rept. 2029,
-!          Math. Res. Cent. U. of Wisconsin, Madison, Wis.
-!
-!  REFERENCES
-!  ----------
-!
-! Routines called:
-! SPCPFT
-!
-! Functions called:
-! MOD
-! FLOAT
-!
-! VAX extensions:
-! DO WHILE
-!=======================================================================
+   cout=cin
+   call spcfft(cout,n,-isign,dwork,scale)
 
-SUBROUTINE SPCFFT(U,N,ISIGN,WORK,INTERP)
+   end
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  use precision
+   !!Subroutine fft(isign,nn,fdata)
 
-! VARIABLES
-! ---------
+   !=======================================================================
+   ! Single Precision Complex Fast Fourier Transform
+   !
+   !  A subroutine to compute the discrete Fourier transform by the fastest
+   ! available algorithm for any length input series.
+   !
+   ! Reference:
+   !        Ferguson, W., (1979),   A Simple Derivation of Glassmans's
+   !          General N Fast Fourier Transform, MRC Tech. Summ. Rept. 2029,
+   !          Math. Res. Cent. U. of Wisconsin, Madison, Wis.
+   !
+   !  REFERENCES
+   !  ----------
+   !
+   ! Routines called:
+   ! SPCPFT
+   !
+   ! Functions called:
+   ! MOD
+   ! FLOAT
+   !
+   ! VAX extensions:
+   ! DO WHILE
+   !=======================================================================
 
-  IMPLICIT NONE
+   SUBROUTINE SPCFFT(U,N,ISIGN,WORK,INTERP)
 
-  LOGICAL(1)  &
-    INU,      &  ! Flag for calling SUBROUTINE SPCPFT( arguments ).
-    SCALE        ! .TRUE.=inverse transform -- .FALSE.=forward transform
+      use precision
 
-  INTEGER     &
-    A,        &  ! After    |
-    B,        &  ! Before   |>  Factors of N.
-    C,        &  ! Current  |
-    N,        &  ! Length of the array to be transformed.
-    I,        &  ! DO loop index.
-    ISIGN        ! sign of transform
+      ! VARIABLES
+      ! ---------
 
-  REAL(wp)    &
-    INTERP       ! interpolation factor
+      IMPLICIT NONE
 
-  COMPLEX(wp) &
-    U(*),     &  !  Vector to be transformed
-    WORK(*)      !  Working storage.
+      LOGICAL(1)  &
+         INU,      &  ! Flag for calling SUBROUTINE SPCPFT( arguments ).
+         SCALE        ! .TRUE.=inverse transform -- .FALSE.=forward transform
 
-!     Initialize parameters.
+      INTEGER     &
+         A,        &  ! After    |
+         B,        &  ! Before   |>  Factors of N.
+         C,        &  ! Current  |
+         N,        &  ! Length of the array to be transformed.
+         I,        &  ! DO loop index.
+         ISIGN        ! sign of transform
 
-  A = 1
-  B = N
-  C = 1
+      REAL(wp)    &
+         INTERP       ! interpolation factor
 
-  INU = .TRUE.
+      COMPLEX(wp) &
+         U(*),     &  !  Vector to be transformed
+         WORK(*)      !  Working storage.
 
-  IF (ISIGN.EQ.1) THEN
+      !     Initialize parameters.
 
-     SCALE = .TRUE.
+      A = 1
+      B = N
+      C = 1
 
-  ELSE IF (ISIGN.EQ.-1) THEN
+      INU = .TRUE.
 
-     SCALE = .FALSE.
+      IF (ISIGN.EQ.1) THEN
 
-  END IF
+         SCALE = .TRUE.
 
-! Calculate Fourier transform by means of Glassman's algorithm
+      ELSE IF (ISIGN.EQ.-1) THEN
 
-  DO WHILE ( B .GT. 1 )
+         SCALE = .FALSE.
 
-     A = C * A
+      END IF
 
-! Start of routine to get factors of N
+      ! Calculate Fourier transform by means of Glassman's algorithm
 
-     C = 2
+      DO WHILE ( B .GT. 1 )
 
-! Increment C until it is an integer factor of B
+         A = C * A
 
-     DO WHILE ( MOD(B,C) .NE. 0 )
+         ! Start of routine to get factors of N
 
-        C = C + 1
+         C = 2
 
-     END DO
+         ! Increment C until it is an integer factor of B
 
-! Calculate largest factor of B
+         DO WHILE ( MOD(B,C) .NE. 0 )
 
-     B = B / C
+            C = C + 1
 
+         END DO
 
-! Call Glassman's Fast Fourier Transform routine
+         ! Calculate largest factor of B
 
-     IF ( INU ) THEN
+         B = B / C
 
-        CALL SPCPFT (A,B,C,U,WORK,ISIGN)
 
-     ELSE
+         ! Call Glassman's Fast Fourier Transform routine
 
-        CALL SPCPFT (A,B,C,WORK,U,ISIGN)
+         IF ( INU ) THEN
 
-     END IF
+            CALL SPCPFT (A,B,C,U,WORK,ISIGN)
 
-! Set flag to swap input & output arrays to SPCPFT
+         ELSE
 
-     INU = ( .NOT. INU )
+            CALL SPCPFT (A,B,C,WORK,U,ISIGN)
 
-  END DO
+         END IF
 
-! If odd number of calls to SPCPFT swap WORK into U
+         ! Set flag to swap input & output arrays to SPCPFT
 
-  IF ( .NOT. INU ) THEN
+         INU = ( .NOT. INU )
 
-     DO I = 1, N
-        U(I) = WORK(I)
-     END DO
+      END DO
 
-  END IF
+      ! If odd number of calls to SPCPFT swap WORK into U
 
-! Scale the output for inverse Fourier transforms.
+      IF ( .NOT. INU ) THEN
 
-  IF ( SCALE ) THEN
+         DO I = 1, N
+            U(I) = WORK(I)
+         END DO
 
-     DO I = 1, N
-        U(I) = U(I) / (N/INTERP)
-     END DO
+      END IF
 
-  END IF
+      ! Scale the output for inverse Fourier transforms.
 
-END
+      IF ( SCALE ) THEN
 
+         DO I = 1, N
+            U(I) = U(I) / (N/INTERP)
+         END DO
 
-!=======================================================================
-! Single Precision Complex Prime Factor Transform
-!
-!  REFERENCES
-!  ----------
-!
-! Calling routines:
-! SPCFFT
-!
-! Subroutines called:
-! -none-
-!
-! Functions called:
-! CMLPX
-! COS
-! SIN
-! FLOAT
-!=======================================================================
+      END IF
 
-SUBROUTINE SPCPFT( A, B, C, UIN, UOUT, ISIGN )
+      END
 
-  use precision
 
-! VARIABLES
-! ---------
+      !=======================================================================
+      ! Single Precision Complex Prime Factor Transform
+      !
+      !  REFERENCES
+      !  ----------
+      !
+      ! Calling routines:
+      ! SPCFFT
+      !
+      ! Subroutines called:
+      ! -none-
+      !
+      ! Functions called:
+      ! CMLPX
+      ! COS
+      ! SIN
+      ! FLOAT
+      !=======================================================================
 
-  IMPLICIT NONE
+      SUBROUTINE SPCPFT( A, B, C, UIN, UOUT, ISIGN )
 
-  INTEGER    &
-    ISIGN,   &      !  ISIGN of the Fourier transform.
-    A,       &      !  After   |
-    B,       &      !  Before  |>  Factors of N.
-    C,       &      !  Current |
-    IA,      &      !  |
-    IB,      &      !  |>  DO loop indicies.
-    IC,      &      !  |>
-    JCR,     &      !  |
-    JC              !  Dummy index.
+         use precision
 
-  REAL(doubleprec)   ANGLE
+         ! VARIABLES
+         ! ---------
 
-  COMPLEX(wp)   &
-    UIN(B,C,A), &   !  Input vector.
-    UOUT(B,A,C),&   !  Output vector.
-    DELTA,      &   !  Fourier transform kernel.
-    OMEGA,      &   !  Multiples of exp( i TWOPI ).
-    SUM             !  Dummy register for addition for UOUT(B,A,C)
+         IMPLICIT NONE
 
-! ALGORITHM
-! ---------
+         INTEGER    &
+            ISIGN,   &      !  ISIGN of the Fourier transform.
+            A,       &      !  After   |
+            B,       &      !  Before  |>  Factors of N.
+            C,       &      !  Current |
+            IA,      &      !  |
+            IB,      &      !  |>  DO loop indicies.
+            IC,      &      !  |>
+            JCR,     &      !  |
+            JC              !  Dummy index.
 
-! Initialize run time parameters.
+         REAL(doubleprec)   ANGLE
 
+         COMPLEX(wp)   &
+            UIN(B,C,A), &   !  Input vector.
+            UOUT(B,A,C),&   !  Output vector.
+            DELTA,      &   !  Fourier transform kernel.
+            OMEGA,      &   !  Multiples of exp( i TWOPI ).
+            SUM             !  Dummy register for addition for UOUT(B,A,C)
 
-  ANGLE =8.0_doubleprec*ATAN(1.0_doubleprec) / REAL( A * C, doubleprec )
-  OMEGA = CMPLX( 1.0, 0.0 )
+         ! ALGORITHM
+         ! ---------
 
-! Check the ISIGN of the transform.
+         ! Initialize run time parameters.
 
-  IF( ISIGN .EQ. 1 ) THEN
-     DELTA = CMPLX( COS(ANGLE), SIN(ANGLE) )
-  ELSE
-     DELTA = CMPLX( COS(ANGLE), -SIN(ANGLE) )
-  END IF
 
+         ANGLE =8.0_doubleprec*ATAN(1.0_doubleprec) / REAL( A * C, doubleprec )
+         OMEGA = CMPLX( 1.0, 0.0 )
 
-! Do the computations.
+         ! Check the ISIGN of the transform.
 
-  DO IC = 1, C
-     DO IA = 1, A
-        DO IB = 1, B
+         IF( ISIGN .EQ. 1 ) THEN
+            DELTA = CMPLX( COS(ANGLE), SIN(ANGLE) )
+         ELSE
+            DELTA = CMPLX( COS(ANGLE), -SIN(ANGLE) )
+         END IF
 
-           SUM = UIN( IB, C, IA )
 
-           DO JCR = 2, C
-              JC = C + 1 - JCR
-              SUM = UIN( IB, JC, IA ) + OMEGA * SUM
-           END DO
+         ! Do the computations.
 
-           UOUT( IB, IA, IC ) = SUM
+         DO IC = 1, C
+            DO IA = 1, A
+               DO IB = 1, B
 
-        END DO
-        OMEGA = DELTA * OMEGA
-     END DO
-  END DO
+                  SUM = UIN( IB, C, IA )
 
-END SUBROUTINE SPCPFT
+                  DO JCR = 2, C
+                     JC = C + 1 - JCR
+                     SUM = UIN( IB, JC, IA ) + OMEGA * SUM
+                  END DO
+
+                  UOUT( IB, IA, IC ) = SUM
+
+               END DO
+               OMEGA = DELTA * OMEGA
+            END DO
+         END DO
+
+      END SUBROUTINE SPCPFT
 
