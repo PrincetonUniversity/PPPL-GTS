@@ -133,6 +133,8 @@ module global_parameters
 
    integer :: RK4_Flag=0 ! Default value is 0 (OFF), it can be controlled by INPUT.d file
    integer :: Poisson_Flag=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
+   integer :: TRANSF_Weight_Flag=0  ! Default=0 (OFF), can be set =1(Transformed Weight Evolution Equation) by INPUT.d
+
 end module global_parameters
 
 module FieldLineFollowing
