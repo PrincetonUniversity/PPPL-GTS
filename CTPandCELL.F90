@@ -25,9 +25,9 @@ SUBROUTINE CTPandCELL
    real(wp), dimension(:), allocatable :: Afsp,Af0dt,Afp,Afsr,Afr,Afpr
 
    !
-   !      C_{TP}: The drag and diffusion operator. Cells are not 
-   !              necessary, but taking local collision frequency into 
-   !              account through n(r) and T(r)           
+   !      C_{TP}: The drag and diffusion operator. Cells are not
+   !              necessary, but taking local collision frequency into
+   !              account through n(r) and T(r)
    !
 
    d1=2.0_wp/sqrt(pi)
@@ -92,10 +92,10 @@ SUBROUTINE CTPandCELL
 
       !        rv0=vthc/sqrt(v2(i))
       !        rv0=vthc/sqrt(dgq(i))
-      !        f0dt=dt_coll*backn(i)/backnc*rv0*rv0*rv0    ! dt_coll=dt/tau_0 where 
+      !        f0dt=dt_coll*backn(i)/backnc*rv0*rv0*rv0    ! dt_coll=dt/tau_0 where
       !                           ! tau_0 is collision time in terms of backnc and vthc
       rv0=1.0_wp/(sqrt(dgq(i))*dgq(i))
-      f0dt=dt_coll*backn(i)*rv0       
+      f0dt=dt_coll*backn(i)*rv0
 
       ghq(i)=-fsp*f0dt+(zion(4,i)-0.5_wp)*sqrt(12.0_wp*fp*f0dt)    ! dvz
 
@@ -158,7 +158,7 @@ SUBROUTINE CTPandCELL
    !!MIC$ ENDPARALLEL
 
    !
-   !       For particles with vxy<0, re-calculate using 
+   !       For particles with vxy<0, re-calculate using
    !       small step size---dt_coll/nss
    !
    if(m.gt.0) then
@@ -236,7 +236,7 @@ SUBROUTINE CTPandCELL
                rn2=sprng()
                ghq(i)=-Afsp(j)*Af0dt(j)+(rn1-0.5_wp)*sqrt(12.0_wp*Afp(j)*Af0dt(j))
                TT(i)=da(i)-Afsr(j)*Af0dt(j)+(rn2-0.5_wp)*                  &
-                  sqrt(12.0_wp*(Afr(j)-Afpr(j)*Afpr(j)/Afp(j))*Af0dt(j))+   & 
+                  sqrt(12.0_wp*(Afr(j)-Afpr(j)*Afpr(j)/Afp(j))*Af0dt(j))+   &
                   (rn1-0.5_wp)*Afpr(j)/Afp(j)*sqrt(12.0_wp*Afp(j)*Af0dt(j))
                goto 11
 

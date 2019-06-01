@@ -71,7 +71,7 @@ subroutine load
    w_initial=w_initial_in*1.0e0_wp
    if(nonlinear<0.5_wp) w_initial=w_initial_in*1.0e-10_wp
 
-   ! uniform load particle in configuration space 
+   ! uniform load particle in configuration space
    mtheta_load=256
    !!  allocate(volume(mpsi,mtheta_load))
    !!  volume=0.0
@@ -223,7 +223,7 @@ subroutine load
          (1.0_wp+d1*zion(4,m)+d2*zion(4,m)**2+d3*zion(4,m)**3)
    end do
 
-   do m=1,mi                
+   do m=1,mi
       if(zion(4,m)>umax) zion(4,m)=sprng()
    enddo
 
@@ -239,7 +239,7 @@ subroutine load
       zion(6,m)=max(1.0e-20_wp,min(umax*umax,-log(max(1.0e-20_wp,zion(6,m))))) ! =[v_perp/sqrt(2T/m)]^2 ???
    enddo
 
-   ! transform zion(4,:) to rho_para, zion(6,:) to sqrt(mu) 
+   ! transform zion(4,:) to rho_para, zion(6,:) to sqrt(mu)
    cmratio=qion/aion
    !  call esigetb(zion(1,:),zion(2,:),mi)   ! get B
    !  call esigetb(zion,mi)   ! get B-->BB
@@ -287,7 +287,7 @@ subroutine load
 
 
    ! Give unique label numbers for every particle
-   do m=1,mi    
+   do m=1,mi
       ! ilabels(m) = mype*10**(floor(log10(real(mi))) + 2) + m
       ilabels(m) = mype + 1e5*m
    enddo
@@ -400,7 +400,7 @@ subroutine load
 
 
 
-      call n_T_u_group_e               ! get Te  
+      call n_T_u_group_e               ! get Te
       !$omp parallel do private(m)
       do m=1,me
          zeon(4,m)=zeon(4,m)*msm0*c0cs*sqrt(backTe(m)/backT(m))  !checked; neglect electron rotation
@@ -490,7 +490,7 @@ subroutine load
 
 
    if(mi/= ini_mi) then
-      write(stdout,*) "mi=", mi, ", ini_mi=",ini_mi, " , are different!!! Error!" 
+      write(stdout,*) "mi=", mi, ", ini_mi=",ini_mi, " , are different!!! Error!"
       call flush(stdout)
       call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
    endif
@@ -508,7 +508,7 @@ subroutine load
 
          ! !MGYOO (04/02/2019) : to test particles behavior depending on the initial energy
          ! ! test_u from 1 to 10
-         ! test_u = 1 + (9/(num_of_etracers-1.0))*(i-1)      
+         ! test_u = 1 + (9/(num_of_etracers-1.0))*(i-1)
          ! zeon(1,m)=0.62
          ! zeon(2,m)=0.0_wp
          ! zeon(3,m)=1e-5
@@ -521,7 +521,7 @@ subroutine load
          ! zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,IFAIL)
          ! zeon(7,m)=min(s1,max(s0,zeon(7,m)))
          ! zeon0(1:5,m)=zeon(1:5,m)
-         ! zeon0(7,m)=zeon(7,m)      
+         ! zeon0(7,m)=zeon(7,m)
 
       enddo
 
@@ -533,7 +533,7 @@ subroutine load
 
          ! !MGYOO (04/02/2019) : to test particles behavior depending on the initial energy
          ! ! test_u from 1 to 10
-         ! test_u = 1 + (9/(num_of_itracers-1.0))*(i-1)      
+         ! test_u = 1 + (9/(num_of_itracers-1.0))*(i-1)
          ! zion(1,m)=0.62
          ! zion(2,m)=0.0_wp
          ! zion(3,m)=1e-5
@@ -566,7 +566,7 @@ subroutine load
       !   !zion(4, m) = (sqrt(pdum)+backu(m))/BB(m)      ! using v_par=v_th for tracer ion
 
       !   ! zion(4, m) = (sqrt(pdum))/BB(m)      ! using v_par=v_th for tracer ion
-      !   ! zion(6, m) = 0.1*sqrt(pdum)/sqrt(2.0_wp*BB(m))   ! using v_per=v_th for tracer ion 
+      !   ! zion(6, m) = 0.1*sqrt(pdum)/sqrt(2.0_wp*BB(m))   ! using v_per=v_th for tracer ion
 
       !   ! Fixed mu and E test!!
       !   zion(6, m) = sqrt(0.1*(3.0/2.0)*pdum /B_0)  !! 0.1 of fixed total energy E = (3/2)*Ti

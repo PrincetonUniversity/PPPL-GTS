@@ -38,7 +38,7 @@ subroutine shifti
    !     write(stdout,*) 'Before Shifti, Im=',mype,', m=',m,', zion0=', zion0(:,m)
    !     write(stdout,*) 'Before Shifti, Im=',mype,', m=',m,', RK_cum_zion=', RK_cum_zion(:,m)
    !     call flush(stdout)
-   !   endif 
+   !   endif
    ! enddo
 
 
@@ -46,7 +46,7 @@ subroutine shifti
    dim_zion0 = size(zion0,1)
    if(RK4_Flag==1) then
       dim_RK_cum_zion = size(RK_cum_zion,1)
-   else 
+   else
       dim_RK_cum_zion =0
    endif
 
@@ -74,7 +74,7 @@ subroutine shifti
    tot_send_num = 0
    send_mid_arr = 0
    send_dest_arr = 0
-   do m=1, mi 
+   do m=1, mi
       ! normalized_zeta =  zion(3,m) - floor(zion(3,m)/(2.0*pi)) * 2.0*pi
       normalized_zeta =  modulo(zion(3,m),2.0*pi)
       dest_tor_rank = floor(normalized_zeta / Delta_zeta)
@@ -94,7 +94,7 @@ subroutine shifti
          tot_send_num = tot_send_num + 1
          send_mid_arr(tot_send_num) = m
          send_dest_arr(tot_send_num) = dest_tor_rank
-      endif  
+      endif
    enddo
 
 
@@ -122,7 +122,7 @@ subroutine shifti
    ! write(4321,*) mype, myrank_toroidal, "tor_send_displs =", tor_send_displs
    ! write(4321,*) mype, myrank_toroidal, "tor_recv_counts =", tor_recv_counts
    ! write(4321,*) mype, myrank_toroidal, "tor_recv_displs =", tor_recv_displs
-   ! call flush(4321)    
+   ! call flush(4321)
 
 
    !allocate required memories
@@ -151,14 +151,14 @@ subroutine shifti
          tor_send_Ptls_data(k+1:k+dim_RK_cum_zion, i) =  RK_cum_zion(:,send_mid_arr(i))
          k=k+dim_RK_cum_zion
       endif
-      tor_send_Ptls_data(k+1, i) =  ilabels(send_mid_arr(i))  
-      tor_send_Ptls_data(k+2, i) =  wi_init(send_mid_arr(i))  
+      tor_send_Ptls_data(k+1, i) =  ilabels(send_mid_arr(i))
+      tor_send_Ptls_data(k+2, i) =  wi_init(send_mid_arr(i))
       tor_send_Ptls_data(k+3, i) =  wi_vpara(send_mid_arr(i))
-      tor_send_Ptls_data(k+4, i) =  wi_vperp(send_mid_arr(i))  
-      tor_send_Ptls_data(k+5, i) =  wi_accel(send_mid_arr(i))    
-      tor_send_Ptls_data(k+6, i) =  wi_fdamp(send_mid_arr(i))   
-      tor_send_Ptls_data(k+7, i) =  UnNorm_theta_i(send_mid_arr(i))    
-      tor_send_Ptls_data(k+8, i) =  UnNorm_zeta_i(send_mid_arr(i))   
+      tor_send_Ptls_data(k+4, i) =  wi_vperp(send_mid_arr(i))
+      tor_send_Ptls_data(k+5, i) =  wi_accel(send_mid_arr(i))
+      tor_send_Ptls_data(k+6, i) =  wi_fdamp(send_mid_arr(i))
+      tor_send_Ptls_data(k+7, i) =  UnNorm_theta_i(send_mid_arr(i))
+      tor_send_Ptls_data(k+8, i) =  UnNorm_zeta_i(send_mid_arr(i))
    enddo
 
 
@@ -169,7 +169,7 @@ subroutine shifti
 
 
 
-   ! fill holes 
+   ! fill holes
    call quicksort(send_mid_arr, 1, tot_send_num)
    mtop = mi
    mi = mi - tot_send_num ! remained mi after sending
@@ -193,7 +193,7 @@ subroutine shifti
       wi_fdamp(m)     = wi_fdamp(mtop)
 
       UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
-      UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)    
+      UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
       if(RK4_Flag==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
 
       mtop = mtop -1
@@ -212,17 +212,17 @@ subroutine shifti
          RK_cum_zion(:,mi+i) = tor_recv_Ptls_data(k+1:k+dim_RK_cum_zion, i)
          k=k+dim_RK_cum_zion
       endif
-      ilabels(mi+i)   =  tor_recv_Ptls_data(k+1, i) 
-      wi_init(mi+i)   =  tor_recv_Ptls_data(k+2, i) 
-      wi_vpara(mi+i)  =  tor_recv_Ptls_data(k+3, i) 
-      wi_vperp(mi+i)  =  tor_recv_Ptls_data(k+4, i) 
-      wi_accel(mi+i)  =  tor_recv_Ptls_data(k+5, i) 
-      wi_fdamp(mi+i)  =  tor_recv_Ptls_data(k+6, i) 
-      UnNorm_theta_i(mi+i)= tor_recv_Ptls_data(k+7, i) 
-      UnNorm_zeta_i(mi+i) = tor_recv_Ptls_data(k+8, i) 
+      ilabels(mi+i)   =  tor_recv_Ptls_data(k+1, i)
+      wi_init(mi+i)   =  tor_recv_Ptls_data(k+2, i)
+      wi_vpara(mi+i)  =  tor_recv_Ptls_data(k+3, i)
+      wi_vperp(mi+i)  =  tor_recv_Ptls_data(k+4, i)
+      wi_accel(mi+i)  =  tor_recv_Ptls_data(k+5, i)
+      wi_fdamp(mi+i)  =  tor_recv_Ptls_data(k+6, i)
+      UnNorm_theta_i(mi+i)= tor_recv_Ptls_data(k+7, i)
+      UnNorm_zeta_i(mi+i) = tor_recv_Ptls_data(k+8, i)
    enddo
 
-   mi = mi + tot_recv_num  
+   mi = mi + tot_recv_num
 
    deallocate(tor_send_Ptls_data, tor_recv_Ptls_data)
 
@@ -234,7 +234,7 @@ subroutine shifti
    !     write(stdout,*) 'After Shifti, Im=',mype,', m=',m,', zion0=', zion0(:,m)
    !     write(stdout,*) 'After Shifti, Im=',mype,', m=',m,', RK_cum_zion=', RK_cum_zion(:,m)
    !     call flush(stdout)
-   !   endif 
+   !   endif
    ! enddo
 
 

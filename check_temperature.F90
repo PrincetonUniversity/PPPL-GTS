@@ -38,7 +38,7 @@ subroutine check_temperature
    call esigetb(zeon,mi,zeondim)   ! get B
 
    do m=1,mi
-      r=zeon(1,m)        
+      r=zeon(1,m)
       yy=(r-a0)/da_size
       kc=int(yy+0.5_wp)            !{0,mbin_psi}
       kc=min(mbin_psi,max(0,kc))   !{0,mbin_psi}

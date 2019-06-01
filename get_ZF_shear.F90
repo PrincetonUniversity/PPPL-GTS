@@ -42,8 +42,8 @@ subroutine get_ZF_shear(LINES)
 
    !      Er=dPhi/da=Er_amp*exp{-[(a-ac)/half_width]^xe}
 
-   if(mype==0) then 
-      print*, 'Er=dPhi/da=Er_amp*exp{-[(a-ac)/half_width]^xe}' 
+   if(mype==0) then
+      print*, 'Er=dPhi/da=Er_amp*exp{-[(a-ac)/half_width]^xe}'
       print*, 'Er_amp=', Er_amp, '  ac=', ac, '  xe=', xe, '  half_width=', half_width
    end if
 
@@ -66,7 +66,7 @@ subroutine get_ZF_shear(LINES)
          *(vthr*uveloci)**3.0_wp/(density(Yr(i),0.0_wp)*charg0*charg0  &
          *charg0*charg0*dlni)*pmass0   ! in unit of sec
       Taui=0.75_wp*sqrt(pi)*Taur
-      Taui=Taui*sqrt(2.0_wp)/utime      ! normalized collision time 
+      Taui=Taui*sqrt(2.0_wp)/utime      ! normalized collision time
 
       U_int=u_parallel(Yr(i),0.0_wp)
 
@@ -189,7 +189,7 @@ subroutine get_ZF_shear(LINES)
 
          print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
 
-         open(502,file='ZF_shearate.dat',status='replace',RECL=8192) 
+         open(502,file='ZF_shearate.dat',status='replace',RECL=8192)
          do j=1,LINES
             !  read(122,801) istep, (phia00(i),i=0,19)  ! not work after edison relocated 2016
             read(122,*) istep, (phia00(i),i=0,19)
@@ -208,8 +208,8 @@ subroutine get_ZF_shear(LINES)
 
             !         -------------------------------------------------------------------------
             !         if calculate total shear ZF +equilibrium Er, use:
-            !          phia00=phia00+Er_grid     ! --> phia00= total Er=d<phi>/da +d(phi_0)/da 
-            !          phia00=phia00+Er_grid_TRANSP     ! --> phia00= total Er=d<phi>/da + d(phi_0)/da with d(phi_0)/da from TRANSP 
+            !          phia00=phia00+Er_grid     ! --> phia00= total Er=d<phi>/da +d(phi_0)/da
+            !          phia00=phia00+Er_grid_TRANSP     ! --> phia00= total Er=d<phi>/da + d(phi_0)/da with d(phi_0)/da from TRANSP
             !         -------------------------------------------------------------------------
 
             call ezspline_init(spEr,mpsi+1,(/1,1/),ierror) ! 1st derivative boundary condition for both left and right
@@ -222,15 +222,15 @@ subroutine get_ZF_shear(LINES)
 
             do i=0,mpsi
                call ezspline_derivative(spEr,1,psi_grid(i),phiaa(i),ierror) ! phiaa=(d^2/da^2)phi
-               aaa(1)=psi_grid(i)  
+               aaa(1)=psi_grid(i)
                the(1)=0.0d0
                call esiget2dfunctions(aaa,the,1)
                grad_a2=(rq(1)*rq(1)+zq(1)*zq(1))/(za(1)*rq(1)-zq(1)*ra(1))**2
 
-               omega_E(i)=-grad_a2/BB(1)*(phiaa(i)-phia00(i)*gYaa(1)/gYa(1))        ! only ZF shear or total shear depending on 
+               omega_E(i)=-grad_a2/BB(1)*(phiaa(i)-phia00(i)*gYaa(1)/gYa(1))        ! only ZF shear or total shear depending on
                ! whether phia00 includes EQ Er or not  Jan., 2010
 
-               !             
+               !
                !             omega_E(i)=-grad_a2/BB(1)*((phiaa(i)+Era_grid(i))-(phia00(i)+Er_grid(i))*gYaa(1)/gYa(1)) ! total shear
                !                                   ! not used; total shear can be included via add Er_grid(i) to phia00(i);  Jan., 2010
                !

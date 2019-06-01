@@ -38,7 +38,7 @@ subroutine open_files
          open(unit=777,file=chdum,form='unformatted')
          write(777) msnap,myrank_toroidal,mpsi,mgrid,mzetamax,ntoroidal,zetamin,zetamax,deltaz,vthc
          write(777) igrid,deltat,qtinv,mtheta,itran,vth_grid
-         call flush(777) 
+         call flush(777)
       endif
       if(myrank_partd==1) then   ! myrank_partd==1 will write delta-n
          open(unit=888,file=chdum1,form='unformatted')
@@ -47,7 +47,7 @@ subroutine open_files
          write(888) igrid,deltat,qtinv,mtheta,itran,vth_grid
          call flush(888)
       endif
-      if(myrank_partd==2) then   ! myrank_partd==2 will write delta-Vi 
+      if(myrank_partd==2) then   ! myrank_partd==2 will write delta-Vi
          open(unit=808,file=chdum2,form='unformatted')
          !        write(808) msnap,myrank_toroidal,mpsi,mzeta,mgrid,mzetamax,ntoroidal,zetamin,zetamax,deltaz,vthc
          write(808) msnap,myrank_toroidal,mpsi,mgrid,mzetamax,ntoroidal,zetamin,zetamax,deltaz,vthc
@@ -133,7 +133,7 @@ subroutine open_files
          do i=1,nbin_a
             write(chdum,'("fort.",i2.2)')nf(i)
             open(nf(i),file=chdum,status='old',position='append')
-            if(ifelectron/=0) then 
+            if(ifelectron/=0) then
                write(chdum,'("fort.",i3.3)')nf_e(i)
                open(nf_e(i),file=chdum,status='old',position='append')
             end if
@@ -197,7 +197,7 @@ subroutine open_files
 
 
 
-   !    if(myrank_partd==0) then   
+   !    if(myrank_partd==0) then
    !       write(chdum,'("AVW_ion.",i5.5)')myrank_toroidal
    !       write(chdum1,'("AVW_eon.",i5.5)')myrank_toroidal
    !

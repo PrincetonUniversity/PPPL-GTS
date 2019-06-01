@@ -22,15 +22,15 @@ subroutine pushion
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,thetatmp,&
       zetatmp,rhoi,e1,e2,e3,wpi(3,mi),ga(mi),wga(3,mi),gat(mi),rdel, &
       dgr(mi),da(mi),dgq(mi),dgf(mi),mu, &
-      Er_particle(mi),dela,fip,weqflow,T_inverse,& 
+      Er_particle(mi),dela,fip,weqflow,T_inverse,&
       B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
       v2, avw,   &
       ! following working arrays are defined to use OMP reduction:
-   adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi) 
+   adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
    real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
-   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis. 
+   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis.
    !(gf component is 0 due to the toroidal axisymmetric assumption )
 
    !  integer ip_index(mimax)   !wx
@@ -58,8 +58,8 @@ subroutine pushion
    delt=1.0_wp/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
-   psimax=psi_grid(mpsi)    
-   psimin=psi_grid(0)       
+   psimax=psi_grid(mpsi)
+   psimin=psi_grid(0)
 
    fdamp0=1.0_wp/tstep*5.0d-4
    if(nonlinear<0.5_wp) fdamp0=0.0_wp
@@ -95,7 +95,7 @@ subroutine pushion
    ! The following line is an OpenMP directive for loop-level parallelism
    ! on shared memory machines (see http://www.openmp.org).
    !
-   ! Ion locations in the 3D field mesh, wzion, wpion, jtion0, jtion1, wtion0, wtion1 
+   ! Ion locations in the 3D field mesh, wzion, wpion, jtion0, jtion1, wtion0, wtion1
    ! are calculated at CHARGE_ION
    !
    !$omp parallel do private(m,e1,e2,e3,wz1,wz0,larmor,ij,wp0,wt00,wt10,wp1,wt01,wt11)
@@ -148,7 +148,7 @@ subroutine pushion
 
    enddo
 
-   !    prepare equilibrium Er=dPhi/da at particles 
+   !    prepare equilibrium Er=dPhi/da at particles
 
 
 
@@ -186,7 +186,7 @@ subroutine pushion
    ! if(istep.ge.4000) then
    !$omp parallel do private(m,r,ip,fip)
    do m=1,mi
-      r=zion(1,m)-a0      
+      r=zion(1,m)-a0
       r=r*dela
       ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
       fip=r-real(ip,wp)
@@ -212,12 +212,12 @@ subroutine pushion
    !  tt1=rtc()
    !  call cpu_time(cput1)
 
-   !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc. 
+   !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
    ! moved to collision.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
 
-   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt; 
+   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;
    !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     Ta(:)=dtheta/dt|_EXB;       PP(:)=drho/dt|_EXB;
-   !             BB(:)=B;           Ba(:)=dB/da;           Bq(:)=dB/dtheta;  
+   !             BB(:)=B;           Ba(:)=dB/da;           Bq(:)=dB/dtheta;
    !             F(:) =F;           Fa(:)=dF/da;           gha(:)=1/|grad a|
    !             no change for zion(1,2,4,:), wpi(1,2,:) and mu;
    !             wpi(3,:)=dphi/dzeta (no change);          Pa(:)=R (major radius)
@@ -235,17 +235,17 @@ subroutine pushion
    !!!!  if(nonlinear>100.0_wp) then          ! for nonlinear run
    if(wimcompressibility==1) then            ! for implementation of weight imcompressibility
       call weight_field(wfield)      ! calculate weight-field uisng zion0 for irk=1 and zion at half-step for irk=2
-      ! used BB obtained from gcmotion, and calculte its own ion locations  
+      ! used BB obtained from gcmotion, and calculte its own ion locations
       ! which are used to calculate wfield in phase space grids and gether wfield at ions (next)
 
-      ! 
+      !
       ! rdum1=maxval(abs(wfield))
       ! if(rdum1>100.0_wp) then
       !    print*, 'p8888=', mype, istep, irk, rdum1, maxval(abs(wfield(1,1:mgrid,1))) , &
-      !                 maxval(abs(wfield(2,1:mgrid,1))) , maxval(abs(wfield(3,1:mgrid,1))) , maxval(abs(wfield(1,1:mgrid,0))) , & 
+      !                 maxval(abs(wfield(2,1:mgrid,1))) , maxval(abs(wfield(3,1:mgrid,1))) , maxval(abs(wfield(1,1:mgrid,0))) , &
       !                 maxval(abs(wfield(2,1:mgrid,0))) , maxval(abs(wfield(3,1:mgrid,0)))
       ! end if
-      ! 
+      !
 
    end if
 
@@ -285,7 +285,7 @@ subroutine pushion
       fip=(zion(1,m)-psi_grid(ip))/(psi_grid(ip+1)-psi_grid(ip))
       ddT_da_particle=fip*ddT_da(ip+1)+(1.0_wp-fip)*ddT_da(ip) ! d<delta_Ti>/da at particle's position
 
-      if(ifneoclassical==1) then 
+      if(ifneoclassical==1) then
          vdr=da(m)              !  full da/at      -- including NC dynamics
          vdq=dgq(m)             !  full dtheta/dt  -- including NC dynamics
          vdgf=dgf(m)            !  full dzeta/dt   -- including NC dynamics
@@ -368,13 +368,13 @@ subroutine pushion
          avw=e1+e2*vpara+e3*v2
 
 
-         ! 
+         !
          !      if(abs(avw)>100.0_wp) then
          !         print*, 'p9999=', mype, istep, irk, avw, e1, e2, e3, vpara, v2, maxval(abs(wfield(1,1:mgrid,1))) , &
-         !                 maxval(abs(wfield(2,1:mgrid,1))) , maxval(abs(wfield(3,1:mgrid,1))) , maxval(abs(wfield(1,1:mgrid,0))) , & 
+         !                 maxval(abs(wfield(2,1:mgrid,1))) , maxval(abs(wfield(3,1:mgrid,1))) , maxval(abs(wfield(1,1:mgrid,0))) , &
          !                 maxval(abs(wfield(2,1:mgrid,0))) , maxval(abs(wfield(3,1:mgrid,0)))
          !      end if
-         ! 
+         !
 
 
       end if
@@ -404,15 +404,15 @@ subroutine pushion
       if(irk==2)then
          if(ifneoclassical==1) then
             call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-            vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)          
+            vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
             vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
-            vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))  
+            vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
          else
             vd_para_a_cntv = vpara_dvi_a(m)
-            vd_para_gq_cntv = vpara_dvi_gq(m)   
+            vd_para_gq_cntv = vpara_dvi_gq(m)
          endif
          vd_perp_a_cntv = vdr -vd_para_a_cntv
-         vd_perp_gq_cntv = vdq -vd_para_gq_cntv  
+         vd_perp_gq_cntv = vdq -vd_para_gq_cntv
 
          ! grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) + (duda(m)*F(m)+Fa(m)*omega_t-Ba(m)*backu(m))*B_inverse*vpara*T_inverse
          ! grad_lnf0_gq_cov = -T_inverse*mu*Bq(m) - Bq(m)*backu(m)*B_inverse*vpara*T_inverse
@@ -471,7 +471,7 @@ subroutine pushion
       !  endif
 
       ! zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))
-      if(wimcompressibility==1) then     ! for weight imcompressibility    
+      if(wimcompressibility==1) then     ! for weight imcompressibility
          zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*avw)*wdot*fip-fdamp*zion(5,m))
       else
          zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*zion(5,m))*wdot*fip-fdamp*zion(5,m))
@@ -483,7 +483,7 @@ subroutine pushion
       zion(7,m) = zion0(7,m)+dtime*(Tc*T_inverse)**dsda_power*da(m)
 
       !  if (mype ==0 .AND. MOD(m,(mi/10))==0) then
-      !   write(stdout,*) 'I''m= ',mype, ' zion(5,m=',m,')= ',zion(5,m), ' zion0(5,m=',m,')= ',zion0(5,m), ' avw= ',avw 
+      !   write(stdout,*) 'I''m= ',mype, ' zion(5,m=',m,')= ',zion(5,m), ' zion0(5,m=',m,')= ',zion0(5,m), ' avw= ',avw
       !   write(stdout,*) 'zion(6,m=',m,')= ',zion(6,m), ' zion0(6,m=',m,')= ',zion0(6,m) , ' wdot= ', wdot
       ! end if
 
@@ -511,7 +511,7 @@ subroutine pushion
       zion(3,m)=modulo(zion(3,m),twopi)
 
       ! store GC information for flux measurements
-      wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
+      wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
       wpi(2,m)=energy    ! =(v_para-u//)^2/2+v_perp^2/2
       wpi(3,m)=muB       ! =v_perp^2/2, need for calculate distribution function in get_fluxes
 
@@ -535,9 +535,9 @@ subroutine pushion
             zion(2,m)=2.0_wp*pi-zion0(2,m)
             zion(3,m)=zion0(3,m)
             zion(4,m)=zion0(4,m)
-            !  zion(4,m)=zion0(4,m)*rdm1  !  for test 
+            !  zion(4,m)=zion0(4,m)*rdm1  !  for test
             zion(5,m)=zion0(5,m)  ! this sounds reasonable: energy, momentum and particle conserving boundary
-            !  zion(5,m)=zion0(5,m)*rdm2  !  for test 
+            !  zion(5,m)=zion0(5,m)*rdm2  !  for test
             !  zion(5,m)=-zion0(5,m)  ! remove density (weight) accumulation at edge when ifneoclassical=1
             !  zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
             zion(7,m)=zion0(7,m)
@@ -546,7 +546,7 @@ subroutine pushion
             zion(1,m)=zion0(1,m)
             zion(2,m)=2.0_wp*pi-zion0(2,m)
             zion(3,m)=zion0(3,m)
-            zion(4,m)=zion0(4,m) 
+            zion(4,m)=zion0(4,m)
             zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
             !  zion(5,m)=-zion0(5,m)  ! remove density (weight) accumulation at edge when ifneoclassical=1
             !  zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
@@ -597,8 +597,8 @@ subroutine pushion
       do m=1,mi
          r=zion0(7,m)         ! old radial location
          ip=max(0,min(mpsi,int((r-s0)*delr+0.5_wp)))    ! ip [0,mpsi]
-         vdrenergy=wpi(1,m)*(wpi(2,m)-2.5*vth_grid(ip)**2)*zion0(5,m) 
-         ! note: wpi(1,m)=dr/dt (EXB part) 
+         vdrenergy=wpi(1,m)*(wpi(2,m)-2.5*vth_grid(ip)**2)*zion0(5,m)
+         ! note: wpi(1,m)=dr/dt (EXB part)
 
          ! radial location in diagnostic bin
          i=max(1,min(mflux,1+int((r-s0)*real(mflux)/(s1-s0))))
@@ -611,7 +611,7 @@ subroutine pushion
          entropyi=entropyi+zion0(5,m)*zion0(5,m)
       enddo
 
-      if(ZF_SEPARATION==0) then   
+      if(ZF_SEPARATION==0) then
 
          !     note: zonal flow component <phi> and phip00=d<phi>/da are calculated in field.f90
 
@@ -621,7 +621,7 @@ subroutine pushion
          adum_tot=0.0_wp
 
          !$omp parallel private(i,j,ij,E_a,E_t,E_f) reduction(+:adum,adum_00,adum_tur,adum_tot)
-         ! Note from OMP compiler: A variable in the REDUCTION clause or any component or element thereof must not have the POINTER 
+         ! Note from OMP compiler: A variable in the REDUCTION clause or any component or element thereof must not have the POINTER
          ! attribute; nor be a pointee, an allocatable object, an assumed-size array, or a THREADLOCAL common block variable.
          !$omp do
          do i=0,mpsi
@@ -656,7 +656,7 @@ subroutine pushion
          adum_tot=0.0_wp
          adum_11=0.0_wp
 
-         ! DEBUG 
+         ! DEBUG
          !        if(mype==100) print*, 'Dirichlet2', phi(1,igrid(0)), phi(1,igrid(0)+mtheta(0)/2),phi(1,igrid(0)+mtheta(0)-1), &
          !                               phi(1,igrid(mpsi)), phi(1,igrid(mpsi)+mtheta(mpsi)/2),phi(1,igrid(mpsi)+mtheta(mpsi)-1)
 
@@ -740,15 +740,15 @@ subroutine pushion_RK4(irk_i)
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,thetatmp,&
       zetatmp,rhoi,e1,e2,e3,wpi(3,mi),ga(mi),wga(3,mi),gat(mi),rdel, &
       dgr(mi),da(mi),dgq(mi),dgf(mi),mu, &
-      Er_particle(mi),dela,fip,weqflow,T_inverse,& 
+      Er_particle(mi),dela,fip,weqflow,T_inverse,&
       B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
       v2, avw,   &
       ! following working arrays are defined to use OMP reduction:
-   adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi) 
+   adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
    real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
-   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis. 
+   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis.
    !(gf component is 0 due to the toroidal axisymmetric assumption )
 
    real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
@@ -775,8 +775,8 @@ subroutine pushion_RK4(irk_i)
    delt=1.0_wp/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
-   psimax=psi_grid(mpsi)    
-   psimin=psi_grid(0)       
+   psimax=psi_grid(mpsi)
+   psimin=psi_grid(0)
 
    fdamp0=1.0_wp/tstep*5.0d-4
    if(nonlinear<0.5_wp) fdamp0=0.0_wp
@@ -793,7 +793,7 @@ subroutine pushion_RK4(irk_i)
       enddo
    elseif(irk_i==2) then
       RK_cum_coeff =(1.0/3.0)
-      RK_adv_coeff =0.5 
+      RK_adv_coeff =0.5
    elseif(irk_i==3) then
       RK_cum_coeff =(1.0/3.0)
       RK_adv_coeff =1.0
@@ -818,7 +818,7 @@ subroutine pushion_RK4(irk_i)
    ! The following line is an OpenMP directive for loop-level parallelism
    ! on shared memory machines (see http://www.openmp.org).
    !
-   ! Ion locations in the 3D field mesh, wzion, wpion, jtion0, jtion1, wtion0, wtion1 
+   ! Ion locations in the 3D field mesh, wzion, wpion, jtion0, jtion1, wtion0, wtion1
    ! are calculated at CHARGE_ION
    !
    !$omp parallel do private(m,e1,e2,e3,wz1,wz0,larmor,ij,wp0,wt00,wt10,wp1,wt01,wt11)
@@ -865,7 +865,7 @@ subroutine pushion_RK4(irk_i)
       call Get_MP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
    enddo
 
-   !    prepare equilibrium Er=dPhi/da at particles 
+   !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------
    !  apply equilibrium Er in the middle insteady at the beginning
    !  if(istep.lt.2800) then
@@ -883,7 +883,7 @@ subroutine pushion_RK4(irk_i)
    ! if(istep.ge.4000) then
    !$omp parallel do private(m,r,ip,fip)
    do m=1,mi
-      r=zion(1,m)-a0      
+      r=zion(1,m)-a0
       r=r*dela
       ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
       fip=r-real(ip,wp)
@@ -900,12 +900,12 @@ subroutine pushion_RK4(irk_i)
       m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
    end if
 
-   !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc. 
+   !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
    ! moved to collision.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
 
-   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt; 
+   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;
    !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     Ta(:)=dtheta/dt|_EXB;       PP(:)=drho/dt|_EXB;
-   !             BB(:)=B;           Ba(:)=dB/da;           Bq(:)=dB/dtheta;  
+   !             BB(:)=B;           Ba(:)=dB/da;           Bq(:)=dB/dtheta;
    !             F(:) =F;           Fa(:)=dF/da;           gha(:)=1/|grad a|
    !             no change for zion(1,2,4,:), wpi(1,2,:) and mu;
    !             wpi(3,:)=dphi/dzeta (no change);          Pa(:)=R (major radius)
@@ -923,7 +923,7 @@ subroutine pushion_RK4(irk_i)
    !!!!  if(nonlinear>100.0_wp) then          ! for nonlinear run
    if(wimcompressibility==1) then            ! for implementation of weight imcompressibility
       call weight_field(wfield)       ! calculate weight-field uisng zion0 for irk_i=1 and zion at half-step for irk_i=2
-      ! used BB obtained from gcmotion, and calculte its own ion locations  
+      ! used BB obtained from gcmotion, and calculte its own ion locations
       ! which are used to calculate wfield in phase space grids and gether wfield at ions (next)
    end if
 
@@ -960,7 +960,7 @@ subroutine pushion_RK4(irk_i)
       fip=(zion(1,m)-psi_grid(ip))/(psi_grid(ip+1)-psi_grid(ip))
       ddT_da_particle=fip*ddT_da(ip+1)+(1.0_wp-fip)*ddT_da(ip) ! d<delta_Ti>/da at particle's position
 
-      if(ifneoclassical==1) then 
+      if(ifneoclassical==1) then
          vdr=da(m)              !  full da/at      -- including NC dynamics
          vdq=dgq(m)             !  full dtheta/dt  -- including NC dynamics
          vdgf=dgf(m)            !  full dzeta/dt   -- including NC dynamics
@@ -1057,7 +1057,7 @@ subroutine pushion_RK4(irk_i)
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', now_w=', now_w,', wdot=',wdot,', wdrive=',wdrive,', wdrift=',wdrift,', wKH=',wKH,', wgradB=',wgradB
          call flush(stdout)
-      endif 
+      endif
 
 
       !==================================================
@@ -1070,15 +1070,15 @@ subroutine pushion_RK4(irk_i)
       if(irk_i==4)then
          if(ifneoclassical==1) then
             call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-            vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)          
+            vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
             vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
-            vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))  
+            vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
          else
             vd_para_a_cntv = vpara_dvi_a(m)
-            vd_para_gq_cntv = vpara_dvi_gq(m)   
+            vd_para_gq_cntv = vpara_dvi_gq(m)
          endif
          vd_perp_a_cntv = vdr -vd_para_a_cntv
-         vd_perp_gq_cntv = vdq -vd_para_gq_cntv  
+         vd_perp_gq_cntv = vdq -vd_para_gq_cntv
 
 
          !=================================================================
@@ -1107,9 +1107,9 @@ subroutine pushion_RK4(irk_i)
       RK_cum_zion(1,m) = RK_cum_zion(1,m) +RK_cum_coeff*tstep*da(m)
       RK_cum_zion(2,m) = RK_cum_zion(2,m) +RK_cum_coeff*tstep*dgq(m)
       RK_cum_zion(3,m) = RK_cum_zion(3,m) +RK_cum_coeff*tstep*dgf(m)
-      RK_cum_zion(4,m) = RK_cum_zion(4,m) +RK_cum_coeff*tstep*dgr(m) 
+      RK_cum_zion(4,m) = RK_cum_zion(4,m) +RK_cum_coeff*tstep*dgr(m)
       RK_cum_zion(5,m) = RK_cum_zion(5,m) +RK_cum_coeff*tstep*((zion0(6,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
-      RK_cum_zion(7,m) = RK_cum_zion(7,m) +RK_cum_coeff*tstep*(Tc*T_inverse)**dsda_power*da(m)     
+      RK_cum_zion(7,m) = RK_cum_zion(7,m) +RK_cum_coeff*tstep*(Tc*T_inverse)**dsda_power*da(m)
 
       ! Advance particle information for the next RK step
       if(irk_i<4) then
@@ -1117,7 +1117,7 @@ subroutine pushion_RK4(irk_i)
          zion(1,m) = zion0(1,m)+RK_adv_coeff*tstep*da(m)
          zion(2,m) = zion0(2,m)+RK_adv_coeff*tstep*dgq(m)
          zion(3,m) = zion0(3,m)+RK_adv_coeff*tstep*dgf(m)
-         zion(4,m) = zion0(4,m)+RK_adv_coeff*tstep*dgr(m) 
+         zion(4,m) = zion0(4,m)+RK_adv_coeff*tstep*dgr(m)
          zion(5,m) = zion0(5,m)+RK_adv_coeff*tstep*((zion0(6,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
          zion(7,m) = zion0(7,m)+RK_adv_coeff*tstep*(Tc*T_inverse)**dsda_power*da(m)
 
@@ -1135,7 +1135,7 @@ subroutine pushion_RK4(irk_i)
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0(6,m)=',zion0(6,m),', now_w=', now_w, ', wdot=',wdot
          call flush(stdout)
-      endif 
+      endif
 
 
 
@@ -1147,7 +1147,7 @@ subroutine pushion_RK4(irk_i)
       zion(3,m)=modulo(zion(3,m),twopi)
 
       ! store GC information for flux measurements
-      wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
+      wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
       wpi(2,m)=energy    ! =(v_para-u//)^2/2+v_perp^2/2
       wpi(3,m)=muB       ! =v_perp^2/2, need for calculate distribution function in get_fluxes
 
@@ -1175,7 +1175,7 @@ subroutine pushion_RK4(irk_i)
             zion(1,m)=zion0(1,m)
             zion(2,m)=2.0_wp*pi-zion0(2,m)
             zion(3,m)=zion0(3,m)
-            zion(4,m)=zion0(4,m) 
+            zion(4,m)=zion0(4,m)
             zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
             zion(7,m)=zion0(7,m)
          endif
@@ -1204,8 +1204,8 @@ subroutine pushion_RK4(irk_i)
       do m=1,mi
          r=zion0(7,m)         ! old radial location
          ip=max(0,min(mpsi,int((r-s0)*delr+0.5_wp)))    ! ip [0,mpsi]
-         vdrenergy=wpi(1,m)*(wpi(2,m)-2.5*vth_grid(ip)**2)*zion0(5,m) 
-         ! note: wpi(1,m)=dr/dt (EXB part) 
+         vdrenergy=wpi(1,m)*(wpi(2,m)-2.5*vth_grid(ip)**2)*zion0(5,m)
+         ! note: wpi(1,m)=dr/dt (EXB part)
 
          ! radial location in diagnostic bin
          i=max(1,min(mflux,1+int((r-s0)*real(mflux)/(s1-s0))))
@@ -1218,7 +1218,7 @@ subroutine pushion_RK4(irk_i)
          entropyi=entropyi+zion0(5,m)*zion0(5,m)
       enddo
 
-      if(ZF_SEPARATION==0) then   
+      if(ZF_SEPARATION==0) then
          !     note: zonal flow component <phi> and phip00=d<phi>/da are calculated in field.f90
          adum=0.0_wp
          adum_00=0.0_wp
@@ -1226,7 +1226,7 @@ subroutine pushion_RK4(irk_i)
          adum_tot=0.0_wp
 
          !$omp parallel private(i,j,ij,E_a,E_t,E_f) reduction(+:adum,adum_00,adum_tur,adum_tot)
-         ! Note from OMP compiler: A variable in the REDUCTION clause or any component or element thereof must not have the POINTER 
+         ! Note from OMP compiler: A variable in the REDUCTION clause or any component or element thereof must not have the POINTER
          ! attribute; nor be a pointee, an allocatable object, an assumed-size array, or a THREADLOCAL common block variable.
          !$omp do
          do i=0,mpsi
@@ -1261,7 +1261,7 @@ subroutine pushion_RK4(irk_i)
          adum_tot=0.0_wp
          adum_11=0.0_wp
 
-         ! DEBUG 
+         ! DEBUG
          !        if(mype==100) print*, 'Dirichlet2', phi(1,igrid(0)), phi(1,igrid(0)+mtheta(0)/2),phi(1,igrid(0)+mtheta(0)-1), &
          !                               phi(1,igrid(mpsi)), phi(1,igrid(mpsi)+mtheta(mpsi)/2),phi(1,igrid(mpsi)+mtheta(mpsi)-1)
 
@@ -1346,7 +1346,7 @@ subroutine ion_locator_at_larmor_points
    integer inner_ip,outter_ip, inner_jt, outter_jt
    real(wp) gyro_phase, intpl_pgyro(larmor_num), intpl_tgyro(larmor_num)
 
-   delr=1.0_wp/deltar 
+   delr=1.0_wp/deltar
    delt=2.0_wp*pi/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
@@ -1359,7 +1359,7 @@ subroutine ion_locator_at_larmor_points
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
    do m=1,mi
-      !psitmp=zion(1,m)   ! =a  
+      !psitmp=zion(1,m)   ! =a
       psitmp=zion(7,m)   ! =s
       thetatmp=zion(2,m)
       zetatmp=zion(3,m)
@@ -1368,7 +1368,7 @@ subroutine ion_locator_at_larmor_points
       r=psitmp
       ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
       !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
-      thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane 
+      thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane
       thedum=thedum*pi2_inv+100.0_wp
       thedum=2.0_wp*pi*(thedum-aint(thedum))       ! bring back to range [0,2pi]
       jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))
@@ -1380,7 +1380,7 @@ subroutine ion_locator_at_larmor_points
       ! MGYOO (10/24/2018) : to store information of GC position.
       ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
       inner_ip = max(0,min(mpsi-1,int((r-s0)*delr)))
-      thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane 
+      thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane
       thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
       inner_jt = int(thedum)
       wtion0(0,m) = thedum - int(thedum)
@@ -1388,7 +1388,7 @@ subroutine ion_locator_at_larmor_points
       wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
 
       outter_ip = inner_ip+1
-      thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane 
+      thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane
       thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
       outter_jt = int(thedum)
       wtion1(0,m) = thedum - int(thedum)
@@ -1397,7 +1397,7 @@ subroutine ion_locator_at_larmor_points
 
 
       !==========================================
-      ! MGYOO (10/25/2018) : to get linear-interpolation of pgyro and tgyro      
+      ! MGYOO (10/25/2018) : to get linear-interpolation of pgyro and tgyro
       wp0 = 1.0_wp - wpion(0,m)
       wp1 = wpion(0,m)
 

@@ -43,7 +43,7 @@ subroutine get_Te_fluctuation(wpi2)
       if (zeon0(5,m)<min_thold_weight .or. zeon0(5,m)>max_thold_weight) cycle
 
       wz1=weight*wzeon(m)
-      wz0=weight-wz1     
+      wz0=weight-wz1
 
       wp1=wpeon(m)
       wp0=1.0-wp1
@@ -96,7 +96,7 @@ subroutine get_Te_fluctuation(wpi2)
 #ifdef _OPENMP
    ! For OpenMP, we now write the results accumulated in each thread-private
    ! array dnitmp() back into the shared array buff(). The loop is enclosed
-   ! in a critical section so that one thread at a time updates buff(). 
+   ! in a critical section so that one thread at a time updates buff().
    !$omp critical
    do ij=1,mgrid
       buff(0,ij) = buff(0,ij) + dnitmp(0,ij)
@@ -122,7 +122,7 @@ subroutine get_Te_fluctuation(wpi2)
    ! poloidal end cell
    do i=0,mpsi
       buff(:,igrid(i)+mtheta(i))=buff(:,igrid(i)+mtheta(i))+buff(:,igrid(i))
-      buff(:,igrid(i))=buff(:,igrid(i)+mtheta(i))  
+      buff(:,igrid(i))=buff(:,igrid(i)+mtheta(i))
    enddo
 
    ! toroidal end cell
@@ -161,7 +161,7 @@ subroutine get_Te_fluctuation(wpi2)
    ! !==============================================================================
    ! ! MGYOO (01/09/2019)
    ! ! Convert buff to get a correct form of dTe by considering dne.
-   ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+   ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol
    ! ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
    ! do i=0,mpsi
    !   do j=0,mtheta(i)
@@ -174,29 +174,29 @@ subroutine get_Te_fluctuation(wpi2)
 
    !====================================================
    ! MGYOO (11/27/2018) : implementation of zonal and non-zonal terms
-   ! zonal_dTe is the zonal component of delta_Te   
+   ! zonal_dTe is the zonal component of delta_Te
    !====================================================
-   mype_zonal_dTe = 0.0    
+   mype_zonal_dTe = 0.0
    do i=0,mpsi
       do j=1,mtheta(i) ! j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
          ij=igrid(i)+j
-         mype_zonal_dTe(i) = mype_zonal_dTe(i) + dtemper(ij)*buff(1,ij) ! 
-      enddo    
+         mype_zonal_dTe(i) = mype_zonal_dTe(i) + dtemper(ij)*buff(1,ij) !
+      enddo
    enddo
 
    call MPI_ALLREDUCE(mype_zonal_dTe, zonal_dTe, mpsi+1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
    zonal_dTe = zonal_dTe/jaco_sum
 
    !====================================================================
-   ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component 
+   ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component
    ! This FLA might be important in the case of external magnetic perturbation
-   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
       call Do_FieldLineAverage_by_using_gPPI(buff, FLA_dTe)
    endif
-   !=================================================================== 
+   !===================================================================
 
    ! IF ZE_SEPARATION=0: heatflux is (1/Te0)*(full delta_Te (zonal+non-zonal)): i.e. heatflux = (delta_Te)/Te0
-   ! IF ZE_SEPARATION=1: heatflux is now calculated from non-zonal delta_Te : i.e. heatflux = (delta_Te-zonal_dTe)/Te0  
+   ! IF ZE_SEPARATION=1: heatflux is now calculated from non-zonal delta_Te : i.e. heatflux = (delta_Te-zonal_dTe)/Te0
    do j=0,mpsi
       rdum=1.0/Te_grid(j)         ! = 1/Te_0 with Te_0 normalized with same unit as Ti
       !$omp parallel do private(i,ij)
@@ -208,9 +208,9 @@ subroutine get_Te_fluctuation(wpi2)
          ! if( abs(buff(1,ij))<1e-4 ) then
          !   write(stdout,*) 'get_Te2, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'buff(:,ij)=',buff(:,ij)
          !   call flush(stdout)
-         ! endif  
+         ! endif
       end do
-      buff(1,igrid(j))=buff(1,igrid(j)+mtheta(j))  
+      buff(1,igrid(j))=buff(1,igrid(j)+mtheta(j))
    enddo
 
    heatflux(1:mgrid)= buff(1,1:mgrid)   ! use heatflux(1:mgrid) to store Te fluctuations and write to output DENs at SNAPSHOT

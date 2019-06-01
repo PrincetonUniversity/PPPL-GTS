@@ -23,7 +23,7 @@ subroutine current_ion
    !  **************************************************************
    !  calculate ion particle flux
 
-   ! ion locations [wzion, wpion, wtion0, jtion0, wtion1, jtion1] are calculated in CHARGE_ION 
+   ! ion locations [wzion, wpion, wtion0, jtion0, wtion1, jtion1] are calculated in CHARGE_ION
 
    pflux_i=0.0_wp
 
@@ -74,11 +74,11 @@ subroutine current_ion
 
    enddo
 
-   !    prepare equilibrium Er=dPhi/da at particles 
+   !    prepare equilibrium Er=dPhi/da at particles
    dela=1.0_wp/Ydr
    !$omp parallel do private(m,r,ip,fip)
    do m=1,mi
-      r=zion(1,m)-a0      
+      r=zion(1,m)-a0
       r=r*dela
       ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
       fip=r-real(ip,wp)
@@ -87,9 +87,9 @@ subroutine current_ion
 
    m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)  ! should use nonlinear=1.0 here for linear run? --> calculate current
 
-   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt; 
-   !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     wpi(3,:)=dphi/dzeta, NO CHANGE; 
-   !             BB(:)=B;           no change for zion(1,2,4,:), wpi(1,2,:) 
+   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;
+   !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     wpi(3,:)=dphi/dzeta, NO CHANGE;
+   !             BB(:)=B;           no change for zion(1,2,4,:), wpi(1,2,:)
    !             gha(:)=1/|grad a|
 
    do i=1,3  ! corresponding to a, theta, zeta; using do-loop to save memory

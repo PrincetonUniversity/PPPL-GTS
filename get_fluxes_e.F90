@@ -57,7 +57,7 @@ subroutine get_fluxes_e(wpi)
    !$omp parallel private(m,r,yy,kc,j1,j2,part,upara,upara0,energy) reduction(+:ONE_me,my_eon)
    !$omp do
    do m=1,me
-      r=zeon0(1,m)        
+      r=zeon0(1,m)
       yy=(r-a0)/da_size
       kc=int(yy+0.5_wp)            !{0,nbin_a}
       kc=min(nbin_a,max(0,kc))      !{0,nbin_a}
@@ -229,7 +229,7 @@ subroutine get_fluxes_e(wpi)
    enddo
    !$omp end parallel
 
-   ONE_me(9,:)=ONE_me(9,:)/for_rho      ! using normalized v_para/B <-- rho_para in momentum momentum flux 
+   ONE_me(9,:)=ONE_me(9,:)/for_rho      ! using normalized v_para/B <-- rho_para in momentum momentum flux
    ONE_me(10,:)=ONE_me(10,:)/for_rho
 
    call MPI_Reduce(ONE_me,TOTAL_pe,(nn-2)*nbin_a,mpi_Rsize,MPI_SUM,0,MPI_COMM_WORLD,ierr)
@@ -331,7 +331,7 @@ subroutine get_fluxes_e(wpi)
    !$omp end parallel
 
    call MPI_Reduce(ONE_me_g,TOTAL_pe_g,4*(mpsi+1),MPI_REAL8,MPI_SUM,numberpe-3,MPI_COMM_WORLD,ierr)
-   if(mype==numberpe-3) then 
+   if(mype==numberpe-3) then
       ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_Te>
 
       TOTAL_pe_g(1,0:mpsi)=TOTAL_pe_g(1,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)

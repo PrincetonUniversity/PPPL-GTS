@@ -63,7 +63,7 @@ FUNCTION FUN1(ndim,xy)
    FUN1=jacobian(xy(1),xy(2))*density(xy(1),xy(2))
 
    RETURN
-end function FUN1 
+end function FUN1
 
 
 
@@ -91,7 +91,7 @@ end function FUN2
 FUNCTION FUN_J(ndim,xy)
    use precision
    !
-   !      FUN_J=Jacobian for 2D integral 
+   !      FUN_J=Jacobian for 2D integral
    !
 
    implicit  none
@@ -146,7 +146,7 @@ end function reducedjacobian
 
 
 FUNCTION fun_zero(thedum)
-   use precision      
+   use precision
    implicit  none
    real(wp) fun_zero
    real(wp) adum,thedum,acc,eps,the_0,term_2,D01AHF
@@ -156,7 +156,7 @@ FUNCTION fun_zero(thedum)
 
    eps=1.0e-5_wp
    IFAIL=1
-   fun_zero=D01AHF(the_0,thedum,eps,minpts,acc,reducedjacobian,-1,IFAIL)*  & 
+   fun_zero=D01AHF(the_0,thedum,eps,minpts,acc,reducedjacobian,-1,IFAIL)*  &
       term_2-1.0_wp
    RETURN
 end function fun_zero
@@ -278,14 +278,14 @@ FUNCTION surface_average(adum)
    surface_average=jA_average/j_average
 
    RETURN
-end function surface_average 
+end function surface_average
 
 
 
-FUNCTION density_vary(thedum) 
+FUNCTION density_vary(thedum)
    use precision
 
-   !  provide function    density_vary(aa,theta)=Jacobian*exp(u^2/v_th^2) 
+   !  provide function    density_vary(aa,theta)=Jacobian*exp(u^2/v_th^2)
 
    implicit  none
    real(wp) density_vary
@@ -306,7 +306,7 @@ end function density_vary
 FUNCTION object_1(thedum)
    use precision
 
-   !  provide function  J*(grad_a)^2 
+   !  provide function  J*(grad_a)^2
 
    use esi_interface
 
@@ -895,10 +895,10 @@ FUNCTION density(adum,thedum)
          r=r*dela
          ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
          fip=r-real(ip,wp)
-         tmp=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
+         tmp=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
          tmp2=n_0*exp(kappan*tmp)      ! ne
          density=tmp2
-         !cj            density=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
+         !cj            density=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
          !cj            density=n_0*exp(kappan*density)      ! ne
       end if
 
@@ -938,7 +938,7 @@ FUNCTION dn_da(adum,thedum)
          r=r*dela
          ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
          fip=r-real(ip,wp)
-         densi=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     
+         densi=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
          densi=n_0*exp(kappan*densi)     ! ne
          x=temconst*(adum-rc)
          !cj            dn_da=kappan*exp(-x**edensity0) ! dlnn/da
@@ -1020,7 +1020,7 @@ FUNCTION temperature_e(adum,thedum)
       call ezspline_interp(spTe,adum,temperature_e,ier)
 
    else               ! use model Te(r) profile
-      if(q2.gt.0.0) then 
+      if(q2.gt.0.0) then
          tmp=T_e0*(At_e+Bt_e*exp(-dTeme*adum**xt_e)) ! model Te profil, the same as Ti
          tmp2=Tc_e*(tmp/Tc_e)**b0
 
@@ -1032,11 +1032,11 @@ FUNCTION temperature_e(adum,thedum)
          r=r*dela
          ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
          fip=r-real(ip,wp)
-         tmp=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     
+         tmp=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)
          tmp2=T_e0*exp(flow1*tmp)    ! =Te
 
          temperature_e=tmp2
-         !cj           temperature_e=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)     
+         !cj           temperature_e=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)
          !cj           temperature_e=T_e0*exp(flow1*temperature_e)    ! =Te
       end if
    end if
@@ -1064,7 +1064,7 @@ subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_
       out_grad_ga = 0
       out_partial_dga0dt = 0
       do k=1,num_of_EMP
-         MP_phase = EMP(k)%gan*in_zeta- EMP(k)%gam*in_theta - EMP(k)%gagw*in_time + EMP(k)%gagf0           
+         MP_phase = EMP(k)%gan*in_zeta- EMP(k)%gam*in_theta - EMP(k)%gagw*in_time + EMP(k)%gagf0
          ga_amplitude = (in_a/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
 
          out_ga = out_ga + ga_amplitude* cos(MP_phase);
@@ -1074,7 +1074,7 @@ subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_
          out_grad_ga(3) = out_grad_ga(3) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
          out_partial_dga0dt = out_partial_dga0dt + EMP(k)%dga0dt*(in_a/EMP(k)%ga_rc)*exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
       enddo
-   endif 
+   endif
 
 end subroutine Get_MP_alpha_amplitude
 
@@ -1209,14 +1209,14 @@ FUNCTION domega_da(adum,thedum,omega_t)
 
    else               ! use model omega_t(r) profile
       if(q2.gt.0.0) then  ! model profile I
-         domega_da=u_0*Bu*exp(-du*adum**xu)*(-du*xu*adum**(xu-1.0_wp)) 
+         domega_da=u_0*Bu*exp(-du*adum**xu)*(-du*xu*adum**(xu-1.0_wp))
          omega_t=u_0*(Au+Bu*exp(-du*adum**xu))
       else                ! model profile II
          r=adum-a0
          r=r*dela
          ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
          fip=r-real(ip,wp)
-         tempe=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)     
+         tempe=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)
          omega_t=u_0+Au*tempe         ! omega_t
          x=Bu*(adum-rc)
          domega_da=Au*exp(-ABS(x)**xu)
@@ -1268,7 +1268,7 @@ FUNCTION u_parallel(adum,thedum)
          tempe=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)
          !cj            u_parallel=u_0+Au*tempe                   ! this is omega_t
          tmp=u_0+Au*tempe                   ! this is omega_t
-      end if 
+      end if
    end if
 
    call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zz,zaj,zqj,Bj,aaa,the,1)
@@ -1287,7 +1287,7 @@ subroutine n_T_u_group
    !
    !      Note: output includes backu=omega_t and duda=d(omega_t)/da;
    !            then u_//=I*backu/B
-   !      To calculate u_// ~ 1/B and so on, esiget2dfunctions or others should be called to get B, I 
+   !      To calculate u_// ~ 1/B and so on, esiget2dfunctions or others should be called to get B, I
    !
    !   model profiles
    !      ni=n_0*(An+Bn*exp(-dn*(a)**xn))  !flux surface averaged ni profile
@@ -1311,7 +1311,7 @@ subroutine n_T_u_group
    dela=1.0_wp/dela
 
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
-      if(linterp_from_nodes==1) then 
+      if(linterp_from_nodes==1) then
 
          !$omp parallel do private(i,r,ip,fip)
          do i=1,mi
@@ -1331,7 +1331,7 @@ subroutine n_T_u_group
             ! A=exp(u^2/2T)
          enddo
 
-      else              ! use spline 
+      else              ! use spline
          call ezspline_interp(spn,mi,zion(1,:),backn,ier)
          call ezspline_interp(spTi,mi,zion(1,:),backT,ier)
          call ezspline_interp(spO,mi,zion(1,:),backu,ier)
@@ -1367,7 +1367,7 @@ subroutine n_T_u_group
 
             dlnnda(i)=backn(i)*(-dn*xn*zion(1,i)**(xn-1.0_wp))       !=dn/da
             dlnTda(i)=backT(i)*(-dTemi*xt*zion(1,i)**(xt-1.0_wp))    !=dT/da
-            duda(i)  =backu(i)*(-du*xu*zion(1,i)**(xu-1.0_wp))       !=d[omega_t(a)]/da 
+            duda(i)  =backu(i)*(-du*xu*zion(1,i)**(xu-1.0_wp))       !=d[omega_t(a)]/da
 
             backn(i)=n_0*An+backn(i)
             backT(i)=T_0*At+backT(i)
@@ -1396,7 +1396,7 @@ subroutine n_T_u_group
             fip=r-real(ip,wp)
             gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
 
-            tempi=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     
+            tempi=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)
             backT(i)=T_0*exp(q1*tempi)                              ! Ti at particles
 
             tempi=rw*(zion(1,i)-rc)
@@ -1408,7 +1408,7 @@ subroutine n_T_u_group
             tempi=temconst*(zion(1,i)-rc)
             dlnnda(i)=kappan*exp(-ABS(tempi)**edensity0)                     ! =dlnn/da
 
-            tempi=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)     
+            tempi=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)
             backu(i)=u_0+Au*tempi                                   ! this is omega_t; then u_//=I*backu/B
 
             tempi=Bu*(zion(1,i)-rc)
@@ -1418,7 +1418,7 @@ subroutine n_T_u_group
    end if
 
    !     neglect rotation
-   !       backu=0.0    
+   !       backu=0.0
    !       duda=0.0
 
 end subroutine n_T_u_group
@@ -1428,7 +1428,7 @@ subroutine n_T_u_group_e
    !
    ! get n,Te,ue for electrons
    !
-   !      esiget2dfunctions or others should be called first to get B for this subroutine, 
+   !      esiget2dfunctions or others should be called first to get B for this subroutine,
    !      which is needed to calculate u_// ~ 1/B
    !   model profiles
    !      ne=n_0*(An+Bn*exp(-dn*(a)**xn))  !flux surface averaged ni profile
@@ -1558,7 +1558,7 @@ subroutine Cumulate_Some_Variables_for_Measure
    cum_zonale_SQ = cum_zonale_SQ +zonale**2.0
 
 
-   do i=0,mpsi    
+   do i=0,mpsi
       do j=0,mtheta(i)
          ij=igrid(i)+j
 
@@ -1585,8 +1585,8 @@ subroutine Cumulate_Some_Variables_for_Measure
       cum_zonal_dTi     = cum_zonal_dTi   +zonal_dTi
       cum_zonal_dTi_SQ  = cum_zonal_dTi_SQ+zonal_dTi**2.0
 
-      do i=0,mpsi    
-         do j=0,mtheta(i)   
+      do i=0,mpsi
+         do j=0,mtheta(i)
             ij=igrid(i)+j
 
             full_dTe = Te_grid(i)*heatflux(ij) +(ZF_SEPARATION)*zonal_dTe(i)
@@ -1653,7 +1653,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
    real(wp) ini_a, ini_gq, ini_gf
    real(wp) now_a, now_gq, now_gf, specific_time
    real(wp) prev_a, prev_gq, prev_gf
-   integer :: maximum_tor_rotation 
+   integer :: maximum_tor_rotation
    integer tor_dir, aid, num_a, gqid, num_gq, PPI_id
    real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
    type(Poincare_Point_Information), dimension(:,:,:), allocatable:: PPI
@@ -1687,8 +1687,8 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
          aaa=ini_a
          the=ini_gq
          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-         !PPI(:, gqid, aid)%Jacobian = rj*(zaj*rqj-zqj*raj); ! Jacobian at initial position. 
-         PPI(:, gqid, aid)%Label = (aid-1)*num_gq + (gqid-1)    
+         !PPI(:, gqid, aid)%Jacobian = rj*(zaj*rqj-zqj*raj); ! Jacobian at initial position.
+         PPI(:, gqid, aid)%Label = (aid-1)*num_gq + (gqid-1)
 
          PPI_id = 0
 
@@ -1697,7 +1697,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
 
             now_a = ini_a
             now_gq = ini_gq
-            now_gf = ini_gf     
+            now_gf = ini_gf
 
             prev_a = now_a
             prev_gq = now_gq
@@ -1706,7 +1706,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
             do while(.true.)
 
                ! When B-line-integrated point just passed gf=zetamax poloidal plane.
-               if( floor((now_gf-zetamax)/(2.0*pi)) /= floor((prev_gf-zetamax)/(2.0*pi)) ) then 
+               if( floor((now_gf-zetamax)/(2.0*pi)) /= floor((prev_gf-zetamax)/(2.0*pi)) ) then
                   PPI_id = PPI_id + 1
 
                   !intp_weight = modulo(abs(now_gf), 2.0*pi) / dgf
@@ -1717,14 +1717,14 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
                   PPI(PPI_id, gqid, aid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
                   PPI(PPI_id, gqid, aid)%target_normalized_gf = zetamax
 
-                  call Convert_a_to_s(PPI(PPI_id, gqid, aid)%a, PPI(PPI_id, gqid, aid)%s)                    
+                  call Convert_a_to_s(PPI(PPI_id, gqid, aid)%a, PPI(PPI_id, gqid, aid)%s)
 
                   !call esigetrzb(PPI(PPI_id, gqid, aid)%R, PPI(PPI_id, gqid, aid)%Z, dummy_real, PPI(PPI_id, gqid, aid)%a, modulo(PPI(PPI_id, gqid, aid)%gq, 2*pi), 1)
 
                   aaa=PPI(PPI_id, gqid, aid)%a
                   the=modulo(PPI(PPI_id, gqid, aid)%gq, 2.0*pi)
                   call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-                  PPI(PPI_id, gqid, aid)%inv_B = 1.0/Bj; ! Jacobian at initial position. 
+                  PPI(PPI_id, gqid, aid)%inv_B = 1.0/Bj; ! Jacobian at initial position.
                   !PPI(PPI_id, gqid, aid)%inv_B = 1.0;
                   PPI(PPI_id, gqid, aid)%R = rj
                   PPI(PPI_id, gqid, aid)%Z = zj
@@ -1737,7 +1737,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
                endif
 
                if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or. PPI_id>= 2*maximum_tor_rotation) then
-                  exit      
+                  exit
                endif
 
                prev_a = now_a
@@ -1760,11 +1760,11 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
 
                now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
                now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
-               now_gf = now_gf + dgf                
+               now_gf = now_gf + dgf
 
             end do
          end do
-      end do 
+      end do
    end do
 
    call cpu_time(t_finish)
@@ -1776,7 +1776,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
    open(181125,file=chdum,status='replace',action='write')
    do aid=1,num_a
       do gqid = 1, num_gq
-         do PPI_id=1,2*maximum_tor_rotation                
+         do PPI_id=1,2*maximum_tor_rotation
             write(181125, "(I4,1x,10(ES16.8,1x))") PPI(PPI_id,gqid,aid)
          enddo
       enddo
@@ -1813,7 +1813,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
    integer target_mode_m, target_mode_n
    !real(wp) :: target_safety_q(9) = (/0.5,0.75,1.0,1.3333,1.5,1.6666,2.0,2.5,3.0/)
    real(wp) target_safety_q(200)! Arrange enough initial length for target_safety_q. Later, effective num_of_target_saftegy_q will be calculated.
-   integer num_of_target_safety_q 
+   integer num_of_target_safety_q
    integer sampling_num_at_each_rational_q, i,j
    integer MaxNum_of_gPPI_for_every_FieldLines
    real(wp) Find_a_at_specific_safety_q
@@ -1916,7 +1916,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
 
    !Find ini_a_arr and ini_gq_arr at rational q surface and sobol_rand position
    Fid = 1
-   do i = 1, num_of_target_safety_q    
+   do i = 1, num_of_target_safety_q
       ini_a = Find_a_at_specific_safety_q(target_safety_q(i))
       if(ini_a>0) then
          ! At exact target_safety_q
@@ -1939,7 +1939,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
             ini_gq_arr(Fid+j) = j*(2.0*pi/real(sampling_num_at_each_rational_q))
          enddo
          Fid = Fid + sampling_num_at_each_rational_q
-      endif      
+      endif
    enddo
 
 
@@ -1965,7 +1965,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
       ! ini_gq = 2.0*pi*sobol_rand_2d(2)
       ! call random_number(tmp_rand)
       ! ini_a = a0 + (a1-a0)*tmp_rand
-      ! call random_number(tmp_rand)        
+      ! call random_number(tmp_rand)
       ! ini_gq = 2.0*pi*tmp_rand
       ini_a = ini_a_arr(Fid)
       ini_gq = ini_gq_arr(Fid)
@@ -1975,8 +1975,8 @@ subroutine Construct_gPPI_for_FieldLineAverage
       aaa=ini_a
       the=ini_gq
       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-      !gPPI(:, Fid)%Jacobian = rj*(zaj*rqj-zqj*raj); ! Jacobian at initial position. 
-      gPPI(:, Fid)%Label = Fid  
+      !gPPI(:, Fid)%Jacobian = rj*(zaj*rqj-zqj*raj); ! Jacobian at initial position.
+      gPPI(:, Fid)%Label = Fid
 
       PPI_id = 0
 
@@ -2005,10 +2005,10 @@ subroutine Construct_gPPI_for_FieldLineAverage
             !endif
 
             if(record_flag) then
-               !if( floor((now_gf-zetamax)/(2.0*pi)) /= floor((prev_gf-zetamax)/(2.0*pi)) ) then 
+               !if( floor((now_gf-zetamax)/(2.0*pi)) /= floor((prev_gf-zetamax)/(2.0*pi)) ) then
                PPI_id = PPI_id + 1
 
-               gPPI(PPI_id, Fid)%Label = Fid          
+               gPPI(PPI_id, Fid)%Label = Fid
                !intp_weight = modulo(abs(now_gf), 2.0*pi) / dgf
                !intp_weight = abs(min(modulo((now_gf-zetamax), 2.0*pi), 2.0*pi - modulo((now_gf-zetamax), 2.0*pi))/dgf) ! interpolation weight for previous point
                intp_weight = abs(min(modulo((now_gf-target_zeta(tz_id)), 2.0*pi), 2.0*pi - modulo((now_gf-target_zeta(tz_id)), 2.0*pi))/dgf) ! interpolation weight for previous point
@@ -2018,15 +2018,15 @@ subroutine Construct_gPPI_for_FieldLineAverage
                gPPI(PPI_id, Fid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
                gPPI(PPI_id, Fid)%target_normalized_gf = target_zeta(tz_id)
 
-               call Convert_a_to_s(gPPI(PPI_id, Fid)%a, gPPI(PPI_id, Fid)%s)                    
+               call Convert_a_to_s(gPPI(PPI_id, Fid)%a, gPPI(PPI_id, Fid)%s)
 
                !call esigetrzb(gPPI(PPI_id, Fid)%R, gPPI(PPI_id, Fid)%Z, dummy_real, gPPI(PPI_id, Fid)%a, modulo(gPPI(PPI_id, Fid)%gq, 2*pi), 1)
 
                aaa=gPPI(PPI_id, Fid)%a
                the=modulo(gPPI(PPI_id, Fid)%gq, 2.0*pi)
                call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-               gPPI(PPI_id, Fid)%inv_B = 1.0/Bj; ! Jacobian at initial position. 
-               !gPPI(PPI_id, Fid)%inv_B = 1.0; ! Jacobian at initial position. 
+               gPPI(PPI_id, Fid)%inv_B = 1.0/Bj; ! Jacobian at initial position.
+               !gPPI(PPI_id, Fid)%inv_B = 1.0; ! Jacobian at initial position.
                gPPI(PPI_id, Fid)%R = rj
                gPPI(PPI_id, Fid)%Z = zj
 
@@ -2038,7 +2038,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
             endif
 
             if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or.  PPI_id>=MaxNum_of_gPPI_for_every_FieldLines) then
-               exit      
+               exit
             endif
 
             prev_a = now_a
@@ -2061,12 +2061,12 @@ subroutine Construct_gPPI_for_FieldLineAverage
 
             now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
             now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
-            now_gf = now_gf + dgf                  
+            now_gf = now_gf + dgf
 
             if (now_a<a0 .or. now_a>a1) then
                exit
             endif
-         enddo            
+         enddo
       enddo
 
       num_of_gPPI_for_each_FieldLine(Fid) = PPI_id
@@ -2089,7 +2089,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
    call system("mkdir -p " // 'VacFieldAnalysis')
    write(chdum,'("VacFieldAnalysis/gPPI_",i5.5,".dat")') myrank_toroidal
    open(181202,file=chdum,status='replace',action='write')
-   do Fid = 1, num_of_SampledFieldLines   
+   do Fid = 1, num_of_SampledFieldLines
       do PPI_id =1,num_of_gPPI_for_each_FieldLine(Fid)
          write(181202, "(I4,1x,10(ES16.8,1x))") gPPI(PPI_id,Fid)
       enddo
@@ -2119,12 +2119,12 @@ function Find_a_at_specific_safety_q(target_safety_q) result(out_a)
       prev_q = q_grid(aid-1)
       this_q = q_grid(aid)
 
-      if ( (prev_q-target_safety_q)*(this_q-target_safety_q) < 0 ) then 
+      if ( (prev_q-target_safety_q)*(this_q-target_safety_q) < 0 ) then
          ! Take linear interpolation to find solution
          prev_a = psi_grid(aid-1)
-         this_a = psi_grid(aid)         
-         out_a = prev_a + ((this_a-prev_a)/(this_q-prev_q))*(target_safety_q-prev_q) 
-         return      
+         this_a = psi_grid(aid)
+         out_a = prev_a + ((this_a-prev_a)/(this_q-prev_q))*(target_safety_q-prev_q)
+         return
       endif
    enddo
 
@@ -2144,7 +2144,7 @@ subroutine Cal_FLA_Denominator_using_gPPI
 
    implicit none
 
-   real(wp) each_FLA_denominator(num_of_SampledFieldLines), test_FLA_val(num_of_SampledFieldLines) ! FLA=Field Line Average  
+   real(wp) each_FLA_denominator(num_of_SampledFieldLines), test_FLA_val(num_of_SampledFieldLines) ! FLA=Field Line Average
    real(wp) this_a, this_gq, this_s, this_gf, sdum, gqdum,inv_ds, inv_dgq(0:mpsi), inv_gf
    real(wp) ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
    real(wp) tmp_weight
@@ -2176,18 +2176,18 @@ subroutine Cal_FLA_Denominator_using_gPPI
 
          this_s = gPPI(Pid,Fid)%s
          this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
-         !this_gf = modulo(gPPI(Pid,Fid)%gf, 2.0*pi) 
+         !this_gf = modulo(gPPI(Pid,Fid)%gf, 2.0*pi)
          this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
          sdum = (this_s-s0)*inv_ds
-         inner_sid = int(sdum) 
+         inner_sid = int(sdum)
          ws1  = sdum - inner_sid
          ws0  = 1.0 - ws1
          gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
          inner_gqid = int(gqdum)
          wgq01 = gqdum - inner_gqid
          wgq00 = 1.0 - wgq01
-         inner_ij = igrid(inner_sid) + inner_gqid    
+         inner_ij = igrid(inner_sid) + inner_gqid
 
          outter_sid = inner_sid+1
          gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
@@ -2220,7 +2220,7 @@ subroutine Cal_FLA_Denominator_using_gPPI
 
 
    call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-   each_FLA_denominator = recvr(1:num_of_SampledFieldLines)  
+   each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
    call MPI_ALLREDUCE(test_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
    test_FLA_val = recvr(1:num_of_SampledFieldLines)
 
@@ -2249,7 +2249,7 @@ subroutine Cal_FLA_Denominator_using_gPPI
    irecvtag=isource
    ! send densityi to left and receive from right
    call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
-      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)      
+      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
    if(myrank_toroidal == ntoroidal-1)then
       ! B.C. at zeta=2*pi is shifted
       do i=0,mpsi
@@ -2279,7 +2279,7 @@ subroutine Get_FLA_Te0_Ti0_n0
    real(wp) Te0_Data(0:1,mgrid), Ti0_Data(0:1,mgrid), n0_Data(0:1,mgrid), radial_psi(0:1, mgrid)
    integer i,j, ij
 
-   do i=0,mpsi   
+   do i=0,mpsi
       Te0_Data(:,igrid(i):igrid(i)+mtheta(i)) = Te_grid(i)
       Ti0_Data(:,igrid(i):igrid(i)+mtheta(i)) = vth_grid(i)**2
       n0_Data(:,igrid(i):igrid(i)+mtheta(i)) = den_grid(i)
@@ -2331,7 +2331,7 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
    inv_dgq = 1.0/deltat
    inv_gf = 1.0/deltaz
 
-   ! Get FieldLineAverages of Target_data 
+   ! Get FieldLineAverages of Target_data
    do Fid=1,num_of_SampledFieldLines
       each_FLA_val(Fid)=0
       each_FLA_denominator(Fid)=0
@@ -2350,14 +2350,14 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
          !sid = max(0, min(mpsi, int((this_s-s0)*inv_ds)))
          !gqid = max(0, min(mtheta(sid), int(gqdum*inv_dgq(sid))))
          sdum = (this_s-s0)*inv_ds
-         inner_sid = int(sdum) 
+         inner_sid = int(sdum)
          ws1  = sdum - inner_sid
          ws0  = 1.0 - ws1
-         gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.      
+         gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
          inner_gqid = int(gqdum)
          wgq01 = gqdum - inner_gqid
          wgq00 = 1.0 - wgq01
-         inner_ij = igrid(inner_sid) + inner_gqid    
+         inner_ij = igrid(inner_sid) + inner_gqid
 
          outter_sid = inner_sid+1
          gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
@@ -2380,7 +2380,7 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
       enddo
    enddo
 
-   ! Do Allreduce across toroidal_comm to get a sum of FLA 
+   ! Do Allreduce across toroidal_comm to get a sum of FLA
    call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
    each_FLA_val = recvr(1:num_of_SampledFieldLines)
    call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
@@ -2408,14 +2408,14 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
          !call Convert_a_to_s(this_a, this_s)
 
          sdum = (this_s-s0)*inv_ds
-         inner_sid = int(sdum) 
+         inner_sid = int(sdum)
          ws1  = sdum - inner_sid
          ws0  = 1.0 - ws1
          gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
          inner_gqid = int(gqdum)
          wgq01 = gqdum - inner_gqid
          wgq00 = 1.0 - wgq01
-         inner_ij = igrid(inner_sid) + inner_gqid    
+         inner_ij = igrid(inner_sid) + inner_gqid
 
          outter_sid = inner_sid+1
          gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
@@ -2460,7 +2460,7 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
    irecvtag=isource
    ! send densityi to left and receive from right
    call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
-      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)      
+      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
    if(myrank_toroidal == ntoroidal-1)then
       ! B.C. at zeta=2*pi is shifted
       do i=0,mpsi
@@ -2567,15 +2567,15 @@ subroutine find_unique_sorted_array_and_its_num_of_elements(a, first, last, num_
    call quicksort_real(a, first, last)
 
    i=first
-   j=i+1  
-   do while(i<last)    
-      do while(j<=last .and. a(j)==a(i))   
+   j=i+1
+   do while(i<last)
+      do while(j<=last .and. a(j)==a(i))
          j=j+1
-      enddo  
+      enddo
       if(j>last) exit
       if(j/=i+1) then
          a(i+1)=a(j)
-      endif 
+      endif
       i=i+1
    enddo
    num_of_unique_elements = i
@@ -2590,11 +2590,11 @@ subroutine Convert_a_to_s(in_a, out_s)
    integer ierr
 
    if (dsda_power == 0) then
-      out_s = s0 + (in_a-a0) !! 
+      out_s = s0 + (in_a-a0) !!
    else
       write(*,*) "Error! dsda_power is not 0!! Test case is only available when dsda_power=0"
-      STOP       
-   endif 
+      STOP
+   endif
 end subroutine Convert_a_to_s
 
 subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
@@ -2618,7 +2618,7 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
    integer SAMP_a_num, SAMP_gq_num, SAMP_gf_num ! number of sampling points for each dimension
    !real(wp), dimension(:,:), allocatable:: SAMP_X_vec_arr! (a, gq, gf) arr
 
-   real(wp) SAMP_da, SAMP_dgq, SAMP_dgf, SAMP_d3x 
+   real(wp) SAMP_da, SAMP_dgq, SAMP_dgf, SAMP_d3x
    integer SAMP_id, SAMP_NUM
    real(wp) dpsi, this_ds
 
@@ -2644,7 +2644,7 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
    SAMP_dgq = 2.0*pi/(SAMP_gq_num)
    SAMP_dgf = (zetamax-zetamin)/(SAMP_gf_num)
 
-   SAMP_d3x = ((a1-a0)*2.0*pi*(zetamax-zetamin))/real(SAMP_a_num*SAMP_gq_num*SAMP_gf_num) 
+   SAMP_d3x = ((a1-a0)*2.0*pi*(zetamax-zetamin))/real(SAMP_a_num*SAMP_gq_num*SAMP_gf_num)
 
 
    ! SAMP_NUM = 0
@@ -2680,14 +2680,14 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
             call Convert_a_to_s(this_a, this_s)
 
             sdum = (this_s-s0)*inv_ds
-            inner_sid = int(sdum) 
+            inner_sid = int(sdum)
             ws1  = sdum - inner_sid
             ws0  = 1.0 - ws1
             gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
             inner_gqid = int(gqdum)
             wgq01 = gqdum - inner_gqid
             wgq00 = 1.0 - wgq01
-            inner_ij = igrid(inner_sid) + inner_gqid    
+            inner_ij = igrid(inner_sid) + inner_gqid
 
             outter_sid = inner_sid+1
             gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
@@ -2730,14 +2730,14 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
    irecvtag=isource
    ! send densityi to left and receive from right
    call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
-      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)      
+      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
    if(myrank_toroidal == ntoroidal-1)then
       ! B.C. at zeta=2*pi is shifted
       do i=0,mpsi
          ii=igrid(i)
          jt=mtheta(i)
          Weighted_Vol(1,ii+1:ii+jt)=Weighted_Vol(1,ii+1:ii+jt)+ cshift(recvr(ii+1:ii+jt),itran(i))
-         Weighted_Vol(1,igrid(i))=Weighted_Vol(1,igrid(i)+mtheta(i))    
+         Weighted_Vol(1,igrid(i))=Weighted_Vol(1,igrid(i)+mtheta(i))
       enddo
    else
       ! B.C. at zeta<2*pi is continuous
@@ -2755,7 +2755,7 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
       open(181215,file=chdum,status='replace',action='write')
       do i=0,mpsi
          do j=0, mtheta(i)
-            ij=igrid(i) + j      
+            ij=igrid(i) + j
             if(i==0) then
                dpsi=(psi_grid(1)-psi_grid(0))*0.5_wp         ! half cell
                this_ds = 0.5*(1.0/inv_ds)
@@ -2794,7 +2794,7 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    real(wp),external :: jacobian
 
    integer i,j,k
-   character(len=64) chdum 
+   character(len=64) chdum
 
 
    real(wp) dpsi, this_ds
@@ -2845,7 +2845,7 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
 
 
    Weighted_Vol = 0
-   prev_Weighted_Vol = 0 
+   prev_Weighted_Vol = 0
    do while( iteration < max_iteration)
 
       call i8_sobol(sobol_dim_num, sobol_seed, sobol_rand_3d)
@@ -2856,14 +2856,14 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
       call Convert_a_to_s(this_a, this_s)
 
       sdum = (this_s-s0)*inv_ds
-      inner_sid = int(sdum) 
+      inner_sid = int(sdum)
       ws1  = sdum - inner_sid
       ws0  = 1.0 - ws1
       gqdum = inv_dgq(inner_sid)*modulo(this_gq - qtinv(inner_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
       inner_gqid = int(gqdum)
       wgq01 = gqdum - inner_gqid
       wgq00 = 1.0 - wgq01
-      inner_ij = igrid(inner_sid) + inner_gqid    
+      inner_ij = igrid(inner_sid) + inner_gqid
 
       outter_sid = inner_sid+1
       gqdum = inv_dgq(outter_sid)*modulo(this_gq - qtinv(outter_sid)*(this_gf), 2.0*pi) ! to consider initial gq at this poloidal plane.
@@ -2924,14 +2924,14 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    irecvtag=isource
    ! send densityi to left and receive from right
    call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
-      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)      
+      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
    if(myrank_toroidal == ntoroidal-1)then
       ! B.C. at zeta=2*pi is shifted
       do i=0,mpsi
          ii=igrid(i)
          jt=mtheta(i)
          Weighted_Vol(1,ii+1:ii+jt)=Weighted_Vol(1,ii+1:ii+jt)+ cshift(recvr(ii+1:ii+jt),itran(i))
-         Weighted_Vol(1,igrid(i))=Weighted_Vol(1,igrid(i)+mtheta(i))        
+         Weighted_Vol(1,igrid(i))=Weighted_Vol(1,igrid(i)+mtheta(i))
       enddo
    else
       ! B.C. at zeta<2*pi is continuous
@@ -2947,7 +2947,7 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
       open(181218,file=chdum,status='replace',action='write')
       do i=0,mpsi
          do j=0, mtheta(i)
-            ij=igrid(i) + j      
+            ij=igrid(i) + j
             if(i==0) then
                dpsi=(psi_grid(1)-psi_grid(0))*0.5_wp         ! half cell
                this_ds = 0.5*(1.0/inv_ds)
@@ -3036,8 +3036,8 @@ FUNCTION SMOOTHSTEP(xmin,xmax,x)
    use precision
    use global_parameters,only: pi
    !
-   !      SMOOTHSTEP generates a smooth step function using 
-   !      SMOOTHSTEP=1/2-cos(pi*x)/2 
+   !      SMOOTHSTEP generates a smooth step function using
+   !      SMOOTHSTEP=1/2-cos(pi*x)/2
    !      SMOOTHSTEP=0 if x<xmin; =1 if x>xmax; otherwise 0<SMOOTHSTEP<1
    !      with xmax > xmin
    !
@@ -3057,7 +3057,7 @@ end function SMOOTHSTEP
 FUNCTION FUN3(adum)
    use precision
    !
-   !    provide function FUN3=exp{-[(r-rc)/rw]**q0} for calculating A=int(FUN3*dr) 
+   !    provide function FUN3=exp{-[(r-rc)/rw]**q0} for calculating A=int(FUN3*dr)
    !
    use global_parameters, only: rc, rw, q0
 
@@ -3093,7 +3093,7 @@ end function FUN3e
 
 FUNCTION FUN3n(adum)
    use precision
-   !      
+   !
    !    density version of FUN3 for sepcifing ne
    !
    !    provide function FUN3n=exp{-[(r-rc)/temconst]**edensity0} for calculating A=int(FUN3n*dr)
@@ -3148,7 +3148,7 @@ FUNCTION gs(adum,thedum)
 
    real(wp), dimension(10) :: Fj,Faj,gFaj,gYaj,raj,rqj,zaj,zqj
 
-   integer ns, i 
+   integer ns, i
    real(wp)  Zs
 
    real(wp), external :: density

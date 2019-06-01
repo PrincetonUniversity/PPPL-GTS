@@ -28,7 +28,7 @@ subroutine snapshot
    !  real(wp),dimension(mzeta,0:mpsi,0:mthetamax) :: ftotal,tpara,tperp
 
    real(wp) intpl_dphi, intpl_dTe, intpl_dTi, intpl_dni, intpl_dne
-   real(wp) tmp_full_dphi(0:1,mgrid), dne_adiabatic(0:1,mgrid), intpl_dphi_NZ(0:1,mgrid), intp_val  
+   real(wp) tmp_full_dphi(0:1,mgrid), dne_adiabatic(0:1,mgrid), intpl_dphi_NZ(0:1,mgrid), intp_val
    integer gq_jump, a_jump
    character(len=32) cdum,date,time
 
@@ -50,12 +50,12 @@ subroutine snapshot
    jm=mtheta(ipsi)/gq_jump
 
    ! zion space grids: parallel velocity, kinetic energy, pitch angle
-   if(ifelectron==0) then 
+   if(ifelectron==0) then
       uright=umax/sqrt(aion)
    else
       uright=umax/sqrt(aelectron)
    end if
-   uleft=-uright  
+   uleft=-uright
    dela=real(mbin_psi)/(a1-a0)
    delu=1.0/(uright-uleft)
    Emax=umax*umax/4.0
@@ -79,20 +79,20 @@ subroutine snapshot
    dtem=0.0
 
    !====================================================================
-   ! MGYOO(01/09/2019) : To measure FLA(Field Line Average) component 
+   ! MGYOO(01/09/2019) : To measure FLA(Field Line Average) component
    ! This FLA might be important in the case of external magnetic perturbation
 
    do i=0,mpsi
       do j=0,mtheta(i)
          ij=igrid(i) + j
-         tmp_full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)  
+         tmp_full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)
          intpl_dphi_NZ(:,ij) = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-         dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ(:,ij)/Te_grid(i)       
+         dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ(:,ij)/Te_grid(i)
       enddo
    enddo
 
-   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
-      call Do_FieldLineAverage_by_using_gPPI(tmp_full_dphi, FLA_dphi)    
+   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
+      call Do_FieldLineAverage_by_using_gPPI(tmp_full_dphi, FLA_dphi)
       call Do_FieldLineAverage_by_using_gPPI(dne_adiabatic, FLA_ne_adiabatic)
    endif
    !=========================================================================
@@ -102,9 +102,9 @@ subroutine snapshot
       !     call esigetb(zion(1,:),zion(2,:),mi)   ! get B
       call esigetb(zion,mi,7)   ! get B-->BB
 
-      do m=1,mi 
+      do m=1,mi
          weight=zion0(6,m)
-         r=zion(1,m)        
+         r=zion(1,m)
          ibin=max(1,min(mbin_psi,1+int((r-a0)*dela)))
          ip=max(0,min(mpsi,int((zion(7,m)-s0)*delr+0.5)))
          ! zion(2,*) and zion(3,*) are within [0,2*pi)
@@ -151,12 +151,12 @@ subroutine snapshot
       !     call esigetb(zeon(1,:),zeon(2,:),me)   ! get B
       call esigetb(zeon,me,zeondim)   ! get B
 
-      do m=1,me 
+      do m=1,me
          weight=zeon0(6,m)
 
          r=zeon(1,m)       ! r=sqrt(2.0*zeon(1,m))
-         ibin=max(1,min(mbin_psi,1+int((r-a0)*dela))) 
-         ip=max(0,min(mpsi,int((r-a0)*delr+0.5))) 
+         ibin=max(1,min(mbin_psi,1+int((r-a0)*dela)))
+         ip=max(0,min(mpsi,int((r-a0)*delr+0.5)))
          jt=max(0,min(mtheta(ip),int(zeon(2,m)*inv_dgq(ip)+0.5)))
 
          upara=zeon(4,m)*BB(m)*qelectron/aelectron*g_inv
@@ -261,8 +261,8 @@ subroutine snapshot
 
          ! time step and grid dimension,write every other point in poloidal direction
          write(snapout,102) real(istep)*tstep, q_grid(ipsi)
-         write(snapout,101) mbin_u,mbin_psi,mpsi/a_jump,jm,mzetamax,mpsi/4   ! mpsi/2 specifies  
-         ! how many number of data are written out; don't confuse with ipsi! 
+         write(snapout,101) mbin_u,mbin_psi,mpsi/a_jump,jm,mzetamax,mpsi/4   ! mpsi/2 specifies
+         ! how many number of data are written out; don't confuse with ipsi!
          write(snapout,102)  1e3*Tem_00*(vth_grid(ipsi)**2), 1e3*Tem_00*Te_grid(ipsi) ! Ti and Te at reference position in eV unit
 
 
@@ -299,8 +299,8 @@ subroutine snapshot
          !     write(snapout,102)(phi00(i)/vthc**2,i=1,mpsi)
          do i=0,mpsi,a_jump
             r=psi_grid(i)       !   r=(a0+deltar*real(i))/a  ????
-            !        r=r_grid(i)        !   use this minor radiu      
-            q=q_grid(i) 
+            !        r=r_grid(i)        !   use this minor radiu
+            q=q_grid(i)
             write(snapout,102)q/r
          enddo
          write(snapout,102)(phip00(i)/gyroradius,i=0,mpsi,a_jump)   ! ???
@@ -317,7 +317,7 @@ subroutine snapshot
          !=========================================================
          ! Equilibrium density and temperatures
          write(snapout,101) 1
-         write(snapout,102)(1e6*den_grid(i),i=0,mpsi,a_jump)    ! density in (#/m^3) unit  
+         write(snapout,102)(1e6*den_grid(i),i=0,mpsi,a_jump)    ! density in (#/m^3) unit
          write(snapout,101) 1
          write(snapout,102)(1e3*Tem_00*(vth_grid(i)**2),i=0,mpsi,a_jump)      ! Ti in (eV) unit
          write(snapout,101) 1
@@ -329,10 +329,10 @@ subroutine snapshot
          write(snapout,101) 1
          write(snapout,102)(((E_00*c)/(charg0*1e8))*phip00(i),i=0,mpsi,a_jump)  ! potential derivative in (V/ psi) unit
          write(snapout,101) 1
-         write(snapout,102)(1e6*den_grid(i)*zonali(i),i=0,mpsi,a_jump)   ! zonal ion density in (#/m^3) unit  
+         write(snapout,102)(1e6*den_grid(i)*zonali(i),i=0,mpsi,a_jump)   ! zonal ion density in (#/m^3) unit
 
          write(snapout,101) 1
-         write(snapout,102) (1e6*den_grid(i)*zonale(i),i=0,mpsi,a_jump)   ! zonal electron density in (#/m^3) unit  
+         write(snapout,102) (1e6*den_grid(i)*zonale(i),i=0,mpsi,a_jump)   ! zonal electron density in (#/m^3) unit
 
 
          write(snapout,101) 1
@@ -348,7 +348,7 @@ subroutine snapshot
                tdum=2.0*pi*real(j)/real(jm)
                aaa(1)=pdum
                the(1)=tdum
-               call esigetrzb(rj,zj,Bj,aaa,the,1)  
+               call esigetrzb(rj,zj,Bj,aaa,the,1)
                write(snapout,102) rj(1)
             enddo
          enddo
@@ -361,23 +361,23 @@ subroutine snapshot
                aaa(1)=pdum
                the(1)=tdum
                call esigetrzb(rj,zj,Bj,aaa,the,1)
-               write(snapout,102) zj(1) 
+               write(snapout,102) zj(1)
             enddo
          enddo
 
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
-               pdum=psi_grid(i)    
+               pdum=psi_grid(i)
                tdum=2.0*pi*real(j)/real(jm)
                write(snapout,102) pdum
             enddo
-         enddo 
+         enddo
 
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
-               pdum=psi_grid(i)    
+               pdum=psi_grid(i)
                tdum=2.0*pi*real(j)/real(jm)
                write(snapout,102) tdum
             enddo
@@ -404,8 +404,8 @@ subroutine snapshot
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
                jt=int(tdum);  wt=tdum-jt
-               intpl_dni = ((1.0-wt)*tot_dni(1,igrid(i)+jt) + wt*tot_dni(1,igrid(i)+jt+1)) 
-               write(snapout,102) 1e6*intpl_dni ! ion total perturbed density (dni) in (#/m^3) unit            
+               intpl_dni = ((1.0-wt)*tot_dni(1,igrid(i)+jt) + wt*tot_dni(1,igrid(i)+jt+1))
+               write(snapout,102) 1e6*intpl_dni ! ion total perturbed density (dni) in (#/m^3) unit
             enddo
          enddo
 
@@ -417,12 +417,12 @@ subroutine snapshot
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
                jt=int(tdum);  wt=tdum-jt
-               intpl_dni = den_grid(i)*((1.0-wt)*densityi(1,igrid(i)+jt) + wt*densityi(1,igrid(i)+jt+1) + real(ZF_SEPARATION)*zonali(i)) 
-               write(snapout,102) 1e6*intpl_dni ! ion total perturbed density (dni) in (#/m^3) unit            
+               intpl_dni = den_grid(i)*((1.0-wt)*densityi(1,igrid(i)+jt) + wt*densityi(1,igrid(i)+jt+1) + real(ZF_SEPARATION)*zonali(i))
+               write(snapout,102) 1e6*intpl_dni ! ion total perturbed density (dni) in (#/m^3) unit
             enddo
          enddo
 
-         ! ion temperature fluctuation 
+         ! ion temperature fluctuation
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -434,14 +434,14 @@ subroutine snapshot
          enddo
 
          ! electron density
-         ! from tot_dne with no enforced charge-conservation    
+         ! from tot_dne with no enforced charge-conservation
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
                jt=int(tdum);  wt=tdum-jt
-               intpl_dne = ((1.0-wt)*tot_dne(1,igrid(i)+jt) + wt*tot_dne(1,igrid(i)+jt+1)) 
-               write(snapout,102) 1e6*intpl_dne ! electron total perturbed density (dne) in (#/m^3) unit            
+               intpl_dne = ((1.0-wt)*tot_dne(1,igrid(i)+jt) + wt*tot_dne(1,igrid(i)+jt+1))
+               write(snapout,102) 1e6*intpl_dne ! electron total perturbed density (dne) in (#/m^3) unit
             enddo
          enddo
 
@@ -453,12 +453,12 @@ subroutine snapshot
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
                jt=int(tdum);  wt=tdum-jt
-               intpl_dne = den_grid(i)*((1.0-wt)*densitye(1,igrid(i)+jt) + wt*densitye(1,igrid(i)+jt+1) + real(ZF_SEPARATION)*zonale(i)) 
-               write(snapout,102) 1e6*intpl_dne ! electron total perturbed density (dne) in (#/m^3) unit            
+               intpl_dne = den_grid(i)*((1.0-wt)*densitye(1,igrid(i)+jt) + wt*densitye(1,igrid(i)+jt+1) + real(ZF_SEPARATION)*zonale(i))
+               write(snapout,102) 1e6*intpl_dne ! electron total perturbed density (dne) in (#/m^3) unit
             enddo
          enddo
 
-         ! electron temperature fluctuation 
+         ! electron temperature fluctuation
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -472,8 +472,8 @@ subroutine snapshot
 
 
          !====================================================================
-         ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component 
-         ! FLA_psi0 
+         ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component
+         ! FLA_psi0
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -484,7 +484,7 @@ subroutine snapshot
             enddo
          enddo
 
-         ! FLA_Ti0 
+         ! FLA_Ti0
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -495,7 +495,7 @@ subroutine snapshot
             enddo
          enddo
 
-         ! FLA_Te0 
+         ! FLA_Te0
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -504,9 +504,9 @@ subroutine snapshot
                intp_val = ((1.0-wt)*FLA_Te0(1,igrid(i)+jt)+  wt*FLA_Te0(1,igrid(i)+jt+1))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
-         enddo   
+         enddo
 
-         ! FLA_n0 
+         ! FLA_n0
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -515,9 +515,9 @@ subroutine snapshot
                intp_val = ((1.0-wt)*FLA_n0(1,igrid(i)+jt)+  wt*FLA_n0(1,igrid(i)+jt+1))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo  
+         enddo
 
-         ! FLA_dphi 
+         ! FLA_dphi
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -526,9 +526,9 @@ subroutine snapshot
                intp_val = ((1.0-wt)*FLA_dphi(1,igrid(i)+jt)+  wt*FLA_dphi(1,igrid(i)+jt+1))
                write(snapout,102) ((E_00*c)/(charg0*1e8))*intp_val  ! potential in (V) unit
             enddo
-         enddo    
+         enddo
 
-         ! FLA_dTi 
+         ! FLA_dTi
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -539,7 +539,7 @@ subroutine snapshot
             enddo
          enddo
 
-         ! FLA_dni 
+         ! FLA_dni
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -548,7 +548,7 @@ subroutine snapshot
                intp_val = ((1.0-wt)*FLA_dni(1,igrid(i)+jt)+  wt*FLA_dni(1,igrid(i)+jt+1))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo    
+         enddo
 
          ! FLA_dTe
          write(snapout,101) 1
@@ -561,8 +561,8 @@ subroutine snapshot
             enddo
          enddo
 
-         ! FLA_dne 
-         write(snapout,101) 1   
+         ! FLA_dne
+         write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
@@ -572,7 +572,7 @@ subroutine snapshot
             enddo
          enddo
 
-         ! FLA_ne_adiabatic 
+         ! FLA_ne_adiabatic
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
@@ -587,12 +587,12 @@ subroutine snapshot
          ! MGYOO (01/16/2019)
          ! From here, dn and dT from each weight component for ions and electrons
 
-         ! dni each components 
+         ! dni each components
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dni_init(1,igrid(i)+jt))+  wt*(dni_init(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
@@ -601,64 +601,64 @@ subroutine snapshot
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dni_vpara(1,igrid(i)+jt))+  wt*(dni_vpara(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo 
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dni_vperp(1,igrid(i)+jt))+  wt*(dni_vperp(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo  
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dni_accel(1,igrid(i)+jt))+  wt*(dni_accel(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo  
+         enddo
 
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dni_fdamp(1,igrid(i)+jt))+  wt*(dni_fdamp(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo  
+         enddo
 
          ! dTi each components
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTi_init(1,igrid(i)+jt))+  wt*(dTi_init(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
-         enddo 
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTi_vpara(1,igrid(i)+jt))+  wt*(dTi_vpara(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
-         enddo 
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTi_vperp(1,igrid(i)+jt))+  wt*(dTi_vperp(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
@@ -667,7 +667,7 @@ subroutine snapshot
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTi_accel(1,igrid(i)+jt))+  wt*(dTi_accel(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
@@ -677,19 +677,19 @@ subroutine snapshot
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTi_fdamp(1,igrid(i)+jt))+  wt*(dTi_fdamp(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
          enddo
 
 
-         ! dne each components 
+         ! dne each components
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dne_init(1,igrid(i)+jt))+  wt*(dne_init(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
@@ -698,71 +698,71 @@ subroutine snapshot
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dne_vpara(1,igrid(i)+jt))+  wt*(dne_vpara(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo 
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dne_vperp(1,igrid(i)+jt))+  wt*(dne_vperp(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo  
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dne_accel(1,igrid(i)+jt))+  wt*(dne_accel(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo  
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dne_adiab(1,igrid(i)+jt))+  wt*(dne_adiab(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo    
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dne_fdamp(1,igrid(i)+jt))+  wt*(dne_fdamp(1,igrid(i)+jt+1)))
                write(snapout,102) 1e6*intp_val ! density in (#/m^3) unit
             enddo
-         enddo    
+         enddo
          ! dTe each components
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTe_init(1,igrid(i)+jt))+  wt*(dTe_init(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
-         enddo 
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTe_vpara(1,igrid(i)+jt))+  wt*(dTe_vpara(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
-         enddo 
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTe_vperp(1,igrid(i)+jt))+  wt*(dTe_vperp(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
@@ -771,30 +771,30 @@ subroutine snapshot
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTe_accel(1,igrid(i)+jt))+  wt*(dTe_accel(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
-         enddo    
+         enddo
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTe_adiab(1,igrid(i)+jt))+  wt*(dTe_adiab(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
-         enddo 
+         enddo
 
          write(snapout,101) 1
          do i=0,mpsi,a_jump
             do j=0,jm
                tdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-               jt=int(tdum);  wt=tdum-jt                        
+               jt=int(tdum);  wt=tdum-jt
                intp_val = ((1.0-wt)*(dTe_fdamp(1,igrid(i)+jt))+  wt*(dTe_fdamp(1,igrid(i)+jt+1)))
                write(snapout,102) 1e3*Tem_00*intp_val ! temperature in (eV) unit
             enddo
-         enddo 
+         enddo
          ! MGYOO (01/16/2019)
          !==============================================================================
 
@@ -854,7 +854,7 @@ subroutine snapshot
             write(777) istep
             write(777) phi(1,1:mgrid)  ! Note(5/08): phi contains zonal flow when ZF_SEPARATION=0 (solving total potential)
             !        write(777) phi_tmp(1,:)   ! time averaged phi
-            call flush(777)  ! otherwise, if job crashes PHI data is not completed, which cause problem for reading PHI 
+            call flush(777)  ! otherwise, if job crashes PHI data is not completed, which cause problem for reading PHI
          end if
       end if
 
@@ -865,7 +865,7 @@ subroutine snapshot
          write(888) istep
          if(ifelectron==0) then
             write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid)
-         else 
+         else
 
             !   Total electron density fluctuations = adiabatic + nonadiabatic
             !$omp parallel do private(i,j,ij)
@@ -908,7 +908,7 @@ subroutine snapshot
    !       use field_array
    !       !implicit none
 
-   !       integer, intent(in) :: gq_jump, a_jump 
+   !       integer, intent(in) :: gq_jump, a_jump
    !       real(wp), intent(in) :: unit_coeff
    !       real(wp), dimension(:), intent(inout) :: in_Data_Arr1D
    !       real(wp), dimension(:), intent(inout) :: out_intpl_Arr1D
@@ -918,18 +918,18 @@ subroutine snapshot
 
    !       inv_dgq=1.0/deltat
 
-   !       jm=mtheta(ipsi)/gq_jump   
+   !       jm=mtheta(ipsi)/gq_jump
 
    !       k=1
    !       do i=0,mpsi,a_jump
    !         do j=0,jm
    !           gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
    !           jt=int(gqdum);  wt=gqdum-jt
-   !           out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)      
+   !           out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)
    !           k=k+1
    !         enddo
    !       enddo
-   !       out_intpl_Arr1D = unit_coeff*out_intpl_Arr1D 
+   !       out_intpl_Arr1D = unit_coeff*out_intpl_Arr1D
 
    !     end subroutine Interpolate_Data_into_Coarser_Grids
    ! end module snapsnap
@@ -942,7 +942,7 @@ subroutine snapshot
       use field_array
       implicit none
 
-      integer, intent(in) :: gq_jump, a_jump 
+      integer, intent(in) :: gq_jump, a_jump
       real(wp), dimension(mgrid), intent(inout) :: in_Data_Arr1D
       real(wp), dimension(((mpsi+1)/a_jump)*(mtheta(ipsi)/gq_jump+1)), intent(inout) :: out_intpl_Arr1D
       integer i,j,ij,k,jt,jm
@@ -951,14 +951,14 @@ subroutine snapshot
 
       inv_dgq=1.0/deltat
 
-      jm=mtheta(ipsi)/gq_jump   
+      jm=mtheta(ipsi)/gq_jump
 
       k=1
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
             jt=int(gqdum);  wt=gqdum-jt
-            out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)      
+            out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)
             k=k+1
          enddo
       enddo
@@ -967,11 +967,11 @@ subroutine snapshot
 
 
    subroutine snapshot_hdf5
-      use precision  
+      use precision
       use global_parameters
       use control_parameters
       use particle_decomp
-      use field_array 
+      use field_array
       use mpi_defs
       use hdf5
       use h5lt
@@ -989,7 +989,7 @@ subroutine snapshot
       logical :: snap_flag=.false.
       ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
       real(wp) :: intp_val, intp_val2
-      real(wp), dimension(:), allocatable ::intp_val_Arr  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3)) 
+      real(wp), dimension(:), allocatable ::intp_val_Arr  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
       integer :: i,j,ij,k,jt,jm,istatus(MPI_STATUS_SIZE),ierror
       real(wp) full_dphi(0:1,mgrid), intpl_dphi_NZ(0:1), dne_adiabatic(0:1,mgrid)
       real(wp) full_dni(0:1,mgrid), full_dne(0:1,mgrid), FLA_full_dni(0:1,mgrid), FLA_full_dne(0:1,mgrid)
@@ -1028,11 +1028,11 @@ subroutine snapshot
 
 
       inv_dgq=1.0/deltat
-      jm=mtheta(ipsi)/gq_jump  
+      jm=mtheta(ipsi)/gq_jump
       dim_a = (mpsi+1)/a_jump
       dim_gq = jm+1
 
-      coarser_dgq = 2.0*pi/(dim_gq-1) 
+      coarser_dgq = 2.0*pi/(dim_gq-1)
       ! Write Restart files
       !if(mod(istep,irewrite) .eq. 0) call restart_write
 
@@ -1068,33 +1068,33 @@ subroutine snapshot
       do i=0,mpsi
          do j=0,mtheta(i)
             ij=igrid(i) + j
-            full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)  
+            full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)
             intpl_dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ/Te_grid(i)  
+            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ/Te_grid(i)
             full_dne(:,ij) =  den_grid(i)*(densitye(:,ij)+real(ZF_SEPARATION)*zonale(i)) + int(ifelectron/2)*dne_adiabatic(:,ij)
-            full_dni(:,ij) =  den_grid(i)*(densityi(:,ij)+real(ZF_SEPARATION)*zonali(i))      
+            full_dni(:,ij) =  den_grid(i)*(densityi(:,ij)+real(ZF_SEPARATION)*zonali(i))
          enddo
       enddo
 
       !==============================================
       ! Record Information at zeta=0 poloidal plane
-      !==============================================  
-      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
-         ! call Do_FieldLineAverage_by_using_gPPI(full_dphi, FLA_dphi)    
+      !==============================================
+      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
+         ! call Do_FieldLineAverage_by_using_gPPI(full_dphi, FLA_dphi)
          ! call Do_FieldLineAverage_by_using_gPPI(dne_adiabatic, FLA_ne_adiabatic)
          ! call Do_FieldLineAverage_by_using_gPPI(full_dne, FLA_full_dne)
          ! call Do_FieldLineAverage_by_using_gPPI(full_dni, FLA_full_dni)
-         call Do_FieldLineAverage_by_using_gPPI(mean_full_dphi, FLA_dphi)    
+         call Do_FieldLineAverage_by_using_gPPI(mean_full_dphi, FLA_dphi)
          call Do_FieldLineAverage_by_using_gPPI(dne_adiabatic, FLA_ne_adiabatic)
          call Do_FieldLineAverage_by_using_gPPI(mean_full_dne, FLA_full_dne)
          call Do_FieldLineAverage_by_using_gPPI(mean_full_dni, FLA_full_dni)
-         call Do_FieldLineAverage_by_using_gPPI(mean_full_dTe, FLA_dTe) 
-         call Do_FieldLineAverage_by_using_gPPI(mean_full_dTi, FLA_dTi) 
+         call Do_FieldLineAverage_by_using_gPPI(mean_full_dTe, FLA_dTe)
+         call Do_FieldLineAverage_by_using_gPPI(mean_full_dTi, FLA_dTi)
       endif
 
 
       !=================================
-      ! Calculate electrostatic energy (EE) in the system 
+      ! Calculate electrostatic energy (EE) in the system
       !================================
       tmp_FLA_dphi_nonNaN = FLA_dphi
       where(FLA_Denominator==0.0) tmp_FLA_dphi_nonNaN=0.0 ! Remove NaN elements in FLA_dphi to get nonNaN EE values for FLA and NFLA components
@@ -1102,7 +1102,7 @@ subroutine snapshot
          ! Calculate EE on each poloidal plane
 
          Device_simple_Vol = sum(Node_simple_Vol)
-         EE_tot  = sum(Node_simple_Vol*(mean_full_dni(1,:) +csc0*mean_full_dne(1,:))*mean_full_dphi(1,:))  
+         EE_tot  = sum(Node_simple_Vol*(mean_full_dni(1,:) +csc0*mean_full_dne(1,:))*mean_full_dphi(1,:))
          EE_FLA  = sum(Node_simple_Vol*(mean_full_dni(1,:) +csc0*mean_full_dne(1,:))*(tmp_FLA_dphi_nonNaN(1,:)))
          EE_NFLA = sum(Node_simple_Vol*(mean_full_dni(1,:) +csc0*mean_full_dne(1,:))*(mean_full_dphi(1,:)-tmp_FLA_dphi_nonNaN(1,:)))
          EE_Z  = 0.0
@@ -1132,7 +1132,7 @@ subroutine snapshot
          !=================================
          ! Calculate Electric fields & mean electric fields
          !================================
-         dE_cov3 = -evector ! This is an instanteneous 
+         dE_cov3 = -evector ! This is an instanteneous
 
          allocate(intp_a_1D(dim_a), recvl(dim_gq*dim_a), recvr(dim_gq*dim_a), intp_val_Arr(dim_gq*dim_a))
          allocate(intp_mean_full_dphi(dim_gq, dim_a), right_intp_mean_full_dphi(dim_gq, dim_a), left_intp_mean_full_dphi(dim_gq, dim_a))
@@ -1144,7 +1144,7 @@ subroutine snapshot
          k=1
          do i=0,mpsi,a_jump
             intp_a_1D(k) = psi_grid(i)
-            k=k+1    
+            k=k+1
          enddo
 
 
@@ -1212,12 +1212,12 @@ subroutine snapshot
 
          ! Send&Recv intp_mean_dE_cov3 b.t.w. adjacent polodial planes
          call MPI_SENDRECV(intp_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
-            left_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)  
+            left_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
          call MPI_SENDRECV(intp_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
             right_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
          ! Send&Recv intp_FLA_dE_cov3 b.t.w. adjacent polodial planes
          call MPI_SENDRECV(intp_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
-            left_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)  
+            left_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
          call MPI_SENDRECV(intp_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
             right_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
 
@@ -1297,25 +1297,25 @@ subroutine snapshot
 
 
             ! 0D Data
-            h5dims(1) = 1    
-            Unit_Conv_Coeff = (charg0*10/c)*1e6*((E_00*c)/(charg0*1e8))  ! e*n*phi =  (Charge)*(Density)*(Volatege) Conversion  
+            h5dims(1) = 1
+            Unit_Conv_Coeff = (charg0*10/c)*1e6*((E_00*c)/(charg0*1e8))  ! e*n*phi =  (Charge)*(Density)*(Volatege) Conversion
             call h5ltmake_dataset_f(file_id, "EE_tot",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_tot, h5err)
-            call h5ltset_attribute_string_f(file_id, "EE_tot", "unit", "J", h5err)  
+            call h5ltset_attribute_string_f(file_id, "EE_tot", "unit", "J", h5err)
             call h5ltmake_dataset_f(file_id, "EE_Z",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_Z, h5err)
-            call h5ltset_attribute_string_f(file_id, "EE_Z", "unit", "J", h5err)  
+            call h5ltset_attribute_string_f(file_id, "EE_Z", "unit", "J", h5err)
             call h5ltmake_dataset_f(file_id, "EE_NZ",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_NZ, h5err)
-            call h5ltset_attribute_string_f(file_id, "EE_NZ", "unit", "J", h5err)  
+            call h5ltset_attribute_string_f(file_id, "EE_NZ", "unit", "J", h5err)
             call h5ltmake_dataset_f(file_id, "EE_FLA",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_FLA, h5err)
-            call h5ltset_attribute_string_f(file_id, "EE_FLA", "unit", "J", h5err)  
+            call h5ltset_attribute_string_f(file_id, "EE_FLA", "unit", "J", h5err)
             call h5ltmake_dataset_f(file_id, "EE_NFLA",1,h5dims,H5T_NATIVE_DOUBLE, Unit_Conv_Coeff*EE_NFLA, h5err)
-            call h5ltset_attribute_string_f(file_id, "EE_NFLA", "unit", "J", h5err)  
+            call h5ltset_attribute_string_f(file_id, "EE_NFLA", "unit", "J", h5err)
 
 
             ! EQ: About the equilibrium information
             ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
-            h5dims(1) = dim_a    
+            h5dims(1) = dim_a
             call h5ltmake_dataset_f(file_id, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, psi_grid(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "a_1D", "unit", "norm_psi_t", h5err) 
+            call h5ltset_attribute_string_f(file_id, "a_1D", "unit", "norm_psi_t", h5err)
             call h5ltmake_dataset_f(file_id, "n0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump), h5err)
             call h5ltset_attribute_string_f(file_id, "n0_1D", "unit", "#/m^3", h5err)
             call h5ltmake_dataset_f(file_id, "Ti0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(vth_grid(0:mpsi:a_jump)**2), h5err)
@@ -1323,61 +1323,61 @@ subroutine snapshot
             call h5ltmake_dataset_f(file_id, "Te0_1D",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*Te_grid(0:mpsi:a_jump), h5err)
             call h5ltset_attribute_string_f(file_id, "Te0_1D", "unit", "eV", h5err)
             call h5ltmake_dataset_f(file_id, "zonal_dphi",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*phi00(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "zonal_dphi", "unit", "V", h5err) 
+            call h5ltset_attribute_string_f(file_id, "zonal_dphi", "unit", "V", h5err)
             call h5ltmake_dataset_f(file_id, "zonal_ddphidr",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*phip00(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "zonal_ddphidr", "unit", "V/(norm_psi_t)", h5err) 
+            call h5ltset_attribute_string_f(file_id, "zonal_ddphidr", "unit", "V/(norm_psi_t)", h5err)
             call h5ltmake_dataset_f(file_id, "zonal_dni",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump)*zonali(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "zonal_dni", "unit", "#/m^3", h5err) 
+            call h5ltset_attribute_string_f(file_id, "zonal_dni", "unit", "#/m^3", h5err)
             call h5ltmake_dataset_f(file_id, "zonal_dne",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*den_grid(0:mpsi:a_jump)*zonale(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "zonal_dne", "unit", "#/m^3", h5err) 
+            call h5ltset_attribute_string_f(file_id, "zonal_dne", "unit", "#/m^3", h5err)
             call h5ltmake_dataset_f(file_id, "zonal_dTi",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*zonal_dTi(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "zonal_dTi", "unit", "eV", h5err) 
+            call h5ltset_attribute_string_f(file_id, "zonal_dTi", "unit", "eV", h5err)
             call h5ltmake_dataset_f(file_id, "zonal_dTe",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*zonal_dTe(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "zonal_dTe", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "zonal_dTe", "unit", "eV", h5err)
 
             ! 1D mean zonal quantities
             call h5ltmake_dataset_f(file_id, "mean_zonal_dphi",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*mean_zonal_dphi(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dphi", "unit", "V", h5err) 
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dphi", "unit", "V", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dni",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*mean_zonal_dni(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dni", "unit", "#/m^3", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dni", "unit", "#/m^3", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dne",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*mean_zonal_dne(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dne", "unit", "#/m^3", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dne", "unit", "#/m^3", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dTe",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*mean_zonal_dTe(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dTe", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dTe", "unit", "eV", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dTi",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*mean_zonal_dTi(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dTi", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dTi", "unit", "eV", h5err)
 
             call h5ltmake_dataset_f(file_id, "mean_zonal_dphi_SQ",1,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))**2.0*mean_zonal_dphi_SQ(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dphi_SQ", "unit", "V", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dphi_SQ", "unit", "V", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dni_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e6)**2.0*mean_zonal_dni_SQ(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dni_SQ", "unit", "#/m^3", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dni_SQ", "unit", "#/m^3", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dne_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e6)**2.0*mean_zonal_dne_SQ(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dne_SQ", "unit", "#/m^3", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dne_SQ", "unit", "#/m^3", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dTi_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e3)**2.0*Tem_00*mean_zonal_dTi_SQ(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dTi_SQ", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dTi_SQ", "unit", "eV", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dTe_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e3)**2.0*Tem_00*mean_zonal_dTe_SQ(0:mpsi:a_jump), h5err)
-            call h5ltset_attribute_string_f(file_id, "mean_zonal_dTe_SQ", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "mean_zonal_dTe_SQ", "unit", "eV", h5err)
 
             ! =======================
             ! 2D data
             ! =======================
             h5dims(1:2)=(/dim_gq, dim_a/)
             allocate(intp_val_Arr(dim_a*dim_gq))
-            allocate(intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D, mold=intp_val_Arr)  
+            allocate(intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D, mold=intp_val_Arr)
 
             k=1
             do i=0,mpsi,a_jump
                do j=0,jm
                   aaa(1)=psi_grid(i)
-                  the(1)=2.0*pi*real(j)/real(jm)     
-                  call esigetrzb(rj,zj,Bj,aaa,the,1)  
+                  the(1)=2.0*pi*real(j)/real(jm)
+                  call esigetrzb(rj,zj,Bj,aaa,the,1)
                   intp_R_2D(k) = rj(1)
                   intp_Z_2D(k) = zj(1)
                   intp_x_2D(k) = rj(1)*cos(zetamax)
                   intp_y_2D(k) = rj(1)*sin(zetamax)
                   k=k+1
                enddo
-            enddo    
+            enddo
 
             ! R_2D
             call h5ltmake_dataset_f(file_id, "R_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_R_2D,h5err)
@@ -1410,7 +1410,7 @@ subroutine snapshot
             k=1
             do i=0,mpsi,a_jump
                do j=0,jm
-                  intp_val_Arr(k) = 2.0*pi*real(j)/real(jm)   
+                  intp_val_Arr(k) = 2.0*pi*real(j)/real(jm)
                   k=k+1
                enddo
             enddo
@@ -1425,7 +1425,7 @@ subroutine snapshot
                   gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
                   jt=int(gqdum);  wt=gqdum-jt
                   intp_val = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) +real(ZF_SEPARATION)*phi00(i)
-                  intp_val_Arr(k) = ((E_00*c)/(charg0*1e8))*intp_val 
+                  intp_val_Arr(k) = ((E_00*c)/(charg0*1e8))*intp_val
                   k=k+1
                enddo
             enddo
@@ -1450,14 +1450,14 @@ subroutine snapshot
             call h5ltmake_dataset_f(file_id, "full_dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "full_dni", "unit", "#/m^3", h5err)
 
-            ! ion temperature fluctuation 
+            ! ion temperature fluctuation
             k=1
             do i=0,mpsi,a_jump
                do j=0,jm
                   gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
                   jt=int(gqdum);  wt=gqdum-jt
-                  intp_val = real(ZF_SEPARATION)*(zonal_dTi(i)) + (vth_grid(i)**2)*((1.0-wt)*phi_tmp(igrid(i)+jt)+  wt*phi_tmp(igrid(i)+jt+1)) 
-                  intp_val_Arr(k) = 1e3*Tem_00*intp_val 
+                  intp_val = real(ZF_SEPARATION)*(zonal_dTi(i)) + (vth_grid(i)**2)*((1.0-wt)*phi_tmp(igrid(i)+jt)+  wt*phi_tmp(igrid(i)+jt+1))
+                  intp_val_Arr(k) = 1e3*Tem_00*intp_val
                   k=k+1
                enddo
             enddo
@@ -1465,7 +1465,7 @@ subroutine snapshot
             call h5ltset_attribute_string_f(file_id, "dTi", "unit", "eV", h5err)
 
             ! electron density
-            ! from tot_dne with no enforced charge-conservation    
+            ! from tot_dne with no enforced charge-conservation
             call Interpolate_Data_into_Coarser_Grids(tot_dne(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "dne_from_tot_dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "dne_from_tot_dne", "unit", "#/m^3", h5err)
@@ -1497,7 +1497,7 @@ subroutine snapshot
             do i=0,mpsi,a_jump
                do j=0,jm
                   gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-                  jt=int(gqdum);  wt=gqdum-jt        
+                  jt=int(gqdum);  wt=gqdum-jt
                   intp_val = Te_grid(i)*(((1.0-wt)*heatflux(igrid(i)+jt)+  wt*heatflux(igrid(i)+jt+1))) +real(ZF_SEPARATION)*(zonal_dTe(i))
                   intp_val_Arr(k) = 1e3*Tem_00*(intp_val)
                   k=k+1
@@ -1573,17 +1573,17 @@ subroutine snapshot
             call h5ltset_attribute_string_f(file_id, "FLA/psi0", "unit", "norm_psi_t", h5err)
 
             ! FLA Ti0
-            call Interpolate_Data_into_Coarser_Grids(FLA_Ti0(1,:),gq_jump,a_jump,intp_val_Arr)  
+            call Interpolate_Data_into_Coarser_Grids(FLA_Ti0(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "FLA/Ti0",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "FLA/Ti0", "unit", "eV", h5err)
 
             ! FLA Te0
-            call Interpolate_Data_into_Coarser_Grids(FLA_Te0(1,:),gq_jump,a_jump,intp_val_Arr)  
+            call Interpolate_Data_into_Coarser_Grids(FLA_Te0(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "FLA/Te0",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "FLA/Te0", "unit", "eV", h5err)
 
             ! FLA n0
-            call Interpolate_Data_into_Coarser_Grids(FLA_n0(1,:),gq_jump,a_jump,intp_val_Arr)      
+            call Interpolate_Data_into_Coarser_Grids(FLA_n0(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "FLA/n0",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "FLA/n0", "unit", "#/m^3", h5err)
 
@@ -1620,7 +1620,7 @@ subroutine snapshot
             call h5ltmake_dataset_f(file_id, "FLA/dTe",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "FLA/dTe", "unit", "eV", h5err)
 
-            ! FLA_dne 
+            ! FLA_dne
             call Interpolate_Data_into_Coarser_Grids(FLA_dne(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "FLA/dne_from_tot_dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "FLA/dne_from_tot_dne", "unit", "#/m^3", h5err)
@@ -1631,7 +1631,7 @@ subroutine snapshot
             call h5ltset_attribute_string_f(file_id, "FLA/full_dne", "unit", "#/m^3", h5err)
 
 
-            ! FLA_ne_adiabatic 
+            ! FLA_ne_adiabatic
             call Interpolate_Data_into_Coarser_Grids(FLA_dne(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "FLA/dne_adiabatic",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "FLA/dne_adiabatic", "unit", "#/m^3", h5err)
@@ -1639,7 +1639,7 @@ subroutine snapshot
 
 
             ! Decomposition
-            ! dni each components 
+            ! dni each components
             call Interpolate_Data_into_Coarser_Grids(dni_init(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "DCOMP/dni_init",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "DCOMP/dni_init", "unit", "#/m^3", h5err)
@@ -1677,7 +1677,7 @@ subroutine snapshot
             call h5ltmake_dataset_f(file_id, "DCOMP/dTi_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "DCOMP/dTi_fdamp", "unit", "eV", h5err)
 
-            ! dne each components 
+            ! dne each components
             call Interpolate_Data_into_Coarser_Grids(dne_init(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "DCOMP/dne_init",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
             call h5ltset_attribute_string_f(file_id, "DCOMP/dne_init", "unit", "#/m^3", h5err)
@@ -1713,19 +1713,19 @@ subroutine snapshot
 
             call Interpolate_Data_into_Coarser_Grids(dTe_vperp(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "DCOMP/dTe_vperp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
-            call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_vperp", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_vperp", "unit", "eV", h5err)
 
             call Interpolate_Data_into_Coarser_Grids(dTe_accel(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "DCOMP/dTe_accel",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
-            call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_accel", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_accel", "unit", "eV", h5err)
 
             call Interpolate_Data_into_Coarser_Grids(dTe_adiab(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "DCOMP/dTe_dADdt",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
-            call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_dADdt", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_dADdt", "unit", "eV", h5err)
 
             call Interpolate_Data_into_Coarser_Grids(dTe_fdamp(1,:),gq_jump,a_jump,intp_val_Arr)
             call h5ltmake_dataset_f(file_id, "DCOMP/dTe_fdamp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
-            call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_fdamp", "unit", "eV", h5err)  
+            call h5ltset_attribute_string_f(file_id, "DCOMP/dTe_fdamp", "unit", "eV", h5err)
 
             ! 2D data record finished
             deallocate(intp_val_Arr)
@@ -1785,7 +1785,7 @@ subroutine snapshot
 
 
          ! ! ===========================
-         ! ! Following part is for 3D full data 
+         ! ! Following part is for 3D full data
          ! ! ===========================
          ! ! Adiitional Information
          ! ! REcord Potential. Each myrank_toroidal has its own file (see open_file).
@@ -1795,7 +1795,7 @@ subroutine snapshot
          !   if(istep>0 .and. myrank_partd==0.and.flag_PHI>0) then
          !     write(777) istep
          !     write(777) phi(1,1:mgrid)  ! Note(5/08): phi contains zonal flow when ZF_SEPARATION=0 (solving total potential)
-         !     call flush(777)  ! otherwise, if job crashes PHI data is not completed, which cause problem for reading PHI 
+         !     call flush(777)  ! otherwise, if job crashes PHI data is not completed, which cause problem for reading PHI
          !   endif
          ! endif
 
@@ -1805,7 +1805,7 @@ subroutine snapshot
          !   write(888) istep
          !   if(ifelectron==0) then
          !     write(888) densityi(1,1:mgrid),phi_tmp(1:mgrid)
-         !   else 
+         !   else
          !     !   Total electron density fluctuations = adiabatic + nonadiabatic
          !     !$omp parallel do private(i,j,ij)
          !     do i=0,mpsi
@@ -1832,7 +1832,7 @@ subroutine snapshot
 
       subroutine snapshot_Magnetic_Information
 
-         use precision  
+         use precision
          use global_parameters
          use control_parameters
          use particle_decomp
@@ -1860,7 +1860,7 @@ subroutine snapshot
          integer :: h5err
 
          inv_dgq=1.0/deltat
-         jm=mtheta(ipsi)/gq_jump  
+         jm=mtheta(ipsi)/gq_jump
          dim_a = (mpsi+1)/a_jump
          dim_gq = jm+1
 
@@ -1916,7 +1916,7 @@ subroutine snapshot
             g_aa_cntv_=(dRdgq_**2+dZdgq_**2)/D_**2   ! grada^2
             g_qq_cntv_=(dZda_**2+dRda_**2)/D_**2   ! gradtheta^2
             g_ff_cntv_=1.0_wp/R_**2                 ! gradphi^2
-            g_aq_cntv_=(-dRda_*dRdgq_-dZda_*dZdgq_)/D_**2  ! gradagradtheta  
+            g_aq_cntv_=(-dRda_*dRdgq_-dZda_*dZdgq_)/D_**2  ! gradagradtheta
 
             j0_cov3_(1,:) = g_aa_cov_*j0_cntv3_(1,:) + g_aq_cov_*j0_cntv3_(2,:)
             j0_cov3_(2,:) = g_aq_cov_*j0_cntv3_(1,:) + g_qq_cov_*j0_cntv3_(2,:)
@@ -1931,15 +1931,15 @@ subroutine snapshot
 
                ini_dB_cntv3_(1,:) = ini_ga_*j0_cntv3_(1,:) + (ini_grad_ga_cov3_(2,:)*B0_cov3_(3,:) - ini_grad_ga_cov3_(3,:)*B0_cov3_(2,:))/Jacobian_
                ini_dB_cntv3_(2,:) = ini_ga_*j0_cntv3_(2,:) + (ini_grad_ga_cov3_(3,:)*B0_cov3_(1,:) - ini_grad_ga_cov3_(1,:)*B0_cov3_(3,:))/Jacobian_
-               ini_dB_cntv3_(3,:) = ini_ga_*j0_cntv3_(3,:) + (ini_grad_ga_cov3_(1,:)*B0_cov3_(2,:) - ini_grad_ga_cov3_(2,:)*B0_cov3_(1,:))/Jacobian_        
+               ini_dB_cntv3_(3,:) = ini_ga_*j0_cntv3_(3,:) + (ini_grad_ga_cov3_(1,:)*B0_cov3_(2,:) - ini_grad_ga_cov3_(2,:)*B0_cov3_(1,:))/Jacobian_
 
                ini_dB_cov3_(1,:) = g_aa_cov_*ini_dB_cntv3_(1,:) + g_aq_cov_*ini_dB_cntv3_(2,:)
                ini_dB_cov3_(2,:) = g_aq_cov_*ini_dB_cntv3_(1,:) + g_qq_cov_*ini_dB_cntv3_(2,:)
-               ini_dB_cov3_(3,:) = g_ff_cov_*ini_dB_cntv3_(3,:)  
+               ini_dB_cov3_(3,:) = g_ff_cov_*ini_dB_cntv3_(3,:)
             endif
 
 
-            ! Record Information using hdf5 format 
+            ! Record Information using hdf5 format
             call system("mkdir -p " // 'snapshots_hdf5')
             write(file_path, '("SnapMagneticInfo.h5")')
 
@@ -1966,19 +1966,19 @@ subroutine snapshot
             call h5ltmake_dataset_f(file_id, "Z",2,h5dims,H5T_NATIVE_DOUBLE, Z_,h5err)
             call h5ltmake_dataset_f(file_id, "dZda",2,h5dims,H5T_NATIVE_DOUBLE, dZda_,h5err)
             call h5ltmake_dataset_f(file_id, "dZdgq",2,h5dims,H5T_NATIVE_DOUBLE, dZdgq_,h5err)
-            call h5ltmake_dataset_f(file_id, "BB",2,h5dims,H5T_NATIVE_DOUBLE, BB_,h5err) 
-            call h5ltmake_dataset_f(file_id, "dBBda",2,h5dims,H5T_NATIVE_DOUBLE, dBBda_,h5err) 
-            call h5ltmake_dataset_f(file_id, "dBBdgq",2,h5dims,H5T_NATIVE_DOUBLE, dBBdgq_,h5err) 
-            call h5ltmake_dataset_f(file_id, "P",2,h5dims,H5T_NATIVE_DOUBLE, P_,h5err) 
-            call h5ltmake_dataset_f(file_id, "T",2,h5dims,H5T_NATIVE_DOUBLE, T_,h5err) 
-            call h5ltmake_dataset_f(file_id, "Jacobian",2,h5dims,H5T_NATIVE_DOUBLE, Jacobian_,h5err) 
-            call h5ltmake_dataset_f(file_id, "esi_N",2,h5dims,H5T_NATIVE_DOUBLE, esi_N_,h5err) 
-            call h5ltmake_dataset_f(file_id, "esi_K",2,h5dims,H5T_NATIVE_DOUBLE, esi_K_,h5err) 
-            call h5ltmake_dataset_f(file_id, "g_aa_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_aa_cov_,h5err)    
+            call h5ltmake_dataset_f(file_id, "BB",2,h5dims,H5T_NATIVE_DOUBLE, BB_,h5err)
+            call h5ltmake_dataset_f(file_id, "dBBda",2,h5dims,H5T_NATIVE_DOUBLE, dBBda_,h5err)
+            call h5ltmake_dataset_f(file_id, "dBBdgq",2,h5dims,H5T_NATIVE_DOUBLE, dBBdgq_,h5err)
+            call h5ltmake_dataset_f(file_id, "P",2,h5dims,H5T_NATIVE_DOUBLE, P_,h5err)
+            call h5ltmake_dataset_f(file_id, "T",2,h5dims,H5T_NATIVE_DOUBLE, T_,h5err)
+            call h5ltmake_dataset_f(file_id, "Jacobian",2,h5dims,H5T_NATIVE_DOUBLE, Jacobian_,h5err)
+            call h5ltmake_dataset_f(file_id, "esi_N",2,h5dims,H5T_NATIVE_DOUBLE, esi_N_,h5err)
+            call h5ltmake_dataset_f(file_id, "esi_K",2,h5dims,H5T_NATIVE_DOUBLE, esi_K_,h5err)
+            call h5ltmake_dataset_f(file_id, "g_aa_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_aa_cov_,h5err)
             call h5ltmake_dataset_f(file_id, "g_aq_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_aq_cov_,h5err)
             call h5ltmake_dataset_f(file_id, "g_qq_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_qq_cov_,h5err)
             call h5ltmake_dataset_f(file_id, "g_ff_cov",2,h5dims,H5T_NATIVE_DOUBLE, g_ff_cov_,h5err)
-            call h5ltmake_dataset_f(file_id, "g_aa_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_aa_cntv_,h5err)    
+            call h5ltmake_dataset_f(file_id, "g_aa_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_aa_cntv_,h5err)
             call h5ltmake_dataset_f(file_id, "g_aq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_aq_cntv_,h5err)
             call h5ltmake_dataset_f(file_id, "g_qq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_qq_cntv_,h5err)
             call h5ltmake_dataset_f(file_id, "g_ff_cntv",2,h5dims,H5T_NATIVE_DOUBLE, g_ff_cntv_,h5err)
@@ -1987,17 +1987,17 @@ subroutine snapshot
 
             call h5ltset_attribute_string_f(file_id, "a", "unit", "norm_psi_t", h5err)
             call h5ltset_attribute_string_f(file_id, "gq", "unit", "radians", h5err)
-            call h5ltset_attribute_string_f(file_id, "R", "unit", "m", h5err)    
+            call h5ltset_attribute_string_f(file_id, "R", "unit", "m", h5err)
             call h5ltset_attribute_string_f(file_id, "Z", "unit", "m", h5err)
             call h5ltset_attribute_string_f(file_id, "BB", "unit", "T", h5err)
             call h5ltset_attribute_string_f(file_id, "BB", "description", "magnitude of equilibrium B field (B0)", h5err)
 
             ! 3D data (vectors on 2D grids)
             h5dims(1:3)=(/3, dim_gq, dim_a/)
-            call h5ltmake_dataset_f(file_id, "B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, B0_cov3_,h5err) 
-            call h5ltmake_dataset_f(file_id, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, B0_cntv3_,h5err) 
-            call h5ltmake_dataset_f(file_id, "j0_cov",3,h5dims,H5T_NATIVE_DOUBLE, j0_cov3_,h5err) 
-            call h5ltmake_dataset_f(file_id, "j0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, j0_cntv3_,h5err) 
+            call h5ltmake_dataset_f(file_id, "B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, B0_cov3_,h5err)
+            call h5ltmake_dataset_f(file_id, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, B0_cntv3_,h5err)
+            call h5ltmake_dataset_f(file_id, "j0_cov",3,h5dims,H5T_NATIVE_DOUBLE, j0_cov3_,h5err)
+            call h5ltmake_dataset_f(file_id, "j0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, j0_cntv3_,h5err)
 
 
 
@@ -2067,7 +2067,7 @@ subroutine snapshot
 
       subroutine Cal_dni_dTi_from_each_ion_weight_component
 
-         use precision 
+         use precision
          use mpi_defs
          use global_parameters
          use particle_array
@@ -2097,7 +2097,7 @@ subroutine snapshot
             wgf0=1.0-wgf1
 
             !! Caution!! Is backu(m) here omega or real velocity?? Check it! Refer pushion routine
-            energy = 0.5*(zion(4,m)*BB(m)-backu(m))**2.0 + ((zion(6,m)**2.0)*BB(m)) 
+            energy = 0.5*(zion(4,m)*BB(m)-backu(m))**2.0 + ((zion(6,m)**2.0)*BB(m))
 
 
             do larmor=1, larmor_num
@@ -2142,25 +2142,25 @@ subroutine snapshot
                dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
                dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
                dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-               dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)      
+               dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
                tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
                dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
                dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
                dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
                dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-               dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)      
+               dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
                tmp1 = wgf1*wa0*inner_wgq1
                dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
                dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
                dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
-               dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)      
-               dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)          
+               dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
+               dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
                tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
                dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
                dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
                dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
                dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-               dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)     
+               dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
 
                !outter radius, smaller theta index
                ij=jtion1(larmor,m)
@@ -2169,25 +2169,25 @@ subroutine snapshot
                dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
                dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
                dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-               dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)      
+               dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
                tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
                dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
                dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
                dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
                dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-               dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)      
+               dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
                tmp1 = wgf1*wa1*outter_wgq0
                dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
                dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
                dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
                dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-               dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)          
+               dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
                tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
                dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
                dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
                dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
-               dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)      
-               dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)     
+               dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
+               dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
 
                !outter radius, larger theta index
                ij=ij+1
@@ -2196,24 +2196,24 @@ subroutine snapshot
                dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
                dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
                dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-               dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)      
+               dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
                tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
                dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
                dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
                dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
                dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-               dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)      
+               dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
                tmp1 = wgf1*wa1*outter_wgq1
                dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
                dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
                dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
                dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-               dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)          
+               dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
                tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
                dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
                dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
                dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
-               dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m) 
+               dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
                dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
             enddo
          enddo
@@ -2239,7 +2239,7 @@ subroutine snapshot
             call MPI_ALLREDUCE(dTi_accel, recv_array, 2*mgrid, mpi_Rsize, MPI_SUM, partd_comm, ierror)
             dTi_accel=recv_array
             call MPI_ALLREDUCE(dTi_fdamp, recv_array, 2*mgrid, mpi_Rsize, MPI_SUM, partd_comm, ierror)
-            dTi_fdamp=recv_array    
+            dTi_fdamp=recv_array
          endif
 
          ! poloidal end cell; need valid data for densityi(:,igrid(i))
@@ -2263,10 +2263,10 @@ subroutine snapshot
             dTi_vperp(:,igrid(i)+mtheta(i))=dTi_vperp(:,igrid(i)+mtheta(i))+dTi_vperp(:,igrid(i))
             dTi_vperp(:,igrid(i))=dTi_vperp(:,igrid(i)+mtheta(i))
             dTi_accel(:,igrid(i)+mtheta(i))=dTi_accel(:,igrid(i)+mtheta(i))+dTi_accel(:,igrid(i))
-            dTi_accel(:,igrid(i))=dTi_accel(:,igrid(i)+mtheta(i))    
+            dTi_accel(:,igrid(i))=dTi_accel(:,igrid(i)+mtheta(i))
             dTi_fdamp(:,igrid(i)+mtheta(i))=dTi_fdamp(:,igrid(i)+mtheta(i))+dTi_fdamp(:,igrid(i))
-            dTi_fdamp(:,igrid(i))=dTi_fdamp(:,igrid(i)+mtheta(i))     
-         enddo  
+            dTi_fdamp(:,igrid(i))=dTi_fdamp(:,igrid(i)+mtheta(i))
+         enddo
 
 
          ! send densityi to left and receive from right
@@ -2358,7 +2358,7 @@ subroutine snapshot
             enddo
          else
             dTi_accel(1,:)=dTi_accel(1,:)+recv_array(1,:)
-         endif  
+         endif
 
          call MPI_SENDRECV(dTi_fdamp(0,:),mgrid,mpi_Rsize,left_pe,1,recv_array(1,:),mgrid,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
          if(myrank_toroidal == ntoroidal-1)then
@@ -2368,7 +2368,7 @@ subroutine snapshot
             enddo
          else
             dTi_fdamp(1,:)=dTi_fdamp(1,:)+recv_array(1,:)
-         endif  
+         endif
 
          !===============================================================================================
          ! Caution. This routine does not enforce charge conservation regardless of its_jacobi parameter
@@ -2399,7 +2399,7 @@ subroutine snapshot
             dTi_vpara(1,igrid(i))=dTi_vpara(1,igrid(i)+mtheta(i))
             dTi_vperp(1,igrid(i))=dTi_vperp(1,igrid(i)+mtheta(i))
             dTi_accel(1,igrid(i))=dTi_accel(1,igrid(i)+mtheta(i))
-            dTi_fdamp(1,igrid(i))=dTi_fdamp(1,igrid(i)+mtheta(i))    
+            dTi_fdamp(1,igrid(i))=dTi_fdamp(1,igrid(i)+mtheta(i))
          enddo
 
          !==============================================================================
@@ -2411,12 +2411,12 @@ subroutine snapshot
                dni_init(1,ij)  = den_grid(i)*dni_init(1,ij)
                dni_vpara(1,ij) = den_grid(i)*dni_vpara(1,ij)
                dni_vperp(1,ij) = den_grid(i)*dni_vperp(1,ij)
-               dni_accel(1,ij) = den_grid(i)*dni_accel(1,ij)    
-               dni_fdamp(1,ij) = den_grid(i)*dni_fdamp(1,ij)        
+               dni_accel(1,ij) = den_grid(i)*dni_accel(1,ij)
+               dni_fdamp(1,ij) = den_grid(i)*dni_fdamp(1,ij)
             enddo
-         enddo  
+         enddo
          ! ! Convert dTe to get a correct form of dTe by considering dne.
-         ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+         ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol
          ! ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
          ! do i=0,mpsi
          !   do j=0,mtheta(i)
@@ -2425,11 +2425,11 @@ subroutine snapshot
          !     dTi_init(1,ij)  = tmp1*dTi_init(1,ij)
          !     dTi_vpara(1,ij) = tmp1*dTi_vpara(1,ij)
          !     dTi_vperp(1,ij) = tmp1*dTi_vperp(1,ij)
-         !     dTi_accel(1,ij) = tmp1*dTi_accel(1,ij)    
-         !     dTi_fdamp(1,ij) = tmp1*dTi_fdamp(1,ij)  
+         !     dTi_accel(1,ij) = tmp1*dTi_accel(1,ij)
+         !     dTi_fdamp(1,ij) = tmp1*dTi_fdamp(1,ij)
          !   enddo
          ! enddo
-         !============================================================================== 
+         !==============================================================================
 
       end subroutine Cal_dni_dTi_from_each_ion_weight_component
 
@@ -2438,7 +2438,7 @@ subroutine snapshot
 
       subroutine Cal_dne_dTe_from_each_electron_weight_component
 
-         use precision 
+         use precision
          use mpi_defs
          use global_parameters
          use particle_array
@@ -2468,7 +2468,7 @@ subroutine snapshot
             wgf1=wzeon(m)
             wgf0=1.0-wgf1
 
-            energy = 0.5*for_E*(zeon(4,m)*BB(m))**2.0 + ((zeon(6,m)**2.0)*BB(m)) 
+            energy = 0.5*for_E*(zeon(4,m)*BB(m))**2.0 + ((zeon(6,m)**2.0)*BB(m))
 
 
             wa1=wpeon(m)
@@ -2529,9 +2529,9 @@ subroutine snapshot
             dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
             dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
             dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
-            dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)   
-            dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)   
-            dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)   
+            dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
+            dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
+            dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
             tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
             dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
             dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
@@ -2567,9 +2567,9 @@ subroutine snapshot
             dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
             dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
             dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
-            dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)      
-            dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)  
-            dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)  
+            dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
+            dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
+            dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
             !outter radius, larger theta index
             ij=ij+1
@@ -2598,9 +2598,9 @@ subroutine snapshot
             dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
             dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
             dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
-            dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m) 
-            dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m) 
-            dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m) 
+            dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
+            dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
+            dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
          enddo
 
@@ -2655,12 +2655,12 @@ subroutine snapshot
             dTe_vperp(:,igrid(i)+mtheta(i))=dTe_vperp(:,igrid(i)+mtheta(i))+dTe_vperp(:,igrid(i))
             dTe_vperp(:,igrid(i))=dTe_vperp(:,igrid(i)+mtheta(i))
             dTe_accel(:,igrid(i)+mtheta(i))=dTe_accel(:,igrid(i)+mtheta(i))+dTe_accel(:,igrid(i))
-            dTe_accel(:,igrid(i))=dTe_accel(:,igrid(i)+mtheta(i))    
+            dTe_accel(:,igrid(i))=dTe_accel(:,igrid(i)+mtheta(i))
             dTe_adiab(:,igrid(i)+mtheta(i))=dTe_adiab(:,igrid(i)+mtheta(i))+dTe_adiab(:,igrid(i))
-            dTe_adiab(:,igrid(i))=dTe_adiab(:,igrid(i)+mtheta(i))   
+            dTe_adiab(:,igrid(i))=dTe_adiab(:,igrid(i)+mtheta(i))
             dTe_fdamp(:,igrid(i)+mtheta(i))=dTe_fdamp(:,igrid(i)+mtheta(i))+dTe_fdamp(:,igrid(i))
-            dTe_fdamp(:,igrid(i))=dTe_fdamp(:,igrid(i)+mtheta(i))       
-         enddo  
+            dTe_fdamp(:,igrid(i))=dTe_fdamp(:,igrid(i)+mtheta(i))
+         enddo
 
 
          ! send densityi to left and receive from right
@@ -2762,7 +2762,7 @@ subroutine snapshot
             enddo
          else
             dTe_accel(1,:)=dTe_accel(1,:)+recv_array(1,:)
-         endif  
+         endif
 
          call MPI_SENDRECV(dTe_adiab(0,:),mgrid,mpi_Rsize,left_pe,1,recv_array(1,:),mgrid,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
          if(myrank_toroidal == ntoroidal-1)then
@@ -2772,7 +2772,7 @@ subroutine snapshot
             enddo
          else
             dTe_adiab(1,:)=dTe_adiab(1,:)+recv_array(1,:)
-         endif  
+         endif
 
          call MPI_SENDRECV(dTe_fdamp(0,:),mgrid,mpi_Rsize,left_pe,1,recv_array(1,:),mgrid,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
          if(myrank_toroidal == ntoroidal-1)then
@@ -2782,7 +2782,7 @@ subroutine snapshot
             enddo
          else
             dTe_fdamp(1,:)=dTe_fdamp(1,:)+recv_array(1,:)
-         endif  
+         endif
 
 
          !===============================================================================================
@@ -2830,14 +2830,14 @@ subroutine snapshot
                dne_init(1,ij)  = den_grid(i)*dne_init(1,ij)
                dne_vpara(1,ij) = den_grid(i)*dne_vpara(1,ij)
                dne_vperp(1,ij) = den_grid(i)*dne_vperp(1,ij)
-               dne_accel(1,ij) = den_grid(i)*dne_accel(1,ij)    
-               dne_adiab(1,ij) = den_grid(i)*dne_adiab(1,ij)    
-               dne_fdamp(1,ij) = den_grid(i)*dne_fdamp(1,ij)    
+               dne_accel(1,ij) = den_grid(i)*dne_accel(1,ij)
+               dne_adiab(1,ij) = den_grid(i)*dne_adiab(1,ij)
+               dne_fdamp(1,ij) = den_grid(i)*dne_fdamp(1,ij)
             enddo
          enddo
 
          ! ! Convert dTe to get a correct form of dTe by considering dne.
-         ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+         ! ! buff = Sigma(weight*(2/3*energy-T0))*markere = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol
          ! ! dTe = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*buff
          ! do i=0,mpsi
          !   do j=0,mtheta(i)
@@ -2846,9 +2846,9 @@ subroutine snapshot
          !     dTe_init(1,ij)  = tmp1*dTe_init(1,ij)
          !     dTe_vpara(1,ij) = tmp1*dTe_vpara(1,ij)
          !     dTe_vperp(1,ij) = tmp1*dTe_vperp(1,ij)
-         !     dTe_accel(1,ij) = tmp1*dTe_accel(1,ij)    
-         !     dTe_adiab(1,ij) = tmp1*dTe_adiab(1,ij)    
-         !     dTe_fdamp(1,ij) = tmp1*dTe_fdamp(1,ij)    
+         !     dTe_accel(1,ij) = tmp1*dTe_accel(1,ij)
+         !     dTe_adiab(1,ij) = tmp1*dTe_adiab(1,ij)
+         !     dTe_fdamp(1,ij) = tmp1*dTe_fdamp(1,ij)
          !   enddo
          ! enddo
          ! !==============================================================================

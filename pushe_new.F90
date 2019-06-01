@@ -19,7 +19,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
       zetatmp,e1,e2,e3,wpi(3,me),ga(me),wga(3,me),gat(me),rdel, &
       dgr(me),da(me),dgq(me),dgf(me),mu, &
-      Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, & 
+      Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, &
       vpara, v2, avw, f_rho,  &
       ! following working arrays are defined to use OMP reduction:
    adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
@@ -27,7 +27,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
    real(wp) vdq, vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
    real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
-   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis. 
+   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis.
    !(gf component is 0 due to the toroidal axisymmetric assumption )
 
    real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
@@ -51,8 +51,8 @@ subroutine pusheon(solver1, masssolver, irk_e)
    delt=1.0_wp/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
-   psimax=psi_grid(mpsi)    
-   psimin=psi_grid(0)       
+   psimax=psi_grid(mpsi)
+   psimin=psi_grid(0)
 
    f_rho=1.0_wp/for_rho   ! for_rho=(ms/m0)*(e0/es)
 
@@ -132,7 +132,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
    enddo
 
-   !    prepare equilibrium Er=dPhi/da at particles 
+   !    prepare equilibrium Er=dPhi/da at particles
 
    !  if(istep.lt.2800) then
    if(istep.lt.26500) then
@@ -154,7 +154,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
    ! if(istep.ge.4000) then
    !$omp parallel do private(m,r,ip,fip)
    do m=1,me
-      r=zeon(1,m)-a0      
+      r=zeon(1,m)-a0
       r=r*dela
       ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
       fip=r-real(ip,wp)
@@ -185,16 +185,16 @@ subroutine pusheon(solver1, masssolver, irk_e)
    ! WARNING: must make sure there is no memory conflict!!!
    ! backT is used in PUSHI and released afterward
 
-   !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;      
+   !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;
    !             ghq(:)=da/dt|_EXB;  Ta(:)=dtheta/dt|_EXB;  Pa(:)=drho/dt|_EXB;
-   !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;       
+   !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;
    !             gha(:)=1/|grad a|   F(:) =F
    !             wpi(3,:)=dphi/dzeta (NO change); no change for: zeon(1,2,4,:), wpi(1,2,:) and mu;
 
    !  if(nonlinear>100.0_wp) then            ! for nonlinear run
-   if(wimcompressibility==1) then            ! for implementation of weight imcompressibility 
+   if(wimcompressibility==1) then            ! for implementation of weight imcompressibility
       call weight_field_eon(wfield)      ! calculate weight-field uisng zeon0 for irk=1 and zeon at half-step for irk=2
-      ! used BB obtained from gcmotion, and electron locations are obtain here in pushe 
+      ! used BB obtained from gcmotion, and electron locations are obtain here in pushe
       ! which are used to calculate wfield in phase space grids and gether wfield at electron (next)
    end if
 
@@ -301,7 +301,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
             fdamp=0.0_wp
          end if
 
-         if(ifneoclassical==1) then   
+         if(ifneoclassical==1) then
             wdrift=(dgr(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
          else
             wdrift=(Pa(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
@@ -373,12 +373,12 @@ subroutine pusheon(solver1, masssolver, irk_e)
                vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
             else ! perturbed components only (ignoring neoclassical parts)
                vd_para_a_cntv = vpara_dve_a(m)
-               vd_para_gq_cntv = vpara_dve_gq(m)      
+               vd_para_gq_cntv = vpara_dve_gq(m)
             endif
             vd_perp_a_cntv = vdr -vd_para_a_cntv
             vd_perp_gq_cntv = vdq -vd_para_gq_cntv
 
-            !grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
+            !grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m)
             !grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
 
             ! wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
@@ -389,7 +389,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
             !MGYOO (01/30/2019)
             ! grad_lnf0 includes (wdrive) terms
             ! wdot_accel includes (wdrift + wgradB) terms
-            grad_lnf0_a_cov = -kappa 
+            grad_lnf0_a_cov = -kappa
             grad_lnf0_gq_cov = 0.0
 
             wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
@@ -422,7 +422,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
          if(wimcompressibility==1) then
             zeon(8,m) = avw           ! save average weight avw at electrons
          else
-            zeon(8,m) = zeon(5,m)     ! save w 
+            zeon(8,m) = zeon(5,m)     ! save w
          end if
 
          !     zeon(5,m) = zeon0(5,m)+dtime*wdot
@@ -433,7 +433,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
          !!!!zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(5,m))*wdot-fdamp*zeon(5,m))*dtime  ! weight advanced w/o including dphi/dt term yet
          !!!!zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*avw)*wdot-fdamp*zeon(5,m))*dtime
 
-         !  if(zeon0(1,m).gt.psi_grid(mpsi-nbound-1))  then 
+         !  if(zeon0(1,m).gt.psi_grid(mpsi-nbound-1))  then
          !     wfix=1.0_wp
          !  else
          !     wfix=1.0_wp
@@ -485,7 +485,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
 
          ! store GC information for flux measurements
-         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
+         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
          wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
          wpi(3,m)=muB       ! normalizd electron perpendicular energy
 
@@ -668,9 +668,9 @@ subroutine pusheon(solver1, masssolver, irk_e)
          !MGYOO(01/14/2019)
          ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
          if(irk_e==2) then
-            we_adiab(m) = we_adiab(m) + (zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime    
+            we_adiab(m) = we_adiab(m) + (zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime
          endif
-         !=================================================         
+         !=================================================
 
 
 
@@ -773,7 +773,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
          wgradB=vdr*Ba(m)+vdq*Bq(m)
 
 
-         if(ifelectron==2) then 
+         if(ifelectron==2) then
 
             ! calculate d(delta_phi)/dt at particles
             wz1=wzeon(m)
@@ -898,12 +898,12 @@ subroutine pusheon(solver1, masssolver, irk_e)
                vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
             else ! perturbed components only (ignoring neoclassical parts)
                vd_para_a_cntv = vpara_dve_a(m)
-               vd_para_gq_cntv = vpara_dve_gq(m)      
+               vd_para_gq_cntv = vpara_dve_gq(m)
             endif
             vd_perp_a_cntv = vdr -vd_para_a_cntv
             vd_perp_gq_cntv = vdq -vd_para_gq_cntv
 
-            ! grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m) 
+            ! grad_lnf0_a_cov = -kappa - T_inverse*mu*Ba(m)
             ! grad_lnf0_gq_cov = -T_inverse*mu*Bq(m)
 
             ! wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
@@ -914,13 +914,13 @@ subroutine pusheon(solver1, masssolver, irk_e)
             !MGYOO (01/30/2019)
             ! grad_lnf0 includes (wdrive) term
             ! wdot_accel includes (wdrift + wgradB + wdphidt) terms
-            grad_lnf0_a_cov = -kappa 
+            grad_lnf0_a_cov = -kappa
             grad_lnf0_gq_cov = 0.0
 
             wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
             wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
             wdot_accel  = wdrift + wgradB + wdphidt
-            !=================================================================      
+            !=================================================================
 
             wdot_vpara = (1.0_wp-E_f)*wdot_vpara
             wdot_vperp = (1.0_wp-E_f)*wdot_vperp
@@ -994,14 +994,14 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
 
          ! store GC information for flux measurements
-         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
+         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
          wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
          wpi(3,m)=muB       ! normalizd electron perpendicular energy
 
          if(irk_e==2) then
             UnNorm_theta_e(m) = UnNorm_theta_e(m) +dtime*dgq(m)
             UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +dtime*dgf(m)
-         endif     
+         endif
       enddo
 
       if(irk_e==2)then
@@ -1021,7 +1021,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
                zeon(1,m)=zeon0(1,m)
                zeon(2,m)=2.0_wp*pi-zeon0(2,m)
                zeon(3,m)=zeon0(3,m)
-               zeon(4,m)=zeon0(4,m) 
+               zeon(4,m)=zeon0(4,m)
                zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                !          zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
                zeon(7,m)=zeon0(7,m)
@@ -1083,7 +1083,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
       zetatmp,e1,e2,e3,wpi(3,me),ga(me),wga(3,me),gat(me),rdel, &
       dgr(me),da(me),dgq(me),dgf(me),mu, &
-      Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, & 
+      Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, &
       vpara, v2, avw, f_rho,  &
       ! following working arrays are defined to use OMP reduction:
    adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
@@ -1092,7 +1092,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) vdq, vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
    real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
-   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis. 
+   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis.
    !(gf component is 0 due to the toroidal axisymmetric assumption )
 
    real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
@@ -1117,8 +1117,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    delt=1.0_wp/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
-   psimax=psi_grid(mpsi)    
-   psimin=psi_grid(0)       
+   psimax=psi_grid(mpsi)
+   psimin=psi_grid(0)
 
    f_rho=1.0_wp/for_rho   ! for_rho=(ms/m0)*(e0/es)
 
@@ -1140,7 +1140,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       enddo
    elseif(irk_e==2) then
       RK_cum_coeff =(1.0/3.0)
-      RK_adv_coeff =0.5 
+      RK_adv_coeff =0.5
    elseif(irk_e==3) then
       RK_cum_coeff =(1.0/3.0)
       RK_adv_coeff =1.0
@@ -1203,7 +1203,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
    enddo
 
-   !    prepare equilibrium Er=dPhi/da at particles 
+   !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------
    !  if(istep.lt.2800) then
    if(istep.lt.26500) then
@@ -1220,7 +1220,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    ! if(istep.ge.4000) then
    !$omp parallel do private(m,r,ip,fip)
    do m=1,me
-      r=zeon(1,m)-a0      
+      r=zeon(1,m)-a0
       r=r*dela
       ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
       fip=r-real(ip,wp)
@@ -1245,16 +1245,16 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    ! WARNING: must make sure there is no memory conflict!!!
    ! backT is used in PUSHI and released afterward
 
-   !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;      
+   !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;
    !             ghq(:)=da/dt|_EXB;  Ta(:)=dtheta/dt|_EXB;  Pa(:)=drho/dt|_EXB;
-   !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;       
+   !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;
    !             gha(:)=1/|grad a|   F(:) =F
    !             wpi(3,:)=dphi/dzeta (NO change); no change for: zeon(1,2,4,:), wpi(1,2,:) and mu;
 
    !  if(nonlinear>100.0_wp) then            ! for nonlinear run
-   if(wimcompressibility==1) then            ! for implementation of weight imcompressibility 
+   if(wimcompressibility==1) then            ! for implementation of weight imcompressibility
       call weight_field_eon(wfield)      ! calculate weight-field uisng zeon0 for irk=1 and zeon at half-step for irk=2
-      ! used BB obtained from gcmotion, and electron locations are obtain here in pushe 
+      ! used BB obtained from gcmotion, and electron locations are obtain here in pushe
       ! which are used to calculate wfield in phase space grids and gether wfield at electron (next)
    end if
 
@@ -1357,7 +1357,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             !======================================================
          endif
 
-         if(ifneoclassical==1) then   
+         if(ifneoclassical==1) then
             wdrift=(dgr(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
          else
             wdrift=(Pa(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
@@ -1368,7 +1368,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          wdot=(wdrive+wdrift+wgradB)
 
          !MGYOO (03/27/2019)
-         ! Following evaluation might be wrong 
+         ! Following evaluation might be wrong
          ! Please check again (dw/dt) equation
          wdot=(1.0_wp-E_f)*wdot
 
@@ -1436,7 +1436,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
             else ! perturbed components only (ignoring neoclassical parts)
                vd_para_a_cntv = vpara_dve_a(m)
-               vd_para_gq_cntv = vpara_dve_gq(m)      
+               vd_para_gq_cntv = vpara_dve_gq(m)
             endif
             vd_perp_a_cntv = vdr -vd_para_a_cntv
             vd_perp_gq_cntv = vdq -vd_para_gq_cntv
@@ -1445,7 +1445,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             !MGYOO (01/30/2019)
             ! grad_lnf0 includes (wdrive) terms
             ! wdot_accel includes (wdrift + wgradB) terms
-            grad_lnf0_a_cov = -kappa 
+            grad_lnf0_a_cov = -kappa
             grad_lnf0_gq_cov = 0.0
 
             wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
@@ -1487,7 +1487,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          else if(irk_e==4) then !irk_i==4
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
             ! zeon(1:5,m) = zeon0(1:5,m) +RK_cum_zeon(1:5,m)
-            zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)        
+            zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)
             zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
          endif
 
@@ -1496,7 +1496,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          zeon(3,m)=modulo(zeon(3,m),twopi)
 
          ! store GC information for flux measurements
-         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
+         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
          wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
          wpi(3,m)=muB       ! normalizd electron perpendicular energy
 
@@ -1582,10 +1582,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !======================================================
          ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
-         ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level      
+         ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
          !======================================================
          ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
-         wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)  
+         wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
          ! Advance particle information for the next RK step
          ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
          zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
@@ -1644,14 +1644,14 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !======================================================
          ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
-         ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level      
+         ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
          !======================================================
          ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
-         wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)  
+         wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
          ! Advance particle information for the next RK step
 
          ! Calculate dADdt and evolve weight
-         ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))     
+         ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
          RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
 
          ! Advance particle information for the next RK step
@@ -1668,10 +1668,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !MGYOO(05/10/2019)
          ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
          if(irk_e==4) then
-            we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt    
+            we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt
          endif
 
-      enddo  
+      enddo
 
 
 
@@ -1743,7 +1743,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
       zetatmp,e1,e2,e3,wpi(3,me),ga(me),wga(3,me),gat(me),rdel, &
       dgr(me),da(me),dgq(me),dgf(me),mu, &
-      Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,& 
+      Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,&
       vpara, v2, avw, f_rho,  &
       ! following working arrays are defined to use OMP reduction:
    adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
@@ -1754,7 +1754,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
    real(wp) vdq, vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
    real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
-   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis. 
+   real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis.
    !(gf component is 0 due to the toroidal axisymmetric assumption )
 
    real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
@@ -1779,8 +1779,8 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
    delt=1.0_wp/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
-   psimax=psi_grid(mpsi)    
-   psimin=psi_grid(0)       
+   psimax=psi_grid(mpsi)
+   psimin=psi_grid(0)
 
    f_rho=1.0_wp/for_rho   ! for_rho=(ms/m0)*(e0/es)
 
@@ -1801,13 +1801,13 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
       do m=1,me
-         ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity      
+         ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity
          zeon0(1:5,m)=zeon(1:5,m)
          zeon0(7,m)=zeon(7,m)
       enddo
    elseif(irk_e==2) then
       RK_cum_coeff =(1.0/3.0)
-      RK_adv_coeff =0.5 
+      RK_adv_coeff =0.5
    elseif(irk_e==3) then
       RK_cum_coeff =(1.0/3.0)
       RK_adv_coeff =1.0
@@ -1870,7 +1870,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
 
    enddo
 
-   !    prepare equilibrium Er=dPhi/da at particles 
+   !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------
    !  if(istep.lt.2800) then
    if(istep.lt.26500) then
@@ -1887,7 +1887,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
    ! if(istep.ge.4000) then
    !$omp parallel do private(m,r,ip,fip)
    do m=1,me
-      r=zeon(1,m)-a0      
+      r=zeon(1,m)-a0
       r=r*dela
       ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
       fip=r-real(ip,wp)
@@ -1912,16 +1912,16 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
    ! WARNING: must make sure there is no memory conflict!!!
    ! backT is used in PUSHI and released afterward
 
-   !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;      
+   !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;
    !             ghq(:)=da/dt|_EXB;  Ta(:)=dtheta/dt|_EXB;  Pa(:)=drho/dt|_EXB;
-   !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;       
+   !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;
    !             gha(:)=1/|grad a|   F(:) =F
    !             wpi(3,:)=dphi/dzeta (NO change); no change for: zeon(1,2,4,:), wpi(1,2,:) and mu;
 
    !  if(nonlinear>100.0_wp) then            ! for nonlinear run
-   if(wimcompressibility==1) then            ! for implementation of weight imcompressibility 
+   if(wimcompressibility==1) then            ! for implementation of weight imcompressibility
       call weight_field_eon(wfield)      ! calculate weight-field uisng zeon0 for irk=1 and zeon at half-step for irk=2
-      ! used BB obtained from gcmotion, and electron locations are obtain here in pushe 
+      ! used BB obtained from gcmotion, and electron locations are obtain here in pushe
       ! which are used to calculate wfield in phase space grids and gether wfield at electron (next)
    end if
 
@@ -2041,7 +2041,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
 
 
 
-         if(ifneoclassical==1) then   
+         if(ifneoclassical==1) then
             wdrift=(dgr(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
          else
             wdrift=(Pa(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
@@ -2052,30 +2052,30 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
          wdot=(wdrive+wdrift+wgradB)
 
          !MGYOO (03/27/2019)
-         ! Following evaluation might be wrong 
+         ! Following evaluation might be wrong
          ! Please check again (dw/dt) equation
          wdot=(1.0_wp-E_f)*wdot
 
          ! !========================================================
-         ! ! MGYOO(05/15/2019) : estimate the adiabatic driving term using the backward(irk=1) or central (irk=2,3,4) finite differencing 
+         ! ! MGYOO(05/15/2019) : estimate the adiabatic driving term using the backward(irk=1) or central (irk=2,3,4) finite differencing
          ! ! Note that 2nd-order 3-points central differencing has the following form:
          ! ! f'(t+k) = (h/(k*(h+k)))*f(t+k) +(1/h-1/k)*f(t) -(k/(h*(h+k)))*f(t-h)
          ! ! where h=tstep, and k size corresponds to the RK step (k=0.5*tstep for irk_e=2or3, k=tstep for irk_e=4)
-         ! if(irk_e==1) then 
-         !   wdphidt_convective = (zeon(8,m)-zeon0(8,m))/tstep !1st order 2-points backward differencing @ x{n} 
+         ! if(irk_e==1) then
+         !   wdphidt_convective = (zeon(8,m)-zeon0(8,m))/tstep !1st order 2-points backward differencing @ x{n}
          ! elseif(irk_e<4) then ! irk_e=2 or irk_e=3
          !   wdphidt_convective = (4.0*E_f -3.0*zeon(8,m)-zeon0(8,m))/(3.0*tstep) !2nd order 3-points central differencing @ x{n+0.5}
          ! else ! irk_e=4
          !   wdphidt_convective = (E_f - zeon0(8,m))/(2.0*tstep) !2nd order 3-points central differencing @ x{n+1}
-         ! endif 
+         ! endif
 
          !========================================================
-         ! MGYOO(05/15/2019) : estimate the adiabatic driving term using the backward finite differencing 
+         ! MGYOO(05/15/2019) : estimate the adiabatic driving term using the backward finite differencing
          ! Note that 2nd order 3-points backward differencing has the following form:
          ! f'(t+k) = (k/(h*(h+k)))*f(t-h) -(h+k)/(h*k)*f(t) +(h+2*k)/(k*(h+k))*f(t+k)
          ! where h=tstep, and k size corresponds to the RK step (k=0.5*tstep for irk_e=2or3, k=tstep for irk_e=1)
-         if(irk_e==1) then 
-            wdphidt_convective = (zeon(8,m)-zeon0(8,m))/tstep !1st order 2-points backward differencing @ x{n} 
+         if(irk_e==1) then
+            wdphidt_convective = (zeon(8,m)-zeon0(8,m))/tstep !1st order 2-points backward differencing @ x{n}
          elseif(irk_e<4) then ! irk_e=2 or irk_e=3
             wdphidt_convective = (8.0*E_f -9.0*zeon(8,m)+1.0*zeon0(8,m))/(3.0*tstep) !2nd order 3-points backward differencing @ x{n+0.5}
          else ! irk_e=4
@@ -2085,10 +2085,10 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
 
 
          if(elabels(m) == etracers_labels((num_of_etracers/2))) then
-            write(stdout,*) "istep=",istep, ",irk_e=",irk_e,",zeon0(8,m)=", zeon0(8,m),",zeon(8,m)=", zeon(8,m),",E_f=",E_f,",old_E_f=",old_E_f 
+            write(stdout,*) "istep=",istep, ",irk_e=",irk_e,",zeon0(8,m)=", zeon0(8,m),",zeon(8,m)=", zeon(8,m),",E_f=",E_f,",old_E_f=",old_E_f
             write(stdout,*) "wdot=",wdot,"wdphidt_convective=",wdphidt_convective, "wdphidt_partial=",wdphidt_partial
             call flush(stdout)
-         endif      
+         endif
 
          if(wimcompressibility==1) then     ! for weight imcompressibility
             ! calculate average weight <w> at particles using wieght-field wfield
@@ -2152,7 +2152,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
                vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
             else ! perturbed components only (ignoring neoclassical parts)
                vd_para_a_cntv = vpara_dve_a(m)
-               vd_para_gq_cntv = vpara_dve_gq(m)      
+               vd_para_gq_cntv = vpara_dve_gq(m)
             endif
             vd_perp_a_cntv = vdr -vd_para_a_cntv
             vd_perp_gq_cntv = vdq -vd_para_gq_cntv
@@ -2161,7 +2161,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
             !MGYOO (01/30/2019)
             ! grad_lnf0 includes (wdrive) terms
             ! wdot_accel includes (wdrift + wgradB) terms
-            grad_lnf0_a_cov = -kappa 
+            grad_lnf0_a_cov = -kappa
             grad_lnf0_gq_cov = 0.0
 
             wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
@@ -2219,7 +2219,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
          zeon(3,m)=modulo(zeon(3,m),twopi)
 
          ! store GC information for flux measurements
-         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
+         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
          wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
          wpi(3,m)=muB       ! normalizd electron perpendicular energy
 
@@ -2288,11 +2288,11 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
 
       endif
 
-   ELSE    !IF(ifelectron==2.and.ifdphi==3) then  
+   ELSE    !IF(ifelectron==2.and.ifdphi==3) then
       write(stdout,*) "In pushe_RK4_ifdphi3, wrong flags are observed!! Please Check It!!"
       write(stdout,*) "Pushe_RK4 routine cannot deal with, ifelectron=", ifelectron,", ifdphi=", ifdphi
       call flush(stdout)
-   ENDIF   !IF(ifelectron==2.and.ifdphi==3) then  
+   ENDIF   !IF(ifelectron==2.and.ifdphi==3) then
 
 end subroutine pusheon_RK4_ifdphi3
 
@@ -2309,7 +2309,7 @@ subroutine electron_locator
       pi2_inv,psitmp,thetatmp,zetatmp,psimax,psimin
 
 
-   delr=1.0_wp/deltar 
+   delr=1.0_wp/deltar
    delt=2.0_wp*pi/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
@@ -2319,7 +2319,7 @@ subroutine electron_locator
    !$omp parallel do private(m,psitmp,thetatmp,zetatmp,&
    !$omp& rdum,ii,wp1,im,tdum,j00,j01)
    do m=1,me
-      !     psitmp=zeon(1,m)      ! =a  
+      !     psitmp=zeon(1,m)      ! =a
       psitmp=zeon(7,m)       ! =s
       thetatmp=zeon(2,m)
       zetatmp=zeon(3,m)
@@ -2347,15 +2347,15 @@ subroutine electron_locator
       j01=max(0,min(mtheta(im)-1,int(tdum)))
       jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
       wteon1(m)=tdum-real(j01,wp)
-   enddo	
+   enddo
 
 end subroutine electron_locator
 
 
 
-subroutine Cal_Current_AdiabaticTerm_at_PrevPosition 
-   ! This function calculates zeon0(8,m) = e*phi_NZ{t^n,x^(n-1)}/Te0{x^(n-1)} 
-   ! This value will be needed to calculate central differencing of convective adiabatic driving term  
+subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
+   ! This function calculates zeon0(8,m) = e*phi_NZ{t^n,x^(n-1)}/Te0{x^(n-1)}
+   ! This value will be needed to calculate central differencing of convective adiabatic driving term
    use precision
    use field_array
    use global_parameters
@@ -2375,7 +2375,7 @@ subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
       prev_wteon0(me), prev_jteon1(me),prev_wteon1(me)
    integer ij
    real(wp) wz0,wz1,wp0,wp1,wt00,wt10,wt01,wt11
-   real(wp) e1, Ea_00, T_inverse 
+   real(wp) e1, Ea_00, T_inverse
 
 
    ! First, get prev_backTe at zeon0(1,m) position which is the position at time level (n-1)
@@ -2384,7 +2384,7 @@ subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
       if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
          if(linterp_from_nodes==1) then
             dela=(a1-a0)/real(jr,wp)
-            dela=1.0_wp/dela 
+            dela=1.0_wp/dela
             do i=1,me
                r=zeon0(1,i)-a0
                r=r*dela
@@ -2392,11 +2392,11 @@ subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
                fip=r-real(ip,wp)
 
                prev_backTe(i)=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip) ! Te at particles
-            enddo 
+            enddo
          else              ! use spline
             call ezspline_interp(spTe,me,zeon0(1,:),prev_backTe,ier)
          end if
-      else                  ! use model profiles 
+      else                  ! use model profiles
          if(q2.gt.0.0) then  ! first analytic profile
             do i=1,me
                prev_backTe(i)=T_e0*Bt_e*exp(-dTeme*zeon0(1,i)**xt_e)
@@ -2416,12 +2416,12 @@ subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
                prev_backTe(i)=T_e0*exp(flow1*tempe)   ! Te at particles
             end do
          end if
-      end if 
+      end if
    enddo !m=1,me
 
 
    ! Second, calculate prev_wpeon & etc at zeon0 position which is the position at time level (n-1)
-   delr=1.0_wp/deltar 
+   delr=1.0_wp/deltar
    delt=2.0_wp*pi/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
@@ -2456,7 +2456,7 @@ subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
       j01=max(0,min(mtheta(im)-1,int(tdum)))
       prev_jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
       prev_wteon1(m)=tdum-real(j01,wp)
-   enddo	
+   enddo
 
    ! Last, calculate Adiabatic driving terms
    do m=1,me
@@ -2505,9 +2505,9 @@ end subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
 
 
 
-subroutine Get_AdiabaticTerm_at_specific_Pos_Time(input_phi, input_phi00, input_zeon_arr, out_val_arr) 
-   ! This function calculates zeon0(8,m) = e*phi_NZ{t^n,x^(n-1)}/Te0{x^(n-1)} 
-   ! This value will be needed to calculate central differencing of convective adiabatic driving term  
+subroutine Get_AdiabaticTerm_at_specific_Pos_Time(input_phi, input_phi00, input_zeon_arr, out_val_arr)
+   ! This function calculates zeon0(8,m) = e*phi_NZ{t^n,x^(n-1)}/Te0{x^(n-1)}
+   ! This value will be needed to calculate central differencing of convective adiabatic driving term
    use precision
    use field_array
    use global_parameters
@@ -2530,7 +2530,7 @@ subroutine Get_AdiabaticTerm_at_specific_Pos_Time(input_phi, input_phi00, input_
       this_wteon0(me), this_jteon1(me),this_wteon1(me)
    integer ij
    real(wp) wz0,wz1,wp0,wp1,wt00,wt10,wt01,wt11
-   real(wp) e1, Ea_00, T_inverse 
+   real(wp) e1, Ea_00, T_inverse
 
 
    ! First, get this_backTe at zeon0(1,m) position which is the position at time level (n-1)
@@ -2539,7 +2539,7 @@ subroutine Get_AdiabaticTerm_at_specific_Pos_Time(input_phi, input_phi00, input_
       if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
          if(linterp_from_nodes==1) then
             dela=(a1-a0)/real(jr,wp)
-            dela=1.0_wp/dela 
+            dela=1.0_wp/dela
             do i=1,me
                r=zeon0(1,i)-a0
                r=r*dela
@@ -2547,11 +2547,11 @@ subroutine Get_AdiabaticTerm_at_specific_Pos_Time(input_phi, input_phi00, input_
                fip=r-real(ip,wp)
 
                this_backTe(i)=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip) ! Te at particles
-            enddo 
+            enddo
          else              ! use spline
             call ezspline_interp(spTe,me,zeon0(1,:),this_backTe,ier)
          end if
-      else                  ! use model profiles 
+      else                  ! use model profiles
          if(q2.gt.0.0) then  ! first analytic profile
             do i=1,me
                this_backTe(i)=T_e0*Bt_e*exp(-dTeme*zeon0(1,i)**xt_e)
@@ -2571,12 +2571,12 @@ subroutine Get_AdiabaticTerm_at_specific_Pos_Time(input_phi, input_phi00, input_
                this_backTe(i)=T_e0*exp(flow1*tempe)   ! Te at particles
             end do
          end if
-      end if 
+      end if
    enddo !m=1,me
 
 
    ! Second, calculate this_wpeon & etc at zeon0 position which is the position at time level (n-1)
-   delr=1.0_wp/deltar 
+   delr=1.0_wp/deltar
    delt=2.0_wp*pi/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
@@ -2611,7 +2611,7 @@ subroutine Get_AdiabaticTerm_at_specific_Pos_Time(input_phi, input_phi00, input_
       j01=max(0,min(mtheta(im)-1,int(tdum)))
       this_jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
       this_wteon1(m)=tdum-real(j01,wp)
-   enddo	
+   enddo
 
    ! Last, calculate Adiabatic driving terms
    do m=1,me
@@ -2677,7 +2677,7 @@ subroutine Update_ElectronWeights_using_New_wdphidt_partial
    real(wp) AD_at_t_nm1_x_n(me) ! AdiabaticTerm @ t={n-1}, x={n}
    real(wp) AD_at_t_np1_x_n(me) ! AdiabaticTerm @ t={n+1}, x={n}
    real(wp) instep,outstep,fdamp0,fip,fdamp
-   real(wp), external :: SMOOTHSTEP 
+   real(wp), external :: SMOOTHSTEP
 
 
    ! Note that x={n} is zeon0 position here,
@@ -2712,9 +2712,9 @@ subroutine Update_ElectronWeights_using_New_wdphidt_partial
          write(stdout,*) "zeon(5,m)=",zeon(5,m),"zeon0(5,m)=",zeon0(5,m),"RK_cum_zeon(8,m)=",RK_cum_zeon(8,m),"new_dw=",tstep*((zeon0(6,m)-nonlinear*zeon0(5,m))*new_wdphidt_partial(m)*fip -fdamp*zeon0(5,m))
          call flush(stdout)
       endif
-      ! Subtract the weight evolution due to predicted partial derivative term 
+      ! Subtract the weight evolution due to predicted partial derivative term
       ! (This is RK_cum_zeon(8,m) due to wdphidt_partial in pushe_RK4_ifdphi3)
-      ! After that, evolve again using new_wdphidt_partial 
+      ! After that, evolve again using new_wdphidt_partial
       zeon(5,m) = zeon(5,m) - RK_cum_zeon(8,m) +tstep*((zeon0(6,m)-nonlinear*zeon0(5,m))*new_wdphidt_partial(m)*fip -fdamp*zeon0(5,m))
 
 

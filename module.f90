@@ -26,7 +26,7 @@ module global_parameters
       kappan,flow0,flow1,flow2,ulength,utime,E_00,gyroradius,deltar,&
       deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,&
       uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
-      s0,s1,B_0,R_0,Cs   ! B_0=normalized on-axis B, R_0=normalized major radius 
+      s0,s1,B_0,R_0,Cs   ! B_0=normalized on-axis B, R_0=normalized major radius
    real(wp) MM_Cs, MM_Lc_over_vthci, MM_LcTi, MM_LcTe, MM_Lcn, MM_Lcu, MM_vthci, MM_vthce, MM_R_axis, MM_B_axis ! Variables for MeasureMent
    integer,dimension(:),allocatable :: mtheta
    real(wp),dimension(:),allocatable :: deltat
@@ -34,8 +34,8 @@ module global_parameters
    real(wp),parameter :: B_00=1.0e4_wp,  &  ! code unit for B, in unit gauss
       R_00=100._wp,  &  ! code unit for length, in cm
       c=2.9979e10_wp, &
-      pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium 
-      amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium 
+      pmass0=3.3452e-24_wp, charg0=4.8032e-10_wp,  &  ! Deuturium
+      amassi=3.3452e-24_wp, chargi=4.8032e-10_wp,  &  ! Deuturium
       amasse=9.1095e-28_wp, charge=-4.8032e-10_wp, &
       trans=1.6022e-12_wp, &  ! energy (erg) of 1eV
       dlni=16.0_wp, &
@@ -140,13 +140,13 @@ module FieldLineFollowing
    use precision
    type Poincare_Point_Information
       integer Label  ! Label for each field line
-      real(wp) target_normalized_gf  ! target_zeta in [0,...,2*pi]   
+      real(wp) target_normalized_gf  ! target_zeta in [0,...,2*pi]
       real(wp) s, a, gq, gf
       real(wp) R, Z
-      real(wp) dl, inv_B 
+      real(wp) dl, inv_B
       ! abandon weight..
       ! weight is the Jacobian at initial position to reflect accurate importance of each gPPI when using uniform distribution (s,gq,gf)
-      real(wp) test_FLA_a        
+      real(wp) test_FLA_a
    end type
 
    integer :: FLF_max_tor_num = 400, gPPI_max_tor_num = 200
@@ -155,7 +155,7 @@ module FieldLineFollowing
    integer, dimension(:), allocatable :: num_of_gPPI_for_each_FieldLine
    ! Global PPI ==> gPPI
    ! gPPI(gPPI_max_tor_rotation, 1:num_of_SampledFieldLines)
-   type(Poincare_Point_Information), dimension(:,:), allocatable:: gPPI    
+   type(Poincare_Point_Information), dimension(:,:), allocatable:: gPPI
 
 end module FieldLineFollowing
 module particle_array
@@ -172,8 +172,8 @@ module particle_array
    ! ============================
    ! MGYOO (07/31/2018)
    ! Information of Multiple-Tracers
-   real(wp), dimension(:), allocatable :: elabels, ilabels  
-   integer :: num_of_etracers=200, num_of_itracers=200, nstep_for_tracer_record=5 ! Default values 
+   real(wp), dimension(:), allocatable :: elabels, ilabels
+   integer :: num_of_etracers=200, num_of_itracers=200, nstep_for_tracer_record=5 ! Default values
    !real(wp), dimension(:), allocatable :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
    real(wp), dimension(:), allocatable :: etracers_labels, itracers_labels
    ! Unnormalized zeta&theta (not normalized into [0,2*pi))
@@ -184,7 +184,7 @@ module particle_array
    ! MGYOO (07/31/2018)
    ! Additional information about weight component ratio
    real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp ! for ion weight
-   real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp ! for electron weight  
+   real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp ! for electron weight
    ! ============================
 
 
@@ -205,7 +205,7 @@ module field_array
       dni_grid,dne_grid
    real(wp),dimension(:),allocatable :: zonal_dTe, zonal_dTi
    real(wp),dimension(:,:),allocatable :: tot_dne,tot_dni, FLA_Denominator, FLA_dphi, FLA_dTe, FLA_dTi, FLA_dne, FLA_dni, FLA_ne_adiabatic
-   real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0 
+   real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0
    real(wp),dimension(:,:),allocatable :: Weighted_Vol
    real(wp),dimension(:),allocatable :: Node_simple_Vol
    real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
@@ -274,8 +274,8 @@ module esi_interface
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
       rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw
    real(wp), dimension(:), allocatable :: dve_gf, dvi_gf  ! gf(zeta) component of delta_v (due to plasma potential and magnetic perturbation)
-   real(wp), dimension(:), allocatable :: vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf  ! delta components (perturbed part) of ion v_para 
-   real(wp), dimension(:), allocatable :: vpara_dve_a, vpara_dve_gq,vpara_dve_gf  ! delta components (perturbed part) of electron v_para 
+   real(wp), dimension(:), allocatable :: vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf  ! delta components (perturbed part) of ion v_para
+   real(wp), dimension(:), allocatable :: vpara_dve_a, vpara_dve_gq,vpara_dve_gf  ! delta components (perturbed part) of electron v_para
    real(wp)  metric(6)
    real(wp)  djr
    real(wp), dimension(:), allocatable :: flux_it,dlnA_da,flux_A

@@ -16,7 +16,7 @@ subroutine collision
    call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc., which are also used in PUSHI/PUSHION
 
    if(icollision.gt.0) then   ! include collision
-      i=mod(istep,icollision) 
+      i=mod(istep,icollision)
       if(i==0) then           ! calculate collisions every icollision-step
          if(irk==1) then      ! calculate collisions at irk=1
             !           call esigetb(zion(1,:),zion(2,:),mi)   ! get B
@@ -33,6 +33,6 @@ subroutine collision
 
          end if
       end if
-   end if   
+   end if
 
 end subroutine collision

@@ -10,7 +10,7 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
    real*8 finval
 
    real*8 functn
-   external functn              
+   external functn
 
    interface
       subroutine adapt(ndim,A,B,minpts,maxpts,functn,eps,                 &
@@ -35,7 +35,7 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
    !     C05ADF locates a zero of a continuous function in a given interval
    !     by a combination of the methods of linear interpolation,
    !     extrapolation and bisection
-   !     
+   !
    !     abs(x-root) < eps
    !     abs( f(x) ) < eta
    !
@@ -122,7 +122,7 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
       end
 
       !     =====================================================
-      !     E01BAF determines a cubic-spline interpolant to a 
+      !     E01BAF determines a cubic-spline interpolant to a
       !     given set of data
       !
       subroutine E01BAF(m, x, y, lamda, c, lck, wrk, lwrk, ifail)
@@ -131,7 +131,7 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
          real*8 x(m), y(m), lamda(lck), c(lck), wrk(lwrk)
          !
          !     derivative end conditions are not imposed
-         !     1st 4 and last 4 knots of B splines set to x(1) and x(m) 
+         !     1st 4 and last 4 knots of B splines set to x(1) and x(m)
 
          logical is_error, is_ok
          integer i
@@ -146,7 +146,7 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
                integer ndata,ibcl,ibcr,kntopt,n,k
                real*8 x(ndata),y(ndata),w(*), t(*),bcoef(*), fbcl,fbcr
             end subroutine BINT4
-         end interface 
+         end interface
 
          !     ------------------
          !     checking arguments
@@ -245,10 +245,10 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
 
             ifail = 0
             return
-            end 
+            end
 
             !     =====================================================
-            !     D01AHF computes a definite integral over a finite range to a specified 
+            !     D01AHF computes a definite integral over a finite range to a specified
             !     relative accuracy using a method described by Patterson
 
             real*8 function d01ahf_new(a,b, epsr, npts, relerr, F, nlimit_in, ifail )
@@ -264,7 +264,7 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
                real*8 eps, r, e
                integer iflag, kf
                real*8 fmin,fmax
-               logical rst 
+               logical rst
                integer nmax
                parameter(nmax=10000)
                real*8 w(nmax,6)
@@ -335,7 +335,7 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
                end
                !     =====================================================
                !     S15AEF returns the value of the error function erf(x)
-               !     
+               !
                !   this replacement may cause problem at least on Franklin!!!  Sep. 08
                !
                real*8 function s15aef(x,ifail)
@@ -351,8 +351,8 @@ subroutine  d01fcf(ndim,A,B,minpts,maxpts,functn,eps,                 &
 
 
                   !     =====================================================
-                  !     S14AEF returns the value of the kth derivative of the 
-                  !     psi function for real*8 x, k=0,1,...6 
+                  !     S14AEF returns the value of the kth derivative of the
+                  !     psi function for real*8 x, k=0,1,...6
 
                   real*8 function s14aef(x,k,ifail)
                      implicit none

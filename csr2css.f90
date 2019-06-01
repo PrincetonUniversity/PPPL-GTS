@@ -6,7 +6,7 @@ subroutine csrcsc ( n, job, ipos, a, ja, ia, ao, jao, iao )
    !
    !  Discussion:
    !
-   !    This is essentially a transposition operation.  
+   !    This is essentially a transposition operation.
    !
    !    It is NOT an in-place algorithm.
    !

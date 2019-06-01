@@ -42,8 +42,8 @@ subroutine Er_provider
 
    !      Er=dPhi/da=Er_amp*exp{-[(a-ac)/half_width]^xe}
 
-   if(mype==0) then 
-      print*, 'Er=dPhi/da=Er_amp*exp{-[(a-ac)/half_width]^xe}' 
+   if(mype==0) then
+      print*, 'Er=dPhi/da=Er_amp*exp{-[(a-ac)/half_width]^xe}'
       print*, 'Er_amp=', Er_amp, '  ac=', ac, '  xe=', xe, '  half_width=', half_width
    end if
 
@@ -65,7 +65,7 @@ subroutine Er_provider
          *(vthr*uveloci)**3.0_wp/(density(Yr(i),0.0_wp)*charg0*charg0  &
          *charg0*charg0*dlni)*pmass0   ! in unit of sec
       Taui=0.75_wp*sqrt(pi)*Taur
-      Taui=Taui*sqrt(2.0_wp)/utime      ! normalized collision time 
+      Taui=Taui*sqrt(2.0_wp)/utime      ! normalized collision time
 
       U_int=u_parallel(Yr(i),0.0_wp)
 
@@ -145,11 +145,11 @@ subroutine Er_provider
          !  Er_grid(i)=Er_amp*exp(-((psi_grid(i)-ac)/half_width)**xe)
       end do
 
-      !!  set values for dPhi/da at boundaries that will be used as boundary condition for solving d<phi>/da in poisson.F90; 2017 
-      if(ifneoclassical==1) then    ! in this case, d<phi>/da includes neoclassical Er, and therefore, == Er_NC at boundaries 
+      !!  set values for dPhi/da at boundaries that will be used as boundary condition for solving d<phi>/da in poisson.F90; 2017
+      if(ifneoclassical==1) then    ! in this case, d<phi>/da includes neoclassical Er, and therefore, == Er_NC at boundaries
          Er_a0=Er_grid(0)
          Er_a1=Er_grid(mpsi)
-      else                          ! in this case, d<phi>/da==ZFs which == 0 due to no turbulence near simulation boundaries 
+      else                          ! in this case, d<phi>/da==ZFs which == 0 due to no turbulence near simulation boundaries
          Er_a0=0.0_wp
          Er_a1=0.0_wp
       end if
@@ -160,7 +160,7 @@ subroutine Er_provider
          ! n_node+2: number of radial nodes of Er data
          ! Er_on_node: Er data at nodes
          ! r_node:     radial location of nodes
-         ! E01_K,E01_C,E01_WRK: spline coefficients and working space 
+         ! E01_K,E01_C,E01_WRK: spline coefficients and working space
          if(mype==0) then
             allocate(Er_on_node(n_node+2),r_node(n_node+2),E01_K(n_node+2+4),E01_C(n_node+2+4),E01_WRK(6*(n_node+2)+16))
             open(unit=20,file=Er_data_name)
@@ -198,7 +198,7 @@ subroutine Er_provider
          call MPI_BCAST(Er_grid,mpsi+1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
 
          deallocate(Er_on_node,r_node,E01_K,E01_C,E01_WRK)
-      end if 
+      end if
 
       !  Er401_bp=1.2_wp*Er401_bp
       !  Er_grid=1.2_wp*Er_grid
@@ -213,8 +213,8 @@ subroutine Er_provider
          do i=0,je
             if(plasma==1) then
                call ezspline_derivative(spPHI,1,Yr(i),dum,ierror) ! dum=dPHI_eq/da
-               write(502,5) i, Yr(i), Er401_bp(i), Er401_pc(i),dum 
-            else 
+               write(502,5) i, Yr(i), Er401_bp(i), Er401_pc(i),dum
+            else
                write(502,5) i, Yr(i), Er401_bp(i), Er401_pc(i)
                !print*, ' Er_nc:', i, Yr(i), Er401_bp(i), Er401_pc(i)
             endif

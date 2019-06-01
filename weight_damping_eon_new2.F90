@@ -106,7 +106,7 @@ subroutine weight_field_eon(wfield)
 
    integer m,i,j,k,jt,ii,ierror,ij,info,  &
       icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-   real(wp) rdum(9),wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,vz,mu,enew,f_rho,rdum0 
+   real(wp) rdum(9),wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,vz,mu,enew,f_rho,rdum0
    real(wp) send(3,mgrid),recv(3,mgrid)
 
    real(wp) dnitmp(9,mgrid,0:1), dampf(9,mgrid,0:1), wfield(3,mgrid,0:1)
@@ -124,7 +124,7 @@ subroutine weight_field_eon(wfield)
    !  calculate electron weight field
    !
 
-   !  electron_locator is called in advance to give: wzeon, wteon0, wteon1, jteon0, jteon1, 
+   !  electron_locator is called in advance to give: wzeon, wteon0, wteon1, jteon0, jteon1,
    !  in pushe.F90 where wieght_field_eon.F90 is called
    !  BE SURE no memory conflict (!!!)
    !  call electron_locator         ! don't need to call electron_locator here
@@ -246,8 +246,8 @@ subroutine weight_field_eon(wfield)
          ii=igrid(j)
          jt=mtheta(j)
          dampf(:,ii+1:ii+jt,1)=dampf(:,ii+1:ii+jt,1)+&
-            cshift(dnitmp(:,ii+1:ii+jt,1),itran(j),2) 
-      enddo 
+            cshift(dnitmp(:,ii+1:ii+jt,1),itran(j),2)
+      enddo
    else
       ! B.C. at zeta<2*pi is continuous
       dampf(:,:,1)=dampf(:,:,1)+dnitmp(:,:,1)
@@ -337,7 +337,7 @@ subroutine weight_field_eon(wfield)
 
       info=0
       call dsytrf('L',3,aav,3,ipiv,work,lwork,info)
-      if(info.ne.0) then 
+      if(info.ne.0) then
          print*,  'EONwrong   ',  'ij=', ij, mype, myrank_toroidal, myrank_partd
          bv=0.0_wp
          go to 8000
@@ -345,15 +345,15 @@ subroutine weight_field_eon(wfield)
       info=0
       call dsytrs('L',3,1,aav,3,ipiv,bv,3,info)
 
-      !     if(info < 0) then 
+      !     if(info < 0) then
       !        if(myrank_partd==1) print*, 'INFO=', info, 'ij=', ij, myrank_toroidal
       !     end if
 
-      8000  continue 
+      8000  continue
 
-      !     wfield(1,ij,1)=bv(1)   
-      !     wfield(2,ij,1)=bv(2)   
-      !     wfield(3,ij,1)=bv(3)   
+      !     wfield(1,ij,1)=bv(1)
+      !     wfield(2,ij,1)=bv(2)
+      !     wfield(3,ij,1)=bv(3)
       send(1,ij-ii)=bv(1)
       send(2,ij-ii)=bv(2)
       send(3,ij-ii)=bv(3)
@@ -374,7 +374,7 @@ subroutine weight_field_eon(wfield)
       displacement,mpi_Rsize,partd_comm,ierror)
 
 
-   wfield(:,:,0)=0.0_wp 
+   wfield(:,:,0)=0.0_wp
 
    ! toroidal BC: send to right and receive from left
    !  do j=1,3

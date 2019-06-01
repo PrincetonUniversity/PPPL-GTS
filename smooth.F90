@@ -25,8 +25,8 @@ subroutine smooth(iflag)
 
 
 
-   ! wx: solve zonal flow for general geometry (July, 04): 
-   !     assume <tilde{phi}>=tilde{<phi>} -- probabaly not justified for gg 
+   ! wx: solve zonal flow for general geometry (July, 04):
+   !     assume <tilde{phi}>=tilde{<phi>} -- probabaly not justified for gg
 
    if(iflag==1)then
       if(ZF_SEPARATION==1.and.order <= 0) then    ! solve zonal flows separately
@@ -48,7 +48,7 @@ subroutine smooth(iflag)
          den00=phip00
          phip00=0.0_wp
          do i=1,mpsi
-            phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  & 
+            phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
                (dVda(i-1)*B2_s(i-1)*den00(i-1)+dVda(i)*B2_s(i)*den00(i))
          enddo
 
@@ -65,7 +65,7 @@ subroutine smooth(iflag)
 
          ! enforce boundary condition
          phip00(0)=0.0_wp
-         !     phip00(mpsi)=0.0   ! only one boundary condition is needed to solve dphi_00/da 
+         !     phip00(mpsi)=0.0   ! only one boundary condition is needed to solve dphi_00/da
 
          ! zero gyroradius limit OR linear simulation
          !     phip00=0.0     !wx      no zonal flow
@@ -91,7 +91,7 @@ subroutine smooth(iflag)
 
 
 
-   if(iflag==1) then 
+   if(iflag==1) then
       !$omp parallel do private(i)
       do i=1,mgrid
          phitmp(1,i)=phi(1,i)  !phitmp=phi  ! smooth phi for numerical derivative -->E field
@@ -118,7 +118,7 @@ subroutine smooth(iflag)
          phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
       enddo
       phism=0.0
-      !$omp parallel do private(i,j,ij)        
+      !$omp parallel do private(i,j,ij)
       do i=2,mpsi-2
          do j=1,mtheta(i)
             ij=igrid(i)+j
@@ -149,7 +149,7 @@ subroutine smooth(iflag)
       !                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
       !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
       !          enddo
-      !  
+      !
       !       i=mpsi-1
       !  !$omp parallel do private(j,ij)
       !          do j=1,mtheta(i)
@@ -159,17 +159,17 @@ subroutine smooth(iflag)
       !                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
       !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
       !          enddo
-      !  
+      !
       !  !$omp parallel do private(i)
       !       do i=igrid(2)+1, igrid(mpsi-2)+mtheta(mpsi-2)
       !          phitmp(1,i)=0.625*phitmp(1,i)+phism(i) ! 5-point smoothing
       !       end do
-      !  
+      !
       !  !$omp parallel do private(i)
       !       do i=igrid(1)+1,igrid(1)+mtheta(1)
       !          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
       !       end do
-      !  
+      !
       !  !$omp parallel do private(i)
       !       do i=igrid(mpsi-1)+1,igrid(mpsi-1)+mtheta(mpsi-1)
       !          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
@@ -235,7 +235,7 @@ subroutine smooth(iflag)
       enddo
 
       ! poloidal smoothing (-0.0625 0.25 0.625 0.25 -0.0625)
-      !$omp parallel do private(i,ii,jt,pright)        
+      !$omp parallel do private(i,ii,jt,pright)
       do i=0,mpsi
          ii=igrid(i)
          jt=mtheta(i)
@@ -249,7 +249,7 @@ subroutine smooth(iflag)
          phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
       enddo
 
-      ! parallel smoothing 
+      ! parallel smoothing
       ! send phi to right and receive from left
       sendr=phitmp(1,:)
       recvl=0.0_wp
@@ -319,9 +319,9 @@ subroutine smooth(iflag)
       phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
    enddo
 
-   ! radial boundary: 3 cases 
+   ! radial boundary: 3 cases
    ! 1. phi=0 at both inner and outer boundaries
-   ! 2. phi=0 at inner boundary and float phi at outer boundary 
+   ! 2. phi=0 at inner boundary and float phi at outer boundary
    ! 3. phi is float at both inner and outer boundaries
    !    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
 
@@ -330,7 +330,7 @@ subroutine smooth(iflag)
    !    phitmp(:,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
 
    !adiabatic electron response
-   if(iflag==1) then 
+   if(iflag==1) then
       !$omp parallel do private(i)
       do i=1,mgrid
          phi(:,i)=phitmp(:,i)    ! now phi(0,:) also has valid data
@@ -338,7 +338,7 @@ subroutine smooth(iflag)
       enddo
    else  ! if(iflag==0)
 
-      if(ifelectron==0) then 
+      if(ifelectron==0) then
          !$omp parallel do private(i)
          do i=1,mgrid
             densityi(:,i)=phitmp(:,i) !just for output; used nowhere
@@ -359,7 +359,7 @@ subroutine smooth(iflag)
    ! use mtdiag for both poloidal and toroidal grid points
    !    if(iflag==1 .and. (nonlinear<0.5 .or. idiag==0))then
 
-   if(nonlinear<-100.0) then   ! never do following work -- abandon 
+   if(nonlinear<-100.0) then   ! never do following work -- abandon
 
       xz=0.0_wp
       yz=0.0_wp
@@ -373,14 +373,14 @@ subroutine smooth(iflag)
       mzmax=mzetamax*mzbig
       mz=mzbig
       meachtheta=mtdiag/ntoroidal
-      icount=meachtheta*mz*(idiag2-idiag1+1)  
+      icount=meachtheta*mz*(idiag2-idiag1+1)
       dt=2.0_wp*pi/real(mtdiag,wp)
       pi2_inv=0.5_wp/pi
       filter=0.0_wp
       filter(nmode+1)=1.0_wp/real(mzmax,wp)
       allzeta=0.0_wp
 
-      !$omp parallel do private(kz,i,j,wz,zdum,ii,tdum,jt,wt)           
+      !$omp parallel do private(kz,i,j,wz,zdum,ii,tdum,jt,wt)
       do kz=1,mzbig
          wz=real(kz,wp)/real(mzbig,wp)
          zdum=zetamin+deltaz*wz
@@ -497,9 +497,9 @@ subroutine smooth(iflag)
 
          zdum=zetamin+deltaz
 
-         !$omp parallel do private(i,j,ii,tdum,jt,wt,jte)           
+         !$omp parallel do private(i,j,ii,tdum,jt,wt,jte)
          do i=idiag1,idiag2
-            ii=igrid(i)              
+            ii=igrid(i)
             do j=1,mtheta(i)
                tdum=pi2_inv*(deltat(i)*real(j,wp)+zdum*qtinv(i))+10.0_wp
                tdum=(tdum-aint(tdum))*real(mtdiag,wp)
@@ -539,7 +539,7 @@ subroutine smooth(iflag)
 
       endif
 
-   endif  ! end if(iflag==1 .and. (nonlinear<0.5 .or. idiag==0)) 
+   endif  ! end if(iflag==1 .and. (nonlinear<0.5 .or. idiag==0))
    ! end if(nonlinear < -100)
 
 #ifdef USE_OLD_DIAGNOSTICS
@@ -601,9 +601,9 @@ subroutine smooth(iflag)
             if(mype==0) print*, 'INSIDE SMOOTH(1) do-loop 2'
 
             amp_mode(1,kz,2)=real(ye(mtdiag-mmode(kz)+1))/ &
-               (real(mzmax*mtdiag,wp)*vth_grid(ipsi)**2)  
+               (real(mzmax*mtdiag,wp)*vth_grid(ipsi)**2)
             amp_mode(2,kz,2)=aimag(ye(mtdiag-mmode(kz)+1))/ &
-               (real(mzmax*mtdiag,wp)*vth_grid(ipsi)**2)  
+               (real(mzmax*mtdiag,wp)*vth_grid(ipsi)**2)
 
             if(mype==0) print*, 'INSIDE SMOOTH(1) do-loop 3'
 
@@ -613,7 +613,7 @@ subroutine smooth(iflag)
 
    if(mype==0) print*, 'INSIDE SMOOTH(1) 777 end'
 
-   1000 continue 
+   1000 continue
 #endif
 
 end subroutine smooth
@@ -656,7 +656,7 @@ subroutine smooth_phi
          phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
       enddo
       phism=0.0
-      !$omp parallel do private(i,j,ij)        
+      !$omp parallel do private(i,j,ij)
       do i=2,mpsi-2
          do j=1,mtheta(i)
             ij=igrid(i)+j
@@ -687,7 +687,7 @@ subroutine smooth_phi
       !                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
       !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
       !          enddo
-      !  
+      !
       !       i=mpsi-1
       !  !$omp parallel do private(j,ij)
       !          do j=1,mtheta(i)
@@ -697,17 +697,17 @@ subroutine smooth_phi
       !                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
       !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
       !          enddo
-      !  
+      !
       !  !$omp parallel do private(i)
       !       do i=igrid(2)+1, igrid(mpsi-2)+mtheta(mpsi-2)
       !          phitmp(1,i)=0.625*phitmp(1,i)+phism(i) ! 5-point smoothing
       !       end do
-      !  
+      !
       !  !$omp parallel do private(i)
       !       do i=igrid(1)+1,igrid(1)+mtheta(1)
       !          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
       !       end do
-      !  
+      !
       !  !$omp parallel do private(i)
       !       do i=igrid(mpsi-1)+1,igrid(mpsi-1)+mtheta(mpsi-1)
       !          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
@@ -773,7 +773,7 @@ subroutine smooth_phi
       enddo
 
       ! poloidal smoothing (-0.0625 0.25 0.625 0.25 -0.0625)
-      !$omp parallel do private(i,ii,jt,pright)        
+      !$omp parallel do private(i,ii,jt,pright)
       do i=0,mpsi
          ii=igrid(i)
          jt=mtheta(i)
@@ -787,7 +787,7 @@ subroutine smooth_phi
          phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
       enddo
 
-      ! parallel smoothing 
+      ! parallel smoothing
       ! send phi to right and receive from left
       sendr=phitmp(1,:)
       recvl=0.0_wp
@@ -857,9 +857,9 @@ subroutine smooth_phi
       phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
    enddo
 
-   ! radial boundary: 3 cases 
+   ! radial boundary: 3 cases
    ! 1. phi=0 at both inner and outer boundaries
-   ! 2. phi=0 at inner boundary and float phi at outer boundary 
+   ! 2. phi=0 at inner boundary and float phi at outer boundary
    ! 3. phi is float at both inner and outer boundaries
    !    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
 

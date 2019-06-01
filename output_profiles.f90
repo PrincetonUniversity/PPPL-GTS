@@ -67,7 +67,7 @@ Subroutine output_profiles
       istatus=nf_put_var_double(ncid,Te_id,yTe)
       istatus=nf_put_var_double(ncid,ni_id,yni)
       istatus=nf_put_var_double(ncid,ne_id,yne)
-      istatus=nf_close(ncid)        
+      istatus=nf_close(ncid)
    endif
 
 end subroutine output_profiles

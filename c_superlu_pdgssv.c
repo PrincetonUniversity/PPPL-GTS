@@ -32,7 +32,7 @@ c_superlu_pdgssv(int *mype,
 		c_superlu_pdgssv_(int *mype,
 #endif
 			int *nprocs, int *n, int *nnz, int *nrhs, double *values,
-			int *rowind, int *colptr, double *b, double *x, int *ldb, 
+			int *rowind, int *colptr, double *b, double *x, int *ldb,
 			fptr *f_factors, /* a handle containing the address
 									  pointing to the factored matrices */
 			int *info,
@@ -69,7 +69,7 @@ c_superlu_pdgssv(int *mype,
 #pragma omp parallel for private(i)
 			for (i = 0; i <= *n; ++i) --colptr[i];
 
-			/*the matrix passed is not correct somehow, so check here -- start 
+			/*the matrix passed is not correct somehow, so check here -- start
 			  if (*mype == 0) {
 			  FILE *fp;
 			  int i;
@@ -81,8 +81,8 @@ c_superlu_pdgssv(int *mype,
 			  fprintf(fp," %d\t%d\t%e \n", i, rowind[i], values[i]);
 			  fclose(fp);
 			  }
-			  nrow=40107      ncol=40107      nnz=1017487 
-			  1017486        40106   2.044417e+00 
+			  nrow=40107      ncol=40107      nnz=1017487
+			  1017486        40106   2.044417e+00
 			  right on 10/23/06 --*/
 			/*the matrix passed is not correct somehow, so check here --  end  --*/
 
@@ -100,11 +100,11 @@ c_superlu_pdgssv(int *mype,
 
 			/*
 			 * Get column permutation vector perm_c[], according to permc_spec:
-			 *   permc_spec = 0: natural ordering 
+			 *   permc_spec = 0: natural ordering
 			 *   permc_spec = 1: minimum degree ordering on structure of A'*A
 			 *   permc_spec = 2: minimum degree ordering on structure of A'+A
 			 *   permc_spec = 3: approximate minimum degree for unsymmetric matrices
-			 */    	
+			 */
 			permc_spec = 1;
 			get_perm_c(permc_spec, A, perm_c);
 			fprintf(stderr, "\t%d_iopt=%d: get_perm_c\n", *mype, *iopt);
@@ -134,7 +134,7 @@ c_superlu_pdgssv(int *mype,
 				SuperMatrix AC; /* Matrix postmultiplied by Pc */
 
 				/* ------------------------------------------------------------
-					Allocate storage and initialize statistics variables. 
+					Allocate storage and initialize statistics variables.
 					------------------------------------------------------------*/
 				panel_size = pdgstrf_options.panel_size;
 				relax = pdgstrf_options.relax;
@@ -256,14 +256,14 @@ c_superlu_pdgssv(int *mype,
 			pdgstrf_options.lwork = 0;
 
 
-			/*  
+			/*
 				 c_pdgssvx(*mype, *nprocs, pdgstrf_options_tmp, A, perm_c, perm_r, equed_tmp, R, C, L, U, B, X, &rpg, &rcond, ferr, berr, &superlu_memusage, info);
 				 */
 			{/*solver start*/
 				*info = 0;
 
 				/* ------------------------------------------------------------
-					Allocate storage and initialize statistics variables. 
+					Allocate storage and initialize statistics variables.
 					------------------------------------------------------------*/
 				panel_size = pdgstrf_options.panel_size;
 				relax = pdgstrf_options.relax;

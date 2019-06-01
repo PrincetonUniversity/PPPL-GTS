@@ -9,7 +9,7 @@
 #and VPATH in GTS/cmlib/Makefile will tell "make" to find source code from GTS/cmlib
 MAKETARGET = $(MAKE) --no-print-directory -C $@ -f $(CURDIR)/Makefile \
 	SRCDIR=$(CURDIR) \
-	$(MAKECMDGOALS) 
+	$(MAKECMDGOALS)
 
 .PHONY: $(OBJDIR)
 $(OBJDIR):
@@ -22,5 +22,5 @@ Makefile : ;
 % :: $(OBJDIR) ; :
 
 .PHONY: clean
-clean : 
+clean :
 	rm -rf $(OBJDIR)

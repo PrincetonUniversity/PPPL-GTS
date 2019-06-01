@@ -12,12 +12,12 @@ subroutine charge_eon
 
    integer m,i,j,k,jt,kk,ii,ierror,ij,&
       icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-   real(wp) weight,rdum,tdum,r,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00, & 
+   real(wp) weight,rdum,tdum,r,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00, &
       wdum(0:mpsi),total_w,wf,wn,pdum,zdum
    real(wp) sendl(mgrid),recvr(mgrid)
    real(wp) dnitmp(0:1,mgrid)
 
-   real(wp) dphi_NZ(0:1), dn_adiabatic(0:1)  
+   real(wp) dphi_NZ(0:1), dn_adiabatic(0:1)
    real(wp), external :: SMOOTHSTEP
 
    call electron_locator
@@ -44,7 +44,7 @@ subroutine charge_eon
       if (weight<min_thold_weight .or. weight>max_thold_weight) cycle
 
       wz1=weight*wzeon(m)
-      wz0=weight-wz1     
+      wz0=weight-wz1
 
       wp1=wpeon(m)
       wp0=1.0-wp1
@@ -103,7 +103,7 @@ subroutine charge_eon
 #ifdef _OPENMP
    ! For OpenMP, we now write the results accumulated in each thread-private
    ! array dnitmp() back into the shared array densitye(). The loop is enclosed
-   ! in a critical section so that one thread at a time updates densitye(). 
+   ! in a critical section so that one thread at a time updates densitye().
    !$omp critical
    do ij=1,mgrid
       densitye(0,ij) = densitye(0,ij) + dnitmp(0,ij)
@@ -192,7 +192,7 @@ subroutine charge_eon
       else    ! enforcing density conservation
 
          ! if enforcing density conservation, then use
-         ! Note: total electron density fluctuation is e\delta-phi/Te + densitye; 
+         ! Note: total electron density fluctuation is e\delta-phi/Te + densitye;
          !       adiabatic electron response maintains density conservation automatically
          ! ++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -267,15 +267,15 @@ subroutine charge_eon
          !
          ! #endif
          !
-      endif    ! end its_jacobi = 0 or 1 
+      endif    ! end its_jacobi = 0 or 1
 
 
       !============================================================
-      ! MGYOO (01/08/2019): To diagnose zonal component for later snapshot, 
+      ! MGYOO (01/08/2019): To diagnose zonal component for later snapshot,
       ! This zonal component is only used in the snapshot routine to separate zonal and non-zonal components
       !============================================================
       ! flux surface average and normalization
-      if(mod(istep,msnap) .eq. 0) then   
+      if(mod(istep,msnap) .eq. 0) then
          wdum=0.0_wp
          !$omp parallel private(i,j,ij) reduction(+:wdum)
          !$omp do
@@ -287,29 +287,29 @@ subroutine charge_eon
          enddo
          !$omp end parallel
          call MPI_ALLREDUCE(wdum,zonale,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
-         zonale=zonale/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonale; used in Jan. 2015; two give almost identical result 
+         zonale=zonale/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonale; used in Jan. 2015; two give almost identical result
       endif
 
 
       !====================================================================
-      ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component 
+      ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component
       ! This FLA might be important in the case of external magnetic perturbation
       ! MGYOO(01/08/2019) : tot_dne is calculated rather than (dh/f0 or df/f0)
-      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
 
          if(ifelectron==2) then ! delta-h scheme
             do i=0,mpsi
                do j=0,mtheta(i)
-                  ij = igrid(i)+j  
+                  ij = igrid(i)+j
                   dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-                  dn_adiabatic = den_grid(i)*abs(csc0)*dphi_NZ/Te_grid(i)          
+                  dn_adiabatic = den_grid(i)*abs(csc0)*dphi_NZ/Te_grid(i)
                   tot_dne(:,ij) = (dn_adiabatic+densitye(:,ij)*den_grid(i)) ! Here, (delta-h) = (densitye*den_grid), because densitye=(delta-h)/n0
                enddo
             enddo
          else ! delta-f scheme
             do i=0,mpsi
                do j=0,mtheta(i)
-                  ij = igrid(i)+j              
+                  ij = igrid(i)+j
                   tot_dne(:,ij) = densitye(:,ij)*den_grid(i)  ! Here, (delta-f) = (densitye*den_grid), because densitye=(delta-f)/n0
                enddo
             enddo
@@ -318,7 +318,7 @@ subroutine charge_eon
          call Do_FieldLineAverage_by_using_gPPI(tot_dne, FLA_dne)
          !call Do_FieldLineAverage_by_using_gPPI(densitye, FLA_dne)
       endif
-      !===================================================================  
+      !===================================================================
 
 
       ! zero out charge in boundary cell
@@ -371,28 +371,28 @@ subroutine charge_eon
       call MPI_ALLREDUCE(wdum,zonale,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
       !  zonale=zonale*pmarke   ! =dn_00/n_0  -- original flux-surface avarage --> zonale; replaced in Jan. 2015
       !  total_w=sum(wdum)      ! total particle weight (appro to int(delta-n d^3x) )
-      zonale=zonale/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonale; used in Jan. 2015; two give almost identical result 
+      zonale=zonale/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonale; used in Jan. 2015; two give almost identical result
 
 
       !====================================================================
-      ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component 
+      ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component
       ! This FLA might be important in the case of external magnetic perturbation
       ! MGYOO(01/08/2019) : tot_dne is calculated rather than (dh/f0 or df/f0)
-      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
 
          if(ifelectron==2) then ! delta-h scheme
             do i=0,mpsi
                do j=0,mtheta(i)
-                  ij = igrid(i)+j  
+                  ij = igrid(i)+j
                   dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-                  dn_adiabatic = den_grid(i)*abs(csc0)*dphi_NZ/Te_grid(i)          
+                  dn_adiabatic = den_grid(i)*abs(csc0)*dphi_NZ/Te_grid(i)
                   tot_dne(:,ij) = (dn_adiabatic+densitye(:,ij)*den_grid(i)) ! Here, (delta-h) = (densitye*den_grid), because densitye=(delta-h)/n0
                enddo
             enddo
          else ! delta-f scheme
             do i=0,mpsi
                do j=0,mtheta(i)
-                  ij = igrid(i)+j              
+                  ij = igrid(i)+j
                   tot_dne(:,ij) = densitye(:,ij)*den_grid(i)  ! Here, (delta-f) = (densitye*den_grid), because densitye=(delta-f)/n0
                enddo
             enddo
@@ -401,7 +401,7 @@ subroutine charge_eon
          call Do_FieldLineAverage_by_using_gPPI(tot_dne, FLA_dne)
          !call Do_FieldLineAverage_by_using_gPPI(densitye, FLA_dne)
       endif
-      !===================================================================  
+      !===================================================================
 
       ! densitye subtracted (0,0) mode
       !$omp parallel do private(i,j,ij)
@@ -413,7 +413,7 @@ subroutine charge_eon
          densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))  ! validate densitye(:,igrid(i)
       enddo
 
-      if(its_jacobi==0) then 
+      if(its_jacobi==0) then
 
          do i=0,nbound
             rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))

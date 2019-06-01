@@ -13,7 +13,7 @@ subroutine charge_ion
       icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
    real(wp) weight,wemark,rdum,tdum,delr,delt(0:mpsi),delz,r,wz1,wz0,wp1,&
       wp0,wt11,wt10,wt01,wt00,wdum(0:mpsi),tflr,damping,pi2_inv,&
-      psitmp,thetatmp,zetatmp,rhoi,deltheta, & 
+      psitmp,thetatmp,zetatmp,rhoi,deltheta, &
       psimax,psimin,pdum,total_w,wf,wn,thedum, zdum            !wx
    real(wp) sendl(mgrid),recvr(mgrid)
    real(wp) dnitmp(0:1,mgrid)
@@ -28,7 +28,7 @@ subroutine charge_ion
    !  real,dimension(:,:),allocatable :: dnitmp
 #endif
 
-   delr=1.0_wp/deltar 
+   delr=1.0_wp/deltar
    delt=2.0_wp*pi/deltat
    delz=1.0_wp/deltaz
    pi2_inv=0.5_wp/pi
@@ -43,7 +43,7 @@ subroutine charge_ion
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& wz1,pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
    do m=1,mi
-      !     psitmp=zion(1,m)      ! =a  
+      !     psitmp=zion(1,m)      ! =a
       psitmp=zion(7,m)       ! =s
       thetatmp=zion(2,m)
       zetatmp=zion(3,m)
@@ -52,7 +52,7 @@ subroutine charge_ion
       r=psitmp
       ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
       !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
-      thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane 
+      thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane
       thedum=thedum*pi2_inv+100.0_wp
       thedum=2.0_wp*pi*(thedum-aint(thedum))       ! bring back to range [0,2pi]
       jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))
@@ -64,7 +64,7 @@ subroutine charge_ion
       ! MGYOO (10/24/2018) : to store information of GC position.
       ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
       inner_ip = max(0,min(mpsi-1,int((r-s0)*delr)))
-      thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane 
+      thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane
       thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
       inner_jt = int(thedum)
       wtion0(0,m) = thedum - int(thedum)
@@ -72,7 +72,7 @@ subroutine charge_ion
       wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
 
       outter_ip = inner_ip+1
-      thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane 
+      thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane
       thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
       outter_jt = int(thedum)
       wtion1(0,m) = thedum - int(thedum)
@@ -151,7 +151,7 @@ subroutine charge_ion
       if (weight<min_thold_weight .or. weight>max_thold_weight) cycle
 
       wz1=weight*wzion(m)
-      wz0=weight-wz1     
+      wz0=weight-wz1
 
       do larmor=1, larmor_num
          wp1=wpion(larmor,m)
@@ -213,7 +213,7 @@ subroutine charge_ion
 #ifdef _OPENMP
    ! For OpenMP, we now write the results accumulated in each thread-private
    ! array dnitmp() back into the shared array densityi(). The loop is enclosed
-   ! in a critical section so that one thread at a time updates densityi(). 
+   ! in a critical section so that one thread at a time updates densityi().
    !$omp critical
    do ij=1,mgrid
       densityi(0,ij) = densityi(0,ij) + dnitmp(0,ij)
@@ -297,7 +297,7 @@ subroutine charge_ion
 
       if(its_jacobi==0) then     ! not enforcing density conservation; use existing, unused parameter its_jacobi 05/2012
 
-         ! if enforcing density conservation is NOT necessary, then use 
+         ! if enforcing density conservation is NOT necessary, then use
          ! ************************************************
          !$omp parallel do private(i,j,ij)
          do i=0,mpsi
@@ -387,11 +387,11 @@ subroutine charge_ion
       endif    ! end if(its_jacobi==0)
 
       !============================================================
-      ! MGYOO (01/08/2019): To diagnose zonal component for later snapshot, 
+      ! MGYOO (01/08/2019): To diagnose zonal component for later snapshot,
       ! This zonal component is only used in the snapshot routine to separate zonal and non-zonal components
       !============================================================
-      if(mod(istep,msnap) .eq. 0) then 
-         ! flux surface average and normalization  
+      if(mod(istep,msnap) .eq. 0) then
+         ! flux surface average and normalization
          wdum=0.0
          !$omp parallel private(i,j,ij) reduction(+:wdum)
          !$omp do
@@ -408,30 +408,30 @@ subroutine charge_ion
 
 
       !====================================================================
-      ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component 
+      ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component
       ! This FLA might be important in the case of external magnetic perturbation
       ! MGYOO(12/13/2018) : tot_dni is calculated rather than (dh/f or df/f)
-      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
          do i=0,mpsi
             do j=0,mtheta(i)
-               ij = igrid(i)+j              
+               ij = igrid(i)+j
                tot_dni(:,ij) = densityi(:,ij)*den_grid(i)  ! Here, (delta-f) = (densityi*den_grid), because densityi=(delta-f)/n0
             enddo
          enddo
          call Do_FieldLineAverage_by_using_gPPI(tot_dni, FLA_dni)
          !call Do_FieldLineAverage_by_using_gPPI(densityi, FLA_dni)
       endif
-      !===================================================================  
+      !===================================================================
 
       ! zero out charge in boundary cell
       !  do i=0,nbound-1
       !     densityi(:,igrid(i):igrid(i)+mtheta(i))=   &
-      !        densityi(:,igrid(i):igrid(i)+mtheta(i))*real(i,wp)/real(nbound,wp)   
+      !        densityi(:,igrid(i):igrid(i)+mtheta(i))*real(i,wp)/real(nbound,wp)
       !     densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
       !        densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*real(i,wp)/real(nbound,wp)
       !  enddo
       do i=0,nbound
-         rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))   
+         rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
 
          pdum=abs(dni_grid(nbound)/dni_grid(i))
          zdum=abs(dni_grid(mpsi-nbound)/dni_grid(mpsi-i))
@@ -449,12 +449,12 @@ subroutine charge_ion
       ! zero out charge in boundary cell
       !  do i=0,nbound-1
       !     densityi(:,igrid(i):igrid(i)+mtheta(i))=   &
-      !        densityi(:,igrid(i):igrid(i)+mtheta(i))*real(i,wp)/real(nbound,wp)   
+      !        densityi(:,igrid(i):igrid(i)+mtheta(i))*real(i,wp)/real(nbound,wp)
       !     densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
       !        densityi(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*real(i,wp)/real(nbound,wp)
       !  enddo
 
-      ! flux surface average and normalization  
+      ! flux surface average and normalization
       wdum=0.0
       !$omp parallel private(i,j,ij) reduction(+:wdum)
       !$omp do
@@ -484,20 +484,20 @@ subroutine charge_ion
       enddo
 
       !====================================================================
-      ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component 
+      ! MGYOO(01/08/2019) : To measure FLA(Field Line Average) component
       ! This FLA might be important in the case of external magnetic perturbation
       ! MGYOO(01/08/2019) : tot_dni is calculated rather than (dh/f0 or df/f0)
-      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+      if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
          do i=0,mpsi
             do j=0,mtheta(i)
-               ij = igrid(i)+j              
+               ij = igrid(i)+j
                tot_dni(:,ij) = densityi(:,ij)*den_grid(i)  ! Here, (delta-f) = (densityi*den_grid), because densityi=(delta-f)/n0
             enddo
          enddo
          call Do_FieldLineAverage_by_using_gPPI(tot_dni, FLA_dni)
          !call Do_FieldLineAverage_by_using_gPPI(densityi, FLA_dni)
       endif
-      !===================================================================  
+      !===================================================================
 
 
       ! densityi subtracted (0,0) mode
@@ -510,7 +510,7 @@ subroutine charge_ion
          densityi(1,igrid(i))=densityi(1,igrid(i)+mtheta(i)) !wx validate densityi(1,igrid(i))
       enddo
 
-      if(its_jacobi==0) then 
+      if(its_jacobi==0) then
 
          do i=0,nbound
             rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
@@ -526,10 +526,10 @@ subroutine charge_ion
 
       else     !  its_jacobi=1 --> enforcing enforce charge conservation for zonal flow mode
 
-         ! enforce charge conservation for zonal flow mode  
+         ! enforce charge conservation for zonal flow mode
          ! wx note: why should charge conservation be enforced? Should it be automatically satisfied ???
          ! int(d^3x A)=int(<A>dV)=int(<A>dV/dpsi *dpsi; dV/dpsi=int(J dtheta*dzeta);
-         ! dzeta are even; allnodes(i)=sum_jk(J_ijk*dpsi_i*dtheta_j); 
+         ! dzeta are even; allnodes(i)=sum_jk(J_ijk*dpsi_i*dtheta_j);
          ! assuming n_0 is uniform
          rdum=0.0
          tdum=0.0
@@ -549,7 +549,7 @@ subroutine charge_ion
 
 
          !  added Jan. 2015
-         if(irun==0.and.istep < 2*ndiag) then 
+         if(irun==0.and.istep < 2*ndiag) then
             wdum=1.0  ! this is because initially sumfluxpsi=0 which cannot be used as weighting function
          else
             wdum=sqrt(sumfluxpsi)   ! in terms of sqrt{int[I(a)dt]}
@@ -560,12 +560,12 @@ subroutine charge_ion
          !  wdum(0)=0.0
          !  wdum(mpsi)=0.0
 
-         !  wdum=eta_grid**2 ! in terms eta_i 
+         !  wdum=eta_grid**2 ! in terms eta_i
 
-         !  wdum=1.0  ! uniform compensation used previously: may generate artificial ZF 
-         ! in linearly stable zones!!! 
+         !  wdum=1.0  ! uniform compensation used previously: may generate artificial ZF
+         ! in linearly stable zones!!!
 
-         !  wdum=eta_grid  ! check ZF driving turbulence 
+         !  wdum=eta_grid  ! check ZF driving turbulence
 
          do i=0,nbound
             rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))

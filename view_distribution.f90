@@ -13,7 +13,7 @@ Subroutine view_distribution(zero_or_one)
       call esiget2dfunctions(zion(1,:),zion(2,:),mi)
       do i=1,mi
          write(1,1000) rr(i), z(i)
-         if(zion(3,i).lt.zetamin.or.zion(3,i).gt.zetamax) write(81,1000) zion(3,i),zion(2,i) 
+         if(zion(3,i).lt.zetamin.or.zion(3,i).gt.zetamax) write(81,1000) zion(3,i),zion(2,i)
       end do
    else
       open(unit=2,file='dis1.dat')
@@ -21,11 +21,11 @@ Subroutine view_distribution(zero_or_one)
       call esiget2dfunctions(zion(1,:),zion(2,:),mi)
       do i=1,mi
          write(2,1000) rr(i), z(i)
-         if(zion(3,i).lt.zetamin.or.zion(3,i).gt.zetamax) write(82,1000) zion(3,i),zion(2,i) 
+         if(zion(3,i).lt.zetamin.or.zion(3,i).gt.zetamax) write(82,1000) zion(3,i),zion(2,i)
       end do
    end if
 
 
    1000 format(1x,2(ES12.6,1x))
 
-end subroutine view_distribution 
+end subroutine view_distribution

@@ -9,8 +9,8 @@ subroutine solve_dphidt( solver, masssolver )
    use solver_data_class
    implicit none
    !
-   type(solver_data) :: solver 
-   type(solver_data) :: masssolver 
+   type(solver_data) :: solver
+   type(solver_data) :: masssolver
    !
    integer i,j,k,ii,jj,ij,ip,jt,ismooth,it,n, &
       icount,ierr,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
@@ -21,7 +21,7 @@ subroutine solve_dphidt( solver, masssolver )
 
    real(wp) adum(0:mpsi), bdum(0:mpsi), tbdum(0:mpsi), rms_b, tdum_i, tdum_e
    real(wp) dni(0:mpsi),dne(0:mpsi),tdni(0:mpsi),tdne(0:mpsi),sne,sni,tsne,tsni
-   real(wp) bb_rhs(mgrid),xx(mgrid) 
+   real(wp) bb_rhs(mgrid),xx(mgrid)
 
    real(wp), external :: SMOOTHSTEP
    real(wp) instep,outstep
@@ -48,7 +48,7 @@ subroutine solve_dphidt( solver, masssolver )
          enddo
 
          phism=0.0
-         !$omp parallel do private(i,j,ij)        
+         !$omp parallel do private(i,j,ij)
          do i=2,mpsi-2
             do j=1,mtheta(i)
                ij=igrid(i)+j
@@ -79,7 +79,7 @@ subroutine solve_dphidt( solver, masssolver )
          !                  (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
          !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
          !          enddo
-         !  
+         !
          !          i=mpsi-1
          !  !$omp parallel do private(j,ij)
          !          do j=1,mtheta(i)
@@ -89,17 +89,17 @@ subroutine solve_dphidt( solver, masssolver )
          !                  (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
          !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
          !          enddo
-         !  
+         !
          !  !$omp parallel do private(i)
          !          do i=igrid(2)+1, igrid(mpsi-2)+mtheta(mpsi-2)
          !             phitmp(1,i)=0.625_wp*phitmp(1,i)+phism(i) ! 5-point smoothing
          !          end do
-         !  
+         !
          !  !$omp parallel do private(i)
          !          do i=igrid(1)+1,igrid(1)+mtheta(1)
          !             phitmp(1,i)=0.5_wp*phitmp(1,i)+phism(i)   ! 3-point smoothing
          !          end do
-         !  
+         !
          !  !$omp parallel do private(i)
          !          do i=igrid(mpsi-1)+1,igrid(mpsi-1)+mtheta(mpsi-1)
          !             phitmp(1,i)=0.5_wp*phitmp(1,i)+phism(i)   ! 3-point smoothing
@@ -165,7 +165,7 @@ subroutine solve_dphidt( solver, masssolver )
          enddo
 
          ! poloidal smoothing (-0.0625 0.25 0.625 0.25 -0.0625)
-         !$omp parallel do private(i,ii,jt,pright)        
+         !$omp parallel do private(i,ii,jt,pright)
          do i=0,mpsi
             ii=igrid(i)
             jt=mtheta(i)
@@ -179,7 +179,7 @@ subroutine solve_dphidt( solver, masssolver )
             phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
          enddo
 
-         ! parallel smoothing 
+         ! parallel smoothing
          ! send to right and receive from left
          sendr=phitmp(1,:)
          recvl=0.0_wp
@@ -254,9 +254,9 @@ subroutine solve_dphidt( solver, masssolver )
          phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
       end do
 
-      ! radial boundary: 3 cases 
+      ! radial boundary: 3 cases
       ! 1. phi=0 at both inner and outer boundaries
-      ! 2. phi=0 at inner boundary and float phi at outer boundary 
+      ! 2. phi=0 at inner boundary and float phi at outer boundary
       ! 3. phi is float at both inner and outer boundaries
       !    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
 
@@ -266,7 +266,7 @@ subroutine solve_dphidt( solver, masssolver )
 
       !$omp parallel do private(i)
       do i=1,mgrid
-         pflux_e(jj,:,i)=phitmp(:,i)    ! pflux_e=(Gamma_e-Gamma_i)*J/n_0; 
+         pflux_e(jj,:,i)=phitmp(:,i)    ! pflux_e=(Gamma_e-Gamma_i)*J/n_0;
          ! now pflux_e(:,0,:) also has valid data;
          ! pflux_e(:,:,igird(i)) also has valid data
       enddo
@@ -283,11 +283,11 @@ subroutine solve_dphidt( solver, masssolver )
 
          !         pflux_e(1,1,ij)=fstep1*(pflux_i(1,1,ij)+pflux_i(2,1,ij)+pflux_i(3,1,ij))+   &
          !                         fstep2*(cij(1,ij)*(evector(1,1,ij)-phip00(i))+           &
-         !                         cij(2,ij)*evector(2,1,ij)+cij(3,ij)*evector(3,1,ij))   
+         !                         cij(2,ij)*evector(2,1,ij)+cij(3,ij)*evector(3,1,ij))
          !                         ! --> This is the right hand side of dphi/dt equation
 
 
-         !  replaced by (2012): 
+         !  replaced by (2012):
          tsne=sne+cij(4,ij)
          tsni=cij(3,ij)*cij(5,ij)*(evector(1,1,ij)-phip00(i))- &
             cij(3,ij)*tsne*evector(2,1,ij)+ &
@@ -295,13 +295,13 @@ subroutine solve_dphidt( solver, masssolver )
 
          pflux_e(1,1,ij)=fstep1*(pflux_i(1,1,ij)+pflux_i(2,1,ij)+pflux_i(3,1,ij))+   &
             fstep2*tsni
-         ! --> This is the right hand side of normalized dphi/dt equation which is [dphi/dt-tilde(dphi/dt)]/Ti = ... 
-         ! --> also the RHS of normalized dphi/dt equation of PDE form which is: 
+         ! --> This is the right hand side of normalized dphi/dt equation which is [dphi/dt-tilde(dphi/dt)]/Ti = ...
+         ! --> also the RHS of normalized dphi/dt equation of PDE form which is:
          !     beta*nabla_perp[sum(gs)*nabla_perp(dphi/dt)] = ... (see note)
 
          !        pflux_e(1,1,ij)=pflux_e(1,1,ij)*vth_grid(i)*vth_grid(i)  ! multiply by Ti
 
-         if(solver%order <= 0) then 
+         if(solver%order <= 0) then
             pflux_e(1,1,ij)=pflux_e(1,1,ij)*tite(i)  ! multiply by Ti/Te --> RHS of following equation
             ! Eq.--> [dphi/dt-tilde(dphi/dt)]/Te = ...
          endif
@@ -315,14 +315,14 @@ subroutine solve_dphidt( solver, masssolver )
 
    ! ! initialize dphidt which is needed to estimate tilde(dphidt) using Jacobian interation method
    !   if(istep==0)then
-   !      if(irun==0) then 
+   !      if(irun==0) then
    !         dphidt=0.0_wp    ! for follow-up runs, read dphidt from restart
    !         dphidt00=0.0_wp  ! for follow-up runs, read dphidt00 from restart
    !      endif
    !   endif
 
 
-   ! Solve  
+   ! Solve
 
    if(solver%order <= 0) then   ! use integral solver -- never worked!!
       ! Note: dphidt=(dphi/dt)/Te
@@ -357,7 +357,7 @@ subroutine solve_dphidt( solver, masssolver )
             dphidt(1,igrid(i))=dphidt(1,igrid(i)+mtheta(i))  !validate dphidt(1,igrid(i)) for safe
          enddo
 
-         if(mype==0)   print*, 'dphidt solver', 'its=', it, dphidt(1,1), dphidt(1,mgrid/3), dphidt(1,mgrid) 
+         if(mype==0)   print*, 'dphidt solver', 'its=', it, dphidt(1,1), dphidt(1,mgrid/3), dphidt(1,mgrid)
 
       end do
 
@@ -378,7 +378,7 @@ subroutine solve_dphidt( solver, masssolver )
          dphidt(1,igrid(i))=dphidt(1,igrid(i)+mtheta(i))  !validate dphidt(1,igrid(i)) for safe
       enddo
 
-   endif 
+   endif
 
 
 
@@ -479,15 +479,15 @@ subroutine divergence_j
 
    !
    ! Note: This subroutine calculates divergence-j at grid points
-   !       using finite difference:  
+   !       using finite difference:
    !       INOUT:  pflux_e(1:3, 0:1, mgrid)=(Gamma_e-Gamma_i)*J
    !       OUTPUT: pflux_i(1:3, 0:1, mgrid)=div[(Gamma_e-Gamma_i)*J]/(n_0*J)
-   !       pflux_i(1,*,*)=dpflux_e(1,*,*)/da/(n_0*J); 
+   !       pflux_i(1,*,*)=dpflux_e(1,*,*)/da/(n_0*J);
    !       pflux_i(2,*,*)=dpflux_e(2,*,*)/dtheta/(n_0*J);
    !       pflux_i(3,*,*)=dpflux_e(3,*,*)/dzeta/(n_0*J);
    !       not involving pflux_e(:,0,:) and pflux_i(:,0,:).
-   !       We set pflux_i(:,:,:)=0 at the radial boundries, which may be not true, 
-   !       but pflux_i at the radial boundries are not used elsewhere. 
+   !       We set pflux_i(:,:,:)=0 at the radial boundries, which may be not true,
+   !       but pflux_i at the radial boundries are not used elsewhere.
    !
 
    difft=0.5_wp/deltat
@@ -516,7 +516,7 @@ subroutine divergence_j
          pflux_i(1,1,ij)=(e_psi1*dpsi2+e_psi2*dpsi1)*dpsi_inv  ! note: pflux_i(1,*,*)=d/da[(Gamma_e-Gamma_i)^a*J/n_0]
       enddo
    enddo
-   ! at radial boundaries i=0(a0) and mpsi(a1) pflux_i(1,*,*)=0. This is not true! 
+   ! at radial boundaries i=0(a0) and mpsi(a1) pflux_i(1,*,*)=0. This is not true!
 
    ! d_pflux_e(2,*,*)/d_theta and d_pflux_e(3,*,*)/d_theta
    !$omp parallel do private(i,j,ij,jt)
@@ -609,7 +609,7 @@ subroutine divergence_j
       pflux_i(2,1,igrid(i))=pflux_i(2,1,igrid(i)+mtheta(i))
       pflux_i(3,1,igrid(i))=pflux_i(3,1,igrid(i)+mtheta(i))
    enddo
-   ! now pflux_i(:,:,igrid(i)) have valid data 
+   ! now pflux_i(:,:,igrid(i)) have valid data
    !     pflux_i(:,k=0,:) has NO valid data
    ! pflux_i(1:3,*,*)=0 at radial boundaries
 

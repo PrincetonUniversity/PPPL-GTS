@@ -79,7 +79,7 @@ subroutine theory
 
       dlamda=up/real(nbad)
       do IFAIL=1,nbad
-         lamda1=dlamda*dfloat(IFAIL) 
+         lamda1=dlamda*dfloat(IFAIL)
          call general_flux_average(adum,trap,bad(IFAIL))  ! bad=<sqrt(1-lamda/h)>
       end do
       bad(0)=1.0d0
@@ -112,7 +112,7 @@ subroutine theory
       tempxi=T_ion*msm0_i*Tem_00   ! T_i in kev
       tempxpe=tempxe*dlnT_e/(-gYaj(1)*(B_00/1.0d4)*(R_00/1.0d2)**2)  ! dT_e/dpsi
       tempxpi=tempxi*dlnT/(-gYaj(1)*(B_00/1.0d4)*(R_00/1.0d2)**2) ! dT_i/dpsi
-      !     estimate j_b in terms of Hirshman's formula         
+      !     estimate j_b in terms of Hirshman's formula
       call bootstrap(ajavbs, iboot, ierr, nout,                 &
          zeff,rm2avx,epsx,rmajx,qx,ftrapx,          &
          pvale,ppvale,tempxe,tempxpe,               &

@@ -6,7 +6,7 @@ export _ARCH
 endif
 
 OBJDIR := _$(_ARCH)-$(PE_ENV)$(BIN_POSTFIX)
-export OBJDIR 
+export OBJDIR
 
 MAKETARGET = $(MAKE) --no-print-directory -C $@ -f $(CURDIR)/Makefile \
                  SRCDIR=$(CURDIR) $(MAKECMDGOALS)
@@ -22,7 +22,7 @@ Makefile : ;
 % :: $(OBJDIR) ; :
 
 # The following tag is meant to "clean" the directory by removing the
-# executable along with all the object files created by the compilation 
+# executable along with all the object files created by the compilation
 # One only has to run:  gmake clean
 .PHONY: clean
 clean:

@@ -24,7 +24,7 @@ subroutine read_profiles(profile_data_name)
 
    use precision
    use mpi_defs
-   use global_parameters, only:mype 
+   use global_parameters, only:mype
    use spl_profiles
    use profile_array
    use control_parameters, only:ain, aout
@@ -60,7 +60,7 @@ subroutine read_profiles(profile_data_name)
          read(3,'(a23)')chdum
          Print*, chdum
       enddo
-      read(3,10) ndum 
+      read(3,10) ndum
       write(*,*)'in read_profiles: Number of grid points ndum=',ndum
    endif
    !         10 format(12x,I3)
@@ -126,7 +126,7 @@ subroutine read_profiles(profile_data_name)
       enddo
 
       200  print*, 'jj1=',jj1, 'jj2=',jj2   ! profiles Ti, Te and ne are modified at boundary layer inside jj1 and outside jj2
-      ! say, dTi/da=dTi/da(jj2-1)*fdown and 
+      ! say, dTi/da=dTi/da(jj2-1)*fdown and
       ! fdown=exp{-f2*[(r-rc))/(f1*rc)]^f3} with rc=r_jj2-r_(jj2-1)
 
       !  allocate(rcor2(ndum),ne_51(ndum),Ti_51(ndum),Te_51(ndum),dne_51(ndum),dTi_51(ndum),dTe_51(ndum))
@@ -472,7 +472,7 @@ subroutine get_profiles
 
    implicit  none
    integer, parameter:: np=307
-   real(doubleprec), dimension(np) :: xx,yn,yT,yTe,yo 
+   real(doubleprec), dimension(np) :: xx,yn,yT,yTe,yo
    integer i
    real(doubleprec) thedum,pdum
    real(wp), external :: density,temperature,temperature_e,domega_da

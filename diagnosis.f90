@@ -49,8 +49,8 @@ subroutine diagnosis
       if(mype==0)then
          if(irun==0)then
 
-            ! first time run 
-            open(ihistory,file='history.out',status='replace')            
+            ! first time run
+            open(ihistory,file='history.out',status='replace')
             write(ihistory,101)irun,mquantity,mflux,num_mode,mstep/ndiag
             write(ihistory,102)tstep*real(ndiag)
             mstepall=0
@@ -88,10 +88,10 @@ subroutine diagnosis
 
             ! if everything goes OK, copy old data to history.out
             !           open(666,file=cdum,status='old')
-            !           open(ihistory,file='history.out',status='replace')            
+            !           open(ihistory,file='history.out',status='replace')
             !           read(666,101)j
             !           irun=j+1
-            !           write(ihistory,101)irun               
+            !           write(ihistory,101)irun
             !           do i=1,3
             !              read(666,101)j
             !              write(ihistory,101)j
@@ -115,7 +115,7 @@ subroutine diagnosis
          !        epotential=gyroradius*r*r*(0.5*flow0+flow1*r/(3.0*a)+0.25*flow2*r*r/(a*a))  ! ????
          epotential=0.0_wp      ! meanless     meanless    meanless    meanless
 
-         if(ifelectron==0) then 
+         if(ifelectron==0) then
             etracer=tracer(6)**2*Bj(1)+0.5*(tracer(4)*Bj(1)*qion)**2/aion+epotential
          else
             etracer=tracer(6)**2*Bj(1)+0.5*(tracer(4)*Bj(1)*qelectron)**2/aelectron+epotential !checked
@@ -141,7 +141,7 @@ subroutine diagnosis
 
             write(stdout,*) "kappa_T at radial_bin=",i,rfac,abs(rfac)*grada !=grad_T=L_T^-1
 
-            !           !wx:  kappa/grada*kappati=-dlnT/da (not -dlnT/dr)  
+            !           !wx:  kappa/grada*kappati=-dlnT/da (not -dlnT/dr)
          enddo
       endif
       call MPI_BCAST(mstepall,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierror)
@@ -167,7 +167,7 @@ subroutine diagnosis
          ij=igrid(i)+j
          deln2fluxtmp(i)=deln2fluxtmp(i)-phi(k,ij)*phi(k,ij)*evector(2,k,ij)
       enddo
-      deln2fluxtmp(i)=deln2fluxtmp(i)/(real(mtheta(i)*mzetamax)*vthc**5) 
+      deln2fluxtmp(i)=deln2fluxtmp(i)/(real(mtheta(i)*mzetamax)*vthc**5)
    enddo
    if(myrank_partd==0)call MPI_REDUCE(deln2fluxtmp,deln2flux,mpsi,&
       mpi_Rsize,MPI_SUM,0,toroidal_comm,ierror)
@@ -188,7 +188,7 @@ subroutine diagnosis
 
       r=tracer(1)
       q=-gFaj(1)/gYaj(1)
-      if(ifelectron==0) then 
+      if(ifelectron==0) then
          write(ihistory,102) tracer(4)*Bj(1)*qion/(aion*vthc)
       else
          write(ihistory,102) tracer(4)*Bj(1)*qelectron/(aelectron*vthc) !=v_//e/v_thi
@@ -199,10 +199,10 @@ subroutine diagnosis
       !     epotential=gyroradius*r*r*(0.5*flow0+flow1*r/(3.0*a)+0.25*flow2*r*r/(a*a))  ! ???
       epotential=0.0_wp      ! meanless     meanless    meanless    meanless
 
-      if(ifelectron==0) then 
+      if(ifelectron==0) then
          write(ihistory,102) (tracer(6)*tracer(6)*Bj(1) &
             +0.5*(tracer(4)*Bj(1)*qion)**2/aion+epotential)/etracer-1.0
-      else 
+      else
          write(ihistory,102) (tracer(6)*tracer(6)*Bj(1) &
             +0.5*(tracer(4)*Bj(1)*qelectron)**2/aelectron+epotential)/etracer-1.0
       end if

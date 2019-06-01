@@ -41,7 +41,7 @@ Subroutine r2cfftgl(isign,n,scale,rin,cout)
    integer,intent(in) :: n,isign
    real(wp),intent(in) :: rin(n)
    real(wp),intent(in) :: scale
-   complex(wp),intent(out) :: cout(n/2+1)  
+   complex(wp),intent(out) :: cout(n/2+1)
    integer i
    complex(wp),dimension(n) :: fdata,dwork
 
@@ -68,7 +68,7 @@ Subroutine c2rfftgl(isign,n,scale,cin,rout)
    integer,intent(in) :: isign,n
    real(wp),intent(in) :: scale
    complex,intent(in) :: cin(n/2+1)
-   real(wp),intent(out) :: rout(n)  
+   real(wp),intent(out) :: rout(n)
    integer i
    complex(wp),dimension(n) :: fdata,dwork
 

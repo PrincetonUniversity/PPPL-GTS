@@ -64,13 +64,13 @@ subroutine weight_damping_ion
       avw=e1+e2*vpara+e3*v2
 
       zion(5,m) = avw+(zion(5,m)-avw)*exp(-eta_w*tstep)   ! dw/dt=-eta_w*(w-<w>)
-      ! 
+      !
       !      if(abs(avw)>100.0_wp) then
       !         print*, 'p9999=', mype, istep, irk, avw, e1, e2, e3, vpara, v2, maxval(abs(wfield(1,1:mgrid,1))) , &
-      !                 maxval(abs(wfield(2,1:mgrid,1))) , maxval(abs(wfield(3,1:mgrid,1))) , maxval(abs(wfield(1,1:mgrid,0))) , & 
+      !                 maxval(abs(wfield(2,1:mgrid,1))) , maxval(abs(wfield(3,1:mgrid,1))) , maxval(abs(wfield(1,1:mgrid,0))) , &
       !                 maxval(abs(wfield(2,1:mgrid,0))) , maxval(abs(wfield(3,1:mgrid,0)))
       !      end if
-      ! 
+      !
 
 
    end do
@@ -100,7 +100,7 @@ subroutine weight_field(wfield)
 
    integer m,i,j,k,jt,ii,ierror,ij,info,  &
       icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-   real(wp) rdum(9),wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,vz,mu,enew,rdum0,rdum1 
+   real(wp) rdum(9),wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,vz,mu,enew,rdum0,rdum1
    real(wp) send(3,mgrid),recv(3,mgrid)
 
    real(wp) dnitmp(9,mgrid,0:1), dampf(9,mgrid,0:1), wfield(3,mgrid,0:1)
@@ -121,7 +121,7 @@ subroutine weight_field(wfield)
    !  BE SURE no memory conflict (!!!)
    !
 
-   ! ion_locator is called to give ion locations 
+   ! ion_locator is called to give ion locations
    call ion_locator
 
    dnitmp=0.0_wp
@@ -197,27 +197,27 @@ subroutine weight_field(wfield)
 
 
 
-   ! 
+   !
    ! if(istep>74) then
    !   do ij=1,mgrid
-   ! 
+   !
    !      rdum0=maxval(abs(dnitmp(7:9,ij,0)))
    !      if(rdum0 > 0.001_wp) then
    !         print*, 'AAAAA=', mype, istep, irk, ij, dnitmp(7,ij,0), dnitmp(8,ij,0), dnitmp(9,ij,0)
    !         rdum1=maxval(abs(zion(5,1:mi)))
    !         print*, 'aaaaa=',mype, istep, irk, rdum1, mi
    !      end if
-   ! 
+   !
    !      rdum0=maxval(abs(dnitmp(7:9,ij,1)))
    !      if(rdum0 > 0.001_wp) then
    !         print*, 'BBBBB=', mype, istep, irk, ij, dnitmp(7,ij,1), dnitmp(8,ij,1), dnitmp(9,ij,1)
    !         rdum1=maxval(abs(zion(5,1:mi)))
    !         print*, 'bbbbb=',mype, istep, irk, rdum1, mi
    !      end if
-   ! 
+   !
    !   end do
    ! end if
-   ! 
+   !
 
 
 
@@ -250,20 +250,20 @@ subroutine weight_field(wfield)
 
 
 
-   ! 
+   !
    !  if(myrank_partd==0) then
    !    do ij=1,mgrid
-   ! 
+   !
    !      rdum0=maxval(abs(dampf(7:9,ij,0)))
    !      if(rdum0 > 0.01_wp) then
    !         print*, 'XXXXX',  istep, irk, ij, dampf(7,ij,0), dampf(8,ij,0), dampf(9,ij,0)
    !      end if
-   ! 
+   !
    !      rdum0=maxval(abs(dampf(7:9,ij,1)))
    !      if(rdum0 > 0.01_wp) then
    !         print*, 'YYYYY',  istep, irk, ij, dampf(7,ij,1), dampf(8,ij,1), dampf(9,ij,1)
    !      end if
-   ! 
+   !
    !   end do
    !  end if
    !
@@ -310,7 +310,7 @@ subroutine weight_field(wfield)
          jt=mtheta(j)
          dampf(:,ii+1:ii+jt,1)=dampf(:,ii+1:ii+jt,1)+&
             cshift(dnitmp(:,ii+1:ii+jt,1),itran(j),2)
-      enddo 
+      enddo
    else
       ! B.C. at zeta<2*pi is continuous
       dampf(:,:,1)=dampf(:,:,1)+dnitmp(:,:,1)
@@ -410,15 +410,15 @@ subroutine weight_field(wfield)
       info=0
       call dsytrs('L',3,1,aav,3,ipiv,bv,3,info)
 
-      !     if(info < 0) then 
+      !     if(info < 0) then
       !        if(myrank_partd==1) print*, 'INFO=', info, 'ij=', ij, myrank_toroidal
       !     end if
 
       8000  continue
 
-      !     wfield(1,ij,1)=bv(1)   
-      !     wfield(2,ij,1)=bv(2)   
-      !     wfield(3,ij,1)=bv(3)   
+      !     wfield(1,ij,1)=bv(1)
+      !     wfield(2,ij,1)=bv(2)
+      !     wfield(3,ij,1)=bv(3)
       send(1,ij-ii)=bv(1)
       send(2,ij-ii)=bv(2)
       send(3,ij-ii)=bv(3)
@@ -488,14 +488,14 @@ subroutine weight_field(wfield)
 
 
 
-   ! 
+   !
    ! rdum0=maxval(abs(wfield))
    ! if(rdum0>100.0_wp) then
    !    print*, 'w7777=', mype, istep, irk, rdum0,  &
    !                 maxval(abs(wfield(1,:,1))) , maxval(abs(wfield(2,:,1))) , maxval(abs(wfield(3,:,1))) ,  &
    !                 maxval(abs(wfield(1,:,0))) , maxval(abs(wfield(2,:,0))) , maxval(abs(wfield(3,:,0)))
-   ! end if  
-   ! 
+   ! end if
+   !
 
 
 

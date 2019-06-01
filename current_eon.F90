@@ -11,7 +11,7 @@ subroutine current_eon
 
    integer m,i,j,k,ip,jt,kk,ii,ierror,ij,&
       icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-   real(wp) weight,rdum,r,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00 
+   real(wp) weight,rdum,r,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00
    real(wp) sendl(mgrid),recvr(mgrid)
 
    real(wp) e1,e2,e3,wpi(3,me), &
@@ -29,7 +29,7 @@ subroutine current_eon
 
    pflux_e=0.0_wp
 
-   ! electron_locator is called in CHARGE_EON to give electron locations 
+   ! electron_locator is called in CHARGE_EON to give electron locations
 
    ! gather e_field at electron GC positions using linear interpolation. No FLR effect for electrons
    ! The following line is an OpenMP directive for loop-level parallelism
@@ -70,11 +70,11 @@ subroutine current_eon
       wpi(3,m)=e3
    enddo
 
-   !    prepare equilibrium Er=dPhi/da at particles 
+   !    prepare equilibrium Er=dPhi/da at particles
    dela=1.0_wp/Ydr
    !$omp parallel do private(m,r,ip,fip)
    do m=1,me
-      r=zeon(1,m)-a0      
+      r=zeon(1,m)-a0
       r=r*dela
       ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
       fip=r-real(ip,wp)
@@ -84,9 +84,9 @@ subroutine current_eon
    !    m=gcmotion_e(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)  ! should use nonlinear=1.0 here for linear run? --> calculate current
    m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)  ! should use nonlinear=1.0 here for linear run? --> calculate current
 
-   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt; 
-   !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     wpi(3,:)=dphi/dzeta, NO CHANGE; 
-   !             BB(:)=B;           no change for zeon(1,2,4,:), wpi(1,2,:) 
+   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;
+   !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     wpi(3,:)=dphi/dzeta, NO CHANGE;
+   !             BB(:)=B;           no change for zeon(1,2,4,:), wpi(1,2,:)
    !             gha(:)=1/|grad a|  F(:) =F
 
    do i=1,3  ! corresponding to a, theta, zeta; using do-loop to save memory
@@ -111,9 +111,9 @@ subroutine current_eon
          wt11=wp1*wteon1(m)
          wt01=wp1-wt11
 
-         if(i==1) then 
+         if(i==1) then
             rdum=da(m)
-         else if(i==2) then 
+         else if(i==2) then
             rdum=dgq(m)
          else
             rdum=dgf(m)
@@ -260,7 +260,7 @@ subroutine current_eon
    if(mype==1) then
 
       do i=0,mpsi
-         write(7,100) i,  tdne(i), tsne, tdni(i), tsni 
+         write(7,100) i,  tdne(i), tsne, tdni(i), tsni
          100 format(2x, 4hpsi=, I3, 3x, 10h<pflux_e>=,ES14.8, 3x, ES14.8, 3x, 10h<pflux_i>=,ES14.8,  3x, ES14.8)
       end do
       call flush(7)
@@ -270,9 +270,9 @@ subroutine current_eon
    !!!!!!!!!!!END TEST!!!!!!!!!!!!!!!!!!!!!!
 
    !  ! get Gamma_e/n_0 for using the following approximation later:
-   !  !     d/da(Gamma)/n_0=d/da(Gamma/n_0) (consistent with GK ordering) 
+   !  !     d/da(Gamma)/n_0=d/da(Gamma/n_0) (consistent with GK ordering)
    !  !     so as to save storage of n_0 at grid points
-   !  
+   !
    !  !$omp parallel do private(ij)
    !    do ij=1,mgrid
    !       pflux_e(1,1,ij)=pflux_e(1,1,ij)*markere(ij)  ! Gamma_e/n_0

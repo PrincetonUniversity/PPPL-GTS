@@ -4,7 +4,7 @@
 
 12/07/2015 GTS port to hopper and cori
 	1."svn add filename"
-do "svn revert filename" 
+do "svn revert filename"
 before commit so that filename is not going to be added into svn.
 	2. triangle.c has to be compiled with -g
 

@@ -22,7 +22,7 @@ subroutine field(masssolver)
    real(wp) dpsi_inv,e_psi2,e_psi1,dpsi2_inv,dpsi1,dpsi2,dpsi1_inv,dum,tdum  !wx
 
    real(wp) instep,outstep,fdamp,fdamp0,fip,dtime
-   real(wp), external :: SMOOTHSTEP 
+   real(wp), external :: SMOOTHSTEP
 
 
 
@@ -80,7 +80,7 @@ subroutine field(masssolver)
 
    if(order <= 0) then   ! using direct numerical derivative to claculate d_phi/d_a and d_phi/d_theta when using integral Poisson solver
 
-      ! d_phi/d_a,    d_phi/d_psi   
+      ! d_phi/d_a,    d_phi/d_psi
       !$omp parallel do private(i,j,ij,dpsi1,dpsi2,dpsi1_inv,dpsi2_inv,dpsi_inv,e_psi2,e_psi1)
       do i=1,mpsi-1
          dpsi1=psi_grid(i)-psi_grid(i-1)
@@ -102,7 +102,7 @@ subroutine field(masssolver)
             !       evector(1,*,*)=dphi/da,        ZF_SEPARATION=0
          enddo
       enddo
-      ! at radial boundaries i=0(a0) and mpsi(a1) evector(1,*,*)=0 
+      ! at radial boundaries i=0(a0) and mpsi(a1) evector(1,*,*)=0
 
       ! d_phi/d_theta
       !$omp parallel do private(i,j,ij,jt)
@@ -123,7 +123,7 @@ subroutine field(masssolver)
       call find_dxdadxdt( masssolver, mgrid, sendl, recvr, recvl, ierror )
 
       !  if(mype==0) then
-      !     if(istep==1.and.irk==1) then 
+      !     if(istep==1.and.irk==1) then
       !     do ij=1,mgrid
       !        write(16, 206) ij,evector(1,1,ij),evector(2,1,ij),recvr(ij),recvl(ij)
       !     end do
@@ -174,7 +174,7 @@ subroutine field(masssolver)
          pright(1:jt)=recvr(ii+1:ii+jt)
       endif
 
-      ! d_phi/d_zeta at a=const. and theta-zeta/q_N=const. 
+      ! d_phi/d_zeta at a=const. and theta-zeta/q_N=const.
       do j=1,mtheta(i)
          ij=igrid(i)+j
          evector(3,1,ij)=(pright(j)-pleft(j))*diffz
@@ -260,7 +260,7 @@ subroutine field(masssolver)
       endif  ! end if(ZF_SEPARATION==0)
    endif    ! end if(mode00==1)
 
-   ! toroidal end point, pack end point (k=mzeta) data 
+   ! toroidal end point, pack end point (k=mzeta) data
    ! send E to right and receive from left
    !$omp parallel do private(i)
    do i=1,mgrid
@@ -309,7 +309,7 @@ subroutine field(masssolver)
       evector(2,1,igrid(i))=evector(2,1,igrid(i)+mtheta(i))
       evector(3,1,igrid(i))=evector(3,1,igrid(i)+mtheta(i))
    enddo
-   ! now evector(:,0,:) and evector(:,:,igrid(i)) have valid data 
+   ! now evector(:,0,:) and evector(:,:,igrid(i)) have valid data
    ! evector(1:3,*,*)=0 at radial boundaries
 
 

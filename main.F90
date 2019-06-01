@@ -84,13 +84,13 @@ program GTS
       istart=1
    end if
 
-   ! input parameters, setup equilibrium, allocate memory 
+   ! input parameters, setup equilibrium, allocate memory
    call setup
    call snapshot_Magnetic_Information
 
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
-   if(myrank_partd==nproc_partd-1) then    
+   if(myrank_partd==nproc_partd-1) then
       call Do_FieldLineFollowing_for_Poincare_Plot
       call Construct_gPPI_for_FieldLineAverage
    endif
@@ -166,7 +166,7 @@ program GTS
    ! initialize particle position and velocity
    call load
 
-   if(mype==0) then 
+   if(mype==0) then
       call check_eq
       !     call view_distribution(0)
    end if
@@ -201,15 +201,15 @@ program GTS
    call open_files
 
    ! ********************
-   if(irun==0) then 
+   if(irun==0) then
       istep=0
       call SetZeros_Cumulative_Variables
-      call Cumulate_Some_Variables_for_Measure   
+      call Cumulate_Some_Variables_for_Measure
       call snapshot     ! snapshot at t=0
       call snapshot_hdf5
       call check_tracer_e
-      call check_tracer_i 
-   end if 
+      call check_tracer_i
+   end if
 
    if(irun==-100) then
       mstep=(istart-1)+400   ! for continous debug runs with irun=-100
@@ -229,7 +229,7 @@ program GTS
    open(unit=190515,file='elapsed_Time.dat',action='write')
 
 
-   !           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP 
+   !           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
    if (RK4_Flag<=0) then
       do istep=istart,mstep
          do irk=1,2
@@ -271,13 +271,13 @@ program GTS
             time(2)=time(2)+dt
             timewc(2)=timewc(2)+dtwc
 
-            ! Calculate ion weight damping 
+            ! Calculate ion weight damping
             if(irk==2.and.wimcompressibility==2) call weight_damping_ion
 
             if(irk==2) call check_tracer_i
             call timer(t0,dt,t0wc,dtwc)
             time(13)=time(13)+dt
-            timewc(13)=timewc(13)+dtwc           
+            timewc(13)=timewc(13)+dtwc
             ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
             ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
             ! in PUSHI for calculating electric force on ions
@@ -296,8 +296,8 @@ program GTS
                   ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
                   ! via calling get_fluexs_e in pushe
 
-                  !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation, 
-                  !  but give almost identical results for particle weight and ererything else according to a short test (20 steps) 
+                  !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation,
+                  !  but give almost identical results for particle weight and ererything else according to a short test (20 steps)
 
                   ! calculate electron collisions
                   call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
@@ -319,7 +319,7 @@ program GTS
                   if(irk==2) call check_tracer_e
                   call timer(t0,dt,t0wc,dtwc)
                   time(13)=time(13)+dt
-                  timewc(13)=timewc(13)+dtwc                
+                  timewc(13)=timewc(13)+dtwc
                else                   ! 1 ion step = nelectron(>1) electron steps
                   ! originally, 1 ion step = 2*nelectron electron steps
                   if(irk==1) then
@@ -373,7 +373,7 @@ program GTS
                      if(irk==2) call check_tracer_e
                      call timer(t0,dt,t0wc,dtwc)
                      time(13)=time(13)+dt
-                     timewc(13)=timewc(13)+dtwc                   
+                     timewc(13)=timewc(13)+dtwc
                   end do
                end if    ! end if(nelectron==1)
 
@@ -408,7 +408,7 @@ program GTS
 
             call smooth(1)  ! 1. solve zonal flow for nonlinear run;
             ! 2. smooth the complete phi;
-            ! 3. fft and filter       
+            ! 3. fft and filter
 
             call timer(t0,dt,t0wc,dtwc)
             time(5)=time(5)+dt
@@ -433,7 +433,7 @@ program GTS
          !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
          call Cumulate_Some_Variables_for_Measure
 
-         if(mod(istep,msnap) .eq. 0) then 
+         if(mod(istep,msnap) .eq. 0) then
             !  phi_tmp=phi_tmp/real(msnap,wp)
             call snapshot
             call snapshot_hdf5
@@ -461,7 +461,7 @@ program GTS
 
          !  call check_temperature
 
-         call timer(t0,dt,t0wc,dtwc) 
+         call timer(t0,dt,t0wc,dtwc)
          time(nc)=t0-starting_t0
          timewc(nc)=t0wc-starting_t0wc
 
@@ -475,7 +475,7 @@ program GTS
             enddo
             write(190515,*) ' '
             write(190515,*) ' '
-            write(190515,*) ' '          
+            write(190515,*) ' '
             call flush(190515)
          endif
 
@@ -499,18 +499,18 @@ program GTS
             timewc(1)=timewc(1)+dtwc
 
             ! redistribute ion across PEs
-            call shifti 
+            call shifti
             call timer(t0,dt,t0wc,dtwc)
             time(2)=time(2)+dt
             timewc(2)=timewc(2)+dtwc
 
-            ! Calculate ion weight damping 
+            ! Calculate ion weight damping
             if(irk==4 .and. wimcompressibility==2) call weight_damping_ion
 
             if(irk==4) call check_tracer_i
             call timer(t0,dt,t0wc,dtwc)
             time(13)=time(13)+dt
-            timewc(13)=timewc(13)+dtwc         
+            timewc(13)=timewc(13)+dtwc
             ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
             ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
             ! in PUSHI for calculating electric force on ions
@@ -520,7 +520,7 @@ program GTS
             timewc(3)=timewc(3)+dtwc
 
 
-            if(ifelectron/=0) then    ! include kinetic electrons 
+            if(ifelectron/=0) then    ! include kinetic electrons
                ! NOTE: nelectron must take 1 or even number due to the use of 2nd order Runge-Kutta
 
                ! calculate electron collisions
@@ -543,7 +543,7 @@ program GTS
                if(irk==4) call check_tracer_e
                call timer(t0,dt,t0wc,dtwc)
                time(13)=time(13)+dt
-               timewc(13)=timewc(13)+dtwc   
+               timewc(13)=timewc(13)+dtwc
             endif ! end if(ifelectron/=0)
 
             if(irk==4 .and. wimcompressibility==2) call weight_damping_eon
@@ -558,7 +558,7 @@ program GTS
 
             ! solve GK Poisson equation using adiabatic electron
             if(Poisson_Flag==1) call poisson( solver1, masssolver )
-            !if(Poisson_Flag==1) call poisson( solver_dphi_dt ) 
+            !if(Poisson_Flag==1) call poisson( solver_dphi_dt )
             call timer(t0,dt,t0wc,dtwc)
             time(4)=time(4)+dt
             timewc(4)=timewc(4)+dtwc
@@ -571,11 +571,11 @@ program GTS
             time(5)=time(5)+dt
             timewc(5)=timewc(5)+dtwc
 
-            idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag        
+            idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
 
             call smooth(1)  ! 1. solve zonal flow for nonlinear run;
             ! 2. smooth the complete phi;
-            ! 3. fft and filter       
+            ! 3. fft and filter
             call timer(t0,dt,t0wc,dtwc)
             time(5)=time(5)+dt
             timewc(5)=timewc(5)+dtwc
@@ -590,14 +590,14 @@ program GTS
                call current_ion
                call current_eon
                call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
-            endif 
+            endif
          enddo !end do irk=1,4
 
          ! profile snapshots, write particle information to restart file
          !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
          call Cumulate_Some_Variables_for_Measure
 
-         if(mod(istep,msnap) .eq. 0) then 
+         if(mod(istep,msnap) .eq. 0) then
             !  phi_tmp=phi_tmp/real(msnap,wp)
             call snapshot
             call snapshot_hdf5
@@ -621,9 +621,9 @@ program GTS
          ! Find a specific tracer and print Tracer Information
          ! This routine may need to use multi-tracers.. etracers_labels, itracers_labels
          ! For example, zeon(1:6, etracer_labels(etracer_num/2))
-         call timer(t0,dt,t0wc,dtwc) 
+         call timer(t0,dt,t0wc,dtwc)
          time(nc)=t0-starting_t0
-         timewc(nc)=t0wc-starting_t0wc 
+         timewc(nc)=t0wc-starting_t0wc
 
          if(mype==0 .and. mod(istep,msnap)==0) then
             write(190515,*) 'istep=', istep
@@ -634,7 +634,7 @@ program GTS
             enddo
             write(190515,*) ' '
             write(190515,*) ' '
-            write(190515,*) ' '          
+            write(190515,*) ' '
             call flush(190515)
          endif
 
@@ -659,18 +659,18 @@ program GTS
             timewc(1)=timewc(1)+dtwc
 
             ! redistribute ion across PEs
-            call shifti 
+            call shifti
             call timer(t0,dt,t0wc,dtwc)
             time(2)=time(2)+dt
             timewc(2)=timewc(2)+dtwc
          enddo
-         ! Calculate ion weight damping 
+         ! Calculate ion weight damping
          if(wimcompressibility==2) call weight_damping_ion
 
          call check_tracer_i
          call timer(t0,dt,t0wc,dtwc)
          time(13)=time(13)+dt
-         timewc(13)=timewc(13)+dtwc         
+         timewc(13)=timewc(13)+dtwc
          ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
          ! in PUSHI for calculating electric force on ions
@@ -680,7 +680,7 @@ program GTS
          timewc(3)=timewc(3)+dtwc
 
 
-         if(ifelectron/=0) then    ! include kinetic electrons 
+         if(ifelectron/=0) then    ! include kinetic electrons
             ! NOTE: nelectron must take 1 or even number due to the use of 2nd order Runge-Kutta
 
             ! calculate electron collisions
@@ -706,7 +706,7 @@ program GTS
             call check_tracer_e
             call timer(t0,dt,t0wc,dtwc)
             time(13)=time(13)+dt
-            timewc(13)=timewc(13)+dtwc   
+            timewc(13)=timewc(13)+dtwc
          endif ! end if(ifelectron/=0)
 
          if(wimcompressibility==2) call weight_damping_eon
@@ -734,7 +734,7 @@ program GTS
 
             call smooth(1)  ! 1. solve zonal flow for nonlinear run;
             ! 2. smooth the complete phi;
-            ! 3. fft and filter       
+            ! 3. fft and filter
             call timer(t0,dt,t0wc,dtwc)
             time(5)=time(5)+dt
             timewc(5)=timewc(5)+dtwc
@@ -765,10 +765,10 @@ program GTS
          time(5)=time(5)+dt
          timewc(5)=timewc(5)+dtwc
 
-         !idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag      
+         !idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
          call smooth(1)  ! 1. solve zonal flow for nonlinear run;
          ! 2. smooth the complete phi;
-         ! 3. fft and filter       
+         ! 3. fft and filter
          call timer(t0,dt,t0wc,dtwc)
          time(5)=time(5)+dt
          timewc(5)=timewc(5)+dtwc
@@ -783,13 +783,13 @@ program GTS
             call current_ion
             call current_eon
             call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
-         endif 
+         endif
 
          ! profile snapshots, write particle information to restart file
          !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
          call Cumulate_Some_Variables_for_Measure
 
-         if(mod(istep,msnap) .eq. 0) then 
+         if(mod(istep,msnap) .eq. 0) then
             !  phi_tmp=phi_tmp/real(msnap,wp)
             call snapshot
             call snapshot_hdf5
@@ -813,9 +813,9 @@ program GTS
          ! Find a specific tracer and print Tracer Information
          ! This routine may need to use multi-tracers.. etracers_labels, itracers_labels
          ! For example, zeon(1:6, etracer_labels(etracer_num/2))
-         call timer(t0,dt,t0wc,dtwc) 
+         call timer(t0,dt,t0wc,dtwc)
          time(nc)=t0-starting_t0
-         timewc(nc)=t0wc-starting_t0wc 
+         timewc(nc)=t0wc-starting_t0wc
 
          if(mype==0 .and. mod(istep,msnap)==0) then
             write(190515,*) 'istep=', istep
@@ -826,7 +826,7 @@ program GTS
             enddo
             write(190515,*) ' '
             write(190515,*) ' '
-            write(190515,*) ' '          
+            write(190515,*) ' '
             call flush(190515)
          endif
       enddo      !    MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP

@@ -39,7 +39,7 @@ subroutine restart_write
       if(ifdphi/=2) then
          write(222) zeon(1:7,1:me)
       elseif(ifdphi>=2) then
-         write(222) zeon(1:8,1:me)     
+         write(222) zeon(1:8,1:me)
       endif
 
       write(222) zeon0(6,1:me)

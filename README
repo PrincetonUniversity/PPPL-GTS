@@ -9,7 +9,7 @@ module load superlu_mt_64
 
 
 compile
-gmake OPENMP=y 
+gmake OPENMP=y
 
 ====================================================================
 
@@ -35,7 +35,7 @@ Now, when I do an svn status, I don't get a list of the .mod files.
 
 ====================================================================
 
-01/22/2013 
+01/22/2013
            GTS_etg_fem with FEM for 2D smoothing dated back to 2008:
 
              7302 2008-09-09 11:37 fem.F90
@@ -57,7 +57,7 @@ Now, when I do an svn status, I don't get a list of the .mod files.
 Stephane Ethier
 2:28 PM (28 minutes ago) 4/3/2013
 
-           to me, Weixing, Edward 
+           to me, Weixing, Edward
            Hi All,
 
            I'm not sure if it could help
@@ -74,7 +74,7 @@ Stephane Ethier
 
 ====================================================================
 
-11/20/2013 
+11/20/2013
            merge code for WWang rel31-->rel32
            rel31: bug fix for dxdr & dxdz
                   (solver_petsc.F90 L2484 apply MPI_ALLREDUCE on fem%Pijk)

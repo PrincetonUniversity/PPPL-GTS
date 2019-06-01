@@ -12,10 +12,10 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
 
    integer m,i,j,k,jt,ii,ierror,ij,&
       icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-   real(wp) weight,rdum,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00 
+   real(wp) weight,rdum,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00
    real(wp) sendl(mgrid),recvr(mgrid)
    real(wp) mype_zonal_dTi(0:mpsi)
-   real(wp) tmp_full_dTi(0:1,mgrid)  
+   real(wp) tmp_full_dTi(0:1,mgrid)
    real(wp) da(mi),dgq(mi),dgf(mi),wpi2(mi)
 
    real(wp) dnitmp(0:1,mgrid),buff(0:1,mgrid)
@@ -27,7 +27,7 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
    !  BE SURE no memory conflict (!!!)
    !
 
-   ! ion_locator is called to give ion locations 
+   ! ion_locator is called to give ion locations
    call ion_locator0
 
    pflux_e=0.0_wp
@@ -35,9 +35,9 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
 
    !============================================
    ! Attention
-   !     
+   !
    ! When i=1,2,3, we use pflux_e(1:3) to store ion flux in a,thet,zeta direction
-   ! When i=4, we use pflux_i(1) to store temperature information     
+   ! When i=4, we use pflux_i(1) to store temperature information
    ! Please note that here pflux_e and pflux_i have no real meanings, they are just borrowed.
    !==============================================
    do i=1,4  ! corresponding to a, theta, zeta; using do-loop to save memory
@@ -64,9 +64,9 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
          wt11=wp1*wtion1(0,m)
          wt01=wp1-wt11
 
-         if(i==1) then 
+         if(i==1) then
             rdum=da(m)
-         else if(i==2) then 
+         else if(i==2) then
             rdum=dgq(m)
          else if(i==3) then
             rdum=dgf(m)
@@ -251,7 +251,7 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
    ! !==============================================================================
    ! ! MGYOO (01/09/2019)
    ! ! Convert pflux_i to get a correct form of dTi by considering dni.
-   ! ! pflux_i = Sigma(weight*(2/3*energy-T0))*markeri = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol 
+   ! ! pflux_i = Sigma(weight*(2/3*energy-T0))*markeri = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol
    ! ! dTi = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*pflux_i
    ! do i=0,mpsi
    !   do j=0,mtheta(i)
@@ -276,24 +276,24 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
    zonal_dTi = zonal_dTi/jaco_sum
 
    !====================================================================
-   ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component 
+   ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component
    ! This FLA might be important in the case of external magnetic perturbation
    tmp_full_dTi = pflux_i(1,:,:)
-   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then 
+   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
       call Do_FieldLineAverage_by_using_gPPI(tmp_full_dTi, FLA_dTi)
    endif
-   !===================================================================   
+   !===================================================================
 
    ! IF ZE_SEPARATION=0: phi_tmp is (1/Ti0)*(full delta_Ti (zonal+non-zonal)): i.e. phi_tmp = (delta_Ti)/Ti0
-   ! IF ZE_SEPARATION=1: phi_tmp is now calculated from non-zonal delta_Ti : i.e. phi_tmp = (delta_Ti-zonal_dTi)/Ti0  
-   do j=0,mpsi     
-      rdum=vth_inv(j)*vth_inv(j)         ! = 1/Ti_0 with Ti_0 normalized 
+   ! IF ZE_SEPARATION=1: phi_tmp is now calculated from non-zonal delta_Ti : i.e. phi_tmp = (delta_Ti-zonal_dTi)/Ti0
+   do j=0,mpsi
+      rdum=vth_inv(j)*vth_inv(j)         ! = 1/Ti_0 with Ti_0 normalized
       !$omp parallel do private(i,ij)
       do i=0,mtheta(j)
          ij=igrid(j)+i
-         pflux_i(1,1,ij)=(pflux_i(1,1,ij)-(ZF_SEPARATION)*zonal_dTi(j))*rdum    ! = (delta_Ti-zonal_dTi)/Ti_0 on grid   
+         pflux_i(1,1,ij)=(pflux_i(1,1,ij)-(ZF_SEPARATION)*zonal_dTi(j))*rdum    ! = (delta_Ti-zonal_dTi)/Ti_0 on grid
       end do
-      pflux_i(1,:,igrid(j))=pflux_i(1,:,igrid(j)+mtheta(j))  		 
+      pflux_i(1,:,igrid(j))=pflux_i(1,:,igrid(j)+mtheta(j))
    enddo
 
    ! Record Density. Each myrank_toroidal has its own file (see open_file).

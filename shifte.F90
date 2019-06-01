@@ -29,7 +29,7 @@ subroutine shifte
    !     write(stdout,*) 'Before Shifte, Im=',mype,', m=',m,', zeon0=', zeon0(:,m)
    !     write(stdout,*) 'Before Shifte, Im=',mype,', m=',m,', RK_cum_zeon=', RK_cum_zeon(:,m)
    !     call flush(stdout)
-   !   endif 
+   !   endif
    ! enddo
 
    ! write(4321,*) "shift_e start! I'm=",mype,"mytorrank",myrank_toroidal,"ntoroidal",ntoroidal, "toroidal_comm", toroidal_comm
@@ -70,14 +70,14 @@ subroutine shifte
    tot_send_num = 0
    send_mid_arr = 0
    send_dest_arr = 0
-   do m=1, me 
+   do m=1, me
       ! normalized_zeta =  zeon(3,m) - floor(zeon(3,m)/(2.0*pi)) * 2.0*pi
       normalized_zeta =  modulo(zeon(3,m),2.0*pi)
       dest_tor_rank = floor(normalized_zeta / Delta_zeta)
 
       if(dest_tor_rank<0 .OR. dest_tor_rank>ntoroidal) then
          write(file_name,'("shifte_out_",i2.2,".dat")')mype
-         open(unit=4321, file=file_name, position='append', action='write')      
+         open(unit=4321, file=file_name, position='append', action='write')
          write(4321,*) "Error!! dest_tor_rank=", dest_tor_rank, 'zeta',zeon(3,m), 'norm_zeta', normalized_zeta,'zeta0', zeon0(3,m)
          call flush(4321)
          close(4321)
@@ -88,7 +88,7 @@ subroutine shifte
          tot_send_num = tot_send_num + 1
          send_mid_arr(tot_send_num) = m
          send_dest_arr(tot_send_num) = dest_tor_rank
-      endif  
+      endif
    enddo
 
 
@@ -116,7 +116,7 @@ subroutine shifte
    ! write(4321,*) mype, myrank_toroidal, "tor_send_displs =", tor_send_displs
    ! write(4321,*) mype, myrank_toroidal, "tor_recv_counts =", tor_recv_counts
    ! write(4321,*) mype, myrank_toroidal, "tor_recv_displs =", tor_recv_displs
-   ! call flush(4321)    
+   ! call flush(4321)
 
 
    !allocate required memories
@@ -145,13 +145,13 @@ subroutine shifte
          tor_send_Ptls_data(k+1:k+dim_RK_cum_zeon, i) =  RK_cum_zeon(:,send_mid_arr(i))
          k=k+dim_RK_cum_zeon
       endif
-      tor_send_Ptls_data(k+1, i) =  elabels(send_mid_arr(i))  
-      tor_send_Ptls_data(k+2, i) =  we_init(send_mid_arr(i))  
+      tor_send_Ptls_data(k+1, i) =  elabels(send_mid_arr(i))
+      tor_send_Ptls_data(k+2, i) =  we_init(send_mid_arr(i))
       tor_send_Ptls_data(k+3, i) =  we_vpara(send_mid_arr(i))
-      tor_send_Ptls_data(k+4, i) =  we_vperp(send_mid_arr(i))  
-      tor_send_Ptls_data(k+5, i) =  we_accel(send_mid_arr(i))    
+      tor_send_Ptls_data(k+4, i) =  we_vperp(send_mid_arr(i))
+      tor_send_Ptls_data(k+5, i) =  we_accel(send_mid_arr(i))
       tor_send_Ptls_data(k+6, i) =  we_adiab(send_mid_arr(i))
-      tor_send_Ptls_data(k+7, i) =  we_fdamp(send_mid_arr(i))  
+      tor_send_Ptls_data(k+7, i) =  we_fdamp(send_mid_arr(i))
       tor_send_Ptls_data(k+8, i) =  UnNorm_theta_e(send_mid_arr(i))
       tor_send_Ptls_data(k+9, i) =  UnNorm_zeta_e(send_mid_arr(i))
    enddo
@@ -164,7 +164,7 @@ subroutine shifte
 
 
 
-   ! fill holes 
+   ! fill holes
    call quicksort(send_mid_arr, 1, tot_send_num)
    mtop = me
    me = me - tot_send_num ! remained me after sending
@@ -199,8 +199,8 @@ subroutine shifte
 
    ! ! append recv particles
    ! zeon(:, me+1:me+tot_recv_num) = tor_recv_Ptls_data(1:dim_zeon, :)
-   ! zeon0(:, me+1:me+tot_recv_num) = tor_recv_Ptls_data(dim_zeon+1:dim_zeon+dim_zeon0, :)  
-   ! elabels(me+1:me+tot_recv_num) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+1, :)  
+   ! zeon0(:, me+1:me+tot_recv_num) = tor_recv_Ptls_data(dim_zeon+1:dim_zeon+dim_zeon0, :)
+   ! elabels(me+1:me+tot_recv_num) =  tor_recv_Ptls_data(dim_zeon+dim_zeon0+1, :)
 
    ! append recv particles
    do i=1, tot_recv_num
@@ -213,18 +213,18 @@ subroutine shifte
          RK_cum_zeon(:,me+i) = tor_recv_Ptls_data(k+1:k+dim_RK_cum_zeon, i)
          k=k+dim_RK_cum_zeon
       endif
-      elabels(me+i)   =  tor_recv_Ptls_data(k+1, i) 
-      we_init(me+i)   =  tor_recv_Ptls_data(k+2, i) 
-      we_vpara(me+i)  =  tor_recv_Ptls_data(k+3, i) 
-      we_vperp(me+i)  =  tor_recv_Ptls_data(k+4, i) 
-      we_accel(me+i)  =  tor_recv_Ptls_data(k+5, i) 
+      elabels(me+i)   =  tor_recv_Ptls_data(k+1, i)
+      we_init(me+i)   =  tor_recv_Ptls_data(k+2, i)
+      we_vpara(me+i)  =  tor_recv_Ptls_data(k+3, i)
+      we_vperp(me+i)  =  tor_recv_Ptls_data(k+4, i)
+      we_accel(me+i)  =  tor_recv_Ptls_data(k+5, i)
       we_adiab(me+i)  =  tor_recv_Ptls_data(k+6, i)
-      we_fdamp(me+i)  =  tor_recv_Ptls_data(k+7, i)    
+      we_fdamp(me+i)  =  tor_recv_Ptls_data(k+7, i)
       UnNorm_theta_e(me+i)= tor_recv_Ptls_data(k+8, i)
       UnNorm_zeta_e(me+i) = tor_recv_Ptls_data(k+9, i)
    enddo
 
-   me = me + tot_recv_num  
+   me = me + tot_recv_num
 
    deallocate(tor_send_Ptls_data, tor_recv_Ptls_data)
 
@@ -237,7 +237,7 @@ subroutine shifte
    !     write(stdout,*) 'After Shifte, Im=',mype,', m=',m,', zeon0=', zeon0(:,m)
    !     write(stdout,*) 'After Shifte, Im=',mype,', m=',m,', RK_cum_zeon=', RK_cum_zeon(:,m)
    !     call flush(stdout)
-   !   endif 
+   !   endif
    ! enddo
 
 
@@ -283,7 +283,7 @@ recursive subroutine quicksort2(a, b, first, last)
    ! quicksort.f -*-f90-*-
    ! Author: t-nissie
    ! License: GPLv3
-   ! Gist: https://gist.github.com/t-nissie/479f0f16966925fa29ea  
+   ! Gist: https://gist.github.com/t-nissie/479f0f16966925fa29ea
    implicit none
    integer  a(*),b(*), x, t
    integer first, last

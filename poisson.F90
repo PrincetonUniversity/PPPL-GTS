@@ -10,8 +10,8 @@ subroutine poisson( solver, masssolver )
    !use linear_system
    use solver_data_class
    implicit none
-   ! 
-   type(solver_data) :: solver, masssolver 
+   !
+   type(solver_data) :: solver, masssolver
    ! local vars
    integer i,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2
 
@@ -53,7 +53,7 @@ subroutine poisson( solver, masssolver )
       !gamma=gamma0
 
       !  initialize terms for solving <phi> and delta-phi interatively using FEM solver -- see notes
-      if( solver%order > 0 ) then 
+      if( solver%order > 0 ) then
          allocate ( div1(mgrid),div2(mgrid) )
          div1(:)=Jcbn(:)*gsij(:)*gij(1,:)
          div2(:)=Jcbn(:)*gsij(:)*gij(4,:)
@@ -87,7 +87,7 @@ subroutine poisson( solver, masssolver )
    !  zero gyroradius limit
    !  tmp=1.0/tite           !wx
 
-   ! Note added Feb. 2012 -- control parameter for electron model: 
+   ! Note added Feb. 2012 -- control parameter for electron model:
    !      ifelectron=0 --> adiabatic electrons
    !      ifelectron=1 --> full delta-f electrons
    !      ifelectron=2 --> delta-h electrons (non-adiabatic electrons)
@@ -96,11 +96,11 @@ subroutine poisson( solver, masssolver )
       ! this part works for both ZF_SEPARATION=0 and 1
 
       ! for ZF_SEPARATION=0, namely solving total potential:
-      ! densityi=n_i/n_0 and densitye=n_e/n_0 are total density fluctuations 
+      ! densityi=n_i/n_0 and densitye=n_e/n_0 are total density fluctuations
       ! with n_e being the full (ad. + non-ad.) electron perturbation
 
-      ! for ZF_SEPARATION=1, namely solving ZF separately 
-      ! densityi=(n_i-<n_i>)/n_0 and densitye=(n_e-<n_e>)/n_0 
+      ! for ZF_SEPARATION=1, namely solving ZF separately
+      ! densityi=(n_i-<n_i>)/n_0 and densitye=(n_e-<n_e>)/n_0
       ! with <n_i> and <n_e> are flux-surface-averaged fluctuations
 
       !$omp parallel do private(i,j,ij)
@@ -138,7 +138,7 @@ subroutine poisson( solver, masssolver )
                   ij=igrid(i)+j
                   add_phi(ij)=dentmp(ij)+tmp*phi(1,ij)
                end do
-               add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i)) 
+               add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i))
             end do
 
             call solve( solver, masssolver, mgrid, add_phi, xx, ierr )
@@ -151,7 +151,7 @@ subroutine poisson( solver, masssolver )
             ! BCs !!!!
             ! radial boundary  Note wx: this could enforce a constraint on long wave length modes
             !                           ---- a constraint on large scale Er (???)
-            phi(1,igrid(0):igrid(0)+mtheta(0))=0.0_wp  
+            phi(1,igrid(0):igrid(0)+mtheta(0))=0.0_wp
 
             !            it is questionalbe to set phi=0 at both inner and uter boundaries
             !            phi(1,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
@@ -173,7 +173,7 @@ subroutine poisson( solver, masssolver )
       endif
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   else     ! for both delta-h (ifelectron=2) and adiabatic (ifelectron=0) electrons 
+   else     ! for both delta-h (ifelectron=2) and adiabatic (ifelectron=0) electrons
 
       ! for ZF_SEPARATION=0, namely solving total potential:
       ! densityi=n_i/n_0 is total ion fluctuation
@@ -189,7 +189,7 @@ subroutine poisson( solver, masssolver )
             ij=igrid(i)+j
             dentmp(ij)=densityi(1,ij)
             if(ifelectron==2) dentmp(ij)=dentmp(ij)-densitye(1,ij)   ! with non-adiabatic electrons
-            if( solver%order <= 0 )  then 
+            if( solver%order <= 0 )  then
                dentmp(ij)=dentmp(ij)*vth_grid(i)**2
             else
                if(ZF_SEPARATION==1) dentmp(ij)=dentmp(ij)+(zonali(i)-zonale(i))  ! total density fluctuations used for FEM solver with ZF_SEPARATION=1
@@ -203,7 +203,7 @@ subroutine poisson( solver, masssolver )
 
       if(ZF_SEPARATION==1) then
 
-         if( solver%order <= 0 ) then    ! old solver 
+         if( solver%order <= 0 ) then    ! old solver
             call solve( solver, masssolver, mgrid, dentmp, xx, ierr )
 
             phi(1,:) = xx
@@ -264,14 +264,14 @@ subroutine poisson( solver, masssolver )
 
                   call solve( solver, masssolver, mgrid, bb2, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
 
-               else      ! use FEM inside the solver for adding -beta*div[sum(gs)*d<phi>/da*grad(a)] 
+               else      ! use FEM inside the solver for adding -beta*div[sum(gs)*d<phi>/da*grad(a)]
 
                   call solve( solver, masssolver, mgrid, dentmp, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
 
 
                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                   !                  !  replaced by the following to ensure <delta-phi>=0
-                  !                  
+                  !
                   !    !omp parallel do private(i,j,ij)
                   !                  do i=0, mpsi
                   !                     do j=0,mtheta(i)
@@ -280,7 +280,7 @@ subroutine poisson( solver, masssolver )
                   !                     end do
                   !                     bb2(igrid(i))=bb2(igrid(i)+mtheta(i))
                   !                  enddo
-                  !    
+                  !
                   !                  call solve( solver, masssolver, mgrid, bb2, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -305,17 +305,17 @@ subroutine poisson( solver, masssolver )
                !                     enddo
                !                  enddo
                !                  !$omp end parallel
-               !    
+               !
                !                  phi_flux_ave=0.0_wp
                !                  call MPI_ALLREDUCE(adum_11,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
                !                  phi_flux_ave=phi_flux_ave/jaco_sum       ! =<delta-phi>
                !                  adum_11=phi_flux_ave*abs(csc0)/Te_grid   ! =(e/e0)*(m0/ms)*<delta-phi>/T_e with <phi>, T_e normalized, which should be zero by defination
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-               !  call find_dxda( masssolver, mgrid, xx, add_phi, ierr )          
-               !  call find_dxdt( masssolver, mgrid, add_phi, yy, ierr )          
+               !  call find_dxda( masssolver, mgrid, xx, add_phi, ierr )
+               !  call find_dxdt( masssolver, mgrid, add_phi, yy, ierr )
 
-               call find_dxdadxdt( masssolver, mgrid, xx, add_phi, yy, ierr )          
+               call find_dxdadxdt( masssolver, mgrid, xx, add_phi, yy, ierr )
 
                add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))*gsij(:)   ! --> sum(gs)*grad_perp(delta-phi).grad(a)
                adum=0.0_wp
@@ -345,7 +345,7 @@ subroutine poisson( solver, masssolver )
 
                phip00=phip00+Er_a0        ! --> phip00=dphi_00/da with phip00(0)=Er_a0 which is Er_NC when ifneoclassical=1
 
-            end do     !  end iteration for FEM   
+            end do     !  end iteration for FEM
 
             phi(1,:) = xx
 
@@ -360,7 +360,7 @@ subroutine poisson( solver, masssolver )
       else      ! ZF_SEPARATION=0 --> solve total potential
 
          adum0=phi00
-         do it=1,its     
+         do it=1,its
             !   calculate <phi> using phi of last time step for the 1st iteration
 
             ! if(mype==-100) then      !  keep the following coding in the record
@@ -440,7 +440,7 @@ subroutine poisson( solver, masssolver )
             endif
 
 
-            if(mype==0)   print*, 'mype=', mype, 'its=', it, '  <phi>(',ipsi,')=',  phi_flux_ave(ipsi), 'rms=', rms,  '  <phi>(0)=', rtc, & 
+            if(mype==0)   print*, 'mype=', mype, 'its=', it, '  <phi>(',ipsi,')=',  phi_flux_ave(ipsi), 'rms=', rms,  '  <phi>(0)=', rtc, &
                'relative error in <phi>^2=', t1
             !   if(mype==180) print*, 'mype=', mype, 'its=', it, '  <phi>(',ipsi,')=',  phi_flux_ave(ipsi), 'rms=', rms,  '  <phi>(0)=', rtc
 
@@ -532,14 +532,14 @@ subroutine poisson_initial( mat )
    if(mring==1)then
       ! one ring, velocity in unit of v_th: vring=v_perp/v_th
       vring(1)=sqrt(2.0_wp)
-      fring(1)=1.0_wp     
+      fring(1)=1.0_wp
    elseif(mring==2)then
       ! two rings good for up to k_perp=1.5
       vring(1)=0.9129713024553_wp
       vring(2)=2.233935334042_wp
       fring(1)=0.7193896325719_wp
       fring(2)=0.2806103674281_wp
-   else      
+   else
       ! three rings: exact(<0.8%) for up to k_perp=1.5
       vring(1)=0.388479356715_wp
       vring(2)=1.414213562373_wp
@@ -570,7 +570,7 @@ subroutine poisson_initial( mat )
          enddo
          do j=1,mtheta(i)
             !do j=0,mtheta(i)
-            ij0=igrid(i)+j 
+            ij0=igrid(i)+j
 #ifndef NO_PETSC
             rs = 0.25_wp
             call add_gk_value( mat, ij0, ij0, rs )
@@ -669,24 +669,24 @@ subroutine poisson_initial( mat )
                      indexp(nt,ij0,k)=ij
                      ring(  nt,ij0,k)=rs
                      100                 continue
-#endif                 
+#endif
                   enddo  !end of 4-point interpolation loop
                enddo     !end of 8-point-per-ring loop
             enddo        !end of ring loop
          enddo           !end of poloidal loop
-      enddo              !end of radial loop     
+      enddo              !end of radial loop
    enddo                 !end of toroidal loop
 
 
    if(ZF_SEPARATION==-100) then
-      if(ifelectron/=1.and.ZF_SEPARATION==0) then 
+      if(ifelectron/=1.and.ZF_SEPARATION==0) then
          !    move part of flux surface average <phi> to left
          do i=0,mpsi
             do j=1,mtheta(i)
                ij0=igrid(i)+j
                do k=1,mtheta(i)
                   ij=igrid(i)+k
-                  rs=dtemper(ij)/jaco_sum(i)*tite(i) 
+                  rs=dtemper(ij)/jaco_sum(i)*tite(i)
                   call add_gk_value( mat, ij0, ij, rs )
                enddo
             enddo

@@ -30,7 +30,7 @@ Subroutine setup
    CHARACTER(LEN=13) cdum
    CHARACTER(LEN=16) cdum1
 
-   ! the following definition is for volume integral using NAG 
+   ! the following definition is for volume integral using NAG
    integer minpts,ifail
    integer,parameter :: maxpts=1000*3,lenwrk=(3+2)*(1+maxpts/33)
    real(wp) low_lim(3),up_lim(3),wrkstr(lenwrk),acc,error_8,finval,low1(2),up1(2)
@@ -53,7 +53,7 @@ Subroutine setup
       maxx,maxy,maxz,minx,miny,minz
 
    real(wp), external :: D01AHF,arclength,object_10,temperature,&
-      density,object_9s,dT_da,dn_da,temperature_e,dT_da_e,& 
+      density,object_9s,dT_da,dn_da,temperature_e,dT_da_e,&
       domega_da , object_9,  object_11, u_parallel
 
    real(wp), dimension(:), allocatable :: workarray_4_ETG
@@ -93,11 +93,11 @@ Subroutine setup
    !  kappan=kappati*kappan        ! =R_0*<grad(n)/n>=R_0/L_n
    aelectron=1.0/aelectron      ! aelectron=1.0/1837.0
 
-   !  if(nonlinear==0.0) wimcompressibility=0   ! no need to calculate and use weight field <w> for linear runs -- added March 2017 
+   !  if(nonlinear==0.0) wimcompressibility=0   ! no need to calculate and use weight field <w> for linear runs -- added March 2017
 
    if(ifneoclassical==1) Er_from_GTC_Neo=0   ! no need to import any equilibrium Er
 
-   if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases 
+   if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases
    zeondim=7
    if(ifdphi>=2) zeondim=8
 
@@ -213,7 +213,7 @@ Subroutine setup
    temconst=1.0_wp/(temconst*(a1-a0))
    Bu=1.0_wp/(Bu*(a1-a0))
 
-   if(plasma==0.and.q2.lt.0.0) then 
+   if(plasma==0.and.q2.lt.0.0) then
       !cj  2015-02-25
       !cj  allocate(Ti_node(0:jr),Te_node(0:jr),ne_node(0:jr),Iomg_node(0:jr))
       if(.not.allocated(Ti_node)) allocate(Ti_node(0:jr))
@@ -273,11 +273,11 @@ Subroutine setup
 
       Ti_50=Ti_50/Tem_00       ! normalized temperature for which the normalized
       ! thermal velocity is vth=sqrt(T_i)
-      Te_50=Te_50*m0ms/Tem_00  ! normalized electron temperature so that 
+      Te_50=Te_50*m0ms/Tem_00  ! normalized electron temperature so that
       ! the normalized electron thermal velocity is vth=sqrt(T_e), the same as that for ions
       O_50=O_50*utime          ! normalized toroidal rotation angular velocity,
       ! in radians (rad)
-      PHI_50=PHI_50*trans/E_00 ! normalized potential (PHI_50 read in from TRANSP is in units of Volts) 
+      PHI_50=PHI_50*trans/E_00 ! normalized potential (PHI_50 read in from TRANSP is in units of Volts)
 
       ! --------------------
       !    O_50=O_50*1.0d-6
@@ -311,9 +311,9 @@ Subroutine setup
    !  a_ref=0.55_wp         ! used for NSTX-116960
    !  a_ref=0.50_wp         ! used for NSTX-112992
    !  a_ref=0.60         ! used for NSTX-115821 2nd run
-   !  a_ref=0.35_wp      ! used for DIIID-125238280 
+   !  a_ref=0.35_wp      ! used for DIIID-125238280
    !  a_ref=0.55_wp         ! esiP64_mono.D3D
-   !  a_ref=0.62         ! used for NSTX-200155 
+   !  a_ref=0.62         ! used for NSTX-200155
    !  a_ref=0.42_wp      ! used for DIIID-133672-314
    !  a_ref=0.45_wp      ! used for DIIID-125236_290
    !  a_ref=0.42_wp      ! used for DIIID-125236_360
@@ -329,7 +329,7 @@ Subroutine setup
    !  a_ref=0.55_wp         ! used for model equilibrium and profiles
    !  a_ref=0.42_wp      ! used for DIIID-125236_360
    !  a_ref=0.60_wp      ! used for NSTX-141716_448
-   !  a_ref=0.50_wp      
+   !  a_ref=0.50_wp
    !  a_ref=0.36_wp      ! used for D146596B11_2235 [0.05 0.7]
 
    a_ref=a_ref_in     !ZHIXIN used to read data from input file
@@ -353,9 +353,9 @@ Subroutine setup
 
          !    input u_0 is normalized by thermal velocity [ sqrt(2T/m) ] at r=rc
          u_0=u_0*sqrt(2.0_wp*Tc)   ! this u_0 is u// at r=rc, in unit uveloci now
-         Au=Au*(0.1_wp*sqrt(2.0_wp*Tc)/R_0)  ! this roughly sets R_0/L_omg at r=rc ~ Au value originally 
-         ! specified in INPUT.d with a reference u_// (or omega_t) in 
-         ! R_0/L_omg taking to be 10% of vth at r=rc 
+         Au=Au*(0.1_wp*sqrt(2.0_wp*Tc)/R_0)  ! this roughly sets R_0/L_omg at r=rc ~ Au value originally
+         ! specified in INPUT.d with a reference u_// (or omega_t) in
+         ! R_0/L_omg taking to be 10% of vth at r=rc
 
       else    ! for model profile I
          ! need both T_0 and Tc (T_e0 and Tc_e) to specified temperature profile
@@ -549,7 +549,7 @@ Subroutine setup
    MM_LcTe = Lce
    MM_Lcn  = Lcn
    MM_LcU  = Lcu
-   if(mype==0) write(0,*) 'R_0/<L_T>=', R_0/Lc   ! 6.9 is often used in cyclone case 
+   if(mype==0) write(0,*) 'R_0/<L_T>=', R_0/Lc   ! 6.9 is often used in cyclone case
 
    !  tstep=tstep/(vthi*kappati)*R_0  ! normalized delta_t
 
@@ -580,9 +580,9 @@ Subroutine setup
       Tau=Tau/utime     ! normalized collision time at reference location
       dt_coll=tstep/Tau ! step size in terms of reference collision time Tau
       if(mype==0) write(0,*) 'collision is on ', ' with step size=', dt_coll, 'in tau_ii'
-      ! now dt_coll*n/v^3 is dt_c/tau for each particle with v normalized; 
+      ! now dt_coll*n/v^3 is dt_c/tau for each particle with v normalized;
       ! collisions are calculated every "icollision" steps
-      dt_coll=real(icollision,wp)*dt_coll*(sqrt(2.0_wp)*vthc)**3/backnc 
+      dt_coll=real(icollision,wp)*dt_coll*(sqrt(2.0_wp)*vthc)**3/backnc
       ! now dt_coll*n/v^3 is dt_c/tau for each particle with v normalized;
       ! collisions are calculated every icollision steps
    endif
@@ -614,7 +614,7 @@ Subroutine setup
    allocate (qtinv(0:mpsi),itran(0:mpsi),mtheta(0:mpsi),deltat(0:mpsi),&
       rtemi(0:mpsi),rden(0:mpsi),igrid(0:mpsi),pmarki(0:mpsi),pmarke(0:mpsi),&
       phi00(0:mpsi),phip00(0:mpsi),fluxpsi(0:mpsi),zonali(0:mpsi),sumfluxpsi(0:mpsi),flux_11(0:mpsi), &
-      zonale(0:mpsi),jaco_sum(0:mpsi),eigenmode(m_poloidal,num_mode,0:mpsi), & 
+      zonale(0:mpsi),jaco_sum(0:mpsi),eigenmode(m_poloidal,num_mode,0:mpsi), &
       allnodes(0:mpsi),gaa(0:mpsi),B2_s(0:mpsi),dVda(0:mpsi),En_00(0:mpsi),&
       En_tur(0:mpsi),En_tot(0:mpsi),sn0_g(0:mpsi),dnty_on_bin_g(0:mpsi),&
       dphidt00(0:mpsi),gsgaa(0:mpsi))
@@ -629,8 +629,8 @@ Subroutine setup
    deltaz=(zetamax-zetamin)
 
    !    NOTE:  radial coordinate a=sqrt(pst_t/psi_t,edge)  [0,1]
-   psi_grid(0)=a0             
-   psi_grid(mpsi)=a1          
+   psi_grid(0)=a0
+   psi_grid(mpsi)=a1
 
    rho_grid(0)=rho0
    rho_grid(mpsi)=rho1
@@ -651,7 +651,7 @@ Subroutine setup
       acc=0.0_wp
       IFAIL=1
       !        a-grid corresponding to rho-grid
-      !     call C05ADF(psi_grid(i-1),a1,error_8,acc,rho2a_zero,psi_grid(i),IFAIL) 
+      !     call C05ADF(psi_grid(i-1),a1,error_8,acc,rho2a_zero,psi_grid(i),IFAIL)
 
       !        a-grid corresponding to s-grid
       call C05ADF(psi_grid(i-1),a1,error_8,acc,s2a_zero,psi_grid(i),IFAIL)
@@ -665,7 +665,7 @@ Subroutine setup
 
 
 
-   !ZHIXIN: 
+   !ZHIXIN:
    if(rmin.le.0.0.or.rmax.le.0.0) then !use original way
       rmin=psi_grid(mpsi-nbound)
       rmax=psi_grid(mpsi-nbound/2)
@@ -700,12 +700,12 @@ Subroutine setup
       end if
 
       vth_grid(i)=sqrt(vthi)      ! thermal velocity sqrt(T/m)
-      vth_inv(i)=1.0_wp/vth_grid(i) ! inverse of thermal velocity 
+      vth_inv(i)=1.0_wp/vth_grid(i) ! inverse of thermal velocity
 
       vthe=temperature_e(psi_grid(i),0.0_wp)
       vthe=vthe*msm0     ! Te with the same unit as Ti
       tite(i)=vthi/vthe  ! Ti/Te
-      Te_grid(i)=vthe    ! Te on grid with the same unit as Ti 
+      Te_grid(i)=vthe    ! Te on grid with the same unit as Ti
 
       rfac=rw*(aaa(1)-rc)
       rdum=(aaa(1)-a0)/djr
@@ -722,8 +722,8 @@ Subroutine setup
       circle=0.0_wp
       delt=2.0_wp*pi/real(intgral,wp)
       do j=1, intgral
-         the(1)=delt*real(j-1,wp)  
-         the(2)=delt*real(j,wp)  
+         the(1)=delt*real(j-1,wp)
+         the(2)=delt*real(j,wp)
          call esigetrzb(rj,zj,Bj,aaa,the,2)
          circle=circle+sqrt((rj(2)-rj(1))**2+(zj(2)-zj(1))**2)
       enddo
@@ -735,7 +735,7 @@ Subroutine setup
          circle=0.0_wp
          delt=2.0_wp*pi/real(intgral,wp)
          do j=1, intgral
-            the(1)=delt*real(j-1,wp) 
+            the(1)=delt*real(j-1,wp)
             the(2)=delt*real(j,wp)
             call esigetrzb(rj,zj,Bj,aaa,the,2)
             circle=circle+sqrt((rj(2)-rj(1))**2+(zj(2)-zj(1))**2)
@@ -785,7 +785,7 @@ Subroutine setup
          aaa(1)=max(1.0e-7_wp,min(1.0_wp,1.0_wp/real(k,wp)*real(i,wp)))
          the(1)=0.0_wp
          call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-         q=-gFaj(1)/gYaj(1) 
+         q=-gFaj(1)/gYaj(1)
          grada=sqrt(rqj(1)**2+zqj(1)**2)/abs(zaj(1)*rqj(1)-zqj(1)*raj(1)) !grad(a) at the=0
          ! calculate R_0/L_T and R_0/L_n at middle plane:
          dlnT=abs(dT_da(aaa(1),the(1))/temperature(aaa(1),the(1)))*grada*R_0 !=R_0*grad(lnT)
@@ -857,7 +857,7 @@ Subroutine setup
       tdum=tdum*0.8_wp     ! for NSTX-116960a05
       !     tdum=tdum*0.5_wp     ! test higher poloidal resolution for NSTX-116960a05
 
-      tdum=(0.7_wp*real(mpsi-i,wp)/real(mpsi,wp)+0.3_wp*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)  
+      tdum=(0.7_wp*real(mpsi-i,wp)/real(mpsi,wp)+0.3_wp*real(i,wp)/real(mpsi,wp))*vth_grid(i)/B_0/real(mthetamax,wp)
       ! for D3D 125238280
       tdum=tdum*1.0_wp     ! for D3D 125238280
 
@@ -966,7 +966,7 @@ Subroutine setup
       !     eta_grid(i)=dlnT   ! for ITG
       !     eta_grid(i)=dlnn   ! for TEM driven by grad(ne)
 
-      !     eta_grid(i)=dlnT_e    ! for TEM driven by grad(Te), such as D125229 
+      !     eta_grid(i)=dlnT_e    ! for TEM driven by grad(Te), such as D125229
       !     eta_grid(i)=dlnT_e    ! for TEM driven by grad(Te)
       !     eta_grid(i)=dlnn      ! for TEM driven by grad(ne)
       eta_grid(i)=dlnT      ! for ITG; such as D129533 with KE
@@ -1028,9 +1028,9 @@ Subroutine setup
       Fj(10)=D01AHF(0.0_wp,twopi,error_8,minpts,acc,object_5,-1,ifail)  !1D integral on theta
       Fj(5)=dVda(i)/(2.0_wp*pi)   ! zeta is ignorable for symmetry
 
-      if(mype==0) write(0,*) '<><><>',i, gaa(i), Fj(9)/Fj(5), '   ', B2_s(i), Fj(10)/Fj(5), '   ', dVda(i) 
+      if(mype==0) write(0,*) '<><><>',i, gaa(i), Fj(9)/Fj(5), '   ', B2_s(i), Fj(10)/Fj(5), '   ', dVda(i)
 
-      if(mype==0) write(20,204) itran(i), q, dVda(i), psi_grid(i), dlnT, dlnn, dlnT_e, eta_grid(i), s_grid(i), & 
+      if(mype==0) write(20,204) itran(i), q, dVda(i), psi_grid(i), dlnT, dlnn, dlnT_e, eta_grid(i), s_grid(i), &
          temperature(aaa(1),the(1)), temperature_e(aaa(1),the(1)), density(aaa(1),the(1)), zdum, qtinv(i), gaa(i), B2_s(i)
 
       204  format(2x, i8, 20(2x, ES13.6))
@@ -1060,7 +1060,7 @@ Subroutine setup
          aaa(1)=pdum
          aaa(2)=pdum
          do j=1, intgral
-            the(1)=delt*real(j-1,wp) 
+            the(1)=delt*real(j-1,wp)
             the(2)=delt*real(j,wp)
             call esigetrzb(rj,zj,Bj,aaa,the,2)
             circle=circle+sqrt((rj(2)-rj(1))**2+(zj(2)-zj(1))**2)
@@ -1099,7 +1099,7 @@ Subroutine setup
       the(2)=pi
       call esigetrzb(rj,zj,Bj,aaa,the,2)
       r=abs(rj(1)-rj(2))/2.0_wp       ! minor radius
-      a_minor=r 
+      a_minor=r
       write(0,*) 'Average a/rho_i=', r/gyroradius, '   Average aspect ratio=', R_0/r
       write(0,*) 'Gyro-Bohm units', gyroradius/r*vthc**2/B_0*(R_00/1.0d2)**2/utime*c0cs_i*msm0_i, '(m^2/sec)'
 
@@ -1142,7 +1142,7 @@ Subroutine setup
    !        mtdiag=768
    ! **********************************************
 
-   if(nonlinear>0.5) mtdiag=mtdiag/2 
+   if(nonlinear>0.5) mtdiag=mtdiag/2
 
    if(mype==0) write(0,*) 'mtdiag=', mtdiag
 
@@ -1159,7 +1159,7 @@ Subroutine setup
    !mi=int(0.1*micell*(mgrid-mpsi-1)/npartdom)   !# of particle per processor
    ! NOTE: misum is now a floating point variable. A 4-byte integer cannot hold
    ! a value larger than about 2 billion and we always use misum as a real anyway.
-   misum=real(mi,wp)*real(numberpe,wp)    !# of total particles 
+   misum=real(mi,wp)*real(numberpe,wp)    !# of total particles
    me=mi                            !# of electrons per processor
    mesum=misum                      !# of total electrons
 
@@ -1203,7 +1203,7 @@ Subroutine setup
    ! Added for flow visualization, Feb. 2011
    allocate (on_grid(6,mgrid))
 
-   ! # of marker per grid, 
+   ! # of marker per grid,
    pmarki=0.0_wp
 
    jaco_sum=0.0_wp
@@ -1255,10 +1255,10 @@ Subroutine setup
          pmarki(i)=pmarki(i)+markeri(ij)
 
          ip=metric_elements(pdum,tdum,zdum)
-         gij(1,ij)=metric(1)         
-         gij(2,ij)=metric(2)         
-         gij(3,ij)=metric(3)         
-         gij(4,ij)=metric(4)         
+         gij(1,ij)=metric(1)
+         gij(2,ij)=metric(2)
+         gij(3,ij)=metric(3)
+         gij(4,ij)=metric(4)
 
          gsij(ij)=gs(pdum,tdum)   ! gsij=gs at grid point
 
@@ -1298,14 +1298,14 @@ Subroutine setup
    ! use allnodes for storage of sum(pmarki) over nodes
    call MPI_ALLREDUCE(pmarki,allnodes,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
 
-   totalv=sum(allnodes) 
+   totalv=sum(allnodes)
 
    call MPI_ALLREDUCE(jaco_sum,fluxpsi,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
    jaco_sum=fluxpsi ! =int(J*dtheta*dzeta); fluxpsi is released after a use
 
    fluxpsi=1.0_wp    ! initialize to maintain global charge neutrality in terms of turbulence intensity I(r)
    En_tur=1.0_wp     ! initialize to maintain global charge neutrality in terms of turbulence intensity I(r)
-   dni_grid=1.0_wp   ! initialization for use in chargi for zero out delta-ni 
+   dni_grid=1.0_wp   ! initialization for use in chargi for zero out delta-ni
    dne_grid=1.0_wp   ! initialization for use in charge for zero out delta-ne
 
    do i=0, mpsi
@@ -1330,7 +1330,7 @@ Subroutine setup
       pmarki(i)=allnodes(i)/totalv
    enddo
 
-   if(mype==0) then 
+   if(mype==0) then
       do i=0, mpsi
          !  write(21,204) i, pmarki(i)
          do j=1,mtheta(i)
@@ -1405,7 +1405,7 @@ Subroutine setup
       minpts=0
       ifail=1
       call d01fcf(3,low_lim,up_lim,minpts,maxpts,FUN1,error_8,acc,lenwrk,wrkstr,&
-         sn0(i),ifail)    ! sn0(i)=particles of annulus i 
+         sn0(i),ifail)    ! sn0(i)=particles of annulus i
 
       error_8=1.0e-5_wp
       minpts=0
@@ -1463,10 +1463,10 @@ Subroutine setup
          rdum=-dlnT*grada*dnty_on_bin(i)*gyroradius**2*vthc/a_minor
          zdum=inv_grada*uveloci*E_00*1.0e-3_wp
          write(9,200) r, rdum, zdum
-         write(19,200) r, -1.0/(dnty_r(i)*dO_10(i))/utime,                       &  ! x(this factor) -> chi_phi in units m^2/s 
+         write(19,200) r, -1.0/(dnty_r(i)*dO_10(i))/utime,                       &  ! x(this factor) -> chi_phi in units m^2/s
             !  -1.0/(dnty_r(i)*dT_10(i))/(uveloci*E_00*1.0d-3)/utime, &  ! x(this factor) -> chi_i in units m^2/s
          !  -1.0/(dnty_r(i)*dlnT_e)/(uveloci*E_00*1.0d-3)/utime,   &  ! x(this factor) -> chi_e in units m^2/s
-         !  corrected but not change results -- June, 2014 S. E.  
+         !  corrected but not change results -- June, 2014 S. E.
          -1.0/(dnty_r(i)*dT_10(i))/(E_00/R_00*10.0_wp), &  ! x(this factor) -> chi_i in units m^2/s
             -1.0/(dnty_r(i)*dlnT_e)/(E_00/R_00*10.0_wp),   &  ! x(this factor) -> chi_e in units m^2/s
             -1.0/(dlnn*1.0d6),                                     &  ! x(this factor) -> D in units m^2/s
@@ -1573,7 +1573,7 @@ Subroutine setup
    ! dtheta/delta_x=1/(r*(1+r*cos(theta))), delta_x=poloidal length increasement
    !!!!        !$omp parallel do private(i,j,k,ij,zdum,pdum,tdum,aaa,the,q,inv_jaco,rhoi,rdum,b,dtheta_dx,rhoi)
    do i=0,mpsi
-      zdum=zetamin+deltaz     ! zeta local to me 
+      zdum=zetamin+deltaz     ! zeta local to me
       !   zdum=0.0_wp         ! old before 2013
       pdum=psi_grid(i)
 
@@ -1597,38 +1597,38 @@ Subroutine setup
          !          in metric, 1=grad_a^2,2=grad_theta^2,3=grad_zeta^2
          !          4=grad_a.grad_theta,5=grad_a.grad_zeta,6=grad_theta.grad_zeta
 
-         k=metric_elements(pdum,tdum,zdum) 
+         k=metric_elements(pdum,tdum,zdum)
 
          !        dtheta_dx=1.0/(r*(1.0+r*cos(tdum)))
 
-         !        dtheta_dx=1.0/sqrt(metric(3)*Bj(1)**2/gFaj(1)**2-inv_jaco**2) 
+         !        dtheta_dx=1.0/sqrt(metric(3)*Bj(1)**2/gFaj(1)**2-inv_jaco**2)
 
-         !        for some ESC equilibrium, (grad_phiXB)^2=metric(3)*Bj(1)**2/gFaj(1)**2-inv_jaco**2<0 
+         !        for some ESC equilibrium, (grad_phiXB)^2=metric(3)*Bj(1)**2/gFaj(1)**2-inv_jaco**2<0
          !        dtheta_dx=1.0/sqrt(abs(metric(3)*Bj(1)**2/gFaj(1)**2-inv_jaco**2))
 
-         ! first two points perpendicular to field line on poloidal surface            
-         ! first two points (1 and 2) are in grad_zetaxB direction with rho_i unchanged 
+         ! first two points perpendicular to field line on poloidal surface
+         ! first two points (1 and 2) are in grad_zetaxB direction with rho_i unchanged
 
          rhoi=sqrt(2.0_wp/Bj(1))     ! rho=rhoi*sqrt(mu)
 
          !==============================================================
-         ! MGYOO corrected tgyro definition and introduced multi-larmor points! (2018/10/24)        
-         ! Previous version was WRONG becuase tgyro was divided by cos(alpha) in the previous version.        
+         ! MGYOO corrected tgyro definition and introduced multi-larmor points! (2018/10/24)
+         ! Previous version was WRONG becuase tgyro was divided by cos(alpha) in the previous version.
          ! tgyro should be multiplied by cos(alpha) as follows:
          ! tgyro = 1/sqrt(g_qq_cov)*cos(alpha) = (1/J)*(1/sqrt(gaa_cntv))*(Bgf_cov/B)
 
-         ! u1 and u2 are coordinate variables 
+         ! u1 and u2 are coordinate variables
          ! u1 = grad(a) direction,  u2 = cross(B,grad(a)) direction
          da_du1 = sqrt(metric(1))
          da_du2 = 0
-         dgq_du1 = metric(4) / sqrt(metric(1)) 
+         dgq_du1 = metric(4) / sqrt(metric(1))
          dgq_du2 = (Fj(1))/ (jacobian(pdum,tdum)*sqrt(metric(1))*Bj(1))
 
          do larmor=1, larmor_num
             gyro_phase = (larmor-1)*2.0_wp*pi*inv_larmor_num
 
             pgyro(larmor,ij) = dsda(pdum)*rhoi * (cos(gyro_phase)*da_du1 + sin(gyro_phase)*da_du2)
-            tgyro(larmor,ij) = rhoi * (cos(gyro_phase)*dgq_du1 + sin(gyro_phase)*dgq_du2)        
+            tgyro(larmor,ij) = rhoi * (cos(gyro_phase)*dgq_du1 + sin(gyro_phase)*dgq_du2)
          enddo
          !==============================================================
       enddo
@@ -1652,8 +1652,8 @@ Subroutine setup
       call date_and_time(date,time)
       write(stdout,*) 'Program starts at DATE=', date, 'TIME=', time
       delr=(r_grid(ipsi)-r_grid(ipsi-1))/gyroradius     ! delr=deltar/gyroradius    ! ???
-      delt=deltat(ipsi)*r_grid(ipsi)/gyroradius         
-      ! delt=deltat(mpsi/2)*(a0+deltar*real(mpsi/2))/gyroradius     ! ??? 
+      delt=deltat(ipsi)*r_grid(ipsi)/gyroradius
+      ! delt=deltat(mpsi/2)*(a0+deltar*real(mpsi/2))/gyroradius     ! ???
       mid_theta=mtheta(ipsi)
       write(stdout,run_parameters)
 
@@ -1715,8 +1715,8 @@ Subroutine setup
 
    ! Import from GTC-Neo or estimate equilibrium Er. If from GTC_Neo, the file
    ! name is stored in the character variable "Er_data_name", which can be found
-   ! in the global_parameters module 
-   ! call Er_provider(Er_from_GTC_Neo,n_node) 
+   ! in the global_parameters module
+   ! call Er_provider(Er_from_GTC_Neo,n_node)
    call Er_provider
 
    !  call poisson_initial
@@ -1766,8 +1766,8 @@ Subroutine setup
          !  psimax=psimax/sqrt(msm0*temperature_e(aaa(1),the(1)))  !   U//*(1/Cs)
          !
          !  psiout=dn_da(aaa(1),the(1))/density(aaa(1),the(1))     !   dn/da*(1/n)
-         !  
-         !  psimax=psimax*(psiout+rdum/zdum)  
+         !
+         !  psimax=psimax*(psiout+rdum/zdum)
 
          psimax=u_parallel(aaa(1),the(1))
          psimax=psimax/sqrt(msm0*temperature_e(aaa(1),the(1)))  !   U//*(1/Cs)
@@ -1801,8 +1801,8 @@ Subroutine setup
 
    ! *******************************************************************
 
-   ! Post-processor calculation of zonal flow ExB shearing rate 
-   ! need a separate directory with ZF data copied 
+   ! Post-processor calculation of zonal flow ExB shearing rate
+   ! need a separate directory with ZF data copied
    !  i=21616    ! number of lines in ZF data files
    !  i=7203    ! number of lines in ZF data files
    !  call get_ZF_shear(i)
@@ -1821,12 +1821,12 @@ Subroutine setup
    ! MGYOO (10/24/2018) : to extend definition of jtion0, jtion1, wpion, wtion
    ! These variables has indices from 0 to larmor_num  as jtion0(0:larmor_num, mimax)
    ! zero index (jtion(0,mi)) is used to represent the GuidingCenter position.
-   ! other 1~larmor_num ((jtion(1:larmor_num,mi))) indices are used to represent the Larmor orbit points 
+   ! other 1~larmor_num ((jtion(1:larmor_num,mi))) indices are used to represent the Larmor orbit points
    ! Larmor orbit points will be determined using uniformly distribued gyro-phase angle.
    !==================================
 
    allocate (zion(7,mimax),zion0(7,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
-      wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers))       
+      wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers))
 
    if(RK4_Flag==1) allocate(RK_cum_zion(7,mimax))
 
@@ -1835,16 +1835,16 @@ Subroutine setup
       if(RK4_Flag==1) then
          if(ifdphi==3) then
             ! 8th element stores cumulative weight increase due to partial derivative of dphidt
-            allocate(RK_cum_zeon(8,memax)) 
+            allocate(RK_cum_zeon(8,memax))
          else
             allocate(RK_cum_zeon(7,memax))
          endif
       endif
 
       if(ifdphi>=2) then   ! use direct dphi/dt when ifelectron==2
-         allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))      
-      else    
-         allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))      
+         allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))
+      else
+         allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))
       end if
 
       allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
@@ -1892,9 +1892,9 @@ Subroutine setup
          enddo
 
          !          a      theta    Er_grid     n        as input
-         !          |        |        |         |        
+         !          |        |        |         |
          i=get4exb(cij(1,:),cij(2,:),cij(3,:),mgrid)
-         !          |        |        |         |        
+         !          |        |        |         |
          !         cij1     cij2     cij3       n        as output
 
       end if
@@ -1997,7 +1997,7 @@ Subroutine setup
       pdum=rprobe(k)
       tdum=tprobe(k)
       vthprobe(k)=temperature(pdum,tdum)
-      vthprobe(k)=sqrt(2.0d0*vthprobe(k)) 
+      vthprobe(k)=sqrt(2.0d0*vthprobe(k))
       uflow(k)=u_parallel(pdum,tdum)
       uflow(k)=uflow(k)/vthprobe(k)    ! normalized by local thermal velocity
 
@@ -2049,11 +2049,11 @@ Subroutine setup
 
       if(mype==0) then
          print*, ' reference point ipsi=', i
-         print*, ' grid size deltar in terms of s', deltar 
+         print*, ' grid size deltar in terms of s', deltar
          print*, '|grad(a)| (a_ref,    0)', grada, '  ', rhos1
          print*, '|grad(a)| (a_ref, pi/2)', tdum, '  ', rhos2
          print*, '|grad(a)| (a_ref,   pi)', zdum, '  ', rhos3
-         write(25, 124) i, r, grada, rhos1, tdum, rhos2, zdum, rhos3     
+         write(25, 124) i, r, grada, rhos1, tdum, rhos2, zdum, rhos3
       end if
 
       !  add info needed for k_theta spectrum calculation:
@@ -2110,9 +2110,9 @@ Subroutine setup
          print*, '(|(grad(theta)|,    0)', grada, '  ', rhos1
          print*, '(|(grad(theta)|, pi/2)', tdum, '  ', rhos2
          print*, '(|(grad(theta)|,   pi)', zdum, '  ', rhos3
-         write(24, 124) i, r, grada, rhos1, tdum, rhos2, zdum, rhos3, sqrt(a_minor/R_0)*fip, fip, & 
+         write(24, 124) i, r, grada, rhos1, tdum, rhos2, zdum, rhos3, sqrt(a_minor/R_0)*fip, fip, &
             -1.0/(dnty_on_bin_g(i)*miny)/utime,                   &    ! x(this factor) -> chi_phi in units m^2/s
-            -1.0/(dnty_on_bin_g(i)*minx)/(E_00/R_00*10.0_wp),     &    ! x(this factor) -> chi_i in units m^2/s     
+            -1.0/(dnty_on_bin_g(i)*minx)/(E_00/R_00*10.0_wp),     &    ! x(this factor) -> chi_i in units m^2/s
             -1.0/(dnty_on_bin_g(i)*dlnT_e)/(E_00/R_00*10.0_wp),   &    ! x(this factor) -> chi_e in units m^2/s
             -1.0/(dlnn*1.0d6),                                    &    ! x(this factor) -> D in units m^2/s
             +1.0/(dnty_on_bin_g(i)*minz)/utime/utime,             &
@@ -2136,7 +2136,7 @@ Subroutine setup
             write(633,100) i, j, rj(1), zj(1)
          end do
          the(1)=tdum
-         call esigetrzb(rj,zj,Bj,aaa,the,1)  
+         call esigetrzb(rj,zj,Bj,aaa,the,1)
          write(633,100) i, (k+1), rj(1), zj(1)
       end do
       100  format(2x, i4, 2x, i4, 2x, d13.6, 2x, d13.6)
@@ -2385,16 +2385,16 @@ Subroutine read_input_params
       mthetamax,          &   ! (standard) poloidal grid points are increased by a factor of mthetamax
       mzetamax,           &   ! number of poloidal planes (toroidal grid points)
       npartdom,           &   ! number of MPI tasks between which the particles are divided within a toroidal domain
-      ifelectron,         &   ! =0 or 1 or 2; 0: adiabatic electrons; 1: full delta-f electrons; 2: delta-h (non-adiabatic) electrons 
+      ifelectron,         &   ! =0 or 1 or 2; 0: adiabatic electrons; 1: full delta-f electrons; 2: delta-h (non-adiabatic) electrons
       a,                  &   ! normalized minor radius, always =1, not really neceassary
-      a0,                 &   ! inner boundary (r/a) of radial domain 
+      a0,                 &   ! inner boundary (r/a) of radial domain
       a1,                 &   ! outer boundary (r/a) of radial domain
       q0,                 &   ! abandoned; --> when q2<0 and plasms=0, use to specify grad(T) ~ -exp{-[(r-rc)/rw]**q0} 10/10
       q1,                 &   ! abandoned
       q2,                 &   ! abandoned  --> use another analytic T profile by specifying grad(T) when q2<0 and plasms=0 10/10
       rc,                 &   ! abandoned
       rw,                 &   ! abandoned
-      aion,               &   
+      aion,               &
       qion,               &
       aelectron,          &
       qelectron,          &
@@ -2408,7 +2408,7 @@ Subroutine read_input_params
       b0,                 &   ! abandoned  --> use to specify the 1st analytic Te profile made in Oct. 09
       temconst,           &   ! abandoned
       edensity0,          &   ! abandoned
-      n_0,                &   ! model density profile: 
+      n_0,                &   ! model density profile:
       dn,                 &   ! n=n_0*[An+Bn*exp(-dn*r**xn)]
       xn,                 &
       An,                 &
@@ -2416,12 +2416,12 @@ Subroutine read_input_params
       T_0,                &   ! model ion temperature profile:
       dTemi,              &   ! Ti=T_0*[At+Bt*exp(-dTemi*r**xt)]
       xt,                 &
-      At,                 &   
+      At,                 &
       Bt,                 &
       T_e0,               &   ! model electron temperature profile:
       dTeme,              &   ! Te=T_e0*[At_e+Bt_e*exp(-dTeme*r**xt_e)]
       xt_e,               &
-      At_e,               &   
+      At_e,               &
       Bt_e,               &
       u_0,                &   ! model paralle flow profile:
       du,                 &   ! u_//=u_0*[Au+Bu*exp(-du*r**xu)]*(B_0/B) with 1/B dependence
@@ -2462,10 +2462,10 @@ Subroutine read_input_params
       its,                &   ! number of iteration used for superLU interation in poisson solver
       its_jacobi,         &   ! used to be for Jacobi iteration in poisson solver -> used control parameter for charge density conservation 05/12
       nelectron,          &   ! number of sub-step  for pushing electrons; must take 1 or an even number due to 2nd RK used
-      nv,                 &   ! number of grids in vz and vper 
-      delta_v,            &   ! grid size in velocity space 
-      dradius,            &   ! box size in radial direction 
-      dtheta,             &   ! box size in theta direction 
+      nv,                 &   ! number of grids in vz and vper
+      delta_v,            &   ! grid size in velocity space
+      dradius,            &   ! box size in radial direction
+      dtheta,             &   ! box size in theta direction
       rprobe,             &   ! radial locations of probes
       tprobe,             &   ! poloidal locations of probes
       gama1                   ! one of two coefficients used in solving Poisson iteratively
@@ -2517,7 +2517,7 @@ Subroutine read_input_params
 
    do k=1,num_of_EMP
       EMP(k)%gam = gam(k)
-      EMP(k)%gan = gan(k) 
+      EMP(k)%gan = gan(k)
       EMP(k)%ga0 = ga0(k)
 
       EMP(k)%ga_rc = ga_rc(k)
@@ -2569,7 +2569,7 @@ Subroutine set_particle_decomp
    ! particle and toroidal domain numbers.
    !    particle_domain_location = rank of the particle domain holding mype
    !    toroidal_domain_location = rank of the toroidal domain holding mype
-   ! 
+   !
    ! On the IBM SP, the MPI tasks are distributed in an orderly fashion to each
    ! node unless the LoadLeveler instruction "#@ blocking = unlimited" is used.
    ! On Seaborg for example, the first 16 tasks (mype=0-15) will be assigned to

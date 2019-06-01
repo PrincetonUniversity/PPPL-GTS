@@ -20,7 +20,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
    real(wp), dimension(10,0:mpsi) :: ONE_me_g,TOTAL_pe_g
 
    ! add for diagnosis of distribution functions
-   real(wp), dimension(7,nprobe,-nv:nv,0:nv) :: df, df_tot   
+   real(wp), dimension(7,nprobe,-nv:nv,0:nv) :: df, df_tot
    ! df(1,:,:,:) --> particle distribution function
    ! df(2,:,:,:) --> distribution of toroidal momentum
    ! df(3,:,:,:) --> distribution of toroidal momentum flux
@@ -63,7 +63,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
    !$omp parallel private(m,r,yy,kc,j1,j2,part,vpara,energy,vpara0) reduction(+:ONE_me,my_ion)
    !$omp do
    do m=1,mi
-      r=zion0(1,m)        
+      r=zion0(1,m)
       yy=(r-a0)/da_size
       kc=int(yy+0.5_wp)            !{0,nbin_a}
       kc=min(nbin_a,max(0,kc))      !{0,nbin_a}
@@ -130,7 +130,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
       vpara0=vpara         !  a bug fixed in April 2016
 
       !  calculate distribution functions at specified boxes
-      !  NOTE:  need to work out OpenMP for this part 9/08 !!!  
+      !  NOTE:  need to work out OpenMP for this part 9/08 !!!
       do k=1,nprobe
          r_area=abs(zion0(1,m)-rprobe(k))
          if(r_area.le.dradius) then       ! within given radial range
@@ -179,7 +179,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
                   df(1,k,k2,l1)=df(1,k,k2,l1)+ss3
                   df(1,k,k2,l2)=df(1,k,k2,l2)+ss4
 
-                  ! bootstrap current 
+                  ! bootstrap current
                   df(7,k,k1,l1)=df(7,k,k1,l1)+ss1*vpara0*BB(m)
                   df(7,k,k1,l2)=df(7,k,k1,l2)+ss2*vpara0*BB(m)
                   df(7,k,k2,l1)=df(7,k,k2,l1)+ss3*vpara0*BB(m)
@@ -193,7 +193,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
 
                   ! momentum distribution
                   !                    am=zion0(4,m)*F(m)
-                  ! replaced by: 
+                  ! replaced by:
                   am=Pa(m)*Pa(m)*dgf(m)
                   ss1=ss1*am
                   ss2=ss2*am
@@ -267,11 +267,11 @@ subroutine get_fluxes(wpi,dgf,dgq)
       df_heat(i,:,:)=df_heat(i,:,:)/sn_box(i)
       df_heat(i,:,:)=df_heat(i,:,:)*density_in_box(i)/(twopi*delta_v**2)
       !     df_m_tot(i,:,:)=df_m_tot(i,:,:)/sn_box(i)
-      !     df_m_tot(i,:,:)=df_m_tot(i,:,:)*density_in_box(i)/(twopi*delta_v**2)   
+      !     df_m_tot(i,:,:)=df_m_tot(i,:,:)*density_in_box(i)/(twopi*delta_v**2)
       !     df_mf_tot(i,:,:)=df_mf_tot(i,:,:)/sn_box(i)
-      !     df_mf_tot(i,:,:)=df_mf_tot(i,:,:)*density_in_box(i)/(twopi*delta_v**2)   
+      !     df_mf_tot(i,:,:)=df_mf_tot(i,:,:)*density_in_box(i)/(twopi*delta_v**2)
    end do
-   df_tot(7,:,:,:)=df_tot(7,:,:,:)*csc0_i   ! "bootstrap current" 
+   df_tot(7,:,:,:)=df_tot(7,:,:,:)*csc0_i   ! "bootstrap current"
 
 
    ! time=sum(TOTAL_pe(1,1:nbin_a))
@@ -390,7 +390,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
    !ZHIXIN: size change from 7 to 9!!!
    call MPI_Reduce(ONE_me_g,TOTAL_pe_g,10*(mpsi+1),mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
    call MPI_Reduce(adum,TM_sum,1,mpi_Rsize,MPI_SUM,numberpe-1,MPI_COMM_WORLD,ierr)
-   if(mype==numberpe-1) then 
+   if(mype==numberpe-1) then
       ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_T>
 
       TOTAL_pe_g(1,0:mpsi)=TOTAL_pe_g(1,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)
@@ -399,12 +399,12 @@ subroutine get_fluxes(wpi,dgf,dgq)
       ONE_me_g(1,0:mpsi)=ONE_me_g(1,0:mpsi)-TOTAL_pe_g(2,0:mpsi)*vth_grid(0:mpsi)**2  ! =normalized <delta_T> -- corrected Aug. 2013
 
       TOTAL_pe_g(3,0:mpsi)=TOTAL_pe_g(3,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)    ! toroidal angular momentum flux
-      TOTAL_pe_g(10,0:mpsi)=TOTAL_pe_g(10,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! parallel Reynolds stress 
+      TOTAL_pe_g(10,0:mpsi)=TOTAL_pe_g(10,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! parallel Reynolds stress
 
       TOTAL_pe_g(4,0:mpsi)=TOTAL_pe_g(4,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! angular momentum density
       ! in units of m_0*R_00*v_00*cm^(-3)
       TOTAL_pe_g(5,0:mpsi)=TOTAL_pe_g(5,0:mpsi)/sn0_g(0:mpsi)*vth_inv(0:mpsi)  ! (delta-v_//)/v_th
-      TOTAL_pe_g(6,0:mpsi)=TOTAL_pe_g(6,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)*csc0_i  ! ion bootstrap current profile 
+      TOTAL_pe_g(6,0:mpsi)=TOTAL_pe_g(6,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)*csc0_i  ! ion bootstrap current profile
       ! in unit e0*v_00*B_00; 2010
       TOTAL_pe_g(7,0:mpsi)=TOTAL_pe_g(7,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)  ! poloidal angular momentum flux
 
@@ -472,7 +472,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
       !       ddT_da(mpsi-i)=ddT_da(mpsi-i)*real(i,wp)/real(nbound,wp)
       !    enddo
       do i=0,nbound
-         rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))      
+         rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
          ddT_da(i)=ddT_da(i)*rdum
          ddT_da(mpsi-i)=ddT_da(mpsi-i)*rdum
       enddo
@@ -491,7 +491,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
       call flush(my_nfL)
    end if
 
-   if(mype==0) then 
+   if(mype==0) then
       write(80,802) istep, (fluxpsi(i),i=0,mpsi)
       call flush(80)
 
@@ -499,7 +499,7 @@ subroutine get_fluxes(wpi,dgf,dgq)
       call flush(83)
    end if
 
-   factor=pmass0*uveloci**2*ulength/charg0**2/(4.0_wp*twopi)   
+   factor=pmass0*uveloci**2*ulength/charg0**2/(4.0_wp*twopi)
    if(mype==numberpe-1) then
       En_tur=En_tur*factor  ! normalized field energy density, flux-surface-averaged
       En_tur_sum=0.0_wp
