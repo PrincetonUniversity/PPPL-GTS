@@ -472,12 +472,19 @@ subroutine pushion
       !     wfix=1.0_wp
       !  endif
 
-      ! zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))
-      if(wimcompressibility==1) then     ! for weight imcompressibility
-         zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*avw)*wdot*fip-fdamp*zion(5,m))
+      if(TRANSF_Weight_Flag==1) then
+         ! From the definition of the transformed weight z=-ln(ga-w), where ga=zion0(6,m)
+         ! the weight increase becomes delta_w = (ga-w0)*[1-exp(-F*dt)], where F is the driving force
+         ! NOTE This scheme is beneficial for nonlinear case only (dw/dt=(ga-w)*F).
+         ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
+         zion(5,m) = zion0(5,m)+(zion0(6,m)-zion0(5,m))*(1.0-exp(-wdot*dtime))
       else
-         zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*zion(5,m))*wdot*fip-fdamp*zion(5,m))
-      end if
+         if(wimcompressibility==1) then     ! for weight imcompressibility
+            zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*avw)*wdot*fip-fdamp*zion(5,m))
+         else
+            zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*zion(5,m))*wdot*fip-fdamp*zion(5,m))
+         end if
+      endif
 
       !     zion(5,m) = zion0(5,m)+dtime*(wdot-fdamp*zion(5,m))*wfix
       !     zion(7,m) = zion0(7,m)+dtime*sqrt(Tc*T_inverse)*da(m)
@@ -803,7 +810,7 @@ subroutine pushion_RK4(irk_i)
       RK_adv_coeff =1.0
    elseif(irk_i==4) then
       RK_cum_coeff =(1.0/6.0)
-      RK_adv_coeff =0.0 ! adv is not needed for 4th RK step
+      RK_adv_coeff =1.0
    else
       write(stdout,*) "In pushi_RK4, irk_i=",irk_i,", is weird. Please Check It!!"
       call flush(stdout)
@@ -1112,8 +1119,13 @@ subroutine pushion_RK4(irk_i)
       RK_cum_zion(2,m) = RK_cum_zion(2,m) +RK_cum_coeff*tstep*dgq(m)
       RK_cum_zion(3,m) = RK_cum_zion(3,m) +RK_cum_coeff*tstep*dgf(m)
       RK_cum_zion(4,m) = RK_cum_zion(4,m) +RK_cum_coeff*tstep*dgr(m)
-      RK_cum_zion(5,m) = RK_cum_zion(5,m) +RK_cum_coeff*tstep*((zion0(6,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
       RK_cum_zion(7,m) = RK_cum_zion(7,m) +RK_cum_coeff*tstep*(Tc*T_inverse)**dsda_power*da(m)
+
+      if(TRANSF_Weight_Flag==1) then
+         RK_cum_zion(5,m) = RK_cum_zion(5,m) +(wdot)*(RK_cum_coeff*tstep)
+      else
+         RK_cum_zion(5,m) = RK_cum_zion(5,m) +RK_cum_coeff*tstep*((zion0(6,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
+      endif
 
       ! Advance particle information for the next RK step
       if(irk_i<4) then
@@ -1122,13 +1134,26 @@ subroutine pushion_RK4(irk_i)
          zion(2,m) = zion0(2,m)+RK_adv_coeff*tstep*dgq(m)
          zion(3,m) = zion0(3,m)+RK_adv_coeff*tstep*dgf(m)
          zion(4,m) = zion0(4,m)+RK_adv_coeff*tstep*dgr(m)
-         zion(5,m) = zion0(5,m)+RK_adv_coeff*tstep*((zion0(6,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
          zion(7,m) = zion0(7,m)+RK_adv_coeff*tstep*(Tc*T_inverse)**dsda_power*da(m)
+
+         if(TRANSF_Weight_Flag==1) then
+            zion(5,m) = zion0(5,m)+(zion0(6,m)-zion0(5,m))*(1.0-exp(-wdot*RK_adv_coeff*tstep))
+         else
+            zion(5,m) = zion0(5,m)+RK_adv_coeff*tstep*((zion0(6,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
+         endif
 
       else if(irk_i==4) then !irk_i==4
          ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
-         zion(1:5,m) = zion0(1:5,m) +RK_cum_zion(1:5,m)
+         zion(1:4,m) = zion0(1:4,m) +RK_cum_zion(1:4,m)
          zion(7,m) = zion0(7,m) +RK_cum_zion(7,m)
+
+         if(TRANSF_Weight_Flag==1) then
+            ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
+            zion(5,m) = zion0(5,m)+(zion0(6,m)-zion0(5,m))*(1.0-exp(-RK_cum_zion(5,m)))
+         else
+            ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
+            zion(5,m) = zion0(5,m) +RK_cum_zion(5,m)
+         endif
       endif
 
 

@@ -2485,6 +2485,7 @@ Subroutine read_input_params
       write(0,*) 'ifdphi=', ifdphi
       write(0,*) 'RK4_Flag=',RK4_Flag
       write(0,*) 'Poisson_Flag=', Poisson_Flag
+      write(0,*) 'TRANSF_Weight_Flag=', TRANSF_Weight_Flag
       write(0,*) 'tstep=', tstep
       write(0,*) 'micell=', micell
       write(0,*) 'mpsi=', mpsi

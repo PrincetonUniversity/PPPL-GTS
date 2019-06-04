@@ -445,9 +445,9 @@ subroutine pusheon(solver1, masssolver, irk_e)
          if(TRANSF_Weight_Flag==1) then
             ! From the definition of the transformed weight z=-ln(1-w),
             ! the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            ! Note that this scheme is beneficial for nonlinear case only (dw/dt=(1-w)*F).
+            ! NOTE this scheme is beneficial for nonlinear case only (dw/dt=(1-w)*F).
             ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
-            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon(8,m))*(1.0-exp(-wdot*dtime))
+            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-wdot*dtime))
          else
             !  zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot-fdamp*zeon(5,m))*dtime*wfix  ! weight advanced w/o including dphi/dt term yet
             zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot*fip-fdamp*zeon(5,m))*dtime       ! weight advanced w/o including dphi/dt term yet
@@ -599,7 +599,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
          if(TRANSF_Weight_Flag==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            zeon(5,m) = zeon00(8,m) +(zeon0(6,m)-zeon(8,m))*(1.0-exp(-wdphidt*dtime))
+            zeon(5,m) = zeon00(8,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-wdphidt*dtime))
          else
             !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
             zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
@@ -676,7 +676,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
          if(TRANSF_Weight_Flag==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            zeon(5,m) = zeon00(8,m) +(zeon0(6,m)-zeon(8,m))*(1.0-exp(-wdphidt*dtime))
+            zeon(5,m) = zeon00(8,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-wdphidt*dtime))
          else
             !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
             zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
@@ -971,11 +971,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
          if(TRANSF_Weight_Flag==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            if(wimcompressibility==1) then     ! for weight imcompressibility
-               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-avw)*(1.0-exp(-wdot*dtime))
-            else
-               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon(5,m))*(1.0-exp(-wdot*dtime))
-            endif
+            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-wdot*dtime))
          else
             if(wimcompressibility==1) then     ! for weight imcompressibility
                zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*avw)*wdot*fip-fdamp*zeon(5,m))*dtime
@@ -1620,7 +1616,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
             ! Note that this scheme is beneficial for nonlinear case only (dw/dt=(1-w)*F).
             ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
-            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon00(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
+            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
          else
             zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
@@ -1691,7 +1687,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
          if(TRANSF_Weight_Flag==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(6,m)-zeon00(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
+            ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
+            ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
+            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(wdot+wdphidt)*(RK_cum_coeff*tstep)
          else
             RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
@@ -1700,14 +1698,19 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          if(irk_e<4) then
             ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
             if(TRANSF_Weight_Flag==1) then
-               ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon00(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
+               !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
+               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
             else
                zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
             endif
          else if(irk_e==4) then !irk_i==4
-            ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
-            zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
+            if(TRANSF_Weight_Flag==1) then
+               ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
+               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
+            else
+               ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
+               zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
+            endif
          endif
          !==================================================
          !MGYOO(05/10/2019)
