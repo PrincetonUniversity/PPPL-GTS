@@ -451,7 +451,7 @@ subroutine check_abnormal_weight_electrons
    do m=1,me
       weight = zeon(5,m)
       MY_PE_weight_sum = MY_PE_weight_sum +weight
-      if(weight<min_thold_weight .or. weight>max_thold_weight) then
+      if(weight<w_Thold_min .or. weight>w_Thold_max) then
          num_of_Send_PTL = num_of_Send_PTL +1
          MY_PTL_indices(num_of_Send_PTL) = m
          MY_PE_abnormal_weight_sum = MY_PE_abnormal_weight_sum + weight
@@ -563,7 +563,7 @@ subroutine check_abnormal_weight_ions
    do m=1,mi
       weight = zion(5,m)
       MY_PE_weight_sum = MY_PE_weight_sum +weight
-      if(weight<min_thold_weight .or. weight>max_thold_weight) then
+      if(weight<w_Thold_min .or. weight>w_Thold_max) then
          num_of_Send_PTL = num_of_Send_PTL +1
          MY_PTL_indices(num_of_Send_PTL) = m
          MY_PE_abnormal_weight_sum = MY_PE_abnormal_weight_sum + weight

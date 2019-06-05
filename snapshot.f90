@@ -2091,7 +2091,7 @@ subroutine snapshot
 
          do m=1,mi
 
-            if (zion(5,m)<min_thold_weight .or. zion(5,m)>max_thold_weight) cycle
+            if (Flag_Weight_Threshold==1 .and. (zion(5,m)<w_Thold_min .or. zion(5,m)>w_Thold_max)) cycle
 
             wgf1=wzion(m)
             wgf0=1.0-wgf1
@@ -2463,7 +2463,7 @@ subroutine snapshot
 
          do m=1,me
 
-            if (zeon(5,m)<min_thold_weight .or. zeon(5,m)>max_thold_weight) cycle
+            if (Flag_Weight_Threshold==1 .and. (zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max)) cycle
 
             wgf1=wzeon(m)
             wgf0=1.0-wgf1

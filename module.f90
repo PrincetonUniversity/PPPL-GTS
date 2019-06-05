@@ -46,7 +46,10 @@ module global_parameters
    !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
 
    ! When particle weight exceeds threshold value, it would not contribute to charge or current deposition
-   real(wp), parameter :: min_thold_weight = -50.0, max_thold_weight = 1.0
+   ! Default values are  w_min=-50 (df/f=-0.9803892168), w_max=0.9803921568 (df/f=50)
+   ! These values can be controlled in INPUT.d file
+   integer :: Flag_Weight_Threshold = 0 ! Default=0 (OFF), can be turned on (=1;ON) via INPUT.d
+   real(wp) :: w_Thold_min = -50.0, w_Thold_max = 0.9803921568
 
    integer jr
 
