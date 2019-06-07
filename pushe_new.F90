@@ -1716,7 +1716,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !MGYOO(05/10/2019)
          ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
          if(irk_e==4) then
-            we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt
+            we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*zeon00(5,m))*wdphidt
          endif
 
       enddo
