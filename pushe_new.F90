@@ -421,12 +421,16 @@ subroutine pusheon(solver1, masssolver, irk_e)
          zeon(3,m) = zeon0(3,m)+dtime*dgf(m)
          zeon(4,m) = zeon0(4,m)+dtime*dgr(m)
 
-         if(wimcompressibility==1) then
-            zeon(8,m) = avw           ! save average weight avw at electrons
-         else
-            zeon(8,m) = zeon(5,m)     ! save w
-         end if
 
+         if(TRANSF_Weight_Flag==1) then
+            zeon(8,m) = wdot  ! To deliver wdot driving force after shifte in delta-h case
+         else
+            if(wimcompressibility==1) then
+               zeon(8,m) = avw           ! save average weight avw at electrons
+            else
+               zeon(8,m) = zeon(5,m)     ! save w
+            end if
+         endif
          !     zeon(5,m) = zeon0(5,m)+dtime*wdot
 
          !     zeon(5,m) = 1.0_wp-(1.0_wp-zeon0(5,m))*exp(-dtime*wdot)
@@ -598,8 +602,9 @@ subroutine pusheon(solver1, masssolver, irk_e)
          wdphidt=wdphidt
 
          if(TRANSF_Weight_Flag==1) then
-            ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            zeon(5,m) = zeon00(8,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-wdphidt*dtime))
+            ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the total driving force (Here, wdot+wdphidt)
+            wdot = zeon(8,m)
+            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*dtime))
          else
             !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
             zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
@@ -675,8 +680,9 @@ subroutine pusheon(solver1, masssolver, irk_e)
          wdphidt=wdphidt
 
          if(TRANSF_Weight_Flag==1) then
-            ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            zeon(5,m) = zeon00(8,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-wdphidt*dtime))
+            ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the total driving force (Here, wdot+wdphidt)
+            wdot = zeon(8,m)
+            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*dtime))
          else
             !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
             zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
