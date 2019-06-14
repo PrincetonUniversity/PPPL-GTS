@@ -2133,6 +2133,37 @@ function Find_a_at_specific_safety_q(target_safety_q) result(out_a)
 
 end function
 
+function Find_safety_q_at_specific_a(target_a) result(out_safety_q)
+
+   use global_parameters
+   use field_array
+   use precision
+
+   implicit none
+
+   integer aid
+   real(wp) prev_q, this_q, prev_a, this_a
+   real(wp) target_a, out_safety_q
+
+
+   do aid=1,mpsi
+
+      prev_a = psi_grid(aid-1)
+      this_a = psi_grid(aid)
+
+      if((target_a-prev_a)*(target_a-this_a) <0) then
+         prev_q = q_grid(aid-1)
+         this_q = q_grid(aid)
+
+         out_safety_q  = prev_q + (target_a-prev_a)/(this_a-prev_a)*(this_q-prev_q)
+         return
+      endif
+   enddo
+
+   write(*,*) ("We cannot find safety_q at a=",target_a)
+   out_safety_q = -100.0
+end function
+
 
 subroutine Cal_FLA_Denominator_using_gPPI
    use mpi_defs
