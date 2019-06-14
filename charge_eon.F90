@@ -331,8 +331,8 @@ subroutine charge_eon
       do i=0,nbound
          rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
 
-         pdum=abs(dni_grid(nbound)/dni_grid(i))
-         zdum=abs(dni_grid(mpsi-nbound)/dni_grid(mpsi-i))
+         ! pdum=abs(dni_grid(nbound)/dni_grid(i))
+         ! zdum=abs(dni_grid(mpsi-nbound)/dni_grid(mpsi-i))
          pdum=1.0_wp
          zdum=1.0_wp
 
@@ -423,8 +423,8 @@ subroutine charge_eon
             densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
                densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
 
-            zonale(i)=zonale(nbound)*rdum
-            zonale(i)=zonale(nbound)*rdum
+            zonale(i)=zonale(i)*rdum
+            zonale(mpsi-i)=zonale(mpsi-i)*rdum
          enddo
 
       else     !  its_jacobi=1 --> enforcing enforce charge conservation for zonal flow mode
@@ -471,8 +471,8 @@ subroutine charge_eon
 
          do i=0,nbound
             rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
-            wdum(i)=wdum(nbound)*rdum
-            wdum(mpsi-i)=wdum(mpsi-nbound)*rdum
+            wdum(i)=wdum(i)*rdum
+            wdum(mpsi-i)=wdum(mpsi-i)*rdum
          enddo
 
 
@@ -537,8 +537,8 @@ subroutine charge_eon
             densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
                densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
 
-            zonale(i)=zonale(nbound)*rdum
-            zonale(i)=zonale(nbound)*rdum
+            zonale(i)=zonale(i)*rdum
+            zonale(mpsi-i)=zonale(mpsi-i)*rdum
          enddo
 
       end if   ! end (its_jacobi==1)
