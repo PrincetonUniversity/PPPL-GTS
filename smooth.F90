@@ -20,7 +20,7 @@ subroutine smooth(iflag)
    ! the dummy array size for thread-safe FFT assume data array size <16384
    real(wp) :: aux1f(25000),aux1b(25000),aux2f(20000),aux2b(20000)
    real(wp) :: aux3f(1),aux3b(1)
-
+   real(wp) :: tmp_zonal_term(0:mpsi)
 
 
 
@@ -99,14 +99,34 @@ subroutine smooth(iflag)
    else                                    !   if(iflag==0), smooth n_i or n_e just for output; used nowhere
       if(ifelectron==0) then               !if(ifelectron==0), phitmp=densityi
          !$omp parallel do private(i)
-         do i=1,mgrid
-            phitmp(1,i)=densityi(1,i)  !just for output; used nowhere
-         enddo
+         ! MGYOO (06/11/2019): For consistent smoothing including zonal components
+         if(ZF_SEPARATION==1) then
+            do i=0,mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  phitmp(1,ij)=densityi(1,ij)+zonali(i)  ! tilde{dn_i}/n_0
+               enddo
+            enddo
+         else
+            do i=1,mgrid
+               phitmp(1,i)=densityi(1,i)  !just for output; used nowhere
+            enddo
+         endif
       else                                 !if(ifelectron==1 or 2), phitmp=densitye
-         !$omp parallel do private(i)
-         do i=1,mgrid
-            phitmp(1,i)=densitye(1,i)  !just for output; used nowhere
-         enddo
+         ! MGYOO (06/11/2019): For consistent smoothing including zonal components
+         if(ZF_SEPARATION==1) then
+            do i=0,mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  phitmp(1,ij)=densitye(1,ij)+zonale(i)  ! tilde{dn_e}/n_0
+               enddo
+            enddo
+         else
+            !$omp parallel do private(i)
+            do i=1,mgrid
+               phitmp(1,i)=densitye(1,i)  !just for output; used nowhere
+            enddo
+         endif
       end if
    endif   ! end if(iflag==1)
 
@@ -344,11 +364,54 @@ subroutine smooth(iflag)
             densityi(:,i)=phitmp(:,i) !just for output; used nowhere
          enddo
 
+         ! MGYOO (06/11/2019): For consistent smoothing including zonal components
+         tmp_zonal_term=0.0
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               tmp_zonal_term(i)=tmp_zonal_term(i)+dtemper(ij)*densityi(1,ij)
+            enddo
+         enddo
+         call MPI_ALLREDUCE(tmp_zonal_term,zonali,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+         zonali=zonali/jaco_sum
+
+         if(ZF_SEPARATION==1) then
+            ! Subtract zonal term to get correct non-zonal density
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  densityi(1,ij)=densityi(1,ij)-zonali(i)
+               enddo
+               densityi(1,igrid(i))=densityi(1,igrid(i)+mtheta(i))
+            enddo
+         endif
       else    ! if(ifelectron==1 or 2)
          !$omp parallel do private(i)
          do i=1,mgrid
             densitye(:,i)=phitmp(:,i) !just for output; used nowhere
          enddo
+
+         ! MGYOO (06/11/2019): For consistent smoothing including zonal components
+         tmp_zonal_term=0.0
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               tmp_zonal_term(i)=tmp_zonal_term(i)+dtemper(ij)*densitye(1,ij)
+            enddo
+         enddo
+         call MPI_ALLREDUCE(tmp_zonal_term,zonale,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+         zonale=zonale/jaco_sum
+
+         if(ZF_SEPARATION==1) then
+            ! Subtract zonal term to get correct non-zonal density
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  densitye(1,ij)=densitye(1,ij)-zonale(i)
+               enddo
+               densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))
+            enddo
+         endif
       end if
    endif
 
@@ -359,188 +422,6 @@ subroutine smooth(iflag)
    ! use mtdiag for both poloidal and toroidal grid points
    !    if(iflag==1 .and. (nonlinear<0.5 .or. idiag==0))then
 
-   if(nonlinear<-100.0) then   ! never do following work -- abandon
-
-      xz=0.0_wp
-      yz=0.0_wp
-#ifdef __ESSL
-      call drcft(1,xz,0,yz,0,mtdiag,1, 1,1.0,aux1f,25000,aux2f,20000,aux3f,1)
-      call dcrft(1,yz,0,xz,0,mtdiag,1,-1,1.0,aux1b,25000,aux2b,20000,aux3b,1)
-#endif
-
-
-      mzbig=max(1,mtdiag/mzetamax)
-      mzmax=mzetamax*mzbig
-      mz=mzbig
-      meachtheta=mtdiag/ntoroidal
-      icount=meachtheta*mz*(idiag2-idiag1+1)
-      dt=2.0_wp*pi/real(mtdiag,wp)
-      pi2_inv=0.5_wp/pi
-      filter=0.0_wp
-      filter(nmode+1)=1.0_wp/real(mzmax,wp)
-      allzeta=0.0_wp
-
-      !$omp parallel do private(kz,i,j,wz,zdum,ii,tdum,jt,wt)
-      do kz=1,mzbig
-         wz=real(kz,wp)/real(mzbig,wp)
-         zdum=zetamin+deltaz*wz
-         do i=idiag1,idiag2
-            ii=igrid(i)
-            do j=1,mtdiag
-               tdum=pi2_inv*(dt*real(j,wp)-zdum*qtinv(i))+10.0
-               tdum=(tdum-aint(tdum))*real(mtheta(i),wp)
-               jt=max(0,min(mtheta(i)-1,int(tdum)))
-               wt=tdum-real(jt,wp)
-
-               phiflux(kz,j,i)=((1.0_wp-wt)*phi(1,ii+jt)+wt*phi(1,ii+jt+1))*&
-                  wz+(1.0_wp-wz)*((1.0_wp-wt)*phi(0,ii+jt)+wt*phi(0,ii+jt+1))
-            enddo
-         enddo
-      enddo
-
-      ! transpose 2-d matrix from (ntoroidal,mzbig) to (1,mzetamax*mzbig)
-      do jpe=0,ntoroidal-1
-
-         !$omp parallel do private(j,i,k,jt,indt,indp1,indp)
-         do j=1,meachtheta
-            jt=jpe*meachtheta+j
-            indt=(j-1)*mz
-            do i=idiag1,idiag2
-               indp1=indt+(i-idiag1)*meachtheta*mz
-               do k=1,mz
-                  indp=indp1+k
-                  eachzeta(indp)=phiflux(k,jt,i)
-               enddo
-            enddo
-         enddo
-
-         call MPI_GATHER(eachzeta,icount,mpi_Rsize,allzeta,icount,&
-            mpi_Rsize,jpe,toroidal_comm,ierror)
-      enddo
-
-
-      ! transform to k space
-#ifdef __ESSL
-      !$omp parallel do private(j,i,kz,k,indt1,indt,indp,xz,yz) firstprivate(aux2f,aux3f,aux2b,aux3b)
-#else
-      !$omp parallel do private(j,i,kz,k,indt1,indt,indp,xz,yz)
-#endif
-      do j=1,meachtheta
-         indt1=(j-1)*mz
-         do i=idiag1,idiag2
-            indt=indt1+(i-idiag1)*meachtheta*mz
-
-            do kz=0,ntoroidal-1
-               do k=1,mz
-                  indp=kz*icount+indt+k
-                  xz(kz*mz+k)=allzeta(indp)
-               enddo
-            enddo
-
-#ifdef __ESSL
-            call drcft(0,xz,0,yz,0,mtdiag,1,1,1.0_wp,aux1f,25000,aux2f,20000,aux3f,1)
-#else
-            call fftr1d(1,mtdiag,1.0_wp,xz,yz,2)
-#endif
-
-            ! record mode information for diagnostic
-            if(i==ipsi)then
-               do kz=1,num_mode
-                  y_eigen(j+meachtheta*(kz-1))=yz(nmode(kz)+1)
-               enddo
-            endif
-
-            if(nonlinear<0.5_wp)then
-               ! linear run only keep a few modes
-               yz=filter*yz
-
-               ! transform back to real space
-#ifdef __ESSL
-               call dcrft(0,yz,0,xz,0,mtdiag,1,-1,1.0_wp,aux1b,25000,aux2b,20000,aux3b,1)
-#else
-               call fftr1d(-1,mtdiag,1.0_wp,xz,yz,2)
-#endif
-
-               ! transpose back to (ntoroidal,mz)
-               do kz=0,ntoroidal-1
-                  do k=1,mz
-                     indp=kz*icount+indt+k
-                     allzeta(indp)=xz(kz*mz+k)
-                  enddo
-               enddo
-            endif
-
-         enddo
-      enddo
-
-      if(nonlinear<0.5_wp)then
-         do jpe=0,ntoroidal-1
-            call MPI_SCATTER(allzeta,icount,mpi_Rsize,eachzeta,&
-               icount,mpi_Rsize,jpe,toroidal_comm,ierror)
-
-            !$omp parallel do private(j,i,k,jt,indt,indp1,indp)
-            do j=1,meachtheta
-               jt=jpe*meachtheta+j
-               indt=(j-1)*mz
-               do i=idiag1,idiag2
-                  indp1=indt+(i-idiag1)*meachtheta*mz
-                  do k=1,mz
-                     indp=indp1+k
-                     phiflux(k,jt,i)=eachzeta(indp)
-                  enddo
-               enddo
-            enddo
-
-         enddo
-
-         ! interpolate field from magnetic coordinates to fieldline coordinates
-
-         zdum=zetamin+deltaz
-
-         !$omp parallel do private(i,j,ii,tdum,jt,wt,jte)
-         do i=idiag1,idiag2
-            ii=igrid(i)
-            do j=1,mtheta(i)
-               tdum=pi2_inv*(deltat(i)*real(j,wp)+zdum*qtinv(i))+10.0_wp
-               tdum=(tdum-aint(tdum))*real(mtdiag,wp)
-               jt=max(0,min(mtdiag-1,int(tdum)))
-               wt=tdum-real(jt,wp)
-               jte=jt+1
-               if(jt==0)jt=mtdiag
-               phi(1,ii+j)=wt*phiflux(mzbig,jte,i)+(1.0_wp-wt)*phiflux(mzbig,jt,i)
-            enddo
-         enddo
-
-         ! toroidal BC: send phi to right and receive from left
-         sendr=phi(1,:)
-         recvl=0.0_wp
-         icount=mgrid
-         idest=right_pe
-         isource=left_pe
-         isendtag=myrank_toroidal
-         irecvtag=isource
-         call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,recvl,icount,&
-            mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-
-         if(myrank_toroidal==0)then
-            do i=idiag1,idiag2
-               ii=igrid(i)
-               jt=mtheta(i)
-               phi(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
-            enddo
-         else
-            phi(0,:)=recvl
-         endif
-
-         ! poloidal BC
-         do i=idiag1,idiag2
-            phi(:,igrid(i))=phi(:,igrid(i)+mtheta(i))
-         enddo
-
-      endif
-
-   endif  ! end if(iflag==1 .and. (nonlinear<0.5 .or. idiag==0))
-   ! end if(nonlinear < -100)
 
 #ifdef USE_OLD_DIAGNOSTICS
    go to 1000
