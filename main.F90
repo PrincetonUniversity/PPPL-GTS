@@ -203,6 +203,8 @@ program GTS
    ! ********************
    if(irun==0) then
       istep=0
+      call get_Te_fluctuation_DirectlyFromParticles
+      call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
       call snapshot     ! snapshot at t=0

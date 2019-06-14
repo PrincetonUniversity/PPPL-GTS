@@ -318,6 +318,247 @@ end subroutine get_3D_flow
 
 
 
+subroutine get_Ti_fluctuation_DirectlyFromParticles
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use particle_array
+   use field_array
+   use diagnosis_array
+   !ZHIXIN contro output of FLOW
+   use control_parameters
+   use esi_interface
+   implicit none
+
+   integer m,i,j,k,jt,ii,ierror,ij,&
+      icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
+   real(wp) weight,rdum,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00
+   real(wp) sendl(mgrid),recvr(mgrid)
+   real(wp) mype_zonal_dTi(0:mpsi)
+   real(wp) tmp_full_dTi(0:1,mgrid)
+
+   real(wp) dnitmp(0:1,mgrid),buff(0:1,mgrid)
+   real(wp) energy
+   !  *****************************************
+   !  calculate ion flow delta-Vi
+   !
+   !  BORROW array pflux_e, wzion, wtion0, wtion1, jtion0, jtion1
+   !  BE SURE no memory conflict (!!!)
+   !
+
+   ! ion_locator is called to give ion locations
+   call ion_locator0
+
+   pflux_e=0.0_wp
+   pflux_i=0.0_wp
+
+   !============================================
+   ! Attention
+   !
+   ! When i=1,2,3, we use pflux_e(1:3) to store ion flux in a,thet,zeta direction
+   ! When i=4, we use pflux_i(1) to store temperature information
+   ! Please note that here pflux_e and pflux_i have no real meanings, they are just borrowed.
+   !==============================================
+   call n_T_u_group
+   call esigetb(zion,mi,ziondim)   ! get B-->BB
+
+
+#ifdef _OPENMP
+   !$omp parallel private(dnitmp)
+   dnitmp=0.   ! Set array elements to zero
+#endif
+   !$omp do private(m,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij,rdum)
+   do m=1,mi
+      weight=zion0(5,m)
+
+      if (Flag_Weight_Threshold==1 .and. (weight< w_Thold_min .or. weight>w_Thold_max)) cycle
+
+      wz1=weight*wzion(m)
+      wz0=weight-wz1
+
+      wp1=wpion(0,m)
+      wp0=1.0_wp-wp1
+
+      wt10=wp0*wtion0(0,m)
+      wt00=wp0-wt10
+
+      wt11=wp1*wtion1(0,m)
+      wt01=wp1-wt11
+
+
+      backu(m)=backu(m)*F(m)/BB(m)      ! =u_//=I*omega_t/B
+      energy=0.5*(zion(4,m)*BB(m)-backu(m))**2 + (zion(6,m)**2)*BB(m)
+
+      !  rdum=wpi2(m)  ! added Oct. 2012 for calculating delta-Ti on grid; rdum=(v_para-u//)^2/2+v_perp^2/2
+      !  changed to (Aug. 2013):
+      rdum=energy*2.0_wp/3.0_wp-backT(m)  !  rdum=[(v_para-u//)^2+v_perp^2]/3-vth^2
+
+#ifdef _OPENMP
+      ! Use thread-private temporary array dnitmp to store the results
+      ij=jtion0(0,m)
+      dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt00*rdum
+      dnitmp(1,ij) = dnitmp(1,ij) + wz1*wt00*rdum
+
+      ij=ij+1
+      dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt10*rdum
+      dnitmp(1,ij) = dnitmp(1,ij) + wz1*wt10*rdum
+
+      ij=jtion1(0,m)
+      dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt01*rdum
+      dnitmp(1,ij) = dnitmp(1,ij) + wz1*wt01*rdum
+
+      ij=ij+1
+      dnitmp(0,ij) = dnitmp(0,ij) + wz0*wt11*rdum
+      dnitmp(1,ij) = dnitmp(1,ij) + wz1*wt11*rdum
+#else
+      ! If no loop-level parallelism, use original algorithm (write directly
+      ! into array "pflux_e(*,*,*)".
+      ij=jtion0(0,m)
+      pflux_i(1,0,ij) = pflux_i(1,0,ij) + wz0*wt00*rdum
+      pflux_i(1,1,ij) = pflux_i(1,1,ij) + wz1*wt00*rdum
+
+      ij=ij+1
+      pflux_i(1,0,ij) = pflux_i(1,0,ij) + wz0*wt10*rdum
+      pflux_i(1,1,ij) = pflux_i(1,1,ij) + wz1*wt10*rdum
+
+
+      ij=jtion1(0,m)
+      pflux_i(1,0,ij) = pflux_i(1,0,ij) + wz0*wt01*rdum
+      pflux_i(1,1,ij) = pflux_i(1,1,ij) + wz1*wt01*rdum
+
+      ij=ij+1
+      pflux_i(1,0,ij) = pflux_i(1,0,ij) + wz0*wt11*rdum
+      pflux_i(1,1,ij) = pflux_i(1,1,ij) + wz1*wt11*rdum
+#endif
+
+   enddo
+
+#ifdef _OPENMP
+   !$omp critical
+   do ij=1,mgrid
+      pflux_i(1,0,ij) = pflux_i(1,0,ij) + dnitmp(0,ij)
+      pflux_i(1,1,ij) = pflux_i(1,1,ij) + dnitmp(1,ij)
+   enddo
+   !$omp end critical
+#endif
+   !$omp end parallel
+
+   ! If we have a particle decomposition on the toroidal domains, do a reduce
+   ! operation to add up all the contributions to charge density on the grid
+   if(npartdom>1)then
+      !$omp parallel do private(ij)
+      do ij=1,mgrid
+         dnitmp(0,ij)=pflux_i(1,0,ij)
+         dnitmp(1,ij)=pflux_i(1,1,ij)
+      enddo
+      buff=0._wp
+      call MPI_ALLREDUCE(dnitmp,buff,(mgrid*2),mpi_Rsize,&
+         MPI_SUM,partd_comm,ierror)
+      do ij=1,mgrid
+         pflux_i(1,0,ij)=buff(0,ij)
+         pflux_i(1,1,ij)=buff(1,ij)
+      enddo
+   endif
+
+   ! poloidal end cell
+   do j=0,mpsi
+      pflux_i(1,:,igrid(j)+mtheta(j))=pflux_i(1,:,igrid(j)+mtheta(j))+pflux_i(1,:,igrid(j))
+      pflux_i(1,:,igrid(j))=pflux_i(1,:,igrid(j)+mtheta(j))
+   enddo
+
+   ! toroidal end cell
+   sendl=pflux_i(1,0,:)
+   recvr=0.0_wp
+   icount=mgrid
+   idest=left_pe
+   isource=right_pe
+   isendtag=myrank_toroidal
+   irecvtag=isource
+
+   ! send pflux_e to left and receive from right
+   call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,recvr,icount,&
+      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+
+   if(myrank_toroidal == ntoroidal-1) then
+      ! B.C. at zeta=2*pi is shifted
+      do j=0,mpsi
+         ii=igrid(j)
+         jt=mtheta(j)
+         pflux_i(1,1,ii+1:ii+jt)=pflux_i(1,1,ii+1:ii+jt)+&
+            cshift(recvr(ii+1:ii+jt),itran(j))
+      enddo
+   else
+      ! B.C. at zeta<2*pi is continuous
+      pflux_i(1,1,:)=pflux_i(1,1,:)+recvr(:)
+   endif
+
+
+   !  NOTE: pflux_e(:,1,:) has valid data, but no valid data for pflux_e(:,0,:) and pflux_e(:,:,igrid(j))
+
+   !$omp parallel do private(ij,rdum)
+   do ij=1,mgrid
+      pflux_i(1,1,ij)=pflux_i(1,1,ij)*markeri(ij)  ! Ti fluctuations on grid
+   enddo
+
+
+   ! !==============================================================================
+   ! ! MGYOO (01/09/2019)
+   ! ! Convert pflux_i to get a correct form of dTi by considering dni.
+   ! ! pflux_i = Sigma(weight*(2/3*energy-T0))*markeri = (1/n0)*Sigma(weight*(2/3*energy-T0))/node_Vol
+   ! ! dTi = (1/(n0+dn))*Sigma(weight*(2/3*energy-T0))/node_Vol = n0/(n0+dn)*pflux_i
+   ! do i=0,mpsi
+   !   do j=0,mtheta(i)
+   !     ij = igrid(i) + j
+   !     pflux_i(1,1,ij) = den_grid(i)/(den_grid(i)+tot_dni(1,ij))*pflux_i(1,1,ij)
+   !   enddo
+   ! enddo
+   ! !==============================================================================
+
+   !====================================================
+   ! MGYOO (01/08/2019) : implementation of zonal and non-zonal terms
+   ! zonal_dTi is the zonal component of delta_Ti
+   !====================================================
+   mype_zonal_dTi = 0.0
+   do i=0,mpsi
+      do j=1,mtheta(i) ! j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
+         ij = igrid(i) + j
+         mype_zonal_dTi(i) = mype_zonal_dTi(i) + dtemper(ij)*pflux_i(1,1,ij)
+      enddo
+   enddo
+   call MPI_ALLREDUCE(mype_zonal_dTi, zonal_dTi, mpsi+1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
+   zonal_dTi = zonal_dTi/jaco_sum
+
+   !====================================================================
+   ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component
+   ! This FLA might be important in the case of external magnetic perturbation
+   tmp_full_dTi = pflux_i(1,:,:)
+   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
+      call Do_FieldLineAverage_by_using_gPPI(tmp_full_dTi, FLA_dTi)
+   endif
+   !===================================================================
+
+   ! IF ZE_SEPARATION=0: phi_tmp is (1/Ti0)*(full delta_Ti (zonal+non-zonal)): i.e. phi_tmp = (delta_Ti)/Ti0
+   ! IF ZE_SEPARATION=1: phi_tmp is now calculated from non-zonal delta_Ti : i.e. phi_tmp = (delta_Ti-zonal_dTi)/Ti0
+   do j=0,mpsi
+      rdum=vth_inv(j)*vth_inv(j)         ! = 1/Ti_0 with Ti_0 normalized
+      !$omp parallel do private(i,ij)
+      do i=0,mtheta(j)
+         ij=igrid(j)+i
+         pflux_i(1,1,ij)=(pflux_i(1,1,ij)-(ZF_SEPARATION)*zonal_dTi(j))*rdum    ! = (delta_Ti-zonal_dTi)/Ti_0 on grid
+      end do
+      pflux_i(1,:,igrid(j))=pflux_i(1,:,igrid(j)+mtheta(j))
+   enddo
+
+   ! Record Density. Each myrank_toroidal has its own file (see open_file).
+   !ZHIXIN use flag to output FLOW
+   !  if(istep>0 .and. myrank_partd==2) then
+
+   phi_tmp(1:mgrid)=pflux_i(1,1,1:mgrid)    ! use phi_tmp(1:mgrid) to store Ti fluctuations and write to output DENs at SNAPSHOT
+
+end subroutine get_Ti_fluctuation_DirectlyFromParticles
+
+
 
 
 
