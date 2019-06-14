@@ -100,7 +100,7 @@ Subroutine setup
    if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases
    zeondim=7
    if(ifdphi>=2) zeondim=8
-
+   ziondim=7
    !  r0=rmajor    !wx  normalized
    !  b0=b_axis    !wx  normalized
 

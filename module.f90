@@ -64,7 +64,7 @@ module global_parameters
 
    real(wp),dimension(:),allocatable :: tite
    integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,ifelectron,ecollision,  &
-      ifdphi,zeondim
+      ifdphi,zeondim,ziondim
 
    real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,csc0_i,c0cs_i
    real(wp)  ntracer_energy_ion0, ntracer_energy_electron0
