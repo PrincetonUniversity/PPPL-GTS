@@ -320,7 +320,7 @@ end if
     enddo
 
 ! ********************************
-if(mype==2) then
+if(mype==min(2,numberpe)) then
   error_8=1.0e-5_wp
   IFAIL=1
   rdum=D01AHF(0.0d0,zeon(1,me/2),error_8,minpts,acc,dsda,-1,IFAIL)
@@ -1035,7 +1035,7 @@ end if
     enddo
 
 ! ********************************
-if(mype==2) then
+if(mype==min(2,numberpe)) then
   error_8=1.0e-5_wp
   IFAIL=1
   rdum=D01AHF(0.0d0,zeon(1,me/2),error_8,minpts,acc,dsda,-1,IFAIL)
@@ -1281,7 +1281,7 @@ end if
     enddo
 
 ! ********************************
-if(mype==2) then
+if(mype==min(2,numberpe)) then
   error_8=1.0e-5_wp
   IFAIL=1
   rdum=D01AHF(0.0d0,zeon(1,me/2),error_8,minpts,acc,dsda,-1,IFAIL)

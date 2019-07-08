@@ -367,7 +367,7 @@ Subroutine setup
 
   Cs=sqrt(Tc_e*msm0)                 ! normalized Cs
 
-  if(mype==1) call get_profiles
+  if(mype==min(1,numberpe)) call get_profiles
 
 ! rescale radial coordinator  rho=a*sqrt(Tc/T)
   rho0=a0*sqrt(Tc/temperature(a0,0.0_wp))

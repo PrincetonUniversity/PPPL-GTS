@@ -592,7 +592,7 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
        call flush(90)
     end if
 
-    if(mype==numberpe-2) then
+    if(mype==max(0,numberpe-2)) then
        En_00=En_00*factor  ! normalized field energy density, flux-surface-averaged
        En_00_sum=0.0_wp
        do i=1,mpsi
@@ -603,7 +603,7 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
        call flush(91)
     end if
 
-    if(mype==numberpe-4) then
+    if(mype==max(0,numberpe-4)) then
        En_tot=En_tot*factor  ! normalized field energy density, flux-surface-averaged
        En_tot_sum=0.0_wp
        do i=1,mpsi
@@ -614,12 +614,12 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
        call flush(92)
     end if
 
-    if(mype==numberpe-3) then
+    if(mype==max(0,numberpe-3)) then
        write(98,802) istep, (ddT_da(i),i=0,mpsi)
        call flush(98)
     end if
 
-    if(mype==1) then
+    if(mype==min(1,numberpe)) then
        do k=1,nprobe
           write(201,400) istep, ( (df_tot(1,k,i,j), i=-nv,nv), j=0,nv)
           write(202,400) istep, ( (df_tot(2,k,i,j), i=-nv,nv), j=0,nv)

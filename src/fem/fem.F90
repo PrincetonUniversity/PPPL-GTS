@@ -195,7 +195,7 @@ subroutine tri_mesh( this )
 
   ! extract 2nd order node coordinate
   if (this%order .eq. 2) then
-     if(mype==1) write(*,*) '	order and global nodes=',this%order, this%nmesh_pts, ngvert
+     if(mype==min(1,numberpe)) write(*,*) '	order and global nodes=',this%order, this%nmesh_pts, ngvert
      allocate( gvert(5,ngvert) )
 !    allocate( tmp(2,ngvert) )
 !     do ie=1,this%iemax

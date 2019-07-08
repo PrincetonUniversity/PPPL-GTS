@@ -257,7 +257,7 @@ end do   ! do i=1,3
   tsne=tsne/real(mzetamax*(mgrid-mpsi-1),wp)
   tsni=tsni/real(mzetamax*(mgrid-mpsi-1),wp)
 
-if(mype==1) then
+if(mype==min(1,numberpe)) then
 
  do i=0,mpsi
     write(7,100) i,  tdne(i), tsne, tdni(i), tsni 

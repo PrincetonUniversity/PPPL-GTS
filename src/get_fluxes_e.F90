@@ -391,8 +391,8 @@ subroutine get_fluxes_e(wpi,da)
      enddo
 !$omp end parallel
 
-  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,10*(mpsi+1),MPI_REAL8,MPI_SUM,numberpe-3,MPI_COMM_WORLD,ierr)
-  if(mype==numberpe-3) then 
+  call MPI_Reduce(ONE_me_g,TOTAL_pe_g,10*(mpsi+1),MPI_REAL8,MPI_SUM,max(0,numberpe-3),MPI_COMM_WORLD,ierr)
+  if(mype==max(0,numberpe-3)) then 
      ONE_me_g(1,0:mpsi)=2.0_wp*TOTAL_pe_g(1,0:mpsi)/sn0_g(0:mpsi)/3.0_wp         ! =part of normalized <delta_Te>
 
      TOTAL_pe_g(1,0:mpsi)=TOTAL_pe_g(1,0:mpsi)*dnty_on_bin_g(0:mpsi)/sn0_g(0:mpsi)
@@ -466,9 +466,9 @@ subroutine get_fluxes_e(wpi,da)
      dne_grid(:)=TOTAL_pe_g(2,:)
   end if
 
-  call MPI_BCAST(dne_grid,mpsi+1,mpi_Rsize,numberpe-3,MPI_COMM_WORLD,ierr)
+  call MPI_BCAST(dne_grid,mpsi+1,mpi_Rsize,max(0,numberpe-3),MPI_COMM_WORLD,ierr)
 
-    if(mype==1) then
+    if(mype==min(1,numberpe)) then
        do k=1,nprobe
           write(301,400) istep, ( (df_tot(1,k,i,j), i=-nv,nv), j=0,nv)
           write(302,400) istep, ( (df_tot(2,k,i,j), i=-nv,nv), j=0,nv)
