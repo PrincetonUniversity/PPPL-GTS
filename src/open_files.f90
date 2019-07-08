@@ -96,12 +96,6 @@ subroutine open_files
         open(76,file='fort.86F',status='replace',RECL=8192)
         open(77,file='fort.87F',status='replace',RECL=8192)
 
-        open(186,file='fort.186',status='replace',RECL=8192)
-        open(187,file='fort.187',status='replace',RECL=8192)
-        open(176,file='fort.186F',status='replace',RECL=8192)
-        open(177,file='fort.187F',status='replace',RECL=8192)
-        open(175,file='fort.195F',status='replace',RECL=8192)
-
      end if
      if(mype==1)then
         open(201,file='fort.201',status='replace',RECL=8192)
@@ -125,14 +119,20 @@ subroutine open_files
      end if
      if(mype==numberpe-2)open(91,file='fort.91',status='replace',RECL=8192)
 
-     if(ifelectron/=0.and.mype==numberpe-3)open(193,file='fort.193',status='replace',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(194,file='fort.194',status='replace',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(195,file='fort.195',status='replace',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(199,file='fort.199',status='replace',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(198,file='fort.198',status='replace',RECL=8192)
-     if(mype==numberpe-4)open(92,file='fort.92',status='replace',RECL=8192)
-     if(mype==numberpe-3)open(98,file='fort.98',status='replace',RECL=8192)
-
+     if(ifelectron/=0.and.mype==numberpe-3) then
+        open(193,file='fort.193',status='replace',RECL=8192)
+        open(194,file='fort.194',status='replace',RECL=8192)
+        open(195,file='fort.195',status='replace',RECL=8192)
+        open(199,file='fort.199',status='replace',RECL=8192)
+        open(198,file='fort.198',status='replace',RECL=8192)
+        open(186,file='fort.186',status='replace',RECL=8192)
+        open(187,file='fort.187',status='replace',RECL=8192)
+        open(176,file='fort.186F',status='replace',RECL=8192)
+        open(177,file='fort.187F',status='replace',RECL=8192)
+        open(175,file='fort.195F',status='replace',RECL=8192)
+     end if
+     if(mype==numberpe-4) open(92,file='fort.92',status='replace',RECL=8192)
+     if(mype==numberpe-3) open(98,file='fort.98',status='replace',RECL=8192)
   else
      
      if(movie_3D_h5==0 .and. myrank_partd==0) open(unit=777,file=chdum,form='unformatted',position='append')
@@ -178,12 +178,6 @@ subroutine open_files
         open(76,file='fort.86F',status='old',position='append',RECL=8192)
         open(77,file='fort.87F',status='old',position='append',RECL=8192)
 
-        open(186,file='fort.186',status='old',position='append',RECL=8192)
-        open(187,file='fort.187',status='old',position='append',RECL=8192)
-        open(176,file='fort.186F',status='old',position='append',RECL=8192)
-        open(177,file='fort.187F',status='old',position='append',RECL=8192)
-        open(175,file='fort.195F',status='old',position='append',RECL=8192)
-
      end if
      if(mype==1)then
         open(201,file='fort.201',status='old',position='append',RECL=8192)
@@ -206,11 +200,20 @@ subroutine open_files
         end if
      end if
      if(mype==numberpe-2)open(91,file='fort.91',status='old',position='append',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(193,file='fort.193',status='old',position='append',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(194,file='fort.194',status='old',position='append',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(195,file='fort.195',status='old',position='append',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(199,file='fort.199',status='old',position='append',RECL=8192)
-     if(ifelectron/=0.and.mype==numberpe-3)open(198,file='fort.198',status='old',position='append',RECL=8192)
+     if(ifelectron/=0.and.mype==numberpe-3) then 
+        open(193,file='fort.193',status='old',position='append',RECL=8192)
+        open(194,file='fort.194',status='old',position='append',RECL=8192)
+        open(195,file='fort.195',status='old',position='append',RECL=8192)
+        open(199,file='fort.199',status='old',position='append',RECL=8192)
+        open(198,file='fort.198',status='old',position='append',RECL=8192)
+
+        open(186,file='fort.186',status='old',position='append',RECL=8192)
+        open(187,file='fort.187',status='old',position='append',RECL=8192)
+        open(176,file='fort.186F',status='old',position='append',RECL=8192)
+        open(177,file='fort.187F',status='old',position='append',RECL=8192)
+        open(175,file='fort.195F',status='old',position='append',RECL=8192)
+     end if
+
      if(mype==numberpe-4)open(92,file='fort.92',status='old',position='append',RECL=8192)
      if(mype==numberpe-3)open(98,file='fort.98',status='old',position='append',RECL=8192)
   end if
