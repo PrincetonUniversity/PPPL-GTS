@@ -1659,10 +1659,23 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
    type(Poincare_Point_Information), dimension(:,:,:), allocatable:: PPI
    real(wp) intp_weight, dummy_real
    real(wp) t_start, t_finish
+   logical ex
 
    call cpu_time(t_start)
 
 
+
+   if(irun/=0) then
+      ! In the case of irun!=0, if there is previously calculated FLF_Poincare data,
+      ! then just return this function to skip calculating Poincare Plot
+      write(chdum,'("VacFieldAnalysis/FLF_Poincare",i5.5,".dat")') myrank_toroidal
+      inquire(file=chdum, exist=ex)
+      if(ex) then
+         return
+      endif
+   endif
+
+   ! If there is no PPI data, then calculate the following routines
    maximum_tor_rotation= FLF_max_tor_num
    specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
 
@@ -1777,7 +1790,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
    do aid=1,num_a
       do gqid = 1, num_gq
          do PPI_id=1,2*maximum_tor_rotation
-            write(181125, "(I4,1x,10(ES16.8,1x))") PPI(PPI_id,gqid,aid)
+            write(181125, "(I8,1x,10(ES16.8,1x))") PPI(PPI_id,gqid,aid)
          enddo
       enddo
    enddo
@@ -1831,8 +1844,65 @@ subroutine Construct_gPPI_for_FieldLineAverage
    integer :: k, tz_id
    real(wp)::target_zeta(num_of_target_zeta)
    real(wp) t_start, t_finish
+   logical ex ! existence of the reading file
+   integer ios! IOSTAT of the reading file
+   type(Poincare_Point_Information) :: tmp_gPPI ! For reading purpose
 
 
+   if(irun/=0) then
+      ! First, check if there is previously calculated gPPI data, and read it
+      write(chdum,'("VacFieldAnalysis/gPPI_",i5.5,".dat")') myrank_toroidal
+      inquire(file=chdum, exist=ex)
+
+      if(ex) then
+         open(190704,file="VacFieldAnalysis/gPPI_Information.dat",status='old',form='formatted',action='read')
+         read(190704,"(3(I8,1x))") gPPI_max_tor_num, MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines
+         close(190704)
+
+         allocate(gPPI(MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines))
+         allocate(num_of_gPPI_for_each_FieldLine(num_of_SampledFieldLines))
+
+         open(190705,file=chdum,status='old',form='formatted',action='read')
+
+         Fid=1
+         PPI_id=0
+         do while(.true.)
+            read(190705,"(I8,1x,10(ES16.8,1x))",IOSTAT=ios) tmp_gPPI
+            if(ios>0) then ! something wrong with ios
+               write(stdout,*) "ios=",ios,", something is wrong during reading ",chdum
+               call flush(stdout)
+               stop
+            elseif(ios<0) then ! end of file reached
+               num_of_gPPI_for_each_FieldLine(Fid)=PPI_id
+               exit
+            else
+               if(Fid /= tmp_gPPI%Label) then
+                  num_of_gPPI_for_each_FieldLine(Fid)=PPI_id
+                  Fid = Fid+1
+                  PPI_id=0
+               endif
+               PPI_id=PPI_id+1
+               gPPI(PPI_id,Fid) = tmp_gPPI
+            endif
+         enddo
+         close(190705)
+
+         ! Following commented part was to check whether upper routine reads the gPPI files well.
+         ! write(chdum,'("VacFieldAnalysis/new_gPPI_",i5.5,".dat")') myrank_toroidal
+         ! open(181202,file=chdum,status='replace',action='write')
+         ! do Fid = 1, num_of_SampledFieldLines
+         !    do PPI_id =1,num_of_gPPI_for_each_FieldLine(Fid)
+         !       write(181202, "(I8,1x,10(ES16.8,1x))") gPPI(PPI_id,Fid)
+         !    enddo
+         ! enddo
+         ! flush(181202)
+         ! close(181202)
+
+         return
+      endif
+   endif
+
+   ! If there is no gPPI data, then calculate the following routines
    call cpu_time(t_start)
 
    maximum_tor_rotation = gPPI_max_tor_num
@@ -2091,11 +2161,16 @@ subroutine Construct_gPPI_for_FieldLineAverage
    open(181202,file=chdum,status='replace',action='write')
    do Fid = 1, num_of_SampledFieldLines
       do PPI_id =1,num_of_gPPI_for_each_FieldLine(Fid)
-         write(181202, "(I4,1x,10(ES16.8,1x))") gPPI(PPI_id,Fid)
+         write(181202, "(I8,1x,10(ES16.8,1x))") gPPI(PPI_id,Fid)
       enddo
    enddo
    flush(181202)
    close(181202)
+
+
+   open(190704,file="VacFieldAnalysis/gPPI_Information.dat",status='replace',form='formatted',action='write')
+   write(190704,"(3(I8,1x))") gPPI_max_tor_num, MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines
+   close(190704)
 
    deallocate(ini_a_arr, ini_gq_arr)
 
