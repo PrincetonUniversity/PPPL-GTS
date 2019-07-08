@@ -791,7 +791,7 @@ end if
      do m=1,me
         wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
         !  added to calculate radial fluxes with full radial drift
-        da2(m)=da(me)*gha(m)            ! now da(:)= dr/dt|_full=da/dt|_full *(1/|grad a|)
+        da2(m)=da(m)*gha(m)            ! now da(:)= dr/dt|_full=da/dt|_full *(1/|grad a|)
      end do
 
      call get_fluxes_e(wpi,da2)
