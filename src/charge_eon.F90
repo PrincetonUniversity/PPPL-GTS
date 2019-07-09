@@ -266,8 +266,8 @@ if(ZF_SEPARATION==0) then  !  solve total potential
   do i=0,nbound
      rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
 
-     pdum=abs(dni_grid(nbound)/dni_grid(i))
-     zdum=abs(dni_grid(mpsi-nbound)/dni_grid(mpsi-i))
+     !pdum=abs(dni_grid(nbound)/dni_grid(i))
+     !zdum=abs(dni_grid(mpsi-nbound)/dni_grid(mpsi-i))
      pdum=1.0_wp
      zdum=1.0_wp
 
@@ -327,8 +327,8 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
         densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
            densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
 
-        zonale(i)=zonale(nbound)*rdum
-        zonale(i)=zonale(nbound)*rdum
+        zonale(i)=zonale(i)*rdum
+        zonale(mpsi-i)=zonale(mpsi-i)*rdum
      enddo
 
   else     !  its_jacobi=1 --> enforcing enforce charge conservation for zonal flow mode
@@ -375,8 +375,8 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
 
   do i=0,nbound
      rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
-     wdum(i)=wdum(nbound)*rdum
-     wdum(mpsi-i)=wdum(mpsi-nbound)*rdum
+     wdum(i)=wdum(i)*rdum
+     wdum(mpsi-i)=wdum(mpsi-i)*rdum
   enddo
 
 
@@ -441,8 +441,8 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
         densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
 
-     zonale(i)=zonale(nbound)*rdum
-     zonale(i)=zonale(nbound)*rdum
+     zonale(i)=zonale(i)*rdum
+     zonale(mpsi-i)=zonale(mpsi-i)*rdum
   enddo
 
   end if   ! end (its_jacobi==1)
