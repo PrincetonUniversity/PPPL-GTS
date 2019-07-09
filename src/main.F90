@@ -214,7 +214,7 @@ program GTS
    end if
 
    if(irun==-100) then
-      mstep=(istart-1)+400   ! for continous debug runs with irun=-100
+      mstep=(istart-1)+mstep   ! for continous debug runs with irun=-100
    end if
 
    !  phi_tmp=0.0

@@ -72,7 +72,7 @@ Subroutine setup
 
    real(wp) vb(2),vp(nprobe,2)
    real(wp) ne0
-
+   logical ex
 
 #ifdef _OPENMP
    integer nthreads,omp_get_num_threads
@@ -87,6 +87,9 @@ Subroutine setup
 
    ! Read control parameters from input file
    call read_control_params  !ZHIXIN
+
+   inquire(file='RESTART', exist = ex)
+   if(.not. ex) irun = 0  !Force irun to be zero when there is no existing restart file
 
    inv_larmor_num = 1.0_wp/real(larmor_num)
 
