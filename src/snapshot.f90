@@ -972,6 +972,7 @@ subroutine snapshot
       use control_parameters
       use particle_decomp
       use field_array
+      use diagnosis_array
       use mpi_defs
       use hdf5
       use h5lt
@@ -984,7 +985,7 @@ subroutine snapshot
       real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
       ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
       integer(HSIZE_T) :: h5dims(3)
-      integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP
+      integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN
       integer :: h5err
       logical :: snap_flag=.false.
       ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
@@ -1248,6 +1249,7 @@ subroutine snapshot
             call h5gcreate_f(file_id, "PARAMS", gid_PARAMS, h5err)
             call h5gcreate_f(file_id, "FLA", gid_FLA, h5err)
             call h5gcreate_f(file_id, "DCOMP", gid_DCOMP, h5err)
+            call h5gcreate_f(file_id, "BIN", gid_BIN, h5err)
             !
             h5dims(1) = 1
             call h5ltmake_dataset_f(file_id, "time_s",1,h5dims,H5T_NATIVE_DOUBLE, real(istep)*tstep*utime,h5err)
@@ -1357,6 +1359,19 @@ subroutine snapshot
             call h5ltset_attribute_string_f(file_id, "mean_zonal_dTi_SQ", "unit", "eV", h5err)
             call h5ltmake_dataset_f(file_id, "mean_zonal_dTe_SQ",1,h5dims,H5T_NATIVE_DOUBLE, (1e3)**2.0*Tem_00*mean_zonal_dTe_SQ(0:mpsi:a_jump), h5err)
             call h5ltset_attribute_string_f(file_id, "mean_zonal_dTe_SQ", "unit", "eV", h5err)
+
+            ! Some information about diagnostic BINs
+            h5dims(1) = 1
+            call h5ltmake_dataset_f(file_id, "BIN/nbin",1,h5dims,H5T_NATIVE_INTEGER, nbin_a, h5err)
+            h5dims(1) = nbin_a
+            call h5ltmake_dataset_f(file_id, "BIN/sn0",1,h5dims,H5T_NATIVE_DOUBLE, sn0, h5err)
+            call h5ltmake_dataset_f(file_id, "BIN/dnty_on_bin",1,h5dims,H5T_NATIVE_DOUBLE, dnty_on_bin, h5err)
+            call h5ltmake_dataset_f(file_id, "BIN/Tr",1,h5dims,H5T_NATIVE_DOUBLE, Tr, h5err)
+            call h5ltmake_dataset_f(file_id, "BIN/Tr_e",1,h5dims,H5T_NATIVE_DOUBLE, Tr_e, h5err)
+            call h5ltmake_dataset_f(file_id, "BIN/dnty_r",1,h5dims,H5T_NATIVE_DOUBLE, dnty_r, h5err)
+            call h5ltmake_dataset_f(file_id, "BIN/dO_10",1,h5dims,H5T_NATIVE_DOUBLE, dO_10, h5err)
+            call h5ltmake_dataset_f(file_id, "BIN/dT_10",1,h5dims,H5T_NATIVE_DOUBLE, dT_10, h5err)
+
 
             ! =======================
             ! 2D data
@@ -1770,6 +1785,7 @@ subroutine snapshot
             call h5gclose_f(gid_PARAMS, h5err)
             call h5gclose_f(gid_FLA, h5err)
             call h5gclose_f(gid_DCOMP, h5err)
+            call h5gclose_f(gid_BIN, h5err)
 
             call h5fclose_f(file_id, h5err)
             call h5close_f(h5err)
