@@ -672,12 +672,30 @@ Subroutine setup
    if(rmin.le.0.0.or.rmax.le.0.0) then !use original way
       rmin=psi_grid(mpsi-nbound)
       rmax=psi_grid(mpsi-nbound/2)
+
+      ! MGYOO (07/15/2019):
+      ! nbound=0 made run-time error while calculating smoothstep
+      ! Instead, nbound=-1 could used to turn off any further boundary damping things.
+      if(nbound<0) then
+         rmin=psi_grid(mpsi)
+         rmax=1.0
+      endif
+
       if(mype==0) print*, ' rmin,rmax = ', rmin,rmax
    endif
 
    if(lmin.le.0.0.or.lmax.le.0.0) then !use original way
       lmin=psi_grid(0+nbound/2)
       lmax=psi_grid(0+nbound)
+
+      ! MGYOO (07/15/2019):
+      ! nbound=0 made run-time error while calculating smoothstep
+      ! Instead, nbound=-1 could used to turn off any further boundary damping things.
+      if(nbound<0) then
+         lmin=0.0
+         lmax=psi_grid(0)
+      endif
+
       if(mype==0) print*, ' lmin,lmax = ', lmin,lmax
    endif
 
