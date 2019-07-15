@@ -441,10 +441,10 @@ program GTS
             call snapshot_hdf5
             call SetZeros_Cumulative_Variables
             !  phi_tmp=0.0_wp
-            if(Flag_Weight_Threshold==1) then
-               call check_abnormal_weight_electrons
-               call check_abnormal_weight_ions
-            endif
+            !if(Flag_Weight_Threshold==1) then
+            call check_abnormal_weight_electrons
+            call check_abnormal_weight_ions
+            !endif
          end if
 
          call timer(t0,dt,t0wc,dtwc)
@@ -607,10 +607,10 @@ program GTS
             call snapshot_hdf5
             call SetZeros_Cumulative_Variables
             !  phi_tmp=0.0_wp
-            if(Flag_Weight_Threshold==1) then
-               call check_abnormal_weight_electrons
-               call check_abnormal_weight_ions
-            endif
+            !if(Flag_Weight_Threshold==1) then
+            call check_abnormal_weight_electrons
+            call check_abnormal_weight_ions
+            !endif
          end if
 
          call timer(t0,dt,t0wc,dtwc)
@@ -801,10 +801,10 @@ program GTS
             call snapshot_hdf5
             call SetZeros_Cumulative_Variables
             !  phi_tmp=0.0_wp
-            if(Flag_Weight_Threshold==1) then
-               call check_abnormal_weight_electrons
-               call check_abnormal_weight_ions
-            endif
+            !if(Flag_Weight_Threshold==1) then
+            call check_abnormal_weight_electrons
+            call check_abnormal_weight_ions
+            !endif
          end if
 
          call timer(t0,dt,t0wc,dtwc)
