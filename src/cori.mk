@@ -5,10 +5,40 @@
   F77 := ftn
   LOADER := ftn -Wl,-z,muldefs
 
+#GIT information
+GIT_CLEAN 	:= $(shell rm $(VPATH)/$(OBJDIR)/{git_info.o,gts_git_diff.out,gts_version_info.out})
+GIT_VERSION := $(shell git --no-pager describe --tags --always)
+GIT_BRANCH	:= $(shell git branch | grep \* | cut -c 3-)
+GIT_COM_MSG := $(shell git show -s --format=%B | head -n 1)
+GIT_COM_SHA := $(shell git rev-parse --verify HEAD)
+GIT_WTREE   := $()
+GIT_DATE    := $(firstword $(shell git --no-pager show --date=iso-strict --format="%ad" --name-only))
+BUILD_DATE  := $(shell date --iso=seconds)
+
+GIT_DIFF_RESULT:= $(shell git add -N -A)
+GIT_DIFF_RESULT:= $(shell git diff > gts_git_diff.out)
+GIT_DIFF_RESULT:= $(shell git reset HEAD)
+GIT_DIFF_XXD 	:= $(shell xxd -i gts_git_diff.out > gts_git_diff.h)
+
+# If working tree is dirty, append dirty flag (D)
+ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
+  GIT_VERSION := $(GIT_VERSION)-D
+  GIT_WTREE := $(shell git status --porcelain)
+endif
+
+GIT_FLAGS := 	-DGIT_VERSION=\"$(GIT_VERSION)\"\
+ 					-DGIT_BRANCH="\"$(GIT_BRANCH)\""\
+					-DGIT_COM_MSG="\"$(GIT_COM_MSG)\""\
+ 					-DGIT_COM_SHA=\"$(GIT_COM_SHA)\"\
+					-DGIT_WTREE="\"$(GIT_WTREE)\""\
+ 					-DGIT_DATE=\"$(GIT_DATE)\"\
+ 					-DBUILD_DATE=\"$(BUILD_DATE)\"
+
+
 ifeq ($(F90),ftn)
-# Flags for Cray XT system
-#####ifeq ($(shell uname -n | cut -c-3),hop)
-#####ifeq ($(NERSC_HOST),hopper)
+   # Flags for Cray XT system
+   #####ifeq ($(shell uname -n | cut -c-3),hop)
+   #####ifeq ($(NERSC_HOST),hopper)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler on Hopper
           FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
           OPT:=-fast
@@ -37,35 +67,35 @@ ifeq ($(F90),ftn)
              PETSC_DIR=/global/project/projectdirs/mp288/jinchen/PETSC/petsc-3.7.7
              PETSC_ARCH=cori-hsw-intel1801163-mpich773
              PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
-###PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
+             ###PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
              PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lHYPRE -lflapack -lfblas -lscalapack -lsuperlu -lsuperlu_dist -lcmumps -ldmumps -lsmumps -lzmumps -lmumps_common -lpord -lparmetis -lmetis -ldl -lstdc++
           else  # Using the CRAY compiler (cce)
-#initialize array to zero: -e0 -ez
-#check all array bound:-m2 -R bcsp, but too slow, so not used unless debug code
-#FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
-#FFLAGS:= -O 2 -s real64 -Dflush_=flush -I. -static -e F -e m -rm -m2 -R bcsp -e0 -ez
-#CFLAGS:= -m2 -R bcsp -e0 -ez
+             #initialize array to zero: -e0 -ez
+             #check all array bound:-m2 -R bcsp, but too slow, so not used unless debug code
+             #FFLAGS:=-s real64 -Dflush_=flush -I. -static -e F -e m -rm
+             #FFLAGS:= -O 2 -s real64 -Dflush_=flush -I. -static -e F -e m -rm -m2 -R bcsp -e0 -ez
+             #CFLAGS:= -m2 -R bcsp -e0 -ez
              FFLAGS:= -s real64 -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR) -static -e F -e m -rm -e0 -ez
-             OPT:= -O2 
+             OPT:= -O2
              CFLAGS:= -e0 -ez
              COPT:= -O2
              OMPFLAG:= -DUSE_OPENMP
              NOOMPFLAG:=-hnoomp
-#PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
-#SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper
+             #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
+             #SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper
              SPRNG_DIR=/project/projectdirs/mp288/jinchen/LIB/CRAY_cori_haswell
-             SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod 
+             SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
-#PSPLINE_DIR:=/usr/common/usg/pspline/nersc1.1/cray
-#PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
+             #PSPLINE_DIR:=/usr/common/usg/pspline/nersc1.1/cray
+             #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
              PSPLINE_DIR=/project/projectdirs/mp288/jinchen/LIB/CRAY_cori_haswell
              PSPLINE_INC:=-I${PSPLINE_DIR}/include -I${PSPLINE_DIR}/mod -I$(NETCDF_DIR)/include
              PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
              PETSC_DIR=/global/project/projectdirs/mp288/jinchen/PETSC/petsc-3.7.7
-#PETSC_ARCH=cori-hsw-cray604-mpich773
+             #PETSC_ARCH=cori-hsw-cray604-mpich773
              PETSC_ARCH=cori-hsw-cray604-mpich773-noomp
              PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
-#PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
+             #PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
              PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lHYPRE -lflapack -lfblas -lscalapack -lsuperlu -lsuperlu_dist -lcmumps -ldmumps -lsmumps -lzmumps -lmumps_common -lpord -lparmetis -lmetis -ldl -lstdc++
           endif
        endif
@@ -79,7 +109,7 @@ ifeq ($(F90),ftn)
    CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC} $(PETSC_FINC)
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5)
 
-#FFLAGS:=$(FFLAGS) -DUSERZ
+   #FFLAGS:=$(FFLAGS) -DUSERZ
 endif
 
    ifeq ($(DEBUG),y)
@@ -98,7 +128,7 @@ endif
      GOPT:= $(OMPFLAG) $(GOPT)
    else
      OPT:=$(NOOMPFLAG) $(OPT)
-     COPT:=$(NOOMPFLAG) $(COPT) 
+     COPT:=$(NOOMPFLAG) $(COPT)
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
@@ -108,7 +138,7 @@ LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PET
 	$(CPP)  $(COPT) -c $< -o $@
 
 %.o : %.c
-	$(CC)  $(COPT) -c $< -o $@
+	$(CC)  $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) -c $< -o $@
 
 %.o: %.f
 	$(F77) $(OPT) $(INCLUDE) -c $< -o $@
@@ -121,3 +151,20 @@ LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PET
 
 %.o: %.F90
 	$(F90) $(OPT) $(INCLUDE) -c $< -o $@
+
+
+all:
+	echo "============ GTS VERSION INFORMATION ============" > gts_version_info.out
+	@echo " 										" 	>> gts_version_info.out
+	@echo "       VERSION: $(GIT_VERSION)" >> gts_version_info.out
+	@echo "        BRANCH: $(GIT_BRANCH)" 	>> gts_version_info.out
+	@echo "    COMMIT MSG: $(GIT_COM_MSG)" >> gts_version_info.out
+	@echo "    COMMIT SHA: $(GIT_COM_SHA)" >> gts_version_info.out
+	@echo "      GIT DATE: $(GIT_DATE)" 	>> gts_version_info.out
+	@echo "    BUILD DATE: $(BUILD_DATE)" 	>> gts_version_info.out
+	@echo "  WORKING TREE: $(GIT_WTREE)" 	>> gts_version_info.out
+	@echo " 										" 	>> gts_version_info.out
+	@echo "=================================================" 	>> gts_version_info.out
+	@echo " 										" 	>> gts_version_info.out
+	@echo "If \"WORKING TREE\" is not clean, check \"git_diff.out\" for details" 	>> gts_version_info.out
+	@echo " 										" 	>> gts_version_info.out
