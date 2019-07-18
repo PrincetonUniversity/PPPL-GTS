@@ -124,7 +124,7 @@ end subroutine delete_fem_data_private
 !========================================================================    
 subroutine tri_mesh( this )
   use precision 
-  use global_parameters,only: mpsi,mype,mtheta,zetamin,deltaz,deltat,R_0,pi
+  use global_parameters,only: mpsi,mype,mtheta,zetamin,deltaz,deltat,R_0,pi,numberpe
   use field_array,only: psi_grid,qtinv,q_grid
   !  use petsc_array
   use fem_data_class 
