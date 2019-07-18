@@ -50,6 +50,10 @@ program GTS
   call mpi_comm_size(mpi_comm_world,numberpe,ierror)
   call mpi_comm_rank(mpi_comm_world,mype,ierror)
 
+  if(mype==0) then
+    call Print_Git_Info()
+  endif
+
   time=0.0_wp
   t0=0.0_wp
   timewc=0.0_wp
