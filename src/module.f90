@@ -172,7 +172,7 @@ module particle_array
    ! Here we declare zion,zion0,zeon and zeon0 as array pointers
    ! so that we can pass them as dummy arguments to a subroutine and be allowed
    ! to reallocate them inside that subroutine if needed.
-   real(wp),pointer,dimension(:,:) :: zion,zion0,zeon,zeon0,zeon00
+   real(wp),dimension(:,:), allocatable :: zion,zion0,zeon,zeon0,zeon00
    real(wp), dimension(:,:),allocatable :: RK_cum_zion, RK_cum_zeon
    ! ============================
    ! MGYOO (07/31/2018)
