@@ -2973,7 +2973,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		for(int i=0;i<3;++i) {
 			dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
 		}
-		dXgr[k] = Coeff*dXgr[k];
+		dXgr[k] = Coeff*dXgr[k] -gat_array[k];
 
 		dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
 		dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
@@ -2999,7 +2999,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 			for(int i=0;i<3;++i) {
 				P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
 			}
-			P[k] = Coeff*P[k];
+			P[k] = Coeff*P[k] -gat_array[k];
 
 			ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
 			Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -3015,7 +3015,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 			for(int i=0;i<3;++i) {
 				P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]); // excluding the mirror force due to streaming along dB
 			}
-			P[k] = Coeff*P[k];
+			P[k] = Coeff*P[k] -gat_array[k];
 
 			ghq[k]      = Coeff*((B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
 			Ta[k]       = Coeff*((B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -4531,7 +4531,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 		for(int i=0;i<3;++i) {
 			dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
 		}
-		dXgr[k] = Coeff*dXgr[k];
+		dXgr[k] = Coeff*dXgr[k] -gat_array[k];
 
 		dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
 		dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
@@ -4544,7 +4544,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 			for(int i=0;i<3;++i) {
 				Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
 			}
-			Pa[k] = Coeff*Pa[k];
+			Pa[k] = Coeff*Pa[k] -gat_array[k];
 
 			ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
 			Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -4560,7 +4560,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 			for(int i=0;i<3;++i) {
 				Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]); // excluding the mirror force due to streaming along dB
 			}
-			Pa[k] = Coeff*Pa[k];
+			Pa[k] = Coeff*Pa[k] -gat_array[k];
 
 			ghq[k]      = Coeff*( csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
 			Ta[k]       = Coeff*( csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
