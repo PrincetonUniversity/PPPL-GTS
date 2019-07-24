@@ -2396,6 +2396,7 @@ Subroutine read_input_params
       ! =2 --> use direct dphi/dt when ifelectron=2
       ! =3 --> use dphi/dt at t=(n-1/2) : dphi/dt=(dAD_(n)-dAD(n-1))/tstep
       RK4_Flag,           &   ! Default=0 (OFF), can be set =1(ON) by INPUT.d
+      Flag_GC_Solver,     &   ! Default=1 (vector form), can be set =0(matrix form) by INPUT.d
       Poisson_Flag,       &   ! Default=1 (ON), can be set =0(OFF) by INPUT.d
       TRANSF_Weight_Flag, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
       Flag_Weight_Threshold,&
@@ -2508,6 +2509,7 @@ Subroutine read_input_params
       write(0,*) 'nonlinear=', nonlinear
       write(0,*) 'ifdphi=', ifdphi
       write(0,*) 'RK4_Flag=',RK4_Flag
+      write(0,*) 'Flag_GC_Solver=',Flag_GC_Solver
       write(0,*) 'Poisson_Flag=', Poisson_Flag
       write(0,*) 'TRANSF_Weight_Flag=', TRANSF_Weight_Flag
       write(0,*) 'Flag_Weight_Threshold=', Flag_Weight_Threshold
