@@ -1887,6 +1887,9 @@ subroutine Construct_gPPI_for_FieldLineAverage
          enddo
          close(190705)
 
+         ! This is required to calculate Do_FieldLineAverage_by_using_gPPI later
+         call Cal_FLA_Denominator_using_gPPI
+
          ! Following commented part was to check whether upper routine reads the gPPI files well.
          ! write(chdum,'("VacFieldAnalysis/new_gPPI_",i5.5,".dat")') myrank_toroidal
          ! open(181202,file=chdum,status='replace',action='write')
