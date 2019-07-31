@@ -65,7 +65,7 @@ ifeq ($(F90),ftn)
              PSPLINE_INC:=-I${PSPLINE_DIR}/mod
              PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
              PETSC_DIR=/global/project/projectdirs/mp288/jinchen/PETSC/petsc-3.7.7
-             PETSC_ARCH=cori-hsw-intel1801163-mpich773
+             PETSC_ARCH=cori-hsw-intel1903199-mpich776
              PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
              ###PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
              PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lHYPRE -lflapack -lfblas -lscalapack -lsuperlu -lsuperlu_dist -lcmumps -ldmumps -lsmumps -lzmumps -lmumps_common -lpord -lparmetis -lmetis -ldl -lstdc++
@@ -93,7 +93,7 @@ ifeq ($(F90),ftn)
              PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
              PETSC_DIR=/global/project/projectdirs/mp288/jinchen/PETSC/petsc-3.7.7
              #PETSC_ARCH=cori-hsw-cray604-mpich773
-             PETSC_ARCH=cori-hsw-cray604-mpich773-noomp
+             PETSC_ARCH=cori-hsw-cray605-mpich776-noomp
              PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
              #PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lcraypetsc_cray_real -ldl -lstdc++ -L$(HYPRE_DIR)/lib -lHYPRE
              PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lHYPRE -lflapack -lfblas -lscalapack -lsuperlu -lsuperlu_dist -lcmumps -ldmumps -lsmumps -lzmumps -lmumps_common -lpord -lparmetis -lmetis -ldl -lstdc++
