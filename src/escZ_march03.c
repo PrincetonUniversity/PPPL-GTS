@@ -2621,7 +2621,9 @@ int gcmotion_em_MGY(REAL *dXgr,
 
 		Gatheta  *=1./DD;   /*  -grad(theta).grad(a) -- added Oct. 2012   */
 
-		a22	=gYa*(1.+TT*bgr/FI);
+		//a22	=gYa*(1.+TT*bgr/FI);
+      a22   =gYa + bgr*dFda;
+
 		r	=1./(a11*a22-a12*a21);
 		a11	*=r;
 		a12	*=r;
@@ -4188,7 +4190,8 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		/*    a11       =(rq*rq+zq*zq)*D;   */
 		a11 =Dhh*D;
 		D   *=ra*rq+za*zq;
-		a22 =gYa*(1.+T*bgr/FI);
+		//a22 =gYa*(1.+T*bgr/FI);
+      a22   =gYa + bgr*dFda;
 		r   =1./(a11*a22-a12*a21);
 		a11 *=r;
 		a12 *=r;
