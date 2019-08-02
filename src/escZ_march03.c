@@ -2987,7 +2987,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		// The resulting T[k] values will be used in get_fluxes routine.
 		const REAL D	=za*rq-zq*ra;
 		const REAL DD  =D*D;              /*     added Oct. 2012   */
-		const REAL Gatheta=ra*rq+za*zq;   /*     added Oct. 2012   */
+		const REAL Gatheta=(ra*rq+za*zq)/DD;    /*  -grad(theta).grad(a) -- added Oct. 2012   */
 		const REAL Dhh =rq*rq+zq*zq;
 		gha[k]=sqrt(DD/Dhh);    /*  1/|grad_a|  */
 		const REAL rD  =r*D;          /* Jacobian = rD = 1/[grad(a).grad(theta)xgrad(phi)] */
@@ -4472,6 +4472,10 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 		}
 		B[k]=BB;    /* output of B field */
 		F[k]=FI;    /* output of F function for toroidal momentum diagnosis */
+
+   	const REAL D	=za*rq-zq*ra;
+		const REAL Dhh =rq*rq+zq*zq;
+		gha[k]=sqrt(D*D/Dhh);    /*  1/|grad_a|  for later diagnostic purpose*/
 
 		const REAL major_R = r;
 
