@@ -1315,7 +1315,8 @@ subroutine snapshot_hdf5
    deallocate(intp_a_1D)
    deallocate(intp_mean_full_dphi, right_intp_mean_full_dphi, left_intp_mean_full_dphi)
    deallocate(intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi)
-   deallocate(intp_mean_dE_cov3,intp_FLA_dE_cov3)
+   deallocate(intp_mean_dE_cov3, right_mean_dE_cov3, left_mean_dE_cov3)
+   deallocate(intp_FLA_dE_cov3, right_FLA_dE_cov3, left_FLA_dE_cov3)
 
 
    ! ! ===========================
