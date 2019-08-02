@@ -8,7 +8,7 @@
 #GIT information
 GIT_CLEAN 	:= $(shell rm $(VPATH)/$(OBJDIR)/{git_info.o,gts_git_diff.out,gts_version_info.out})
 GIT_VERSION := $(shell git --no-pager describe --tags --always)
-GIT_BRANCH	:= $(shell git branch | grep \* | cut -d ' ' -f2)
+GIT_BRANCH	:= $(shell git branch | grep \* | cut -c 3-)
 GIT_COM_MSG := $(shell git show -s --format=%B | head -n 1)
 GIT_COM_SHA := $(shell git rev-parse --verify HEAD)
 GIT_WTREE   := $()
@@ -26,13 +26,13 @@ ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
   GIT_WTREE := $(shell git status --porcelain)
 endif
 
-GIT_FLAGS := 	-DGIT_VERSION=\"$(GIT_VERSION)\"\
- 					-DGIT_BRANCH=\"$(GIT_BRANCH)\"\
+GIT_FLAGS := 	-DGIT_VERSION="\"$(GIT_VERSION)\""\
+ 					-DGIT_BRANCH="\"$(GIT_BRANCH)\""\
 					-DGIT_COM_MSG="\"$(GIT_COM_MSG)\""\
- 					-DGIT_COM_SHA=\"$(GIT_COM_SHA)\"\
+ 					-DGIT_COM_SHA="\"$(GIT_COM_SHA)\""\
 					-DGIT_WTREE="\"$(GIT_WTREE)\""\
- 					-DGIT_DATE=\"$(GIT_DATE)\"\
- 					-DBUILD_DATE=\"$(BUILD_DATE)\"
+ 					-DGIT_DATE="\"$(GIT_DATE)\""\
+ 					-DBUILD_DATE="\"$(BUILD_DATE)\""
 
 
 ifeq ($(F90),ftn)
@@ -84,7 +84,7 @@ ifeq ($(F90),ftn)
              #PSPLINE_DIR:=/project/projectdirs/mp19/software/cray
              #SPRNG_DIR:=/project/projectdirs/mp19/software/cray_hopper
              SPRNG_DIR=/project/projectdirs/mp288/jinchen/LIB/CRAY_cori_haswell
-             SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod 
+             SPRNG_INC:=-I${SPRNG_DIR}/include -I${SPRNG_DIR}/mod
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp
              #PSPLINE_DIR:=/usr/common/usg/pspline/nersc1.1/cray
              #PSPLINE_DIR:=/global/homes/j/jinchen/project/LIB/pspline
@@ -128,7 +128,7 @@ endif
      GOPT:= $(OMPFLAG) $(GOPT)
    else
      OPT:=$(NOOMPFLAG) $(OPT)
-     COPT:=$(NOOMPFLAG) $(COPT) 
+     COPT:=$(NOOMPFLAG) $(COPT)
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
@@ -154,18 +154,18 @@ LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PET
 
 
 all:
-	echo "============ GTS VERSION INFORMATION ============" > gts_version_info.out
-	@echo " 										" 	>> gts_version_info.out
-	@echo "       VERSION: $(GIT_VERSION)" >> gts_version_info.out
-	@echo "        BRANCH: $(GIT_BRANCH)" 	>> gts_version_info.out
-	@echo "    COMMIT MSG: $(GIT_COM_MSG)" >> gts_version_info.out
-	@echo "    COMMIT SHA: $(GIT_COM_SHA)" >> gts_version_info.out
-	@echo "      GIT DATE: $(GIT_DATE)" 	>> gts_version_info.out
-	@echo "    BUILD DATE: $(BUILD_DATE)" 	>> gts_version_info.out
-	@echo "  WORKING TREE: $(GIT_WTREE)" 	>> gts_version_info.out
-	@echo " 										" 	>> gts_version_info.out
-	@echo "=================================================" 	>> gts_version_info.out
-	@echo " 										" 	>> gts_version_info.out
-	@echo "If \"WORKING TREE\" is not clean, check \"git_diff.out\" for details" 	>> gts_version_info.out
-	@echo " 										" 	>> gts_version_info.out
-	
+	@echo -e "\n\n"
+	@echo "============ GTS VERSION INFORMATION ============" | tee gts_version_info.out
+	@echo " 										" 	| tee -a gts_version_info.out
+	@echo "       VERSION: $(GIT_VERSION)" | tee -a gts_version_info.out
+	@echo "        BRANCH: $(GIT_BRANCH)" 	| tee -a gts_version_info.out
+	@echo "    COMMIT MSG: $(GIT_COM_MSG)" | tee -a gts_version_info.out
+	@echo "    COMMIT SHA: $(GIT_COM_SHA)" | tee -a gts_version_info.out
+	@echo "      GIT DATE: $(GIT_DATE)" 	| tee -a gts_version_info.out
+	@echo "    BUILD DATE: $(BUILD_DATE)" 	| tee -a gts_version_info.out
+	@echo "  WORKING TREE: $(GIT_WTREE)" 	| tee -a gts_version_info.out
+	@echo " 										" 	| tee -a gts_version_info.out
+	@echo "=================================================" 	| tee -a gts_version_info.out
+	@echo " 										" 	| tee -a gts_version_info.out
+	@echo "If \"WORKING TREE\" is not clean, check \"git_diff.out\" for details" 	| tee -a gts_version_info.out
+	@echo " 										" 	| tee -a gts_version_info.out
