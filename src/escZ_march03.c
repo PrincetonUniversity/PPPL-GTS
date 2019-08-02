@@ -2921,6 +2921,14 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		const REAL dH0dB0 = Xgr*Xgr*BB+Xgm;  //( (qs^2/ms)*rho_para^2*B0 + mu)
 
 
+      // Nonlinear Flag Check!!
+      // If nonlinear=0, ignore ExB drift due to the plasma self-electric fields (gradPhi terms)
+      if((*nonlinear)<0.5){
+         gradPhi[0]=0.0;
+         gradPhi[1]=0.0;
+         gradPhi[2]=0.0;
+      }
+
 		// CAUTION!!!!
 		// Er_particle definition should be checked!!!
 		// If this is the grad(Phi0) then everything is Okay,
@@ -4484,6 +4492,14 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 
 		const REAL dH0dgr = m0ms*csc0*csc0*Xgr*BB*BB; //( (qs^2/ms)*rho_para*B0^2)
 		const REAL dH0dB0 = m0ms*csc0*csc0*Xgr*Xgr*BB+Xgm;  //( (qs^2/ms)*rho_para^2*B0 + mu)
+
+      // Nonlinear Flag Check!!
+      // If nonlinear=0, ignore ExB drift due to the plasma self-electric fields (gradPhi terms)
+      if((*nonlinear)<0.5){
+         gradPhi[0]=0.0;
+         gradPhi[1]=0.0;
+         gradPhi[2]=0.0;
+      }
 
 		// CAUTION!!!!
 		// Er_particle definition should be checked!!!
