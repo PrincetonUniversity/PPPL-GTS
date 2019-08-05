@@ -242,7 +242,7 @@ program GTS
          do irk=1,2
 
             ! idiag=0: do time history diagnosis
-            idiag=mod(irk+1,2)+mod(istep,ndiag)
+            idiag=mod(irk-1,2)+mod(istep,ndiag)
 
             ! calculate test like-particle collisions
             call collision  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
@@ -299,7 +299,7 @@ program GTS
 
                ! NOTE: nelectron must take 1 or even number due to the use of 2nd order Runge-Kutta
                if(nelectron==1) then  ! electrons have the same step size as ions
-                  idiag_e=mod(irk+1,2)+mod(istep,ndiag)
+                  idiag_e=mod(irk-1,2)+mod(istep,ndiag)
                   ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
                   ! via calling get_fluexs_e in pushe
 
@@ -350,7 +350,7 @@ program GTS
                   end if
 
                   do i=1,(nelectron/2)*irk
-                     idiag_e=mod(istep,ndiag)+mod(irk+1,2)+mod(i-1,(nelectron/2)*irk)
+                     idiag_e=mod(istep,ndiag)+mod(irk-1,2)+mod(i-1,(nelectron/2)*irk)
                      ! if idiag_e=0, then istep=n*ndiag, irk=1, and i=1, calculate fluxes via calling
                      ! get_fluexs_e in pushe
                      ! push electron -- the 1st step of 2nd order Runge-Kutta
@@ -503,7 +503,7 @@ program GTS
             timewc(8)=timewc(8)+dtwc
 
             ! Solve GK equation of motion using Runge-Kutta 4th order method
-            idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+            idiag=mod(irk-1,4)+mod(istep,ndiag) ! idaig=0 when irk==1 and istep is a multiple of ndiag
             call pushion_RK4(irk)
             call timer(t0,dt,t0wc,dtwc)
             time(1)=time(1)+dt
@@ -540,7 +540,7 @@ program GTS
                time(9)=time(9)+dt
                timewc(9)=timewc(9)+dtwc
 
-               idiag_e=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+               idiag_e=mod(irk-1,4)+mod(istep,ndiag) ! idaig=0 when irk==1 and istep is a multiple of ndiag
                call pusheon_RK4(solver1, masssolver, irk)
                call timer(t0,dt,t0wc,dtwc)
                time(10)=time(10)+dt
@@ -582,7 +582,7 @@ program GTS
             time(5)=time(5)+dt
             timewc(5)=timewc(5)+dtwc
 
-            idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+            idiag=mod(irk-1,4)+mod(istep,ndiag) ! idaig=0 when irk==1 and istep is a multiple of ndiag
 
             call smooth(1)  ! 1. solve zonal flow for nonlinear run;
             ! 2. smooth the complete phi;
@@ -667,7 +667,7 @@ program GTS
 
          do irk=1,4
             ! Solve GK equation of motion using Runge-Kutta 4th order method
-            idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+            idiag=mod(irk-1,4)+mod(istep,ndiag) ! idaig=0 when irk==1 and istep is a multiple of ndiag
             call pushion_RK4(irk)
             call timer(t0,dt,t0wc,dtwc)
             time(1)=time(1)+dt
@@ -706,7 +706,7 @@ program GTS
             timewc(9)=timewc(9)+dtwc
 
             do irk=1,4
-               idiag_e=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
+               idiag_e=mod(irk-1,4)+mod(istep,ndiag) ! idaig=0 when irk==1 and istep is a multiple of ndiag
                call pusheon_RK4_ifdphi3(irk)
                call timer(t0,dt,t0wc,dtwc)
                time(10)=time(10)+dt
@@ -780,7 +780,6 @@ program GTS
          time(5)=time(5)+dt
          timewc(5)=timewc(5)+dtwc
 
-         !idiag=mod(irk,4)+mod(istep,ndiag) ! idaig=0 when irk==4 and istep is a multiple of ndiag
          call smooth(1)  ! 1. solve zonal flow for nonlinear run;
          ! 2. smooth the complete phi;
          ! 3. fft and filter
