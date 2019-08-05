@@ -644,6 +644,106 @@ subroutine check_abnormal_weight_ions
 end subroutine check_abnormal_weight_ions
 
 
+subroutine Abandon_Abnormal_Particles
+
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_array
+   use particle_decomp
+   implicit none
+
+   integer i,m,mtop,lasth
+   integer ABN_mid_arr(max(memax,mimax)) ! ABN=abnormal
+   integer num_of_ABN_ptl
+
+   ! ======================
+   ! Ion First.
+   ! ======================
+   num_of_ABN_ptl=0
+   do m=1,mi
+      if(zion(5,m)<w_Thold_min .or. zion(5,m)>w_Thold_max) then
+         num_of_ABN_ptl = num_of_ABN_ptl+1
+         ABN_mid_arr(num_of_ABN_ptl) = m
+      endif
+   enddo
+
+   ! Fill holes
+   mtop = mi
+   mi = mi - num_of_ABN_ptl ! remained mi after sending
+   lasth = num_of_ABN_ptl
+   do i=1, num_of_ABN_ptl
+
+      m = ABN_mid_arr(i)
+
+      if(m>mi) exit
+      do while(mtop == ABN_mid_arr(lasth))
+         mtop=mtop-1
+         lasth=lasth-1
+      enddo
+
+      zion(:, m)      = zion(:, mtop)
+      zion0(:, m)     = zion0(:, mtop)
+      ilabels(m)      = ilabels(mtop)
+      wi_init(m)      = wi_init(mtop)
+      wi_vpara(m)     = wi_vpara(mtop)
+      wi_vperp(m)     = wi_vperp(mtop)
+      wi_accel(m)     = wi_accel(mtop)
+      wi_fdamp(m)     = wi_fdamp(mtop)
+
+      UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
+      UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
+      if(RK4_Flag==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
+
+      mtop = mtop -1
+   enddo
+
+
+
+
+   ! ======================
+   ! Electron
+   ! ======================
+   num_of_ABN_ptl=0
+   do m=1,me
+      if(zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max) then
+         num_of_ABN_ptl = num_of_ABN_ptl+1
+         ABN_mid_arr(num_of_ABN_ptl) = m
+      endif
+   enddo
+
+   ! Fill holes
+   mtop = me
+   me = me - num_of_ABN_ptl ! remained me after sending
+   lasth = num_of_ABN_ptl
+   do i=1, num_of_ABN_ptl
+      m = ABN_mid_arr(i)
+
+      if(m>me) exit
+      do while(mtop == ABN_mid_arr(lasth))
+         mtop=mtop-1
+         lasth=lasth-1
+      enddo
+
+      zeon(:, m)      = zeon(:, mtop)
+      zeon0(:, m)     = zeon0(:, mtop)
+      elabels(m)      = elabels(mtop)
+      we_init(m)      = we_init(mtop)
+      we_vpara(m)     = we_vpara(mtop)
+      we_vperp(m)     = we_vperp(mtop)
+      we_accel(m)     = we_accel(mtop)
+      we_adiab(m)     = we_adiab(mtop)
+      we_fdamp(m)     = we_fdamp(mtop)
+
+      UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
+      UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+
+      if(RK4_Flag==1) RK_cum_zeon(:,m)= RK_cum_zeon(:,mtop)
+
+      mtop = mtop -1
+   enddo
+
+end subroutine Abandon_Abnormal_Particles
 
 ! subroutine Am_I_tracer_e(m, tf)
 !   use global_parameters
