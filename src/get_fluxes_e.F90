@@ -57,6 +57,9 @@ subroutine get_fluxes_e(wpi)
    !$omp parallel private(m,r,yy,kc,j1,j2,part,upara,upara0,energy) reduction(+:ONE_me,my_eon)
    !$omp do
    do m=1,me
+
+      if (Flag_Weight_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
+
       r=zeon0(1,m)
       yy=(r-a0)/da_size
       kc=int(yy+0.5_wp)            !{0,nbin_a}
@@ -303,6 +306,9 @@ subroutine get_fluxes_e(wpi)
    !$omp parallel private(m,r,yy,kc,j1,j2,part,upara,energy) reduction(+:ONE_me_g)
    !$omp do
    do m=1,me
+
+      if (Flag_Weight_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
+
       r=zeon0(7,m)
       yy=(r-s0)/da_size_g
       kc=int(yy)                  !{0,mpsi-1}
