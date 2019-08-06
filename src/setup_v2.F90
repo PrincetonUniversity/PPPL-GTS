@@ -2562,6 +2562,18 @@ Subroutine read_input_params
    nmode=n
    mmode=m
 
+
+   !Check conflicting parameters
+   if(RK4_Flag==1) then
+      if(wimcompressibility==1 .or. nelectron/=1 .or. ifdphi/=2 .or. ifelectron/=2) then
+         write(stdout,*) 'Conflicting parameters!! Check and Change parameters'
+         write(stdout,*) 'RK4_Flag=1 does not deal with one of the following parameters'
+         write(stdout,*) 'wimcompressibility=', wimcompressibility, ", nelectron=",nelectron, ", ifdphi", ifdphi, ", ifelectron",ifelectron
+         call flush(stdout)
+         stop
+      endif
+   endif
+
 end subroutine read_input_params
 
 
