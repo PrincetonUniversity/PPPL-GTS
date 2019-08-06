@@ -1626,7 +1626,7 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
 
    do m=1,mi
 
-      if (Flag_Weight_Threshold==1 .and. (zion(5,m)<w_Thold_min .or. zion(5,m)>w_Thold_max)) cycle
+      if (Flag_w_Threshold==1 .and. (zion(5,m)<w_Thold_min .or. zion(5,m)>w_Thold_max)) cycle
 
       wgf1=wzion(m)
       wgf0=1.0-wgf1
@@ -1998,7 +1998,7 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
 
    do m=1,me
 
-      if (Flag_Weight_Threshold==1 .and. (zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max)) cycle
+      if (Flag_w_Threshold==1 .and. (zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max)) cycle
 
       wgf1=wzeon(m)
       wgf0=1.0-wgf1

@@ -50,7 +50,7 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
       do m=1,mi
          weight=zion0(5,m)
 
-         if (Flag_Weight_Threshold==1 .and. (weight< w_Thold_min .or. weight>w_Thold_max)) cycle
+         if (Flag_w_Threshold==1 .and. (weight< w_Thold_min .or. weight>w_Thold_max)) cycle
 
          wz1=weight*wzion(m)
          wz0=weight-wz1
@@ -372,7 +372,7 @@ subroutine get_Ti_fluctuation_DirectlyFromParticles
    do m=1,mi
       weight=zion0(5,m)
 
-      if (Flag_Weight_Threshold==1 .and. (weight< w_Thold_min .or. weight>w_Thold_max)) cycle
+      if (Flag_w_Threshold==1 .and. (weight< w_Thold_min .or. weight>w_Thold_max)) cycle
 
       wz1=weight*wzion(m)
       wz0=weight-wz1

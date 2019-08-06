@@ -48,7 +48,7 @@ module global_parameters
    ! When particle weight exceeds threshold value, it would not contribute to charge or current deposition
    ! Default values are  w_min=-50 (df/f=-0.9803892168), w_max=0.9803921568 (df/f=50)
    ! These values can be controlled in INPUT.d file
-   integer :: Flag_Weight_Threshold = 0 ! Default=0 (OFF), can be turned on (=1;ON) via INPUT.d, (=2: Abandon abnormal particles)
+   integer :: Flag_w_Threshold = 0 ! Default=0 (OFF), can be turned on (=1;ON) via INPUT.d, (=2: Abandon abnormal particles)
    real(wp) :: w_Thold_min = -50.0, w_Thold_max = 1.0
 
    integer jr
@@ -117,7 +117,7 @@ module global_parameters
 
    integer,dimension(:),allocatable :: mappingL2G, mappingG2L
 
-   integer :: electromagnetic, Streaming_Flag=1 ! Default Value: Streaming_Flag=1(ON)
+   integer :: electromagnetic, Flag_Streaming=1 ! Default Value: Flag_Streaming=1(ON)
    integer :: num_of_EMP
    type External_Magnetic_Perturbation
       integer :: gam, gan
@@ -134,9 +134,9 @@ module global_parameters
    real(wp) inv_larmor_num ! (=1.0/larmor_num) For faster calculation
    !==============================================================================
 
-   integer :: RK4_Flag=0 ! Default value is 0 (OFF), it can be controlled by INPUT.d file
-   integer :: Poisson_Flag=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
-   integer :: TRANSF_Weight_Flag=0  ! Default=0 (OFF), can be set =1(Transformed Weight Evolution Equation) by INPUT.d
+   integer :: Flag_RK4=0 ! Default value is 0 (OFF), it can be controlled by INPUT.d file
+   integer :: Flag_Poisson=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
+   integer :: Flag_w_Evol=0  ! Default=0 (OFF;original equation), can be set =1(Transformed Weight Evolution Equation) by INPUT.d
    integer :: Flag_GC_Solver=1 ! Default=1 (Vector form GC equation), can be set =0(Matrix form GC equation)
 
 end module global_parameters

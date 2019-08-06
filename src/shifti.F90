@@ -44,7 +44,7 @@ subroutine shifti
 
    dim_zion = size(zion,1)
    dim_zion0 = size(zion0,1)
-   if(RK4_Flag==1) then
+   if(Flag_RK4==1) then
       dim_RK_cum_zion = size(RK_cum_zion,1)
    else
       dim_RK_cum_zion =0
@@ -147,7 +147,7 @@ subroutine shifti
       k=k+dim_zion
       tor_send_Ptls_data(k+1:k+dim_zion0, i) =  zion0(:,send_mid_arr(i))
       k=k+dim_zion0
-      if(RK4_Flag==1) then
+      if(Flag_RK4==1) then
          tor_send_Ptls_data(k+1:k+dim_RK_cum_zion, i) =  RK_cum_zion(:,send_mid_arr(i))
          k=k+dim_RK_cum_zion
       endif
@@ -194,7 +194,7 @@ subroutine shifti
 
       UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
       UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
-      if(RK4_Flag==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
+      if(Flag_RK4==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
 
       mtop = mtop -1
    enddo
@@ -208,7 +208,7 @@ subroutine shifti
       k=k+dim_zion
       zion0(:,mi+i)   = tor_recv_Ptls_data(k+1:k+dim_zion0, i)
       k=k+dim_zion0
-      if(RK4_Flag==1) then
+      if(Flag_RK4==1) then
          RK_cum_zion(:,mi+i) = tor_recv_Ptls_data(k+1:k+dim_RK_cum_zion, i)
          k=k+dim_RK_cum_zion
       endif

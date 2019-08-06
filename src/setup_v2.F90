@@ -1758,7 +1758,7 @@ Subroutine setup
    !call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
    !             rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw)
    call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw, dvi_gf, dve_gf,&
-      vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf, Streaming_Flag)
+      vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf, Flag_Streaming)
 
    call get_table_4_dlnAda    ! get ready for dln<A>/da and make A table;
    ! where A=exp(u^2/2T). NOTE: must be put after
@@ -1849,11 +1849,11 @@ Subroutine setup
    allocate (zion(7,mimax),zion0(7,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
       wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers))
 
-   if(RK4_Flag==1) allocate(RK_cum_zion(7,mimax))
+   if(Flag_RK4==1) allocate(RK_cum_zion(7,mimax))
 
    if(ifelectron/=0) then
 
-      if(RK4_Flag==1) then
+      if(Flag_RK4==1) then
          if(ifdphi==3) then
             ! 8th element stores cumulative weight increase due to partial derivative of dphidt
             allocate(RK_cum_zeon(8,memax))
@@ -2395,11 +2395,11 @@ Subroutine read_input_params
       ! =1 --> use dphi/dt equation when ifelectron=2;
       ! =2 --> use direct dphi/dt when ifelectron=2
       ! =3 --> use dphi/dt at t=(n-1/2) : dphi/dt=(dAD_(n)-dAD(n-1))/tstep
-      RK4_Flag,           &   ! Default=0 (OFF), can be set =1(ON) by INPUT.d
+      Flag_RK4,           &   ! Default=0 (OFF), can be set =1(ON) by INPUT.d
       Flag_GC_Solver,     &   ! Default=1 (vector form), can be set =0(matrix form) by INPUT.d
-      Poisson_Flag,       &   ! Default=1 (ON), can be set =0(OFF) by INPUT.d
-      TRANSF_Weight_Flag, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
-      Flag_Weight_Threshold,&
+      Flag_Poisson,       &   ! Default=1 (ON), can be set =0(OFF) by INPUT.d
+      Flag_w_Evol, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
+      Flag_w_Threshold,&
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
@@ -2475,7 +2475,7 @@ Subroutine read_input_params
       ZF_SEPARATION,      &   ! =1, solving zonal flow separately; =0, solve total potential (phi_00 + delta-phi)
       order,              &   ! =0, original solver; =1, linear finite elements; =2 higher order elements
       electromagnetic,    &   ! =0, original electrostatic code; =1 electromagnetic code
-      Streaming_Flag,     &   ! (include=1) or (exclude=0) perturbed streaming term and mirror force
+      Flag_Streaming,     &   ! (include=1) or (exclude=0) perturbed streaming term and mirror force
       num_of_EMP,         &   ! number of EMP (External Magnetic Perturbation) : how many mode number (m,n) are considered?
       ga0, gam, gan, gagw, gagf0, dga0dt,&
       ga_rc, ga_rw, ga_pp, &   ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
@@ -2508,11 +2508,11 @@ Subroutine read_input_params
       write(0,*) 'mstep=', mstep
       write(0,*) 'nonlinear=', nonlinear
       write(0,*) 'ifdphi=', ifdphi
-      write(0,*) 'RK4_Flag=',RK4_Flag
+      write(0,*) 'Flag_RK4=',Flag_RK4
       write(0,*) 'Flag_GC_Solver=',Flag_GC_Solver
-      write(0,*) 'Poisson_Flag=', Poisson_Flag
-      write(0,*) 'TRANSF_Weight_Flag=', TRANSF_Weight_Flag
-      write(0,*) 'Flag_Weight_Threshold=', Flag_Weight_Threshold
+      write(0,*) 'Flag_Poisson=', Flag_Poisson
+      write(0,*) 'Flag_w_Evol=', Flag_w_Evol
+      write(0,*) 'Flag_w_Threshold=', Flag_w_Threshold
       write(0,*) 'w_Thold_min=', w_Thold_min
       write(0,*) 'w_Thold_max=', w_Thold_max
       write(0,*) 'tstep=', tstep
@@ -2536,7 +2536,7 @@ Subroutine read_input_params
       write(0,*) 'larmor_num=', larmor_num
 
       write(0,*) 'electromagnetic=', electromagnetic
-      write(0,*) 'Streaming_Flag=', Streaming_Flag
+      write(0,*) 'Flag_Streaming=', Flag_Streaming
       write(0,*) 'num_of_EMP =',num_of_EMP
       write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
       write(0,*) 'num_of_etracers=', num_of_etracers,', num_of_itracers=',num_of_itracers, ', nstep_for_tracer_record=', nstep_for_tracer_record
@@ -2564,10 +2564,10 @@ Subroutine read_input_params
 
 
    !Check conflicting parameters
-   if(RK4_Flag==1) then
+   if(Flag_RK4==1) then
       if(wimcompressibility==1 .or. nelectron/=1 .or. ifdphi/=2 .or. ifelectron/=2) then
          write(stdout,*) 'Conflicting parameters!! Check and Change parameters'
-         write(stdout,*) 'RK4_Flag=1 does not deal with one of the following parameters'
+         write(stdout,*) 'Flag_RK4=1 does not deal with one of the following parameters'
          write(stdout,*) 'wimcompressibility=', wimcompressibility, ", nelectron=",nelectron, ", ifdphi", ifdphi, ", ifelectron",ifelectron
          call flush(stdout)
          stop

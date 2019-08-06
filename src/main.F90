@@ -187,8 +187,8 @@ program GTS
 
    if(ifelectron/=0) call charge_eon
 
-   if(Poisson_Flag==1) call poisson( solver1, masssolver  )
-   !  if(Poisson_Flag==1) call poisson( solver_dphi_dt )
+   if(Flag_Poisson==1) call poisson( solver1, masssolver  )
+   !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
    call smooth(0)
 
@@ -237,7 +237,7 @@ program GTS
    open(unit=190515,file='elapsed_Time.dat',action='write')
 
 
-   if(RK4_Flag==1) then
+   if(Flag_RK4==1) then
       nrk=4 !RK4
    else
       nrk=2 !RK2
@@ -259,7 +259,7 @@ program GTS
          timewc(8)=timewc(8)+dtwc
 
          ! push ion
-         if(RK4_Flag==1) then
+         if(Flag_RK4==1) then
             call pushion_RK4(irk)
          else
             call pushion
@@ -316,7 +316,7 @@ program GTS
                timewc(9)=timewc(9)+dtwc
 
                !     CALL PUSHE(irk)
-               if(RK4_Flag==1) then
+               if(Flag_RK4==1) then
                   call pusheon_RK4(solver1, masssolver, irk)
                else
                   call pusheon(solver1, masssolver, irk)
@@ -407,8 +407,8 @@ program GTS
          endif    ! end if(ifelectron/=0)
 
          ! solve GK Poisson equation using adiabatic electron
-         if(Poisson_Flag==1) call poisson( solver1, masssolver )
-         !if(Poisson_Flag==1) call poisson( solver_dphi_dt )
+         if(Flag_Poisson==1) call poisson( solver1, masssolver )
+         !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
          call timer(t0,dt,t0wc,dtwc)
          time(4)=time(4)+dt
@@ -461,7 +461,7 @@ program GTS
       if(mod(istep,10)==0) then
          call check_abnormal_weight_electrons
          call check_abnormal_weight_ions
-         if(Flag_Weight_Threshold==2) call Abandon_Abnormal_Particles
+         if(Flag_w_Threshold==2) call Abandon_Abnormal_Particles
       endif
 
       call timer(t0,dt,t0wc,dtwc)

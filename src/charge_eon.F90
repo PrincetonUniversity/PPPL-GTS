@@ -41,7 +41,7 @@ subroutine charge_eon
    do m=1,me
       weight=zeon(5,m)
 
-      if (Flag_Weight_Threshold==1 .and. (weight<w_Thold_min .or. weight>w_Thold_max)) cycle
+      if (Flag_w_Threshold==1 .and. (weight<w_Thold_min .or. weight>w_Thold_max)) cycle
 
       wz1=weight*wzeon(m)
       wz0=weight-wz1

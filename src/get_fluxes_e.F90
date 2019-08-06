@@ -58,7 +58,7 @@ subroutine get_fluxes_e(wpi)
    !$omp do
    do m=1,me
 
-      if (Flag_Weight_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
+      if (Flag_w_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
 
       r=zeon0(1,m)
       yy=(r-a0)/da_size
@@ -307,7 +307,7 @@ subroutine get_fluxes_e(wpi)
    !$omp do
    do m=1,me
 
-      if (Flag_Weight_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
+      if (Flag_w_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
 
       r=zeon0(7,m)
       yy=(r-s0)/da_size_g

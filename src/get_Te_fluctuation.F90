@@ -40,7 +40,7 @@ subroutine get_Te_fluctuation(wpi2)
       !   call flush(stdout)
       ! endif
 
-      if (Flag_Weight_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
+      if (Flag_w_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
 
       wz1=weight*wzeon(m)
       wz0=weight-wz1
@@ -268,7 +268,7 @@ subroutine get_Te_fluctuation_DirectlyFromParticles
       !   call flush(stdout)
       ! endif
 
-      if (Flag_Weight_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
+      if (Flag_w_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
 
       wz1=weight*wzeon(m)
       wz0=weight-wz1

@@ -693,7 +693,7 @@ subroutine Abandon_Abnormal_Particles
 
       UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
       UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
-      if(RK4_Flag==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
+      if(Flag_RK4==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
 
       mtop = mtop -1
    enddo
@@ -738,7 +738,7 @@ subroutine Abandon_Abnormal_Particles
       UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
       UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
 
-      if(RK4_Flag==1) RK_cum_zeon(:,m)= RK_cum_zeon(:,mtop)
+      if(Flag_RK4==1) RK_cum_zeon(:,m)= RK_cum_zeon(:,mtop)
 
       mtop = mtop -1
    enddo
