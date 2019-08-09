@@ -1302,14 +1302,23 @@ subroutine snapshot_hdf5
 
 
       ! Print DG (Diagnostic Grid) Data
-      h5dims(1:2)=(/dim_gq,dim_a/)
+      ! Note that dimension has to use DG%dim_* rather than dim_*
+      ! because the dimension of snapshot_hdf5 and DG might not be the same
+      h5dims(1)=DG%dim_a
+      call h5ltmake_dataset_f(file_id, "DG/a_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%a_1D,h5err)
+      call h5ltmake_dataset_f(file_id, "DG/s_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%s_1D,h5err)
+      call h5ltmake_dataset_f(file_id, "DG/gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%gq_1D,h5err)
+
+      h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
+      call h5ltmake_dataset_f(file_id, "DG/a_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%a_2D,h5err)
+      call h5ltmake_dataset_f(file_id, "DG/gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%gq_2D,h5err)
+
       call h5ltmake_dataset_f(file_id, "DG/dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%eScaData(:,:,1,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/dne", "unit", "#/m^3", h5err)
       call h5ltmake_dataset_f(file_id, "DG/dTe",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,2,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/dTe", "unit", "eV", h5err)
 
-
-      h5dims(1:3)=(/3,dim_gq,dim_a/)
+      h5dims(1:3)=(/3,DG%dim_gq,DG%dim_a/)
       call h5ltmake_dataset_f(file_id, "DG/eFlux_p",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eVecData(:,:,:,1,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/eFlux_p", "unit", "1/(m^2*s)", h5err)
       call h5ltmake_dataset_f(file_id, "DG/eFlux_E",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eVecData(:,:,:,2,1)),h5err)
