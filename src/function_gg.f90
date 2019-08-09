@@ -3356,3 +3356,217 @@ FUNCTION gs(adum,thedum)
 
    return
 end function gs
+
+
+subroutine Init_Diagnostic_Grid
+
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   implicit none
+
+   integer i,k
+
+   DG%dim_a  = (mpsi+1)/DG%a_jump
+   DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
+   DG%num_SD = 2
+   DG%num_VD = 1
+
+
+   DG%dgq   = 2.0*pi/(DG%dim_gq-1)
+   DG%inv_dgq = 1.0/DG%dgq
+   DG%inv_ds  = DG%a_jump*(real(mpsi)/(s1-s0))
+
+
+
+   allocate(DG%a_1D(DG%dim_a), DG%s_1D(DG%dim_a), DG%gq_1D(DG%dim_gq))
+   allocate(DG%a_2D(DG%dim_gq,DG%dim_a), DG%gq_2D(DG%dim_gq,DG%dim_a))
+   allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1) )
+
+   k=1
+   do i=0,mpsi,DG%a_jump
+      DG%a_1D(k) = psi_grid(i)
+      DG%a_2D(:,k) = psi_grid(i)
+      DG%s_1D(k) = s_grid(i)
+      k=k+1
+   enddo
+
+   do i=1,DG%dim_gq
+      DG%gq_1D(i) = (2.0*pi)/(DG%dim_gq-1)*(i-1)
+      DG%gq_2D(i,:) = DG%gq_1D(i)
+   enddo
+
+
+   !Set and Calculate Magnetic Information (ESI variables)
+   allocate(DG%Jacobian, DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,mold=DG%a_2D)
+   allocate(DG%esi_N,DG%esi_K,DG%g_aa_cov,DG%g_aq_cov,DG%g_qq_cov,DG%g_ff_cov,mold=DG%a_2D)
+   allocate(DG%D,DG% g_aa_cntv,DG% g_aq_cntv,DG% g_qq_cntv,DG% g_ff_cntv,mold=DG%a_2D)
+   allocate(DG%B0_cov3(3,DG%dim_gq,DG%dim_a))
+   allocate(DG%B0_cntv3,DG%j0_cov3,DG%j0_cntv3, mold=DG%B0_cov3)
+
+   call esiget2dthese_more(DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,DG%a_2D,DG%gq_2D, DG%dim_gq*DG%dim_a)
+
+   DG%Jacobian = DG%R*(DG%dZda*DG%dRdgq-DG%dZdgq*DG%dRda)
+   DG%esi_N = (DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq)/DG%Jacobian
+   DG%esi_K = (DG%dRdgq*DG%dRdgq+DG%dZdgq*DG%dZdgq)/DG%Jacobian
+
+   DG%B0_cov3(1,:,:) = -DG%esi_N*DG%dgYda
+   DG%B0_cov3(2,:,:) = -DG%esi_K*DG%dgYda
+   DG%B0_cov3(3,:,:) = DG%F
+
+   DG%B0_cntv3(1,:,:) = 0.0
+   DG%B0_cntv3(2,:,:) = -DG%dgYda/DG%Jacobian
+   DG%B0_cntv3(3,:,:) = DG%F/(DG%R**2)
+
+   DG%j0_cntv3(1,:,:) = 0.0
+   DG%j0_cntv3(2,:,:) = -DG%dFda/DG%Jacobian
+   DG%j0_cntv3(3,:,:) = DG%P + DG%T/(DG%R**2)
+
+   DG%g_aa_cov   = DG%dRda*DG%dRda+DG%dZda*DG%dZda
+   DG%g_aq_cov  = DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq
+   DG%g_qq_cov = DG%dRdgq*DG%dRdgq+DG%dZdgq*DG%dZdgq
+   DG%g_ff_cov = DG%R**2
+
+   DG%D=DG%dZda*DG%dRdgq-DG%dZdgq*DG%dRda
+
+   DG%g_aa_cntv=(DG%dRdgq**2+DG%dZdgq**2)/DG%D**2   ! DG%grada^2
+   DG%g_qq_cntv=(DG%dZda**2+DG%dRda**2)/DG%D**2   ! DG%gradtheta^2
+   DG%g_ff_cntv=1.0/DG%R**2                 ! DG%gradphi^2
+   DG%g_aq_cntv=(-DG%dRda*DG%dRdgq-DG%dZda*DG%dZdgq)/DG%D**2  ! DG%gradagradtheta
+
+   DG%j0_cov3(1,:,:) = DG%g_aa_cov*DG%j0_cntv3(1,:,:) + DG%g_aq_cov*DG%j0_cntv3(2,:,:)
+   DG%j0_cov3(2,:,:) = DG%g_aq_cov*DG%j0_cntv3(1,:,:) + DG%g_qq_cov*DG%j0_cntv3(2,:,:)
+   DG%j0_cov3(3,:,:) = DG%g_ff_cov*DG%j0_cntv3(3,:,:)
+
+   ! TODO : Get Cell volume like dV=(Jacobian)*dpsi*dtheta*dgf
+   !        Refer markeri calculation
+
+end subroutine Init_Diagnostic_Grid
+
+
+subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
+
+   use precision
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   use mpi_defs
+   use particle_array
+   use particle_decomp
+   use esi_interface
+
+   implicit none
+
+   real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
+   !P varaiables are at particle position
+   real(wp) P_s, P_safety_q !safety factor
+   real(wp) P_a, P_gq, P_gf
+
+   real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
+   integer :: ori_sid !sid of original full grid
+   real(wp) ori_inv_ds ! inv_ds of original full grid
+   real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
+   real(wp) target_zeta
+   integer :: m, j,k, aid, sid, gqid, qq, ss
+   integer :: length, istatus(MPI_STATUS_SIZE),ierror
+
+   real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1)
+
+   DG%eScaData=0
+   DG%eVecData=0
+
+   ori_inv_ds = real(mpsi)/(s1-s0)
+
+   do m=1,me
+
+      if (Flag_w_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
+
+
+      P_a  = zeon0(1,m)
+      P_gq = modulo(zeon0(2,m),2*pi)
+      P_gf = modulo(zeon0(3,m),2*pi)
+      P_s  = zeon0(7,m)
+
+      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
+      P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+
+      sid = (P_s-s0)*DG%inv_ds +1 ! +1 is due to Fortran's default index starting from 1
+      ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
+      ws0 = 1.0-ws1
+
+      do k=0,1
+         if(k==0) target_zeta =zetamin
+         if(k==1) target_zeta =zetamax
+
+         wgf = (1.0-abs(P_gf-target_zeta)/deltaz)
+
+         target_gq = modulo(P_gq + (target_zeta-P_gf)/P_safety_q, 2.0*pi)
+         gqid = (target_gq)*DG%inv_dgq +1
+         wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+         wgq0 = 1.0-wgq1
+
+         do j=1,4
+            select case(j)
+               case(1)
+                  qq=gqid; ss=sid
+                  ratio=ws0*wgq0*wgf
+               case(2)
+                  qq=gqid+1; ss=sid
+                  ratio=ws0*wgq1*wgf
+               case(3)
+                  qq=gqid; ss=sid+1
+                  ratio=ws1*wgq0*wgf
+               case(4)
+                  qq=gqid+1; ss=sid+1
+                  ratio=ws1*wgq1*wgf
+            end select
+
+            DG%eScaData(qq,ss,1,k) = DG%eScaData(qq,ss,1,k) + ratio*zeon0(5,m) ! Density
+            DG%eScaData(qq,ss,2,k) = DG%eScaData(qq,ss,2,k) + ratio*(2.0/3.0*in_P_data(2,m)-backTe(m)*msm0)*zeon0(5,m)
+
+            DG%eVecData(1,qq,ss,1,k) = DG%eVecData(1,qq,ss,1,k) + ratio*(zeon0(5,m)*vpara_dve_a(m)) ! Radial Flux
+            DG%eVecData(2,qq,ss,1,k) = DG%eVecData(2,qq,ss,1,k) + ratio*(zeon0(5,m)*vpara_dve_gq(m)) ! theta Flux
+            DG%eVecData(3,qq,ss,1,k) = DG%eVecData(3,qq,ss,1,k) + ratio*(zeon0(5,m)*vpara_dve_gf(m)) ! zeta Flux
+         enddo
+      enddo
+   enddo
+
+
+   if(npartdom>1) then
+      tmp_Scalar_Data = DG%eScaData
+      tmp_Vector_Data = DG%eVecData
+
+      length = DG%dim_gq*DG%dim_a*DG%num_SD*2
+      call MPI_ALLREDUCE(tmp_Scalar_Data, DG%eScaData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+      length = 3*DG%dim_gq*DG%dim_a*DG%num_VD*2
+      call MPI_ALLREDUCE(tmp_Vector_Data, DG%eVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+   endif
+
+
+   ! Match poloidal end cell
+   ! (gq=0 and gq=2pi is the same position physically
+   ! although they have different gqid)
+   do sid=1,DG%dim_a
+      DG%eScaData(1,sid,:,:) = DG%eScaData(1,sid,:,:) + DG%eScaData(DG%dim_gq,sid,:,:)
+      DG%eScaData(DG%dim_gq,sid,:,:) = DG%eScaData(1,sid,:,:)
+
+      DG%eVecData(:,1,sid,:,:) = DG%eVecData(:,1,sid,:,:) + DG%eVecData(:,DG%dim_gq,sid,:,:)
+      DG%eVecData(:,DG%dim_gq,sid,:,:) = DG%eVecData(:,1,sid,:,:)
+   enddo
+
+
+   ! toroidal end cell
+   length = DG%dim_gq*DG%dim_a*DG%num_SD
+   call MPI_SENDRECV(DG%eScaData(:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Scalar_Data(:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%eScaData(:,:,:,1) = DG%eScaData(:,:,:,1) + tmp_Scalar_Data(:,:,:,1)
+
+
+
+   length = 3*DG%dim_gq*DG%dim_a*DG%num_VD
+   call MPI_SENDRECV(DG%eVecData(:,:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Vector_Data(:,:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%eVecData(:,:,:,:,1) = DG%eVecData(:,:,:,:,1) + tmp_Vector_Data(:,:,:,:,1)
+
+
+end subroutine Measure_Electrons_on_Diagnostic_Grid

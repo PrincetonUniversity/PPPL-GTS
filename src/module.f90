@@ -279,6 +279,33 @@ module diagnosis_array
 
 end module diagnosis_array
 
+
+module Diagnostic_Grid
+   use precision
+   implicit none
+
+   type Grid_Info
+      integer :: gq_jump=2, a_jump=1
+      integer :: dim_a, dim_gq
+      integer :: num_SD, num_VD ! number of eScaData and eVecData
+      real(wp) dgq, inv_dgq ! dgq is constant since it is uniform along theta direction
+      real(wp) inv_ds
+      real(wp), allocatable, dimension(:) :: a_1D, s_1D, gq_1D
+      real(wp), allocatable, dimension(:,:) :: a_2D, gq_2D
+      real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
+      real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
+
+      ! Magnetic Field Information (ESI variables)
+      real(wp), allocatable, dimension(:,:) :: F,dFda,dgFda,dgYda,R,dRda,dRdgq,Z,dZda,dZdgq,BB,dBBda,dBBdgq,P,T
+      real(wp), allocatable, dimension(:,:) :: Jacobian, esi_N, esi_K, g_aa_cov, g_aq_cov, g_qq_cov, g_ff_cov
+      real(wp), allocatable, dimension(:,:) :: D, g_aa_cntv, g_aq_cntv, g_qq_cntv, g_ff_cntv
+      real(wp), allocatable, dimension(:,:,:) :: B0_cov3, B0_cntv3, j0_cov3, j0_cntv3
+   end type
+
+   type(Grid_Info) :: DG
+
+end module Diagnostic_Grid
+
 module esi_interface
    use precision
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &

@@ -539,6 +539,10 @@ subroutine pusheon(solver1, masssolver, irk_e)
          if(im==0) then
             call get_Te_fluctuation(wpi(2,:))
          end if
+
+         if(mod(istep,msnap)==0) then
+            call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:))
+         endif
       endif
 
       call shifte
@@ -1090,6 +1094,9 @@ subroutine pusheon(solver1, masssolver, irk_e)
             call get_Te_fluctuation(wpi(2,:))
          end if
 
+         if(mod(istep,msnap)==0) then
+            call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:))
+         endif
       endif
 
    END IF
@@ -1568,6 +1575,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! write(stdout,*) (wpi(2,i)*Tem_00,i=1,me,me/20)
             ! call flush(stdout)
          end if
+
+         if(mod(istep,msnap)==0) then
+            call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:))
+         endif
       endif
 
       call shifte
@@ -2322,6 +2333,10 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
             ! write(stdout,*) (wpi(2,i)*Tem_00,i=1,me,me/20)
             ! call flush(stdout)
          end if
+
+         if(mod(istep,msnap)==0) then
+            call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:))
+         endif
       endif
 
 

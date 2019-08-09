@@ -494,6 +494,7 @@ subroutine snapshot_hdf5
    use mpi_defs
    use hdf5
    use h5lt
+   use Diagnostic_Grid
 
    implicit none
 
@@ -503,7 +504,7 @@ subroutine snapshot_hdf5
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
    integer(HSIZE_T) :: h5dims(3)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
@@ -768,6 +769,7 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "FLA", gid_FLA, h5err)
       call h5gcreate_f(file_id, "DCOMP", gid_DCOMP, h5err)
       call h5gcreate_f(file_id, "BIN", gid_BIN, h5err)
+      call h5gcreate_f(file_id, "DG", gid_DG, h5err) ! Diagnostic Grid
       !
       h5dims(1) = 1
       call h5ltmake_dataset_f(file_id, "time_s",1,h5dims,H5T_NATIVE_DOUBLE, real(istep)*tstep*utime,h5err)
@@ -1299,11 +1301,25 @@ subroutine snapshot_hdf5
       deallocate(intp_val_Arr)
 
 
+      ! Print DG (Diagnostic Grid) Data
+      h5dims(1:2)=(/dim_gq,dim_a/)
+      call h5ltmake_dataset_f(file_id, "DG/dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%eScaData(:,:,1,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/dne", "unit", "#/m^3", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/dTe",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,2,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/dTe", "unit", "eV", h5err)
+
+
+      h5dims(1:3)=(/3,dim_gq,dim_a/)
+      call h5ltmake_dataset_f(file_id, "DG/eFlux_p",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eVecData(:,:,:,1,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/eFlux_p", "unit", "1/(m^2*s)", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/eFlux_E",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eVecData(:,:,:,2,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/eFlux_E", "unit", "J/(m^2*s)", h5err)
 
       call h5gclose_f(gid_PARAMS, h5err)
       call h5gclose_f(gid_FLA, h5err)
       call h5gclose_f(gid_DCOMP, h5err)
       call h5gclose_f(gid_BIN, h5err)
+      call h5gclose_f(gid_DG, h5err)
 
       call h5fclose_f(file_id, h5err)
       call h5close_f(h5err)
