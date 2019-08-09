@@ -265,7 +265,7 @@ module diagnosis_array
    real(wp),dimension(:,:,:),allocatable :: eigenmode
    integer,dimension(:),allocatable :: nf,nfL,nf_e,nfL_e
    integer my_nf, my_nfL, my_ZL(2),nfile
-   integer,parameter :: nn=13, ncolm=20
+   integer,parameter :: nn=17, ncolm=20
 
 
 

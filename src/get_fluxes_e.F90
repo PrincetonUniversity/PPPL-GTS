@@ -36,6 +36,7 @@ subroutine get_fluxes_e(wpi)
       v2_lab, veloc, part_k1,  &
       En_tur_sum,En_00_sum,En_tot_sum,enk_sum,da_size_g
 
+   real(wp) flux_p_strm, flux_p_ExB, flux_E_strm, flux_E_ExB ! Radial Flux of particle and energy by streaming or ExB, respectively
    real(wp) r,upara,energy
 
    factor=3000._wp*trans/pmass0
@@ -106,6 +107,21 @@ subroutine get_fluxes_e(wpi)
 
       ONE_me(11,j1)=ONE_me(11,j1)+part*zeon0(5,m)*upara*BB(m) ! electron bootstrap current = v_//*B
       ONE_me(11,j2)=ONE_me(11,j2)+(1.0_wp-part)*zeon0(5,m)*upara*BB(m)
+
+
+      ! MGYOO(08/07/2019)
+      ONE_me(12,j1)=ONE_me(12,j1)+part*zeon0(5,m)*vpara_dve_a(m)        ! particle radial flux due to streaming
+      ONE_me(12,j2)=ONE_me(12,j2)+(1.0_wp-part)*zeon0(5,m)*vpara_dve_a(m)
+
+      ONE_me(13,j1)=ONE_me(13,j1)+part*zeon0(5,m)*vpara_dve_a(m)*energy ! energy radial flux due to streaming
+      ONE_me(13,j2)=ONE_me(13,j2)+(1.0_wp-part)*zeon0(5,m)*vpara_dve_a(m)*energy
+
+      ONE_me(14,j1)=ONE_me(14,j1)+part*zeon0(5,m)*(wpi(1,m)-vpara_dve_a(m))       ! particle radial flux due to ExB
+      ONE_me(14,j2)=ONE_me(14,j2)+(1.0_wp-part)*zeon0(5,m)*(wpi(1,m)-vpara_dve_a(m))
+
+      ONE_me(15,j1)=ONE_me(15,j1)+part*zeon0(5,m)*(wpi(1,m)-vpara_dve_a(m))*energy ! energy radial flux due to ExB
+      ONE_me(15,j2)=ONE_me(15,j2)+(1.0_wp-part)*zeon0(5,m)*(wpi(1,m)-vpara_dve_a(m))*energy
+
 
       !  calculate distribution functions at specified boxes
       !  NOTE:  need to work out OpenMP for this part 9/08 !!!
@@ -282,6 +298,11 @@ subroutine get_fluxes_e(wpi)
          angular_m=TOTAL_pe(9,kc)*sum_sn0*dnty_on_bin(kc)
          jb=TOTAL_pe(11,kc)*sum_sn0*dnty_on_bin(kc)*csc0  ! "boostrap current" in unit e0*v_00*B_00; 2010
 
+         flux_p_strm=TOTAL_pe(12,kc)*sum_sn0*dnty_on_bin(kc)    ! in unit v_00, Gamma_r=int(dr/dt...)
+         flux_E_strm=TOTAL_pe(13,kc)*sum_sn0*dnty_on_bin(kc)    ! in unit E_00*v_00
+         flux_p_ExB =TOTAL_pe(14,kc)*sum_sn0*dnty_on_bin(kc)    ! in unit v_00, Gamma_r=int(dr/dt...)
+         flux_E_ExB =TOTAL_pe(15,kc)*sum_sn0*dnty_on_bin(kc)    ! in unit E_00*v_00
+
          dTi=delta_sumv2/Tr_e(kc)/3.0_wp  ! =delta_T/T_0
 
          flux_p=flux_p*uveloci*1.0e4_wp         ! convert to 1/m^2.s
@@ -289,8 +310,13 @@ subroutine get_fluxes_e(wpi)
          flux_E=flux_E*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
          flux_q=flux_q*uveloci*E_00*1.0e-3_wp   ! convert to J/m^2.s
 
+         flux_p_strm = flux_p_strm*uveloci*1.0e4_wp
+         flux_E_strm = flux_E_strm*uveloci*E_00*1.0e-3_wp
+         flux_p_ExB  = flux_p_ExB *uveloci*1.0e4_wp
+         flux_E_ExB  = flux_E_ExB *uveloci*E_00*1.0e-3_wp
+
          write(nf_e(kc),800) istep,w2mean_0,wmean_0,TOTAL_pe(1,kc),Tg,dTi,flux_vz,angular_m, &
-            flux_PI,flux_p,flux_E,flux_q,jb,total_eon/mesum
+            flux_PI,flux_p,flux_E,flux_q,jb,total_eon/mesum, flux_p_strm, flux_E_strm, flux_p_ExB, flux_E_ExB
          call flush(nf_e(kc))
 
          w2_eon1(kc)=w2mean_0
@@ -393,7 +419,7 @@ subroutine get_fluxes_e(wpi)
    end if
 
 
-   800 format(1x,i6,1x,16(d13.6,1x))
+   800 format(1x,i6,1x,30(d13.6,1x))
    801 format(1x,i6, 21(1x,d13.6))
    802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
    ! 802 format(1x,i6, 10(1x,d13.6)) ! for maxium mpsi=500
