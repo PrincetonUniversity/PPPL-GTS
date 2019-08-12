@@ -3363,14 +3363,18 @@ subroutine Init_Diagnostic_Grid
    use Diagnostic_Grid
    use global_parameters
    use field_array
+   use precision
    implicit none
 
-   integer i,k
+   integer i,k,aid,gqid
+
+   ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
+   real(wp) approx_da, approx_dgf
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
    DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
-   DG%num_SD = 2
-   DG%num_VD = 1
+   DG%num_SD = 3
+   DG%num_VD = 4
 
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
@@ -3379,8 +3383,10 @@ subroutine Init_Diagnostic_Grid
 
 
 
-   allocate(DG%a_1D(DG%dim_a), DG%s_1D(DG%dim_a), DG%gq_1D(DG%dim_gq))
+   allocate(DG%a_1D(DG%dim_a))
+   allocate(DG%s_1D, DG%gq_1D, DG%n0_1D, DG%Te0_1D, DG%Ti0_1D, mold=DG%a_1D)
    allocate(DG%a_2D(DG%dim_gq,DG%dim_a), DG%gq_2D(DG%dim_gq,DG%dim_a))
+   allocate(DG%Cell_dV, DG%inv_Cell_dV, mold=DG%a_2D)
    allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1) )
 
    k=1
@@ -3388,6 +3394,10 @@ subroutine Init_Diagnostic_Grid
       DG%a_1D(k) = psi_grid(i)
       DG%a_2D(:,k) = psi_grid(i)
       DG%s_1D(k) = s_grid(i)
+
+      DG%n0_1D(k)  = den_grid(i)
+      DG%Te0_1D(k) = Te_grid(i)
+      DG%Ti0_1D(k) = vth_grid(i)**2.0
       k=k+1
    enddo
 
@@ -3438,8 +3448,27 @@ subroutine Init_Diagnostic_Grid
    DG%j0_cov3(2,:,:) = DG%g_aq_cov*DG%j0_cntv3(1,:,:) + DG%g_qq_cov*DG%j0_cntv3(2,:,:)
    DG%j0_cov3(3,:,:) = DG%g_ff_cov*DG%j0_cntv3(3,:,:)
 
-   ! TODO : Get Cell volume like dV=(Jacobian)*dpsi*dtheta*dgf
-   !        Refer markeri calculation
+
+   ! NOTE : Get Cell volume like dV=(Jacobian)*dpsi*dtheta*dgf
+   !        Following Cell_dV is an approximation
+   !        For higher accuracy, a Weighted Volume by considering hellical particle shape and varying da is required
+
+   approx_dgf=zetamax-zetamin
+   do aid=1,DG%dim_a
+      if(aid==1) then
+         approx_da=0.5*(DG%a_1D(2)-DG%a_1D(1))    ! half cell
+      else if(aid==DG%dim_a) then
+         approx_da=0.5*(DG%a_1D(DG%dim_a)-DG%a_1D(DG%dim_a-1)) ! half cell
+      else
+         approx_da=0.5*(DG%a_1D(aid+1)-DG%a_1D(aid-1))  ! full cell
+      endif
+
+      do gqid=1,DG%dim_gq
+         DG%Cell_dV(gqid,aid)=DG%Jacobian(gqid,aid)*approx_da*DG%dgq*approx_dgf
+      enddo
+   enddo
+   DG%inv_Cell_dV=1.0/DG%Cell_dV
+
 
 end subroutine Init_Diagnostic_Grid
 
@@ -3458,16 +3487,19 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    implicit none
 
    real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
+   real(wp) energy(me)
    !P varaiables are at particle position
    real(wp) P_s, P_safety_q !safety factor
    real(wp) P_a, P_gq, P_gf
+
+   real(wp) delta_f ! perturbed distribution df (f_tot=f0+delta_f)
 
    real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
    integer :: ori_sid !sid of original full grid
    real(wp) ori_inv_ds ! inv_ds of original full grid
    real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
    real(wp) target_zeta
-   integer :: m, j,k, aid, sid, gqid, qq, ss
+   integer :: m, j,k, aid, sid, vid, gqid, qq, ss
    integer :: length, istatus(MPI_STATUS_SIZE),ierror
 
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1)
@@ -3477,10 +3509,13 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
    ori_inv_ds = real(mpsi)/(s1-s0)
 
+   energy(:) = in_P_data(2,:)
+
    do m=1,me
 
       if (Flag_w_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
 
+      delta_f = zeon0(5,m)*eNrNm
 
       P_a  = zeon0(1,m)
       P_gq = modulo(zeon0(2,m),2*pi)
@@ -3522,12 +3557,30 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
                   ratio=ws1*wgq1*wgf
             end select
 
-            DG%eScaData(qq,ss,1,k) = DG%eScaData(qq,ss,1,k) + ratio*zeon0(5,m) ! Density
-            DG%eScaData(qq,ss,2,k) = DG%eScaData(qq,ss,2,k) + ratio*(2.0/3.0*in_P_data(2,m)-backTe(m)*msm0)*zeon0(5,m)
+            DG%eScaData(qq,ss,1,k) = DG%eScaData(qq,ss,1,k) + ratio*delta_f ! Density
+            DG%eScaData(qq,ss,2,k) = DG%eScaData(qq,ss,2,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f !Temperature definition 1
 
-            DG%eVecData(1,qq,ss,1,k) = DG%eVecData(1,qq,ss,1,k) + ratio*(zeon0(5,m)*vpara_dve_a(m)) ! Radial Flux
-            DG%eVecData(2,qq,ss,1,k) = DG%eVecData(2,qq,ss,1,k) + ratio*(zeon0(5,m)*vpara_dve_gq(m)) ! theta Flux
-            DG%eVecData(3,qq,ss,1,k) = DG%eVecData(3,qq,ss,1,k) + ratio*(zeon0(5,m)*vpara_dve_gf(m)) ! zeta Flux
+            DG%eScaData(qq,ss,3,k) = DG%eScaData(qq,ss,3,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f !
+
+            vid=1 ! Turbulent Particle Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f*ghq(m)) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f*Ta(m)) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f*dve_gf(m)) ! zeta Flux
+
+            vid=2 ! Turbulent Particle Flux due to ExB only
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
+
+            vid=3 ! Turbulent Energy Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f*ghq(m)) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f*Ta(m)) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f*dve_gf(m)) ! zeta Flux
+
+            vid=4 ! Turbulent Energy Flux due to ExB only
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
          enddo
       enddo
    enddo
@@ -3567,6 +3620,34 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    length = 3*DG%dim_gq*DG%dim_a*DG%num_VD
    call MPI_SENDRECV(DG%eVecData(:,:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Vector_Data(:,:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG%eVecData(:,:,:,:,1) = DG%eVecData(:,:,:,:,1) + tmp_Vector_Data(:,:,:,:,1)
+
+
+   ! Do normalization and post-processing
+   ! Divide by Cell Volume to get density quantities
+   do k=1,DG%num_SD
+      DG%eScaData(:,:,k,1) = DG%eScaData(:,:,k,1)*DG%inv_Cell_dV
+   enddo
+
+   do aid=1,DG%dim_a
+      DG%eScaData(:,aid,2,1) = DG%eScaData(:,aid,2,1)/DG%n0_1D(aid) ! Convert Energy to Temperature
+   enddo
+
+   do aid=1,DG%dim_a
+      ! TODO : density in denominator should include adiabatic density as well
+      ! Consistent Temperature by considering density fluctuation in the denominator
+      DG%eScaData(:,aid,3,1) = DG%eScaData(:,aid,3,1)/(DG%n0_1D(aid)+DG%eScaData(:,aid,k,1))
+   enddo
+
+   do k=1,DG%num_VD
+      do j=1,3
+         DG%eVecData(j,:,:,k,1) = DG%eVecData(j,:,:,k,1)*DG%inv_Cell_dV
+      enddo
+      do aid=1,DG%dim_a
+         do j=1,3
+            DG%eVecData(j,:,aid,k,1) = DG%eVecData(j,:,aid,k,1)/DG%n0_1D(aid)
+         enddo
+      enddo
+   enddo
 
 
 end subroutine Measure_Electrons_on_Diagnostic_Grid

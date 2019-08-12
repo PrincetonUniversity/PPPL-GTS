@@ -164,6 +164,9 @@ subroutine load
    ! integer variable since the total may be larger than 2.1 billion.
    call MPI_ALLREDUCE(mp1_i8,misum_i8,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,ierror)
 
+   iNrNm = iNrNm/real(misum_i8,wp)
+   iNmNr = 1.0/iNrNm
+
    !     markeri is the inverse of ion marker number at each grid point in term of initial loading
    !  markeri=markeri*(real(misum_i8,wp)/real(ntoroidal,wp))
    markeri=markeri*real(misum_i8,wp)
@@ -364,6 +367,9 @@ subroutine load
    ini_me = me
    !   call MPI_ALLREDUCE(me,mesum,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierror)
    mesum=misum
+
+   eNmNr = (mesum/misum)*iNmNr ! Assuming real particle number (particle density) is the same for ions and electrons
+   eNrNm = 1.0/eNmNr
 
    my_ion=0.0_wp
    !$omp parallel do private(m) reduction(+:my_ion)

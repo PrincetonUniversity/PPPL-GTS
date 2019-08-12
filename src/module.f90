@@ -45,6 +45,8 @@ module global_parameters
    !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
    !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
 
+   real(wp) :: eNmNr, eNrNm, iNmNr, iNrNm ! (electron & ion)'s (Nm/Np, Np/Nm), where Nm and Np are total number of markers and real particles
+
    ! When particle weight exceeds threshold value, it would not contribute to charge or current deposition
    ! Default values are  w_min=-50 (df/f=-0.9803892168), w_max=0.9803921568 (df/f=50)
    ! These values can be controlled in INPUT.d file
@@ -290,8 +292,9 @@ module Diagnostic_Grid
       integer :: num_SD, num_VD ! number of eScaData and eVecData
       real(wp) dgq, inv_dgq ! dgq is constant since it is uniform along theta direction
       real(wp) inv_ds
-      real(wp), allocatable, dimension(:) :: a_1D, s_1D, gq_1D
+      real(wp), allocatable, dimension(:) :: a_1D, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D
       real(wp), allocatable, dimension(:,:) :: a_2D, gq_2D
+      real(wp), allocatable, dimension(:,:) :: Cell_dV, inv_Cell_dV ! Cell Volume and its inverse(Weighted Volume, but now it is approximated)
       real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
       real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
 

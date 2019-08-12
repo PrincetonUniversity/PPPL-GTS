@@ -1312,17 +1312,26 @@ subroutine snapshot_hdf5
       h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
       call h5ltmake_dataset_f(file_id, "DG/a_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%a_2D,h5err)
       call h5ltmake_dataset_f(file_id, "DG/gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%gq_2D,h5err)
+      call h5ltmake_dataset_f(file_id, "DG/Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dV,h5err)
 
       call h5ltmake_dataset_f(file_id, "DG/dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%eScaData(:,:,1,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/dne", "unit", "#/m^3", h5err)
       call h5ltmake_dataset_f(file_id, "DG/dTe",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,2,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/dTe", "unit", "eV", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/dTe_consst",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,3,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/dTe_consst", "unit", "eV", h5err)
+
 
       h5dims(1:3)=(/3,DG%dim_gq,DG%dim_a/)
       call h5ltmake_dataset_f(file_id, "DG/eFlux_p",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eVecData(:,:,:,1,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/eFlux_p", "unit", "1/(m^2*s)", h5err)
-      call h5ltmake_dataset_f(file_id, "DG/eFlux_E",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eVecData(:,:,:,2,1)),h5err)
+      call h5ltmake_dataset_f(file_id, "DG/eFlux_p_ExB",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eVecData(:,:,:,2,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/eFlux_p_ExB", "unit", "1/(m^2*s)", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/eFlux_E",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eVecData(:,:,:,3,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/eFlux_E", "unit", "J/(m^2*s)", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/eFlux_E_ExB",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eVecData(:,:,:,4,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/eFlux_E_ExB", "unit", "J/(m^2*s)", h5err)
+
 
       call h5gclose_f(gid_PARAMS, h5err)
       call h5gclose_f(gid_FLA, h5err)
