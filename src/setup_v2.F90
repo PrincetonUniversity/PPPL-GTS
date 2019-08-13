@@ -1321,7 +1321,7 @@ Subroutine setup
    call MPI_ALLREDUCE(pmarki,allnodes,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
 
    totalv=sum(allnodes)
-   iNrNm=totalv ! will be divided by total number of markers (misum_i8) at load
+   iNrNm=deltaz*totalv ! will be divided by total number of markers (misum_i8) at load
 
    call MPI_ALLREDUCE(jaco_sum,fluxpsi,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
    jaco_sum=fluxpsi ! =int(J*dtheta*dzeta); fluxpsi is released after a use

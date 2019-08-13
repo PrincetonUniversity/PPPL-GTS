@@ -3373,7 +3373,7 @@ subroutine Init_Diagnostic_Grid
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
    DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
-   DG%num_SD = 3
+   DG%num_SD = 6
    DG%num_VD = 4
 
 
@@ -3391,6 +3391,7 @@ subroutine Init_Diagnostic_Grid
 
    k=1
    do i=0,mpsi,DG%a_jump
+      DG%ori_aid(k) = i
       DG%a_1D(k) = psi_grid(i)
       DG%a_2D(:,k) = psi_grid(i)
       DG%s_1D(k) = s_grid(i)
@@ -3499,10 +3500,11 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    real(wp) ori_inv_ds ! inv_ds of original full grid
    real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
    real(wp) target_zeta
-   integer :: m, j,k, aid, sid, vid, gqid, qq, ss
+   integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
    integer :: length, istatus(MPI_STATUS_SIZE),ierror
 
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1)
+   real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
 
    DG%eScaData=0
    DG%eVecData=0
@@ -3510,6 +3512,14 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    ori_inv_ds = real(mpsi)/(s1-s0)
 
    energy(:) = in_P_data(2,:)
+
+   ! Calculate dne_adiabatic by interpolating dphi on original grids
+   call Interpolate_OriGridData_into_DG(phi(1,:), intpl_dphi)
+   do aid=1,DG%dim_a
+      i = DG%ori_aid(aid)
+      DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(1.0-ZF_SEPARATION)*phi00(i))/Te_grid(i)
+   enddo
+
 
    do m=1,me
 
@@ -3557,10 +3567,13 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
                   ratio=ws1*wgq1*wgf
             end select
 
-            DG%eScaData(qq,ss,1,k) = DG%eScaData(qq,ss,1,k) + ratio*delta_f ! Density
-            DG%eScaData(qq,ss,2,k) = DG%eScaData(qq,ss,2,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f !Temperature definition 1
+            vid=1; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f ! Density
+            vid=2; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f !Temperature definition 1
+            vid=3; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f !
+            vid=4; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Marker Distribution
+            vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*eNrNm ! Integrating f_tot, so n_tot
+            vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*eNrNm*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
-            DG%eScaData(qq,ss,3,k) = DG%eScaData(qq,ss,3,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f !
 
             vid=1 ! Turbulent Particle Flux
             DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f*ghq(m)) ! Radial Flux
@@ -3624,30 +3637,68 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
    ! Do normalization and post-processing
    ! Divide by Cell Volume to get density quantities
-   do k=1,DG%num_SD
-      DG%eScaData(:,:,k,1) = DG%eScaData(:,:,k,1)*DG%inv_Cell_dV
+   do vid=1,DG%num_SD
+      DG%eScaData(:,:,vid,1) = DG%eScaData(:,:,vid,1)*DG%inv_Cell_dV
    enddo
 
    do aid=1,DG%dim_a
       DG%eScaData(:,aid,2,1) = DG%eScaData(:,aid,2,1)/DG%n0_1D(aid) ! Convert Energy to Temperature
    enddo
 
+
+   ! Calculate inverse of tot density (including dne_adiabatic in the case of delta-h electron (ifelectron==2))
    do aid=1,DG%dim_a
-      ! TODO : density in denominator should include adiabatic density as well
-      ! Consistent Temperature by considering density fluctuation in the denominator
-      DG%eScaData(:,aid,3,1) = DG%eScaData(:,aid,3,1)/(DG%n0_1D(aid)+DG%eScaData(:,aid,k,1))
+      inv_tot_ne(:,aid) = 1.0/(DG%n0_1D(aid) + DG%eScaData(:,aid,1,1) + int(ifelectron/2)*DG%dne_adiab(:,aid))
    enddo
 
-   do k=1,DG%num_VD
+   ! Consistent Temperature by considering density fluctuation in the denominator
+   DG%eScaData(:,:,3,1) = DG%eScaData(:,:,3,1)*inv_tot_ne
+   vid=6; DG%eScaData(:,:,vid,1) = DG%eScaData(:,:,vid,1)*inv_tot_ne! Te_tot
+
+
+
+   do vid=1,DG%num_VD
       do j=1,3
-         DG%eVecData(j,:,:,k,1) = DG%eVecData(j,:,:,k,1)*DG%inv_Cell_dV
+         DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dV
       enddo
       do aid=1,DG%dim_a
          do j=1,3
-            DG%eVecData(j,:,aid,k,1) = DG%eVecData(j,:,aid,k,1)/DG%n0_1D(aid)
+            DG%eVecData(j,:,aid,vid,1) = DG%eVecData(j,:,aid,vid,1)/DG%n0_1D(aid)
          enddo
       enddo
    enddo
 
 
 end subroutine Measure_Electrons_on_Diagnostic_Grid
+
+
+subroutine Interpolate_OriGridData_into_DG(oriData_1D, out_IntpData_2D)
+
+   use precision
+   use global_parameters
+   use field_array
+   use Diagnostic_Grid
+   implicit none
+
+   real(wp), dimension(mgrid), intent(in) :: oriData_1D
+   real(wp), dimension(DG%dim_gq,DG%dim_a), intent(out) :: out_IntpData_2D
+
+   integer i,j,ij,jt, ori_aid
+
+   real(wp) ori_inv_dgq(0:mpsi), gqdum, wt
+
+   ori_inv_dgq=1.0/deltat
+
+   do i=1,DG%dim_a
+      do j=1,DG%dim_gq
+
+         ori_aid = DG%ori_aid(i)
+
+         gqdum = modulo(DG%gq_1D(j) - qtinv(ori_aid)*zetamax, 2.0*pi) * ori_inv_dgq(ori_aid)
+         jt=int(gqdum);  wt=gqdum-jt
+         ij=igrid(ori_aid)+jt
+         out_IntpData_2D(j,i) =(1.0-wt)*oriData_1D(ij) + wt*oriData_1D(ij+1)
+      enddo
+   enddo
+
+end subroutine Interpolate_OriGridData_into_DG

@@ -292,11 +292,12 @@ module Diagnostic_Grid
       integer :: num_SD, num_VD ! number of eScaData and eVecData
       real(wp) dgq, inv_dgq ! dgq is constant since it is uniform along theta direction
       real(wp) inv_ds
-      real(wp), allocatable, dimension(:) :: a_1D, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D
+      real(wp), allocatable, dimension(:) :: a_1D, ori_aid, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D
       real(wp), allocatable, dimension(:,:) :: a_2D, gq_2D
       real(wp), allocatable, dimension(:,:) :: Cell_dV, inv_Cell_dV ! Cell Volume and its inverse(Weighted Volume, but now it is approximated)
       real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
       real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
+      real(wp), allocatable, dimension(:,:) :: dne_adiab ! Electron adiabatic density for diagnostic purpose
 
       ! Magnetic Field Information (ESI variables)
       real(wp), allocatable, dimension(:,:) :: F,dFda,dgFda,dgYda,R,dRda,dRdgq,Z,dZda,dZdgq,BB,dBBda,dBBdgq,P,T
