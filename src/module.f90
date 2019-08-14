@@ -198,6 +198,8 @@ module particle_array
    real(wp),dimension(:),allocatable :: backn,backu,backT,dlnnda,dlnTda,&
       backne,backue,backTe,dlnndae,&
       dlnTdae,duda
+   real(wp),dimension(:),allocatable :: back_f0_i, back_f0_e
+
 end module particle_array
 
 module field_array

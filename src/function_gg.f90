@@ -1306,6 +1306,7 @@ subroutine n_T_u_group
    implicit  none
    integer i, ip
    real(wp)  r, fip, dela, tempi
+   real(wp) back_flux_A(mi), back_U_para, A_over_meanA, E_over_T
 
    dela=(a1-a0)/real(jr,wp)
    dela=1.0_wp/dela
@@ -1329,6 +1330,7 @@ subroutine n_T_u_group
             duda(i)=fip*dIomg_node(ip+1)+(1.0_wp-fip)*dIomg_node(ip) ! d(omega_t)/da at particles
             gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
             ! A=exp(u^2/2T)
+            back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
          enddo
 
       else              ! use spline
@@ -1345,6 +1347,7 @@ subroutine n_T_u_group
             ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
             fip=r-real(ip,wp)
             gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
+            back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
             ! A=exp(u^2/2T)
          enddo
 
@@ -1352,8 +1355,8 @@ subroutine n_T_u_group
 
       !$omp parallel do private(i)
       do i=1,mi
-         dlnnda(i)=dlnnda(i)/backn(i)      !=dlnn/da
-         dlnTda(i)=dlnTda(i)/backT(i)      !=dlnT/da
+         dlnnda(i)=dlnnda(i)/backn(i)      ! =dlnn/da
+         dlnTda(i)=dlnTda(i)/backT(i)      ! =dlnT/da
       end do
 
    else                  ! use model profiles
@@ -1386,6 +1389,8 @@ subroutine n_T_u_group
             fip=r-real(ip,wp)
             gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
             ! A=exp(u^2/2T)
+
+            back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
          end do
       else      ! second analytic profile
          !$omp parallel do private(i,r,ip,fip,tempi)
@@ -1413,6 +1418,9 @@ subroutine n_T_u_group
 
             tempi=Bu*(zion(1,i)-rc)
             duda(i)  =Au*exp(-ABS(tempi)**xu)       ! =d[omega_t(a)]/da
+
+            back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
+
          end do
       end if
    end if
@@ -1420,6 +1428,16 @@ subroutine n_T_u_group
    !     neglect rotation
    !       backu=0.0
    !       duda=0.0
+
+   ! Calculate Shifted Maxwellian f0 for ions.
+   call esigetbf(zion, mi, size(zion,1))
+
+   do i=1, mi
+         back_U_para = F(i)/BB(i)*backu(i)
+         A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
+         E_over_T = (1.0/backT(i)) * ( 0.5*(zion(4,i)*BB(i)-back_U_para)**2.0  + (zion(6,i)**2.0)*BB(i) )
+         back_f0_i(i) = backn(i)*A_over_meanA*(1.0_wp/(twopi*backT(i)))**(1.5)*exp(-E_over_T)
+   enddo
 
 end subroutine n_T_u_group
 
@@ -1445,6 +1463,8 @@ subroutine n_T_u_group_e
    implicit  none
    integer i, ip
    real(wp)  r, fip, dela, tempe
+   real(wp) Te_norm ! normalized Te which has same unit of Ti (Te_norm = Te_real/(mo*v0^2))
+   real(wp) E_over_T
 
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
@@ -1531,6 +1551,15 @@ subroutine n_T_u_group_e
    end if
 
    backue=0._wp    ! neglect rotation
+
+   ! Calculate Shifted Maxwellian f0 for ions.
+   call esigetb(zeon, me, size(zeon,1))
+   do i=1, me
+         Te_norm = backTe(i)*msm0  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+         ! Electron rotation is ignored!
+         E_over_T= (1.0/Te_norm)* (0.5*msm0*(zeon(4,i)*BB(i)*csc0*m0ms)**2.0  + (zeon(6,i)**2.0)*BB(i))
+         back_f0_e(i) = backne(i)*(msm0/(twopi*Te_norm))**(1.5) * exp(-E_over_T)
+   enddo
 
 end subroutine n_T_u_group_e
 

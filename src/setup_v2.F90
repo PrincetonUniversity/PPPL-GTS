@@ -1749,6 +1749,7 @@ Subroutine setup
       ghq(mimax),sw(mimax),backn(mimax),backu(mimax),backT(mimax),&
       dlnnda(mimax),dlnTda(mimax),backne(mimax),backue(mimax),&
       backTe(mimax),dlnndae(mimax),dlnTdae(mimax),duda(mimax))
+   allocate(back_f0_i(mimax),back_f0_e(memax))
    allocate(dvi_gf(mimax), dve_gf(memax))
    allocate(vpara_dvi_a(mimax), vpara_dvi_gq(mimax),vpara_dvi_gf(mimax))
    allocate(vpara_dve_a(memax), vpara_dve_gq(memax),vpara_dve_gf(memax))
