@@ -22,7 +22,7 @@ module global_parameters
       idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,maintnT,&
       nelectron,ntracer_e,ntracer00,me00,idiag_e
    real(wp) misum,mesum  !Total number of ions and electrons can be >2 billion
-   real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,tstep,kappati,kappate,&
+   real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,inv_twopi,tstep,kappati,kappate,&
       kappan,flow0,flow1,flow2,ulength,utime,E_00,gyroradius,deltar,&
       deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,&
       uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &

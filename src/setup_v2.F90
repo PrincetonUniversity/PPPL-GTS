@@ -111,6 +111,7 @@ Subroutine setup
    pi=4.0_wp*atan(1.0_wp)
    twopi=2.0_wp*pi
 
+   inv_twopi = 1.0/twopi
    dtheta=dtheta*twopi
    tprobe=tprobe*pi
 
