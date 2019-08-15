@@ -685,12 +685,14 @@ subroutine load_uniform_MGY
    backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
 
    do m=1,mi
-      ! Do Sampling for the following region
+      ! Do Sampling for the following ranges
       ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+      ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
       ! 0 < u_perp < umax*sqrt(2T/m)
+      ! 0 < sqrt(mu) < sqrt(T/B)*u
 
       zion(4,m) = (2.0*sprng()-1.0)*umax *sqrt(backT(m))/BB(m)  ! u*sqrt(T)/BB + backu/BB
-      if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! neglect electron rotation
+      !if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This was for the quiet start..
       zion(4,m) = zion(4,m) + backu(m)/BB(m) ! add backu term
       zion(6,m) = sqrt(backT(m)/(BB(m)))*sprng()*umax ! sqrt(mu) = sqrt(m*uperp^2/2B)=sqrT(T/B)*u; mu=T/B*u^2
       ilabels(m) = mype + 1e5*m
@@ -706,12 +708,8 @@ subroutine load_uniform_MGY
       each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m))
 
       integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
-      ! zion(5,m)  = (2.0*sprng()-1.0)*w_initial_in*each_ptl_d6z*back_f0_i(m)*(1.0+cos(zion(2,m)))
-      zion(5,m)  = (2.0*sprng()-1.0)*w_initial_in*integral_f0
-
-      ! zion0(6,m) = (1.0+1.0/w_initial_in)*zion(5,m)
+      zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
       zion0(6,m) = integral_f0 + zion(5,m)
-
    enddo
 
 
@@ -736,17 +734,18 @@ subroutine load_uniform_MGY
 
    ! =================================================
    ! Electron Part
+   ! NOTE : This is not the quiet start! Electrons will be sampled using own random numbers
    ! =================================================
    if(ifelectron/=0) then
       do m=1,me
+         zeon(1,m) = a0+ sprng()*(a1-a0)
+         zeon(2,m) = sprng()*(2.0*pi)
+         zeon(3,m) = zetamin + sprng()*(zetamax-zetamin)
 
-         zeon(1,m) = zion(1,m)
-         zeon(2,m) = zion(2,m)
-         zeon(3,m) = zion(3,m)
-         zeon(7,m) = zion(7,m)
+         zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
+         zeon(7,m)=min(s1,max(s0,zeon(7,m)))
 
          elabels(m) = mype +  1e5*m
-
       enddo
 
       call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
@@ -756,8 +755,17 @@ subroutine load_uniform_MGY
       enddo
 
       do m=1,me
-         zeon(4,m)=zeon(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
-         zeon(6,m)=zion(6,m)*sqrt(Te_norm(m)/backT(m))     ! =sqrt(mu_e)
+         ! ! Following two lines were for quiet start.. but are not necessary now.
+         ! zeon(4,m)=zeon(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
+         ! zeon(6,m)=zion(6,m)*sqrt(Te_norm(m)/backT(m))     ! =sqrt(mu_e)
+
+         ! Do Sampling for the following ranges
+         ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+         ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
+         ! 0 < u_perp < umax*sqrt(2T/m)
+         ! 0 < sqrt(mu) < sqrt(T/B)*u
+         zeon(4,m) = (2.0*sprng()-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
+         zeon(6,m) = sqrt(Te_norm(m)/BB(m))*sprng()*umax
       enddo
 
       call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
@@ -771,10 +779,7 @@ subroutine load_uniform_MGY
          each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms)
 
          integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
-         ! zeon(5,m)  = (2.0*sprng()-1.0)*w_initial_in*each_ptl_d6z*back_f0_e(m)*(1.0+cos(zeon(2,m)))
-         zeon(5,m)  = (2.0*sprng()-1.0)*w_initial_in*integral_f0
-
-         ! zeon0(6,m) = (1.0+1.0/w_initial_in)*zeon(5,m)
+         zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
          zeon0(6,m) = integral_f0 + zeon(5,m)
       enddo
 
