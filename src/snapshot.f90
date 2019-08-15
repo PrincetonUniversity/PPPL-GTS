@@ -951,6 +951,10 @@ subroutine snapshot_hdf5
       call h5ltset_attribute_string_f(file_id, "gq_2D", "unit", "radians", h5err)
 
 
+      call Interpolate_Data_into_Coarser_Grids(Node_simple_Vol,gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "ori_Node_simple_Vol",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+      call h5ltset_attribute_string_f(file_id, "ori_Node_simple_Vol", "unit", "m^3", h5err)
+
       ! dphi_2D
       k=1
       do i=0,mpsi,a_jump

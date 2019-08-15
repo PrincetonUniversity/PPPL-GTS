@@ -1340,6 +1340,7 @@ Subroutine setup
       !     pmarki is the inverse of total particle # (sum over nodes) at an annulus i
       !     pmarki(i)=1.0/(real(numberpe)*real(mi)*(pmarki(i)/eachv))
       markeri(igrid(i))=markeri(igrid(i)+mtheta(i)) ! markeri(:,igrid(i)) is missing in last do-loop
+      Node_simple_Vol(igrid(i))=Node_simple_Vol(igrid(i)+mtheta(i))
       dtemper(igrid(i))=dtemper(igrid(i)+mtheta(i))
       Jcbn(igrid(i))=Jcbn(igrid(i)+mtheta(i))
       gij(:,igrid(i))=gij(:,igrid(i)+mtheta(i))
