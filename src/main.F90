@@ -170,8 +170,11 @@ program GTS
    endif
 
    ! initialize particle position and velocity
-   call load
-
+   if(Flag_Load_and_WeightDef==0) then
+      call load
+   else
+      call load_uniform_MGY()
+   endif
    if(mype==0) then
       call check_eq
       !     call view_distribution(0)
@@ -459,8 +462,10 @@ program GTS
       end if
 
       if(mod(istep,10)==0) then
-         call check_abnormal_weight_electrons
-         call check_abnormal_weight_ions
+         if(Flag_Load_and_WeightDef==0) then
+            call check_abnormal_weight_electrons
+            call check_abnormal_weight_ions
+         endif
          if(Flag_w_Threshold==2) call Abandon_Abnormal_Particles
       endif
 

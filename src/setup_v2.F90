@@ -2401,7 +2401,8 @@ Subroutine read_input_params
       Flag_GC_Solver,     &   ! Default=1 (vector form), can be set =0(matrix form) by INPUT.d
       Flag_Poisson,       &   ! Default=1 (ON), can be set =0(OFF) by INPUT.d
       Flag_w_Evol, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
-      Flag_w_Threshold,&
+      Flag_w_Threshold,   &
+      Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
@@ -2515,6 +2516,7 @@ Subroutine read_input_params
       write(0,*) 'Flag_Poisson=', Flag_Poisson
       write(0,*) 'Flag_w_Evol=', Flag_w_Evol
       write(0,*) 'Flag_w_Threshold=', Flag_w_Threshold
+      write(0,*) 'Flag_Load_and_WeightDef=', Flag_Load_and_WeightDef
       write(0,*) 'w_Thold_min=', w_Thold_min
       write(0,*) 'w_Thold_max=', w_Thold_max
       write(0,*) 'tstep=', tstep

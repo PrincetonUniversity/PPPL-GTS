@@ -487,7 +487,9 @@ subroutine load
    write(stdout,*) "In Loading.F90  I'm=",mype, "ini_mi=", ini_mi, ", ini_me=",ini_me
    call flush(stdout)
 
-
+   if(mype==0)then
+      write(stdout,*) "In Loading.F90, real loaded misum=", misum
+   endif
 
    if(mi/= ini_mi) then
       write(stdout,*) "mi=", mi, ", ini_mi=",ini_mi, " , are different!!! Error!"
@@ -596,3 +598,253 @@ subroutine load
 
 
 end subroutine load
+
+
+
+subroutine load_uniform_MGY
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use particle_array
+   use field_array
+   use diagnosis_array
+   use esi_interface
+   use control_parameters
+   implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+   integer :: minpts, ifail=1, ierror
+   real(wp) :: acc, error_8=1e-5
+   real(wp), external:: dsda, D01AHF
+
+   real(wp) dela, r, fip, ave0
+   real(wp) inv_Nm ! inverse of total number of Marker particles for each speceis (actually, they are the same)
+   real(wp) each_ptl_d6z ! d6z(=da*dgq*dgf*dvpara*dvperp) is the micro phase space volume which each particle occupies
+   real(wp) Te_norm(1:mi) !  normalized-Te=Te/E_0, the same unit as normalized Ti
+   integer m,ip,i,j,ij
+   real(wp) jacobian,density
+   real(wp) dpsi,zdum,tdum,pdum
+   real(wp) integral_f0
+
+
+   me=mi
+
+   ini_mi=mi
+   ini_me=me
+
+   inv_Nm=1.0/(real(mi)*numberpe)
+
+   if(mype==0) then
+      write(stdout,*) "In load_uniform_MGY, inv_Nm = ",inv_Nm
+      call flush(stdout)
+   endif
+
+   ! NOTE : markere and markeri definitions are changed
+   ! They are now inverse of the (node volume*n0)
+   do i=0,mpsi
+      pdum=psi_grid(i)
+      if(i==0) then
+         dpsi=(psi_grid(1)-psi_grid(0))*0.5_wp         ! half cell
+      else if(i==mpsi) then
+         dpsi=(psi_grid(mpsi)-psi_grid(mpsi-1))*0.5_wp ! half cell
+      else
+         dpsi=(psi_grid(i+1)-psi_grid(i-1))*0.5_wp     ! full cell
+      endif
+
+      do j=0,mtheta(i)
+         ij=igrid(i)+j
+         zdum=zetamin+deltaz
+         tdum=real(j,wp)*deltat(i)+zdum*qtinv(i)
+
+         markeri(ij)=Jacobian(pdum,tdum)*density(pdum,tdum)*dpsi*deltat(i)*deltaz
+      enddo
+   enddo
+   markeri = 1.0/(markeri)
+   markere = markeri
+
+
+
+   ! =================================================
+   ! Ion Part
+   ! =================================================
+   do m=1,mi
+      zion(1,m) = a0+ sprng()*(a1-a0)
+      zion(2,m) = sprng()*(2.0*pi)
+      zion(3,m) = zetamin + sprng()*(zetamax-zetamin)
+
+      zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)
+      zion(7,m)=min(s1,max(s0,zion(7,m)))
+   enddo
+
+   call esigetbf(zion,mi,size(zion,1))
+   call n_T_u_group  ! get T, n and omega_t, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+   backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
+
+   do m=1,mi
+      ! Do Sampling for the following region
+      ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+      ! 0 < u_perp < umax*sqrt(2T/m)
+
+      zion(4,m) = (2.0*sprng()-1.0)*umax *sqrt(backT(m))/BB(m)  ! u*sqrt(T)/BB + backu/BB
+      if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! neglect electron rotation
+      zion(4,m) = zion(4,m) + backu(m)/BB(m) ! add backu term
+      zion(6,m) = sqrt(backT(m)/(BB(m)))*sprng()*umax ! sqrt(mu) = sqrt(m*uperp^2/2B)=sqrT(T/B)*u; mu=T/B*u^2
+      ilabels(m) = mype + 1e5*m
+   enddo
+
+   call n_T_u_group  ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+
+   ! Set initial weights of ions
+   do m=1,mi
+      ! zion(5,m) is "df"
+      ! zion0(6,m) is "f_tot"
+
+      each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m))
+
+      integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
+      ! zion(5,m)  = (2.0*sprng()-1.0)*w_initial_in*each_ptl_d6z*back_f0_i(m)*(1.0+cos(zion(2,m)))
+      zion(5,m)  = (2.0*sprng()-1.0)*w_initial_in*integral_f0
+
+      ! zion0(6,m) = (1.0+1.0/w_initial_in)*zion(5,m)
+      zion0(6,m) = integral_f0 + zion(5,m)
+
+   enddo
+
+
+   ! dela=(a1-a0)/real(jr,wp)
+   ! dela=1.0_wp/dela
+   ! do m=1,mi
+   !    ! Replaced by linear interpolation in terms of a pre-generated table flux_A. 3/08
+   !    r=zion(1,m)-a0
+   !    r=r*dela
+   !    ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
+   !    fip=r-real(ip,wp)
+   !    ave0=fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip)       ! ave0=<exp(u^2/2T)> at particles
+   !    zion0(6,m)=exp(backu(m)**2/(2.0*backT(m)))/ave0     ! =1 if u_//=0 (no rotation)
+   ! enddo
+
+   wi_init  = zion(5,:)
+   wi_vpara = 0
+   wi_vperp = 0
+   wi_accel = 0
+   wi_fdamp = 0
+
+
+   ! =================================================
+   ! Electron Part
+   ! =================================================
+   if(ifelectron/=0) then
+      do m=1,me
+
+         zeon(1,m) = zion(1,m)
+         zeon(2,m) = zion(2,m)
+         zeon(3,m) = zion(3,m)
+         zeon(7,m) = zion(7,m)
+
+         elabels(m) = mype +  1e5*m
+
+      enddo
+
+      call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+
+      do m=1,me
+         Te_norm(m) = backTe(m)*msm0
+      enddo
+
+      do m=1,me
+         zeon(4,m)=zeon(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
+         zeon(6,m)=zion(6,m)*sqrt(Te_norm(m)/backT(m))     ! =sqrt(mu_e)
+      enddo
+
+      call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+
+
+      ! Set initial weights of electrons
+      do m=1,me
+         ! zeon(5,m) is "df"
+         ! zeon0(6,m) is "f_tot"
+
+         each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms)
+
+         integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
+         ! zeon(5,m)  = (2.0*sprng()-1.0)*w_initial_in*each_ptl_d6z*back_f0_e(m)*(1.0+cos(zeon(2,m)))
+         zeon(5,m)  = (2.0*sprng()-1.0)*w_initial_in*integral_f0
+
+         ! zeon0(6,m) = (1.0+1.0/w_initial_in)*zeon(5,m)
+         zeon0(6,m) = integral_f0 + zeon(5,m)
+      enddo
+
+
+      we_init(:)  = zeon(5,:)
+      we_vpara = 0
+      we_vperp = 0
+      we_accel = 0
+      we_adiab = 0
+      we_fdamp = 0
+   endif
+
+
+
+
+   ! (Min-Gu Yoo; 06/25/2018)
+   ! For multiple tracers of ions to test Poincare Plot under electromagnetic perturbation
+   if (mype==0) then
+      ! Assign Electron tracer labels
+      do i=1, num_of_etracers
+         m = (real(i)/(num_of_etracers+1.0)) * ini_me
+         etracers_labels(i) = elabels(m)
+      enddo
+
+      ! Assign Ion tracer labels
+      do i=1, num_of_itracers
+         m = (real(i)/(num_of_itracers+1.0)) * ini_mi
+         itracers_labels(i) = ilabels(m)
+      end do
+
+      ! For diagnostic purpose
+      if(mype==0) then
+         m = 0.5*ini_mi
+         write(stdout,*) m,"-th ion's each_ptl_d6z=", inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m)), ", back_f0_i(m)=",back_f0_i(m)
+         call flush(stdout)
+
+         m = 0.5*ini_me
+         write(stdout,*) m,"-th electron's each_ptl_d6z=", inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms),  ", back_f0_e(m)=",back_f0_e(m)
+         call flush(stdout)
+      endif
+   endif
+
+
+   do m=1,mi
+      wi_init(m)  = zion(5,m)
+      UnNorm_theta_i(m) =zion(2,m)
+      UnNorm_zeta_i(m)  =zion(3,m)
+   enddo
+   do m=1,me
+      we_init(m)  = zeon(5,m)
+      UnNorm_theta_e(m) =zeon(2,m)
+      UnNorm_zeta_e(m)  =zeon(3,m)
+   enddo
+
+   call MPI_BCAST(etracers_labels,num_of_etracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+   call MPI_BCAST(itracers_labels,num_of_itracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+
+
+   write(stdout,*) "In Loading.F90  I'm=",mype, "ini_mi=", ini_mi, ", ini_me=",ini_me
+   call flush(stdout)
+
+   if(mi/= ini_mi) then
+      write(stdout,*) "mi=", mi, ", ini_mi=",ini_mi, " , are different!!! Error!"
+      call flush(stdout)
+      call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
+   endif
+
+
+
+   if(irun==0) ddT_da=0.0_wp
+   if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
+
+end subroutine load_uniform_MGY

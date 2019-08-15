@@ -138,6 +138,7 @@ module global_parameters
    integer :: Flag_Poisson=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
    integer :: Flag_w_Evol=0  ! Default=0 (OFF;original equation), can be set =1(Transformed Weight Evolution Equation) by INPUT.d
    integer :: Flag_GC_Solver=1 ! Default=1 (Vector form GC equation), can be set =0(Matrix form GC equation)
+   integer :: Flag_Load_and_WeightDef=0 ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
 
 end module global_parameters
 
