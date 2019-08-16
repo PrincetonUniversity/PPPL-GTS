@@ -629,7 +629,7 @@ subroutine load_uniform_MGY
    real(wp) jacobian,density
    real(wp) dpsi,zdum,tdum,pdum
    real(wp) integral_f0
-
+   real(wp) v_abs, v_theta, vpara, vperp ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
 
    me=mi
 
@@ -685,16 +685,27 @@ subroutine load_uniform_MGY
    backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
 
    do m=1,mi
-      ! Do Sampling for the following ranges
-      ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
-      ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
-      ! 0 < u_perp < umax*sqrt(2T/m)
-      ! 0 < sqrt(mu) < sqrt(T/B)*u
+      ! ! Do Sampling for the following ranges
+      ! ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+      ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
+      ! ! 0 < u_perp < umax*sqrt(2T/m)
+      ! ! 0 < sqrt(mu) < sqrt(T/B)*u
+      ! zion(4,m) = (2.0*sprng()-1.0)*umax *sqrt(backT(m))/BB(m)  ! u*sqrt(T)/BB + backu/BB
+      ! if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This was for the quiet start..
+      ! zion(4,m) = zion(4,m) + backu(m)/BB(m) ! add backu term
+      ! zion(6,m) = sqrt(backT(m)/(BB(m)))*sprng()*umax ! sqrt(mu) = sqrt(m*uperp^2/2B)=sqrT(T/B)*u; mu=T/B*u^2
+      ! ilabels(m) = mype + 1e5*m
 
-      zion(4,m) = (2.0*sprng()-1.0)*umax *sqrt(backT(m))/BB(m)  ! u*sqrt(T)/BB + backu/BB
-      if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This was for the quiet start..
+      ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
+      v_abs = umax*sqrt(backT(m))*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
+      v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
+      vpara=v_abs*cos(v_theta)
+      vperp=v_abs*sin(v_theta)
+
+      zion(4,m) = vpara/BB(m)
+      if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This is for the quiet start..
       zion(4,m) = zion(4,m) + backu(m)/BB(m) ! add backu term
-      zion(6,m) = sqrt(backT(m)/(BB(m)))*sprng()*umax ! sqrt(mu) = sqrt(m*uperp^2/2B)=sqrT(T/B)*u; mu=T/B*u^2
+      zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
       ilabels(m) = mype + 1e5*m
    enddo
 
@@ -705,7 +716,12 @@ subroutine load_uniform_MGY
       ! zion(5,m) is "df"
       ! zion0(6,m) is "f_tot"
 
-      each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m))
+      !Following line is for square sampling for vpara and vperp
+      !each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m))
+
+      !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+      ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
+      each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m)
 
       integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
       zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
@@ -755,13 +771,22 @@ subroutine load_uniform_MGY
          enddo
       else
          do m=1,me
-            ! Do Sampling for the following ranges
-            ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
-            ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
-            ! 0 < u_perp < umax*sqrt(2T/m)
-            ! 0 < sqrt(mu) < sqrt(T/B)*u
-            zeon(4,m) = (2.0*sprng()-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
-            zeon(6,m) = sqrt(Te_norm(m)/BB(m))*sprng()*umax
+            ! ! Do Sampling for the following ranges
+            ! ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+            ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
+            ! ! 0 < u_perp < umax*sqrt(2T/m)
+            ! ! 0 < sqrt(mu) < sqrt(T/B)*u
+            ! zeon(4,m) = (2.0*sprng()-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
+            ! zeon(6,m) = sqrt(Te_norm(m)/BB(m))*sprng()*umax
+
+            ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
+            v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
+            v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
+            vpara=v_abs*cos(v_theta)
+            vperp=v_abs*sin(v_theta)
+
+            zeon(4,m) = msm0*vpara/(csc0*BB(m))
+            zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
          enddo
       endif
 
@@ -775,7 +800,13 @@ subroutine load_uniform_MGY
          do m=1,me
             ! zeon(5,m) is "df"
             ! zeon0(6,m) is "f_tot"
-            each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms)
+
+            !Following line is for square sampling for vpara and vperp
+            ! each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms)
+
+            !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+            ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
+            each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms
 
             integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
             zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
