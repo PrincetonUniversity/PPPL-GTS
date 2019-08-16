@@ -3493,7 +3493,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    real(wp) P_s, P_safety_q !safety factor
    real(wp) P_a, P_gq, P_gf
 
-   real(wp) delta_f ! perturbed distribution df (f_tot=f0+delta_f)
+   real(wp) delta_f(me), f_tot(me) ! delta_f and f_tot (f_tot=f0+delta_f)
 
    real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
    integer :: ori_sid !sid of original full grid
@@ -3521,11 +3521,17 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    enddo
 
 
+   if(Flag_Load_and_WeightDef==0)then
+      delta_f(:) = zeon0(5,1:me)*eNrNm
+      f_tot(:)   = eNrNm
+   else
+      delta_f(:) = zeon0(5,1:me)
+      f_tot(:)   = zeon0(6,1:me)
+   endif
+
    do m=1,me
 
       if (Flag_w_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
-
-      delta_f = zeon0(5,m)*eNrNm
 
       P_a  = zeon0(1,m)
       P_gq = modulo(zeon0(2,m),2*pi)
@@ -3567,33 +3573,33 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
                   ratio=ws1*wgq1*wgf
             end select
 
-            vid=1; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f ! Density
-            vid=2; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f !Temperature definition 1
-            vid=3; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f !
+            vid=1; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m) ! Density
+            vid=2; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f(m) !Temperature definition 1
+            vid=3; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f(m) !
             vid=4; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Marker Distribution
-            vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*eNrNm ! Integrating f_tot, so n_tot
-            vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*eNrNm*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
+            vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
 
             vid=1 ! Turbulent Particle Flux
-            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f*ghq(m)) ! Radial Flux
-            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f*Ta(m)) ! theta Flux
-            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f*dve_gf(m)) ! zeta Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*Ta(m)) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*dve_gf(m)) ! zeta Flux
 
             vid=2 ! Turbulent Particle Flux due to ExB only
-            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
-            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
-            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
 
             vid=3 ! Turbulent Energy Flux
-            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f*ghq(m)) ! Radial Flux
-            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f*Ta(m)) ! theta Flux
-            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f*dve_gf(m)) ! zeta Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*ghq(m)) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Ta(m)) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*dve_gf(m)) ! zeta Flux
 
             vid=4 ! Turbulent Energy Flux due to ExB only
-            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
-            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
-            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
          enddo
       enddo
    enddo
