@@ -631,6 +631,9 @@ subroutine load_uniform_MGY
    real(wp) integral_f0
    real(wp) v_abs, v_theta, vpara, vperp ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
 
+   integer(kind=8) :: sobol_seed=1, sobol_dim_num=5 ! 5D random number (a,gq,gf,v_abs,v_theta)
+   real(kind=8) rand_5d(5,mi) ! can be sobol quasi random numbers, or can be sprng() numbers
+
    me=mi
 
    ini_mi=mi
@@ -671,10 +674,31 @@ subroutine load_uniform_MGY
    ! =================================================
    ! Ion Part
    ! =================================================
+
+   ! Prepare sobol random numbers in each poloidal plane section
+   ! NOTE: If sobol random numbers are used, then ions and electrons have the same phase positions
+   !       (But initial weight uses sprng() so it might slightly differ from the quiet start)
+   ! Note that ,in this initial version, each poloidal plane section has the exactly same numbers.
+   ! This might cause some artificial initial toroidal mode noise.
+   ! TODO: Full sobol random numbers covering a whole device area might be required in the future.
+   sobol_seed = 1 + myrank_partd*mi
    do m=1,mi
-      zion(1,m) = a0+ sprng()*(a1-a0)
-      zion(2,m) = sprng()*(2.0*pi)
-      zion(3,m) = zetamin + sprng()*(zetamax-zetamin)
+      call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
+   enddo
+
+   ! Follwoing part is to prepare random numbers using sprng
+   ! do m=1,mi
+   !    rand_5d(1,m)=sprng()
+   !    rand_5d(2,m)=sprng()
+   !    rand_5d(3,m)=sprng()
+   !    rand_5d(4,m)=sprng()
+   !    rand_5d(5,m)=sprng()
+   ! enddo
+
+   do m=1,mi
+      zion(1,m) = a0+ rand_5d(1,m)*(a1-a0)
+      zion(2,m) = rand_5d(2,m)*(2.0*pi)
+      zion(3,m) = zetamin + rand_5d(3,m)*(zetamax-zetamin)
 
       zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)
       zion(7,m)=min(s1,max(s0,zion(7,m)))
@@ -690,15 +714,15 @@ subroutine load_uniform_MGY
       ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
       ! ! 0 < u_perp < umax*sqrt(2T/m)
       ! ! 0 < sqrt(mu) < sqrt(T/B)*u
-      ! zion(4,m) = (2.0*sprng()-1.0)*umax *sqrt(backT(m))/BB(m)  ! u*sqrt(T)/BB + backu/BB
+      ! zion(4,m) = (2.0*rand_5d(4,m)-1.0)*umax *sqrt(backT(m))/BB(m)  ! u*sqrt(T)/BB + backu/BB
       ! if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This was for the quiet start..
       ! zion(4,m) = zion(4,m) + backu(m)/BB(m) ! add backu term
-      ! zion(6,m) = sqrt(backT(m)/(BB(m)))*sprng()*umax ! sqrt(mu) = sqrt(m*uperp^2/2B)=sqrT(T/B)*u; mu=T/B*u^2
+      ! zion(6,m) = sqrt(backT(m)/(BB(m)))*rand_5d(5,m)*umax ! sqrt(mu) = sqrt(m*uperp^2/2B)=sqrT(T/B)*u; mu=T/B*u^2
       ! ilabels(m) = mype + 1e5*m
 
       ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
-      v_abs = umax*sqrt(backT(m))*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
-      v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
+      v_abs = umax*sqrt(backT(m))*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
+      v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
       vpara=v_abs*cos(v_theta)
       vperp=v_abs*sin(v_theta)
 
@@ -738,6 +762,27 @@ subroutine load_uniform_MGY
    ! =================================================
    ! Electron Part
    ! =================================================
+
+   ! Prepare sobol random numbers in each poloidal plane section
+   ! NOTE: If sobol random numbers are used, then ions and electrons have the same phase positions
+   !       (But initial weight uses sprng() so it might slightly differ from the quiet start)
+   ! Note that ,in this initial version, each poloidal plane section has the exactly same numbers.
+   ! This might cause some artificial initial toroidal mode noise.
+   ! TODO: Full sobol random numbers covering a whole device area might be required in the future.
+   sobol_seed = 1 + myrank_partd*me
+   do m=1,me
+      call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
+   enddo
+
+   ! Follwoing part is to prepare random numbers using sprng
+   ! do m=1,me
+   !    rand_5d(1,m)=sprng()
+   !    rand_5d(2,m)=sprng()
+   !    rand_5d(3,m)=sprng()
+   !    rand_5d(4,m)=sprng()
+   !    rand_5d(5,m)=sprng()
+   ! enddo
+
    if(ifelectron/=0) then
       if(Flag_Quiet_Start==1) then
          do m=1,me
@@ -749,9 +794,9 @@ subroutine load_uniform_MGY
          enddo
       else
          do m=1,me
-            zeon(1,m) = a0+ sprng()*(a1-a0)
-            zeon(2,m) = sprng()*(2.0*pi)
-            zeon(3,m) = zetamin + sprng()*(zetamax-zetamin)
+            zeon(1,m) = a0+ rand_5d(1,m)*(a1-a0)
+            zeon(2,m) = rand_5d(2,m)*(2.0*pi)
+            zeon(3,m) = zetamin + rand_5d(3,m)*(zetamax-zetamin)
             zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
             zeon(7,m)=min(s1,max(s0,zeon(7,m)))
             elabels(m) = mype +  1e5*m
@@ -776,12 +821,12 @@ subroutine load_uniform_MGY
             ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
             ! ! 0 < u_perp < umax*sqrt(2T/m)
             ! ! 0 < sqrt(mu) < sqrt(T/B)*u
-            ! zeon(4,m) = (2.0*sprng()-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
-            ! zeon(6,m) = sqrt(Te_norm(m)/BB(m))*sprng()*umax
+            ! zeon(4,m) = (2.0*rand_5d(4,m)-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
+            ! zeon(6,m) = sqrt(Te_norm(m)/BB(m))*rand_5d(5,m)*umax
 
             ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
-            v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
-            v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
+            v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
+            v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
             vpara=v_abs*cos(v_theta)
             vperp=v_abs*sin(v_theta)
 
