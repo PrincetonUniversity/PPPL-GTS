@@ -633,6 +633,11 @@ subroutine load_uniform_MGY
 
    integer(kind=8) :: sobol_seed=1, sobol_dim_num=5 ! 5D random number (a,gq,gf,v_abs,v_theta)
    real(kind=8) rand_5d(5,mi) ! can be sobol quasi random numbers, or can be sprng() numbers
+   real(wp) inv_ds, ff, P_s, P_q  !inv_ds is uniform by definition of s_grids
+   integer:: sid ! index for s_grid
+
+   inv_ds = real(mpsi)/(s1-s0)
+
 
    me=mi
 
@@ -692,11 +697,17 @@ subroutine load_uniform_MGY
 
    do m=1,mi
       zion(1,m) = a0+ rand_5d(1,m)*(a1-a0)
-      zion(2,m) = rand_5d(2,m)*(2.0*pi)
-      zion(3,m) = rand_5d(3,m)*(2.0*pi)
-
       zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)
       zion(7,m)=min(s1,max(s0,zion(7,m)))
+
+      P_s = zion(7,m)
+      sid = (P_s-s0)*inv_ds ! s index of original full grid
+      ff  = (P_s-s_grid(sid))*inv_ds
+      P_q = ff*q_grid(sid+1) + (1.0-ff)*q_grid(sid)
+
+      ! Pick random points (theta,phi) with Helically aligned along B field
+      zion(3,m) = 2.0*pi*rand_5d(2,m)
+      zion(2,m) = mod(zion(3,m)/P_q + 2.0*pi*rand_5d(3,m), 2.0*pi)
    enddo
 
    call esigetbf(zion,mi,size(zion,1))
@@ -787,10 +798,18 @@ subroutine load_uniform_MGY
       else
          do m=1,me
             zeon(1,m) = a0+ rand_5d(1,m)*(a1-a0)
-            zeon(2,m) = rand_5d(2,m)*(2.0*pi)
-            zeon(3,m) = rand_5d(3,m)*(2.0*pi)
             zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
             zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+
+            P_s = zeon(7,m)
+            sid = (P_s-s0)*inv_ds ! s index of original full grid
+            ff  = (P_s-s_grid(sid))*inv_ds
+            P_q = ff*q_grid(sid+1) + (1.0-ff)*q_grid(sid)
+
+            ! Pick random points (theta,phi) with Helically aligned along B field
+            zeon(3,m) = 2.0*pi*rand_5d(2,m)
+            zeon(2,m) = mod(zeon(3,m)/P_q + 2.0*pi*rand_5d(3,m), 2.0*pi)
+
             elabels(m) = mype +  1e5*m
          enddo
       endif
