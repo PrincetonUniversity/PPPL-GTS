@@ -636,8 +636,6 @@ subroutine load_uniform_MGY
 
    me=mi
 
-   ini_mi=mi
-   ini_me=me
 
    inv_Nm=1.0/(real(mi)*numberpe)
 
@@ -675,13 +673,10 @@ subroutine load_uniform_MGY
    ! Ion Part
    ! =================================================
 
-   ! Prepare sobol random numbers in each poloidal plane section
-   ! NOTE: If sobol random numbers are used, then ions and electrons have the same phase positions
-   !       (But initial weight uses sprng() so it might slightly differ from the quiet start)
-   ! Note that ,in this initial version, each poloidal plane section has the exactly same numbers.
-   ! This might cause some artificial initial toroidal mode noise.
-   ! TODO: Full sobol random numbers covering a whole device area might be required in the future.
-   sobol_seed = 1 + myrank_partd*mi
+   ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
+   ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
+   ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
+   sobol_seed = 1 + mype*mi
    do m=1,mi
       call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
    enddo
@@ -698,7 +693,7 @@ subroutine load_uniform_MGY
    do m=1,mi
       zion(1,m) = a0+ rand_5d(1,m)*(a1-a0)
       zion(2,m) = rand_5d(2,m)*(2.0*pi)
-      zion(3,m) = zetamin + rand_5d(3,m)*(zetamax-zetamin)
+      zion(3,m) = rand_5d(3,m)*(2.0*pi)
 
       zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)
       zion(7,m)=min(s1,max(s0,zion(7,m)))
@@ -763,13 +758,10 @@ subroutine load_uniform_MGY
    ! Electron Part
    ! =================================================
 
-   ! Prepare sobol random numbers in each poloidal plane section
-   ! NOTE: If sobol random numbers are used, then ions and electrons have the same phase positions
-   !       (But initial weight uses sprng() so it might slightly differ from the quiet start)
-   ! Note that ,in this initial version, each poloidal plane section has the exactly same numbers.
-   ! This might cause some artificial initial toroidal mode noise.
-   ! TODO: Full sobol random numbers covering a whole device area might be required in the future.
-   sobol_seed = 1 + myrank_partd*me
+   ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
+   ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
+   ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
+   sobol_seed = 1 + mype*me
    do m=1,me
       call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
    enddo
@@ -796,7 +788,7 @@ subroutine load_uniform_MGY
          do m=1,me
             zeon(1,m) = a0+ rand_5d(1,m)*(a1-a0)
             zeon(2,m) = rand_5d(2,m)*(2.0*pi)
-            zeon(3,m) = zetamin + rand_5d(3,m)*(zetamax-zetamin)
+            zeon(3,m) = rand_5d(3,m)*(2.0*pi)
             zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
             zeon(7,m)=min(s1,max(s0,zeon(7,m)))
             elabels(m) = mype +  1e5*m
@@ -875,13 +867,13 @@ subroutine load_uniform_MGY
    if (mype==0) then
       ! Assign Electron tracer labels
       do i=1, num_of_etracers
-         m = (real(i)/(num_of_etracers+1.0)) * ini_me
+         m = (real(i)/(num_of_etracers+1.0)) * me
          etracers_labels(i) = elabels(m)
       enddo
 
       ! Assign Ion tracer labels
       do i=1, num_of_itracers
-         m = (real(i)/(num_of_itracers+1.0)) * ini_mi
+         m = (real(i)/(num_of_itracers+1.0)) * mi
          itracers_labels(i) = ilabels(m)
       end do
 
@@ -913,16 +905,15 @@ subroutine load_uniform_MGY
    call MPI_BCAST(itracers_labels,num_of_itracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
 
 
-   write(stdout,*) "In Loading.F90  I'm=",mype, "ini_mi=", ini_mi, ", ini_me=",ini_me
+   ! Distribute ions and electrons to appropriate MPI ranks
+   call shifti
+   call shifte
+
+   ini_mi=mi
+   ini_me=me
+
+   write(stdout,*) "In load_uniform_MGY, I'm=",mype, "mi=", mi, ", me=",me
    call flush(stdout)
-
-   if(mi/= ini_mi) then
-      write(stdout,*) "mi=", mi, ", ini_mi=",ini_mi, " , are different!!! Error!"
-      call flush(stdout)
-      call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
-   endif
-
-
 
    if(irun==0) ddT_da=0.0_wp
    if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
