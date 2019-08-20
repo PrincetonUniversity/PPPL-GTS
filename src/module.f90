@@ -289,7 +289,8 @@ module Diagnostic_Grid
    type Grid_Info
       integer :: gq_jump=2, a_jump=1
       integer :: dim_a, dim_gq
-      integer :: num_SD, num_VD ! number of eScaData and eVecData
+      integer :: num_eSD, num_eVD ! number of eScaData and eVecData (electrons)
+      integer :: num_iSD, num_iVD ! number of iScaData and iVecData (ions)
       real(wp) dgq, inv_dgq ! dgq is constant since it is uniform along theta direction
       real(wp) inv_ds
       real(wp), allocatable, dimension(:) :: a_1D, ori_aid, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D

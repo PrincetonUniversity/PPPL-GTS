@@ -3373,9 +3373,11 @@ subroutine Init_Diagnostic_Grid
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
    DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
-   DG%num_SD = 6
-   DG%num_VD = 4
+   DG%num_eSD = 6
+   DG%num_eVD = 4
 
+   DG%num_iSD = 7 ! additional ni_Larmor by considering larmor orbit of ions
+   DG%num_iVD = 4
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
    DG%inv_dgq = 1.0/DG%dgq
@@ -3387,8 +3389,8 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%ori_aid, DG%s_1D, DG%n0_1D, DG%Te0_1D, DG%Ti0_1D, mold=DG%a_1D)
    allocate(DG%a_2D(DG%dim_gq,DG%dim_a))
    allocate(DG%gq_2D, DG%Cell_dV, DG%inv_Cell_dV, DG%dne_adiab, mold=DG%a_2D)
-   allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1) )
-   allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1) )
+   allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1) )
+   allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1) )
 
    k=1
    do i=0,mpsi,DG%a_jump
@@ -3504,7 +3506,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
    integer :: length, istatus(MPI_STATUS_SIZE),ierror
 
-   real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1)
+   real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1)
    real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
 
    DG%eScaData=0
@@ -3610,10 +3612,10 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
       tmp_Scalar_Data = DG%eScaData
       tmp_Vector_Data = DG%eVecData
 
-      length = DG%dim_gq*DG%dim_a*DG%num_SD*2
+      length = DG%dim_gq*DG%dim_a*DG%num_eSD*2
       call MPI_ALLREDUCE(tmp_Scalar_Data, DG%eScaData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
 
-      length = 3*DG%dim_gq*DG%dim_a*DG%num_VD*2
+      length = 3*DG%dim_gq*DG%dim_a*DG%num_eVD*2
       call MPI_ALLREDUCE(tmp_Vector_Data, DG%eVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
    endif
 
@@ -3631,20 +3633,20 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
 
    ! toroidal end cell
-   length = DG%dim_gq*DG%dim_a*DG%num_SD
+   length = DG%dim_gq*DG%dim_a*DG%num_eSD
    call MPI_SENDRECV(DG%eScaData(:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Scalar_Data(:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG%eScaData(:,:,:,1) = DG%eScaData(:,:,:,1) + tmp_Scalar_Data(:,:,:,1)
 
 
 
-   length = 3*DG%dim_gq*DG%dim_a*DG%num_VD
+   length = 3*DG%dim_gq*DG%dim_a*DG%num_eVD
    call MPI_SENDRECV(DG%eVecData(:,:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Vector_Data(:,:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG%eVecData(:,:,:,:,1) = DG%eVecData(:,:,:,:,1) + tmp_Vector_Data(:,:,:,:,1)
 
 
    ! Do normalization and post-processing
    ! Divide by Cell Volume to get density quantities
-   do vid=1,DG%num_SD
+   do vid=1,DG%num_eSD
       DG%eScaData(:,:,vid,1) = DG%eScaData(:,:,vid,1)*DG%inv_Cell_dV
    enddo
 
@@ -3664,7 +3666,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
 
 
-   do vid=1,DG%num_VD
+   do vid=1,DG%num_eVD
       do j=1,3
          DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dV
       enddo
@@ -3709,7 +3711,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
    integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
    integer :: length, istatus(MPI_STATUS_SIZE),ierror
 
-   real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1)
+   real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1)
    real(wp) ::inv_tot_ni(DG%dim_gq, DG%dim_a)
 
    DG%iScaData=0
@@ -3807,10 +3809,10 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
       tmp_Scalar_Data = DG%iScaData
       tmp_Vector_Data = DG%iVecData
 
-      length = DG%dim_gq*DG%dim_a*DG%num_SD*2
+      length = DG%dim_gq*DG%dim_a*DG%num_iSD*2
       call MPI_ALLREDUCE(tmp_Scalar_Data, DG%iScaData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
 
-      length = 3*DG%dim_gq*DG%dim_a*DG%num_VD*2
+      length = 3*DG%dim_gq*DG%dim_a*DG%num_iVD*2
       call MPI_ALLREDUCE(tmp_Vector_Data, DG%iVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
    endif
 
@@ -3828,20 +3830,20 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
 
 
    ! toroidal end cell
-   length = DG%dim_gq*DG%dim_a*DG%num_SD
+   length = DG%dim_gq*DG%dim_a*DG%num_iSD
    call MPI_SENDRECV(DG%iScaData(:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Scalar_Data(:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG%iScaData(:,:,:,1) = DG%iScaData(:,:,:,1) + tmp_Scalar_Data(:,:,:,1)
 
 
 
-   length = 3*DG%dim_gq*DG%dim_a*DG%num_VD
+   length = 3*DG%dim_gq*DG%dim_a*DG%num_iVD
    call MPI_SENDRECV(DG%iVecData(:,:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Vector_Data(:,:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG%iVecData(:,:,:,:,1) = DG%iVecData(:,:,:,:,1) + tmp_Vector_Data(:,:,:,:,1)
 
 
    ! Do normalization and post-processing
    ! Divide by Cell Volume to get density quantities
-   do vid=1,DG%num_SD
+   do vid=1,DG%num_iSD
       DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*DG%inv_Cell_dV
    enddo
 
@@ -3861,7 +3863,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
 
 
 
-   do vid=1,DG%num_VD
+   do vid=1,DG%num_iVD
       do j=1,3
          DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dV
       enddo
@@ -3936,7 +3938,6 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    SM_gq_Coeff( 0,1:Ngq,:) = 0.5*VV(1:Ngq,:)*(VV(0:Ngq-1,:)+2.0*VV(1:Ngq,:)+VV(2:Ngq+1,:))/((VV(0:Ngq-1,:)+VV(1:Ngq,:))*(VV(1:Ngq,:)+VV(2:Ngq+1,:))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
    SM_gq_Coeff( 1,1:Ngq,:) = 0.5*VV(2:Ngq+1,:)/(VV(2:Ngq+1,:) + VV(1:Ngq,:)) ! Coeff_R = 0.5*VR/(VR+VC)
 
-
    SM_a_Coeff(-1,:,1:Na) = 0.5*VV(:,0:Na-1)/(VV(:,0:Na-1) + VV(:,1:Na)) ! Coeff_L = 0.5*VL/(VL+VC)
    SM_a_Coeff( 0,:,1:Na) = 0.5*VV(:,1:Na)*(VV(:,0:Na-1)+2.0*VV(:,1:Na)+VV(:,2:Na+1))/((VV(:,0:Na-1)+VV(:,1:Na))*(VV(:,1:Na)+VV(:,2:Na+1))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
    SM_a_Coeff( 1,:,1:Na) = 0.5*VV(:,2:Na+1)/(VV(:,2:Na+1) + VV(:,1:Na)) ! Coeff_R = 0.5*VR/(VR+VC)
@@ -3957,7 +3958,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    enddo
    DG%dne_adiab = target_Data2D(1:Ngq,1:Na)
 
-   do vid=1,DG%num_SD
+   do vid=1,DG%num_eSD
       target_Data2D(1:Ngq,1:Na) = DG%eScaData(:,:,vid,1)
       target_Data2D(0,:)     = target_Data2D(Ngq,:)
       target_Data2D(Ngq+1,:) = target_Data2D(1,:)
@@ -3970,7 +3971,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
       DG%eScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
    enddo
 
-   do vid=1,DG%num_VD
+   do vid=1,DG%num_eVD
       do k=1,3
          target_Data2D(1:Ngq,1:Na) = DG%eVecData(k,:,:,vid,1)
          target_Data2D(0,:)     = target_Data2D(Ngq,:)
@@ -3988,7 +3989,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    ! =======================================
    ! Smooth Ion Scalar and Vector Data
    ! =======================================
-   do vid=1,DG%num_SD
+   do vid=1,DG%num_iSD
       target_Data2D(1:Ngq,1:Na) = DG%iScaData(:,:,vid,1)
       target_Data2D(0,:)     = target_Data2D(Ngq,:)
       target_Data2D(Ngq+1,:) = target_Data2D(1,:)
@@ -4001,7 +4002,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
       DG%iScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
    enddo
 
-   do vid=1,DG%num_VD
+   do vid=1,DG%num_iVD
       do k=1,3
          target_Data2D(1:Ngq,1:Na) = DG%iVecData(k,:,:,vid,1)
          target_Data2D(0,:)     = target_Data2D(Ngq,:)
