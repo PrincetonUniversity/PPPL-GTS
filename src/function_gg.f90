@@ -3388,6 +3388,7 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%a_2D(DG%dim_gq,DG%dim_a))
    allocate(DG%gq_2D, DG%Cell_dV, DG%inv_Cell_dV, DG%dne_adiab, mold=DG%a_2D)
    allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1) )
+   allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1) )
 
    k=1
    do i=0,mpsi,DG%a_jump
@@ -3677,6 +3678,202 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
 end subroutine Measure_Electrons_on_Diagnostic_Grid
 
+
+
+subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
+
+   use precision
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   use mpi_defs
+   use particle_array
+   use particle_decomp
+   use esi_interface
+
+   implicit none
+
+   real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
+   real(wp) energy(mi)
+   !P varaiables are at particle position
+   real(wp) P_s, P_safety_q !safety factor
+   real(wp) P_a, P_gq, P_gf
+
+   real(wp) delta_f(mi), f_tot(mi) ! delta_f and f_tot (f_tot=f0+delta_f)
+
+   real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
+   integer :: ori_sid !sid of original full grid
+   real(wp) ori_inv_ds ! inv_ds of original full grid
+   real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
+   real(wp) target_zeta
+   integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
+   integer :: length, istatus(MPI_STATUS_SIZE),ierror
+
+   real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1)
+   real(wp) ::inv_tot_ni(DG%dim_gq, DG%dim_a)
+
+   DG%iScaData=0
+   DG%iVecData=0
+
+   ori_inv_ds = real(mpsi)/(s1-s0)
+
+   energy(:) = in_P_data(2,:)
+
+   if(Flag_Load_and_WeightDef==0)then
+      delta_f(:) = zion0(5,1:mi)*iNrNm
+      f_tot(:)   = iNrNm
+   else
+      delta_f(:) = zion0(5,1:mi)
+      f_tot(:)   = zion0(6,1:mi)
+   endif
+
+   do m=1,mi
+
+      if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
+
+      P_a  = zion0(1,m)
+      P_gq = modulo(zion0(2,m),2*pi)
+      P_gf = modulo(zion0(3,m),2*pi)
+      P_s  = zion0(7,m)
+
+      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
+      P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+
+      sid = (P_s-s0)*DG%inv_ds +1 ! +1 is due to Fortran's default index starting from 1
+      ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
+      ws0 = 1.0-ws1
+
+      do k=0,1
+         if(k==0) target_zeta =zetamin
+         if(k==1) target_zeta =zetamax
+
+         wgf = (1.0-abs(P_gf-target_zeta)/deltaz)
+
+         target_gq = modulo(P_gq + (target_zeta-P_gf)/P_safety_q, 2.0*pi)
+         gqid = (target_gq)*DG%inv_dgq +1
+         wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+         wgq0 = 1.0-wgq1
+
+         do j=1,4
+            select case(j)
+               case(1)
+                  qq=gqid; ss=sid
+                  ratio=ws0*wgq0*wgf
+               case(2)
+                  qq=gqid+1; ss=sid
+                  ratio=ws0*wgq1*wgf
+               case(3)
+                  qq=gqid; ss=sid+1
+                  ratio=ws1*wgq0*wgf
+               case(4)
+                  qq=gqid+1; ss=sid+1
+                  ratio=ws1*wgq1*wgf
+            end select
+
+            vid=1; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m) ! Density
+            vid=2; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backT(m))*delta_f(m) !Temperature definition 1
+            vid=3; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backT(m))*delta_f(m) !
+            vid=4; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Marker Distribution
+            vid=5; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+
+            vid=1 ! Turbulent Particle Flux
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*Ta(m)) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+
+            vid=2 ! Turbulent Particle Flux due to ExB only
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*(Ta(m)-vpara_dvi_gq(m))) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
+
+            vid=3 ! Turbulent Energy Flux
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*ghq(m)) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Ta(m)) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+
+            vid=4 ! Turbulent Energy Flux due to ExB only
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(Ta(m)-vpara_dvi_gq(m))) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
+         enddo
+      enddo
+   enddo
+
+
+   if(npartdom>1) then
+      tmp_Scalar_Data = DG%iScaData
+      tmp_Vector_Data = DG%iVecData
+
+      length = DG%dim_gq*DG%dim_a*DG%num_SD*2
+      call MPI_ALLREDUCE(tmp_Scalar_Data, DG%iScaData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+      length = 3*DG%dim_gq*DG%dim_a*DG%num_VD*2
+      call MPI_ALLREDUCE(tmp_Vector_Data, DG%iVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+   endif
+
+
+   ! Match poloidal end cell
+   ! (gq=0 and gq=2pi is the same position physically
+   ! although they have different gqid)
+   do sid=1,DG%dim_a
+      DG%iScaData(1,sid,:,:) = DG%iScaData(1,sid,:,:) + DG%iScaData(DG%dim_gq,sid,:,:)
+      DG%iScaData(DG%dim_gq,sid,:,:) = DG%iScaData(1,sid,:,:)
+
+      DG%iVecData(:,1,sid,:,:) = DG%iVecData(:,1,sid,:,:) + DG%iVecData(:,DG%dim_gq,sid,:,:)
+      DG%iVecData(:,DG%dim_gq,sid,:,:) = DG%iVecData(:,1,sid,:,:)
+   enddo
+
+
+   ! toroidal end cell
+   length = DG%dim_gq*DG%dim_a*DG%num_SD
+   call MPI_SENDRECV(DG%iScaData(:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Scalar_Data(:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%iScaData(:,:,:,1) = DG%iScaData(:,:,:,1) + tmp_Scalar_Data(:,:,:,1)
+
+
+
+   length = 3*DG%dim_gq*DG%dim_a*DG%num_VD
+   call MPI_SENDRECV(DG%iVecData(:,:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Vector_Data(:,:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%iVecData(:,:,:,:,1) = DG%iVecData(:,:,:,:,1) + tmp_Vector_Data(:,:,:,:,1)
+
+
+   ! Do normalization and post-processing
+   ! Divide by Cell Volume to get density quantities
+   do vid=1,DG%num_SD
+      DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*DG%inv_Cell_dV
+   enddo
+
+   do aid=1,DG%dim_a
+      DG%iScaData(:,aid,2,1) = DG%iScaData(:,aid,2,1)/DG%n0_1D(aid) ! Convert Energy to Temperature
+   enddo
+
+
+   ! Calculate inverse of tot density (including dne_adiabatic in the case of delta-h electron (ifelectron==2))
+   do aid=1,DG%dim_a
+      inv_tot_ni(:,aid) = 1.0/(DG%n0_1D(aid) + DG%iScaData(:,aid,1,1))
+   enddo
+
+   ! Consistent Temperature by considering density fluctuation in the denominator
+   DG%iScaData(:,:,3,1) = DG%iScaData(:,:,3,1)*inv_tot_ni
+   vid=6; DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*inv_tot_ni! Te_tot
+
+
+
+   do vid=1,DG%num_VD
+      do j=1,3
+         DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dV
+      enddo
+      do aid=1,DG%dim_a
+         do j=1,3
+            DG%iVecData(j,:,aid,vid,1) = DG%iVecData(j,:,aid,vid,1)/DG%n0_1D(aid)
+         enddo
+      enddo
+   enddo
+
+
+end subroutine Measure_Ions_on_Diagnostic_Grid
 
 subroutine Interpolate_OriGridData_into_DG(oriData_1D, out_IntpData_2D)
 

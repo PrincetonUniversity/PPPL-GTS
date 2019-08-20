@@ -1322,14 +1322,25 @@ subroutine snapshot_hdf5
       call h5ltset_attribute_string_f(file_id, "DG/dTe", "unit", "eV", h5err)
       call h5ltmake_dataset_f(file_id, "DG/dTe_consst",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,3,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/dTe_consst", "unit", "eV", h5err)
-
       call h5ltmake_dataset_f(file_id, "DG/ne_marker",2,h5dims,H5T_NATIVE_DOUBLE, DG%eScaData(:,:,4,1),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/ne_marker", "unit", "#/m^3", h5err)
-
       call h5ltmake_dataset_f(file_id, "DG/ne_tot",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%eScaData(:,:,5,1)+int(ifelectron/2)*DG%dne_adiab),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/ne_tot", "unit", "#/m^3", h5err)
       call h5ltmake_dataset_f(file_id, "DG/Te",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,6,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/Te", "unit", "eV", h5err)
+
+      call h5ltmake_dataset_f(file_id, "DG/dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%iScaData(:,:,1,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/dni", "unit", "#/m^3", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/dTi",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,2,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/dTi", "unit", "eV", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/dTi_consst",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,3,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/dTi_consst", "unit", "eV", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/ni_marker",2,h5dims,H5T_NATIVE_DOUBLE, DG%iScaData(:,:,4,1),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/ni_marker", "unit", "#/m^3", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/ni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%iScaData(:,:,5,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/ni", "unit", "#/m^3", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/Ti",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,6,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/Ti", "unit", "eV", h5err)
 
       h5dims(1:3)=(/3,DG%dim_gq,DG%dim_a/)
       call h5ltmake_dataset_f(file_id, "DG/eFlux_p",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eVecData(:,:,:,1,1)),h5err)
@@ -1341,6 +1352,14 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "DG/eFlux_E_ExB",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eVecData(:,:,:,4,1)),h5err)
       call h5ltset_attribute_string_f(file_id, "DG/eFlux_E_ExB", "unit", "J/(m^2*s)", h5err)
 
+      call h5ltmake_dataset_f(file_id, "DG/iFlux_p",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iVecData(:,:,:,1,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/iFlux_p", "unit", "1/(m^2*s)", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/iFlux_p_ExB",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iVecData(:,:,:,2,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/iFlux_p_ExB", "unit", "1/(m^2*s)", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/iFlux_E",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iVecData(:,:,:,3,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/iFlux_E", "unit", "J/(m^2*s)", h5err)
+      call h5ltmake_dataset_f(file_id, "DG/iFlux_E_ExB",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iVecData(:,:,:,4,1)),h5err)
+      call h5ltset_attribute_string_f(file_id, "DG/iFlux_E_ExB", "unit", "J/(m^2*s)", h5err)
 
       call h5gclose_f(gid_PARAMS, h5err)
       call h5gclose_f(gid_FLA, h5err)
