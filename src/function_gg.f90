@@ -3905,3 +3905,115 @@ subroutine Interpolate_OriGridData_into_DG(oriData_1D, out_IntpData_2D)
    enddo
 
 end subroutine Interpolate_OriGridData_into_DG
+
+
+
+subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
+
+   use precision
+   use global_parameters
+   use Diagnostic_Grid
+   implicit none
+
+   integer, intent(in) :: num_smooth
+   integer :: smid, aid, gqid, Na,Ngq, vid,k
+   real(wp) :: VV(0:DG%dim_gq+1, 0:DG%dim_a+1),  target_Data2D(0:DG%dim_gq+1, 0:DG%dim_a+1) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+   real(wp) :: SM_gq_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1), SM_a_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1)
+
+   Na  = DG%dim_a
+   Ngq = DG%dim_gq
+
+   target_Data2D=0
+   VV = 0
+   VV(1:Ngq,1:Na) = DG%Cell_dV
+
+   ! Note that theta direction is periodic
+   VV(0,:) = VV(Ngq,:)
+   VV(Ngq+1,:) = VV(1,:)
+
+
+   SM_gq_Coeff(-1,1:Ngq,:) = 0.5*VV(0:Ngq-1,:)/(VV(0:Ngq-1,:) + VV(1:Ngq,:)) ! Coeff_L = 0.5*VL/(VL+VC)
+   SM_gq_Coeff( 0,1:Ngq,:) = 0.5*VV(1:Ngq,:)*(VV(0:Ngq-1,:)+2.0*VV(1:Ngq,:)+VV(2:Ngq+1,:))/((VV(0:Ngq-1,:)+VV(1:Ngq,:))*(VV(1:Ngq,:)+VV(2:Ngq+1,:))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+   SM_gq_Coeff( 1,1:Ngq,:) = 0.5*VV(2:Ngq+1,:)/(VV(2:Ngq+1,:) + VV(1:Ngq,:)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+
+   SM_a_Coeff(-1,:,1:Na) = 0.5*VV(:,0:Na-1)/(VV(:,0:Na-1) + VV(:,1:Na)) ! Coeff_L = 0.5*VL/(VL+VC)
+   SM_a_Coeff( 0,:,1:Na) = 0.5*VV(:,1:Na)*(VV(:,0:Na-1)+2.0*VV(:,1:Na)+VV(:,2:Na+1))/((VV(:,0:Na-1)+VV(:,1:Na))*(VV(:,1:Na)+VV(:,2:Na+1))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+   SM_a_Coeff( 1,:,1:Na) = 0.5*VV(:,2:Na+1)/(VV(:,2:Na+1) + VV(:,1:Na)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+   ! =======================================
+   ! Smooth Electron Scalar and Vector Data
+   ! =======================================
+
+   ! In the case of electrons, dne_adiab should be smoothed as well.
+   target_Data2D(1:Ngq,1:Na) = DG%dne_adiab
+   target_Data2D(0,:)     = target_Data2D(Ngq,:)
+   target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+   do smid=1,num_smooth
+      ! Smooth in theta direction
+      target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+      ! Smooth in radial direction
+      target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+   enddo
+   DG%dne_adiab = target_Data2D(1:Ngq,1:Na)
+
+   do vid=1,DG%num_SD
+      target_Data2D(1:Ngq,1:Na) = DG%eScaData(:,:,vid,1)
+      target_Data2D(0,:)     = target_Data2D(Ngq,:)
+      target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+      do smid=1,num_smooth
+         ! Smooth in theta direction
+         target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+         ! Smooth in radial direction
+         target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+      enddo
+      DG%eScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+   enddo
+
+   do vid=1,DG%num_VD
+      do k=1,3
+         target_Data2D(1:Ngq,1:Na) = DG%eVecData(k,:,:,vid,1)
+         target_Data2D(0,:)     = target_Data2D(Ngq,:)
+         target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+         do smid=1,num_smooth
+            ! Smooth in theta direction
+            target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+            ! Smooth in radial direction
+            target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+         enddo
+         DG%eVecData(k,:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+      enddo
+   enddo
+
+   ! =======================================
+   ! Smooth Ion Scalar and Vector Data
+   ! =======================================
+   do vid=1,DG%num_SD
+      target_Data2D(1:Ngq,1:Na) = DG%iScaData(:,:,vid,1)
+      target_Data2D(0,:)     = target_Data2D(Ngq,:)
+      target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+      do smid=1,num_smooth
+         ! Smooth in theta direction
+         target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+         ! Smooth in radial direction
+         target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+      enddo
+      DG%iScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+   enddo
+
+   do vid=1,DG%num_VD
+      do k=1,3
+         target_Data2D(1:Ngq,1:Na) = DG%iVecData(k,:,:,vid,1)
+         target_Data2D(0,:)     = target_Data2D(Ngq,:)
+         target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+         do smid=1,num_smooth
+            ! Smooth in theta direction
+            target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+            ! Smooth in radial direction
+            target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+         enddo
+         DG%iVecData(k,:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+      enddo
+   enddo
+
+end subroutine Smooth_DG_Scalar_Vector_Data
