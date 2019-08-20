@@ -3383,10 +3383,10 @@ subroutine Init_Diagnostic_Grid
 
 
 
-   allocate(DG%a_1D(DG%dim_a))
-   allocate(DG%s_1D, DG%gq_1D, DG%n0_1D, DG%Te0_1D, DG%Ti0_1D, mold=DG%a_1D)
-   allocate(DG%a_2D(DG%dim_gq,DG%dim_a), DG%gq_2D(DG%dim_gq,DG%dim_a))
-   allocate(DG%Cell_dV, DG%inv_Cell_dV, mold=DG%a_2D)
+   allocate(DG%a_1D(DG%dim_a), DG%gq_1D(DG%dim_gq))
+   allocate(DG%ori_aid, DG%s_1D, DG%n0_1D, DG%Te0_1D, DG%Ti0_1D, mold=DG%a_1D)
+   allocate(DG%a_2D(DG%dim_gq,DG%dim_a))
+   allocate(DG%gq_2D, DG%Cell_dV, DG%inv_Cell_dV, DG%dne_adiab, mold=DG%a_2D)
    allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_SD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_VD,0:1) )
 
    k=1
@@ -3410,7 +3410,7 @@ subroutine Init_Diagnostic_Grid
    !Set and Calculate Magnetic Information (ESI variables)
    allocate(DG%Jacobian, DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,mold=DG%a_2D)
    allocate(DG%esi_N,DG%esi_K,DG%g_aa_cov,DG%g_aq_cov,DG%g_qq_cov,DG%g_ff_cov,mold=DG%a_2D)
-   allocate(DG%D,DG% g_aa_cntv,DG% g_aq_cntv,DG% g_qq_cntv,DG% g_ff_cntv,mold=DG%a_2D)
+   allocate(DG%D,DG%g_aa_cntv,DG%g_aq_cntv,DG%g_qq_cntv,DG%g_ff_cntv,mold=DG%a_2D)
    allocate(DG%B0_cov3(3,DG%dim_gq,DG%dim_a))
    allocate(DG%B0_cntv3,DG%j0_cov3,DG%j0_cntv3, mold=DG%B0_cov3)
 
