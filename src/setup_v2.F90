@@ -111,6 +111,7 @@ Subroutine setup
    pi=4.0_wp*atan(1.0_wp)
    twopi=2.0_wp*pi
 
+   inv_twopi = 1.0/twopi
    dtheta=dtheta*twopi
    tprobe=tprobe*pi
 
@@ -1749,6 +1750,7 @@ Subroutine setup
       ghq(mimax),sw(mimax),backn(mimax),backu(mimax),backT(mimax),&
       dlnnda(mimax),dlnTda(mimax),backne(mimax),backue(mimax),&
       backTe(mimax),dlnndae(mimax),dlnTdae(mimax),duda(mimax))
+   allocate(back_f0_i(mimax),back_f0_e(memax))
    allocate(dvi_gf(mimax), dve_gf(memax))
    allocate(vpara_dvi_a(mimax), vpara_dvi_gq(mimax),vpara_dvi_gf(mimax))
    allocate(vpara_dve_a(memax), vpara_dve_gq(memax),vpara_dve_gf(memax))
@@ -2399,7 +2401,9 @@ Subroutine read_input_params
       Flag_GC_Solver,     &   ! Default=1 (vector form), can be set =0(matrix form) by INPUT.d
       Flag_Poisson,       &   ! Default=1 (ON), can be set =0(OFF) by INPUT.d
       Flag_w_Evol, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
-      Flag_w_Threshold,&
+      Flag_w_Threshold,   &
+      Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
+      Flag_Quiet_Start,   &   ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
@@ -2513,6 +2517,8 @@ Subroutine read_input_params
       write(0,*) 'Flag_Poisson=', Flag_Poisson
       write(0,*) 'Flag_w_Evol=', Flag_w_Evol
       write(0,*) 'Flag_w_Threshold=', Flag_w_Threshold
+      write(0,*) 'Flag_Load_and_WeightDef=', Flag_Load_and_WeightDef
+      write(0,*) 'Flag_Quiet_Start=', Flag_Quiet_Start
       write(0,*) 'w_Thold_min=', w_Thold_min
       write(0,*) 'w_Thold_max=', w_Thold_max
       write(0,*) 'tstep=', tstep

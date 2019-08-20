@@ -22,7 +22,7 @@ module global_parameters
       idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,maintnT,&
       nelectron,ntracer_e,ntracer00,me00,idiag_e
    real(wp) misum,mesum  !Total number of ions and electrons can be >2 billion
-   real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,tstep,kappati,kappate,&
+   real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,inv_twopi,tstep,kappati,kappate,&
       kappan,flow0,flow1,flow2,ulength,utime,E_00,gyroradius,deltar,&
       deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,&
       uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
@@ -138,6 +138,8 @@ module global_parameters
    integer :: Flag_Poisson=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
    integer :: Flag_w_Evol=0  ! Default=0 (OFF;original equation), can be set =1(Transformed Weight Evolution Equation) by INPUT.d
    integer :: Flag_GC_Solver=1 ! Default=1 (Vector form GC equation), can be set =0(Matrix form GC equation)
+   integer :: Flag_Load_and_WeightDef=0 ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
+   integer :: Flag_Quiet_Start=1 ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
 
 end module global_parameters
 
@@ -198,6 +200,8 @@ module particle_array
    real(wp),dimension(:),allocatable :: backn,backu,backT,dlnnda,dlnTda,&
       backne,backue,backTe,dlnndae,&
       dlnTdae,duda
+   real(wp),dimension(:),allocatable :: back_f0_i, back_f0_e
+
 end module particle_array
 
 module field_array

@@ -487,7 +487,9 @@ subroutine load
    write(stdout,*) "In Loading.F90  I'm=",mype, "ini_mi=", ini_mi, ", ini_me=",ini_me
    call flush(stdout)
 
-
+   if(mype==0)then
+      write(stdout,*) "In Loading.F90, real loaded misum=", misum
+   endif
 
    if(mi/= ini_mi) then
       write(stdout,*) "mi=", mi, ", ini_mi=",ini_mi, " , are different!!! Error!"
@@ -596,3 +598,343 @@ subroutine load
 
 
 end subroutine load
+
+
+
+subroutine load_uniform_MGY
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use particle_array
+   use field_array
+   use diagnosis_array
+   use esi_interface
+   use control_parameters
+   implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+   integer :: minpts, ifail=1, ierror
+   real(wp) :: acc, error_8=1e-5
+   real(wp), external:: dsda, D01AHF
+
+   real(wp) dela, r, fip, ave0
+   real(wp) inv_Nm ! inverse of total number of Marker particles for each speceis (actually, they are the same)
+   real(wp) each_ptl_d6z ! d6z(=da*dgq*dgf*dvpara*dvperp) is the micro phase space volume which each particle occupies
+   real(wp) Te_norm(1:mi) !  normalized-Te=Te/E_0, the same unit as normalized Ti
+   integer m,ip,i,j,ij
+   real(wp) jacobian,density
+   real(wp) dpsi,zdum,tdum,pdum
+   real(wp) integral_f0
+   real(wp) v_abs, v_theta, vpara, vperp ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
+
+   integer(kind=8) :: sobol_seed=1, sobol_dim_num=5 ! 5D random number (a,gq,gf,v_abs,v_theta)
+   real(kind=8) rand_5d(5,mi) ! can be sobol quasi random numbers, or can be sprng() numbers
+   real(wp) inv_ds, ff, P_s, P_q  !inv_ds is uniform by definition of s_grids
+   integer:: sid ! index for s_grid
+
+   inv_ds = real(mpsi)/(s1-s0)
+
+
+   me=mi
+
+
+   inv_Nm=1.0/(real(mi)*numberpe)
+
+   if(mype==0) then
+      write(stdout,*) "In load_uniform_MGY, inv_Nm = ",inv_Nm
+      call flush(stdout)
+   endif
+
+   ! NOTE : markere and markeri definitions are changed
+   ! They are now inverse of the (node volume*n0)
+   do i=0,mpsi
+      pdum=psi_grid(i)
+      if(i==0) then
+         dpsi=(psi_grid(1)-psi_grid(0))*0.5_wp         ! half cell
+      else if(i==mpsi) then
+         dpsi=(psi_grid(mpsi)-psi_grid(mpsi-1))*0.5_wp ! half cell
+      else
+         dpsi=(psi_grid(i+1)-psi_grid(i-1))*0.5_wp     ! full cell
+      endif
+
+      do j=0,mtheta(i)
+         ij=igrid(i)+j
+         zdum=zetamin+deltaz
+         tdum=real(j,wp)*deltat(i)+zdum*qtinv(i)
+
+         markeri(ij)=Jacobian(pdum,tdum)*density(pdum,tdum)*dpsi*deltat(i)*deltaz
+      enddo
+   enddo
+   markeri = 1.0/(markeri)
+   markere = markeri
+
+
+
+   ! =================================================
+   ! Ion Part
+   ! =================================================
+
+   ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
+   ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
+   ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
+   sobol_seed = 1 + mype*mi
+   do m=1,mi
+      call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
+   enddo
+
+   ! Follwoing part is to prepare random numbers using sprng
+   ! do m=1,mi
+   !    rand_5d(1,m)=sprng()
+   !    rand_5d(2,m)=sprng()
+   !    rand_5d(3,m)=sprng()
+   !    rand_5d(4,m)=sprng()
+   !    rand_5d(5,m)=sprng()
+   ! enddo
+
+   do m=1,mi
+      zion(1,m) = a0+ rand_5d(1,m)*(a1-a0)
+      zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)
+      zion(7,m)=min(s1,max(s0,zion(7,m)))
+
+      P_s = zion(7,m)
+      sid = (P_s-s0)*inv_ds ! s index of original full grid
+      ff  = (P_s-s_grid(sid))*inv_ds
+      P_q = ff*q_grid(sid+1) + (1.0-ff)*q_grid(sid)
+
+      ! Pick random points (theta,phi) with Helically aligned along B field
+      zion(3,m) = 2.0*pi*rand_5d(2,m)
+      zion(2,m) = mod(zion(3,m)/P_q + 2.0*pi*rand_5d(3,m), 2.0*pi)
+   enddo
+
+   call esigetbf(zion,mi,size(zion,1))
+   call n_T_u_group  ! get T, n and omega_t, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+   backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
+
+   do m=1,mi
+      ! ! Do Sampling for the following ranges
+      ! ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+      ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
+      ! ! 0 < u_perp < umax*sqrt(2T/m)
+      ! ! 0 < sqrt(mu) < sqrt(T/B)*u
+      ! zion(4,m) = (2.0*rand_5d(4,m)-1.0)*umax *sqrt(backT(m))/BB(m)  ! u*sqrt(T)/BB + backu/BB
+      ! if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This was for the quiet start..
+      ! zion(4,m) = zion(4,m) + backu(m)/BB(m) ! add backu term
+      ! zion(6,m) = sqrt(backT(m)/(BB(m)))*rand_5d(5,m)*umax ! sqrt(mu) = sqrt(m*uperp^2/2B)=sqrT(T/B)*u; mu=T/B*u^2
+      ! ilabels(m) = mype + 1e5*m
+
+      ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
+      v_abs = umax*sqrt(backT(m))*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
+      v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+      vpara=v_abs*cos(v_theta)
+      vperp=v_abs*sin(v_theta)
+
+      zion(4,m) = vpara/BB(m)
+      if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This is for the quiet start..
+      zion(4,m) = zion(4,m) + backu(m)/BB(m) ! add backu term
+      zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
+      ilabels(m) = mype + 1e5*m
+   enddo
+
+   call n_T_u_group  ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+
+   ! Set initial weights of ions
+   do m=1,mi
+      ! zion(5,m) is "df"
+      ! zion0(6,m) is "f_tot"
+
+      !Following line is for square sampling for vpara and vperp
+      !each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m))
+
+      !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+      ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
+      each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m)
+
+      integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
+      zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
+      zion0(6,m) = integral_f0 + zion(5,m)
+   enddo
+
+   wi_init  = zion(5,:)
+   wi_vpara = 0
+   wi_vperp = 0
+   wi_accel = 0
+   wi_fdamp = 0
+
+
+   ! =================================================
+   ! Electron Part
+   ! =================================================
+
+   ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
+   ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
+   ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
+   sobol_seed = 1 + mype*me
+   do m=1,me
+      call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
+   enddo
+
+   ! Follwoing part is to prepare random numbers using sprng
+   ! do m=1,me
+   !    rand_5d(1,m)=sprng()
+   !    rand_5d(2,m)=sprng()
+   !    rand_5d(3,m)=sprng()
+   !    rand_5d(4,m)=sprng()
+   !    rand_5d(5,m)=sprng()
+   ! enddo
+
+   if(ifelectron/=0) then
+      if(Flag_Quiet_Start==1) then
+         do m=1,me
+            zeon(1,m)=zion(1,m)
+            zeon(2,m)=zion(2,m)
+            zeon(3,m)=zion(3,m)
+            zeon(7,m)=zion(7,m)
+            elabels(m) = mype +  1e5*m
+         enddo
+      else
+         do m=1,me
+            zeon(1,m) = a0+ rand_5d(1,m)*(a1-a0)
+            zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
+            zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+
+            P_s = zeon(7,m)
+            sid = (P_s-s0)*inv_ds ! s index of original full grid
+            ff  = (P_s-s_grid(sid))*inv_ds
+            P_q = ff*q_grid(sid+1) + (1.0-ff)*q_grid(sid)
+
+            ! Pick random points (theta,phi) with Helically aligned along B field
+            zeon(3,m) = 2.0*pi*rand_5d(2,m)
+            zeon(2,m) = mod(zeon(3,m)/P_q + 2.0*pi*rand_5d(3,m), 2.0*pi)
+
+            elabels(m) = mype +  1e5*m
+         enddo
+      endif
+
+      call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+
+      do m=1,me
+         Te_norm(m) = backTe(m)*msm0
+      enddo
+
+      if(Flag_Quiet_Start==1) then
+         do m=1,me
+            zeon(4,m)=zeon(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
+            zeon(6,m)=zion(6,m)*sqrt(Te_norm(m)/backT(m))     ! =sqrt(mu_e)
+         enddo
+      else
+         do m=1,me
+            ! ! Do Sampling for the following ranges
+            ! ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+            ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
+            ! ! 0 < u_perp < umax*sqrt(2T/m)
+            ! ! 0 < sqrt(mu) < sqrt(T/B)*u
+            ! zeon(4,m) = (2.0*rand_5d(4,m)-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
+            ! zeon(6,m) = sqrt(Te_norm(m)/BB(m))*rand_5d(5,m)*umax
+
+            ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
+            v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
+            v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+            vpara=v_abs*cos(v_theta)
+            vperp=v_abs*sin(v_theta)
+
+            zeon(4,m) = msm0*vpara/(csc0*BB(m))
+            zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+         enddo
+      endif
+
+      call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+
+      if(Flag_Quiet_Start==1) then
+         zeon(5,1:me) = zion(5,1:me)
+         zeon0(6,1:me) = zion0(6,1:me)
+      else
+         ! Set initial weights of electrons
+         do m=1,me
+            ! zeon(5,m) is "df"
+            ! zeon0(6,m) is "f_tot"
+
+            !Following line is for square sampling for vpara and vperp
+            ! each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms)
+
+            !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+            ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
+            each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms
+
+            integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
+            zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
+            zeon0(6,m) = integral_f0 + zeon(5,m)
+         enddo
+      endif
+
+      we_init(:)  = zeon(5,:)
+      we_vpara = 0
+      we_vperp = 0
+      we_accel = 0
+      we_adiab = 0
+      we_fdamp = 0
+   endif
+
+
+
+
+   ! (Min-Gu Yoo; 06/25/2018)
+   ! For multiple tracers of ions to test Poincare Plot under electromagnetic perturbation
+   if (mype==0) then
+      ! Assign Electron tracer labels
+      do i=1, num_of_etracers
+         m = (real(i)/(num_of_etracers+1.0)) * me
+         etracers_labels(i) = elabels(m)
+      enddo
+
+      ! Assign Ion tracer labels
+      do i=1, num_of_itracers
+         m = (real(i)/(num_of_itracers+1.0)) * mi
+         itracers_labels(i) = ilabels(m)
+      end do
+
+      ! For diagnostic purpose
+      if(mype==0) then
+         m = 0.5*ini_mi
+         write(stdout,*) m,"-th ion's each_ptl_d6z=", inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m)), ", back_f0_i(m)=",back_f0_i(m)
+         call flush(stdout)
+
+         m = 0.5*ini_me
+         write(stdout,*) m,"-th electron's each_ptl_d6z=", inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms),  ", back_f0_e(m)=",back_f0_e(m)
+         call flush(stdout)
+      endif
+   endif
+
+
+   do m=1,mi
+      wi_init(m)  = zion(5,m)
+      UnNorm_theta_i(m) =zion(2,m)
+      UnNorm_zeta_i(m)  =zion(3,m)
+   enddo
+   do m=1,me
+      we_init(m)  = zeon(5,m)
+      UnNorm_theta_e(m) =zeon(2,m)
+      UnNorm_zeta_e(m)  =zeon(3,m)
+   enddo
+
+   call MPI_BCAST(etracers_labels,num_of_etracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+   call MPI_BCAST(itracers_labels,num_of_itracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+
+
+   ! Distribute ions and electrons to appropriate MPI ranks
+   call shifti
+   call shifte
+
+   ini_mi=mi
+   ini_me=me
+
+   write(stdout,*) "In load_uniform_MGY, I'm=",mype, "mi=", mi, ", me=",me
+   call flush(stdout)
+
+   if(irun==0) ddT_da=0.0_wp
+   if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
+
+end subroutine load_uniform_MGY
