@@ -3942,6 +3942,12 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    SM_a_Coeff( 0,:,1:Na) = 0.5*VV(:,1:Na)*(VV(:,0:Na-1)+2.0*VV(:,1:Na)+VV(:,2:Na+1))/((VV(:,0:Na-1)+VV(:,1:Na))*(VV(:,1:Na)+VV(:,2:Na+1))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
    SM_a_Coeff( 1,:,1:Na) = 0.5*VV(:,2:Na+1)/(VV(:,2:Na+1) + VV(:,1:Na)) ! Coeff_R = 0.5*VR/(VR+VC)
 
+   ! To remove NaN values at the raidal ghost cells
+   SM_gq_Coeff(:,:,0)   = 0
+   SM_gq_Coeff(:,:,Na+1)= 0
+   SM_a_Coeff(:,:,0)    = 0
+   SM_a_Coeff(:,:,Na+1) = 0
+
    ! =======================================
    ! Smooth Electron Scalar and Vector Data
    ! =======================================
