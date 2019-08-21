@@ -3367,6 +3367,8 @@ subroutine Init_Diagnostic_Grid
    implicit none
 
    integer i,k,aid,gqid
+   integer pbid ! probe id
+   real(wp), external :: temperature, temperature_e, density
 
    ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
    real(wp) approx_da, approx_dgf
@@ -3382,7 +3384,6 @@ subroutine Init_Diagnostic_Grid
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
    DG%inv_dgq = 1.0/DG%dgq
    DG%inv_ds  = DG%a_jump*(real(mpsi)/(s1-s0))
-
 
 
    allocate(DG%a_1D(DG%dim_a), DG%gq_1D(DG%dim_gq))
@@ -3472,6 +3473,51 @@ subroutine Init_Diagnostic_Grid
       enddo
    enddo
    DG%inv_Cell_dV=1.0/DG%Cell_dV
+
+
+   ! Set PVS (ProbeVelocitySpace) parameters
+
+   num_of_PVS = nprobe
+   allocate(PVS(num_of_PVS))
+   do pbid=1,num_of_PVS
+      PVS(pbid)%a  = rprobe(pbid)
+      PVS(pbid)%gq = tprobe(pbid)
+      PVS(pbid)%gf = 0.5*(zetamax+zetamin)
+
+      PVS(pbid)%L_a  = dradius
+      PVS(pbid)%L_gq = dtheta
+      PVS(pbid)%L_gf = zetamax-zetamin
+
+      PVS(pbid)%n0  = density(rprobe(pbid),0.0)
+      PVS(pbid)%Ti0 = temperature(rprobe(pbid),tprobe(pbid))
+      PVS(pbid)%Te0 = msm0*temperature_e(rprobe(pbid),tprobe(pbid))
+
+      PVS(pbid)%inv_n0  = 1.0/PVS(pbid)%n0
+      PVS(pbid)%inv_Ti0 = 1.0/PVS(pbid)%Ti0
+      PVS(pbid)%inv_Te0 = 1.0/PVS(pbid)%Te0
+
+      PVS(pbid)%nv  = nv
+      PVS(pbid)%dv  = delta_v
+      PVS(pbid)%inv_dv = 1.0/PVS(pbid)%dv
+      PVS(pbid)%max_norm_v = PVS(pbid)%nv*PVS(pbid)%dv ! or just use umax parameters (ex. 1.2*umax)
+
+      PVS(pbid)%dim_vpara = 2*PVS(pbid)%nv+1
+      PVS(pbid)%dim_vperp = PVS(pbid)%nv+1
+
+      PVS(pbid)%num_of_f  = 5
+
+      allocate(PVS(pbid)%vpara_1D(-PVS(pbid)%nv:PVS(pbid)%nv))
+      allocate(PVS(pbid)%vperp_1D(0:PVS(pbid)%nv))
+      allocate(PVS(pbid)%fe(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv, PVS(pbid)%num_of_f))
+      allocate(PVS(pbid)%fi, mold=PVS(pbid)%fe)
+
+      do i=0,PVS(pbid)%nv
+         PVS(pbid)%vperp_1D(i) = i*PVS(pbid)%dv
+      enddo
+      do i=-PVS(pbid)%nv,PVS(pbid)%nv
+         PVS(pbid)%vpara_1D(i) = i*PVS(pbid)%dv
+      enddo
+   enddo
 
 
 end subroutine Init_Diagnostic_Grid
@@ -3709,6 +3755,9 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
    real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
    real(wp) target_zeta
    integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
+   integer ::pbid,vxid,vyid,fid
+   real(wp):: norm_vpara, norm_vperp, rvx,rvy ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
+   real(wp),allocatable, dimension(:,:,:) :: tmp_PVS_fi
    integer :: length, istatus(MPI_STATUS_SIZE),ierror
 
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1)
@@ -3802,6 +3851,61 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
             DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
          enddo
       enddo
+
+      ! Velocity Space Measurement
+      do pbid=1,num_of_PVS
+         target_gq = modulo(P_gq + (PVS(pbid)%gf-P_gf)/P_safety_q, 2.0*pi)
+
+         if( abs(P_gf-PVS(pbid)%gf)<0.5*PVS(pbid)%L_gf &
+         .and. abs(P_a-PVS(pbid)%a) <0.5*PVS(pbid)%L_a &
+         .and. min(abs(target_gq-PVS(pbid)%gq), 2.0*pi-abs(target_gq-PVS(pbid)%gq)) < 0.5*PVS(pbid)%L_gq) then
+
+            norm_vpara = zion0(4,m)*BB(m)*sqrt(PVS(pbid)%inv_Ti0) ! norm_vpara = vpara/sqrt(T/m)
+            norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*sqrt(PVS(pbid)%inv_Ti0) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m)
+
+            vxid = floor(norm_vpara*PVS(pbid)%inv_dv)
+            vyid = floor(norm_vperp*PVS(pbid)%inv_dv)
+            rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
+            rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
+
+            if(vxid< -PVS(pbid)%nv) then
+               vxid= -PVS(pbid)%nv
+               rvx=0.0
+            elseif (vxid>= PVS(pbid)%nv) then
+               vxid=  PVS(pbid)%nv-1
+               rvx=1.0
+            endif
+
+            if(vyid>= PVS(pbid)%nv) then
+               vyid=  PVS(pbid)%nv-1
+               rvy=1.0
+            endif
+
+            do j=1,4
+               select case(j)
+                  case(1)
+                     qq=vxid; ss=vyid
+                     ratio=(1.0-rvx)*(1.0-rvy)
+                  case(2)
+                     qq=vxid+1; ss=vyid
+                     ratio=(rvx)*(1.0-rvy)
+                  case(3)
+                     qq=vxid; ss=vyid+1
+                     ratio=(1.0-rvx)*(rvy)
+                  case(4)
+                     qq=vxid+1; ss=vyid+1
+                     ratio=(rvx)*(rvy)
+               end select
+
+               fid=1; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*delta_f(m) ! Density
+               fid=2; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*delta_f(m)*(2.0/3.0*energy(m)-backT(m)) ! Temperature definition
+               fid=3; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio ! Marker Density
+               fid=4; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*f_tot(m) ! f_tot
+               fid=5; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+            enddo
+         endif
+      enddo
+
    enddo
 
 
@@ -3814,6 +3918,14 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
 
       length = 3*DG%dim_gq*DG%dim_a*DG%num_iVD*2
       call MPI_ALLREDUCE(tmp_Vector_Data, DG%iVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+      allocate(tmp_PVS_fi, mold=PVS(1)%fi)
+      do pbid=1,num_of_PVS
+         tmp_PVS_fi = PVS(pbid)%fi
+         length = PVS(pbid)%dim_vpara*PVS(pbid)%dim_vperp*PVS(pbid)%num_of_f
+         call MPI_ALLREDUCE(tmp_PVS_fi, PVS(pbid)%fi, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+      enddo
+      deallocate(tmp_PVS_fi)
    endif
 
 

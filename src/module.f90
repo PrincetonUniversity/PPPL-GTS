@@ -307,8 +307,29 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:,:) :: B0_cov3, B0_cntv3, j0_cov3, j0_cntv3
    end type
 
-   type(Grid_Info) :: DG
 
+   type Probe_Velocity_Space
+      real(wp) a, gq, gf ! center position of the probe
+      real(wp) L_a, L_gq, L_gf ! length of the probe in each direction
+
+      real(wp) n0, Te0, Ti0
+      real(wp) inv_n0, inv_Te0, inv_Ti0
+      real(wp) max_norm_v ! maximum normalized v (norm_v=v/v_th; v_th=sqrt(T/m))
+      integer :: nv ! number of velocity (vpara=(-nv:nv), vperp=(0:nv))
+      real(wp) dv, inv_dv ! each cell size
+      real(wp) :: Cell_dA ! Area of each cell (dvpara*dvperp)
+      integer :: dim_vpara, dim_vperp
+
+      real(wp), allocatable, dimension(:) :: vpara_1D, vperp_1D  ! vpara_1D(-nv:nv), vperp_1D(0:nv)
+
+      integer :: num_of_f
+      real(wp), allocatable, dimension(:,:,:) :: fe, fi
+   end type
+
+
+   type(Grid_Info) :: DG
+   type(Probe_Velocity_Space), allocatable, dimension(:) :: PVS
+   integer :: num_of_PVS
 end module Diagnostic_Grid
 
 module esi_interface

@@ -504,13 +504,13 @@ subroutine snapshot_hdf5
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
    integer(HSIZE_T) :: h5dims(3)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM, gid
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM, gid_PVS, gid
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
    real(wp) :: intp_val, intp_val2
    real(wp), dimension(:), allocatable ::intp_val_Arr  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
-   integer :: i,j,ij,k,jt,jm,istatus(MPI_STATUS_SIZE),ierror
+   integer :: i,j,ij,k,jt,jm,istatus(MPI_STATUS_SIZE),ierror, pbid
    real(wp) full_dphi(0:1,mgrid), intpl_dphi_NZ(0:1), dne_adiabatic(0:1,mgrid)
    real(wp) full_dni(0:1,mgrid), full_dne(0:1,mgrid), FLA_full_dni(0:1,mgrid), FLA_full_dne(0:1,mgrid)
    real(wp) inv_msnap,ndiag_over_msnap, mean_full_dni(0:1,mgrid), mean_full_dne(0:1,mgrid), mean_full_dphi(0:1,mgrid), mean_dne_adiab(0:1)
@@ -532,7 +532,7 @@ subroutine snapshot_hdf5
    real(wp), dimension(:), allocatable :: intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D
    real(wp),dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
    character(LEN=128) :: file_path
-
+   character(LEN=128) :: cdum
 
 
    msnap_for_All = msnap*50
@@ -1312,9 +1312,9 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%gq_1D,h5err)
 
       h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
-      call h5ltmake_dataset_f(gid, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%a_2D,h5err)
-      call h5ltmake_dataset_f(gid, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%gq_2D,h5err)
-      call h5ltmake_dataset_f(gid, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dV,h5err)
+      call h5ltmake_dataset_f(gid_DG, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%a_2D,h5err)
+      call h5ltmake_dataset_f(gid_DG, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%gq_2D,h5err)
+      call h5ltmake_dataset_f(gid_DG, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dV,h5err)
 
       do i=1,2
          select case(i)
@@ -1376,6 +1376,47 @@ subroutine snapshot_hdf5
          call h5ltset_attribute_string_f(gid, "iFlux_E_ExB", "unit", "J/(m^2*s)", h5err)
       enddo
 
+
+      ! Write PVS information
+      h5dims(1) = 1
+      call h5ltmake_dataset_f(file_id, "num_of_PVS",1,h5dims, H5T_NATIVE_INTEGER, num_of_PVS,h5err)
+      do pbid=1,num_of_PVS
+
+         write(cdum,'("PVS",i2.2)') pbid
+         call h5gcreate_f(file_id, cdum, gid_PVS, h5err) ! PVS(ProbeVelocitySpace)
+
+
+         h5dims(1)=1
+         call h5ltmake_dataset_f(gid_PVS, "a",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%a,h5err)
+         call h5ltmake_dataset_f(gid_PVS, "gq",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%gq,h5err)
+         call h5ltmake_dataset_f(gid_PVS, "gf",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%gf,h5err)
+         call h5ltmake_dataset_f(gid_PVS, "L_a",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%L_a,h5err)
+         call h5ltmake_dataset_f(gid_PVS, "L_gq",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%L_gq,h5err)
+         call h5ltmake_dataset_f(gid_PVS, "L_gf",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%L_gf,h5err)
+
+         call h5ltmake_dataset_f(gid_PVS, "n0",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*PVS(pbid)%n0,h5err)
+         call h5ltset_attribute_string_f(gid_PVS, "n0", "unit", "#/m^3", h5err)
+         call h5ltmake_dataset_f(gid_PVS, "Te0",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*PVS(pbid)%Te0,h5err)
+         call h5ltset_attribute_string_f(gid_PVS, "Te0", "unit", "eV", h5err)
+         call h5ltmake_dataset_f(gid_PVS, "Ti0",1,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*PVS(pbid)%Ti0,h5err)
+         call h5ltset_attribute_string_f(gid_PVS, "Ti0", "unit", "eV", h5err)
+
+         h5dims(1)=PVS(pbid)%dim_vpara
+         call h5ltmake_dataset_f(gid_PVS, "vpara_1D",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%vpara_1D,h5err)
+         call h5ltset_attribute_string_f(gid_PVS, "vpara_1D", "unit", "v/vth", h5err)
+         h5dims(1)=PVS(pbid)%dim_vperp
+         call h5ltmake_dataset_f(gid_PVS, "vperp_1D",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%vperp_1D,h5err)
+         call h5ltset_attribute_string_f(gid_PVS, "vperp_1D", "unit", "v/vth", h5err)
+
+         h5dims(1:2)=(/PVS(pbid)%dim_vpara,PVS(pbid)%dim_vperp/)
+         call h5ltmake_dataset_f(gid_PVS, "dfi",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "dfi_dTi",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,2),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fi_marker",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,3),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fi",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,4),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fi_Ti",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,5),h5err)
+
+         call h5gclose_f(gid_PVS, h5err)
+      enddo
 
       call h5gclose_f(gid_PARAMS, h5err)
       call h5gclose_f(gid_FLA, h5err)
