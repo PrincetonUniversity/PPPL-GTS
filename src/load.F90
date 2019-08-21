@@ -642,6 +642,13 @@ subroutine load_uniform_MGY
    real(wp) inv_ds, ff, P_s, P_q  !inv_ds is uniform by definition of s_grids
    integer:: sid ! index for s_grid
 
+   if(irun==0) ddT_da=0.0_wp
+   if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
+   if(irun /= 0)then
+      call restart_read
+      return
+   endif
+
    inv_ds = real(mpsi)/(s1-s0)
 
 
@@ -940,7 +947,5 @@ subroutine load_uniform_MGY
    write(stdout,*) "In load_uniform_MGY, I'm=",mype, "mi=", mi, ", me=",me
    call flush(stdout)
 
-   if(irun==0) ddT_da=0.0_wp
-   if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
 
 end subroutine load_uniform_MGY
