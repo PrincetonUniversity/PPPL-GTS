@@ -3954,9 +3954,10 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
 
    ! In the case of electrons, dne_adiab should be smoothed as well.
    target_Data2D(1:Ngq,1:Na) = DG%dne_adiab
-   target_Data2D(0,:)     = target_Data2D(Ngq,:)
-   target_Data2D(Ngq+1,:) = target_Data2D(1,:)
    do smid=1,num_smooth
+      ! Set ghost cell periodic in theta direction
+      target_Data2D(0,:)     = target_Data2D(Ngq,:)
+      target_Data2D(Ngq+1,:) = target_Data2D(1,:)      
       ! Smooth in theta direction
       target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
       ! Smooth in radial direction
@@ -3966,9 +3967,10 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
 
    do vid=1,DG%num_eSD
       target_Data2D(1:Ngq,1:Na) = DG%eScaData(:,:,vid,1)
-      target_Data2D(0,:)     = target_Data2D(Ngq,:)
-      target_Data2D(Ngq+1,:) = target_Data2D(1,:)
       do smid=1,num_smooth
+         ! Set ghost cell periodic in theta direction
+         target_Data2D(0,:)     = target_Data2D(Ngq,:)
+         target_Data2D(Ngq+1,:) = target_Data2D(1,:)         
          ! Smooth in theta direction
          target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
          ! Smooth in radial direction
@@ -3980,9 +3982,10 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    do vid=1,DG%num_eVD
       do k=1,3
          target_Data2D(1:Ngq,1:Na) = DG%eVecData(k,:,:,vid,1)
-         target_Data2D(0,:)     = target_Data2D(Ngq,:)
-         target_Data2D(Ngq+1,:) = target_Data2D(1,:)
          do smid=1,num_smooth
+            ! Set ghost cell periodic in theta direction
+            target_Data2D(0,:)     = target_Data2D(Ngq,:)
+            target_Data2D(Ngq+1,:) = target_Data2D(1,:)            
             ! Smooth in theta direction
             target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
             ! Smooth in radial direction
@@ -3997,9 +4000,10 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    ! =======================================
    do vid=1,DG%num_iSD
       target_Data2D(1:Ngq,1:Na) = DG%iScaData(:,:,vid,1)
-      target_Data2D(0,:)     = target_Data2D(Ngq,:)
-      target_Data2D(Ngq+1,:) = target_Data2D(1,:)
       do smid=1,num_smooth
+         ! Set ghost cell periodic in theta direction
+         target_Data2D(0,:)     = target_Data2D(Ngq,:)
+         target_Data2D(Ngq+1,:) = target_Data2D(1,:)         
          ! Smooth in theta direction
          target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
          ! Smooth in radial direction
@@ -4011,9 +4015,10 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    do vid=1,DG%num_iVD
       do k=1,3
          target_Data2D(1:Ngq,1:Na) = DG%iVecData(k,:,:,vid,1)
-         target_Data2D(0,:)     = target_Data2D(Ngq,:)
-         target_Data2D(Ngq+1,:) = target_Data2D(1,:)
          do smid=1,num_smooth
+            ! Set ghost cell periodic in theta direction
+            target_Data2D(0,:)     = target_Data2D(Ngq,:)
+            target_Data2D(Ngq+1,:) = target_Data2D(1,:)            
             ! Smooth in theta direction
             target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
             ! Smooth in radial direction
