@@ -1379,8 +1379,8 @@ subroutine snapshot_hdf5
 
       ! Write PVS information
       h5dims(1) = 1
-      call h5ltmake_dataset_f(file_id, "num_of_PVS",1,h5dims, H5T_NATIVE_INTEGER, num_of_PVS,h5err)
-      do pbid=1,num_of_PVS
+      call h5ltmake_dataset_f(file_id, "nPVS",1,h5dims, H5T_NATIVE_INTEGER, nPVS,h5err)
+      do pbid=0,nPVS
 
          write(cdum,'("PVS",i2.2)') pbid
          call h5gcreate_f(file_id, cdum, gid_PVS, h5err) ! PVS(ProbeVelocitySpace)

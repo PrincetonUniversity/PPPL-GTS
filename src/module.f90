@@ -329,7 +329,7 @@ module Diagnostic_Grid
 
    type(Grid_Info) :: DG
    type(Probe_Velocity_Space), allocatable, dimension(:) :: PVS
-   integer :: num_of_PVS
+   integer :: nPVS
 end module Diagnostic_Grid
 
 module esi_interface

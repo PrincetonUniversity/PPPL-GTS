@@ -3477,20 +3477,31 @@ subroutine Init_Diagnostic_Grid
 
    ! Set PVS (ProbeVelocitySpace) parameters
 
-   num_of_PVS = nprobe
-   allocate(PVS(num_of_PVS))
-   do pbid=1,num_of_PVS
+   nPVS = nprobe
+   allocate(PVS(0:nPVS)) ! 0-index PVS will be used to measure particles in a whole poloidal section.
+   
+   ! Set location and size of probes 
+   PVS(0)%a  = 0.5*(a0+a1)
+   PVS(0)%gq = 0
+   PVS(0)%gf = 0.5*(zetamax+zetamin)
+   PVS(0)%L_a  = a1-a0  !To deal with a whole poloidal section
+   PVS(0)%L_gq = 2.0*pi 
+   PVS(0)%L_gf = zetamax-zetamin
+
+   do pbid=1,nPVS
       PVS(pbid)%a  = rprobe(pbid)
       PVS(pbid)%gq = tprobe(pbid)
       PVS(pbid)%gf = 0.5*(zetamax+zetamin)
-
       PVS(pbid)%L_a  = dradius
       PVS(pbid)%L_gq = dtheta
       PVS(pbid)%L_gf = zetamax-zetamin
+   enddo
 
-      PVS(pbid)%n0  = density(rprobe(pbid),0.0)
-      PVS(pbid)%Ti0 = temperature(rprobe(pbid),tprobe(pbid))
-      PVS(pbid)%Te0 = msm0*temperature_e(rprobe(pbid),tprobe(pbid))
+   ! Set other information
+   do pbid=0,nPVS     
+      PVS(pbid)%n0  = density(PVS(pbid)%a,0.0)
+      PVS(pbid)%Ti0 = temperature(PVS(pbid)%a,PVS(pbid)%gq)
+      PVS(pbid)%Te0 = msm0*temperature_e(PVS(pbid)%a,PVS(pbid)%gq)
 
       PVS(pbid)%inv_n0  = 1.0/PVS(pbid)%n0
       PVS(pbid)%inv_Ti0 = 1.0/PVS(pbid)%Ti0
@@ -3853,7 +3864,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
       enddo
 
       ! Velocity Space Measurement
-      do pbid=1,num_of_PVS
+      do pbid=0,nPVS
          target_gq = modulo(P_gq + (PVS(pbid)%gf-P_gf)/P_safety_q, 2.0*pi)
 
          if( abs(P_gf-PVS(pbid)%gf)<0.5*PVS(pbid)%L_gf &
@@ -3919,8 +3930,8 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
       length = 3*DG%dim_gq*DG%dim_a*DG%num_iVD*2
       call MPI_ALLREDUCE(tmp_Vector_Data, DG%iVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
 
-      allocate(tmp_PVS_fi, mold=PVS(1)%fi)
-      do pbid=1,num_of_PVS
+      allocate(tmp_PVS_fi, mold=PVS(0)%fi)
+      do pbid=0,nPVS
          tmp_PVS_fi = PVS(pbid)%fi
          length = PVS(pbid)%dim_vpara*PVS(pbid)%dim_vperp*PVS(pbid)%num_of_f
          call MPI_ALLREDUCE(tmp_PVS_fi, PVS(pbid)%fi, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
