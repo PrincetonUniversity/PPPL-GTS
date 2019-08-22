@@ -3776,6 +3776,10 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
 
    DG%iScaData=0
    DG%iVecData=0
+   do pbid=0,nPVS
+      PVS(pbid)%fi = 0
+   enddo
+
 
    ori_inv_ds = real(mpsi)/(s1-s0)
 
