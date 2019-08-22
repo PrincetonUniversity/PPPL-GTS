@@ -322,7 +322,7 @@ module Diagnostic_Grid
 
       real(wp), allocatable, dimension(:) :: vpara_1D, vperp_1D  ! vpara_1D(-nv:nv), vperp_1D(0:nv)
 
-      integer :: num_of_f
+      integer :: num_of_fi, num_of_fe
       real(wp), allocatable, dimension(:,:,:) :: fe, fi
    end type
 

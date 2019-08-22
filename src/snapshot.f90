@@ -1415,6 +1415,12 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_PVS, "fi",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,4),h5err)
          call h5ltmake_dataset_f(gid_PVS, "fi_Ti",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,5),h5err)
 
+         call h5ltmake_dataset_f(gid_PVS, "dfe",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "dfe_dTe",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,2),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fe_marker",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,3),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fe",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,4),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fe_Te",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,5),h5err)
+
          call h5gclose_f(gid_PVS, h5err)
       enddo
 

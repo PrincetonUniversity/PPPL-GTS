@@ -3479,13 +3479,13 @@ subroutine Init_Diagnostic_Grid
 
    nPVS = nprobe
    allocate(PVS(0:nPVS)) ! 0-index PVS will be used to measure particles in a whole poloidal section.
-   
-   ! Set location and size of probes 
+
+   ! Set location and size of probes
    PVS(0)%a  = 0.5*(a0+a1)
    PVS(0)%gq = 0
    PVS(0)%gf = 0.5*(zetamax+zetamin)
    PVS(0)%L_a  = a1-a0  !To deal with a whole poloidal section
-   PVS(0)%L_gq = 2.0*pi 
+   PVS(0)%L_gq = 2.0*pi
    PVS(0)%L_gf = zetamax-zetamin
 
    do pbid=1,nPVS
@@ -3498,7 +3498,7 @@ subroutine Init_Diagnostic_Grid
    enddo
 
    ! Set other information
-   do pbid=0,nPVS     
+   do pbid=0,nPVS
       PVS(pbid)%n0  = density(PVS(pbid)%a,0.0)
       PVS(pbid)%Ti0 = temperature(PVS(pbid)%a,PVS(pbid)%gq)
       PVS(pbid)%Te0 = msm0*temperature_e(PVS(pbid)%a,PVS(pbid)%gq)
@@ -3515,12 +3515,13 @@ subroutine Init_Diagnostic_Grid
       PVS(pbid)%dim_vpara = 2*PVS(pbid)%nv+1
       PVS(pbid)%dim_vperp = PVS(pbid)%nv+1
 
-      PVS(pbid)%num_of_f  = 5
+      PVS(pbid)%num_of_fi  = 5
+      PVS(pbid)%num_of_fe  = 5
 
       allocate(PVS(pbid)%vpara_1D(-PVS(pbid)%nv:PVS(pbid)%nv))
       allocate(PVS(pbid)%vperp_1D(0:PVS(pbid)%nv))
-      allocate(PVS(pbid)%fe(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv, PVS(pbid)%num_of_f))
-      allocate(PVS(pbid)%fi, mold=PVS(pbid)%fe)
+      allocate(PVS(pbid)%fi(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv, PVS(pbid)%num_of_fi))
+      allocate(PVS(pbid)%fe(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv, PVS(pbid)%num_of_fe))
 
       do i=0,PVS(pbid)%nv
          PVS(pbid)%vperp_1D(i) = i*PVS(pbid)%dv
@@ -3561,6 +3562,9 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
    real(wp) target_zeta
    integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
+   integer ::pbid,vxid,vyid,fid
+   real(wp):: norm_vpara, norm_vperp, rvx,rvy ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
+   real(wp),allocatable, dimension(:,:,:) :: tmp_PVS_fe
    integer :: length, istatus(MPI_STATUS_SIZE),ierror
 
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1)
@@ -3568,6 +3572,9 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
    DG%eScaData=0
    DG%eVecData=0
+   do pbid=0,nPVS
+      PVS(pbid)%fe = 0
+   enddo
 
    ori_inv_ds = real(mpsi)/(s1-s0)
 
@@ -3662,6 +3669,62 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
             DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
          enddo
       enddo
+
+
+      ! Velocity Space Measurement
+      do pbid=0,nPVS
+         target_gq = modulo(P_gq + (PVS(pbid)%gf-P_gf)/P_safety_q, 2.0*pi)
+
+         if( abs(P_gf-PVS(pbid)%gf)<0.5*PVS(pbid)%L_gf &
+         .and. abs(P_a-PVS(pbid)%a) <0.5*PVS(pbid)%L_a &
+         .and. min(abs(target_gq-PVS(pbid)%gq), 2.0*pi-abs(target_gq-PVS(pbid)%gq)) < 0.5*PVS(pbid)%L_gq) then
+
+            norm_vpara = zeon0(4,m)*csc0*BB(m)*sqrt(m0ms*PVS(pbid)%inv_Te0) ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+            norm_vperp = zeon(6,m)*sqrt(2.0*BB(m))*sqrt(PVS(pbid)%inv_Te0) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+
+            vxid = floor(norm_vpara*PVS(pbid)%inv_dv)
+            vyid = floor(norm_vperp*PVS(pbid)%inv_dv)
+            rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
+            rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
+
+            if(vxid< -PVS(pbid)%nv) then
+               vxid= -PVS(pbid)%nv
+               rvx=0.0
+            elseif (vxid>= PVS(pbid)%nv) then
+               vxid=  PVS(pbid)%nv-1
+               rvx=1.0
+            endif
+
+            if(vyid>= PVS(pbid)%nv) then
+               vyid=  PVS(pbid)%nv-1
+               rvy=1.0
+            endif
+
+            do j=1,4
+               select case(j)
+                  case(1)
+                     qq=vxid; ss=vyid
+                     ratio=(1.0-rvx)*(1.0-rvy)
+                  case(2)
+                     qq=vxid+1; ss=vyid
+                     ratio=(rvx)*(1.0-rvy)
+                  case(3)
+                     qq=vxid; ss=vyid+1
+                     ratio=(1.0-rvx)*(rvy)
+                  case(4)
+                     qq=vxid+1; ss=vyid+1
+                     ratio=(rvx)*(rvy)
+               end select
+
+               fid=1; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*delta_f(m) ! Density
+               fid=2; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*delta_f(m)*(2.0/3.0*energy(m)-backT(m)) ! Temperature definition
+               fid=3; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio ! Marker Density
+               fid=4; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*f_tot(m) ! f_tot
+               fid=5; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+            enddo
+         endif
+      enddo
+
    enddo
 
 
@@ -3674,6 +3737,14 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
       length = 3*DG%dim_gq*DG%dim_a*DG%num_eVD*2
       call MPI_ALLREDUCE(tmp_Vector_Data, DG%eVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+      allocate(tmp_PVS_fe, mold=PVS(0)%fe)
+      do pbid=0,nPVS
+         tmp_PVS_fe = PVS(pbid)%fe
+         length = PVS(pbid)%dim_vpara*PVS(pbid)%dim_vperp*PVS(pbid)%num_of_fe
+         call MPI_ALLREDUCE(tmp_PVS_fe, PVS(pbid)%fe, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+      enddo
+      deallocate(tmp_PVS_fe)
    endif
 
 
@@ -3937,7 +4008,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
       allocate(tmp_PVS_fi, mold=PVS(0)%fi)
       do pbid=0,nPVS
          tmp_PVS_fi = PVS(pbid)%fi
-         length = PVS(pbid)%dim_vpara*PVS(pbid)%dim_vperp*PVS(pbid)%num_of_f
+         length = PVS(pbid)%dim_vpara*PVS(pbid)%dim_vperp*PVS(pbid)%num_of_fi
          call MPI_ALLREDUCE(tmp_PVS_fi, PVS(pbid)%fi, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
       enddo
       deallocate(tmp_PVS_fi)
