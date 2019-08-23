@@ -2667,36 +2667,43 @@ int gcmotion_em_MGY(REAL *dXgr,
 		dXgq[k]	=a22*dHdgr-a21*dHda-D*(-dHdgf);
 		dXgf[k]	=-a12*dHdgr+a11*dHda+D*(-dHdgq);
 
-		P[k]      = a22*(-(wpi2-dHdgr*gaq)) +a22_MPterm*(-BBq) -a12*(-(wpi3-dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
-		ghq[k]	  =-a21*(-(wpi2-dHdgr*gaq)) +a11*(-(wpi3-dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
-		Ta[k]     = a22_MPterm*dHdgr -a21*(wpi1-dHdgr*gaa) -D*(-(wpi3-dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
-		dvi_gf[k] =-a12_MPterm*dHdgr +a11*(wpi1-dHdgr*gaa) +D*(-(wpi2-dHdgr*gaq));
-		T[k]      =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
-
-
-		vpara_dvi_a[k]  = dHdgr*(-a21*gaq +a11*gaz );
-		vpara_dvi_gq[k] = dHdgr*(a22_MPterm +a21*gaa -D*gaz);
-		vpara_dvi_gf[k] = dHdgr*(-a12_MPterm -a11*gaa +D*gaq) ;
-
 		// transfromation from rho_hat to rho
 		dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
-		//P[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
-
-		//================================================================================
-		// MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(ga))
-		// This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.
-		P[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
-		//================================================================================
 
 
+		if((*Flag_Streaming)==1){
+         // including the streaming term and perturbed mirror force
+         P[k]      = a22*(-(wpi2-dHdgr*gaq)) +a22_MPterm*(-BBq) -a12*(-(wpi3-dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
+         ghq[k]    =-a21*(-(wpi2-dHdgr*gaq)) +a11*(-(wpi3-dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
+         Ta[k]     = a22_MPterm*dHdgr -a21*(wpi1-dHdgr*gaa) -D*(-(wpi3-dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
+         dvi_gf[k] =-a12_MPterm*dHdgr +a11*(wpi1-dHdgr*gaa) +D*(-(wpi2-dHdgr*gaq));
+         T[k]      =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
+         vpara_dvi_a[k]  = dHdgr*(-a21*gaq +a11*gaz );
+         vpara_dvi_gq[k] = dHdgr*(a22_MPterm +a21*gaa -D*gaz);
+         vpara_dvi_gf[k] = dHdgr*(-a12_MPterm -a11*gaa +D*gaq) ;
 
-		// // MGYOO's additional modification (09/12/2018) to consider dga0dt for further weight calculation in push routines using P[k].
-		// if(nonlinear>0){ // nonlinear simulation (dXa, dXgq, dXgf already have perturbed ExB terms in them.)
-		//     P[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
-		// }
-		// else{ // linear simulation (dXa, dXgq, dXgf have only E0xB terms, so that we add perturbed ExB terms to calculate full dga0dt)
-		//     P[k] -= gat_array[k] + gaa * (dXa[k] + ghq[k]) + gaq *(dXgq[k]+ Ta[k]) + gaz * (dXgf[k]+ dXgf1);
-		// }
+         //MGYOO(08/23/2019):
+         // In the case of Flag_Streaming=1 (yes streaming, yes perturbed mirror force)
+         // rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga))
+         P[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+      }
+      else{
+         // (no streaming ,no perturbed mirror force, only ExB and electric force along perturbed field line)
+         P[k]      = a22*(-(wpi2)) -a12*(-(wpi3));      /* drho/dt|_EXB, no e and m dependence */
+         ghq[k]	 =-a21*(-(wpi2)) +a11*(-(wpi3));     /* da/dt|_EXB, no e and m dependence */
+         Ta[k]     =-a21*(wpi1) -D*(-(wpi3));          /* dtheta/dt|_EXB, no e and m dependence */
+         dvi_gf[k] =+a11*(wpi1) +D*(-(wpi2));
+         T[k]      =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
+         vpara_dvi_a[k]  = 0;
+         vpara_dvi_gq[k] = 0;
+         vpara_dvi_gf[k] = 0;
+
+         //MGYOO(08/23/2019):
+         // In the case of Flag_Streaming=0 (no streaming ,no perturbed mirror force)
+         // rho_dot_1 transform must only use the perturbed velocity term due to ExB (v_EXB*grad(ga))
+         P[k]   -= gaa*ghq[k] + gaq*Ta[k] + gaz*dvi_gf[k];
+      }
+
 
 
 #ifdef _TREAT_MAGNETIC_AXIS
@@ -4248,26 +4255,40 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		dXa[k]     *=c0cs;
 		dXgq[k]    *=c0cs;
 
-
-		Pa[k]       = a22*(-(wpi2-c0cs*dHdgr*gaq)) +a22_MPterm*(-c0cs*BBq) -a12*(-(wpi3-c0cs*dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
-		ghq[k]      =-a21*(-(wpi2-c0cs*dHdgr*gaq)) +a11*(-(wpi3-c0cs*dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
-		Ta[k]       = a22_MPterm*c0cs*dHdgr -a21*(wpi1-c0cs*dHdgr*gaa) -D*(-(wpi3-c0cs*dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
-		dve_gf[k]   =-a12_MPterm*c0cs*dHdgr +a11*(wpi1-c0cs*dHdgr*gaa) +D*(-(wpi2-c0cs*dHdgr*gaq));
-
-		vpara_dve_a[k]  = c0cs*dHdgr*(-a21*gaq +a11*gaz);
-		vpara_dve_gq[k] = c0cs*dHdgr*(a22_MPterm +a21*gaa -D*gaz);
-		vpara_dve_gf[k] = c0cs*dHdgr*(-a12_MPterm -a11*gaa +D*gaq);
-
 		// transfromation from rho_hat to rho
 		dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
-		//Pa[k]     -= gat_array[k] + gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1;
 
-		//================================================================================
-		// MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(ga))
-		// This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.
-		Pa[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
-		//==============================================================================
 
+      if((*Flag_Streaming)==1){
+          // including the streaming term and perturbed mirror force (and ExB and electric force along perturbed field line)
+         Pa[k]       = a22*(-(wpi2-c0cs*dHdgr*gaq)) +a22_MPterm*(-c0cs*BBq) -a12*(-(wpi3-c0cs*dHdgr*gaz));
+         ghq[k]      =-a21*(-(wpi2-c0cs*dHdgr*gaq)) +a11*(-(wpi3-c0cs*dHdgr*gaz));
+         Ta[k]       = a22_MPterm*c0cs*dHdgr -a21*(wpi1-c0cs*dHdgr*gaa) -D*(-(wpi3-c0cs*dHdgr*gaz));
+         dve_gf[k]   =-a12_MPterm*c0cs*dHdgr +a11*(wpi1-c0cs*dHdgr*gaa) +D*(-(wpi2-c0cs*dHdgr*gaq));
+         vpara_dve_a[k]  = c0cs*dHdgr*(-a21*gaq +a11*gaz);
+         vpara_dve_gq[k] = c0cs*dHdgr*(a22_MPterm +a21*gaa -D*gaz);
+         vpara_dve_gf[k] = c0cs*dHdgr*(-a12_MPterm -a11*gaa +D*gaq);
+
+         //MGYOO(08/23/2019):
+         // In the case of Flag_Streaming=1 (yes streaming, yes perturbed mirror force)
+         // rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga))
+         Pa[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+      }
+      else{
+         // (no streaming ,no perturbed mirror force), only (ExB and electric force along perturbed field line)
+         Pa[k]       = a22*(-(wpi2)) -a12*(-(wpi3));      /* drho/dt|_EXB, no e and m dependence */
+         ghq[k]      =-a21*(-(wpi2)) +a11*(-(wpi3));     /* da/dt|_EXB, no e and m dependence */
+         Ta[k]       =-a21*(wpi1) -D*(-(wpi3));          /* dtheta/dt|_EXB, no e and m dependence */
+         dve_gf[k]   = a11*(wpi1) +D*(-(wpi2));
+         vpara_dve_a[k]  = 0;
+         vpara_dve_gq[k] = 0;
+         vpara_dve_gf[k] = 0;
+
+         //MGYOO(08/23/2019):
+         // In the case of Flag_Streaming=0 (no streaming ,no perturbed mirror force)
+         // rho_dot_1 transform must only use the perturbed velocity term due to ExB (v_EXB*grad(ga))
+         Pa[k]   -=  gaa*ghq[k] + gaq*Ta[k] + gaz*dve_gf[k];
+      }
 
 
 #ifdef _TREAT_MAGNETIC_AXIS
