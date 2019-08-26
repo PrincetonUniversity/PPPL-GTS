@@ -4123,28 +4123,9 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    Na  = DG%dim_a
    Ngq = DG%dim_gq
 
+   call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dV, SM_a_Coeff, SM_gq_Coeff)
+
    target_Data2D=0
-   VV = 0
-   VV(1:Ngq,1:Na) = DG%Cell_dV
-
-   ! Note that theta direction is periodic
-   VV(0,:) = VV(Ngq,:)
-   VV(Ngq+1,:) = VV(1,:)
-
-
-   SM_gq_Coeff(-1,1:Ngq,:) = 0.5*VV(0:Ngq-1,:)/(VV(0:Ngq-1,:) + VV(1:Ngq,:)) ! Coeff_L = 0.5*VL/(VL+VC)
-   SM_gq_Coeff( 0,1:Ngq,:) = 0.5*VV(1:Ngq,:)*(VV(0:Ngq-1,:)+2.0*VV(1:Ngq,:)+VV(2:Ngq+1,:))/((VV(0:Ngq-1,:)+VV(1:Ngq,:))*(VV(1:Ngq,:)+VV(2:Ngq+1,:))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
-   SM_gq_Coeff( 1,1:Ngq,:) = 0.5*VV(2:Ngq+1,:)/(VV(2:Ngq+1,:) + VV(1:Ngq,:)) ! Coeff_R = 0.5*VR/(VR+VC)
-
-   SM_a_Coeff(-1,:,1:Na) = 0.5*VV(:,0:Na-1)/(VV(:,0:Na-1) + VV(:,1:Na)) ! Coeff_L = 0.5*VL/(VL+VC)
-   SM_a_Coeff( 0,:,1:Na) = 0.5*VV(:,1:Na)*(VV(:,0:Na-1)+2.0*VV(:,1:Na)+VV(:,2:Na+1))/((VV(:,0:Na-1)+VV(:,1:Na))*(VV(:,1:Na)+VV(:,2:Na+1))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
-   SM_a_Coeff( 1,:,1:Na) = 0.5*VV(:,2:Na+1)/(VV(:,2:Na+1) + VV(:,1:Na)) ! Coeff_R = 0.5*VR/(VR+VC)
-
-   ! To remove NaN values at the raidal ghost cells
-   SM_gq_Coeff(:,:,0)   = 0
-   SM_gq_Coeff(:,:,Na+1)= 0
-   SM_a_Coeff(:,:,0)    = 0
-   SM_a_Coeff(:,:,Na+1) = 0
 
    ! =======================================
    ! Smooth Electron Scalar and Vector Data
@@ -4227,3 +4208,42 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    enddo
 
 end subroutine Smooth_DG_Scalar_Vector_Data
+
+
+subroutine Get_Conserving_Smooth_Coeffs_on_DG(in_VOLorAREA, SM_a_Coeff, SM_gq_Coeff)
+
+   use precision
+   use global_parameters
+   use field_array
+   use Diagnostic_Grid
+   implicit none
+
+   integer :: Na,Ngq
+   real(wp), intent(in) :: in_VOLorAREA(DG%dim_gq, DG%dim_a) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+   real(wp) :: VV(0:DG%dim_gq+1, 0:DG%dim_a+1) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+   real(wp), intent(out):: SM_gq_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1), SM_a_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1)
+
+   Na  = DG%dim_a
+   Ngq = DG%dim_gq
+
+   VV = 0
+   VV(1:Ngq,1:Na) = in_VOLorAREA
+
+   ! Note that theta direction is periodic
+   VV(0,:) = VV(Ngq,:)
+   VV(Ngq+1,:) = VV(1,:)
+
+   SM_gq_Coeff(-1,1:Ngq,:) = 0.5*VV(0:Ngq-1,:)/(VV(0:Ngq-1,:) + VV(1:Ngq,:)) ! Coeff_L = 0.5*VL/(VL+VC)
+   SM_gq_Coeff( 0,1:Ngq,:) = 0.5*VV(1:Ngq,:)*(VV(0:Ngq-1,:)+2.0*VV(1:Ngq,:)+VV(2:Ngq+1,:))/((VV(0:Ngq-1,:)+VV(1:Ngq,:))*(VV(1:Ngq,:)+VV(2:Ngq+1,:))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+   SM_gq_Coeff( 1,1:Ngq,:) = 0.5*VV(2:Ngq+1,:)/(VV(2:Ngq+1,:) + VV(1:Ngq,:)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+   SM_a_Coeff(-1,:,1:Na) = 0.5*VV(:,0:Na-1)/(VV(:,0:Na-1) + VV(:,1:Na)) ! Coeff_L = 0.5*VL/(VL+VC)
+   SM_a_Coeff( 0,:,1:Na) = 0.5*VV(:,1:Na)*(VV(:,0:Na-1)+2.0*VV(:,1:Na)+VV(:,2:Na+1))/((VV(:,0:Na-1)+VV(:,1:Na))*(VV(:,1:Na)+VV(:,2:Na+1))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+   SM_a_Coeff( 1,:,1:Na) = 0.5*VV(:,2:Na+1)/(VV(:,2:Na+1) + VV(:,1:Na)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+   ! To remove NaN values at the raidal ghost cells
+   SM_gq_Coeff(:,:,0)   = 0
+   SM_gq_Coeff(:,:,Na+1)= 0
+   SM_a_Coeff(:,:,0)    = 0
+   SM_a_Coeff(:,:,Na+1) = 0
+end subroutine Get_Conserving_Smooth_Coeffs_on_DG
