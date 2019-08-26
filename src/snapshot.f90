@@ -1309,6 +1309,8 @@ subroutine snapshot_hdf5
       h5dims(1)=DG%dim_a
       call h5ltmake_dataset_f(gid_DG, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%a_1D,h5err)
       call h5ltmake_dataset_f(gid_DG, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%s_1D,h5err)
+
+      h5dims(1)=DG%dim_gq
       call h5ltmake_dataset_f(gid_DG, "gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%gq_1D,h5err)
 
       h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
