@@ -1914,7 +1914,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
    real(wp) out_ga, out_grad_ga(3), out_partial_dg0dt
    real(wp) B_vec_cntv(3)
    integer tor_dir, PPI_id, Fid, maximum_tor_rotation
-   integer(kind=8) :: sobol_seed=0, sobol_dim_num=2
+   integer(kind=8) :: sobol_seed=1, sobol_dim_num=2
    real(kind=8) sobol_rand_2d(2)
    real(wp) intp_weight, dummy_real, tmp_rand
    real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
@@ -2996,7 +2996,7 @@ subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    real(wp) sendl(mgrid),recvr(mgrid)
    integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
 
-   integer(kind=8) :: sobol_seed=0 ! sobol sedd should not be parameter, becuase sobol_seed changes at every sampling
+   integer(kind=8) :: sobol_seed=1 ! sobol sedd should not be parameter, becuase sobol_seed changes at every sampling
    integer(kind=8), parameter :: sobol_dim_num=3
    real(kind=8) sobol_rand_3d(sobol_dim_num)
    integer :: iteration=0, max_iteration = 1e9
