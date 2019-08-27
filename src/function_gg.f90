@@ -3390,6 +3390,7 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%ori_aid, DG%s_1D, DG%n0_1D, DG%Te0_1D, DG%Ti0_1D, mold=DG%a_1D)
    allocate(DG%a_2D(DG%dim_gq,DG%dim_a))
    allocate(DG%gq_2D, DG%Cell_dV, DG%inv_Cell_dV, DG%dne_adiab, mold=DG%a_2D)
+   allocate(DG%Cell_dS_a, DG%inv_Cell_dS_a, DG%Cell_dS_gq, DG%inv_Cell_dS_gq, DG%Cell_dS_gf, DG%inv_Cell_dS_gf, mold=DG%a_2D)
    allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1) )
    allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1) )
 
@@ -3457,7 +3458,6 @@ subroutine Init_Diagnostic_Grid
    ! NOTE : Get Cell volume like dV=(Jacobian)*dpsi*dtheta*dgf
    !        Following Cell_dV is an approximation
    !        For higher accuracy, a Weighted Volume by considering hellical particle shape and varying da is required
-
    approx_dgf=zetamax-zetamin
    do aid=1,DG%dim_a
       if(aid==1) then
@@ -3470,10 +3470,15 @@ subroutine Init_Diagnostic_Grid
 
       do gqid=1,DG%dim_gq
          DG%Cell_dV(gqid,aid)=DG%Jacobian(gqid,aid)*approx_da*DG%dgq*approx_dgf
+         DG%Cell_dS_a(gqid,aid) = sqrt(DG%g_aa_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*DG%dgq*approx_dgf
+         DG%Cell_dS_gq(gqid,aid) = sqrt(DG%g_qq_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*approx_dgf
+         DG%Cell_dS_gf(gqid,aid) = sqrt(DG%g_ff_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*DG%dgq
       enddo
    enddo
    DG%inv_Cell_dV=1.0/DG%Cell_dV
-
+   DG%inv_Cell_dS_a  =1.0/DG%Cell_dS_a
+   DG%inv_Cell_dS_gq =1.0/DG%Cell_dS_gq
+   DG%inv_Cell_dS_gf =1.0/DG%Cell_dS_gf
 
    ! Set PVS (ProbeVelocitySpace) parameters
 
@@ -3793,19 +3798,12 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    vid=6; DG%eScaData(:,:,vid,1) = DG%eScaData(:,:,vid,1)*inv_tot_ne! Te_tot
 
 
-
+   ! Get Flux Density by dividing Area in each direction
    do vid=1,DG%num_eVD
-      do j=1,3
-         DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dV
-      enddo
-      do aid=1,DG%dim_a
-         do j=1,3
-            DG%eVecData(j,:,aid,vid,1) = DG%eVecData(j,:,aid,vid,1)/DG%n0_1D(aid)
-         enddo
-      enddo
+      j=1; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_a  ! Radial Flux Density
+      j=2; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gq ! Theta Flux Density
+      j=3; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gf ! Zeta Flux Density
    enddo
-
-
 end subroutine Measure_Electrons_on_Diagnostic_Grid
 
 
@@ -4060,18 +4058,12 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
    vid=6; DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*inv_tot_ni! Te_tot
 
 
-
+   ! Get Flux Density by dividing Area in each direction
    do vid=1,DG%num_iVD
-      do j=1,3
-         DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dV
-      enddo
-      do aid=1,DG%dim_a
-         do j=1,3
-            DG%iVecData(j,:,aid,vid,1) = DG%iVecData(j,:,aid,vid,1)/DG%n0_1D(aid)
-         enddo
-      enddo
+      j=1; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_a  ! Radial Flux Density
+      j=2; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gq ! Theta Flux Density
+      j=3; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gf ! Zeta Flux Density
    enddo
-
 
 end subroutine Measure_Ions_on_Diagnostic_Grid
 
@@ -4123,20 +4115,20 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    Na  = DG%dim_a
    Ngq = DG%dim_gq
 
-   call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dV, SM_a_Coeff, SM_gq_Coeff)
 
    target_Data2D=0
 
+   ! Get Smooth Coeffs which conserves Volume Weighted Integration
+   call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dV, SM_a_Coeff, SM_gq_Coeff)
    ! =======================================
-   ! Smooth Electron Scalar and Vector Data
+   ! Smooth Electron Scalar Data by conserving Volume Weighted Integration
    ! =======================================
-
    ! In the case of electrons, dne_adiab should be smoothed as well.
    target_Data2D(1:Ngq,1:Na) = DG%dne_adiab
    do smid=1,num_smooth
       ! Set ghost cell periodic in theta direction
       target_Data2D(0,:)     = target_Data2D(Ngq,:)
-      target_Data2D(Ngq+1,:) = target_Data2D(1,:)      
+      target_Data2D(Ngq+1,:) = target_Data2D(1,:)
       ! Smooth in theta direction
       target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
       ! Smooth in radial direction
@@ -4149,7 +4141,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
       do smid=1,num_smooth
          ! Set ghost cell periodic in theta direction
          target_Data2D(0,:)     = target_Data2D(Ngq,:)
-         target_Data2D(Ngq+1,:) = target_Data2D(1,:)         
+         target_Data2D(Ngq+1,:) = target_Data2D(1,:)
          ! Smooth in theta direction
          target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
          ! Smooth in radial direction
@@ -4157,14 +4149,42 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
       enddo
       DG%eScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
    enddo
+   ! =======================================
+   ! Smooth Ion Scalar Data by conserving Volume Weighted Integration
+   ! =======================================
+   do vid=1,DG%num_iSD
+      target_Data2D(1:Ngq,1:Na) = DG%iScaData(:,:,vid,1)
+      do smid=1,num_smooth
+         ! Set ghost cell periodic in theta direction
+         target_Data2D(0,:)     = target_Data2D(Ngq,:)
+         target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+         ! Smooth in theta direction
+         target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+         ! Smooth in radial direction
+         target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+      enddo
+      DG%iScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+   enddo
 
+   ! =======================================
+   ! Smooth Electron Vector Data by conserving Surface Area Weighted Integration in each direction
+   ! =======================================
    do vid=1,DG%num_eVD
       do k=1,3
+         select case(k)
+            case(1)
+               call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_a, SM_a_Coeff, SM_gq_Coeff)
+            case(2)
+               call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_gq, SM_a_Coeff, SM_gq_Coeff)
+            case(3)
+               call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_gf, SM_a_Coeff, SM_gq_Coeff)
+         end select
+
          target_Data2D(1:Ngq,1:Na) = DG%eVecData(k,:,:,vid,1)
          do smid=1,num_smooth
             ! Set ghost cell periodic in theta direction
             target_Data2D(0,:)     = target_Data2D(Ngq,:)
-            target_Data2D(Ngq+1,:) = target_Data2D(1,:)            
+            target_Data2D(Ngq+1,:) = target_Data2D(1,:)
             ! Smooth in theta direction
             target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
             ! Smooth in radial direction
@@ -4175,29 +4195,24 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    enddo
 
    ! =======================================
-   ! Smooth Ion Scalar and Vector Data
+   ! Smooth Ion Vector Data by conserving Surface Area Weighted Integration in each direction
    ! =======================================
-   do vid=1,DG%num_iSD
-      target_Data2D(1:Ngq,1:Na) = DG%iScaData(:,:,vid,1)
-      do smid=1,num_smooth
-         ! Set ghost cell periodic in theta direction
-         target_Data2D(0,:)     = target_Data2D(Ngq,:)
-         target_Data2D(Ngq+1,:) = target_Data2D(1,:)         
-         ! Smooth in theta direction
-         target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
-         ! Smooth in radial direction
-         target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
-      enddo
-      DG%iScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
-   enddo
-
    do vid=1,DG%num_iVD
       do k=1,3
+         select case(k)
+         case(1)
+            call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_a, SM_a_Coeff, SM_gq_Coeff)
+         case(2)
+            call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_gq, SM_a_Coeff, SM_gq_Coeff)
+         case(3)
+            call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_gf, SM_a_Coeff, SM_gq_Coeff)
+         end select
+
          target_Data2D(1:Ngq,1:Na) = DG%iVecData(k,:,:,vid,1)
          do smid=1,num_smooth
             ! Set ghost cell periodic in theta direction
             target_Data2D(0,:)     = target_Data2D(Ngq,:)
-            target_Data2D(Ngq+1,:) = target_Data2D(1,:)            
+            target_Data2D(Ngq+1,:) = target_Data2D(1,:)
             ! Smooth in theta direction
             target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
             ! Smooth in radial direction
@@ -4246,4 +4261,5 @@ subroutine Get_Conserving_Smooth_Coeffs_on_DG(in_VOLorAREA, SM_a_Coeff, SM_gq_Co
    SM_gq_Coeff(:,:,Na+1)= 0
    SM_a_Coeff(:,:,0)    = 0
    SM_a_Coeff(:,:,Na+1) = 0
+
 end subroutine Get_Conserving_Smooth_Coeffs_on_DG

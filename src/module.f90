@@ -296,6 +296,7 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:) :: a_1D, ori_aid, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D
       real(wp), allocatable, dimension(:,:) :: a_2D, gq_2D
       real(wp), allocatable, dimension(:,:) :: Cell_dV, inv_Cell_dV ! Cell Volume and its inverse(Weighted Volume, but now it is approximated)
+      real(wp), allocatable, dimension(:,:) :: Cell_dS_a, inv_Cell_dS_a, Cell_dS_gq, inv_Cell_dS_gq, Cell_dS_gf, inv_Cell_dS_gf ! Node_Surface in each direction
       real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
       real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
       real(wp), allocatable, dimension(:,:) :: dne_adiab ! Electron adiabatic density for diagnostic purpose
@@ -384,4 +385,3 @@ module control_parameters
    real(wp) flip_rotation,ain,aout   ! WX added Nov. 2014
 
 end module control_parameters
-

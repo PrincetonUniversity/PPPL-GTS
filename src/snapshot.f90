@@ -1317,6 +1317,9 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%a_2D,h5err)
       call h5ltmake_dataset_f(gid_DG, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%gq_2D,h5err)
       call h5ltmake_dataset_f(gid_DG, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dV,h5err)
+      call h5ltmake_dataset_f(gid_DG, "Cell_dS_a",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_a,h5err)
+      call h5ltmake_dataset_f(gid_DG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gq,h5err)
+      call h5ltmake_dataset_f(gid_DG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gf,h5err)
 
       do i=1,2
          select case(i)
