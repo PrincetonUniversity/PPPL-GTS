@@ -2775,13 +2775,17 @@ subroutine Convert_a_to_s(in_a, out_s)
    implicit none
 
    real(wp) in_a, out_s
-   integer ierr
+   integer ierr, IFAIL, minpts
+   real(wp) error_8, acc
+   real(wp), external :: D01AHF,dsda
 
    if (dsda_power == 0) then
       out_s = s0 + (in_a-a0) !!
    else
-      write(*,*) "Error! dsda_power is not 0!! Test case is only available when dsda_power=0"
-      STOP
+      error_8=1.0e-5_wp
+      IFAIL=1
+      out_s=D01AHF(0.0_wp,in_a,error_8,minpts,acc,dsda,-1,IFAIL)
+      out_s=min(s1,max(s0,out_s))
    endif
 end subroutine Convert_a_to_s
 
