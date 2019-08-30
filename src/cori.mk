@@ -141,16 +141,16 @@ LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PET
 	$(CC)  $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) -c $< -o $@
 
 %.o: %.f
-	$(F77) $(OPT) $(INCLUDE) -c $< -o $@
+	$(F77) $(OPT) -c $< -o $@
 
 %.o: %.F
-	$(F77) $(OPT) $(INCLUDE) -c $< -o $@
+	$(F77) $(OPT) -c $< -o $@
 
 %.o: %.f90
-	$(F90) $(OPT) $(INCLUDE) -c $< -o $@
+	$(F90) $(OPT) -c $< -o $@
 
 %.o: %.F90
-	$(F90) $(OPT) $(INCLUDE) -c $< -o $@
+	$(F90) $(OPT) -c $< -o $@
 
 
 all:

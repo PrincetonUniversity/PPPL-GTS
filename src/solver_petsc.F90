@@ -1999,8 +1999,10 @@ contains
 
       if(solver%order .gt. 0) then
          stop '	find_dxdadxdt: not implemented for high order elements'
-      !!else
-      !!   if(mype.eq.0) write(0, *) "	find_dxdadxdt: find dxdr dxdz begin"
+#ifdef DEBUG
+      else
+         if(mype.eq.0) write(0, *) "	find_dxdadxdt: find dxdr dxdz begin"
+#endif
       endif
 
       !    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
