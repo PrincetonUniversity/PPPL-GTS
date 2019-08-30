@@ -65,8 +65,9 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o 
      field.o field_operator.o pushi_new.o pushe_new.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \
      $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
      check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
-     get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o output_profiles.o \
+     get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o \
      weight_damping_new.o weight_damping_eon_new2.o git_info.o
+ # output_profiles.o
 
 #hypre openmp solver
 ifeq ($(OPENMP), y)
@@ -88,7 +89,7 @@ libfem: module.o
 $(OB): module.o
 
 $(SOLVER): solver_petsc.F90
-	$(F90) $(OPT) $(INCLUDE) -DXUSERZ -c $< -o $@
+	$(F90) $(OPT) -DXUSERZ -c $< -o $@
 
 hypresolve:
 	-${CC} -o hypresolve -DXEX2_TEST $(VPATH)/hypresolve.c $(COPT) ${PETSC_FLIB}
