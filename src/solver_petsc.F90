@@ -2012,8 +2012,10 @@ contains
 
     if(solver%order .gt. 0) then
        stop '	find_dxdadxdt: not implemented for high order elements'
+#ifdef DEBUG
     else
        if(mype.eq.0) write(0, *) "	find_dxdadxdt: find dxdr dxdz begin"
+#endif
     endif
 
 !    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
@@ -3269,7 +3271,9 @@ end subroutine neumbcfix
     real(wp) :: bpade_gk(mgrid)
     integer :: ivsl, ivgts, ioffset, ir, itmax
 
+#ifdef DEBUG
     if(mype==0) write(*,*)"	finite element: add pade to bb fem_order=", fem%order
+#endif
     call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 #ifdef OLD2014
 #else
@@ -3358,7 +3362,9 @@ end subroutine neumbcfix
     real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt, bpade_gk
     integer :: ivsl, ivgts, ioffset, ir, itmax
 
+#ifdef DEBUG
     if(mype==0) write(*,*)"     finite element: add pade to bb fem_order=", fem%order
+#endif
     call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 #ifdef OLD2014
 #else
