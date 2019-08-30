@@ -2262,7 +2262,7 @@ Subroutine setup
    if(ivsl.ne.sum(mtheta))stop'solve: ivsl.ne.sum(mtheta)'
    ! ...  end  ...
 
-   call output_profiles    ! for SL
+   !!!! call output_profiles    ! for SL
 
    w2_ion0=1.0_wp
    w2_eon0=1.0_wp
@@ -2704,4 +2704,3 @@ Subroutine set_particle_decomp
    right_pe=mod(myrank_toroidal+1,ntoroidal)
 
 end subroutine set_particle_decomp
-
