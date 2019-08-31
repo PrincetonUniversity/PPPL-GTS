@@ -63,7 +63,9 @@ endif
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline
           #PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
-          HDF5_LIB:=-L${PETSC_DIR}/lib -lhdf5_hl -lhdf5 -lfftw3
+          HDF5_DIR=/home/myoo/software/tigercpu_GTS
+          HDF5_INC:=-I${HDF5_DIR}/include
+          HDF5_LIB:=-L${HDF5_DIR}/lib -lhdf5_hl -lhdf5 -lfftw3 -lhdf5_fortran -lhdf5hl_fortran
           PETSC_DIR=/home/ethier/software/tigercpu_intel19_GTS
           PETSC_ARCH=
           PETSC_FINC:= -I${PETSC_DIR}/include
@@ -80,9 +82,8 @@ endif
    NAG_REPLACEMENT:=libcm
    FEM:=-L$(VPATH)/fem/$(OBJDIR) -lfemlib
    CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC} $(PETSC_FINC)
-   FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF_INC) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5_INC)
+   FFLAGS:=$(FFLAGS) $(HDF5_INC) $(SPRNG_INC) $(NETCDF_INC) $(PSPLINE_INC) $(PETSC_FINC)
 
-    #FFLAGS:=$(FFLAGS) -DUSERZ
 endif
 
     ifeq ($(DEBUG),y)
@@ -105,13 +106,13 @@ endif
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
- LIB:=$(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
+ LIB:=$(NAG) $(HDF5_LIB) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(FFTLIB) $(PETSC_FLIB)
 
  %.o : %.cpp
-	$(CPP)  $(COPT) -c $< -o $@
+	$(CPP) $(COPT) -c $< -o $@
 
  %.o : %.c
-	$(CC)  $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) -c $< -o $@
+	$(CC) "-std=c99" $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) -c $< -o $@
 
  %.o: %.f
 	$(F77) $(OPT) -c $< -o $@
