@@ -45,6 +45,8 @@ module global_parameters
    !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
    !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
 
+   real(wp) :: eNmNr, eNrNm, iNmNr, iNrNm ! (electron & ion)'s (Nm/Np, Np/Nm), where Nm and Np are total number of markers and real particles
+
    ! When particle weight exceeds threshold value, it would not contribute to charge or current deposition
    ! Default values are  w_min=-50 (df/f=-0.9803892168), w_max=0.9803921568 (df/f=50)
    ! These values can be controlled in INPUT.d file
@@ -279,6 +281,58 @@ module diagnosis_array
 
 end module diagnosis_array
 
+
+module Diagnostic_Grid
+   use precision
+   implicit none
+
+   type Grid_Info
+      integer :: gq_jump=2, a_jump=1
+      integer :: dim_a, dim_gq
+      integer :: num_eSD, num_eVD ! number of eScaData and eVecData (electrons)
+      integer :: num_iSD, num_iVD ! number of iScaData and iVecData (ions)
+      real(wp) dgq, inv_dgq ! dgq is constant since it is uniform along theta direction
+      real(wp) inv_ds
+      real(wp), allocatable, dimension(:) :: a_1D, ori_aid, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D
+      real(wp), allocatable, dimension(:,:) :: a_2D, gq_2D
+      real(wp), allocatable, dimension(:,:) :: Cell_dV, inv_Cell_dV ! Cell Volume and its inverse(Weighted Volume, but now it is approximated)
+      real(wp), allocatable, dimension(:,:) :: Cell_dS_a, inv_Cell_dS_a, Cell_dS_gq, inv_Cell_dS_gq, Cell_dS_gf, inv_Cell_dS_gf ! Node_Surface in each direction
+      real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
+      real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
+      real(wp), allocatable, dimension(:,:) :: dne_adiab ! Electron adiabatic density for diagnostic purpose
+
+      ! Magnetic Field Information (ESI variables)
+      real(wp), allocatable, dimension(:,:) :: F,dFda,dgFda,dgYda,R,dRda,dRdgq,Z,dZda,dZdgq,BB,dBBda,dBBdgq,P,T
+      real(wp), allocatable, dimension(:,:) :: Jacobian, esi_N, esi_K, g_aa_cov, g_aq_cov, g_qq_cov, g_ff_cov
+      real(wp), allocatable, dimension(:,:) :: D, g_aa_cntv, g_aq_cntv, g_qq_cntv, g_ff_cntv
+      real(wp), allocatable, dimension(:,:,:) :: B0_cov3, B0_cntv3, j0_cov3, j0_cntv3
+   end type
+
+
+   type Probe_Velocity_Space
+      real(wp) a, gq, gf ! center position of the probe
+      real(wp) L_a, L_gq, L_gf ! length of the probe in each direction
+
+      real(wp) n0, Te0, Ti0
+      real(wp) inv_n0, inv_Te0, inv_Ti0
+      real(wp) max_norm_v ! maximum normalized v (norm_v=v/v_th; v_th=sqrt(T/m))
+      integer :: nv ! number of velocity (vpara=(-nv:nv), vperp=(0:nv))
+      real(wp) dv, inv_dv ! each cell size
+      real(wp) :: Cell_dA ! Area of each cell (dvpara*dvperp)
+      integer :: dim_vpara, dim_vperp
+
+      real(wp), allocatable, dimension(:) :: vpara_1D, vperp_1D  ! vpara_1D(-nv:nv), vperp_1D(0:nv)
+
+      integer :: num_of_fi, num_of_fe
+      real(wp), allocatable, dimension(:,:,:) :: fe, fi
+   end type
+
+
+   type(Grid_Info) :: DG
+   type(Probe_Velocity_Space), allocatable, dimension(:) :: PVS
+   integer :: nPVS
+end module Diagnostic_Grid
+
 module esi_interface
    use precision
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
@@ -331,4 +385,3 @@ module control_parameters
    real(wp) flip_rotation,ain,aout   ! WX added Nov. 2014
 
 end module control_parameters
-

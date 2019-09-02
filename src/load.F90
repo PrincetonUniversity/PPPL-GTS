@@ -164,6 +164,9 @@ subroutine load
    ! integer variable since the total may be larger than 2.1 billion.
    call MPI_ALLREDUCE(mp1_i8,misum_i8,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,ierror)
 
+   iNrNm = iNrNm/real(misum_i8,wp)
+   iNmNr = 1.0/iNrNm
+
    !     markeri is the inverse of ion marker number at each grid point in term of initial loading
    !  markeri=markeri*(real(misum_i8,wp)/real(ntoroidal,wp))
    markeri=markeri*real(misum_i8,wp)
@@ -364,6 +367,9 @@ subroutine load
    ini_me = me
    !   call MPI_ALLREDUCE(me,mesum,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierror)
    mesum=misum
+
+   eNmNr = (mesum/misum)*iNmNr ! Assuming real particle number (particle density) is the same for ions and electrons
+   eNrNm = 1.0/eNmNr
 
    my_ion=0.0_wp
    !$omp parallel do private(m) reduction(+:my_ion)
@@ -635,6 +641,13 @@ subroutine load_uniform_MGY
    real(kind=8) rand_5d(5,mi) ! can be sobol quasi random numbers, or can be sprng() numbers
    real(wp) inv_ds, ff, P_s, P_q  !inv_ds is uniform by definition of s_grids
    integer:: sid ! index for s_grid
+
+   if(irun==0) ddT_da=0.0_wp
+   if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
+   if(irun /= 0)then
+      call restart_read
+      return
+   endif
 
    inv_ds = real(mpsi)/(s1-s0)
 
@@ -934,7 +947,5 @@ subroutine load_uniform_MGY
    write(stdout,*) "In load_uniform_MGY, I'm=",mype, "mi=", mi, ", me=",me
    call flush(stdout)
 
-   if(irun==0) ddT_da=0.0_wp
-   if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
 
 end subroutine load_uniform_MGY

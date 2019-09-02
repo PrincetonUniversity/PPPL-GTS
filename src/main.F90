@@ -210,6 +210,7 @@ program GTS
    call open_files
 
    ! ********************
+   call Init_Diagnostic_Grid
    if(irun==0) then
       istep=0
       call get_Te_fluctuation_DirectlyFromParticles

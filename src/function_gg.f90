@@ -3360,3 +3360,910 @@ FUNCTION gs(adum,thedum)
 
    return
 end function gs
+
+
+subroutine Init_Diagnostic_Grid
+
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   use precision
+   implicit none
+
+   integer i,k,aid,gqid
+   integer pbid ! probe id
+   real(wp), external :: temperature, temperature_e, density
+
+   ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
+   real(wp) approx_da, approx_dgf
+
+   DG%dim_a  = (mpsi+1)/DG%a_jump
+   DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
+   DG%num_eSD = 6
+   DG%num_eVD = 4
+
+   DG%num_iSD = 7 ! additional ni_Larmor by considering larmor orbit of ions
+   DG%num_iVD = 4
+
+   DG%dgq   = 2.0*pi/(DG%dim_gq-1)
+   DG%inv_dgq = 1.0/DG%dgq
+   DG%inv_ds  = DG%a_jump*(real(mpsi)/(s1-s0))
+
+
+   allocate(DG%a_1D(DG%dim_a), DG%gq_1D(DG%dim_gq))
+   allocate(DG%ori_aid, DG%s_1D, DG%n0_1D, DG%Te0_1D, DG%Ti0_1D, mold=DG%a_1D)
+   allocate(DG%a_2D(DG%dim_gq,DG%dim_a))
+   allocate(DG%gq_2D, DG%Cell_dV, DG%inv_Cell_dV, DG%dne_adiab, mold=DG%a_2D)
+   allocate(DG%Cell_dS_a, DG%inv_Cell_dS_a, DG%Cell_dS_gq, DG%inv_Cell_dS_gq, DG%Cell_dS_gf, DG%inv_Cell_dS_gf, mold=DG%a_2D)
+   allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1) )
+   allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1) )
+
+   k=1
+   do i=0,mpsi,DG%a_jump
+      DG%ori_aid(k) = i
+      DG%a_1D(k) = psi_grid(i)
+      DG%a_2D(:,k) = psi_grid(i)
+      DG%s_1D(k) = s_grid(i)
+
+      DG%n0_1D(k)  = den_grid(i)
+      DG%Te0_1D(k) = Te_grid(i)
+      DG%Ti0_1D(k) = vth_grid(i)**2.0
+      k=k+1
+   enddo
+
+   do i=1,DG%dim_gq
+      DG%gq_1D(i) = (2.0*pi)/(DG%dim_gq-1)*(i-1)
+      DG%gq_2D(i,:) = DG%gq_1D(i)
+   enddo
+
+
+   !Set and Calculate Magnetic Information (ESI variables)
+   allocate(DG%Jacobian, DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,mold=DG%a_2D)
+   allocate(DG%esi_N,DG%esi_K,DG%g_aa_cov,DG%g_aq_cov,DG%g_qq_cov,DG%g_ff_cov,mold=DG%a_2D)
+   allocate(DG%D,DG%g_aa_cntv,DG%g_aq_cntv,DG%g_qq_cntv,DG%g_ff_cntv,mold=DG%a_2D)
+   allocate(DG%B0_cov3(3,DG%dim_gq,DG%dim_a))
+   allocate(DG%B0_cntv3,DG%j0_cov3,DG%j0_cntv3, mold=DG%B0_cov3)
+
+   call esiget2dthese_more(DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,DG%a_2D,DG%gq_2D, DG%dim_gq*DG%dim_a)
+
+   DG%Jacobian = DG%R*(DG%dZda*DG%dRdgq-DG%dZdgq*DG%dRda)
+   DG%esi_N = (DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq)/DG%Jacobian
+   DG%esi_K = (DG%dRdgq*DG%dRdgq+DG%dZdgq*DG%dZdgq)/DG%Jacobian
+
+   DG%B0_cov3(1,:,:) = -DG%esi_N*DG%dgYda
+   DG%B0_cov3(2,:,:) = -DG%esi_K*DG%dgYda
+   DG%B0_cov3(3,:,:) = DG%F
+
+   DG%B0_cntv3(1,:,:) = 0.0
+   DG%B0_cntv3(2,:,:) = -DG%dgYda/DG%Jacobian
+   DG%B0_cntv3(3,:,:) = DG%F/(DG%R**2)
+
+   DG%j0_cntv3(1,:,:) = 0.0
+   DG%j0_cntv3(2,:,:) = -DG%dFda/DG%Jacobian
+   DG%j0_cntv3(3,:,:) = DG%P + DG%T/(DG%R**2)
+
+   DG%g_aa_cov   = DG%dRda*DG%dRda+DG%dZda*DG%dZda
+   DG%g_aq_cov  = DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq
+   DG%g_qq_cov = DG%dRdgq*DG%dRdgq+DG%dZdgq*DG%dZdgq
+   DG%g_ff_cov = DG%R**2
+
+   DG%D=DG%dZda*DG%dRdgq-DG%dZdgq*DG%dRda
+
+   DG%g_aa_cntv=(DG%dRdgq**2+DG%dZdgq**2)/DG%D**2   ! DG%grada^2
+   DG%g_qq_cntv=(DG%dZda**2+DG%dRda**2)/DG%D**2   ! DG%gradtheta^2
+   DG%g_ff_cntv=1.0/DG%R**2                 ! DG%gradphi^2
+   DG%g_aq_cntv=(-DG%dRda*DG%dRdgq-DG%dZda*DG%dZdgq)/DG%D**2  ! DG%gradagradtheta
+
+   DG%j0_cov3(1,:,:) = DG%g_aa_cov*DG%j0_cntv3(1,:,:) + DG%g_aq_cov*DG%j0_cntv3(2,:,:)
+   DG%j0_cov3(2,:,:) = DG%g_aq_cov*DG%j0_cntv3(1,:,:) + DG%g_qq_cov*DG%j0_cntv3(2,:,:)
+   DG%j0_cov3(3,:,:) = DG%g_ff_cov*DG%j0_cntv3(3,:,:)
+
+
+   ! NOTE : Get Cell volume like dV=(Jacobian)*dpsi*dtheta*dgf
+   !        Following Cell_dV is an approximation
+   !        For higher accuracy, a Weighted Volume by considering hellical particle shape and varying da is required
+   approx_dgf=zetamax-zetamin
+   do aid=1,DG%dim_a
+      if(aid==1) then
+         approx_da=0.5*(DG%a_1D(2)-DG%a_1D(1))    ! half cell
+      else if(aid==DG%dim_a) then
+         approx_da=0.5*(DG%a_1D(DG%dim_a)-DG%a_1D(DG%dim_a-1)) ! half cell
+      else
+         approx_da=0.5*(DG%a_1D(aid+1)-DG%a_1D(aid-1))  ! full cell
+      endif
+
+      do gqid=1,DG%dim_gq
+         DG%Cell_dV(gqid,aid)=DG%Jacobian(gqid,aid)*approx_da*DG%dgq*approx_dgf
+         DG%Cell_dS_a(gqid,aid) = sqrt(DG%g_aa_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*DG%dgq*approx_dgf
+         DG%Cell_dS_gq(gqid,aid) = sqrt(DG%g_qq_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*approx_dgf
+         DG%Cell_dS_gf(gqid,aid) = sqrt(DG%g_ff_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*DG%dgq
+      enddo
+   enddo
+   DG%inv_Cell_dV=1.0/DG%Cell_dV
+   DG%inv_Cell_dS_a  =1.0/DG%Cell_dS_a
+   DG%inv_Cell_dS_gq =1.0/DG%Cell_dS_gq
+   DG%inv_Cell_dS_gf =1.0/DG%Cell_dS_gf
+
+   ! Set PVS (ProbeVelocitySpace) parameters
+
+   nPVS = nprobe
+   allocate(PVS(0:nPVS)) ! 0-index PVS will be used to measure particles in a whole poloidal section.
+
+   ! Set location and size of probes
+   PVS(0)%a  = 0.5*(a0+a1)
+   PVS(0)%gq = 0
+   PVS(0)%gf = 0.5*(zetamax+zetamin)
+   PVS(0)%L_a  = a1-a0  !To deal with a whole poloidal section
+   PVS(0)%L_gq = 2.0*pi
+   PVS(0)%L_gf = zetamax-zetamin
+
+   do pbid=1,nPVS
+      PVS(pbid)%a  = rprobe(pbid)
+      PVS(pbid)%gq = tprobe(pbid)
+      PVS(pbid)%gf = 0.5*(zetamax+zetamin)
+      PVS(pbid)%L_a  = dradius
+      PVS(pbid)%L_gq = dtheta
+      PVS(pbid)%L_gf = zetamax-zetamin
+   enddo
+
+   ! Set other information
+   do pbid=0,nPVS
+      PVS(pbid)%n0  = density(PVS(pbid)%a,0.0)
+      PVS(pbid)%Ti0 = temperature(PVS(pbid)%a,PVS(pbid)%gq)
+      PVS(pbid)%Te0 = msm0*temperature_e(PVS(pbid)%a,PVS(pbid)%gq)
+
+      PVS(pbid)%inv_n0  = 1.0/PVS(pbid)%n0
+      PVS(pbid)%inv_Ti0 = 1.0/PVS(pbid)%Ti0
+      PVS(pbid)%inv_Te0 = 1.0/PVS(pbid)%Te0
+
+      PVS(pbid)%nv  = nv
+      PVS(pbid)%dv  = delta_v
+      PVS(pbid)%inv_dv = 1.0/PVS(pbid)%dv
+      PVS(pbid)%max_norm_v = PVS(pbid)%nv*PVS(pbid)%dv ! or just use umax parameters (ex. 1.2*umax)
+
+      PVS(pbid)%dim_vpara = 2*PVS(pbid)%nv+1
+      PVS(pbid)%dim_vperp = PVS(pbid)%nv+1
+
+      PVS(pbid)%num_of_fi  = 5
+      PVS(pbid)%num_of_fe  = 5
+
+      allocate(PVS(pbid)%vpara_1D(-PVS(pbid)%nv:PVS(pbid)%nv))
+      allocate(PVS(pbid)%vperp_1D(0:PVS(pbid)%nv))
+      allocate(PVS(pbid)%fi(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv, PVS(pbid)%num_of_fi))
+      allocate(PVS(pbid)%fe(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv, PVS(pbid)%num_of_fe))
+
+      do i=0,PVS(pbid)%nv
+         PVS(pbid)%vperp_1D(i) = i*PVS(pbid)%dv
+      enddo
+      do i=-PVS(pbid)%nv,PVS(pbid)%nv
+         PVS(pbid)%vpara_1D(i) = i*PVS(pbid)%dv
+      enddo
+   enddo
+
+
+end subroutine Init_Diagnostic_Grid
+
+
+subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
+
+   use precision
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   use mpi_defs
+   use particle_array
+   use particle_decomp
+   use esi_interface
+
+   implicit none
+
+   real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
+   real(wp) energy(me)
+   !P varaiables are at particle position
+   real(wp) P_s, P_safety_q !safety factor
+   real(wp) P_a, P_gq, P_gf
+
+   real(wp) delta_f(me), f_tot(me) ! delta_f and f_tot (f_tot=f0+delta_f)
+
+   real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
+   integer :: ori_sid !sid of original full grid
+   real(wp) ori_inv_ds ! inv_ds of original full grid
+   real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
+   real(wp) target_zeta
+   integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
+   integer ::pbid,vxid,vyid,fid
+   real(wp):: norm_vpara, norm_vperp, rvx,rvy ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
+   real(wp),allocatable, dimension(:,:,:) :: tmp_PVS_fe
+   integer :: length, istatus(MPI_STATUS_SIZE),ierror
+
+   real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1)
+   real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
+
+   DG%eScaData=0
+   DG%eVecData=0
+   do pbid=0,nPVS
+      PVS(pbid)%fe = 0
+   enddo
+
+   ori_inv_ds = real(mpsi)/(s1-s0)
+
+   energy(:) = in_P_data(2,:)
+
+   ! Calculate dne_adiabatic by interpolating dphi on original grids
+   call Interpolate_OriGridData_into_DG(phi(1,:), intpl_dphi)
+   do aid=1,DG%dim_a
+      i = DG%ori_aid(aid)
+      DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(1.0-ZF_SEPARATION)*phi00(i))/Te_grid(i)
+   enddo
+
+
+   if(Flag_Load_and_WeightDef==0)then
+      delta_f(:) = zeon0(5,1:me)*eNrNm
+      f_tot(:)   = eNrNm
+   else
+      delta_f(:) = zeon0(5,1:me)
+      f_tot(:)   = zeon0(6,1:me)
+   endif
+
+   do m=1,me
+
+      if (Flag_w_Threshold==1 .and. (zeon0(5,m)<w_Thold_min .or. zeon0(5,m)>w_Thold_max)) cycle
+
+      P_a  = zeon0(1,m)
+      P_gq = modulo(zeon0(2,m),2*pi)
+      P_gf = modulo(zeon0(3,m),2*pi)
+      P_s  = zeon0(7,m)
+
+      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
+      P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+
+      sid = (P_s-s0)*DG%inv_ds +1 ! +1 is due to Fortran's default index starting from 1
+      ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
+      ws0 = 1.0-ws1
+
+      do k=0,1
+         if(k==0) target_zeta =zetamin
+         if(k==1) target_zeta =zetamax
+
+         wgf = (1.0-abs(P_gf-target_zeta)/deltaz)
+
+         target_gq = modulo(P_gq + (target_zeta-P_gf)/P_safety_q, 2.0*pi)
+         gqid = (target_gq)*DG%inv_dgq +1
+         wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+         wgq0 = 1.0-wgq1
+
+         do j=1,4
+            select case(j)
+               case(1)
+                  qq=gqid; ss=sid
+                  ratio=ws0*wgq0*wgf
+               case(2)
+                  qq=gqid+1; ss=sid
+                  ratio=ws0*wgq1*wgf
+               case(3)
+                  qq=gqid; ss=sid+1
+                  ratio=ws1*wgq0*wgf
+               case(4)
+                  qq=gqid+1; ss=sid+1
+                  ratio=ws1*wgq1*wgf
+            end select
+
+            vid=1; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m) ! Density
+            vid=2; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f(m) !Temperature definition 1
+            vid=3; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f(m) !
+            vid=4; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Marker Distribution
+            vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+
+            vid=1 ! Turbulent Particle Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*Ta(m)) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*dve_gf(m)) ! zeta Flux
+
+            vid=2 ! Turbulent Particle Flux due to ExB only
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
+
+            vid=3 ! Turbulent Energy Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*ghq(m)) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Ta(m)) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*dve_gf(m)) ! zeta Flux
+
+            vid=4 ! Turbulent Energy Flux due to ExB only
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
+         enddo
+      enddo
+
+
+      ! Velocity Space Measurement
+      do pbid=0,nPVS
+         target_gq = modulo(P_gq + (PVS(pbid)%gf-P_gf)/P_safety_q, 2.0*pi)
+
+         if( abs(P_gf-PVS(pbid)%gf)<0.5*PVS(pbid)%L_gf &
+         .and. abs(P_a-PVS(pbid)%a) <0.5*PVS(pbid)%L_a &
+         .and. min(abs(target_gq-PVS(pbid)%gq), 2.0*pi-abs(target_gq-PVS(pbid)%gq)) < 0.5*PVS(pbid)%L_gq) then
+
+            norm_vpara = zeon0(4,m)*csc0*BB(m)*sqrt(m0ms*PVS(pbid)%inv_Te0) ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+            norm_vperp = zeon(6,m)*sqrt(2.0*BB(m))*sqrt(PVS(pbid)%inv_Te0) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+
+            vxid = floor(norm_vpara*PVS(pbid)%inv_dv)
+            vyid = floor(norm_vperp*PVS(pbid)%inv_dv)
+            rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
+            rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
+
+            if(vxid< -PVS(pbid)%nv) then
+               vxid= -PVS(pbid)%nv
+               rvx=0.0
+            elseif (vxid>= PVS(pbid)%nv) then
+               vxid=  PVS(pbid)%nv-1
+               rvx=1.0
+            endif
+
+            if(vyid>= PVS(pbid)%nv) then
+               vyid=  PVS(pbid)%nv-1
+               rvy=1.0
+            endif
+
+            do j=1,4
+               select case(j)
+                  case(1)
+                     qq=vxid; ss=vyid
+                     ratio=(1.0-rvx)*(1.0-rvy)
+                  case(2)
+                     qq=vxid+1; ss=vyid
+                     ratio=(rvx)*(1.0-rvy)
+                  case(3)
+                     qq=vxid; ss=vyid+1
+                     ratio=(1.0-rvx)*(rvy)
+                  case(4)
+                     qq=vxid+1; ss=vyid+1
+                     ratio=(rvx)*(rvy)
+               end select
+
+               fid=1; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*delta_f(m) ! Density
+               fid=2; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*delta_f(m)*(2.0/3.0*energy(m)-backT(m)) ! Temperature definition
+               fid=3; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio ! Marker Density
+               fid=4; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*f_tot(m) ! f_tot
+               fid=5; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+            enddo
+         endif
+      enddo
+
+   enddo
+
+
+   if(npartdom>1) then
+      tmp_Scalar_Data = DG%eScaData
+      tmp_Vector_Data = DG%eVecData
+
+      length = DG%dim_gq*DG%dim_a*DG%num_eSD*2
+      call MPI_ALLREDUCE(tmp_Scalar_Data, DG%eScaData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+      length = 3*DG%dim_gq*DG%dim_a*DG%num_eVD*2
+      call MPI_ALLREDUCE(tmp_Vector_Data, DG%eVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+      allocate(tmp_PVS_fe, mold=PVS(0)%fe)
+      do pbid=0,nPVS
+         tmp_PVS_fe = PVS(pbid)%fe
+         length = PVS(pbid)%dim_vpara*PVS(pbid)%dim_vperp*PVS(pbid)%num_of_fe
+         call MPI_ALLREDUCE(tmp_PVS_fe, PVS(pbid)%fe, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+      enddo
+      deallocate(tmp_PVS_fe)
+   endif
+
+
+   ! Match poloidal end cell
+   ! (gq=0 and gq=2pi is the same position physically
+   ! although they have different gqid)
+   do sid=1,DG%dim_a
+      DG%eScaData(1,sid,:,:) = DG%eScaData(1,sid,:,:) + DG%eScaData(DG%dim_gq,sid,:,:)
+      DG%eScaData(DG%dim_gq,sid,:,:) = DG%eScaData(1,sid,:,:)
+
+      DG%eVecData(:,1,sid,:,:) = DG%eVecData(:,1,sid,:,:) + DG%eVecData(:,DG%dim_gq,sid,:,:)
+      DG%eVecData(:,DG%dim_gq,sid,:,:) = DG%eVecData(:,1,sid,:,:)
+   enddo
+
+
+   ! toroidal end cell
+   length = DG%dim_gq*DG%dim_a*DG%num_eSD
+   call MPI_SENDRECV(DG%eScaData(:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Scalar_Data(:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%eScaData(:,:,:,1) = DG%eScaData(:,:,:,1) + tmp_Scalar_Data(:,:,:,1)
+
+
+
+   length = 3*DG%dim_gq*DG%dim_a*DG%num_eVD
+   call MPI_SENDRECV(DG%eVecData(:,:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Vector_Data(:,:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%eVecData(:,:,:,:,1) = DG%eVecData(:,:,:,:,1) + tmp_Vector_Data(:,:,:,:,1)
+
+
+   ! Do normalization and post-processing
+   ! Divide by Cell Volume to get density quantities
+   do vid=1,DG%num_eSD
+      DG%eScaData(:,:,vid,1) = DG%eScaData(:,:,vid,1)*DG%inv_Cell_dV
+   enddo
+
+   do aid=1,DG%dim_a
+      DG%eScaData(:,aid,2,1) = DG%eScaData(:,aid,2,1)/DG%n0_1D(aid) ! Convert Energy to Temperature
+   enddo
+
+
+   ! Calculate inverse of tot density (including dne_adiabatic in the case of delta-h electron (ifelectron==2))
+   do aid=1,DG%dim_a
+      inv_tot_ne(:,aid) = 1.0/(DG%n0_1D(aid) + DG%eScaData(:,aid,1,1) + int(ifelectron/2)*DG%dne_adiab(:,aid))
+   enddo
+
+   ! Consistent Temperature by considering density fluctuation in the denominator
+   DG%eScaData(:,:,3,1) = DG%eScaData(:,:,3,1)*inv_tot_ne
+   vid=6; DG%eScaData(:,:,vid,1) = DG%eScaData(:,:,vid,1)*inv_tot_ne! Te_tot
+
+
+   ! Get Flux Density by dividing Area in each direction
+   do vid=1,DG%num_eVD
+      j=1; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_a  ! Radial Flux Density
+      j=2; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gq ! Theta Flux Density
+      j=3; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gf ! Zeta Flux Density
+   enddo
+end subroutine Measure_Electrons_on_Diagnostic_Grid
+
+
+
+subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
+
+   use precision
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   use mpi_defs
+   use particle_array
+   use particle_decomp
+   use esi_interface
+
+   implicit none
+
+   real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
+   real(wp) energy(mi)
+   !P varaiables are at particle position
+   real(wp) P_s, P_safety_q !safety factor
+   real(wp) P_a, P_gq, P_gf
+
+   real(wp) delta_f(mi), f_tot(mi) ! delta_f and f_tot (f_tot=f0+delta_f)
+
+   real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
+   integer :: ori_sid !sid of original full grid
+   real(wp) ori_inv_ds ! inv_ds of original full grid
+   real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
+   real(wp) target_zeta
+   integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
+   integer ::pbid,vxid,vyid,fid
+   real(wp):: norm_vpara, norm_vperp, rvx,rvy ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
+   real(wp),allocatable, dimension(:,:,:) :: tmp_PVS_fi
+   integer :: length, istatus(MPI_STATUS_SIZE),ierror
+
+   real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1)
+   real(wp) ::inv_tot_ni(DG%dim_gq, DG%dim_a)
+
+   DG%iScaData=0
+   DG%iVecData=0
+   do pbid=0,nPVS
+      PVS(pbid)%fi = 0
+   enddo
+
+
+   ori_inv_ds = real(mpsi)/(s1-s0)
+
+   energy(:) = in_P_data(2,:)
+
+   if(Flag_Load_and_WeightDef==0)then
+      delta_f(:) = zion0(5,1:mi)*iNrNm
+      f_tot(:)   = iNrNm
+   else
+      delta_f(:) = zion0(5,1:mi)
+      f_tot(:)   = zion0(6,1:mi)
+   endif
+
+   do m=1,mi
+
+      if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
+
+      P_a  = zion0(1,m)
+      P_gq = modulo(zion0(2,m),2*pi)
+      P_gf = modulo(zion0(3,m),2*pi)
+      P_s  = zion0(7,m)
+
+      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
+      P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+
+      sid = (P_s-s0)*DG%inv_ds +1 ! +1 is due to Fortran's default index starting from 1
+      ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
+      ws0 = 1.0-ws1
+
+      do k=0,1
+         if(k==0) target_zeta =zetamin
+         if(k==1) target_zeta =zetamax
+
+         wgf = (1.0-abs(P_gf-target_zeta)/deltaz)
+
+         target_gq = modulo(P_gq + (target_zeta-P_gf)/P_safety_q, 2.0*pi)
+         gqid = (target_gq)*DG%inv_dgq +1
+         wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+         wgq0 = 1.0-wgq1
+
+         do j=1,4
+            select case(j)
+               case(1)
+                  qq=gqid; ss=sid
+                  ratio=ws0*wgq0*wgf
+               case(2)
+                  qq=gqid+1; ss=sid
+                  ratio=ws0*wgq1*wgf
+               case(3)
+                  qq=gqid; ss=sid+1
+                  ratio=ws1*wgq0*wgf
+               case(4)
+                  qq=gqid+1; ss=sid+1
+                  ratio=ws1*wgq1*wgf
+            end select
+
+            vid=1; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m) ! Density
+            vid=2; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backT(m))*delta_f(m) !Temperature definition 1
+            vid=3; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backT(m))*delta_f(m) !
+            vid=4; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Marker Distribution
+            vid=5; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+
+            vid=1 ! Turbulent Particle Flux
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*Ta(m)) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+
+            vid=2 ! Turbulent Particle Flux due to ExB only
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*(Ta(m)-vpara_dvi_gq(m))) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
+
+            vid=3 ! Turbulent Energy Flux
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*ghq(m)) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Ta(m)) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+
+            vid=4 ! Turbulent Energy Flux due to ExB only
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(Ta(m)-vpara_dvi_gq(m))) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
+         enddo
+      enddo
+
+      ! Velocity Space Measurement
+      do pbid=0,nPVS
+         target_gq = modulo(P_gq + (PVS(pbid)%gf-P_gf)/P_safety_q, 2.0*pi)
+
+         if( abs(P_gf-PVS(pbid)%gf)<0.5*PVS(pbid)%L_gf &
+         .and. abs(P_a-PVS(pbid)%a) <0.5*PVS(pbid)%L_a &
+         .and. min(abs(target_gq-PVS(pbid)%gq), 2.0*pi-abs(target_gq-PVS(pbid)%gq)) < 0.5*PVS(pbid)%L_gq) then
+
+            norm_vpara = zion0(4,m)*BB(m)*sqrt(PVS(pbid)%inv_Ti0) ! norm_vpara = vpara/sqrt(T/m)
+            norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*sqrt(PVS(pbid)%inv_Ti0) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m)
+
+            vxid = floor(norm_vpara*PVS(pbid)%inv_dv)
+            vyid = floor(norm_vperp*PVS(pbid)%inv_dv)
+            rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
+            rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
+
+            if(vxid< -PVS(pbid)%nv) then
+               vxid= -PVS(pbid)%nv
+               rvx=0.0
+            elseif (vxid>= PVS(pbid)%nv) then
+               vxid=  PVS(pbid)%nv-1
+               rvx=1.0
+            endif
+
+            if(vyid>= PVS(pbid)%nv) then
+               vyid=  PVS(pbid)%nv-1
+               rvy=1.0
+            endif
+
+            do j=1,4
+               select case(j)
+                  case(1)
+                     qq=vxid; ss=vyid
+                     ratio=(1.0-rvx)*(1.0-rvy)
+                  case(2)
+                     qq=vxid+1; ss=vyid
+                     ratio=(rvx)*(1.0-rvy)
+                  case(3)
+                     qq=vxid; ss=vyid+1
+                     ratio=(1.0-rvx)*(rvy)
+                  case(4)
+                     qq=vxid+1; ss=vyid+1
+                     ratio=(rvx)*(rvy)
+               end select
+
+               fid=1; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*delta_f(m) ! Density
+               fid=2; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*delta_f(m)*(2.0/3.0*energy(m)-backT(m)) ! Temperature definition
+               fid=3; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio ! Marker Density
+               fid=4; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*f_tot(m) ! f_tot
+               fid=5; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+            enddo
+         endif
+      enddo
+
+   enddo
+
+
+   if(npartdom>1) then
+      tmp_Scalar_Data = DG%iScaData
+      tmp_Vector_Data = DG%iVecData
+
+      length = DG%dim_gq*DG%dim_a*DG%num_iSD*2
+      call MPI_ALLREDUCE(tmp_Scalar_Data, DG%iScaData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+      length = 3*DG%dim_gq*DG%dim_a*DG%num_iVD*2
+      call MPI_ALLREDUCE(tmp_Vector_Data, DG%iVecData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+      allocate(tmp_PVS_fi, mold=PVS(0)%fi)
+      do pbid=0,nPVS
+         tmp_PVS_fi = PVS(pbid)%fi
+         length = PVS(pbid)%dim_vpara*PVS(pbid)%dim_vperp*PVS(pbid)%num_of_fi
+         call MPI_ALLREDUCE(tmp_PVS_fi, PVS(pbid)%fi, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+      enddo
+      deallocate(tmp_PVS_fi)
+   endif
+
+
+   ! Match poloidal end cell
+   ! (gq=0 and gq=2pi is the same position physically
+   ! although they have different gqid)
+   do sid=1,DG%dim_a
+      DG%iScaData(1,sid,:,:) = DG%iScaData(1,sid,:,:) + DG%iScaData(DG%dim_gq,sid,:,:)
+      DG%iScaData(DG%dim_gq,sid,:,:) = DG%iScaData(1,sid,:,:)
+
+      DG%iVecData(:,1,sid,:,:) = DG%iVecData(:,1,sid,:,:) + DG%iVecData(:,DG%dim_gq,sid,:,:)
+      DG%iVecData(:,DG%dim_gq,sid,:,:) = DG%iVecData(:,1,sid,:,:)
+   enddo
+
+
+   ! toroidal end cell
+   length = DG%dim_gq*DG%dim_a*DG%num_iSD
+   call MPI_SENDRECV(DG%iScaData(:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Scalar_Data(:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%iScaData(:,:,:,1) = DG%iScaData(:,:,:,1) + tmp_Scalar_Data(:,:,:,1)
+
+
+
+   length = 3*DG%dim_gq*DG%dim_a*DG%num_iVD
+   call MPI_SENDRECV(DG%iVecData(:,:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_Vector_Data(:,:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%iVecData(:,:,:,:,1) = DG%iVecData(:,:,:,:,1) + tmp_Vector_Data(:,:,:,:,1)
+
+
+   ! Do normalization and post-processing
+   ! Divide by Cell Volume to get density quantities
+   do vid=1,DG%num_iSD
+      DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*DG%inv_Cell_dV
+   enddo
+
+   do aid=1,DG%dim_a
+      DG%iScaData(:,aid,2,1) = DG%iScaData(:,aid,2,1)/DG%n0_1D(aid) ! Convert Energy to Temperature
+   enddo
+
+
+   ! Calculate inverse of tot density (including dne_adiabatic in the case of delta-h electron (ifelectron==2))
+   do aid=1,DG%dim_a
+      inv_tot_ni(:,aid) = 1.0/(DG%n0_1D(aid) + DG%iScaData(:,aid,1,1))
+   enddo
+
+   ! Consistent Temperature by considering density fluctuation in the denominator
+   DG%iScaData(:,:,3,1) = DG%iScaData(:,:,3,1)*inv_tot_ni
+   vid=6; DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*inv_tot_ni! Te_tot
+
+
+   ! Get Flux Density by dividing Area in each direction
+   do vid=1,DG%num_iVD
+      j=1; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_a  ! Radial Flux Density
+      j=2; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gq ! Theta Flux Density
+      j=3; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gf ! Zeta Flux Density
+   enddo
+
+end subroutine Measure_Ions_on_Diagnostic_Grid
+
+subroutine Interpolate_OriGridData_into_DG(oriData_1D, out_IntpData_2D)
+
+   use precision
+   use global_parameters
+   use field_array
+   use Diagnostic_Grid
+   implicit none
+
+   real(wp), dimension(mgrid), intent(in) :: oriData_1D
+   real(wp), dimension(DG%dim_gq,DG%dim_a), intent(out) :: out_IntpData_2D
+
+   integer i,j,ij,jt, ori_aid
+
+   real(wp) ori_inv_dgq(0:mpsi), gqdum, wt
+
+   ori_inv_dgq=1.0/deltat
+
+   do i=1,DG%dim_a
+      do j=1,DG%dim_gq
+
+         ori_aid = DG%ori_aid(i)
+
+         gqdum = modulo(DG%gq_1D(j) - qtinv(ori_aid)*zetamax, 2.0*pi) * ori_inv_dgq(ori_aid)
+         jt=int(gqdum);  wt=gqdum-jt
+         ij=igrid(ori_aid)+jt
+         out_IntpData_2D(j,i) =(1.0-wt)*oriData_1D(ij) + wt*oriData_1D(ij+1)
+      enddo
+   enddo
+
+end subroutine Interpolate_OriGridData_into_DG
+
+
+
+subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
+
+   use precision
+   use global_parameters
+   use Diagnostic_Grid
+   implicit none
+
+   integer, intent(in) :: num_smooth
+   integer :: smid, aid, gqid, Na,Ngq, vid,k
+   real(wp) :: VV(0:DG%dim_gq+1, 0:DG%dim_a+1),  target_Data2D(0:DG%dim_gq+1, 0:DG%dim_a+1) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+   real(wp) :: SM_gq_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1), SM_a_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1)
+
+   Na  = DG%dim_a
+   Ngq = DG%dim_gq
+
+
+   target_Data2D=0
+
+   ! Get Smooth Coeffs which conserves Volume Weighted Integration
+   call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dV, SM_a_Coeff, SM_gq_Coeff)
+   ! =======================================
+   ! Smooth Electron Scalar Data by conserving Volume Weighted Integration
+   ! =======================================
+   ! In the case of electrons, dne_adiab should be smoothed as well.
+   target_Data2D(1:Ngq,1:Na) = DG%dne_adiab
+   do smid=1,num_smooth
+      ! Set ghost cell periodic in theta direction
+      target_Data2D(0,:)     = target_Data2D(Ngq,:)
+      target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+      ! Smooth in theta direction
+      target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+      ! Smooth in radial direction
+      target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+   enddo
+   DG%dne_adiab = target_Data2D(1:Ngq,1:Na)
+
+   do vid=1,DG%num_eSD
+      target_Data2D(1:Ngq,1:Na) = DG%eScaData(:,:,vid,1)
+      do smid=1,num_smooth
+         ! Set ghost cell periodic in theta direction
+         target_Data2D(0,:)     = target_Data2D(Ngq,:)
+         target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+         ! Smooth in theta direction
+         target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+         ! Smooth in radial direction
+         target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+      enddo
+      DG%eScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+   enddo
+   ! =======================================
+   ! Smooth Ion Scalar Data by conserving Volume Weighted Integration
+   ! =======================================
+   do vid=1,DG%num_iSD
+      target_Data2D(1:Ngq,1:Na) = DG%iScaData(:,:,vid,1)
+      do smid=1,num_smooth
+         ! Set ghost cell periodic in theta direction
+         target_Data2D(0,:)     = target_Data2D(Ngq,:)
+         target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+         ! Smooth in theta direction
+         target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+         ! Smooth in radial direction
+         target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+      enddo
+      DG%iScaData(:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+   enddo
+
+   ! =======================================
+   ! Smooth Electron Vector Data by conserving Surface Area Weighted Integration in each direction
+   ! =======================================
+   do vid=1,DG%num_eVD
+      do k=1,3
+         select case(k)
+            case(1)
+               call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_a, SM_a_Coeff, SM_gq_Coeff)
+            case(2)
+               call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_gq, SM_a_Coeff, SM_gq_Coeff)
+            case(3)
+               call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_gf, SM_a_Coeff, SM_gq_Coeff)
+         end select
+
+         target_Data2D(1:Ngq,1:Na) = DG%eVecData(k,:,:,vid,1)
+         do smid=1,num_smooth
+            ! Set ghost cell periodic in theta direction
+            target_Data2D(0,:)     = target_Data2D(Ngq,:)
+            target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+            ! Smooth in theta direction
+            target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+            ! Smooth in radial direction
+            target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+         enddo
+         DG%eVecData(k,:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+      enddo
+   enddo
+
+   ! =======================================
+   ! Smooth Ion Vector Data by conserving Surface Area Weighted Integration in each direction
+   ! =======================================
+   do vid=1,DG%num_iVD
+      do k=1,3
+         select case(k)
+         case(1)
+            call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_a, SM_a_Coeff, SM_gq_Coeff)
+         case(2)
+            call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_gq, SM_a_Coeff, SM_gq_Coeff)
+         case(3)
+            call Get_Conserving_Smooth_Coeffs_on_DG(DG%Cell_dS_gf, SM_a_Coeff, SM_gq_Coeff)
+         end select
+
+         target_Data2D(1:Ngq,1:Na) = DG%iVecData(k,:,:,vid,1)
+         do smid=1,num_smooth
+            ! Set ghost cell periodic in theta direction
+            target_Data2D(0,:)     = target_Data2D(Ngq,:)
+            target_Data2D(Ngq+1,:) = target_Data2D(1,:)
+            ! Smooth in theta direction
+            target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
+            ! Smooth in radial direction
+            target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
+         enddo
+         DG%iVecData(k,:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
+      enddo
+   enddo
+
+end subroutine Smooth_DG_Scalar_Vector_Data
+
+
+subroutine Get_Conserving_Smooth_Coeffs_on_DG(in_VOLorAREA, SM_a_Coeff, SM_gq_Coeff)
+
+   use precision
+   use global_parameters
+   use field_array
+   use Diagnostic_Grid
+   implicit none
+
+   integer :: Na,Ngq
+   real(wp), intent(in) :: in_VOLorAREA(DG%dim_gq, DG%dim_a) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+   real(wp) :: VV(0:DG%dim_gq+1, 0:DG%dim_a+1) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+   real(wp), intent(out):: SM_gq_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1), SM_a_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1)
+
+   Na  = DG%dim_a
+   Ngq = DG%dim_gq
+
+   VV = 0
+   VV(1:Ngq,1:Na) = in_VOLorAREA
+
+   ! Note that theta direction is periodic
+   VV(0,:) = VV(Ngq,:)
+   VV(Ngq+1,:) = VV(1,:)
+
+   SM_gq_Coeff(-1,1:Ngq,:) = 0.5*VV(0:Ngq-1,:)/(VV(0:Ngq-1,:) + VV(1:Ngq,:)) ! Coeff_L = 0.5*VL/(VL+VC)
+   SM_gq_Coeff( 0,1:Ngq,:) = 0.5*VV(1:Ngq,:)*(VV(0:Ngq-1,:)+2.0*VV(1:Ngq,:)+VV(2:Ngq+1,:))/((VV(0:Ngq-1,:)+VV(1:Ngq,:))*(VV(1:Ngq,:)+VV(2:Ngq+1,:))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+   SM_gq_Coeff( 1,1:Ngq,:) = 0.5*VV(2:Ngq+1,:)/(VV(2:Ngq+1,:) + VV(1:Ngq,:)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+   SM_a_Coeff(-1,:,1:Na) = 0.5*VV(:,0:Na-1)/(VV(:,0:Na-1) + VV(:,1:Na)) ! Coeff_L = 0.5*VL/(VL+VC)
+   SM_a_Coeff( 0,:,1:Na) = 0.5*VV(:,1:Na)*(VV(:,0:Na-1)+2.0*VV(:,1:Na)+VV(:,2:Na+1))/((VV(:,0:Na-1)+VV(:,1:Na))*(VV(:,1:Na)+VV(:,2:Na+1))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+   SM_a_Coeff( 1,:,1:Na) = 0.5*VV(:,2:Na+1)/(VV(:,2:Na+1) + VV(:,1:Na)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+   ! To remove NaN values at the raidal ghost cells
+   SM_gq_Coeff(:,:,0)   = 0
+   SM_gq_Coeff(:,:,Na+1)= 0
+   SM_a_Coeff(:,:,0)    = 0
+   SM_a_Coeff(:,:,Na+1) = 0
+
+end subroutine Get_Conserving_Smooth_Coeffs_on_DG

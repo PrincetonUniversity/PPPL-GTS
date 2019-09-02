@@ -732,6 +732,9 @@ subroutine pushion
 
    endif
 
+   if(irk==1 .and. mod(istep,msnap)==0) then
+      call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:))
+   endif
 
 end subroutine pushion
 
@@ -1364,6 +1367,9 @@ subroutine pushion_RK4(irk_i)
 
    endif
 
+   if(irk_i==1 .and. mod(istep,msnap)==0) then
+      call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:))
+   endif
 
 end subroutine pushion_RK4
 
