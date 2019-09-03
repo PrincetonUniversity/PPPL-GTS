@@ -1193,7 +1193,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    endif
 
    call electron_locator
-   call n_T_u_group_e             ! get Te at electron position
+   ! call n_T_u_group_e             ! get Te at electron position
 
    !  mu(1:me)=zeon(6,1:me)**2
 
@@ -1898,7 +1898,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
    endif
 
    call electron_locator
-   call n_T_u_group_e             ! get Te at electron position
+   ! call n_T_u_group_e             ! get Te at electron position
 
    !  mu(1:me)=zeon(6,1:me)**2
 
