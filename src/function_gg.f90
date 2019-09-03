@@ -3380,10 +3380,10 @@ subroutine Init_Diagnostic_Grid
    DG%dim_a  = (mpsi+1)/DG%a_jump
    DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
    DG%num_eSD = 6
-   DG%num_eVD = 4
+   DG%num_eVD = 5
 
    DG%num_iSD = 7 ! additional ni_Larmor by considering larmor orbit of ions
-   DG%num_iVD = 4
+   DG%num_iVD = 5
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
    DG%inv_dgq = 1.0/DG%dgq
@@ -3544,7 +3544,7 @@ subroutine Init_Diagnostic_Grid
 end subroutine Init_Diagnostic_Grid
 
 
-subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
+subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
 
    use precision
    use Diagnostic_Grid
@@ -3558,6 +3558,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    implicit none
 
    real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
+   real(wp), intent(in) :: vel_dsdgqdgf(3,me)
    real(wp) energy(me)
    !P varaiables are at particle position
    real(wp) P_s, P_safety_q !safety factor
@@ -3567,7 +3568,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
    real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
    integer :: ori_sid !sid of original full grid
-   real(wp) ori_inv_ds ! inv_ds of original full grid
+   real(wp) ori_inv_ds,ori_inv_dgf, P_inv_ori_dgq ! inv_ds of original full grid
    real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
    real(wp) target_zeta
    integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
@@ -3586,6 +3587,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
    enddo
 
    ori_inv_ds = real(mpsi)/(s1-s0)
+   ori_inv_dgf= 1.0/(zetamax-zetamin)
 
    energy(:) = in_P_data(2,:)
 
@@ -3617,6 +3619,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
       ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
       ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
       P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+      P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
       sid = (P_s-s0)*DG%inv_ds +1 ! +1 is due to Fortran's default index starting from 1
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
@@ -3676,6 +3679,11 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
             DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
             DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(Ta(m)-vpara_dve_gq(m))) ! theta Flux
             DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
+
+            vid=5 ! To measure CFL condition (v*dt/dx)
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*abs(tstep*vel_dsdgqdgf(1,m)*ori_inv_ds)
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*abs(tstep*(vel_dsdgqdgf(2,m)-vel_dsdgqdgf(3,m)/P_safety_q)*P_inv_ori_dgq) !time derivative of target_gq=gq-gf/safety_q
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*abs(tstep*vel_dsdgqdgf(3,m)*ori_inv_dgf)
          enddo
       enddo
 
@@ -3803,16 +3811,23 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data)
 
 
    ! Get Flux Density by dividing Area in each direction
-   do vid=1,DG%num_eVD
+   do vid=1,4
       j=1; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_a  ! Radial Flux Density
       j=2; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gq ! Theta Flux Density
       j=3; DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gf ! Zeta Flux Density
    enddo
+
+   ! To Normalize CFL condtion values, divide by number of markers (4th iSca)
+   vid=5
+   do j=1,3
+      DG%eVecData(j,:,:,vid,1) = DG%eVecData(j,:,:,vid,1)/(DG%eScaData(:,:,4,1)*DG%Cell_dV)
+   enddo
+
 end subroutine Measure_Electrons_on_Diagnostic_Grid
 
 
 
-subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
+subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
 
    use precision
    use Diagnostic_Grid
@@ -3826,6 +3841,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
    implicit none
 
    real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
+   real(wp), intent(in) :: vel_dsdgqdgf(3,mi)
    real(wp) energy(mi)
    !P varaiables are at particle position
    real(wp) P_s, P_safety_q !safety factor
@@ -3835,7 +3851,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
 
    real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
    integer :: ori_sid !sid of original full grid
-   real(wp) ori_inv_ds ! inv_ds of original full grid
+   real(wp) ori_inv_ds,ori_inv_dgf, P_inv_ori_dgq ! inv_ds of original full grid
    real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
    real(wp) target_zeta
    integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
@@ -3855,6 +3871,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
 
 
    ori_inv_ds = real(mpsi)/(s1-s0)
+   ori_inv_dgf= 1.0/(zetamax-zetamin)
 
    energy(:) = in_P_data(2,:)
 
@@ -3878,6 +3895,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
       ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
       ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
       P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+      P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
       sid = (P_s-s0)*DG%inv_ds +1 ! +1 is due to Fortran's default index starting from 1
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
@@ -3937,6 +3955,11 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
             DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
             DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(Ta(m)-vpara_dvi_gq(m))) ! theta Flux
             DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
+
+            vid=5 ! To measure CFL condition (v*dt/dx)
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*abs(tstep*vel_dsdgqdgf(1,m)*ori_inv_ds)
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*abs(tstep*(vel_dsdgqdgf(2,m)-vel_dsdgqdgf(3,m)/P_safety_q)*P_inv_ori_dgq) !time derivative of target_gq=gq-gf/safety_q
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*abs(tstep*vel_dsdgqdgf(3,m)*ori_inv_dgf)
          enddo
       enddo
 
@@ -4063,10 +4086,16 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data)
 
 
    ! Get Flux Density by dividing Area in each direction
-   do vid=1,DG%num_iVD
+   do vid=1,4
       j=1; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_a  ! Radial Flux Density
       j=2; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gq ! Theta Flux Density
       j=3; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gf ! Zeta Flux Density
+   enddo
+
+   ! To Normalize CFL condtion values, divide by number of markers (4th iSca)
+   vid=5
+   do j=1,3
+      DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)/(DG%iScaData(:,:,4,1)*DG%Cell_dV)
    enddo
 
 end subroutine Measure_Ions_on_Diagnostic_Grid

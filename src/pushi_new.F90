@@ -53,8 +53,7 @@ subroutine pushion
    real(wp) ddT_da_particle, w_anti_relax, muB, instep,outstep,fdamp,fdamp0, rdum1
 
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
-
-   real(wp) TRANSF_weight_Z0, TRANSF_weight_Z ! Transformed weigth Z=-ln(1-w) ; w=1-exp(-Z)
+   real(wp) ds_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -733,7 +732,12 @@ subroutine pushion
    endif
 
    if(irk==1 .and. mod(istep,msnap)==0) then
-      call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:))
+      do m=1,mi
+         ds_dgq_dgf(1,m) = (Tc/backT(m))**dsda_power*da(m)
+         ds_dgq_dgf(2,m) = dgq(m)
+         ds_dgq_dgf(3,m) = dgf(m)
+      enddo
+      call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:),ds_dgq_dgf)
    endif
 
 end subroutine pushion
@@ -789,8 +793,8 @@ subroutine pushion_RK4(irk_i)
 
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
+   real(wp) ds_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
-   real(wp) TRANSF_weight_Z0, TRANSF_weight_Z ! Transformed weigth Z=-ln(1-w) ; w=1-exp(-Z)
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -1368,7 +1372,12 @@ subroutine pushion_RK4(irk_i)
    endif
 
    if(irk_i==1 .and. mod(istep,msnap)==0) then
-      call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:))
+      do m=1,mi
+         ds_dgq_dgf(1,m) = (Tc/backT(m))**dsda_power*da(m)
+         ds_dgq_dgf(2,m) = dgq(m)
+         ds_dgq_dgf(3,m) = dgf(m)
+      enddo
+      call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:),ds_dgq_dgf)
    endif
 
 end subroutine pushion_RK4

@@ -1374,6 +1374,7 @@ subroutine snapshot_hdf5
          call h5ltset_attribute_string_f(gid, "eFlux_E", "unit", "J/(m^2*s)", h5err)
          call h5ltmake_dataset_f(gid, "eFlux_E_ExB",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eVecData(:,:,:,4,1)),h5err)
          call h5ltset_attribute_string_f(gid, "eFlux_E_ExB", "unit", "J/(m^2*s)", h5err)
+         call h5ltmake_dataset_f(gid, "eAvgCFL",3,h5dims,H5T_NATIVE_DOUBLE, (DG%eVecData(:,:,:,5,1)),h5err)
 
          call h5ltmake_dataset_f(gid, "iFlux_p",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iVecData(:,:,:,1,1)),h5err)
          call h5ltset_attribute_string_f(gid, "iFlux_p", "unit", "1/(m^2*s)", h5err)
@@ -1383,6 +1384,7 @@ subroutine snapshot_hdf5
          call h5ltset_attribute_string_f(gid, "iFlux_E", "unit", "J/(m^2*s)", h5err)
          call h5ltmake_dataset_f(gid, "iFlux_E_ExB",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iVecData(:,:,:,4,1)),h5err)
          call h5ltset_attribute_string_f(gid, "iFlux_E_ExB", "unit", "J/(m^2*s)", h5err)
+         call h5ltmake_dataset_f(gid, "iAvgCFL",3,h5dims,H5T_NATIVE_DOUBLE, (DG%iVecData(:,:,:,5,1)),h5err)
       enddo
 
 
