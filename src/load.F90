@@ -642,7 +642,7 @@ subroutine load_uniform_MGY
    real(wp) inv_ds, ff, P_s, P_q  !inv_ds is uniform by definition of s_grids
    integer:: sid ! index for s_grid
 
-   real(wp) vc, c1,c2,c3,c4,f2val,c5,c6,ratio,gi_val(mi),ge_val(me), Rand !For Flag_Load_and_WeightDef==2 case.
+   real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio,gi_val(mi),ge_val(me), Rand !For Flag_Load_and_WeightDef==2 case.
 
    if(irun==0) ddT_da=0.0_wp
    if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
@@ -747,18 +747,19 @@ subroutine load_uniform_MGY
          v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
       elseif(Flag_Load_and_WeightDef==2) then
          ! First, get v_abs using rand_5d(4,m)
-         vc=2.0
+         vmax=umax*sqrt(backT(m))
+         vc=2.0*sqrt(backT(m))
          c2=0.01
          f2val=0.2
-         c1 = -((-2+c2*umax+f2val*umax+ c2*vc-f2val*vc)/( umax*vc))
-         c3 = -((2-2*f2val*umax-c2*vc+ f2val*vc)/( umax*(umax-vc)))
-         c4 = -((-2+f2val*umax+c2*vc)/(umax-vc))
+         c1 = -((-2+c2*vmax+f2val*vmax+ c2*vc-f2val*vc)/( vmax*vc))
+         c3 = -((2-2*f2val*vmax-c2*vc+ f2val*vc)/( vmax*(vmax-vc)))
+         c4 = -((-2+f2val*vmax+c2*vc)/(vmax-vc))
          Rand = rand_5d(4,m)
          if (Rand < c2*vc+c1*vc**2/2) then
-            v_abs = sqrt(backT(m))*(-c2+sqrt(c2**2+2*c1*Rand))/c1
+            v_abs = (-c2+sqrt(c2**2+2*c1*Rand))/c1
          else
             Rand = Rand -(c2*vc+c1*vc**2/2)
-            v_abs = sqrt(backT(m))*(-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
+            v_abs = (-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
          endif
 
          ! Second, get v_theta using rand_5d(5,m)
@@ -769,9 +770,9 @@ subroutine load_uniform_MGY
          v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
 
          if(v_abs<vc) then
-            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)
+            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs*sqrt(1000.0)) ! Last 1000.0 is due to keV->eV for Jacobian
          else
-            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)
+            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs*sqrt(1000.0)) ! Last 1000.0 is due to keV->eV for Jacobian
          endif
       endif
 
@@ -889,18 +890,19 @@ subroutine load_uniform_MGY
                v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
             elseif(Flag_Load_and_WeightDef==2) then
                ! First, get v_abs using rand_5d(4,m)
-               vc=2.0
+               vmax=umax*sqrt(Te_norm(m)*m0ms)
+               vc=2.0*sqrt(Te_norm(m)*m0ms)
                c2=0.01
                f2val=0.2
-               c1 = -((-2+c2*umax+f2val*umax+ c2*vc-f2val*vc)/( umax*vc))
-               c3 = -((2-2*f2val*umax-c2*vc+ f2val*vc)/( umax*(umax-vc)))
-               c4 = -((-2+f2val*umax+c2*vc)/(umax-vc))
+               c1 = -((-2+c2*vmax+f2val*vmax+ c2*vc-f2val*vc)/( vmax*vc))
+               c3 = -((2-2*f2val*vmax-c2*vc+ f2val*vc)/( vmax*(vmax-vc)))
+               c4 = -((-2+f2val*vmax+c2*vc)/(vmax-vc))
                Rand = rand_5d(4,m)
                if (Rand < c2*vc+c1*vc**2/2) then
-                  v_abs = sqrt(Te_norm(m)*m0ms)*(-c2+sqrt(c2**2+2*c1*Rand))/c1
+                  v_abs = (-c2+sqrt(c2**2+2*c1*Rand))/c1
                else
                   Rand = Rand -(c2*vc+c1*vc**2/2)
-                  v_abs = sqrt(Te_norm(m)*m0ms)*(-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
+                  v_abs = (-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
                endif
                ! Second, get v_theta using rand_5d(5,m)
                ratio=0.2 ! ratio of (max/min)
@@ -910,9 +912,9 @@ subroutine load_uniform_MGY
                v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
 
                if(v_abs<vc) then
-                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)
+                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs*sqrt(1000.0)) ! Last 1000.0 is due to keV->eV for Jacobian
                else
-                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)
+                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs*sqrt(1000.0)) ! Last 1000.0 is due to keV->eV for Jacobian
                endif
             endif
 
