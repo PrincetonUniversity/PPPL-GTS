@@ -88,8 +88,14 @@ Subroutine setup
    ! Read control parameters from input file
    call read_control_params  !ZHIXIN
 
-   inquire(file='RESTART', exist = ex)
-   if(.not. ex) irun = 0  !Force irun to be zero when there is no existing restart file
+   inquire(file='RESTART/D0000/DATA_RESTART.000', exist = ex)
+   if(.not. ex) then
+      irun = 0  !Force irun to be zero when there is no existing restart file
+      if(mype==0) then
+         write(stdout,*) "There is NO RESTART file!! irun is changed to 0 (irun=0)"
+         call flush(stdout)
+      endif
+   endif
 
    inv_larmor_num = 1.0_wp/real(larmor_num)
 
