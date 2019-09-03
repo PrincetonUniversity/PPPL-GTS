@@ -1,10 +1,13 @@
 module profile_array
     use precision
     real(wp), dimension(:), allocatable :: rcor,ne_50,Ti_50,Te_50,O_50,PHI_50
-    integer ndum,ier
+    integer  ndum,ier
+    integer  jj1,jj2
     real(wp), dimension(:), allocatable :: Ti_node,dTi_node,ne_node,dne_node,&
                                            Te_node,dTe_node,Iomg_node,dIomg_node
     real(wp), dimension(:), allocatable :: rcor2,ne_51,Ti_51,Te_51
+    real(wp), dimension(:), allocatable :: dne_51,dTi_51,dTe_51
+    real(wp) :: f1, f2, f3
 end module profile_array
 
 
@@ -32,16 +35,15 @@ subroutine read_profiles(profile_data_name)
   implicit none
 
   real(wp), dimension(:,:), allocatable :: worka
-  integer i,j,ierr
+  integer i,j,k,ierr
   character(36) chdum
   character(len=36),dimension(6) :: profname
   character(25)  profile_data_name
 
-  integer  jj1,jj2,k
-  real(wp) fdown, xx, f1, f2, f3, acdum, error_8, acc
+  real(wp) xx, acdum, error_8, acc
   integer minpts,ifail
-  real(wp), dimension(:), allocatable :: dne_51,dTi_51,dTe_51
   real(wp), external :: D01AHF
+  real(wp), external :: fln,flTe,flTi,frn,frTe,frTi
 
 ! Names of the profiles that we want to read out of the file
   profname(1)=' Zone centrs = sq_rt(norm toroidal f'   ! radii (r/a)
@@ -234,11 +236,13 @@ Print*, chdum
 
   deallocate(dne_51,dTi_51,dTe_51)
 
-contains
+end subroutine read_profiles
+
   FUNCTION fln(pdum)
       use precision
+      use profile_array
       implicit  none
-      real(wp) fln,pdum
+      real(wp) fln,pdum, fdown
 
       fdown=abs((pdum-rcor2(jj1+1))/(f1*(rcor2(jj1+1)-rcor2(jj1))))
       fdown=dexp(-f2*fdown**f3)
@@ -249,8 +253,9 @@ contains
 
   FUNCTION flTi(pdum)
       use precision
+      use profile_array
       implicit  none
-      real(wp) flTi, pdum
+      real(wp) flTi, pdum, fdown
 
       fdown=abs((pdum-rcor2(jj1+1))/(f1*(rcor2(jj1+1)-rcor2(jj1))))
       fdown=dexp(-f2*fdown**f3)
@@ -261,8 +266,9 @@ contains
 
   FUNCTION flTe(pdum)
       use precision
+      use profile_array
       implicit  none
-      real(wp) flTe, pdum
+      real(wp) flTe, pdum, fdown
 
       fdown=abs((pdum-rcor2(jj1+1))/(f1*(rcor2(jj1+1)-rcor2(jj1))))
       fdown=dexp(-f2*fdown**f3)
@@ -273,8 +279,9 @@ contains
 
   FUNCTION frn(pdum)
       use precision
+      use profile_array
       implicit  none
-      real(wp) frn, pdum
+      real(wp) frn, pdum, fdown
 
       fdown=abs((pdum-rcor2(jj2-1))/(f1*(rcor2(jj2-1)-rcor2(jj2))))
       fdown=dexp(-f2*fdown**f3)
@@ -285,8 +292,9 @@ contains
 
   FUNCTION frTi(pdum)
       use precision
+      use profile_array
       implicit  none
-      real(wp) frTi, pdum
+      real(wp) frTi, pdum, fdown
 
       fdown=abs((pdum-rcor2(jj2-1))/(f1*(rcor2(jj2-1)-rcor2(jj2))))
       fdown=dexp(-f2*fdown**f3)
@@ -297,8 +305,9 @@ contains
 
   FUNCTION frTe(pdum)
       use precision
+      use profile_array
       implicit  none
-      real(wp) frTe, pdum
+      real(wp) frTe, pdum, fdown
 
       fdown=abs((pdum-rcor2(jj2-1))/(f1*(rcor2(jj2-1)-rcor2(jj2))))
       fdown=dexp(-f2*fdown**f3)
@@ -307,7 +316,6 @@ contains
       RETURN
   end function frTe
 
-end subroutine read_profiles
 
 
 
