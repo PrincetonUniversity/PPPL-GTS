@@ -628,7 +628,7 @@ subroutine load_uniform_MGY
    real(wp), external:: dsda, D01AHF
 
    real(wp) dela, r, fip, ave0
-   real(wp) inv_Nm ! inverse of total number of Marker particles for each speceis (actually, they are the same)
+   real(wp) inv_Nm,Nm ! inverse of total number of Marker particles for each speceis (actually, they are the same)
    real(wp) each_ptl_d6z ! d6z(=da*dgq*dgf*dvpara*dvperp) is the micro phase space volume which each particle occupies
    real(wp) Te_norm(1:mi) !  normalized-Te=Te/E_0, the same unit as normalized Ti
    integer m,ip,i,j,ij
@@ -642,6 +642,8 @@ subroutine load_uniform_MGY
    real(wp) inv_ds, ff, P_s, P_q  !inv_ds is uniform by definition of s_grids
    integer:: sid ! index for s_grid
 
+   real(wp) vc, c1,c2,c3,c4,f2val,c5,c6,ratio,gi_val(mi),ge_val(me), Rand !For Flag_Load_and_WeightDef==2 case.
+
    if(irun==0) ddT_da=0.0_wp
    if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
    if(irun /= 0)then
@@ -654,8 +656,8 @@ subroutine load_uniform_MGY
 
    me=mi
 
-
-   inv_Nm=1.0/(real(mi)*numberpe)
+   Nm = (real(mi)*numberpe)
+   inv_Nm=1.0/Nm
 
    if(mype==0) then
       write(stdout,*) "In load_uniform_MGY, inv_Nm = ",inv_Nm
@@ -739,9 +741,40 @@ subroutine load_uniform_MGY
       ! zion(6,m) = sqrt(backT(m)/(BB(m)))*rand_5d(5,m)*umax ! sqrt(mu) = sqrt(m*uperp^2/2B)=sqrT(T/B)*u; mu=T/B*u^2
       ! ilabels(m) = mype + 1e5*m
 
-      ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
-      v_abs = umax*sqrt(backT(m))*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
-      v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+      if(Flag_Load_and_WeightDef==1) then
+         ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
+         v_abs = umax*sqrt(backT(m))*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
+         v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+      elseif(Flag_Load_and_WeightDef==2) then
+         ! First, get v_abs using rand_5d(4,m)
+         vc=2.0
+         c2=0.01
+         f2val=0.2
+         c1 = -((-2+c2*umax+f2val*umax+ c2*vc-f2val*vc)/( umax*vc))
+         c3 = -((2-2*f2val*umax-c2*vc+ f2val*vc)/( umax*(umax-vc)))
+         c4 = -((-2+f2val*umax+c2*vc)/(umax-vc))
+         Rand = rand_5d(4,m)
+         if (Rand < c2*vc+c1*vc**2/2) then
+            v_abs = sqrt(backT(m))*(-c2+sqrt(c2**2+2*c1*Rand))/c1
+         else
+            Rand = Rand -(c2*vc+c1*vc**2/2)
+            v_abs = sqrt(backT(m))*(-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
+         endif
+
+         ! Second, get v_theta using rand_5d(5,m)
+         ratio=0.2 ! ratio of (max/min)
+         c5=1.0/((1.0+ratio)*0.5*pi)
+         c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
+         Rand = rand_5d(5,m)
+         v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
+
+         if(v_abs<vc) then
+            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)
+         else
+            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)
+         endif
+      endif
+
       vpara=v_abs*cos(v_theta)
       vperp=v_abs*sin(v_theta)
 
@@ -759,14 +792,16 @@ subroutine load_uniform_MGY
       ! zion(5,m) is "df"
       ! zion0(6,m) is "f_tot"
 
-      !Following line is for square sampling for vpara and vperp
-      !each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m))
 
-      !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-      ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
-      each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m)
+      if(Flag_Load_and_WeightDef==1) then
+         !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+         ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
+         each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m)
+         integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
+      elseif(Flag_Load_and_WeightDef==2)then
+         integral_f0 = back_f0_i(m)/gi_val(m)
+      endif
 
-      integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
       zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
       zion0(6,m) = integral_f0 + zion(5,m)
    enddo
@@ -848,9 +883,39 @@ subroutine load_uniform_MGY
             ! zeon(4,m) = (2.0*rand_5d(4,m)-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
             ! zeon(6,m) = sqrt(Te_norm(m)/BB(m))*rand_5d(5,m)*umax
 
-            ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
-            v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
-            v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+            if(Flag_Load_and_WeightDef==1) then
+               ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
+               v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
+               v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+            elseif(Flag_Load_and_WeightDef==2) then
+               ! First, get v_abs using rand_5d(4,m)
+               vc=2.0
+               c2=0.01
+               f2val=0.2
+               c1 = -((-2+c2*umax+f2val*umax+ c2*vc-f2val*vc)/( umax*vc))
+               c3 = -((2-2*f2val*umax-c2*vc+ f2val*vc)/( umax*(umax-vc)))
+               c4 = -((-2+f2val*umax+c2*vc)/(umax-vc))
+               Rand = rand_5d(4,m)
+               if (Rand < c2*vc+c1*vc**2/2) then
+                  v_abs = sqrt(Te_norm(m)*m0ms)*(-c2+sqrt(c2**2+2*c1*Rand))/c1
+               else
+                  Rand = Rand -(c2*vc+c1*vc**2/2)
+                  v_abs = sqrt(Te_norm(m)*m0ms)*(-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
+               endif
+               ! Second, get v_theta using rand_5d(5,m)
+               ratio=0.2 ! ratio of (max/min)
+               c5=1.0/((1.0+ratio)*0.5*pi)
+               c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
+               Rand = rand_5d(5,m)
+               v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
+
+               if(v_abs<vc) then
+                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)
+               else
+                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)
+               endif
+            endif
+
             vpara=v_abs*cos(v_theta)
             vperp=v_abs*sin(v_theta)
 
@@ -870,14 +935,14 @@ subroutine load_uniform_MGY
             ! zeon(5,m) is "df"
             ! zeon0(6,m) is "f_tot"
 
-            !Following line is for square sampling for vpara and vperp
-            ! each_ptl_d6z = inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms)
-
-            !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-            ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
-            each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms
-
-            integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
+            if(Flag_Load_and_WeightDef==1) then
+               !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+               ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
+               each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms
+               integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
+            elseif(Flag_Load_and_WeightDef==2)then
+               integral_f0 = back_f0_e(m)/ge_val(m)
+            endif
             zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
             zeon0(6,m) = integral_f0 + zeon(5,m)
          enddo
