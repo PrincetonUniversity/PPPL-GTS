@@ -9,7 +9,7 @@
 GIT_CLEAN 	:= $(shell rm $(VPATH)/$(OBJDIR)/{git_info.o,gts_git_diff.out,gts_version_info.out})
 GIT_VERSION := $(shell git --no-pager describe --tags --always)
 GIT_BRANCH	:= $(shell git branch | grep \* | cut -c 3-)
-GIT_COM_MSG := $(shell git show -s --format=%B | head -n 1)
+GIT_COM_MSG := $(shell git show -s --format=%B | head -n 1 | sed "s/'//g" | sed 's/"//g')
 GIT_COM_SHA := $(shell git rev-parse --verify HEAD)
 GIT_WTREE   := $()
 GIT_DATE    := $(firstword $(shell git --no-pager show --date=iso-strict --format="%ad" --name-only))
