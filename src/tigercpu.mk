@@ -15,11 +15,16 @@ GIT_COM_SHA := $(shell git rev-parse --verify HEAD)
 GIT_WTREE   := $()
 GIT_DATE    := $(firstword $(shell git --no-pager show --date=iso-strict --format="%ad" --name-only))
 BUILD_DATE  := $(shell date --iso=seconds)
+BUILD_DIR   := $(shell pwd)
 
  GIT_DIFF_RESULT:= $(shell git add -N -A)
 GIT_DIFF_RESULT:= $(shell git diff > gts_git_diff.out)
 GIT_DIFF_RESULT:= $(shell git reset HEAD)
 GIT_DIFF_XXD 	:= $(shell xxd -i gts_git_diff.out > gts_git_diff.h)
+
+#Module Information
+MODULE_FILES := $(shell module list &> gts_module_files.out)
+MODULE_FILES := $(shell xxd -i gts_module_files.out > gts_module_files.h)
 
  # If working tree is dirty, append dirty flag (D)
 ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
@@ -33,8 +38,8 @@ endif
  					-DGIT_COM_SHA="\"$(GIT_COM_SHA)\""\
 					-DGIT_WTREE="\"$(GIT_WTREE)\""\
  					-DGIT_DATE="\"$(GIT_DATE)\""\
- 					-DBUILD_DATE="\"$(BUILD_DATE)\""
-
+ 					-DBUILD_DATE="\"$(BUILD_DATE)\""\
+ 					-DBUILD_DIR="\"$(BUILD_DIR)\""
 
  ifeq ($(F90),mpif90)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler
@@ -133,13 +138,17 @@ endif
 	@echo " 										" 	| tee -a gts_version_info.out
 	@echo "       VERSION: $(GIT_VERSION)" | tee -a gts_version_info.out
 	@echo "        BRANCH: $(GIT_BRANCH)" 	| tee -a gts_version_info.out
-	@echo "    COMMIT MSG: $(GIT_COM_MSG)" | tee -a gts_version_info.out
-	@echo "    COMMIT SHA: $(GIT_COM_SHA)" | tee -a gts_version_info.out
-	@echo "      GIT DATE: $(GIT_DATE)" 	| tee -a gts_version_info.out
-	@echo "    BUILD DATE: $(BUILD_DATE)" 	| tee -a gts_version_info.out
+	@echo "   COMMIT  MSG: $(GIT_COM_MSG)" | tee -a gts_version_info.out
+	@echo "   COMMIT  SHA: $(GIT_COM_SHA)" | tee -a gts_version_info.out
+	@echo "   COMMIT DATE: $(GIT_DATE)" 	| tee -a gts_version_info.out
 	@echo "  WORKING TREE: $(GIT_WTREE)" 	| tee -a gts_version_info.out
+	@echo " 										" 	| tee -a gts_version_info.out
+	@echo "    BUILD DATE: $(BUILD_DATE)" 	| tee -a gts_version_info.out
+	@echo "    BUILD  DIR: $(BUILD_DIR)" 	| tee -a gts_version_info.out
 	@echo " 										" 	| tee -a gts_version_info.out
 	@echo "=================================================" 	| tee -a gts_version_info.out
 	@echo " 										" 	| tee -a gts_version_info.out
 	@echo "If \"WORKING TREE\" is not clean, check \"git_diff.out\" for details" 	| tee -a gts_version_info.out
 	@echo " 										" 	| tee -a gts_version_info.out
+	@echo " 										" 	| tee -a gts_version_info.out
+	@cat gts_module_files.out | tee -a gts_version_info.out
