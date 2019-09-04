@@ -419,7 +419,6 @@ subroutine charge_ion
             enddo
          enddo
          call Do_FieldLineAverage_by_using_gPPI(tot_dni, FLA_dni)
-         !call Do_FieldLineAverage_by_using_gPPI(densityi, FLA_dni)
       endif
       !===================================================================
 
@@ -495,7 +494,6 @@ subroutine charge_ion
             enddo
          enddo
          call Do_FieldLineAverage_by_using_gPPI(tot_dni, FLA_dni)
-         !call Do_FieldLineAverage_by_using_gPPI(densityi, FLA_dni)
       endif
       !===================================================================
 

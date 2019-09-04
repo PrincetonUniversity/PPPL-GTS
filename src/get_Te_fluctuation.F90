@@ -187,13 +187,6 @@ subroutine get_Te_fluctuation(wpi2)
    call MPI_ALLREDUCE(mype_zonal_dTe, zonal_dTe, mpsi+1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
    zonal_dTe = zonal_dTe/jaco_sum
 
-   !====================================================================
-   ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component
-   ! This FLA might be important in the case of external magnetic perturbation
-   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
-      call Do_FieldLineAverage_by_using_gPPI(buff, FLA_dTe)
-   endif
-   !===================================================================
 
    ! IF ZE_SEPARATION=0: heatflux is (1/Te0)*(full delta_Te (zonal+non-zonal)): i.e. heatflux = (delta_Te)/Te0
    ! IF ZE_SEPARATION=1: heatflux is now calculated from non-zonal delta_Te : i.e. heatflux = (delta_Te-zonal_dTe)/Te0

@@ -275,14 +275,6 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
    call MPI_ALLREDUCE(mype_zonal_dTi, zonal_dTi, mpsi+1, mpi_Rsize, MPI_SUM, toroidal_comm, ierror)
    zonal_dTi = zonal_dTi/jaco_sum
 
-   !====================================================================
-   ! MGYOO(12/03/2018) : To measure FLA(Field Line Average) component
-   ! This FLA might be important in the case of external magnetic perturbation
-   tmp_full_dTi = pflux_i(1,:,:)
-   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
-      call Do_FieldLineAverage_by_using_gPPI(tmp_full_dTi, FLA_dTi)
-   endif
-   !===================================================================
 
    ! IF ZE_SEPARATION=0: phi_tmp is (1/Ti0)*(full delta_Ti (zonal+non-zonal)): i.e. phi_tmp = (delta_Ti)/Ti0
    ! IF ZE_SEPARATION=1: phi_tmp is now calculated from non-zonal delta_Ti : i.e. phi_tmp = (delta_Ti-zonal_dTi)/Ti0

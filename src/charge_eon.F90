@@ -316,7 +316,6 @@ subroutine charge_eon
          endif
 
          call Do_FieldLineAverage_by_using_gPPI(tot_dne, FLA_dne)
-         !call Do_FieldLineAverage_by_using_gPPI(densitye, FLA_dne)
       endif
       !===================================================================
 
@@ -399,7 +398,6 @@ subroutine charge_eon
          endif
 
          call Do_FieldLineAverage_by_using_gPPI(tot_dne, FLA_dne)
-         !call Do_FieldLineAverage_by_using_gPPI(densitye, FLA_dne)
       endif
       !===================================================================
 
