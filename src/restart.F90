@@ -61,6 +61,12 @@ subroutine restart_write
    write(222) elabels(1:me), ilabels(1:mi)
    ! =====================================
 
+   ! MGYOO (09/05/2019)
+   ! Add information of eNrNm, iNrNm for Flag_Load_and_WeightDef
+   if(Flag_Load_and_WeightDef==0) then
+      write(222) eNrNm, eNmNr, iNrNm, iNmNr
+   endif
+
    close(222)
 
 end subroutine restart_write
@@ -130,6 +136,12 @@ subroutine restart_read
    read(333) etracers_labels(1:num_of_etracers), itracers_labels(1:num_of_itracers)
    read(333) elabels(1:me), ilabels(1:mi)
    ! =====================================
+
+   ! MGYOO (09/05/2019)
+   ! Read information of eNrNm, iNrNm for Flag_Load_and_WeightDef
+   if(Flag_Load_and_WeightDef==0) then
+      read(333) eNrNm, eNmNr, iNrNm, iNmNr
+   endif
 
    close(333)
 
