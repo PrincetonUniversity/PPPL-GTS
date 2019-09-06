@@ -60,7 +60,7 @@ Subroutine setup
    real(wp), dimension(:), allocatable :: coord_X,coord_Y,coord_Z,&
       coord_R,coord_Phi,kstar_Te
 
-   real(wp) da_du1, da_du2, dgq_du1, dgq_du2, gyro_phase
+   real(wp) da_du1, da_du2, dgq_du1, dgq_du2, gyro_phase, cos_alpha
    integer larmor
    integer create_directory
 
@@ -1648,11 +1648,14 @@ Subroutine setup
          ! tgyro = 1/sqrt(g_qq_cov)*cos(alpha) = (1/J)*(1/sqrt(gaa_cntv))*(Bgf_cov/B)
 
          ! u1 and u2 are coordinate variables
-         ! u1 = grad(a) direction,  u2 = cross(B,grad(a)) direction
+         ! u1 = grad(a) direction,  u2 = cross(grad(zeta),grad(a)) direction
+
+         cos_alpha = Fj(1)/(Bj(1)*rj(1)) ! cos_alpha=(B_phi/B_tot)
+
          da_du1 = sqrt(metric(1))
          da_du2 = 0
          dgq_du1 = metric(4) / sqrt(metric(1))
-         dgq_du2 = (Fj(1))/ (jacobian(pdum,tdum)*sqrt(metric(1))*Bj(1))
+         dgq_du2 = (Fj(1))/ (jacobian(pdum,tdum)*sqrt(metric(1))*Bj(1))/(cos_alpha**2.0)
 
          do larmor=1, larmor_num
             gyro_phase = (larmor-1)*2.0_wp*pi*inv_larmor_num
