@@ -3382,8 +3382,8 @@ subroutine Init_Diagnostic_Grid
    DG%num_eSD = 6
    DG%num_eVD = 5
 
-   DG%num_iSD = 7 ! additional ni_Larmor by considering larmor orbit of ions
-   DG%num_iVD = 5
+   DG%num_iSD = 8   ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
+   DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
    DG%inv_dgq = 1.0/DG%dgq
@@ -3621,7 +3621,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
       P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
       P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
-      sid = (P_s-s0)*DG%inv_ds +1 ! +1 is due to Fortran's default index starting from 1
+      sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
@@ -3859,7 +3859,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
    real(wp):: norm_vpara, norm_vperp, rvx,rvy ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
    real(wp),allocatable, dimension(:,:,:) :: tmp_PVS_fi
    integer :: length, istatus(MPI_STATUS_SIZE),ierror
-
+   integer :: larmor
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1)
    real(wp) ::inv_tot_ni(DG%dim_gq, DG%dim_a)
 
@@ -3897,7 +3897,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
       P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
       P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
-      sid = (P_s-s0)*DG%inv_ds +1 ! +1 is due to Fortran's default index starting from 1
+      sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
@@ -4016,9 +4016,83 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             enddo
          endif
       enddo
-
    enddo
 
+
+
+   do m=1,mi
+      if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
+
+      do larmor=1,larmor_num
+         P_a  = zion0(1,m)
+         P_gq = modulo(zion_gq_on_GyroOrbit(larmor,m),2*pi)
+         P_gf = modulo(zion0(3,m),2*pi)
+         P_s  = zion_s_on_GyroOrbit(larmor,m)
+
+         ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+         ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
+         P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+         P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
+
+         sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
+         ws0 = 1.0-ws1
+
+         do k=0,1
+            if(k==0) target_zeta =zetamin
+            if(k==1) target_zeta =zetamax
+
+            wgf = (1.0-abs(P_gf-target_zeta)/deltaz)
+
+            target_gq = modulo(P_gq + (target_zeta-P_gf)/P_safety_q, 2.0*pi)
+            gqid = (target_gq)*DG%inv_dgq +1
+            wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+            wgq0 = 1.0-wgq1
+
+            do j=1,4
+               select case(j)
+                  case(1)
+                     qq=gqid; ss=sid
+                     ratio=ws0*wgq0*wgf
+                  case(2)
+                     qq=gqid+1; ss=sid
+                     ratio=ws0*wgq1*wgf
+                  case(3)
+                     qq=gqid; ss=sid+1
+                     ratio=ws1*wgq0*wgf
+                  case(4)
+                     qq=gqid+1; ss=sid+1
+                     ratio=ws1*wgq1*wgf
+               end select
+
+               ! Scalar Data
+               vid=7; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*inv_larmor_num*delta_f(m) ! Density
+               vid=8; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*inv_larmor_num*(2.0/3.0*energy(m)-backT(m))*delta_f(m) !Temperature definition 1
+
+               ! Vector Data
+               vid=6 ! Turbulent Particle Flux
+               DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*inv_larmor_num*(delta_f(m)*ghq(m)) ! Radial Flux
+               DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*inv_larmor_num*(delta_f(m)*Ta(m)) ! theta Flux
+               DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*inv_larmor_num*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+
+               vid=7 ! Turbulent Particle Flux due to ExB only
+               DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*inv_larmor_num*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
+               DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*inv_larmor_num*(delta_f(m)*(Ta(m)-vpara_dvi_gq(m))) ! theta Flux
+               DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*inv_larmor_num*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
+
+               vid=8 ! Turbulent Energy Flux
+               DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*inv_larmor_num*(delta_f(m)*ghq(m)) ! Radial Flux
+               DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*inv_larmor_num*(delta_f(m)*Ta(m)) ! theta Flux
+               DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*inv_larmor_num*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+
+               vid=9 ! Turbulent Energy Flux due to ExB only
+               DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*inv_larmor_num*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
+               DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*inv_larmor_num*(delta_f(m)*(Ta(m)-vpara_dvi_gq(m))) ! theta Flux
+               DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*inv_larmor_num*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
+            enddo
+         enddo
+      enddo
+   enddo
 
    if(npartdom>1) then
       tmp_Scalar_Data = DG%iScaData
@@ -4083,7 +4157,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
    ! Consistent Temperature by considering density fluctuation in the denominator
    DG%iScaData(:,:,3,1) = DG%iScaData(:,:,3,1)*inv_tot_ni
    vid=6; DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*inv_tot_ni! Te_tot
-
+   vid=8; DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*inv_tot_ni! Te_tot
 
    ! Get Flux Density by dividing Area in each direction
    do vid=1,4
@@ -4096,6 +4170,13 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
    vid=5
    do j=1,3
       DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)/(DG%iScaData(:,:,4,1)*DG%Cell_dV)
+   enddo
+
+   ! Get Flux Density (using the positions on Larmor Radius) by dividing Area in each direction
+   do vid=6,9
+      j=1; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_a  ! Radial Flux Density
+      j=2; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gq ! Theta Flux Density
+      j=3; DG%iVecData(j,:,:,vid,1) = DG%iVecData(j,:,:,vid,1)*DG%inv_Cell_dS_gf ! Zeta Flux Density
    enddo
 
 end subroutine Measure_Ions_on_Diagnostic_Grid

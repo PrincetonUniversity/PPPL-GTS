@@ -1365,6 +1365,12 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid, "Ti",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,6,1)),h5err)
          call h5ltset_attribute_string_f(gid, "Ti", "unit", "eV", h5err)
 
+         call h5ltmake_dataset_f(gid, "dni_Larmor",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%iScaData(:,:,7,1)),h5err)
+         call h5ltset_attribute_string_f(gid, "dni_Larmor", "unit", "#/m^3", h5err)
+         call h5ltmake_dataset_f(gid, "dTi_Larmor_consst",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,8,1)),h5err)
+         call h5ltset_attribute_string_f(gid, "dTi_Larmor_consst", "unit", "eV", h5err)
+
+
          h5dims(1:3)=(/3,DG%dim_gq,DG%dim_a/)
          call h5ltmake_dataset_f(gid, "eFlux_p",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eVecData(:,:,:,1,1)),h5err)
          call h5ltset_attribute_string_f(gid, "eFlux_p", "unit", "1/(m^2*s)", h5err)
@@ -1385,6 +1391,14 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid, "iFlux_E_ExB",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iVecData(:,:,:,4,1)),h5err)
          call h5ltset_attribute_string_f(gid, "iFlux_E_ExB", "unit", "J/(m^2*s)", h5err)
          call h5ltmake_dataset_f(gid, "iAvgCFL",3,h5dims,H5T_NATIVE_DOUBLE, (DG%iVecData(:,:,:,5,1)),h5err)
+
+         call h5ltmake_dataset_f(gid, "iFlux_p_Larmor",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iVecData(:,:,:,6,1)),h5err)
+         call h5ltset_attribute_string_f(gid, "iFlux_p_Larmor", "unit", "1/(m^2*s)", h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_p_ExB_Larmor",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iVecData(:,:,:,7,1)),h5err)
+         call h5ltset_attribute_string_f(gid, "iFlux_p_ExB_Larmor", "unit", "1/(m^2*s)", h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_E_Larmor",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iVecData(:,:,:,8,1)),h5err)
+         call h5ltset_attribute_string_f(gid, "iFlux_E_Larmor", "unit", "J/(m^2*s)", h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_E_ExB_Larmor",3,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iVecData(:,:,:,9,1)),h5err)
       enddo
 
 

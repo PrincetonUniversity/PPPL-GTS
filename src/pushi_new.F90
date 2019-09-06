@@ -1472,6 +1472,7 @@ subroutine ion_locator_at_larmor_points
       do larmor=1, larmor_num
          !  MODIFIED for FINITE GYRORADIUS CASE
          pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
+         zion_s_on_GyroOrbit(larmor,m)=pdum
          rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
          ii=max(0,min(mpsi-1,int(rdum)))
          !        wp1=rdum-real(ii)
@@ -1481,6 +1482,7 @@ subroutine ion_locator_at_larmor_points
 
          ! particle position in theta
          tflr=thetatmp+rhoi*intpl_tgyro(larmor)
+         zion_gq_on_GyroOrbit(larmor,m)=tflr
 
          ! inner flux surface
          im=ii
