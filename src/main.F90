@@ -217,10 +217,10 @@ program GTS
       call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
-      call snapshot     ! snapshot at t=0
       call snapshot_hdf5
       call check_tracer_e
       call check_tracer_i
+      call snapshot     ! snapshot at t=0
    end if
 
    if(irun==-100) then
@@ -456,8 +456,8 @@ program GTS
 
       if(mod(istep,msnap) .eq. 0) then
          !  phi_tmp=phi_tmp/real(msnap,wp)
-         call snapshot
          call snapshot_hdf5
+         call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables
          !  phi_tmp=0.0_wp
       end if
@@ -565,4 +565,3 @@ subroutine timer(t0,dt,t0wc,dtwc)
    t0wc=t1wc
 
 end subroutine timer
-
