@@ -237,6 +237,7 @@ program GTS
    timewc(7)=timewc(7)+dtwc
    loop_time=t0wc
 
+   call system_mem_usage
 
    open(unit=190515,file='elapsed_Time.dat',action='write')
 
@@ -459,6 +460,7 @@ program GTS
          call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables
+         call system_mem_usage
          !  phi_tmp=0.0_wp
       end if
 
@@ -565,3 +567,62 @@ subroutine timer(t0,dt,t0wc,dtwc)
    t0wc=t1wc
 
 end subroutine timer
+
+
+subroutine system_mem_usage
+
+   use mpi_defs
+   use global_parameters
+   implicit none
+
+   integer :: val_VmRSS, val_VmSize, val_VmPeak
+
+   character(len=200):: filename=' '
+   character(len=80) :: line
+   character(len=8)  :: pid_char=' '
+   integer :: pid,getpid
+   logical :: ifxst
+
+   ! return negative number if not found
+   val_VmRSS=-1
+   val_VmSize=-1
+   val_VmPeak=-1
+
+   !--- get process ID
+   pid=getpid()
+   write(pid_char,'(I8)') pid
+   filename='/proc/'//trim(adjustl(pid_char))//'/status'
+
+
+   !--- read system file
+   inquire (file=filename,exist=ifxst)
+   if (.not.ifxst) then
+      write (*,*) 'system file does not exist'
+      return
+   endif
+
+   open(unit=1234, file=filename, action='read')
+   do
+      read (1234,'(a)') line
+      if (line(1:7).eq.'VmSize:') then
+         read (line(8:),*) val_VmSize
+      elseif (line(1:7).eq.'VmPeak:') then
+         read (line(8:),*) val_VmPeak
+      elseif (line(1:6).eq.'VmRSS:') then
+         read (line(7:),*) val_VmRSS
+         exit
+      endif
+   enddo
+   close(1234)
+
+   !--- Print out mem. usage information
+   write(stdout,*) 'istep=', istep, ' mype=',mype,'pid=',pid, '; VmRSS=', val_VmRSS, 'kB; ', 'VmSize=', val_VmSize, 'kB; ','VmPeak=', val_VmPeak, 'kB; '
+   call flush(stdout)
+
+   if(mype==0) then
+      open(unit=190923,file='gts_mem_usage.dat',position='append',action='write')
+      write(190923,*) 'istep=', istep, ' mype=',mype,'pid=',pid, 'mi=',mi,'me=',me,'; VmRSS=', val_VmRSS, 'kB; ', 'VmSize=', val_VmSize, 'kB; ','VmPeak=', val_VmPeak, 'kB; '
+      close(190923)
+   endif
+
+end subroutine
