@@ -149,7 +149,8 @@ module FieldLineFollowing
 
    use precision
    type Poincare_Point_Information
-      integer Label  ! Label for each field line
+      integer Fid  ! Fid (Field ID) for each field line
+      real(wp) Label ! Label will be used to estimate modified flux-surface labels
       real(wp) target_normalized_gf  ! target_zeta in [0,...,2*pi]
       real(wp) s, a, gq, gf
       real(wp) R, Z
@@ -218,7 +219,8 @@ module field_array
       dni_grid,dne_grid
    real(wp),dimension(:),allocatable :: zonal_dTe, zonal_dTi
    real(wp),dimension(:,:),allocatable :: tot_dne,tot_dni, FLA_Denominator, FLA_dphi, FLA_dTe, FLA_dTi, FLA_dne, FLA_dni, FLA_ne_adiabatic
-   real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0
+   real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0, FLA_FLabel
+   real(wp), dimension(:,:),allocatable :: FLabel_Function
    real(wp),dimension(:,:),allocatable :: Weighted_Vol
    real(wp),dimension(:),allocatable :: Node_simple_Vol
    real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
@@ -292,6 +294,7 @@ module Diagnostic_Grid
       integer :: dim_a, dim_gq=101
       integer :: num_eSD, num_eVD ! number of eScaData and eVecData (electrons)
       integer :: num_iSD, num_iVD ! number of iScaData and iVecData (ions)
+      real(wp) zetamin, zetamax ! zeta value of this plane
       real(wp) dgq, inv_dgq ! dgq is constant since it is uniform along theta direction
       real(wp) inv_ds
       real(wp), allocatable, dimension(:) :: a_1D, ori_aid, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D
@@ -301,6 +304,9 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
       real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
       real(wp), allocatable, dimension(:,:) :: dne_adiab ! Electron adiabatic density for diagnostic purpose
+      real(wp), allocatable, dimension(:,:) :: FLabel_Function
+      real(wp), allocatable, dimension(:,:,:) :: FLA_Denominator, FLA_FLabel
+      real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_FLabel2, FLA_psi0, FLA_SM_psi0
 
       ! Magnetic Field Information (ESI variables)
       real(wp), allocatable, dimension(:,:) :: F,dFda,dgFda,dgYda,R,dRda,dRdgq,Z,dZda,dZdgq,BB,dBBda,dBBdgq,P,T
@@ -333,6 +339,52 @@ module Diagnostic_Grid
    type(Probe_Velocity_Space), allocatable, dimension(:) :: PVS
    integer :: nPVS
 end module Diagnostic_Grid
+
+module DG_operations
+
+   use Diagnostic_Grid
+
+   contains
+      subroutine Smooth_DG_Data_2D(num_smooth, target_Data2D, Reference_Data2D)
+
+         use precision
+         use global_parameters
+         use Diagnostic_Grid
+         implicit none
+
+         integer, intent(in) :: num_smooth
+         real(wp),intent(inout) :: target_Data2D(DG%dim_gq, DG%dim_a)
+         real(wp),optional:: Reference_Data2D(DG%dim_gq, DG%dim_a)
+         real(wp) :: VV(DG%dim_gq, DG%dim_a)
+         integer :: smid, aid, gqid, Na,Ngq, vid,k
+         real(wp) :: SM_Data(0:DG%dim_gq+1, 0:DG%dim_a+1)  ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+         real(wp) :: SM_gq_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1), SM_a_Coeff(-1:1,0:DG%dim_gq+1, 0:DG%dim_a+1)
+
+         Na  = DG%dim_a
+         Ngq = DG%dim_gq
+
+         VV=1.0
+         if(present(Reference_Data2D)) VV=Reference_Data2D
+
+         ! Get Smooth Coeffs which conserves Volume Weighted Integration
+         call Get_Conserving_Smooth_Coeffs_on_DG(VV, SM_a_Coeff, SM_gq_Coeff)
+
+         SM_Data = 0.0
+         SM_Data(1:Ngq,1:Na) = target_Data2D
+         do smid=1,num_smooth
+            ! Set ghost cell periodic in theta direction
+            SM_Data(0,:)     = SM_Data(Ngq,:)
+            SM_Data(Ngq+1,:) = SM_Data(1,:)
+            ! Smooth in theta direction
+            SM_Data(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*SM_Data(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*SM_Data(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*SM_Data(2:Ngq+1,:)
+            ! Smooth in radial direction
+            SM_Data(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*SM_Data(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*SM_Data(:,1:Na) + SM_a_Coeff(1,:,1:Na)*SM_Data(:,2:Na+1)
+         enddo
+         target_Data2D = SM_Data(1:Ngq,1:Na)
+
+      end subroutine Smooth_DG_Data_2D
+end module DG_operations
+
 
 module esi_interface
    use precision

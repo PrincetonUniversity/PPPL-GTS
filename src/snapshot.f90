@@ -462,7 +462,7 @@ subroutine Interpolate_Data_into_Coarser_Grids(in_Data_Arr1D, gq_jump, a_jump, o
 
    integer, intent(in) :: gq_jump, a_jump
    real(wp), dimension(mgrid), intent(inout) :: in_Data_Arr1D
-   real(wp), dimension(((mpsi+1)/a_jump)*(mtheta(ipsi)/gq_jump+1)), intent(inout) :: out_intpl_Arr1D
+   real(wp), dimension(((mpsi+1)/a_jump)*(mtheta(ipsi)/gq_jump+1)), intent(out) :: out_intpl_Arr1D
    integer i,j,ij,k,jt,jm
 
    real(wp) inv_dgq(0:mpsi), gqdum, wt
@@ -504,7 +504,7 @@ subroutine snapshot_hdf5
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
    integer(HSIZE_T) :: h5dims(3)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM, gid_PVS, gid
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
@@ -771,6 +771,8 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "BIN", gid_BIN, h5err)
       call h5gcreate_f(file_id, "DG", gid_DG, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/SM", gid_DG_SM, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "DG/FLA", gid_DG_FLA, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "DG/FLA/SM", gid_DG_FLA_SM, h5err) ! Diagnostic Grid
 
       !
       h5dims(1) = 1
@@ -959,6 +961,15 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "ori_Node_simple_Vol",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "ori_Node_simple_Vol", "unit", "m^3", h5err)
 
+      call Interpolate_Data_into_Coarser_Grids(FLabel_Function(1,:),gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+
+      if(myrank_toroidal==0) then
+         open(unit=190925,file='FLabel_Function.dat',action='write')
+         write(190925,*) FLabel_Function
+         close(190925)
+      endif
+
       ! dphi_2D
       k=1
       do i=0,mpsi,a_jump
@@ -1107,6 +1118,11 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "mean_full_dTe_SQ",2,h5dims,H5T_NATIVE_DOUBLE, (1e3*Tem_00)**2.0*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dTe_SQ", "unit", "eV", h5err)
 
+
+      ! FLA FLabel (Field Fid)
+      call Interpolate_Data_into_Coarser_Grids(FLA_FLabel(1,:),gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "FLA/FLabel",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+      call h5ltset_attribute_string_f(file_id, "FLA/FLabel", "unit", "", h5err)
 
       ! FLA psi0
       call Interpolate_Data_into_Coarser_Grids(FLA_psi0(1,:),gq_jump,a_jump,intp_val_Arr)
@@ -1324,6 +1340,16 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_a",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_a,h5err)
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gq,h5err)
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gf,h5err)
+      call h5ltmake_dataset_f(gid_DG, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLabel_Function,h5err)
+
+
+      call h5ltmake_dataset_f(gid_DG_FLA, "Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_Denominator(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_FLabel(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_psi0,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_Denominator,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel2",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel2,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_psi0,h5err)
 
       do i=1,2
          select case(i)
@@ -1455,6 +1481,8 @@ subroutine snapshot_hdf5
       call h5gclose_f(gid_BIN, h5err)
       call h5gclose_f(gid_DG, h5err)
       call h5gclose_f(gid_DG_SM, h5err)
+      call h5gclose_f(gid_DG_FLA, h5err)
+      call h5gclose_f(gid_DG_FLA_SM, h5err)
 
       call h5fclose_f(file_id, h5err)
       call h5close_f(h5err)
