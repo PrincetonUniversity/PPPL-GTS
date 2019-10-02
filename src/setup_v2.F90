@@ -1261,9 +1261,9 @@ Subroutine setup
    do i=0,mpsi
       do j=0,mtheta(i)
          ij=igrid(i)+j
-         tdum=modulo(real(j,wp)*deltat(i)+zdum*qtinv(i),2.0*pi)
-
+         tdum=modulo(real(j,wp)*deltat(i)+zetamin*qtinv(i),2.0*pi)
          FLabel_Function(0,ij) = Cal_FLabel_Function(psi_grid(i), tdum, zetamin)
+         tdum=modulo(real(j,wp)*deltat(i)+zetamax*qtinv(i),2.0*pi)
          FLabel_Function(1,ij) = Cal_FLabel_Function(psi_grid(i), tdum, zetamax)
       enddo
    enddo

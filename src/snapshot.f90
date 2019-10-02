@@ -964,6 +964,13 @@ subroutine snapshot_hdf5
       call Interpolate_Data_into_Coarser_Grids(FLabel_Function(1,:),gq_jump,a_jump,intp_val_Arr)
       call h5ltmake_dataset_f(file_id, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
 
+
+      h5dims(1)=1
+      call h5ltmake_dataset_f(file_id, "num_of_FLabel_pcws",1,h5dims,H5T_NATIVE_INTEGER, num_of_FLabel_pcws,h5err)
+      h5dims(1)=num_of_FLabel_pcws
+      call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
+      call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
+
       if(myrank_toroidal==0) then
          open(unit=190925,file='FLabel_Function.dat',action='write')
          write(190925,*) FLabel_Function
@@ -1340,14 +1347,16 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_a",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_a,h5err)
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gq,h5err)
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gf,h5err)
-      call h5ltmake_dataset_f(gid_DG, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLabel_Function,h5err)
+      call h5ltmake_dataset_f(gid_DG, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLabel_Function(:,:,1),h5err)
 
 
       call h5ltmake_dataset_f(gid_DG_FLA, "Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_Denominator(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_FLabel(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_DG_FLA, "psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_psi0,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_psi0(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_Denominator,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel_Left",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel_Left,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel_Right",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel_Right,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel2",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel2,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_psi0,h5err)
 

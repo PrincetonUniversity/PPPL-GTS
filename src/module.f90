@@ -127,6 +127,9 @@ module global_parameters
    end type
    type(External_Magnetic_Perturbation), dimension(:), allocatable :: EMP
 
+   integer :: num_of_FLabel_pcws
+   real(wp),dimension(:),allocatable :: FLabel_pcws_a, FLabel_pcws_y ! piecewise_radial_base_function for FLabel
+
    ! real(wp) :: ga0, ga_rc, ga_rw, ga_pp, gagw, gagf0, dga0dt;
    ! integer :: gam, gan;
 
@@ -150,7 +153,7 @@ module FieldLineFollowing
    use precision
    type Poincare_Point_Information
       integer Fid  ! Fid (Field ID) for each field line
-      real(wp) Label ! Label will be used to estimate modified flux-surface labels
+      real(wp) ini_FLabel ! FLabel_Function will be used to estimate modified flux-surface labels
       real(wp) target_normalized_gf  ! target_zeta in [0,...,2*pi]
       real(wp) s, a, gq, gf
       real(wp) R, Z
@@ -220,7 +223,7 @@ module field_array
    real(wp),dimension(:),allocatable :: zonal_dTe, zonal_dTi
    real(wp),dimension(:,:),allocatable :: tot_dne,tot_dni, FLA_Denominator, FLA_dphi, FLA_dTe, FLA_dTi, FLA_dne, FLA_dni, FLA_ne_adiabatic
    real(wp),dimension(:,:),allocatable :: FLA_psi0, FLA_Te0, FLA_Ti0, FLA_n0, FLA_FLabel
-   real(wp), dimension(:,:),allocatable :: FLabel_Function
+   real(wp),dimension(:,:),allocatable :: FLabel_Function
    real(wp),dimension(:,:),allocatable :: Weighted_Vol
    real(wp),dimension(:),allocatable :: Node_simple_Vol
    real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
@@ -304,9 +307,10 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
       real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
       real(wp), allocatable, dimension(:,:) :: dne_adiab ! Electron adiabatic density for diagnostic purpose
-      real(wp), allocatable, dimension(:,:) :: FLabel_Function
-      real(wp), allocatable, dimension(:,:,:) :: FLA_Denominator, FLA_FLabel
-      real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_FLabel2, FLA_psi0, FLA_SM_psi0
+      real(wp), allocatable, dimension(:,:,:) :: FLabel_Function
+      real(wp), allocatable, dimension(:,:,:) :: FLA_Denominator, FLA_FLabel, FLA_psi0
+      real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_FLabel2,  FLA_SM_psi0
+      real(wp), allocatable, dimension(:,:) :: FLA_SM_FLabel_Left, FLA_SM_FLabel_Right
 
       ! Magnetic Field Information (ESI variables)
       real(wp), allocatable, dimension(:,:) :: F,dFda,dgFda,dgYda,R,dRda,dRdgq,Z,dZda,dZdgq,BB,dBBda,dBBdgq,P,T

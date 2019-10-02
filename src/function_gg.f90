@@ -1078,6 +1078,189 @@ subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_
 
 end subroutine Get_MP_alpha_amplitude
 
+subroutine Generate_FLabel_piecewise_radial_base_function
+
+   use precision
+   use global_parameters
+
+   implicit none
+
+   integer i,k
+   real(wp) resonant_q(num_of_EMP), resonant_a(num_of_EMP), island_w(num_of_EMP)
+   real(wp):: Find_a_at_specific_safety_q
+   real(wp) a_ori(400), a_tilde(400),da, ff
+   integer dim_a, aid
+   integer flag_island_inside,prev_flag
+   real(wp) tmp_pcws_a(200), tmp_pcws_y(200)
+   integer :: pcws_id=0
+
+   if(electromagnetic/=1 .or. num_of_EMP==0) then
+      return
+   endif
+
+   do k=1,num_of_EMP
+      resonant_q(k) = real(EMP(k)%gam)/real(EMP(k)%gan)
+      resonant_a(k) = Find_a_at_specific_safety_q(resonant_q(k))
+      island_w(k) = 0.1
+   enddo
+
+   dim_a = size(a_ori)
+   da = (a1-a0)/real(dim_a-1)
+   a_ori = (/(a0+da*real(i-1),i=1,dim_a)/)
+
+   a_tilde(1)=a0
+
+   pcws_id=pcws_id+1
+   tmp_pcws_a(pcws_id)=a0
+   tmp_pcws_y(pcws_id)=a0
+
+   do i=2,dim_a
+      flag_island_inside = 0
+      do k=1,num_of_EMP
+         if(abs(a_ori(i)-resonant_a(k)) < 0.5*island_w(k)) then
+            flag_island_inside=1
+         endif
+      enddo
+
+      if(prev_flag+flag_island_inside==1) then ! only one inside island
+         if(flag_island_inside==1) then
+            a_tilde(i) =a_tilde(i-1) + minval(abs(resonant_a(:)-0.5*island_w(:)-a_ori(i-1)))
+
+            pcws_id=pcws_id+1
+            tmp_pcws_a(pcws_id) = a_ori(i-1) + minval(abs(resonant_a(:)-0.5*island_w(:)-a_ori(i-1)))
+            tmp_pcws_y(pcws_id) = a_tilde(i)
+         else
+            a_tilde(i) =a_tilde(i-1) + minval(abs(a_ori(i)- (resonant_a(:)+0.5*island_w(:))))
+
+            pcws_id=pcws_id+1
+            tmp_pcws_a(pcws_id) = a_ori(i)-minval(abs(a_ori(i)- (resonant_a(:)+0.5*island_w(:))))
+            tmp_pcws_y(pcws_id) = a_tilde(i-1)
+         endif
+      elseif(prev_flag+flag_island_inside==2) then !both inside island
+         a_tilde(i) =a_tilde(i-1)
+      else ! both outside island
+         a_tilde(i) =a_tilde(i-1)+da
+      endif
+      prev_flag = flag_island_inside
+   enddo
+   pcws_id=pcws_id+1
+   tmp_pcws_a(pcws_id) = a_ori(dim_a)
+   tmp_pcws_y(pcws_id) = a_tilde(dim_a)
+
+
+   num_of_FLabel_pcws = pcws_id
+   write(stdout,*) "In pcws, num_of_FLabel_pcws=",num_of_FLabel_pcws
+   call flush(stdout)
+   ! Allocate piecewise elements and copy from temporary things
+   allocate(FLabel_pcws_a(num_of_FLabel_pcws), FLabel_pcws_y(num_of_FLabel_pcws))
+   FLabel_pcws_a=tmp_pcws_a(1:num_of_FLabel_pcws)
+   FLabel_pcws_y=tmp_pcws_y(1:num_of_FLabel_pcws)
+
+end subroutine Generate_FLabel_piecewise_radial_base_function
+
+! function Cal_FLabel_Function(in_a,in_gq,in_gf) result(out_val)
+
+!    use precision
+!    use global_parameters
+
+!    implicit none
+
+!    real(wp), intent(in) :: in_a,in_gq,in_gf
+!    integer i,k
+!    real(wp) resonant_q(num_of_EMP), resonant_a(num_of_EMP), island_w(num_of_EMP)
+!    real(wp):: Find_a_at_specific_safety_q, out_val
+!    real(wp) MP_phase
+!    integer target_mode_n,target_mode_m,num_of_target_safety_q
+!    real(wp) target_safety_q(100)
+!    real(wp) a_ori(200), a_tilde(200),da, ff
+!    integer dim_a, aid
+!    integer flag_island_inside,prev_flag
+!    logical ex
+
+
+!    do k=1,num_of_EMP
+!       resonant_q(k) = real(EMP(k)%gam)/real(EMP(k)%gan)
+!       resonant_a(k) = Find_a_at_specific_safety_q(resonant_q(k))
+!       island_w(k) = 0.1
+!    enddo
+
+!    dim_a = size(a_ori)
+!    da = (a1-a0)/real(dim_a-1)
+!    a_ori = (/(a0+da*real(i-1),i=1,dim_a)/)
+
+!    a_tilde(1)=a0
+!    do i=2,dim_a
+!       flag_island_inside = 0
+!       do k=1,num_of_EMP
+!          if(abs(a_ori(i)-resonant_a(k)) < 0.5*island_w(k)) then
+!             flag_island_inside=1
+!          endif
+!       enddo
+
+!       if(prev_flag+flag_island_inside==1) then ! only one inside island
+!          ! a_tilde(i) =a_tilde(i-1) + min([abs(resonant_a(:)-0.5*island_w(:)-a_ori(i)), abs(a_ori(i)- (resonant_a(:)+0.5*island_w(:)))])
+!          if(flag_island_inside==1) then
+!             a_tilde(i) =a_tilde(i-1) + minval(abs(resonant_a(:)-0.5*island_w(:)-a_ori(i-1)))
+!          else
+!             a_tilde(i) =a_tilde(i-1) + minval(abs(a_ori(i)- (resonant_a(:)+0.5*island_w(:))))
+!          endif
+!       elseif(prev_flag+flag_island_inside==2) then !both inside island
+!          a_tilde(i) =a_tilde(i-1)
+!       else ! both outside island
+!          a_tilde(i) =a_tilde(i-1)+da
+!       endif
+!       prev_flag = flag_island_inside
+!    enddo
+
+!    ! inquire(file='da.dat',exist=ex)
+!    ! if(.not.ex) then
+!    !    open(12321,file='da.dat',action='write')
+!    !    do i=1,dim_a
+!    !       write(12321, *) a_tilde(i)
+!    !    enddo
+!    !    call flush(12321)
+!    !    close(12321)
+!    ! endif
+
+!    ! Get linear interpolation of a_tilde as a background FLabel value
+!    aid=max(1,min(int((in_a-a0)/da)+1,dim_a-1))
+!    ff = (in_a-(a0+(aid-1)*da))/da
+!    out_val = (1.0-ff)*a_tilde(aid) + ff*a_tilde(aid+1)
+
+!    ! Add quadratic function values inside island
+!    do k=1,num_of_EMP
+!       if(abs(in_a-resonant_a(k)) < 0.5*island_w(k)) then
+!          MP_phase = EMP(k)%gan*in_gf- EMP(k)%gam*in_gq + EMP(k)%gagf0 !- EMP(k)%gagw*in_time
+!          ! out_val= out_val + 2*(1.0-cos(MP_phase))*((in_a-resonant_a(k))**2.0- 0.5*island_w(k)**2.0)
+!          out_val= out_val + (2.0-cos(MP_phase))*(abs(in_a-resonant_a(k))- 0.5*island_w(k))
+!       endif
+!       ! out_val= out_val + 0.2*(1.0-cos(MP_phase))*exp(-(abs(in_a-resonant_a(k))/(0.5*island_w)))**pp
+!    enddo
+
+
+
+!    ! ! Put small Peaky FLabel values at rational q surfaces (regardless of EMP)
+!    ! ! This is for better representation of possible resonant structure due to nonlinear interactions of EMPs.
+!    ! k=1
+!    ! do target_mode_n = 1,3
+!    !    do target_mode_m = 1,10
+!    !       if(target_mode_m <= 3*target_mode_n) then ! search for the safety_q<=3
+!    !          target_safety_q(k) = real(target_mode_m)/real(target_mode_n)
+!    !          k=k+1
+!    !       endif
+!    !    enddo
+!    ! enddo
+!    ! call find_unique_sorted_array_and_its_num_of_elements(target_safety_q, 1, k-1, num_of_target_safety_q)
+
+!    ! do k=1,num_of_target_safety_q
+!    !    resonant_q = target_safety_q(k)
+!    !    resonant_a = Find_a_at_specific_safety_q(resonant_q)
+!    !    pp = 4.0
+!    !    out_val= out_val + 0.1*exp(-(abs(in_a-resonant_a)/0.05))**pp
+!    ! enddo
+
+! end function Cal_FLabel_Function
+
 function Cal_FLabel_Function(in_a,in_gq,in_gf) result(out_val)
 
    use precision
@@ -1086,27 +1269,54 @@ function Cal_FLabel_Function(in_a,in_gq,in_gf) result(out_val)
    implicit none
 
    real(wp), intent(in) :: in_a,in_gq,in_gf
-   integer k
-   real(wp) target_safety_q, resonant_a, expected_island_half_width, pp
-   real(wp):: Find_a_at_specific_safety_q, out_val
+   integer i,k,pwid
+   real(wp) resonant_q(num_of_EMP), resonant_a(num_of_EMP), island_w(num_of_EMP)
+   real(wp),external:: Find_a_at_specific_safety_q
+   real(wp) out_val
+   real(wp) MP_phase
+   real(wp) ff
+   real(wp) aa(2),yy(2)
 
-   out_val=in_a
+   if(.not.allocated(FLabel_pcws_a)) then
+      call Generate_FLabel_piecewise_radial_base_function
+   endif
+
+   if(electromagnetic/=1 .or. num_of_EMP==0) then
+      out_val = in_a
+      return
+   endif
+
 
    do k=1,num_of_EMP
-
-      target_safety_q = real(EMP(k)%gam)/real(EMP(k)%gan)
-      resonant_a = Find_a_at_specific_safety_q(target_safety_q)
-
-      ! expected_island_half_width = 0.1
-      ! pp = 2.0
-      ! out_val= out_val + 5.0*exp(-(abs(in_a-resonant_a)/expected_island_width)**pp)
-
-      expected_island_half_width = 0.1
-      pp = 4.0
-      out_val= out_val + 2.0*exp(-(abs(in_a-resonant_a)/expected_island_half_width))**pp
-
+      resonant_q(k) = real(EMP(k)%gam)/real(EMP(k)%gan)
+      resonant_a(k) = Find_a_at_specific_safety_q(resonant_q(k))
+      island_w(k) = 0.1
    enddo
 
+
+   ! Get linear interpolation of piecewise base function as a background FLabel value
+   if(in_a<=FLabel_pcws_a(1)) then
+      pwid=2
+   elseif(in_a>=FLabel_pcws_a(num_of_FLabel_pcws)) then
+      pwid=num_of_FLabel_pcws
+   else
+      pwid=1
+      do while(in_a>FLabel_pcws_a(pwid))
+         pwid=pwid+1
+      enddo
+   endif
+   aa(1:2)= FLabel_pcws_a(pwid-1:pwid)
+   yy(1:2)= FLabel_pcws_y(pwid-1:pwid)
+   ! Calculate a value of the FLabel base function at in_a position
+   out_val = (yy(2)-yy(1))/(aa(2)-aa(1))*(in_a-aa(1)) +yy(1)
+
+   ! Add shaped values inside island
+   do k=1,num_of_EMP
+      if(abs(in_a-resonant_a(k)) < 0.5*island_w(k)) then
+         MP_phase = EMP(k)%gan*in_gf- EMP(k)%gam*in_gq + EMP(k)%gagf0 !- EMP(k)%gagw*in_time
+         out_val= out_val + (2.0-cos(MP_phase))*(abs(in_a-resonant_a(k))- 0.5*island_w(k))
+      endif
+   enddo
 end function Cal_FLabel_Function
 
 
@@ -1770,12 +1980,15 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
    real(wp) intp_weight, dummy_real
    real(wp) t_start, t_finish
    logical ex
+   real(wp), external :: Cal_FLabel_Function
 
    call cpu_time(t_start)
 
 
 
-   if(irun/=0) then
+   ! if(irun/=0) then
+   if(.true.) then
+
       ! In the case of irun!=0, if there is previously calculated FLF_Poincare data,
       ! then just return this function to skip calculating Poincare Plot
       write(chdum,'("VacFieldAnalysis/FLF_Poincare",i5.5,".dat")') myrank_toroidal
@@ -1839,6 +2052,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
                   PPI(PPI_id, gqid, aid)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
                   PPI(PPI_id, gqid, aid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
                   PPI(PPI_id, gqid, aid)%target_normalized_gf = zetamax
+                  PPI(PPI_id, gqid, aid)%ini_FLabel = Cal_FLabel_Function(PPI(PPI_id,gqid,aid)%a, PPI(PPI_id,gqid,aid)%gq, PPI(PPI_id,gqid,aid)%gf)
 
                   call Convert_a_to_s(PPI(PPI_id, gqid, aid)%a, PPI(PPI_id, gqid, aid)%s)
 
@@ -1961,7 +2175,8 @@ subroutine Construct_gPPI_for_FieldLineAverage
    real(wp), external :: Cal_FLabel_Function
 
 
-   if(irun/=0) then
+   ! if(irun/=0) then
+   if(.true.) then
       ! First, check if there is previously calculated gPPI data, and read it
       write(chdum,'("VacFieldAnalysis/gPPI_",i5.5,".dat")') myrank_toroidal
       inquire(file=chdum, exist=ex)
@@ -1979,7 +2194,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
          Fid=1
          PPI_id=0
          do while(.true.)
-            read(190705,"(I8,1x,10(ES16.8,1x))",IOSTAT=ios) tmp_gPPI
+            read(190705,"(I8,1x,20(ES16.8,1x))",IOSTAT=ios) tmp_gPPI
             if(ios>0) then ! something wrong with ios
                write(stdout,*) "ios=",ios,", something is wrong during reading ",chdum
                call flush(stdout)
@@ -2158,14 +2373,6 @@ subroutine Construct_gPPI_for_FieldLineAverage
       !gPPI(:, Fid)%Jacobian = rj*(zaj*rqj-zqj*raj); ! Jacobian at initial position.
       gPPI(:, Fid)%Fid = Fid
 
-      if(electromagnetic==1 .and. num_of_EMP>=1) then
-         call Get_MP_alpha_amplitude(ini_a,ini_gq,ini_gf, istep*tstep, MP_ga, MP_wga, MP_gat)
-         ! gPPI(:, Fid)%Label = MP_ga + 8.0*EMP(1)%ga0*((ini_a-resonant_a)/(0.5*EMP(1)%ga_rw))**2.0
-         ! gPPI(:, Fid)%Label = MP_ga + 8.0*EMP(1)%ga0*((ini_a-resonant_a)/(0.5*EMP(1)%ga_rw))**2.0
-         gPPI(:,Fid)%Label = Cal_FLabel_Function(ini_a,ini_gq,ini_gf)
-      else
-         gPPI(:, Fid)%Label = ini_a
-      endif
 
       PPI_id = 0
 
@@ -2206,6 +2413,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
                gPPI(PPI_id, Fid)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
                gPPI(PPI_id, Fid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
                gPPI(PPI_id, Fid)%target_normalized_gf = target_zeta(tz_id)
+               gPPI(PPI_id, Fid)%ini_FLabel = Cal_FLabel_Function(gPPI(PPI_id, Fid)%a, gPPI(PPI_id, Fid)%gq, gPPI(PPI_id, Fid)%gf)
 
                call Convert_a_to_s(gPPI(PPI_id, Fid)%a, gPPI(PPI_id, Fid)%s)
 
@@ -2870,6 +3078,183 @@ subroutine Do_FieldLineAverage_from_oriGrid_to_DG(oriG_TargetData, DG_FLA_Result
 
 end subroutine Do_FieldLineAverage_from_oriGrid_to_DG
 
+subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultData)
+   use mpi_defs
+   use precision
+   use global_parameters
+   use particle_decomp
+   use FieldLineFollowing
+   use field_array
+   use Diagnostic_Grid
+   implicit none
+
+   real(wp), intent(in) :: DG_TargetData(DG%dim_gq, DG%dim_a,0:1)
+   real(wp), intent(out):: DG_FLA_ResultData(DG%dim_gq, DG%dim_a,0:1)
+   real(wp) tmp_DG_Data(DG%dim_gq, DG%dim_a)
+
+   real(wp) each_FLA_val(num_of_SampledFieldLines), each_FLA_denominator(num_of_SampledFieldLines), intpl_val ! FLA=Field Line Average
+   real(wp) this_gq, this_s, this_gf, sdum, gqdum,ori_inv_ds, inv_dgq(0:mpsi), inv_gf
+   real(wp) ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
+   integer Fid, Pid ! (Fid=Field ID), (Pid=gPPI ID)
+   integer inner_sid, outter_sid, inner_gqid, outter_gqid, inner_ij, outter_ij
+   integer ierror
+
+   real(wp) recvr(mgrid)
+   integer istatus(MPI_STATUS_SIZE)
+
+   real(wp) target_gq, target_zeta
+   real(wp) wgq0,wgq1,wgf,ratio
+   integer ori_sid, j,k, sid, gqid, qq, ss, length
+   real(wp) ff, this_safety_q
+
+
+
+   if (num_of_SampledFieldLines ==0) then
+      write(*,*) "Error! Please construct gPPI first before using FieldLineAverage!!"
+      STOP
+   endif
+
+   if(myrank_toroidal==0) then
+      write(*,*) "Do_FieldLineAverage_by_using_gPPI"
+   endif
+   ori_inv_ds = real(mpsi)/(s1-s0)
+   inv_dgq = 1.0/deltat
+   inv_gf = 1.0/deltaz
+
+
+   ! Scatter Averaged data to Diagnostic Grid (DG) nodes
+   DG_FLA_ResultData = 0.0
+   each_FLA_val = 0.0
+   each_FLA_denominator = 0.0
+   do Fid=1,num_of_SampledFieldLines
+      do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
+
+         this_s = gPPI(Pid,Fid)%s
+         this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
+         this_gf = gPPI(Pid,Fid)%target_normalized_gf
+
+         ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+         ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
+         this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+
+         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
+         ws0 = 1.0-ws1
+
+         intpl_val=0
+         do k=0,1
+            if(k==0) target_zeta =zetamin
+            if(k==1) target_zeta =zetamax
+
+            wgf = (1.0-abs(this_gf-target_zeta)/deltaz)
+
+            target_gq = modulo(this_gq + (target_zeta-this_gf)/this_safety_q, 2.0*pi)
+            gqid = (target_gq)*DG%inv_dgq +1
+            wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+            wgq0 = 1.0-wgq1
+
+            do j=1,4
+               select case(j)
+                  case(1)
+                     qq=gqid; ss=sid
+                     ratio=ws0*wgq0*wgf
+                  case(2)
+                     qq=gqid+1; ss=sid
+                     ratio=ws0*wgq1*wgf
+                  case(3)
+                     qq=gqid; ss=sid+1
+                     ratio=ws1*wgq0*wgf
+                  case(4)
+                     qq=gqid+1; ss=sid+1
+                     ratio=ws1*wgq1*wgf
+               end select
+               intpl_val = intpl_val + ratio*DG_TargetData(qq,ss,k)
+            enddo
+         enddo
+         each_FLA_val(Fid) = each_FLA_val(Fid) + intpl_val*gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+         each_FLA_denominator(Fid) = each_FLA_denominator(Fid) + gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+      enddo
+   enddo
+
+   ! Do Allreduce across toroidal_comm to get a sum of FLA
+   call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+   each_FLA_val = recvr(1:num_of_SampledFieldLines)
+   call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+   each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+
+   each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
+
+
+
+   ! Scatter Averaged data to Diagnostic Grid (DG) nodes
+   DG_FLA_ResultData = 0.0
+   do Fid=1,num_of_SampledFieldLines
+      do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
+
+         this_s = gPPI(Pid,Fid)%s
+         this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
+         this_gf = gPPI(Pid,Fid)%target_normalized_gf
+
+         ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+         ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
+         this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+
+         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
+         ws0 = 1.0-ws1
+
+         do k=0,1
+            if(k==0) target_zeta =zetamin
+            if(k==1) target_zeta =zetamax
+
+            wgf = (1.0-abs(this_gf-target_zeta)/deltaz)
+
+            target_gq = modulo(this_gq + (target_zeta-this_gf)/this_safety_q, 2.0*pi)
+            gqid = (target_gq)*DG%inv_dgq +1
+            wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+            wgq0 = 1.0-wgq1
+
+            do j=1,4
+               select case(j)
+                  case(1)
+                     qq=gqid; ss=sid
+                     ratio=ws0*wgq0*wgf
+                  case(2)
+                     qq=gqid+1; ss=sid
+                     ratio=ws0*wgq1*wgf
+                  case(3)
+                     qq=gqid; ss=sid+1
+                     ratio=ws1*wgq0*wgf
+                  case(4)
+                     qq=gqid+1; ss=sid+1
+                     ratio=ws1*wgq1*wgf
+               end select
+               DG_FLA_ResultData(qq,ss,k)  = DG_FLA_ResultData(qq,ss,k)  + ratio*each_FLA_val(Fid)
+            enddo
+         enddo
+      enddo
+   enddo
+
+
+   ! Match poloidal end cell
+   ! (gq=0 and gq=2pi is the same position physically
+   ! although they have different gqid)
+   do sid=1,DG%dim_a
+      DG_FLA_ResultData(1,sid,:) = DG_FLA_ResultData(1,sid,:) + DG_FLA_ResultData(DG%dim_gq,sid,:)
+      DG_FLA_ResultData(DG%dim_gq,sid,:) = DG_FLA_ResultData(1,sid,:)
+   enddo
+
+   ! Communicate DG_FLA_ResultData between nodes
+   ! toroidal end cell
+   length = DG%dim_gq*DG%dim_a
+   call MPI_SENDRECV(DG_FLA_ResultData(:,:,0),length,mpi_Rsize,left_pe,1, tmp_DG_Data,length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG_FLA_ResultData(:,:,1) = DG_FLA_ResultData(:,:,1) + tmp_DG_Data
+
+   ! Last part is to divide FLA_ResultData by DG%FLA_Denominator to get correct line-averaged FLA_ResultData
+   DG_FLA_ResultData = DG_FLA_ResultData/DG%FLA_Denominator
+
+end subroutine Do_FieldLineAverage_on_DG_by_using_gPPI
+
 subroutine Get_FLA_FieldLabel_by_using_gPPI(FLA_ResultData)
    use mpi_defs
    use precision
@@ -2940,14 +3325,14 @@ subroutine Get_FLA_FieldLabel_by_using_gPPI(FLA_ResultData)
          !tmp_weight = gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
          !      FLA_ResultData(0,inner_ij)    = FLA_ResultData(0,inner_ij)    +wgf0*ws0*wgq00*each_FLA_val(Fid)*gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
          !FLA_ResultData(0,inner_ij)    = FLA_ResultData(0,inner_ij)    +wgf0*ws0*wgq00*each_FLA_val(Fid)*tmp_weight
-         FLA_ResultData(0,inner_ij)    = FLA_ResultData(0,inner_ij)    +wgf0*ws0*wgq00*gPPI(Pid,Fid)%Label
-         FLA_ResultData(0,inner_ij+1)  = FLA_ResultData(0,inner_ij+1)  +wgf0*ws0*wgq01*gPPI(Pid,Fid)%Label
-         FLA_ResultData(0,outter_ij)   = FLA_ResultData(0,outter_ij)   +wgf0*ws1*wgq10*gPPI(Pid,Fid)%Label
-         FLA_ResultData(0,outter_ij+1) = FLA_ResultData(0,outter_ij+1) +wgf0*ws1*wgq11*gPPI(Pid,Fid)%Label
-         FLA_ResultData(1,inner_ij)    = FLA_ResultData(1,inner_ij)    +wgf1*ws0*wgq00*gPPI(Pid,Fid)%Label
-         FLA_ResultData(1,inner_ij+1)  = FLA_ResultData(1,inner_ij+1)  +wgf1*ws0*wgq01*gPPI(Pid,Fid)%Label
-         FLA_ResultData(1,outter_ij)   = FLA_ResultData(1,outter_ij)   +wgf1*ws1*wgq10*gPPI(Pid,Fid)%Label
-         FLA_ResultData(1,outter_ij+1) = FLA_ResultData(1,outter_ij+1) +wgf1*ws1*wgq11*gPPI(Pid,Fid)%Label
+         FLA_ResultData(0,inner_ij)    = FLA_ResultData(0,inner_ij)    +wgf0*ws0*wgq00*gPPI(Pid,Fid)%ini_FLabel
+         FLA_ResultData(0,inner_ij+1)  = FLA_ResultData(0,inner_ij+1)  +wgf0*ws0*wgq01*gPPI(Pid,Fid)%ini_FLabel
+         FLA_ResultData(0,outter_ij)   = FLA_ResultData(0,outter_ij)   +wgf0*ws1*wgq10*gPPI(Pid,Fid)%ini_FLabel
+         FLA_ResultData(0,outter_ij+1) = FLA_ResultData(0,outter_ij+1) +wgf0*ws1*wgq11*gPPI(Pid,Fid)%ini_FLabel
+         FLA_ResultData(1,inner_ij)    = FLA_ResultData(1,inner_ij)    +wgf1*ws0*wgq00*gPPI(Pid,Fid)%ini_FLabel
+         FLA_ResultData(1,inner_ij+1)  = FLA_ResultData(1,inner_ij+1)  +wgf1*ws0*wgq01*gPPI(Pid,Fid)%ini_FLabel
+         FLA_ResultData(1,outter_ij)   = FLA_ResultData(1,outter_ij)   +wgf1*ws1*wgq10*gPPI(Pid,Fid)%ini_FLabel
+         FLA_ResultData(1,outter_ij+1) = FLA_ResultData(1,outter_ij+1) +wgf1*ws1*wgq11*gPPI(Pid,Fid)%ini_FLabel
       enddo
    enddo
 
@@ -2988,7 +3373,7 @@ subroutine Get_FLA_FieldLabel_by_using_gPPI(FLA_ResultData)
 
 end subroutine Get_FLA_FieldLabel_by_using_gPPI
 
-subroutine Cal_DG_FLA_Denominator_and_DG_FLabel_by_using_gPPI
+subroutine Cal_FLA_Denominator_on_DG_using_gPPI
    use mpi_defs
    use precision
    use global_parameters
@@ -3061,7 +3446,6 @@ subroutine Cal_DG_FLA_Denominator_and_DG_FLabel_by_using_gPPI
                      ratio=ws1*wgq1*wgf
                end select
                DG%FLA_Denominator(qq,ss,k) = DG%FLA_Denominator(qq,ss,k) + ratio
-               DG%FLA_FLabel(qq,ss,k)  = DG%FLA_FLabel(qq,ss,k)  + ratio*gPPI(Pid,Fid)%Label
             enddo
          enddo
       enddo
@@ -3073,9 +3457,6 @@ subroutine Cal_DG_FLA_Denominator_and_DG_FLabel_by_using_gPPI
    do sid=1,DG%dim_a
       DG%FLA_Denominator(1,sid,:) = DG%FLA_Denominator(1,sid,:) + DG%FLA_Denominator(DG%dim_gq,sid,:)
       DG%FLA_Denominator(DG%dim_gq,sid,:) = DG%FLA_Denominator(1,sid,:)
-
-      DG%FLA_FLabel(1,sid,:) = DG%FLA_FLabel(1,sid,:) + DG%FLA_FLabel(DG%dim_gq,sid,:)
-      DG%FLA_FLabel(DG%dim_gq,sid,:) = DG%FLA_FLabel(1,sid,:)
    enddo
 
    ! Communicate DG%FLA_FLabel between nodes
@@ -3084,15 +3465,7 @@ subroutine Cal_DG_FLA_Denominator_and_DG_FLabel_by_using_gPPI
    call MPI_SENDRECV(DG%FLA_Denominator(:,:,0),length,mpi_Rsize,left_pe,1, tmp_Data(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG%FLA_Denominator(:,:,1) = DG%FLA_Denominator(:,:,1) + tmp_Data(:,:,1)
 
-   length = DG%dim_gq*DG%dim_a
-   call MPI_SENDRECV(DG%FLA_FLabel(:,:,0),length,mpi_Rsize,left_pe,1, tmp_Data(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
-   DG%FLA_FLabel(:,:,1) = DG%FLA_FLabel(:,:,1) + tmp_Data(:,:,1)
-
-
-   ! Last part is to divide DG%FLA_FLabel by DG%FLA_Denominator to get correct line-averaged DG%FLA_FLabel
-   DG%FLA_FLabel = DG%FLA_FLabel/DG%FLA_Denominator
-
-end subroutine Cal_DG_FLA_Denominator_and_DG_FLabel_by_using_gPPI
+end subroutine Cal_FLA_Denominator_on_DG_using_gPPI
 
 recursive subroutine quicksort_real(a, first, last)
    ! quicksort.f -*-f90-*-
@@ -3793,6 +4166,7 @@ subroutine Init_Diagnostic_Grid
    use field_array
    use precision
    use particle_decomp
+   use mpi_defs
    implicit none
 
    integer i,j,k,aid,gqid,ij
@@ -3801,9 +4175,10 @@ subroutine Init_Diagnostic_Grid
 
    ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
    real(wp) approx_da, approx_dgf
-   real(wp), allocatable, dimension(:,:) :: tmp_DG_Data1, tmp_DG_Data2
-   real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data3
+   real(wp), allocatable, dimension(:,:) :: tmp_DG_Data1
+   real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data2, tmp_DG_Data3
    real(wp) radial_psi0(0:1, mgrid)
+   integer ierror, istatus(MPI_STATUS_SIZE)
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
    ! DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
@@ -3824,9 +4199,10 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%a_2D(DG%dim_gq,DG%dim_a))
    allocate(DG%gq_2D, DG%Cell_dV, DG%inv_Cell_dV, DG%dne_adiab, mold=DG%a_2D)
    allocate(DG%Cell_dS_a, DG%inv_Cell_dS_a, DG%Cell_dS_gq, DG%inv_Cell_dS_gq, DG%Cell_dS_gf, DG%inv_Cell_dS_gf, mold=DG%a_2D)
-   allocate(DG%FLabel_Function(DG%dim_gq,DG%dim_a))
-   allocate(DG%FLA_Denominator(DG%dim_gq,DG%dim_a,0:1), DG%FLA_FLabel(DG%dim_gq,DG%dim_a,0:1))
-   allocate(DG%FLA_SM_Denominator, DG%FLA_SM_FLabel, DG%FLA_SM_FLabel2, DG%FLA_psi0,DG%FLA_SM_psi0,mold=DG%a_2D)
+   allocate(DG%FLabel_Function(DG%dim_gq,DG%dim_a,0:1))
+   allocate(DG%FLA_Denominator(DG%dim_gq,DG%dim_a,0:1), DG%FLA_FLabel(DG%dim_gq,DG%dim_a,0:1), DG%FLA_psi0(DG%dim_gq,DG%dim_a,0:1))
+   allocate(DG%FLA_SM_Denominator, DG%FLA_SM_FLabel, DG%FLA_SM_FLabel2, DG%FLA_SM_psi0,mold=DG%a_2D)
+   allocate(DG%FLA_SM_FLabel_Left, DG%FLA_SM_FLabel_Right,mold=DG%a_2D)
    allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1) )
    allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1) )
 
@@ -3848,9 +4224,11 @@ subroutine Init_Diagnostic_Grid
       DG%gq_2D(i,:) = DG%gq_1D(i)
    enddo
 
+   ! Calculate FLabel Function and add FLA_psi0
    do j=1,DG%dim_gq
       do i=1,DG%dim_a
-         DG%FLabel_Function(j,i) = Cal_FLabel_Function(DG%a_2D(j,i), DG%gq_2D(j,i), zetamax)
+         DG%FLabel_Function(j,i,0) = Cal_FLabel_Function(DG%a_2D(j,i), DG%gq_2D(j,i), zetamin)
+         DG%FLabel_Function(j,i,1) = Cal_FLabel_Function(DG%a_2D(j,i), DG%gq_2D(j,i), zetamax)
       enddo
    enddo
 
@@ -3979,39 +4357,47 @@ subroutine Init_Diagnostic_Grid
 
    if(myrank_partd==nproc_partd-1) then
 
-      call Cal_DG_FLA_Denominator_and_DG_FLabel_by_using_gPPI
+      call Cal_FLA_Denominator_on_DG_using_gPPI
 
-      allocate(tmp_DG_Data3(DG%dim_gq, DG%dim_a,0:1))
-      call Do_FieldLineAverage_from_oriGrid_to_DG(FLabel_Function, tmp_DG_Data3)
-      DG%FLA_SM_FLabel2= tmp_DG_Data3(:,:,1)
-      ! call Smooth_DG_Data_2D(5, DG%FLA_SM_FLabel2)
+      allocate(tmp_DG_Data1(DG%dim_gq, DG%dim_a))
+      allocate(tmp_DG_Data2(DG%dim_gq, DG%dim_a,0:1),tmp_DG_Data3(DG%dim_gq, DG%dim_a,0:1))
 
       do i=0,mpsi
          radial_psi0(:,igrid(i):igrid(i)+mtheta(i)) = psi_grid(i)
       enddo
-      call Do_FieldLineAverage_from_oriGrid_to_DG(radial_psi0, tmp_DG_Data3)
-      DG%FLA_psi0 = tmp_DG_Data3(:,:,1)
+
+      call Do_FieldLineAverage_on_DG_by_using_gPPI([DG%a_2D,DG%a_2D], tmp_DG_Data3)
+      DG%FLA_psi0 = tmp_DG_Data3
+
+      call Do_FieldLineAverage_on_DG_by_using_gPPI(DG%FLabel_Function, tmp_DG_Data3)
+      DG%FLA_FLabel= tmp_DG_Data3
+
+      DG%FLA_SM_Denominator=DG%FLA_Denominator(:,:,1)
+      call Smooth_DG_Data_2D(1, DG%FLA_SM_Denominator)
+      DG%FLA_SM_psi0 = DG%FLA_psi0(:,:,1)
+      call Smooth_DG_Data_2D(1, DG%FLA_SM_psi0)
+
+      ! Smooth FLabel using repetitive FieldLineAverage
+      tmp_DG_Data2 = DG%FLA_FLabel
+      do i=1,3
+         call Smooth_DG_Data_2D(2, tmp_DG_Data2(:,:,0))
+         call Smooth_DG_Data_2D(2, tmp_DG_Data2(:,:,1))
+         call Do_FieldLineAverage_on_DG_by_using_gPPI(tmp_DG_Data2, tmp_DG_Data3)
+         tmp_DG_Data2 = tmp_DG_Data3
+      enddo
+      DG%FLA_SM_FLabel = tmp_DG_Data2(:,:,1)
+      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel)
+
+      ! Smooth FLabel via direct smoothing
+      DG%FLA_SM_FLabel2=DG%FLA_FLabel(:,:,1)
+      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel2)
 
 
-      allocate(tmp_DG_Data1(DG%dim_gq, DG%dim_a), tmp_DG_Data2(DG%dim_gq, DG%dim_a))
-      tmp_DG_Data1 = DG%FLA_Denominator(:,:,1)
-      tmp_DG_Data2 = DG%FLA_FLabel(:,:,1)*DG%FLA_Denominator(:,:,1)
-
-      call Smooth_DG_Data_2D(5, tmp_DG_Data1)
-      call Smooth_DG_Data_2D(5, tmp_DG_Data2)
-
-      DG%FLA_SM_Denominator = tmp_DG_Data1
-      DG%FLA_SM_FLabel = tmp_DG_Data2/DG%FLA_SM_Denominator
-
-
-      tmp_DG_Data2 = DG%FLA_SM_FLabel2*DG%FLA_Denominator(:,:,1)
-      call Smooth_DG_Data_2D(5, tmp_DG_Data2)
-      DG%FLA_SM_FLabel2 = tmp_DG_Data2/DG%FLA_SM_Denominator
-
-
-      tmp_DG_Data2 = DG%FLA_psi0*DG%FLA_Denominator(:,:,1)
-      call Smooth_DG_Data_2D(5, tmp_DG_Data2)
-      DG%FLA_SM_psi0 = tmp_DG_Data2/DG%FLA_SM_Denominator
+      !
+      call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
+                        DG%FLA_SM_FLabel_Left, DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
+      call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
+                        DG%FLA_SM_FLabel_Right, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
 
       deallocate(tmp_DG_Data1,tmp_DG_Data2)
       deallocate(tmp_DG_Data3)
