@@ -896,6 +896,11 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "BIN/dO_10",1,h5dims,H5T_NATIVE_DOUBLE, dO_10, h5err)
       call h5ltmake_dataset_f(file_id, "BIN/dT_10",1,h5dims,H5T_NATIVE_DOUBLE, dT_10, h5err)
 
+      h5dims(1)=1
+      call h5ltmake_dataset_f(file_id, "num_of_FLabel_pcws",1,h5dims,H5T_NATIVE_INTEGER, num_of_FLabel_pcws,h5err)
+      h5dims(1)=num_of_FLabel_pcws
+      call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
+      call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
 
       ! =======================
       ! 2D data
@@ -965,17 +970,7 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
 
 
-      h5dims(1)=1
-      call h5ltmake_dataset_f(file_id, "num_of_FLabel_pcws",1,h5dims,H5T_NATIVE_INTEGER, num_of_FLabel_pcws,h5err)
-      h5dims(1)=num_of_FLabel_pcws
-      call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
-      call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
 
-      if(myrank_toroidal==0) then
-         open(unit=190925,file='FLabel_Function.dat',action='write')
-         write(190925,*) FLabel_Function
-         close(190925)
-      endif
 
       ! dphi_2D
       k=1

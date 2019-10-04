@@ -1111,8 +1111,8 @@ subroutine Generate_FLabel_piecewise_radial_base_function
    a_tilde(1)=a0
 
    pcws_id=pcws_id+1
-   tmp_pcws_a(pcws_id)=a0
-   tmp_pcws_y(pcws_id)=a0
+   tmp_pcws_a(pcws_id)=a0-1e-5 ! Subtract small number at left edge for later safe interpolation
+   tmp_pcws_y(pcws_id)=a0-1e-5 ! Subtract small number at left edge for later safe interpolation
 
    do i=2,dim_a
       flag_island_inside = 0
@@ -1144,8 +1144,8 @@ subroutine Generate_FLabel_piecewise_radial_base_function
       prev_flag = flag_island_inside
    enddo
    pcws_id=pcws_id+1
-   tmp_pcws_a(pcws_id) = a_ori(dim_a)
-   tmp_pcws_y(pcws_id) = a_tilde(dim_a)
+   tmp_pcws_a(pcws_id) = a_ori(dim_a)  +1e-5 ! Add small number at right edge for later safe interpolation
+   tmp_pcws_y(pcws_id) = a_tilde(dim_a)+1e-5 ! Add small number at right edge for later safe interpolation
 
 
    num_of_FLabel_pcws = pcws_id
@@ -1295,20 +1295,15 @@ function Cal_FLabel_Function(in_a,in_gq,in_gf) result(out_val)
 
 
    ! Get linear interpolation of piecewise base function as a background FLabel value
-   if(in_a<=FLabel_pcws_a(1)) then
-      pwid=2
-   elseif(in_a>=FLabel_pcws_a(num_of_FLabel_pcws)) then
-      pwid=num_of_FLabel_pcws
-   else
-      pwid=1
-      do while(in_a>FLabel_pcws_a(pwid))
-         pwid=pwid+1
-      enddo
-   endif
-   aa(1:2)= FLabel_pcws_a(pwid-1:pwid)
-   yy(1:2)= FLabel_pcws_y(pwid-1:pwid)
-   ! Calculate a value of the FLabel base function at in_a position
+   out_val = 0
+   do pwid=2,num_of_FLabel_pcws
+      if( (in_a-FLabel_pcws_a(pwid-1))*(in_a-FLabel_pcws_a(pwid)) <= 0) then
+         aa(1:2) = FLabel_pcws_a(pwid-1:pwid)
+         yy(1:2) = FLabel_pcws_y(pwid-1:pwid)
    out_val = (yy(2)-yy(1))/(aa(2)-aa(1))*(in_a-aa(1)) +yy(1)
+         exit
+      endif
+   enddo
 
    ! Add shaped values inside island
    do k=1,num_of_EMP
@@ -2214,16 +2209,6 @@ subroutine Construct_gPPI_for_FieldLineAverage
             endif
          enddo
          close(190705)
-
-         write(chdum,'("VacFieldAnalysis/new_gPPI_",i5.5,".dat")') myrank_toroidal
-         open(181202,file=chdum,status='replace',action='write')
-         do Fid = 1, num_of_SampledFieldLines
-            do PPI_id =1,num_of_gPPI_for_each_FieldLine(Fid)
-               write(181202, "(I8,1x,11(ES16.8,1x))") gPPI(PPI_id,Fid)
-            enddo
-         enddo
-         flush(181202)
-         close(181202)
 
          ! This is required to calculate Do_FieldLineAverage_by_using_gPPI later
          call Cal_FLA_Denominator_using_gPPI
