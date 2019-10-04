@@ -1101,7 +1101,7 @@ subroutine Generate_FLabel_piecewise_radial_base_function
    do k=1,num_of_EMP
       resonant_q(k) = real(EMP(k)%gam)/real(EMP(k)%gan)
       resonant_a(k) = Find_a_at_specific_safety_q(resonant_q(k))
-      island_w(k) = 0.1
+      island_w(k) = 0.2
    enddo
 
    dim_a = size(a_ori)
@@ -1290,7 +1290,7 @@ function Cal_FLabel_Function(in_a,in_gq,in_gf) result(out_val)
    do k=1,num_of_EMP
       resonant_q(k) = real(EMP(k)%gam)/real(EMP(k)%gan)
       resonant_a(k) = Find_a_at_specific_safety_q(resonant_q(k))
-      island_w(k) = 0.1
+      island_w(k) = 0.2
    enddo
 
 
@@ -1314,7 +1314,8 @@ function Cal_FLabel_Function(in_a,in_gq,in_gf) result(out_val)
    do k=1,num_of_EMP
       if(abs(in_a-resonant_a(k)) < 0.5*island_w(k)) then
          MP_phase = EMP(k)%gan*in_gf- EMP(k)%gam*in_gq + EMP(k)%gagf0 !- EMP(k)%gagw*in_time
-         out_val= out_val + (2.0-cos(MP_phase))*(abs(in_a-resonant_a(k))- 0.5*island_w(k))
+         out_val= out_val + (1.0-cos(MP_phase))*(abs(in_a-resonant_a(k))- 0.5*island_w(k))
+         ! out_val= out_val + (1.0-cos(MP_phase))*((in_a-resonant_a(k))**2.0-(0.5*island_w(k))**2.0)
       endif
    enddo
 end function Cal_FLabel_Function
@@ -2194,7 +2195,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
          Fid=1
          PPI_id=0
          do while(.true.)
-            read(190705,"(I8,1x,20(ES16.8,1x))",IOSTAT=ios) tmp_gPPI
+            read(190705,"(I8,1x,11(ES16.8,1x))",IOSTAT=ios) tmp_gPPI
             if(ios>0) then ! something wrong with ios
                write(stdout,*) "ios=",ios,", something is wrong during reading ",chdum
                call flush(stdout)
@@ -2214,8 +2215,19 @@ subroutine Construct_gPPI_for_FieldLineAverage
          enddo
          close(190705)
 
+         write(chdum,'("VacFieldAnalysis/new_gPPI_",i5.5,".dat")') myrank_toroidal
+         open(181202,file=chdum,status='replace',action='write')
+         do Fid = 1, num_of_SampledFieldLines
+            do PPI_id =1,num_of_gPPI_for_each_FieldLine(Fid)
+               write(181202, "(I8,1x,11(ES16.8,1x))") gPPI(PPI_id,Fid)
+            enddo
+         enddo
+         flush(181202)
+         close(181202)
+
          ! This is required to calculate Do_FieldLineAverage_by_using_gPPI later
          call Cal_FLA_Denominator_using_gPPI
+         call Get_FLA_Te0_Ti0_n0
 
          return
       endif
@@ -2488,7 +2500,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
    open(181202,file=chdum,status='replace',action='write')
    do Fid = 1, num_of_SampledFieldLines
       do PPI_id =1,num_of_gPPI_for_each_FieldLine(Fid)
-         write(181202, "(I8,1x,20(ES16.8,1x))") gPPI(PPI_id,Fid)
+         write(181202, "(I8,1x,11(ES16.8,1x))") gPPI(PPI_id,Fid)
       enddo
    enddo
    flush(181202)
@@ -3093,7 +3105,7 @@ subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultD
    real(wp) tmp_DG_Data(DG%dim_gq, DG%dim_a)
 
    real(wp) each_FLA_val(num_of_SampledFieldLines), each_FLA_denominator(num_of_SampledFieldLines), intpl_val ! FLA=Field Line Average
-   real(wp) this_gq, this_s, this_gf, sdum, gqdum,ori_inv_ds, inv_dgq(0:mpsi), inv_gf
+   real(wp) this_gq, this_s, this_gf, sdum, gqdum,ori_inv_ds
    real(wp) ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
    integer Fid, Pid ! (Fid=Field ID), (Pid=gPPI ID)
    integer inner_sid, outter_sid, inner_gqid, outter_gqid, inner_ij, outter_ij
@@ -3118,8 +3130,7 @@ subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultD
       write(*,*) "Do_FieldLineAverage_by_using_gPPI"
    endif
    ori_inv_ds = real(mpsi)/(s1-s0)
-   inv_dgq = 1.0/deltat
-   inv_gf = 1.0/deltaz
+
 
 
    ! Scatter Averaged data to Diagnostic Grid (DG) nodes
@@ -3254,6 +3265,136 @@ subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultD
    DG_FLA_ResultData = DG_FLA_ResultData/DG%FLA_Denominator
 
 end subroutine Do_FieldLineAverage_on_DG_by_using_gPPI
+
+subroutine Cal_FLA_FLabel_by_using_gPPI_iniFLabel(DG_FLA_ResultData)
+   use mpi_defs
+   use precision
+   use global_parameters
+   use particle_decomp
+   use FieldLineFollowing
+   use field_array
+   use Diagnostic_Grid
+   implicit none
+
+   real(wp), intent(out):: DG_FLA_ResultData(DG%dim_gq, DG%dim_a,0:1)
+   real(wp) tmp_DG_Data(DG%dim_gq, DG%dim_a)
+
+   real(wp) each_FLA_val(num_of_SampledFieldLines), each_FLA_denominator(num_of_SampledFieldLines), intpl_val ! FLA=Field Line Average
+   real(wp) this_gq, this_s, this_gf, sdum, gqdum,ori_inv_ds
+   real(wp) ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
+   integer Fid, Pid ! (Fid=Field ID), (Pid=gPPI ID)
+   integer inner_sid, outter_sid, inner_gqid, outter_gqid, inner_ij, outter_ij
+   integer ierror
+
+   real(wp) recvr(mgrid)
+   integer istatus(MPI_STATUS_SIZE)
+
+   real(wp) target_gq, target_zeta
+   real(wp) wgq0,wgq1,wgf,ratio
+   integer ori_sid, j,k, sid, gqid, qq, ss, length
+   real(wp) ff, this_safety_q
+
+
+
+   if (num_of_SampledFieldLines ==0) then
+      write(*,*) "Error! Please construct gPPI first before using FieldLineAverage!!"
+      STOP
+   endif
+
+   if(myrank_toroidal==0) then
+      write(*,*) "Do_FieldLineAverage_by_using_gPPI"
+   endif
+   ori_inv_ds = real(mpsi)/(s1-s0)
+
+   ! Scatter Averaged data to Diagnostic Grid (DG) nodes
+   DG_FLA_ResultData = 0.0
+   each_FLA_val = 0.0
+   each_FLA_denominator = 0.0
+   do Fid=1,num_of_SampledFieldLines
+      do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
+         each_FLA_val(Fid) = each_FLA_val(Fid) + gPPI(Pid,Fid)%ini_FLabel*gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+         each_FLA_denominator(Fid) = each_FLA_denominator(Fid) + gPPI(Pid,Fid)%dl*gPPI(Pid,Fid)%inv_B
+      enddo
+   enddo
+
+   ! Do Allreduce across toroidal_comm to get a sum of FLA
+   call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+   each_FLA_val = recvr(1:num_of_SampledFieldLines)
+   call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+   each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+
+   each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
+
+
+
+   ! Scatter Averaged data to Diagnostic Grid (DG) nodes
+   DG_FLA_ResultData = 0.0
+   do Fid=1,num_of_SampledFieldLines
+      do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
+
+         this_s = gPPI(Pid,Fid)%s
+         this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
+         this_gf = gPPI(Pid,Fid)%target_normalized_gf
+
+         ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+         ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
+         this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+
+         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
+         ws0 = 1.0-ws1
+
+         do k=0,1
+            if(k==0) target_zeta =zetamin
+            if(k==1) target_zeta =zetamax
+
+            wgf = (1.0-abs(this_gf-target_zeta)/deltaz)
+
+            target_gq = modulo(this_gq + (target_zeta-this_gf)/this_safety_q, 2.0*pi)
+            gqid = (target_gq)*DG%inv_dgq +1
+            wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+            wgq0 = 1.0-wgq1
+
+            do j=1,4
+               select case(j)
+                  case(1)
+                     qq=gqid; ss=sid
+                     ratio=ws0*wgq0*wgf
+                  case(2)
+                     qq=gqid+1; ss=sid
+                     ratio=ws0*wgq1*wgf
+                  case(3)
+                     qq=gqid; ss=sid+1
+                     ratio=ws1*wgq0*wgf
+                  case(4)
+                     qq=gqid+1; ss=sid+1
+                     ratio=ws1*wgq1*wgf
+               end select
+               DG_FLA_ResultData(qq,ss,k)  = DG_FLA_ResultData(qq,ss,k)  + ratio*each_FLA_val(Fid)
+            enddo
+         enddo
+      enddo
+   enddo
+
+
+   ! Match poloidal end cell
+   ! (gq=0 and gq=2pi is the same position physically
+   ! although they have different gqid)
+   do sid=1,DG%dim_a
+      DG_FLA_ResultData(1,sid,:) = DG_FLA_ResultData(1,sid,:) + DG_FLA_ResultData(DG%dim_gq,sid,:)
+      DG_FLA_ResultData(DG%dim_gq,sid,:) = DG_FLA_ResultData(1,sid,:)
+   enddo
+
+   ! Communicate DG_FLA_ResultData between nodes
+   ! toroidal end cell
+   length = DG%dim_gq*DG%dim_a
+   call MPI_SENDRECV(DG_FLA_ResultData(:,:,0),length,mpi_Rsize,left_pe,1, tmp_DG_Data,length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG_FLA_ResultData(:,:,1) = DG_FLA_ResultData(:,:,1) + tmp_DG_Data
+
+   ! Last part is to divide FLA_ResultData by DG%FLA_Denominator to get correct line-averaged FLA_ResultData
+   DG_FLA_ResultData = DG_FLA_ResultData/DG%FLA_Denominator
+
+end subroutine Cal_FLA_FLabel_by_using_gPPI_iniFLabel
 
 subroutine Get_FLA_FieldLabel_by_using_gPPI(FLA_ResultData)
    use mpi_defs
@@ -4373,24 +4514,28 @@ subroutine Init_Diagnostic_Grid
       DG%FLA_FLabel= tmp_DG_Data3
 
       DG%FLA_SM_Denominator=DG%FLA_Denominator(:,:,1)
-      call Smooth_DG_Data_2D(1, DG%FLA_SM_Denominator)
+      call Smooth_DG_Data_2D(3, DG%FLA_SM_Denominator)
       DG%FLA_SM_psi0 = DG%FLA_psi0(:,:,1)
-      call Smooth_DG_Data_2D(1, DG%FLA_SM_psi0)
+      call Smooth_DG_Data_2D(3, DG%FLA_SM_psi0)
 
       ! Smooth FLabel using repetitive FieldLineAverage
       tmp_DG_Data2 = DG%FLA_FLabel
-      do i=1,3
+      do i=1,2
          call Smooth_DG_Data_2D(2, tmp_DG_Data2(:,:,0))
          call Smooth_DG_Data_2D(2, tmp_DG_Data2(:,:,1))
          call Do_FieldLineAverage_on_DG_by_using_gPPI(tmp_DG_Data2, tmp_DG_Data3)
          tmp_DG_Data2 = tmp_DG_Data3
       enddo
-      DG%FLA_SM_FLabel = tmp_DG_Data2(:,:,1)
-      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel)
+      DG%FLA_SM_FLabel2 = tmp_DG_Data2(:,:,1)
+      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel2)
+
 
       ! Smooth FLabel via direct smoothing
-      DG%FLA_SM_FLabel2=DG%FLA_FLabel(:,:,1)
-      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel2)
+      ! DG%FLA_SM_FLabel2=DG%FLA_FLabel(:,:,1)
+      ! DG%FLA_SM_FLabel2=DG%FLA_FLabel(:,:,1)
+      call Cal_FLA_FLabel_by_using_gPPI_iniFLabel(tmp_DG_Data3)
+      DG%FLA_SM_FLabel = tmp_DG_Data3(:,:,1)
+      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel)
 
 
       !
