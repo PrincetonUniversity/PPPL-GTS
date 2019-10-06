@@ -2148,7 +2148,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
    real(wp) target_safety_q(200)! Arrange enough initial length for target_safety_q. Later, effective num_of_target_saftegy_q will be calculated.
    integer num_of_target_safety_q
    integer sampling_num_at_each_rational_q, i,j
-   integer MaxNum_of_gPPI_for_every_FieldLines
+   integer MaxNum_of_gPPI_for_each_FieldLine
    real(wp) Find_a_at_specific_safety_q
    real(wp) now_a, now_gq, now_gf, specific_time
    real(wp) prev_a, prev_gq, prev_gf
@@ -2179,10 +2179,10 @@ subroutine Construct_gPPI_for_FieldLineAverage
 
       if(ex) then
          open(190704,file="VacFieldAnalysis/gPPI_Information.dat",status='old',form='formatted',action='read')
-         read(190704,"(3(I8,1x))") gPPI_max_tor_num, MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines
+         read(190704,"(3(I8,1x))") gPPI_max_tor_num, MaxNum_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines
          close(190704)
 
-         allocate(gPPI(MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines))
+         allocate(gPPI(MaxNum_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines))
          allocate(num_of_gPPI_for_each_FieldLine(num_of_SampledFieldLines))
 
          open(190705,file=chdum,status='old',form='formatted',action='read')
@@ -2222,10 +2222,10 @@ subroutine Construct_gPPI_for_FieldLineAverage
    call cpu_time(t_start)
 
    maximum_tor_rotation = gPPI_max_tor_num
-   MaxNum_of_gPPI_for_every_FieldLines = 2*(num_of_target_zeta)*maximum_tor_rotation
+   MaxNum_of_gPPI_for_each_FieldLine = 2*(num_of_target_zeta)*maximum_tor_rotation
    !num_of_SampledFieldLines = (mpsi/4)*10  ! num_of_SampledFieldLines might depend more on the radial resolution than poloidal one.
 
-   !maximum_tor_rotation = MaxNum_of_gPPI_for_every_FieldLines/2 !  Maximum toroidal roation for each Forward integration & Backward Integration
+   !maximum_tor_rotation = MaxNum_of_gPPI_for_each_FieldLine/2 !  Maximum toroidal roation for each Forward integration & Backward Integration
 
    specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
    dgf = 2.0*pi/1000.0 ! toroidal step for field-line-following integration
@@ -2280,7 +2280,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
 
    num_of_SampledFieldLines = 50*20 + (sampling_num_at_each_rational_q*(Fid-1))
 
-   allocate(gPPI(MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines))
+   allocate(gPPI(MaxNum_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines))
    allocate(ini_a_arr(num_of_SampledFieldLines), ini_gq_arr(num_of_SampledFieldLines))
    allocate(num_of_gPPI_for_each_FieldLine(num_of_SampledFieldLines))
 
@@ -2431,7 +2431,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
                   + rj**2  )
             endif
 
-            if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or.  PPI_id>=MaxNum_of_gPPI_for_every_FieldLines) then
+            if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or.  PPI_id>=MaxNum_of_gPPI_for_each_FieldLine) then
                exit
             endif
 
@@ -2493,13 +2493,380 @@ subroutine Construct_gPPI_for_FieldLineAverage
 
 
    open(190704,file="VacFieldAnalysis/gPPI_Information.dat",status='replace',form='formatted',action='write')
-   write(190704,"(3(I8,1x))") gPPI_max_tor_num, MaxNum_of_gPPI_for_every_FieldLines, num_of_SampledFieldLines
+   write(190704,"(3(I8,1x))") gPPI_max_tor_num, MaxNum_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines
    close(190704)
 
    deallocate(ini_a_arr, ini_gq_arr)
 
 
 end subroutine Construct_gPPI_for_FieldLineAverage
+
+
+
+subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
+
+   use precision
+   use global_parameters
+   use particle_decomp
+   use FieldLineFollowing
+   use esi_interface
+   use field_array
+   use mpi_defs
+
+   implicit  none
+
+   character(len=64) chdum
+   real(wp) dgf ! toroidal step for field-line-following integration
+   real(wp) a_RK(4), gq_RK(4)
+
+   real(wp) ini_a, ini_gq, ini_gf
+   real(wp),dimension(:), allocatable:: ini_a_arr, ini_gq_arr, ini_gf_arr
+   integer target_mode_m, target_mode_n
+   !real(wp) :: target_safety_q(9) = (/0.5,0.75,1.0,1.3333,1.5,1.6666,2.0,2.5,3.0/)
+   real(wp) target_safety_q(200)! Arrange enough initial length for target_safety_q. Later, effective num_of_target_saftegy_q will be calculated.
+   integer num_of_target_safety_q
+   integer sampling_num_at_each_rational_q, i,j
+   integer MaxNum_of_gPPI_for_each_FieldLine
+   real(wp) Find_a_at_specific_safety_q
+   real(wp) now_a, now_gq, now_gf, specific_time
+   real(wp) prev_a, prev_gq, prev_gf
+   real(wp) out_ga, out_grad_ga(3), out_partial_dg0dt
+   real(wp) B_vec_cntv(3)
+   integer tor_dir, Pid, Fid, maximum_tor_rotation
+   integer(kind=8) :: sobol_seed=1, sobol_dim_num=3
+   real(kind=8) sobol_rand_3d(3)
+   real(wp) intp_weight, dummy_real, tmp_rand
+   real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+   integer :: num_of_target_zeta
+   real(wp),allocatable,dimension(:)::target_zeta
+   logical record_flag
+   integer :: k, tzid, ierr, length
+   real(wp) t_start, t_finish
+   logical ex ! existence of the reading file
+   integer ios! IOSTAT of the reading file
+   type(Poincare_Point_Information) :: tmp_single_gPPI ! For reading purpose
+   type(Poincare_Point_Information),allocatable, dimension(:,:,:) :: tmp_gPPI ! For parallel calculation of gPPI
+   integer, dimension(:,:), allocatable :: tmp_num_of_gPPI_for_each_FieldLine
+   integer tmp_num_of_SampledFieldLines
+
+   real(wp) target_q, resonant_a, MP_ga, MP_wga, MP_gat ! Magnetic perturbation variables
+   real(wp), external :: Cal_FLabel_Function
+
+
+   ! if(irun/=0) then
+   if(.true.) then
+      ! First, check if there is previously calculated gPPI data, and if so read it
+      write(chdum,'("VacFieldAnalysis/gPPI_",i5.5,".dat")') myrank_toroidal
+      inquire(file=chdum, exist=ex)
+
+      if(ex) then
+         open(190704,file="VacFieldAnalysis/gPPI_Information.dat",status='old',form='formatted',action='read')
+         read(190704,"(3(I8,1x))") gPPI_max_tor_num, MaxNum_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines
+         close(190704)
+
+         allocate(gPPI(MaxNum_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines))
+         allocate(num_of_gPPI_for_each_FieldLine(num_of_SampledFieldLines))
+
+         open(190705,file=chdum,status='old',form='formatted',action='read')
+
+         Fid=1
+         Pid=0
+         do while(.true.)
+            read(190705,"(I8,1x,11(ES16.8,1x))",IOSTAT=ios) tmp_single_gPPI
+            if(ios>0) then ! something wrong with ios
+               write(stdout,*) "ios=",ios,", something is wrong during reading ",chdum
+               call flush(stdout)
+               stop
+            elseif(ios<0) then ! end of file reached
+               num_of_gPPI_for_each_FieldLine(Fid)=Pid
+               exit
+            else
+               if(Fid /= tmp_single_gPPI%Fid) then
+                  num_of_gPPI_for_each_FieldLine(Fid)=Pid
+                  Fid = Fid+1
+                  Pid=0
+               endif
+               Pid=Pid+1
+               gPPI(Pid,Fid) = tmp_single_gPPI
+            endif
+         enddo
+         close(190705)
+
+         ! This is required to calculate Do_FieldLineAverage_by_using_gPPI later
+         call Cal_FLA_Denominator_using_gPPI
+         call Get_FLA_Te0_Ti0_n0
+
+         return
+      endif
+   endif
+
+   ! If there is no gPPI data, then calculate the following routines
+   call cpu_time(t_start)
+
+   maximum_tor_rotation = gPPI_max_tor_num
+   MaxNum_of_gPPI_for_each_FieldLine = 2*(num_of_target_zeta)*maximum_tor_rotation
+
+   specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
+   dgf = 2.0*pi/1000.0 ! toroidal step for field-line-following integration
+
+   num_of_target_zeta = ntoroidal
+   allocate(target_zeta(num_of_target_zeta))
+
+   do k=1,num_of_target_zeta
+      target_zeta(k) = 2.0*pi*k/real(num_of_target_zeta)
+   enddo
+
+   k=1
+   do target_mode_n = 1,3
+      do target_mode_m = 1,10
+         if(target_mode_m <= 3*target_mode_n) then ! search for the safety_q<=3
+            target_safety_q(k) = real(target_mode_m)/real(target_mode_n)
+            k=k+1
+         endif
+      enddo
+   enddo
+   !call flush(stdout)
+   call find_unique_sorted_array_and_its_num_of_elements(target_safety_q, 1, k-1, num_of_target_safety_q)
+   if(myrank_toroidal==0) then
+      write(stdout,*) 'num_of_target_safety_q = ', num_of_target_safety_q
+      write(stdout,*) 'target q vals = ',target_safety_q(1:num_of_target_safety_q)
+      call flush(stdout)
+   endif
+
+   sampling_num_at_each_rational_q = 10
+
+
+   Fid=1
+   do i = 1,num_of_target_safety_q
+      ini_a = Find_a_at_specific_safety_q(target_safety_q(i))
+      if(ini_a>0) then
+         Fid = Fid + 3 ! 3 field lines will be sampled at each target_saftey_q and their neighborhoods.
+      endif
+   enddo
+
+   tmp_num_of_SampledFieldLines = 10 + (sampling_num_at_each_rational_q*(Fid-1))
+
+   allocate(tmp_gPPI(MaxNum_of_gPPI_for_each_FieldLine, tmp_num_of_SampledFieldLines, num_of_target_zeta))
+   allocate(tmp_num_of_gPPI_for_each_FieldLine(tmp_num_of_SampledFieldLines,num_of_target_zeta))
+   allocate(ini_a_arr(tmp_num_of_SampledFieldLines), ini_gq_arr(tmp_num_of_SampledFieldLines), ini_gf_arr(tmp_num_of_SampledFieldLines))
+
+
+
+   !Find ini_a_arr and ini_gq_arr at rational q surface and sobol_rand position
+   Fid = 1
+   do i = 1, num_of_target_safety_q
+      ini_a = Find_a_at_specific_safety_q(target_safety_q(i))
+      if(ini_a>0) then
+         ! At exact target_safety_q
+         ini_a_arr(Fid:Fid+(sampling_num_at_each_rational_q-1)) = ini_a
+         do j=0,sampling_num_at_each_rational_q-1
+            ini_gq_arr(Fid+j) = j*(2.0*pi/real(sampling_num_at_each_rational_q))
+         enddo
+         Fid = Fid + sampling_num_at_each_rational_q
+
+         ! Sligtly left from target_safety_q
+         ini_a_arr(Fid:Fid+(sampling_num_at_each_rational_q-1)) = ini_a - 0.01
+         do j=0,sampling_num_at_each_rational_q-1
+            ini_gq_arr(Fid+j) = j*(2.0*pi/real(sampling_num_at_each_rational_q))
+         enddo
+         Fid = Fid + sampling_num_at_each_rational_q
+
+         ! Slightly right from target_safety_q
+         ini_a_arr(Fid:Fid+(sampling_num_at_each_rational_q-1)) = ini_a + 0.01
+         do j=0,sampling_num_at_each_rational_q-1
+            ini_gq_arr(Fid+j) = j*(2.0*pi/real(sampling_num_at_each_rational_q))
+         enddo
+         Fid = Fid + sampling_num_at_each_rational_q
+      endif
+   enddo
+
+
+   sobol_seed = 1+ myrank_toroidal*tmp_num_of_SampledFieldLines
+   do while(Fid<=tmp_num_of_SampledFieldLines)
+      call i8_sobol(sobol_dim_num, sobol_seed, sobol_rand_3d)
+      ini_a_arr(Fid) = a0 + (a1-a0)*sobol_rand_3d(1)
+      ini_gq_arr(Fid) = 2.0*pi*sobol_rand_3d(2)
+      ini_gf_arr(Fid) = 2.0*pi*sobol_rand_3d(3)
+      Fid = Fid+1
+   enddo
+
+   call quicksort_real_together(ini_a_arr, ini_gq_arr, 1,tmp_num_of_SampledFieldLines)
+
+   ! First Resonant q and a (only the First element of EMP)
+   resonant_a = Find_a_at_specific_safety_q(real(EMP(1)%gam)/real(EMP(1)%gan))
+   write(stdout,*) '1st resonant_q=',real(EMP(1)%gam)/real(EMP(1)%gan), 'resonant_a=',resonant_a
+   call flush(stdout)
+
+   tmp_num_of_gPPI_for_each_FieldLine(:,:) = 0
+   do tzid=1,num_of_target_zeta
+      do Fid=1,tmp_num_of_SampledFieldLines
+         tmp_gPPI(:,Fid,tzid)%Fid = Fid + (tzid-1)*tmp_num_of_SampledFieldLines
+      enddo
+   enddo
+
+   do Fid = 1, tmp_num_of_SampledFieldLines
+
+      ini_a = ini_a_arr(Fid)
+      ini_gq = ini_gq_arr(Fid)
+      ini_gf = ini_gf_arr(Fid)
+
+      aaa=ini_a
+      the=ini_gq
+
+
+      do tor_dir=-1,1,2  ! Forward integration & Backward Integration
+
+         dgf = (tor_dir)*2.0*pi/1000.0
+
+         now_a = ini_a
+         now_gq = ini_gq
+         now_gf = ini_gf
+
+         prev_a = now_a
+         prev_gq = now_gq
+         prev_gf = now_gf
+
+         do while(.true.)
+            record_flag=.false.
+            !if( modulo(now_gf,2*pi)>zetamin-abs(dgf) .and.  modulo(now_gf,2*pi)<=zetamax+abs(dgf)) then
+            do k=1,num_of_target_zeta
+               Pid = tmp_num_of_gPPI_for_each_FieldLine(Fid,k)
+
+               if(Pid==0 .or. floor((now_gf-target_zeta(k))/(2.0*pi)) /= floor((prev_gf-target_zeta(k))/(2.0*pi))) then
+                  record_flag=.true.
+                  tzid = k
+                  exit
+               endif
+            enddo
+            !endif
+
+            if(record_flag) then
+
+               tmp_num_of_gPPI_for_each_FieldLine(Fid,tzid) = tmp_num_of_gPPI_for_each_FieldLine(Fid,tzid) +1
+               Pid = tmp_num_of_gPPI_for_each_FieldLine(Fid,tzid)
+
+               intp_weight = abs(min(modulo((now_gf-target_zeta(tzid)), 2.0*pi), 2.0*pi - modulo((now_gf-target_zeta(tzid)), 2.0*pi))/dgf) ! interpolation weight for previous point
+
+               tmp_gPPI(Pid,Fid,tzid)%a  = intp_weight*prev_a + (1.0-intp_weight)*now_a
+               tmp_gPPI(Pid,Fid,tzid)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
+               tmp_gPPI(Pid,Fid,tzid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
+               tmp_gPPI(Pid,Fid,tzid)%target_normalized_gf = target_zeta(tzid)
+               tmp_gPPI(Pid,Fid,tzid)%ini_FLabel = Cal_FLabel_Function(tmp_gPPI(Pid,Fid,tzid)%a, tmp_gPPI(Pid,Fid,tzid)%gq, tmp_gPPI(Pid,Fid,tzid)%gf)
+
+               call Convert_a_to_s(tmp_gPPI(Pid,Fid,tzid)%a, tmp_gPPI(Pid,Fid,tzid)%s)
+
+
+               aaa=tmp_gPPI(Pid,Fid,tzid)%a
+               the=modulo(tmp_gPPI(Pid,Fid,tzid)%gq, 2.0*pi)
+               call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+               tmp_gPPI(Pid,Fid,tzid)%inv_B = 1.0/Bj; ! inv_B
+               tmp_gPPI(Pid,Fid,tzid)%R = rj
+               tmp_gPPI(Pid,Fid,tzid)%Z = zj
+
+               call esiget_Intp_B_vec_contravariant(aaa, the, modulo(tmp_gPPI(Pid,Fid,tzid)%gf,2.0*pi), specific_time, B_vec_cntv)
+               tmp_gPPI(Pid,Fid,tzid)%dl = abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+                                                         +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
+                                                         +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
+                                                         + rj**2  )
+            endif
+
+            if(abs(now_gf)>maximum_tor_rotation*(2*pi) .or.  Pid>=MaxNum_of_gPPI_for_each_FieldLine) then
+               exit
+            endif
+
+            prev_a = now_a
+            prev_gq = now_gq
+            prev_gf = now_gf
+
+            ! Runge-Kutta 4th order
+            call esiget_Intp_B_vec_contravariant(now_a, modulo(now_gq,2.0*pi), modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(1)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(1)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), modulo(now_gq+0.5*gq_RK(1),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(2)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(2)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), modulo(now_gq+0.5*gq_RK(2),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(3)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(3)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), modulo(now_gq+gq_RK(3),2.0*pi), modulo(now_gf+dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(4)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(4)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+
+            now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
+            now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
+            now_gf = now_gf + dgf
+
+            if (now_a<a0 .or. now_a>a1) then
+               exit
+            endif
+         enddo
+      enddo
+   enddo
+
+
+
+
+   num_of_SampledFieldLines = num_of_target_zeta*tmp_num_of_SampledFieldLines
+
+   write(stdout,*) "myrank_toroidal=",myrank_toroidal,"num_of_target_Zeta=", num_of_target_zeta, tmp_num_of_SampledFieldLines, num_of_SampledFieldLines
+   call flush(stdout)
+
+   allocate(gPPI(MaxNum_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines))
+   allocate(num_of_gPPI_for_each_FieldLine(num_of_SampledFieldLines))
+
+   write(chdum,'("VacFieldAnalysis/num2_of_gPPI_",i5.5,".dat")') myrank_toroidal
+   open(191004,file=chdum,status='replace',action='write')
+   do Fid=1, num_of_SampledFieldLines
+      write(191004, *) num_of_gPPI_for_each_FieldLine(Fid)
+   enddo
+   call flush(191004)
+   close(191004)
+
+   length = MaxNum_of_gPPI_for_each_FieldLine*tmp_num_of_SampledFieldLines
+   call MPI_Alltoall(tmp_gPPI, length, MPI_Rsize, gPPI, length, MPI_Rsize, toroidal_comm, ierr)
+   length = tmp_num_of_SampledFieldLines
+   call MPI_Alltoall(tmp_num_of_gPPI_for_each_FieldLine, length, MPI_INTEGER, num_of_gPPI_for_each_FieldLine, length, MPI_INTEGER, toroidal_comm, ierr);
+
+   write(chdum,'("VacFieldAnalysis/num_of_gPPI_",i5.5,".dat")') myrank_toroidal
+   open(191004,file=chdum,status='replace',action='write')
+   do Fid=1,num_of_SampledFieldLines
+      write(191004, *) num_of_gPPI_for_each_FieldLine(Fid)
+   enddo
+   call flush(191004)
+   close(191004)
+
+
+
+   call Cal_FLA_Denominator_using_gPPI
+   call Get_FLA_Te0_Ti0_n0
+
+
+   call cpu_time(t_finish)
+   write(stdout,*) "I'm=", mype, "gPPI Construction Finished! delta_time = ", t_finish-t_start, " seconds."
+   flush(stdout)
+
+   call system("mkdir -p " // 'VacFieldAnalysis')
+   write(chdum,'("VacFieldAnalysis/gPPI_",i5.5,".dat")') myrank_toroidal
+   open(181202,file=chdum,status='replace',action='write')
+   do Fid = 1, num_of_SampledFieldLines
+      do Pid =1,num_of_gPPI_for_each_FieldLine(Fid)
+         write(181202, "(I8,1x,11(ES16.8,1x))") gPPI(Pid,Fid)
+      enddo
+   enddo
+   flush(181202)
+   close(181202)
+
+
+   open(190704,file="VacFieldAnalysis/gPPI_Information.dat",status='replace',form='formatted',action='write')
+   write(190704,"(3(I8,1x))") gPPI_max_tor_num, MaxNum_of_gPPI_for_each_FieldLine, num_of_SampledFieldLines
+   close(190704)
+
+   deallocate(ini_a_arr, ini_gq_arr, ini_gf_arr)
+   deallocate(tmp_gPPI,tmp_num_of_gPPI_for_each_FieldLine)
+   deallocate(target_zeta)
+
+end subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
+
 
 function Find_a_at_specific_safety_q(target_safety_q) result(out_a)
 
