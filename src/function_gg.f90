@@ -2603,7 +2603,7 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
    ! If there is no gPPI data, then calculate the following routines
    call cpu_time(t_start)
 
-   num_of_target_zeta = 3*ntoroidal
+   num_of_target_zeta = 1*ntoroidal
    allocate(target_zeta(num_of_target_zeta))
    do k=1,num_of_target_zeta
       target_zeta(k) = 2.0*pi*k/real(num_of_target_zeta)
@@ -2646,7 +2646,7 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
    enddo
 
    ! tmp_num_of_SampledFieldLines = 50*20/(ntoroidal) + (sampling_num_at_each_rational_q*(Fid-1))
-   tmp_num_of_SampledFieldLines = 50*20/(ntoroidal) + 3*num_of_target_safety_q*sampling_num_at_each_rational_q
+   tmp_num_of_SampledFieldLines = 50*60/(ntoroidal) + 3*num_of_target_safety_q*sampling_num_at_each_rational_q
 
    allocate(tmp_gPPI(MaxNum_of_gPPI_for_each_FieldLine, tmp_num_of_SampledFieldLines, num_of_target_zeta))
    allocate(tmp_num_of_gPPI_for_each_FieldLine(tmp_num_of_SampledFieldLines,num_of_target_zeta))
