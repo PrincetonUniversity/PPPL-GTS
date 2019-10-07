@@ -2540,7 +2540,7 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
    integer :: num_of_target_zeta
    real(wp),allocatable,dimension(:)::target_zeta
    logical record_flag
-   integer :: k, tzid, ierr, length
+   integer :: k, tzid, tor_id, ierr, length
    real(wp) t_start, t_finish
    logical ex ! existence of the reading file
    integer ios! IOSTAT of the reading file
@@ -2603,13 +2603,13 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
    ! If there is no gPPI data, then calculate the following routines
    call cpu_time(t_start)
 
-   num_of_target_zeta = ntoroidal
+   num_of_target_zeta = 3*ntoroidal
    allocate(target_zeta(num_of_target_zeta))
    do k=1,num_of_target_zeta
       target_zeta(k) = 2.0*pi*k/real(num_of_target_zeta)
    enddo
    maximum_tor_rotation = gPPI_max_tor_num
-   MaxNum_of_gPPI_for_each_FieldLine = 2*maximum_tor_rotation
+   MaxNum_of_gPPI_for_each_FieldLine = 2*maximum_tor_rotation*(num_of_target_zeta/ntoroidal)
 
    specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
    dgf = 2.0*pi/500.0 ! toroidal step for field-line-following integration
@@ -2739,6 +2739,7 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
                if(floor((now_gf-target_zeta(k))/(2.0*pi)) /= floor((prev_gf-target_zeta(k))/(2.0*pi))) then
                   record_flag=.true.
                   tzid = k
+                  tor_id = 1 +(k-1)/(num_of_target_zeta/ntoroidal)
                   exit
                endif
             enddo
@@ -2746,34 +2747,34 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
 
             if(record_flag) then
 
-               tmp_num_of_gPPI_for_each_FieldLine(Fid,tzid) = tmp_num_of_gPPI_for_each_FieldLine(Fid,tzid) +1
-               Pid = tmp_num_of_gPPI_for_each_FieldLine(Fid,tzid)
+               tmp_num_of_gPPI_for_each_FieldLine(Fid,tor_id) = tmp_num_of_gPPI_for_each_FieldLine(Fid,tor_id) +1
+               Pid = tmp_num_of_gPPI_for_each_FieldLine(Fid,tor_id)
 
                if(Pid > MaxNum_of_gPPI_for_each_FieldLine) then
-                  tmp_num_of_gPPI_for_each_FieldLine(Fid,tzid) = tmp_num_of_gPPI_for_each_FieldLine(Fid,tzid) -1
+                  tmp_num_of_gPPI_for_each_FieldLine(Fid,tor_id) = tmp_num_of_gPPI_for_each_FieldLine(Fid,tor_id) -1
                   exit
                endif
 
                intp_weight = abs(min(modulo((now_gf-target_zeta(tzid)), 2.0*pi), 2.0*pi - modulo((now_gf-target_zeta(tzid)), 2.0*pi))/dgf) ! interpolation weight for previous point
 
-               tmp_gPPI(Pid,Fid,tzid)%a  = intp_weight*prev_a + (1.0-intp_weight)*now_a
-               tmp_gPPI(Pid,Fid,tzid)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
-               tmp_gPPI(Pid,Fid,tzid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
-               tmp_gPPI(Pid,Fid,tzid)%target_normalized_gf = target_zeta(tzid)
-               tmp_gPPI(Pid,Fid,tzid)%ini_FLabel = Cal_FLabel_Function(tmp_gPPI(Pid,Fid,tzid)%a, tmp_gPPI(Pid,Fid,tzid)%gq, tmp_gPPI(Pid,Fid,tzid)%gf)
+               tmp_gPPI(Pid,Fid,tor_id)%a  = intp_weight*prev_a + (1.0-intp_weight)*now_a
+               tmp_gPPI(Pid,Fid,tor_id)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
+               tmp_gPPI(Pid,Fid,tor_id)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
+               tmp_gPPI(Pid,Fid,tor_id)%target_normalized_gf = target_zeta(tzid)
+               tmp_gPPI(Pid,Fid,tor_id)%ini_FLabel = Cal_FLabel_Function(tmp_gPPI(Pid,Fid,tor_id)%a, tmp_gPPI(Pid,Fid,tor_id)%gq, tmp_gPPI(Pid,Fid,tor_id)%gf)
 
-               call Convert_a_to_s(tmp_gPPI(Pid,Fid,tzid)%a, tmp_gPPI(Pid,Fid,tzid)%s)
+               call Convert_a_to_s(tmp_gPPI(Pid,Fid,tor_id)%a, tmp_gPPI(Pid,Fid,tor_id)%s)
 
 
-               aaa=tmp_gPPI(Pid,Fid,tzid)%a
-               the=modulo(tmp_gPPI(Pid,Fid,tzid)%gq, 2.0*pi)
+               aaa=tmp_gPPI(Pid,Fid,tor_id)%a
+               the=modulo(tmp_gPPI(Pid,Fid,tor_id)%gq, 2.0*pi)
                call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-               tmp_gPPI(Pid,Fid,tzid)%inv_B = 1.0/Bj; ! inv_B
-               tmp_gPPI(Pid,Fid,tzid)%R = rj
-               tmp_gPPI(Pid,Fid,tzid)%Z = zj
+               tmp_gPPI(Pid,Fid,tor_id)%inv_B = 1.0/Bj; ! inv_B
+               tmp_gPPI(Pid,Fid,tor_id)%R = rj
+               tmp_gPPI(Pid,Fid,tor_id)%Z = zj
 
-               call esiget_Intp_B_vec_contravariant(aaa, the, modulo(tmp_gPPI(Pid,Fid,tzid)%gf,2.0*pi), specific_time, B_vec_cntv)
-               tmp_gPPI(Pid,Fid,tzid)%dl = abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+               call esiget_Intp_B_vec_contravariant(aaa, the, modulo(tmp_gPPI(Pid,Fid,tor_id)%gf,2.0*pi), specific_time, B_vec_cntv)
+               tmp_gPPI(Pid,Fid,tor_id)%dl = abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
                                                          +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
                                                          +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
                                                          + rj**2  )
