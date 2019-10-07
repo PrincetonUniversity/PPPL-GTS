@@ -3378,7 +3378,8 @@ subroutine Init_Diagnostic_Grid
    real(wp) approx_da, approx_dgf
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
-   DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
+   ! DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
+   DG%dim_gq = 101
    DG%num_eSD = 6
    DG%num_eVD = 5
 
