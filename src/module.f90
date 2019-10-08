@@ -312,6 +312,9 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_psi0
       real(wp), allocatable, dimension(:,:) :: FLA_SM_FLabel_Left, FLA_SM_FLabel_Right
 
+      real(wp), allocatable, dimension(:,:,:) :: mag_grad_FLA_SM_FLabel
+      real(wp), allocatable, dimension(:,:,:,:) :: grad_FLA_SM_FLabel, uvec_grad_FL_cov
+
       ! Magnetic Field Information (ESI variables)
       real(wp), allocatable, dimension(:,:) :: F,dFda,dgFda,dgYda,R,dRda,dRdgq,Z,dZda,dZdgq,BB,dBBda,dBBdgq,P,T
       real(wp), allocatable, dimension(:,:) :: Jacobian, esi_N, esi_K, g_aa_cov, g_aq_cov, g_qq_cov, g_ff_cov

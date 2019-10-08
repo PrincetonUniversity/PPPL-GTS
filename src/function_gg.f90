@@ -4656,7 +4656,7 @@ subroutine Init_Diagnostic_Grid
    use mpi_defs
    implicit none
 
-   integer i,j,k,aid,gqid,ij
+   integer i,j,k,aid,gqid,ij,Na,Nq
    integer pbid ! probe id
    real(wp), external :: temperature, temperature_e, density, Cal_FLabel_Function
 
@@ -4664,14 +4664,15 @@ subroutine Init_Diagnostic_Grid
    real(wp) approx_da, approx_dgf
    real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data1, tmp_DG_Data2
    integer ierror, istatus(MPI_STATUS_SIZE)
+   real(wp) uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
    ! DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
    DG%dim_gq = 101
-   DG%num_eSD = 6
+   DG%num_eSD = 6 +3
    DG%num_eVD = 5
 
-   DG%num_iSD = 8   ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
+   DG%num_iSD = 8 +3  ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
    DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
@@ -4688,6 +4689,8 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%FLA_Denominator(DG%dim_gq,DG%dim_a,0:1), DG%FLA_FLabel(DG%dim_gq,DG%dim_a,0:1), DG%FLA_psi0(DG%dim_gq,DG%dim_a,0:1))
    allocate(DG%FLA_SM_Denominator, DG%FLA_SM_FLabel, DG%FLA_SM_psi0,mold=DG%a_2D)
    allocate(DG%FLA_SM_FLabel_Left, DG%FLA_SM_FLabel_Right,mold=DG%a_2D)
+   allocate(DG%grad_FLA_SM_FLabel(3,DG%dim_gq,DG%dim_a,0:1), DG%mag_grad_FLA_SM_FLabel(DG%dim_gq,DG%dim_a,0:1))
+
    allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1) )
    allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1) )
 
@@ -4863,18 +4866,152 @@ subroutine Init_Diagnostic_Grid
       enddo
       DG%FLA_FLabel = tmp_DG_Data1
       DG%FLA_SM_FLabel = DG%FLA_FLabel(:,:,1)
-      call Smooth_DG_Data_2D(2, DG%FLA_SM_FLabel)
-
-      !
-      call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
-                        DG%FLA_SM_FLabel_Left, DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
-      call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
-                        DG%FLA_SM_FLabel_Right, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
+      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel)
 
       deallocate(tmp_DG_Data1,tmp_DG_Data2)
    endif
 
+   ! Broadcast calculated FLA data
+   call MPI_BCAST(DG%FLA_Denominator, 2*DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_FLabel,      2*DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_psi0,        2*DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_SM_Denominator, DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_SM_FLabel,      DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_SM_psi0,        DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+
+   ! Communicate btw toroidal_comm to get Left and Right FLA_SM_FLabel
+   call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
+   DG%FLA_SM_FLabel_Left, DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
+   call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
+   DG%FLA_SM_FLabel_Right, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
+
+
+   !Calculate normal vector (gradient) of FLA_SM_FLabel
+   Na=DG%dim_a
+   Nq=DG%dim_gq
+   ! d(FL)/da
+   DG%grad_FLA_SM_FLabel(1,:,1,1) = (DG%FLA_SM_FLabel(:,2)-DG%FLA_SM_FLabel(:,1))/(DG%a_1D(2)-DG%a_1D(1))
+   DG%grad_FLA_SM_FLabel(1,:,2:Na-1,1) = (DG%FLA_SM_FLabel(:,3:Na)-DG%FLA_SM_FLabel(:,1:Na-2))/(DG%a_2D(:,3:Na)-DG%a_2D(:,1:Na-2))
+   DG%grad_FLA_SM_FLabel(1,:,Na,1) = (DG%FLA_SM_FLabel(:,Na)-DG%FLA_SM_FLabel(:,Na-1))/(DG%a_1D(Na)-DG%a_1D(Na-1))
+
+   ! d(FL)/dgq with periodicity
+   DG%grad_FLA_SM_FLabel(2,1,:,1) = (DG%FLA_SM_FLabel(2,:)-DG%FLA_SM_FLabel(Nq,:))/(2.0*DG%dgq)
+   DG%grad_FLA_SM_FLabel(2,2:Nq-1,:,1) = (DG%FLA_SM_FLabel(3:Nq,:)-DG%FLA_SM_FLabel(1:Nq-1,:))/(2.0*DG%dgq)
+   DG%grad_FLA_SM_FLabel(2,Nq,:,1) = DG%grad_FLA_SM_FLabel(2,1,:,1)
+
+   ! d(FL)/dgf with periodicity
+   DG%grad_FLA_SM_FLabel(3,:,:,1) = (DG%FLA_SM_FLabel_Right - DG%FLA_SM_FLabel_Left)/(2.0*(zetamax-zetamin))
+
+   call MPI_SENDRECV(DG%grad_FLA_SM_FLabel(:,:,:,1), 3*DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
+                     DG%grad_FLA_SM_FLabel(:,:,:,0), 3*DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
+
+
+
+   ! Calculate magnitude of grad(FL)
+   do k=0,1
+      DG%mag_grad_FLA_SM_FLabel(:,:,k) = sqrt(  DG%g_aa_cntv*(DG%grad_FLA_SM_FLabel(1,:,:,k)**2.0) &
+                                                +2.0*DG%g_aq_cntv*DG%grad_FLA_SM_FLabel(1,:,:,k)*DG%grad_FLA_SM_FLabel(2,:,:,k) &
+                                                +DG%g_qq_cntv*(DG%grad_FLA_SM_FLabel(2,:,:,k)**2.0)  &
+                                                +DG%g_ff_cntv*(DG%grad_FLA_SM_FLabel(3,:,:,k)**2.0))
+   enddo
+
+   do k=1,3
+      DG%uvec_grad_FL_cov(k,:,:,:) = DG%grad_FLA_SM_FLabel(k,:,:,:)/(DG%mag_grad_FLA_SM_FLabel)
+   enddo
+
 end subroutine Init_Diagnostic_Grid
+
+
+subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_gq, in_gf, in_s, uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
+   use precision
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   use esi_interface
+
+   implicit none
+   real(wp),intent(in) :: in_a, in_gq, in_gf, in_s
+
+   real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
+   integer :: ori_sid !sid of original full grid
+   real(wp) ori_inv_ds ! inv_ds of original full grid
+   real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
+   real(wp) target_zeta, safety_q
+   integer :: j,k, sid, gqid, qq, ss
+
+   real(wp):: a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
+   real(wp) Jacobian_, D_
+   real(wp):: g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_
+
+   real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3)
+   real(wp) vec_BxN_cntv(3), vec_BxN_cov(3) !Note tha theses are not the unit vectors
+   real(wp), intent(out) :: uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
+
+   ori_inv_ds = real(mpsi)/(s1-s0)
+
+   !Calculate Interpolation of uvec_N_cov which uses the precalculated DG%uvec_grad_FL_cov on DG nodes
+   ori_sid = (in_s-s0)*ori_inv_ds ! s index of original full grid
+   ff  = (in_s-s_grid(ori_sid))*ori_inv_ds
+   safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
+
+   sid = max(0,min(int((in_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+   ws1 = (in_s-DG%s_1D(sid))*DG%inv_ds
+   ws0 = 1.0-ws1
+
+   uvec_N_cov = 0
+   do k=0,1
+      if(k==0) target_zeta =zetamin
+      if(k==1) target_zeta =zetamax
+
+      wgf = (1.0-abs(in_gf-target_zeta)/deltaz)
+
+      target_gq = modulo(in_gq + (target_zeta-in_gf)/safety_q, 2.0*pi)
+      gqid = (target_gq)*DG%inv_dgq +1
+      wgq1 = (target_gq-DG%gq_1D(gqid))*DG%inv_dgq
+      wgq0 = 1.0-wgq1
+      do j=1,4
+         select case(j)
+            case(1)
+               qq=gqid; ss=sid
+               ratio=ws0*wgq0*wgf
+            case(2)
+               qq=gqid+1; ss=sid
+               ratio=ws0*wgq1*wgf
+            case(3)
+               qq=gqid; ss=sid+1
+               ratio=ws1*wgq0*wgf
+            case(4)
+               qq=gqid+1; ss=sid+1
+               ratio=ws1*wgq1*wgf
+         end select
+         uvec_N_cov = uvec_N_cov+ratio*DG%uvec_grad_FL_cov(:,qq,ss,k)
+      enddo
+   enddo
+
+
+   !Get uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
+   call esiget_Intp_B_vec_cov_and_cntv(in_a, in_gq, in_gf, istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+   uvec_B_cov   = tot_B_vec_cov/sqrt(dot_product(tot_B_vec_cov,tot_B_vec_cntv))
+
+   call esiget2dthese_more(F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,a_,gq_, 1)
+   Jacobian_ = R_*(dZda_*dRdgq_-dZdgq_*dRda_)
+   D_=dZda_*dRdgq_-dZdgq_*dRda_
+   g_aa_cntv_=(dRdgq_**2+dZdgq_**2)/D_**2   ! grada^2
+   g_qq_cntv_=(dZda_**2+dRda_**2)/D_**2   ! gradtheta^2
+   g_ff_cntv_=1.0_wp/R_**2                 ! gradphi^2
+   g_aq_cntv_=(-dRda_*dRdgq_-dZda_*dZdgq_)/D_**2  ! gradagradtheta
+
+   vec_BxN_cntv(1) = (1.0/Jacobian_)*(uvec_B_cov(2)*uvec_N_cov(3)-uvec_B_cov(3)*uvec_N_cov(2))
+   vec_BxN_cntv(2) = (1.0/Jacobian_)*(uvec_B_cov(3)*uvec_N_cov(1)-uvec_B_cov(1)*uvec_N_cov(3))
+   vec_BxN_cntv(3) = (1.0/Jacobian_)*(uvec_B_cov(1)*uvec_N_cov(2)-uvec_B_cov(2)*uvec_N_cov(1))
+
+   vec_BxN_cov(1) = g_aa_cntv_*vec_BxN_cntv(1) + g_aq_cntv_*vec_BxN_cntv(2)
+   vec_BxN_cov(2) = g_aq_cntv_*vec_BxN_cntv(1) + g_qq_cntv_*vec_BxN_cntv(2)
+   vec_BxN_cov(3) = g_ff_cntv_*vec_BxN_cntv(3)
+
+   uvec_BxN_cov   = vec_BxN_cov/sqrt(dot_product(vec_BxN_cov,vec_BxN_cntv))
+
+end subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface
 
 
 subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
@@ -4912,6 +5049,8 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
 
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1)
    real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
+
+   real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
 
    DG%eScaData=0
    DG%eVecData=0
@@ -4958,6 +5097,9 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
+      call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(P_a,P_gq,P_gf,P_s, uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
+
+      ! Scatter data into neighboring DG nodes
       do k=0,1
          if(k==0) target_zeta =zetamin
          if(k==1) target_zeta =zetamax
@@ -4992,6 +5134,10 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
             vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
+            ! Volumetric Turbulent Flux (#/(m^2*s)) along tangential, normal, binormal directions, respectively
+            vid=7; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_B_cov(1)+Ta(m)*uvec_B_cov(2)+dve_gf(m)*uvec_B_cov(3))
+            vid=8; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_N_cov(1)+Ta(m)*uvec_N_cov(2)+dve_gf(m)*uvec_N_cov(3))
+            vid=9; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_BxN_cov(1)+Ta(m)*uvec_BxN_cov(2)+dve_gf(m)*uvec_BxN_cov(3))
 
             vid=1 ! Turbulent Particle Flux
             DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
@@ -5196,6 +5342,8 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1)
    real(wp) ::inv_tot_ni(DG%dim_gq, DG%dim_a)
 
+   real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
+
    DG%iScaData=0
    DG%iVecData=0
    do pbid=0,nPVS
@@ -5234,6 +5382,9 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
+      call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(P_a,P_gq,P_gf,P_s, uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
+
+      ! Scatter data into neighboring DG nodes
       do k=0,1
          if(k==0) target_zeta =zetamin
          if(k==1) target_zeta =zetamax
@@ -5267,6 +5418,11 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             vid=4; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Marker Distribution
             vid=5; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
             vid=6; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+            ! Volumetric Turbulent Flux (#/(m^2*s)) along tangential, normal, binormal directions, respectively
+            vid=9; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_B_cov(1)+Ta(m)*uvec_B_cov(2)+dvi_gf(m)*uvec_B_cov(3))
+            vid=10;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_N_cov(1)+Ta(m)*uvec_N_cov(2)+dvi_gf(m)*uvec_N_cov(3))
+            vid=11;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_BxN_cov(1)+Ta(m)*uvec_BxN_cov(2)+dvi_gf(m)*uvec_BxN_cov(3))
 
 
             vid=1 ! Turbulent Particle Flux
