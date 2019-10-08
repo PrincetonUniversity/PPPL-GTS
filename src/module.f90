@@ -309,7 +309,7 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: dne_adiab ! Electron adiabatic density for diagnostic purpose
       real(wp), allocatable, dimension(:,:,:) :: FLabel_Function
       real(wp), allocatable, dimension(:,:,:) :: FLA_Denominator, FLA_FLabel, FLA_psi0
-      real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_FLabel2,  FLA_SM_psi0
+      real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_psi0
       real(wp), allocatable, dimension(:,:) :: FLA_SM_FLabel_Left, FLA_SM_FLabel_Right
 
       ! Magnetic Field Information (ESI variables)

@@ -1352,7 +1352,6 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel_Left",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel_Left,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel_Right",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel_Right,h5err)
-      call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel2",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel2,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_psi0,h5err)
 
       do i=1,2

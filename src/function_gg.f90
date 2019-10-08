@@ -4662,9 +4662,7 @@ subroutine Init_Diagnostic_Grid
 
    ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
    real(wp) approx_da, approx_dgf
-   real(wp), allocatable, dimension(:,:) :: tmp_DG_Data1
-   real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data2, tmp_DG_Data3
-   real(wp) radial_psi0(0:1, mgrid)
+   real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data1, tmp_DG_Data2
    integer ierror, istatus(MPI_STATUS_SIZE)
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
@@ -4688,7 +4686,7 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%Cell_dS_a, DG%inv_Cell_dS_a, DG%Cell_dS_gq, DG%inv_Cell_dS_gq, DG%Cell_dS_gf, DG%inv_Cell_dS_gf, mold=DG%a_2D)
    allocate(DG%FLabel_Function(DG%dim_gq,DG%dim_a,0:1))
    allocate(DG%FLA_Denominator(DG%dim_gq,DG%dim_a,0:1), DG%FLA_FLabel(DG%dim_gq,DG%dim_a,0:1), DG%FLA_psi0(DG%dim_gq,DG%dim_a,0:1))
-   allocate(DG%FLA_SM_Denominator, DG%FLA_SM_FLabel, DG%FLA_SM_FLabel2, DG%FLA_SM_psi0,mold=DG%a_2D)
+   allocate(DG%FLA_SM_Denominator, DG%FLA_SM_FLabel, DG%FLA_SM_psi0,mold=DG%a_2D)
    allocate(DG%FLA_SM_FLabel_Left, DG%FLA_SM_FLabel_Right,mold=DG%a_2D)
    allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1) )
    allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1) )
@@ -4846,43 +4844,26 @@ subroutine Init_Diagnostic_Grid
 
       call Cal_FLA_Denominator_on_DG_using_gPPI
 
-      allocate(tmp_DG_Data1(DG%dim_gq, DG%dim_a))
-      allocate(tmp_DG_Data2(DG%dim_gq, DG%dim_a,0:1),tmp_DG_Data3(DG%dim_gq, DG%dim_a,0:1))
-
-      do i=0,mpsi
-         radial_psi0(:,igrid(i):igrid(i)+mtheta(i)) = psi_grid(i)
-      enddo
-
-      call Do_FieldLineAverage_on_DG_by_using_gPPI([DG%a_2D,DG%a_2D], tmp_DG_Data3)
-      DG%FLA_psi0 = tmp_DG_Data3
-
-      call Do_FieldLineAverage_on_DG_by_using_gPPI(DG%FLabel_Function, tmp_DG_Data3)
-      DG%FLA_FLabel= tmp_DG_Data3
+      allocate(tmp_DG_Data1(DG%dim_gq, DG%dim_a,0:1),tmp_DG_Data2(DG%dim_gq, DG%dim_a,0:1))
 
       DG%FLA_SM_Denominator=DG%FLA_Denominator(:,:,1)
       call Smooth_DG_Data_2D(3, DG%FLA_SM_Denominator)
+
+      call Do_FieldLineAverage_on_DG_by_using_gPPI([DG%a_2D,DG%a_2D], DG%FLA_psi0)
       DG%FLA_SM_psi0 = DG%FLA_psi0(:,:,1)
       call Smooth_DG_Data_2D(3, DG%FLA_SM_psi0)
 
-      ! Smooth FLabel using repetitive FieldLineAverage
-      tmp_DG_Data2 = DG%FLA_FLabel
-      do i=1,2
+      ! Cal FLabel using repetitive FieldLineAverage
+      tmp_DG_Data1 = DG%FLabel_Function
+      do i=1,4
+         tmp_DG_Data2 = tmp_DG_Data1
          call Smooth_DG_Data_2D(2, tmp_DG_Data2(:,:,0))
          call Smooth_DG_Data_2D(2, tmp_DG_Data2(:,:,1))
-         call Do_FieldLineAverage_on_DG_by_using_gPPI(tmp_DG_Data2, tmp_DG_Data3)
-         tmp_DG_Data2 = tmp_DG_Data3
+         call Do_FieldLineAverage_on_DG_by_using_gPPI(tmp_DG_Data2, tmp_DG_Data1)
       enddo
-      DG%FLA_SM_FLabel2 = tmp_DG_Data2(:,:,1)
-      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel2)
-
-
-      ! Smooth FLabel via direct smoothing
-      ! DG%FLA_SM_FLabel2=DG%FLA_FLabel(:,:,1)
-      ! DG%FLA_SM_FLabel2=DG%FLA_FLabel(:,:,1)
-      call Cal_FLA_FLabel_by_using_gPPI_iniFLabel(tmp_DG_Data3)
-      DG%FLA_SM_FLabel = tmp_DG_Data3(:,:,1)
-      call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel)
-
+      DG%FLA_FLabel = tmp_DG_Data1
+      DG%FLA_SM_FLabel = DG%FLA_FLabel(:,:,1)
+      call Smooth_DG_Data_2D(2, DG%FLA_SM_FLabel)
 
       !
       call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
@@ -4891,7 +4872,6 @@ subroutine Init_Diagnostic_Grid
                         DG%FLA_SM_FLabel_Right, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
 
       deallocate(tmp_DG_Data1,tmp_DG_Data2)
-      deallocate(tmp_DG_Data3)
    endif
 
 end subroutine Init_Diagnostic_Grid
