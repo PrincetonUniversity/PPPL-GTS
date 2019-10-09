@@ -4689,7 +4689,7 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%FLA_Denominator(DG%dim_gq,DG%dim_a,0:1), DG%FLA_FLabel(DG%dim_gq,DG%dim_a,0:1), DG%FLA_psi0(DG%dim_gq,DG%dim_a,0:1))
    allocate(DG%FLA_SM_Denominator, DG%FLA_SM_FLabel, DG%FLA_SM_psi0,mold=DG%a_2D)
    allocate(DG%FLA_SM_FLabel_Left, DG%FLA_SM_FLabel_Right,mold=DG%a_2D)
-   allocate(DG%grad_FLA_SM_FLabel(3,DG%dim_gq,DG%dim_a,0:1), DG%mag_grad_FLA_SM_FLabel(DG%dim_gq,DG%dim_a,0:1))
+   allocate(DG%grad_FLA_SM_FLabel(3,DG%dim_gq,DG%dim_a,0:1),DG%uvec_grad_FL_cov(3,DG%dim_gq,DG%dim_a,0:1), DG%mag_grad_FLA_SM_FLabel(DG%dim_gq,DG%dim_a,0:1))
 
    allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1) )
    allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1) )
@@ -4896,7 +4896,7 @@ subroutine Init_Diagnostic_Grid
 
    ! d(FL)/dgq with periodicity
    DG%grad_FLA_SM_FLabel(2,1,:,1) = (DG%FLA_SM_FLabel(2,:)-DG%FLA_SM_FLabel(Nq,:))/(2.0*DG%dgq)
-   DG%grad_FLA_SM_FLabel(2,2:Nq-1,:,1) = (DG%FLA_SM_FLabel(3:Nq,:)-DG%FLA_SM_FLabel(1:Nq-1,:))/(2.0*DG%dgq)
+   DG%grad_FLA_SM_FLabel(2,2:Nq-1,:,1) = (DG%FLA_SM_FLabel(3:Nq,:)-DG%FLA_SM_FLabel(1:Nq-2,:))/(2.0*DG%dgq)
    DG%grad_FLA_SM_FLabel(2,Nq,:,1) = DG%grad_FLA_SM_FLabel(2,1,:,1)
 
    ! d(FL)/dgf with periodicity
@@ -4941,7 +4941,7 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
 
    real(wp):: a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
    real(wp) Jacobian_, D_
-   real(wp):: g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_
+   real(wp):: g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_
 
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3)
    real(wp) vec_BxN_cntv(3), vec_BxN_cov(3) !Note tha theses are not the unit vectors
@@ -4996,18 +4996,19 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
    call esiget2dthese_more(F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,a_,gq_, 1)
    Jacobian_ = R_*(dZda_*dRdgq_-dZdgq_*dRda_)
    D_=dZda_*dRdgq_-dZdgq_*dRda_
-   g_aa_cntv_=(dRdgq_**2+dZdgq_**2)/D_**2   ! grada^2
-   g_qq_cntv_=(dZda_**2+dRda_**2)/D_**2   ! gradtheta^2
-   g_ff_cntv_=1.0_wp/R_**2                 ! gradphi^2
-   g_aq_cntv_=(-dRda_*dRdgq_-dZda_*dZdgq_)/D_**2  ! gradagradtheta
+
+   g_aa_cov_   = dRda_*dRda_+dZda_*dZda_;
+   g_aq_cov_  = dRda_*dRdgq_+dZda_*dZdgq_;
+   g_qq_cov_ = dRdgq_*dRdgq_+dZdgq_*dZdgq_;
+   g_ff_cov_ = R_**2
 
    vec_BxN_cntv(1) = (1.0/Jacobian_)*(uvec_B_cov(2)*uvec_N_cov(3)-uvec_B_cov(3)*uvec_N_cov(2))
    vec_BxN_cntv(2) = (1.0/Jacobian_)*(uvec_B_cov(3)*uvec_N_cov(1)-uvec_B_cov(1)*uvec_N_cov(3))
    vec_BxN_cntv(3) = (1.0/Jacobian_)*(uvec_B_cov(1)*uvec_N_cov(2)-uvec_B_cov(2)*uvec_N_cov(1))
 
-   vec_BxN_cov(1) = g_aa_cntv_*vec_BxN_cntv(1) + g_aq_cntv_*vec_BxN_cntv(2)
-   vec_BxN_cov(2) = g_aq_cntv_*vec_BxN_cntv(1) + g_qq_cntv_*vec_BxN_cntv(2)
-   vec_BxN_cov(3) = g_ff_cntv_*vec_BxN_cntv(3)
+   vec_BxN_cov(1) = g_aa_cov_*vec_BxN_cntv(1) + g_aq_cov_*vec_BxN_cntv(2)
+   vec_BxN_cov(2) = g_aq_cov_*vec_BxN_cntv(1) + g_qq_cov_*vec_BxN_cntv(2)
+   vec_BxN_cov(3) = g_ff_cov_*vec_BxN_cntv(3)
 
    uvec_BxN_cov   = vec_BxN_cov/sqrt(dot_product(vec_BxN_cov,vec_BxN_cntv))
 
