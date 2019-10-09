@@ -2758,7 +2758,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		*/
 {
 	int n = *nval;
-	int j0,j1,k;
+	int i,j0,j1,k;
 	REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,TT,PP;
 	REAL a,q;
 
@@ -2974,7 +2974,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 
 
 		REAL Coeff = 0.0;
-		for(int i=0;i<3;++i) {
+		for(i=0;i<3;++i) {
 			Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
 		}
 		Coeff = 1.0/Coeff;
@@ -2987,7 +2987,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 
 		// Calculate Full Velocity and acceleration of Guiding Center
 		dXgr[k] = 0.0;
-		for(int i=0;i<3;++i) {
+		for(i=0;i<3;++i) {
 			dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
 		}
 		dXgr[k] = Coeff*dXgr[k] -gat_array[k];
@@ -3013,7 +3013,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		// Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
 		if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
 			P[k] = 0.0; // d(rho_para)/dt
-			for(int i=0;i<3;++i) {
+			for(i=0;i<3;++i) {
 				P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
 			}
 			P[k] = Coeff*P[k] -gat_array[k];
@@ -3029,7 +3029,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		}
 		else{ //excluding the streaming term and perturbed mirror force
 			P[k] = 0.0; // d(rho_para)/dt
-			for(int i=0;i<3;++i) {
+			for(i=0;i<3;++i) {
 				P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]); // excluding the mirror force due to streaming along dB
 			}
 			P[k] = Coeff*P[k] -gat_array[k];
@@ -4344,7 +4344,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 		*/
 {
 	int n = *nval;
-	int j0,j1,k;
+	int i,j0,j1,k;
 	REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,T,P;
 	REAL a,q;
 
@@ -4560,7 +4560,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 
 
 		REAL Coeff = 0.0;
-		for(int i=0;i<3;++i) {
+		for(i=0;i<3;++i) {
 			Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
 		}
 		Coeff = c0cs/Coeff;
@@ -4572,7 +4572,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 
 		// Calculate Full Velocity and acceleration of Guiding Center
 		dXgr[k] = 0.0;
-		for(int i=0;i<3;++i) {
+		for(i=0;i<3;++i) {
 			dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
 		}
 		dXgr[k] = Coeff*dXgr[k] -gat_array[k];
@@ -4585,7 +4585,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 		// Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
 		if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
 			Pa[k] = 0.0; // d(rho_para)/dt
-			for(int i=0;i<3;++i) {
+			for(i=0;i<3;++i) {
 				Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
 			}
 			Pa[k] = Coeff*Pa[k] -gat_array[k];
@@ -4601,7 +4601,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 		}
 		else{ //excluding the streaming term and perturbed mirror force
 			Pa[k] = 0.0; // d(rho_para)/dt
-			for(int i=0;i<3;++i) {
+			for(i=0;i<3;++i) {
 				Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]); // excluding the mirror force due to streaming along dB
 			}
 			Pa[k] = Coeff*Pa[k] -gat_array[k];
