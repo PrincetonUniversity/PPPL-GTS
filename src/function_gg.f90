@@ -4939,9 +4939,9 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
    real(wp) target_zeta, safety_q
    integer :: j,k, sid, gqid, qq, ss
 
-   real(wp):: a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
+   real(wp):: F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
    real(wp) Jacobian_, D_
-   real(wp):: g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_
+   real(wp):: g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_
 
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3)
    real(wp) vec_BxN_cntv(3), vec_BxN_cov(3) !Note tha theses are not the unit vectors
@@ -4950,10 +4950,28 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
    ori_inv_ds = real(mpsi)/(s1-s0)
 
    !Calculate Interpolation of uvec_N_cov which uses the precalculated DG%uvec_grad_FL_cov on DG nodes
+   !Get uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
+   call esiget_Intp_B_vec_cov_and_cntv(in_a, in_gq, in_gf, istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+   uvec_B_cov   = tot_B_vec_cov/sqrt(dot_product(tot_B_vec_cov,tot_B_vec_cntv))
+
+   call esiget2dthese_more(F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,in_a,in_gq, 1)
+   Jacobian_ = R_*(dZda_*dRdgq_-dZdgq_*dRda_)
+   D_=dZda_*dRdgq_-dZdgq_*dRda_
+
+   g_aa_cov_   = dRda_*dRda_+dZda_*dZda_;
+   g_aq_cov_  = dRda_*dRdgq_+dZda_*dZdgq_;
+   g_qq_cov_ = dRdgq_*dRdgq_+dZdgq_*dZdgq_;
+   g_ff_cov_ = R_**2
+
+   g_aa_cntv_=(dRdgq_**2+dZdgq_**2)/D_**2   ! grada^2
+   g_qq_cntv_=(dZda_**2+dRda_**2)/D_**2   ! gradtheta^2
+   g_ff_cntv_=1.0_wp/R_**2                 ! gradphi^2
+   g_aq_cntv_=(-dRda_*dRdgq_-dZda_*dZdgq_)/D_**2  ! gradagradtheta
+
+
    ori_sid = (in_s-s0)*ori_inv_ds ! s index of original full grid
    ff  = (in_s-s_grid(ori_sid))*ori_inv_ds
    safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
-
    sid = max(0,min(int((in_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
    ws1 = (in_s-DG%s_1D(sid))*DG%inv_ds
    ws0 = 1.0-ws1
@@ -4987,20 +5005,7 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
          uvec_N_cov = uvec_N_cov+ratio*DG%uvec_grad_FL_cov(:,qq,ss,k)
       enddo
    enddo
-
-
-   !Get uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
-   call esiget_Intp_B_vec_cov_and_cntv(in_a, in_gq, in_gf, istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-   uvec_B_cov   = tot_B_vec_cov/sqrt(dot_product(tot_B_vec_cov,tot_B_vec_cntv))
-
-   call esiget2dthese_more(F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,a_,gq_, 1)
-   Jacobian_ = R_*(dZda_*dRdgq_-dZdgq_*dRda_)
-   D_=dZda_*dRdgq_-dZdgq_*dRda_
-
-   g_aa_cov_   = dRda_*dRda_+dZda_*dZda_;
-   g_aq_cov_  = dRda_*dRdgq_+dZda_*dZdgq_;
-   g_qq_cov_ = dRdgq_*dRdgq_+dZdgq_*dZdgq_;
-   g_ff_cov_ = R_**2
+   uvec_N_cov = uvec_N_cov/sqrt( g_aa_cntv_*uvec_N_cov(1)**2.0 + 2.0*g_aq_cntv_*uvec_N_cov(1)*uvec_N_cov(2) + g_qq_cntv_*uvec_N_cov(2)**2.0 + g_ff_cntv_*uvec_N_cov(3)**2.0)
 
    vec_BxN_cntv(1) = (1.0/Jacobian_)*(uvec_B_cov(2)*uvec_N_cov(3)-uvec_B_cov(3)*uvec_N_cov(2))
    vec_BxN_cntv(2) = (1.0/Jacobian_)*(uvec_B_cov(3)*uvec_N_cov(1)-uvec_B_cov(1)*uvec_N_cov(3))

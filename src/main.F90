@@ -92,7 +92,6 @@ program GTS
 
    ! input parameters, setup equilibrium, allocate memory
    call setup
-   call snapshot_Magnetic_Information
 
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
@@ -219,6 +218,7 @@ program GTS
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
       call snapshot_hdf5
+      call snapshot_Magnetic_Information
       call check_tracer_e
       call check_tracer_i
       call snapshot     ! snapshot at t=0

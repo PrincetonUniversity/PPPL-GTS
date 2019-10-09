@@ -1574,12 +1574,13 @@ subroutine snapshot_Magnetic_Information
    real(wp) :: intp_val, inv_dgq(0:mpsi)
    integer :: i,j,ij,k,jt,jm
 
-   real(wp), dimension(:), allocatable :: a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
+   real(wp), dimension(:), allocatable :: a_,s_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
    real(wp), dimension(:), allocatable ::Jacobian_, esi_N_, esi_K_, g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
    real(wp), dimension(:), allocatable :: D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_
    real(wp), dimension(:,:), allocatable :: B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_
    real(wp), dimension(:), allocatable :: ini_ga_, ini_dga0dt_ ! initial magnetic perturbation
    real(wp), dimension(:,:), allocatable :: ini_dB_cov3_, ini_dB_cntv3_, ini_grad_ga_cov3_! initial magnetic perturbation at t=0
+   real(wp), dimension(:,:), allocatable :: uvec_B_cov, uvec_N_cov, uvec_BxN_cov
 
    character(LEN=128) :: file_path
    integer(HSIZE_T) :: h5dims(3)
@@ -1596,11 +1597,12 @@ subroutine snapshot_Magnetic_Information
 
 
       allocate(a_(dim_gq*dim_a))
-      allocate(gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,mold=a_)
+      allocate(s_,gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,mold=a_)
       allocate(Jacobian_, esi_N_,esi_K_,g_aa_cov_,g_aq_cov_,g_qq_cov_,g_ff_cov_, mold=a_)
       allocate(D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_, mold=a_)
       allocate(B0_cov3_(3,size(a_)))
       allocate(B0_cntv3_,j0_cov3_,j0_cntv3_, mold=B0_cov3_)
+      allocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov, mold=B0_cov3_)
 
       if(electromagnetic==1) then
          allocate(ini_ga_,ini_dga0dt_, mold=a_)
@@ -1611,6 +1613,7 @@ subroutine snapshot_Magnetic_Information
       do i=0,mpsi,a_jump
          do j=0,jm
             a_(k)=psi_grid(i)
+            s_(k)=s_grid(i)
             gq_(k)=2.0*pi*real(j)/real(jm)
             k=k+1
          enddo
@@ -1649,6 +1652,9 @@ subroutine snapshot_Magnetic_Information
       j0_cov3_(2,:) = g_aq_cov_*j0_cntv3_(1,:) + g_qq_cov_*j0_cntv3_(2,:)
       j0_cov3_(3,:) = g_ff_cov_*j0_cntv3_(3,:)
 
+      do k=1,size(a_)
+         call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(a_(k), gq_(k), zetamax,s_(k),uvec_B_cov(:,k), uvec_N_cov(:,k), uvec_BxN_cov(:,k))
+      enddo
 
       if(electromagnetic==1)then
          ! Get initial magnetic perturbation information
@@ -1725,6 +1731,9 @@ subroutine snapshot_Magnetic_Information
       call h5ltmake_dataset_f(file_id, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, B0_cntv3_,h5err)
       call h5ltmake_dataset_f(file_id, "j0_cov",3,h5dims,H5T_NATIVE_DOUBLE, j0_cov3_,h5err)
       call h5ltmake_dataset_f(file_id, "j0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, j0_cntv3_,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_B_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_B_cov,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_N_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_N_cov,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_BxN_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_BxN_cov,h5err)
 
 
 
@@ -1749,10 +1758,11 @@ subroutine snapshot_Magnetic_Information
       call h5close_f(h5err)
 
 
-      deallocate(a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_)
+      deallocate(a_,s_,gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_)
       deallocate(Jacobian_, esi_N_, esi_K_, g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_)
       deallocate(D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_)
       deallocate(B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_)
+      deallocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
       if(electromagnetic==1)then
          deallocate(ini_ga_,ini_dga0dt_)
          deallocate(ini_dB_cov3_,ini_dB_cntv3_, ini_grad_ga_cov3_)
