@@ -5020,7 +5020,7 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
 end subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface
 
 
-subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
+subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
    use precision
    use Diagnostic_Grid
@@ -5034,7 +5034,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
    implicit none
 
    real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
-   real(wp), intent(in) :: vel_dsdgqdgf(3,me)
+   real(wp), intent(in) :: Full_dadgqdgf(3,me)
    real(wp) energy(me)
    !P varaiables are at particle position
    real(wp) P_s, P_safety_q !safety factor
@@ -5141,14 +5141,22 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
             ! Volumetric Turbulent Flux (#/(m^2*s)) along tangential, normal, binormal directions, respectively
-            vid=7; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_B_cov(1)+Ta(m)*uvec_B_cov(2)+dve_gf(m)*uvec_B_cov(3))
-            vid=8; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_N_cov(1)+Ta(m)*uvec_N_cov(2)+dve_gf(m)*uvec_N_cov(3))
-            vid=9; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_BxN_cov(1)+Ta(m)*uvec_BxN_cov(2)+dve_gf(m)*uvec_BxN_cov(3))
+            ! vid=7; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_B_cov(1)+Ta(m)*uvec_B_cov(2)+dve_gf(m)*uvec_B_cov(3))
+            ! vid=8; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_N_cov(1)+Ta(m)*uvec_N_cov(2)+dve_gf(m)*uvec_N_cov(3))
+            ! vid=9; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_BxN_cov(1)+Ta(m)*uvec_BxN_cov(2)+dve_gf(m)*uvec_BxN_cov(3))
+            vid=7; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_B_cov)
+            vid=8; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_N_cov)
+            vid=9; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_BxN_cov)
+
 
             vid=1 ! Turbulent Particle Flux
-            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
-            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*Ta(m)) ! theta Flux
-            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*dve_gf(m)) ! zeta Flux
+            ! DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
+            ! DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*Ta(m)) ! theta Flux
+            ! DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*dve_gf(m)) ! zeta Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*delta_f(m)*Full_dadgqdgf(1,m) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*delta_f(m)*Full_dadgqdgf(2,m) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*delta_f(m)*Full_dadgqdgf(3,m) ! zeta Flux
+
 
             vid=2 ! Turbulent Particle Flux due to ExB only
             DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
@@ -5156,9 +5164,12 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
 
             vid=3 ! Turbulent Energy Flux
-            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*ghq(m)) ! Radial Flux
-            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Ta(m)) ! theta Flux
-            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*dve_gf(m)) ! zeta Flux
+            ! DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*ghq(m)) ! Radial Flux
+            ! DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Ta(m)) ! theta Flux
+            ! DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*dve_gf(m)) ! zeta Flux
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Full_dadgqdgf(1,m)) ! Radial Flux
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Full_dadgqdgf(2,m)) ! theta Flux
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Full_dadgqdgf(3,m)) ! zeta Flux
 
             vid=4 ! Turbulent Energy Flux due to ExB only
             DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(ghq(m)-vpara_dve_a(m))) ! Radial Flux
@@ -5166,9 +5177,9 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dve_gf(m)-vpara_dve_gf(m)) )! zeta Flux
 
             vid=5 ! To measure CFL condition (v*dt/dx)
-            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*abs(tstep*vel_dsdgqdgf(1,m)*ori_inv_ds)
-            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*abs(tstep*(vel_dsdgqdgf(2,m)-vel_dsdgqdgf(3,m)/P_safety_q)*P_inv_ori_dgq) !time derivative of target_gq=gq-gf/safety_q
-            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*abs(tstep*vel_dsdgqdgf(3,m)*ori_inv_dgf)
+            DG%eVecData(1,qq,ss,vid,k) = DG%eVecData(1,qq,ss,vid,k) + ratio*abs(tstep*((Tc/backT(m))**dsda_power*Full_dadgqdgf(1,m))*ori_inv_ds)
+            DG%eVecData(2,qq,ss,vid,k) = DG%eVecData(2,qq,ss,vid,k) + ratio*abs(tstep*(Full_dadgqdgf(2,m)-Full_dadgqdgf(3,m)/P_safety_q)*P_inv_ori_dgq) !time derivative of target_gq=gq-gf/safety_q
+            DG%eVecData(3,qq,ss,vid,k) = DG%eVecData(3,qq,ss,vid,k) + ratio*abs(tstep*Full_dadgqdgf(3,m)*ori_inv_dgf)
          enddo
       enddo
 
@@ -5312,7 +5323,7 @@ end subroutine Measure_Electrons_on_Diagnostic_Grid
 
 
 
-subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
+subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
    use precision
    use Diagnostic_Grid
@@ -5326,7 +5337,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
    implicit none
 
    real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
-   real(wp), intent(in) :: vel_dsdgqdgf(3,mi)
+   real(wp), intent(in) :: Full_dadgqdgf(3,mi)
    real(wp) energy(mi)
    !P varaiables are at particle position
    real(wp) P_s, P_safety_q !safety factor
@@ -5426,15 +5437,21 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             vid=6; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
             ! Volumetric Turbulent Flux (#/(m^2*s)) along tangential, normal, binormal directions, respectively
-            vid=9; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_B_cov(1)+Ta(m)*uvec_B_cov(2)+dvi_gf(m)*uvec_B_cov(3))
-            vid=10;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_N_cov(1)+Ta(m)*uvec_N_cov(2)+dvi_gf(m)*uvec_N_cov(3))
-            vid=11;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_BxN_cov(1)+Ta(m)*uvec_BxN_cov(2)+dvi_gf(m)*uvec_BxN_cov(3))
-
+            ! vid=9; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_B_cov(1)+Ta(m)*uvec_B_cov(2)+dvi_gf(m)*uvec_B_cov(3))
+            ! vid=10;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_N_cov(1)+Ta(m)*uvec_N_cov(2)+dvi_gf(m)*uvec_N_cov(3))
+            ! vid=11;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_BxN_cov(1)+Ta(m)*uvec_BxN_cov(2)+dvi_gf(m)*uvec_BxN_cov(3))
+            vid=9; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_B_cov)
+            vid=10;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_N_cov)
+            vid=11;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_BxN_cov)
 
             vid=1 ! Turbulent Particle Flux
-            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
-            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*Ta(m)) ! theta Flux
-            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+            ! DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
+            ! DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*(delta_f(m)*Ta(m)) ! theta Flux
+            ! DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*delta_f(m)*Full_dadgqdgf(1,m) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*delta_f(m)*Full_dadgqdgf(2,m) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*delta_f(m)*Full_dadgqdgf(3,m) ! zeta Flux
+
 
             vid=2 ! Turbulent Particle Flux due to ExB only
             DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
@@ -5442,9 +5459,14 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
 
             vid=3 ! Turbulent Energy Flux
-            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*ghq(m)) ! Radial Flux
-            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Ta(m)) ! theta Flux
-            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+            ! DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*ghq(m)) ! Radial Flux
+            ! DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Ta(m)) ! theta Flux
+            ! DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*dvi_gf(m)) ! zeta Flux
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Full_dadgqdgf(1,m)) ! Radial Flux
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Full_dadgqdgf(2,m)) ! theta Flux
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*Full_dadgqdgf(3,m)) ! zeta Flux
+
+
 
             vid=4 ! Turbulent Energy Flux due to ExB only
             DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(ghq(m)-vpara_dvi_a(m))) ! Radial Flux
@@ -5452,9 +5474,9 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, vel_dsdgqdgf)
             DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*energy(m)*(delta_f(m)*(dvi_gf(m)-vpara_dvi_gf(m)) )! zeta Flux
 
             vid=5 ! To measure CFL condition (v*dt/dx)
-            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*abs(tstep*vel_dsdgqdgf(1,m)*ori_inv_ds)
-            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*abs(tstep*(vel_dsdgqdgf(2,m)-vel_dsdgqdgf(3,m)/P_safety_q)*P_inv_ori_dgq) !time derivative of target_gq=gq-gf/safety_q
-            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*abs(tstep*vel_dsdgqdgf(3,m)*ori_inv_dgf)
+            DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*abs(tstep*((Tc/backT(m))**dsda_power*Full_dadgqdgf(1,m))*ori_inv_ds)
+            DG%iVecData(2,qq,ss,vid,k) = DG%iVecData(2,qq,ss,vid,k) + ratio*abs(tstep*(Full_dadgqdgf(2,m)-Full_dadgqdgf(3,m)/P_safety_q)*P_inv_ori_dgq) !time derivative of target_gq=gq-gf/safety_q
+            DG%iVecData(3,qq,ss,vid,k) = DG%iVecData(3,qq,ss,vid,k) + ratio*abs(tstep*Full_dadgqdgf(3,m)*ori_inv_dgf)
          enddo
       enddo
 
