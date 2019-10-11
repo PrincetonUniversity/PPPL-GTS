@@ -581,8 +581,10 @@ subroutine system_mem_usage
    character(len=200):: filename=' '
    character(len=80) :: line
    character(len=8)  :: pid_char=' '
-   integer :: pid,getpid
+   integer :: pid,getpid,rid,ierror
    logical :: ifxst
+
+   integer :: int_arr(8), gathered_int_arr(8,numberpe)
 
    ! return negative number if not found
    val_VmRSS=-1
@@ -617,12 +619,22 @@ subroutine system_mem_usage
    close(1234)
 
    !--- Print out mem. usage information
-   write(stdout,*) 'istep=', istep, ' mype=',mype,'pid=',pid, '; VmRSS=', val_VmRSS, 'kB; ', 'VmSize=', val_VmSize, 'kB; ','VmPeak=', val_VmPeak, 'kB; '
-   call flush(stdout)
+   if(mype==0) then
+      write(stdout,*) 'istep=', istep, ' mype=',mype,'pid=',pid, '; VmRSS=', val_VmRSS, 'kB; ', 'VmSize=', val_VmSize, 'kB; ','VmPeak=', val_VmPeak, 'kB; '
+      call flush(stdout)
+   endif
+
+   int_arr(1:8)=[istep, mype, pid, mi, me, val_VmRSS, val_VmSize, val_VmPeak]
+
+   call MPI_GATHER(int_arr,8,MPI_INTEGER, gathered_int_arr, 8, MPI_INTEGER, 0,MPI_COMM_WORLD,ierror)
 
    if(mype==0) then
       open(unit=190923,file='gts_mem_usage.dat',position='append',action='write')
-      write(190923,*) 'istep=', istep, ' mype=',mype,'pid=',pid, 'mi=',mi,'me=',me,'; VmRSS=', val_VmRSS, 'kB; ', 'VmSize=', val_VmSize, 'kB; ','VmPeak=', val_VmPeak, 'kB; '
+      ! write(190923,*) istep, mype, pid, mi, me, val_VmRSS, val_VmSize, val_VmPeak
+      do rid=1,numberpe
+         write(190923, "(8(I8,1x))") gathered_int_arr(:,rid)
+      enddo
+      call flush(190923)
       close(190923)
    endif
 
