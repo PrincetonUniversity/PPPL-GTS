@@ -3082,7 +3082,7 @@ subroutine Get_FLA_Te0_Ti0_n0
    call Do_FieldLineAverage_by_using_gPPI(n0_Data, FLA_n0)
    call Do_FieldLineAverage_by_using_gPPI(radial_psi, FLA_psi0)
 
-   call Get_FLA_FieldLabel_by_using_gPPI(FLA_FLabel)
+   call Do_FieldLineAverage_by_using_gPPI(FLabel_Function, FLA_FLabel)
 
 end subroutine Get_FLA_Te0_Ti0_n0
 
@@ -3430,6 +3430,7 @@ subroutine Do_FieldLineAverage_from_oriGrid_to_DG(oriG_TargetData, DG_FLA_Result
    length = DG%dim_gq*DG%dim_a
    call MPI_SENDRECV(DG_FLA_ResultData(:,:,0),length,mpi_Rsize,left_pe,1, tmp_DG_Data,length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG_FLA_ResultData(:,:,1) = DG_FLA_ResultData(:,:,1) + tmp_DG_Data
+   call MPI_SENDRECV(DG_FLA_ResultData(:,:,1),length,mpi_Rsize,right_pe,1, DG_FLA_ResultData(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
    ! Last part is to divide FLA_ResultData by DG%FLA_Denominator to get correct line-averaged FLA_ResultData
    DG_FLA_ResultData = DG_FLA_ResultData/DG%FLA_Denominator
@@ -3606,13 +3607,14 @@ subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultD
    length = DG%dim_gq*DG%dim_a
    call MPI_SENDRECV(DG_FLA_ResultData(:,:,0),length,mpi_Rsize,left_pe,1, tmp_DG_Data,length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG_FLA_ResultData(:,:,1) = DG_FLA_ResultData(:,:,1) + tmp_DG_Data
+   call MPI_SENDRECV(DG_FLA_ResultData(:,:,1),length,mpi_Rsize,right_pe,1, DG_FLA_ResultData(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
    ! Last part is to divide FLA_ResultData by DG%FLA_Denominator to get correct line-averaged FLA_ResultData
    DG_FLA_ResultData = DG_FLA_ResultData/DG%FLA_Denominator
 
 end subroutine Do_FieldLineAverage_on_DG_by_using_gPPI
 
-subroutine Cal_FLA_FLabel_by_using_gPPI_iniFLabel(DG_FLA_ResultData)
+subroutine Cal_FLA_FLabel_on_DG_by_using_gPPI_iniFLabel(DG_FLA_ResultData)
    use mpi_defs
    use precision
    use global_parameters
@@ -3736,11 +3738,12 @@ subroutine Cal_FLA_FLabel_by_using_gPPI_iniFLabel(DG_FLA_ResultData)
    length = DG%dim_gq*DG%dim_a
    call MPI_SENDRECV(DG_FLA_ResultData(:,:,0),length,mpi_Rsize,left_pe,1, tmp_DG_Data,length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
    DG_FLA_ResultData(:,:,1) = DG_FLA_ResultData(:,:,1) + tmp_DG_Data
+   call MPI_SENDRECV(DG_FLA_ResultData(:,:,1),length,mpi_Rsize,right_pe,1, DG_FLA_ResultData(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
    ! Last part is to divide FLA_ResultData by DG%FLA_Denominator to get correct line-averaged FLA_ResultData
    DG_FLA_ResultData = DG_FLA_ResultData/DG%FLA_Denominator
 
-end subroutine Cal_FLA_FLabel_by_using_gPPI_iniFLabel
+end subroutine Cal_FLA_FLabel_on_DG_by_using_gPPI_iniFLabel
 
 subroutine Get_FLA_FieldLabel_by_using_gPPI(FLA_ResultData)
    use mpi_defs
@@ -3871,7 +3874,7 @@ subroutine Cal_FLA_Denominator_on_DG_using_gPPI
 
    implicit none
 
-   real(wp) tmp_Data(DG%dim_gq,DG%dim_a,0:1)
+   real(wp) tmp_Data(DG%dim_gq,DG%dim_a)
    real(wp) this_gq, this_s, this_gf, ori_inv_ds, this_safety_q
    real(wp) target_gq, target_zeta
    real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
@@ -3889,7 +3892,6 @@ subroutine Cal_FLA_Denominator_on_DG_using_gPPI
 
    ! Scatter Averaged data to grid nodes
    DG%FLA_Denominator = 0.0
-   DG%FLA_FLabel = 0.0
    do Fid=1,num_of_SampledFieldLines
       do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
 
@@ -3949,8 +3951,9 @@ subroutine Cal_FLA_Denominator_on_DG_using_gPPI
    ! Communicate DG%FLA_FLabel between nodes
    ! toroidal end cell
    length = DG%dim_gq*DG%dim_a
-   call MPI_SENDRECV(DG%FLA_Denominator(:,:,0),length,mpi_Rsize,left_pe,1, tmp_Data(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
-   DG%FLA_Denominator(:,:,1) = DG%FLA_Denominator(:,:,1) + tmp_Data(:,:,1)
+   call MPI_SENDRECV(DG%FLA_Denominator(:,:,0),length,mpi_Rsize,left_pe,1, tmp_Data,length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+   DG%FLA_Denominator(:,:,1) = DG%FLA_Denominator(:,:,1) + tmp_Data
+   call MPI_SENDRECV(DG%FLA_Denominator(:,:,1),length,mpi_Rsize,right_pe,1, DG%FLA_Denominator(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
 end subroutine Cal_FLA_Denominator_on_DG_using_gPPI
 
@@ -4857,15 +4860,16 @@ subroutine Init_Diagnostic_Grid
       call Smooth_DG_Data_2D(3, DG%FLA_SM_psi0)
 
       ! Cal FLabel using repetitive FieldLineAverage
-      tmp_DG_Data1 = DG%FLabel_Function
+      call Cal_FLA_FLabel_on_DG_by_using_gPPI_iniFLabel(DG%FLA_FLabel)
+      tmp_DG_Data1 = DG%FLA_FLabel
       do i=1,4
-         tmp_DG_Data2 = tmp_DG_Data1
-         call Smooth_DG_Data_2D(2, tmp_DG_Data2(:,:,0))
-         call Smooth_DG_Data_2D(2, tmp_DG_Data2(:,:,1))
-         call Do_FieldLineAverage_on_DG_by_using_gPPI(tmp_DG_Data2, tmp_DG_Data1)
+         call Smooth_DG_Data_2D(2, tmp_DG_Data1(:,:,0))
+         call Smooth_DG_Data_2D(2, tmp_DG_Data1(:,:,1))
+         call Do_FieldLineAverage_on_DG_by_using_gPPI(tmp_DG_Data1, tmp_DG_Data2)
+         tmp_DG_Data1=tmp_DG_Data2
       enddo
-      DG%FLA_FLabel = tmp_DG_Data1
-      DG%FLA_SM_FLabel = DG%FLA_FLabel(:,:,1)
+      ! DG%FLA_FLabel = tmp_DG_Data1
+      DG%FLA_SM_FLabel = tmp_DG_Data1(:,:,1)
       call Smooth_DG_Data_2D(1, DG%FLA_SM_FLabel)
 
       deallocate(tmp_DG_Data1,tmp_DG_Data2)
