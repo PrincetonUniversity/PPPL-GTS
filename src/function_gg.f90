@@ -4949,6 +4949,7 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
 
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3)
    real(wp) vec_BxN_cntv(3), vec_BxN_cov(3) !Note tha theses are not the unit vectors
+   real(wp) uvec_B_cntv(3)
    real(wp), intent(out) :: uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
 
    ori_inv_ds = real(mpsi)/(s1-s0)
@@ -5009,6 +5010,11 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
          uvec_N_cov = uvec_N_cov+ratio*DG%uvec_grad_FL_cov(:,qq,ss,k)
       enddo
    enddo
+
+   ! Remove a possible small error part of uvec_N_cov which is parallel to the magnetic field
+   uvec_B_cntv = tot_B_vec_cntv/sqrt(dot_product(tot_B_vec_cov,tot_B_vec_cntv))
+   uvec_N_cov= uvec_N_cov - dot_product(uvec_N_cov,uvec_B_cntv)*uvec_B_cov
+
    uvec_N_cov = uvec_N_cov/sqrt( g_aa_cntv_*uvec_N_cov(1)**2.0 + 2.0*g_aq_cntv_*uvec_N_cov(1)*uvec_N_cov(2) + g_qq_cntv_*uvec_N_cov(2)**2.0 + g_ff_cntv_*uvec_N_cov(3)**2.0)
 
    vec_BxN_cntv(1) = (1.0/Jacobian_)*(uvec_B_cov(2)*uvec_N_cov(3)-uvec_B_cov(3)*uvec_N_cov(2))
