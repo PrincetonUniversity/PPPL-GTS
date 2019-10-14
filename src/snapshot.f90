@@ -534,6 +534,22 @@ subroutine snapshot_hdf5
    character(LEN=128) :: file_path
    character(LEN=128) :: cdum
 
+   real(wp) DG_FLA_Data(DG%dim_gq,DG%dim_a,0:1)
+   real(wp), dimension(:,:,:),allocatable :: DG_FLA_eScaData, DG_FLA_iScaData
+
+
+   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
+      allocate(DG_FLA_eScaData(DG%dim_gq,DG%dim_a,7:18), DG_FLA_iScaData(DG%dim_gq,DG%dim_a,9:20))
+      ! Calculate some DG FLA quantities
+      do i=7,18
+         call Do_FieldLineAverage_on_DG_by_using_gPPI((DG%eScaData(:,:,i,:)), DG_FLA_Data)
+         DG_FLA_eScaData(:,:,i) = DG_FLA_Data(:,:,1)
+      enddo
+      do i=9,20
+         call Do_FieldLineAverage_on_DG_by_using_gPPI((DG%iScaData(:,:,i,:)), DG_FLA_Data)
+         DG_FLA_iScaData(:,:,i) = DG_FLA_Data(:,:,1)
+      enddo
+   endif
 
    msnap_for_All = msnap*50
 
@@ -1354,6 +1370,35 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_psi0,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/mag_grad_FL",2,h5dims,H5T_NATIVE_DOUBLE, DG%mag_grad_FLA_SM_FLabel(:,:,1),h5err)
 
+
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,7),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,8),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,9),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,10),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,11),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,12),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,13),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,14),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,15),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,16),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,17),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,18),h5err)
+
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,9),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,10),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,11),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,12),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,13),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,14),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,15),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,16),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,17),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,18),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,19),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,20),h5err)
+
+
+
       h5dims(1:3)=(/3,DG%dim_gq,DG%dim_a/)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/grad_FL",3,h5dims,H5T_NATIVE_DOUBLE, DG%grad_FLA_SM_FLabel(:,:,:,1),h5err)
       h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
@@ -1527,6 +1572,11 @@ subroutine snapshot_hdf5
    deallocate(intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi)
    deallocate(intp_mean_dE_cov3, right_mean_dE_cov3, left_mean_dE_cov3)
    deallocate(intp_FLA_dE_cov3, right_FLA_dE_cov3, left_FLA_dE_cov3)
+
+   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
+      deallocate(DG_FLA_eScaData, DG_FLA_iScaData)
+   endif
+
 
 
    ! ! ===========================
