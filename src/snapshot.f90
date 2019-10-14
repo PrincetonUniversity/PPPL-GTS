@@ -1581,6 +1581,7 @@ subroutine snapshot_Magnetic_Information
    real(wp), dimension(:), allocatable :: ini_ga_, ini_dga0dt_ ! initial magnetic perturbation
    real(wp), dimension(:,:), allocatable :: ini_dB_cov3_, ini_dB_cntv3_, ini_grad_ga_cov3_! initial magnetic perturbation at t=0
    real(wp), dimension(:,:), allocatable :: uvec_B_cov, uvec_N_cov, uvec_BxN_cov
+   real(wp), dimension(:,:), allocatable :: uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv
 
    character(LEN=128) :: file_path
    integer(HSIZE_T) :: h5dims(3)
@@ -1603,6 +1604,7 @@ subroutine snapshot_Magnetic_Information
       allocate(B0_cov3_(3,size(a_)))
       allocate(B0_cntv3_,j0_cov3_,j0_cntv3_, mold=B0_cov3_)
       allocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov, mold=B0_cov3_)
+      allocate(uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv, mold=B0_cov3_)
 
       if(electromagnetic==1) then
          allocate(ini_ga_,ini_dga0dt_, mold=a_)
@@ -1653,7 +1655,7 @@ subroutine snapshot_Magnetic_Information
       j0_cov3_(3,:) = g_ff_cov_*j0_cntv3_(3,:)
 
       do k=1,size(a_)
-         call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(a_(k), gq_(k), zetamax,s_(k),uvec_B_cov(:,k), uvec_N_cov(:,k), uvec_BxN_cov(:,k))
+         call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(a_(k), gq_(k), zetamax,s_(k),uvec_B_cov(:,k),uvec_B_cntv(:,k),uvec_N_cov(:,k),uvec_N_cntv(:,k),uvec_BxN_cov(:,k),uvec_BxN_cntv(:,k))
       enddo
 
       if(electromagnetic==1)then
@@ -1734,6 +1736,9 @@ subroutine snapshot_Magnetic_Information
       call h5ltmake_dataset_f(file_id, "uvec_B_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_B_cov,h5err)
       call h5ltmake_dataset_f(file_id, "uvec_N_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_N_cov,h5err)
       call h5ltmake_dataset_f(file_id, "uvec_BxN_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_BxN_cov,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_B_cntv",3,h5dims,H5T_NATIVE_DOUBLE, uvec_B_cntv,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_N_cntv",3,h5dims,H5T_NATIVE_DOUBLE, uvec_N_cntv,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_BxN_cntv",3,h5dims,H5T_NATIVE_DOUBLE, uvec_BxN_cntv,h5err)
 
 
 
@@ -1763,6 +1768,7 @@ subroutine snapshot_Magnetic_Information
       deallocate(D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_)
       deallocate(B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_)
       deallocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
+      deallocate(uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv)
       if(electromagnetic==1)then
          deallocate(ini_ga_,ini_dga0dt_)
          deallocate(ini_dB_cov3_,ini_dB_cntv3_, ini_grad_ga_cov3_)

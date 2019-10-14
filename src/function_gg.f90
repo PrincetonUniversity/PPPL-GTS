@@ -4926,7 +4926,7 @@ subroutine Init_Diagnostic_Grid
 end subroutine Init_Diagnostic_Grid
 
 
-subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_gq, in_gf, in_s, uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
+subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_gq, in_gf, in_s, uvec_B_cov, uvec_B_cntv, uvec_N_cov, uvec_N_cntv, uvec_BxN_cov, uvec_BxN_cntv)
    use precision
    use Diagnostic_Grid
    use global_parameters
@@ -4949,8 +4949,8 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
 
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3)
    real(wp) vec_BxN_cntv(3), vec_BxN_cov(3) !Note tha theses are not the unit vectors
-   real(wp) uvec_B_cntv(3)
    real(wp), intent(out) :: uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
+   real(wp), intent(out) :: uvec_B_cntv(3), uvec_N_cntv(3), uvec_BxN_cntv(3)
 
    ori_inv_ds = real(mpsi)/(s1-s0)
 
@@ -5016,6 +5016,9 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
    uvec_N_cov= uvec_N_cov - dot_product(uvec_N_cov,uvec_B_cntv)*uvec_B_cov
 
    uvec_N_cov = uvec_N_cov/sqrt( g_aa_cntv_*uvec_N_cov(1)**2.0 + 2.0*g_aq_cntv_*uvec_N_cov(1)*uvec_N_cov(2) + g_qq_cntv_*uvec_N_cov(2)**2.0 + g_ff_cntv_*uvec_N_cov(3)**2.0)
+   uvec_N_cntv(1) = g_aa_cntv_*uvec_N_cov(1) + g_aq_cntv_*uvec_N_cov(2)
+   uvec_N_cntv(2) = g_aq_cntv_*uvec_N_cov(1) + g_qq_cntv_*uvec_N_cov(2)
+   uvec_N_cntv(3) = g_ff_cntv_*uvec_N_cov(3)
 
    vec_BxN_cntv(1) = (1.0/Jacobian_)*(uvec_B_cov(2)*uvec_N_cov(3)-uvec_B_cov(3)*uvec_N_cov(2))
    vec_BxN_cntv(2) = (1.0/Jacobian_)*(uvec_B_cov(3)*uvec_N_cov(1)-uvec_B_cov(1)*uvec_N_cov(3))
@@ -5026,6 +5029,7 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
    vec_BxN_cov(3) = g_ff_cov_*vec_BxN_cntv(3)
 
    uvec_BxN_cov   = vec_BxN_cov/sqrt(dot_product(vec_BxN_cov,vec_BxN_cntv))
+   uvec_BxN_cntv  = vec_BxN_cntv/sqrt(dot_product(vec_BxN_cov,vec_BxN_cntv))
 
 end subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface
 
@@ -5113,7 +5117,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
-      call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(P_a,P_gq,P_gf,P_s, uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
+      call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(P_a,P_gq,P_gf,P_s, uvec_B_cov, uvec_B_cntv, uvec_N_cov, uvec_N_cntv, uvec_BxN_cov, uvec_BxN_cntv)
 
       ! Scatter data into neighboring DG nodes
       do k=0,1
@@ -5409,7 +5413,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
-      call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(P_a,P_gq,P_gf,P_s, uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
+      call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(P_a,P_gq,P_gf,P_s, uvec_B_cov, uvec_B_cntv, uvec_N_cov, uvec_N_cntv, uvec_BxN_cov, uvec_BxN_cntv)
 
       ! Scatter data into neighboring DG nodes
       do k=0,1
