@@ -4672,10 +4672,10 @@ subroutine Init_Diagnostic_Grid
    DG%dim_a  = (mpsi+1)/DG%a_jump
    ! DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
    DG%dim_gq = 101
-   DG%num_eSD = 6 +3
+   DG%num_eSD = 6 +6 +6
    DG%num_eVD = 5
 
-   DG%num_iSD = 8 +3  ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
+   DG%num_iSD = 8 +6 +6! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
    DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
@@ -5071,6 +5071,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
    real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
 
    real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
+   real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
 
    DG%eScaData=0
    DG%eVecData=0
@@ -5154,13 +5155,23 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
             vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
             vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
-            ! Volumetric Turbulent Flux (#/(m^2*s)) along tangential, normal, binormal directions, respectively
-            ! vid=7; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_B_cov(1)+Ta(m)*uvec_B_cov(2)+dve_gf(m)*uvec_B_cov(3))
-            ! vid=8; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_N_cov(1)+Ta(m)*uvec_N_cov(2)+dve_gf(m)*uvec_N_cov(3))
-            ! vid=9; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_BxN_cov(1)+Ta(m)*uvec_BxN_cov(2)+dve_gf(m)*uvec_BxN_cov(3))
+            ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
             vid=7; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_B_cov)
             vid=8; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_N_cov)
             vid=9; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_BxN_cov)
+
+            vid=10; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_B_cntv(1))*uvec_B_cov)
+            vid=11; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_N_cntv(1))*uvec_N_cov)
+            vid=12; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_BxN_cntv(1))*uvec_BxN_cov)
+
+            ! Volumetric delta-f Energy Flux (=df*KE*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
+            vid=13; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_B_cov)
+            vid=14; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_N_cov)
+            vid=15; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_BxN_cov)
+
+            vid=16; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_B_cntv(1))*uvec_B_cov)
+            vid=17; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_N_cntv(1))*uvec_N_cov)
+            vid=18; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_BxN_cntv(1))*uvec_BxN_cov)
 
 
             vid=1 ! Turbulent Particle Flux
@@ -5374,6 +5385,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
    real(wp) ::inv_tot_ni(DG%dim_gq, DG%dim_a)
 
    real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
+   real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
 
    DG%iScaData=0
    DG%iVecData=0
@@ -5450,13 +5462,23 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
             vid=5; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
             vid=6; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
-            ! Volumetric Turbulent Flux (#/(m^2*s)) along tangential, normal, binormal directions, respectively
-            ! vid=9; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_B_cov(1)+Ta(m)*uvec_B_cov(2)+dvi_gf(m)*uvec_B_cov(3))
-            ! vid=10;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_N_cov(1)+Ta(m)*uvec_N_cov(2)+dvi_gf(m)*uvec_N_cov(3))
-            ! vid=11;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*(ghq(m)*uvec_BxN_cov(1)+Ta(m)*uvec_BxN_cov(2)+dvi_gf(m)*uvec_BxN_cov(3))
+            ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
             vid=9; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_B_cov)
             vid=10;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_N_cov)
             vid=11;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_BxN_cov)
+
+            vid=12;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_B_cntv(1))*uvec_B_cov)
+            vid=13;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_N_cntv(1))*uvec_N_cov)
+            vid=14;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_BxN_cntv(1))*uvec_BxN_cov)
+
+            ! Volumetric delta-f Energy Flux (=df*KE*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
+            vid=15;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_B_cov)
+            vid=16;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_N_cov)
+            vid=17;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_BxN_cov)
+
+            vid=18;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_B_cntv(1))*uvec_B_cov)
+            vid=19;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_N_cntv(1))*uvec_N_cov)
+            vid=20;DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*energy(m)*delta_f(m)*dot_product(Full_dadgqdgf(:,m),sign(1.0,uvec_BxN_cntv(1))*uvec_BxN_cov)
 
             vid=1 ! Turbulent Particle Flux
             ! DG%iVecData(1,qq,ss,vid,k) = DG%iVecData(1,qq,ss,vid,k) + ratio*(delta_f(m)*ghq(m)) ! Radial Flux
