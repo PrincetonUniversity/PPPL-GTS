@@ -4,21 +4,17 @@
 !========================================================================
 module linear_solve_log
   use precision,only:wp
+#include <petsc/finclude/petsc.h>
+      use petscksp
   implicit none
-#include <petsc/finclude/petscsys.h>
-#include <petsc/finclude/petsclog.h>
   PetscLogEvent SOLVER_EVENT
 
   real(wp) :: timestart,timeend,timeelapsed,timetotal
 end module linear_solve_log
 module phit_matrix_type
+#include <petsc/finclude/petsc.h>
+      use petscksp
   implicit none
-#include <petsc/finclude/petscsys.h>
-#include <petsc/finclude/petscvec.h>
-#include <petsc/finclude/petscmat.h>
-#include <petsc/finclude/petscpc.h>
-#include <petsc/finclude/petscksp.h>
-#include <petsc/finclude/petscviewer.h>
   type phit_matrix_data
      Mat :: data ! not allcatted here
      integer,dimension(:),pointer :: gk_matid
@@ -205,16 +201,16 @@ contains
     implicit none
     type(solver_data) :: this    
     !
-    this%mat%data = 0 !PETSC_NULL_OBJECT
-    this%mat%mdata = 0 !PETSC_NULL_OBJECT
-    this%mat%rdata = 0 !PETSC_NULL_OBJECT
-    this%mat%zdata = 0 !PETSC_NULL_OBJECT
-    this%ksp = 0 !PETSC_NULL_OBJECT      
-    this%scat = 0 !PETSC_NULL_OBJECT
-    this%xVec = 0 !PETSC_NULL_OBJECT
-    this%bVec = 0 !PETSC_NULL_OBJECT
-    this%petsc_gts_is = 0 !PETSC_NULL_OBJECT
-    this%rhs_mat = 0
+    this%mat%data = PETSC_NULL_MAT !0 !PETSC_NULL_OBJECT
+    this%mat%mdata = PETSC_NULL_MAT !0 !PETSC_NULL_OBJECT
+    this%mat%rdata = PETSC_NULL_MAT !0 !PETSC_NULL_OBJECT
+    this%mat%zdata = PETSC_NULL_MAT !0 !PETSC_NULL_OBJECT
+    this%ksp = PETSC_NULL_KSP !0 !PETSC_NULL_OBJECT      
+    this%scat = PETSC_NULL_VECSCATTER !0 !PETSC_NULL_OBJECT
+    this%xVec = PETSC_NULL_VEC !0 !PETSC_NULL_OBJECT
+    this%bVec = PETSC_NULL_VEC !0 !PETSC_NULL_OBJECT
+    this%petsc_gts_is = PETSC_NULL_IS !0 !PETSC_NULL_OBJECT
+    this%rhs_mat = PETSC_NULL_MAT !0
   end subroutine nullify_solver
     !========================================================================
   !             subroutine solver_init
@@ -258,6 +254,8 @@ contains
     PetscBool  isNull;
     MPI_Comm  comm;
 
+    call nullify_solver( this )
+
       call PetscLogEventRegister('Ax=b',0,SOLVER_EVENT,ierr)
       timetotal = 0.
     ! debug
@@ -268,7 +266,7 @@ contains
        write(*,*) " ---> debug matsum on mype", mype, nproc_partd
     endif
     ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    if( this%petsc_gts_is .eq. 0 ) then
+    if( this%petsc_gts_is .eq. PETSC_NULL_IS ) then
        npartitions = nproc_partd
        call MatPartitioningCreate( partd_comm, mpart, ierr )
        if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
@@ -303,7 +301,8 @@ contains
     call ISAllGather( this%petsc_gts_is, isn, ierr )
     
 !cj call MatGetSubMatrix(Amat,this%petsc_gts_is,isn,PETSC_DECIDE,MAT_INITIAL_MATRIX,Bmat,ierr)
-    call MatGetSubMatrix(Amat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,Bmat,ierr)
+!   call MatGetSubMatrix(Amat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,Bmat,ierr)
+    call MatCreateSubMatrix(Amat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,Bmat,ierr)
     if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
 
     call MatDestroy( Amat, ierr )
@@ -312,7 +311,7 @@ contains
 
     Amat = Bmat
 
-    if( this%bVec .eq. 0 ) then
+    if( this%bVec .eq. PETSC_NULL_VEC ) then
        call MatGetOwnershipRange( Amat, start, kk, ierr )
        if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
        n_loc = kk - start
@@ -372,7 +371,7 @@ contains
 
        call PetscObjectGetComm(Amat,comm,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-       call MatNullSpaceCreate(partd_comm, PETSC_TRUE, 0, PETSC_NULL_OBJECT, nullsp, ierr);
+       call MatNullSpaceCreate(partd_comm, PETSC_TRUE, 0, PETSC_NULL_VEC, nullsp, ierr);
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call MatNullSpaceTest(nullsp, Amat, isNull,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -404,7 +403,7 @@ contains
        !call KSPClearMonitor( ksp, ierr )
     endif    
 
-    if(this%mat%data .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
+    if(this%mat%data .ne. PETSC_NULL_MAT) call MPI_ABORT(mpi_comm_world,1,ierr)
     this%mat%data = Amat
     this%ksp = ksp
     !
@@ -431,27 +430,27 @@ contains
     call ISDestroy( this%petsc_gts_is, ierr )
     !  endif
     
-    if( this%mat%data /= 0 ) then
+    if( this%mat%data /= PETSC_NULL_MAT ) then
        call MatDestroy( this%mat%data,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
     
-    if( this%mat%mdata /= 0 ) then
+    if( this%mat%mdata /= PETSC_NULL_MAT ) then
        call MatDestroy( this%mat%mdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
     
-    if( this%mat%rdata /= 0 ) then
+    if( this%mat%rdata /= PETSC_NULL_MAT ) then
        call MatDestroy( this%mat%rdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
     
-    if( this%mat%zdata /= 0 ) then
+    if( this%mat%zdata /= PETSC_NULL_MAT ) then
        call MatDestroy( this%mat%zdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
     
-    if( this%rhs_mat /= 0 ) then
+    if( this%rhs_mat /= PETSC_NULL_MAT ) then
        call MatDestroy( this%rhs_mat, ierr )
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
@@ -763,7 +762,7 @@ contains
 !   using zero-based bdy index
     if(ib .gt. 0) then
        a = 1.
-       call MatZeroRows(Amat,ib2,bdy,a,PETSC_NULL_OBJECT,PETSC_NULL_OBJECT,ierr)
+       call MatZeroRows(Amat,ib2,bdy,a,PETSC_NULL_VEC,PETSC_NULL_VEC,ierr)
        deallocate(bdy)
        if(mype==0) write(*,*) "	finite elements matrix bdy fix"
     endif
@@ -775,7 +774,8 @@ contains
     ! ... done in solver_init
 
     ! finalize mass matrix
-    call MatGetSubMatrix(Mmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%mdata,ierr)
+!   call MatGetSubMatrix(Mmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%mdata,ierr)
+    call MatCreateSubMatrix(Mmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%mdata,ierr)
 
     ! create zeroVec01 for applying bc
     call VecDuplicate(this%bVec, this%zeroVec01, ierr)
@@ -900,9 +900,11 @@ contains
     if(mype==0) write(0,*) '	finite element: masssolver created'
     
     ! finalize rmass matrix
-    call MatGetSubMatrix(Rmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%rdata,ierr)
+!   call MatGetSubMatrix(Rmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%rdata,ierr)
+    call MatCreateSubMatrix(Rmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%rdata,ierr)
     ! finalize zmass matrix
-    call MatGetSubMatrix(Zmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%zdata,ierr)
+!   call MatGetSubMatrix(Zmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%zdata,ierr)
+    call MatCreateSubMatrix(Zmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%zdata,ierr)
 
     this%fem=fem
 
@@ -1334,7 +1336,7 @@ contains
 
     if(mype.eq.0) &
     write(0, *) "	finite element test solve", whichone, "of five"
-    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
     fe_ndof=1
     if( solver%fem%order .gt. 2) fe_ndof=6
@@ -1777,7 +1779,7 @@ contains
     else
        if(mype.eq.0) write(0, *) "	mass solver:: find dxdr dxdz begin"
     endif
-    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
     whichone = 1
 
 !cj the following is a combianation of solve and tri_mesh
@@ -2750,7 +2752,7 @@ contains
 #endif
 
 
-    if(solver%mat%data .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    if(solver%mat%data .eq. PETSC_NULL_MAT) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     !     copy real vector into double precision
     allocate(yy(nn),zz(nn))
 
@@ -3059,7 +3061,7 @@ end subroutine neumbcfix
 
 
    !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
-    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 #ifdef OLD2014
 #else
     whichone=1
@@ -3274,7 +3276,7 @@ end subroutine neumbcfix
 #ifdef DEBUG
     if(mype==0) write(*,*)"	finite element: add pade to bb fem_order=", fem%order
 #endif
-    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 #ifdef OLD2014
 #else
     whichone=1
@@ -3365,7 +3367,7 @@ end subroutine neumbcfix
 #ifdef DEBUG
     if(mype==0) write(*,*)"     finite element: add pade to bb fem_order=", fem%order
 #endif
-    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 #ifdef OLD2014
 #else
     whichone=1
@@ -3471,7 +3473,7 @@ end subroutine neumbcfix
 
 
    !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
-    call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+    call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
     fe_order=fem%order
     fe_ns=3
@@ -3629,8 +3631,8 @@ end subroutine neumbcfix
     PetscScalar,allocatable,dimension(:) :: yy, zz
 
 
-    if(solver%mat%rdata .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    if(solver%mat%zdata .eq. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    if(solver%mat%rdata .eq. PETSC_NULL_MAT) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+    if(solver%mat%zdata .eq. PETSC_NULL_MAT) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
 
     !     copy real vector into double precision
     allocate(yy(nn),zz(nn))
@@ -3802,7 +3804,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   integer :: whichone = 5
 
 
-  call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+  call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
 
   !cj2014.05.02 c1 = alpha
   !cj2014.05.02 c2 = beta
@@ -4171,7 +4173,7 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   integer :: whichone = 5
 
 
-  call PetscOptionsGetInt(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+  call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
   whichone=1
   !cj2014.05.02 c1 = alpha
   !cj2014.05.02 c2 = beta
@@ -4435,13 +4437,9 @@ end module solver_data_class
 !========================================================================
 subroutine plot_array( nn, arr, str )
   use precision,only:wp,doubleprec
+#include <petsc/finclude/petsc.h>
+      use petsc
   implicit none
-#include <petsc/finclude/petscsys.h>
-#include <petsc/finclude/petscvec.h>
-#include <petsc/finclude/petscmat.h>
-#include <petsc/finclude/petscpc.h>
-#include <petsc/finclude/petscksp.h>
-#include <petsc/finclude/petscviewer.h>
   integer nn,ierr
   character :: str*(*)
   real(wp) arr(nn)

@@ -516,7 +516,7 @@ subroutine fd_calc_deriv(myphi,myevector,masssolver)
  real(wp),dimension(3,0:1,mgrid)::myevector
 
  integer i,j,k,ij,ierror,jt,ii
- integer icount,idest,isource,isendtag,irecvtag,istatus
+ integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
  real(wp) difft(0:mpsi),diffz,delq,&
       sendl(mgrid),sendr(mgrid),recvl(mgrid),recvr(mgrid),pleft(mthetamax),pright(mthetamax), sendrs(3, mgrid), recvls(3, mgrid)
  real(wp) dpsi_inv,e_psi2,e_psi1,dpsi2_inv,dpsi1,dpsi2,dpsi1_inv !,dum,tdum  !wx
@@ -761,7 +761,7 @@ subroutine fd_sync_vector(myevector,ndim,iskip)
  integer ndim,iskip
  real(wp),dimension(ndim,0:1,mgrid)::myevector
  real(wp) recvls(ndim,mgrid),sendrs(ndim,mgrid)
- integer icount,idest,isource,isendtag,irecvtag,istatus,ierror,&
+ integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE),ierror,&
          i,ij,ii,jt
 
 ! toroidal end point, pack end point (k=mzeta) data

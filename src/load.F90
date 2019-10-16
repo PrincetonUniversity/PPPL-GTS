@@ -25,7 +25,8 @@ subroutine load
   real(wp) b,totalv,tdum,zdum,dum,rdum,delp,delz,dell,deltat_i,g,ri,pdum,q,volt,ave0
   real(wp),dimension(:,:,:),allocatable :: volume
 
-  integer(int8) :: mp1_i8,misum_i8
+! integer(int8) :: mp1_i8,misum_i8
+  integer :: mp1_i8,misum_i8
 
 ! the following definition is for volume integral using NAG
   integer minpts,ifail

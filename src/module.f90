@@ -1,5 +1,5 @@
 module mpi_defs
-  include 'mpif.h'
+  use mpi
 end module mpi_defs
 
 module precision
