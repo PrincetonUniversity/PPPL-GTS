@@ -531,7 +531,7 @@ subroutine snapshot_hdf5
    real(wp) dE_cov3(3,0:1,mgrid)  ! (-evector)=-grad(Phi) , This is instantaneous electric fields which might have many noises.
    real(wp), dimension(:), allocatable :: intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D
    real(wp),dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-   character(LEN=128) :: file_path
+   character(LEN=128) :: file_path, file_path2
    character(LEN=128) :: cdum
 
    real(wp) DG_FLA_Data(DG%dim_gq,DG%dim_a,0:1)
@@ -765,7 +765,7 @@ subroutine snapshot_hdf5
    ! Record some data on sparse grid points
    ! ==================================
    snap_flag=.false.
-   if(mod(istep,msnap_for_All)==0 .and. myrank_partd==0) then
+   if(mod(istep,msnap_for_All)==0 .and. myrank_partd==nproc_partd-1) then
       call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
       write(file_path, '("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
       snap_flag=.true.
@@ -1565,6 +1565,14 @@ subroutine snapshot_hdf5
 
       !close(snapout)
    endif ! if(mype == numberpe-1)then !mype=0 must also have myrank_toroidal=0
+
+
+   ! Copy snapshot data of last poloidal plane into AllPlanes if istep==msnap_for_All
+   if(mod(istep,msnap_for_All)==0 .and. mype == numberpe-1) then
+      write(file_path, '("snapshots_hdf5/snap",i5.5,".h5")') istep/msnap
+      write(file_path2,'("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
+      call system("cp " // file_path // file_path2)
+   endif
 
 
    deallocate(intp_a_1D)
