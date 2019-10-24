@@ -1101,7 +1101,7 @@ subroutine Generate_FLabel_piecewise_radial_base_function
    do k=1,num_of_EMP
       resonant_q(k) = real(EMP(k)%gam)/real(EMP(k)%gan)
       resonant_a(k) = Find_a_at_specific_safety_q(resonant_q(k))
-      island_w(k) = 0.2
+      island_w(k) = 0.15
    enddo
 
    dim_a = size(a_ori)
@@ -1290,7 +1290,7 @@ function Cal_FLabel_Function(in_a,in_gq,in_gf) result(out_val)
    do k=1,num_of_EMP
       resonant_q(k) = real(EMP(k)%gam)/real(EMP(k)%gan)
       resonant_a(k) = Find_a_at_specific_safety_q(resonant_q(k))
-      island_w(k) = 0.2
+      island_w(k) = 0.15
    enddo
 
 
@@ -2935,7 +2935,6 @@ subroutine Cal_FLA_Denominator_using_gPPI
 
    implicit none
 
-   real(wp) each_FLA_denominator(num_of_SampledFieldLines), test_FLA_val(num_of_SampledFieldLines) ! FLA=Field Line Average
    real(wp) this_a, this_gq, this_s, this_gf, sdum, gqdum,inv_ds, inv_dgq(0:mpsi), inv_gf
    real(wp) ws0, ws1, wgq00, wgq01, wgq10, wgq11, wgf0, wgf1
    real(wp) tmp_weight
@@ -2960,8 +2959,6 @@ subroutine Cal_FLA_Denominator_using_gPPI
 
 
    FLA_Denominator = 0.0 ! Initial zero value can result NaN (FLA_ResultData/FLA_Denominator) in the case of no touching grid nodes
-   each_FLA_denominator = 0.0
-   test_FLA_val = 0.0
    do Fid=1,num_of_SampledFieldLines
       do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
 
@@ -3004,21 +3001,6 @@ subroutine Cal_FLA_Denominator_using_gPPI
          FLA_Denominator(1,outter_ij)   = FLA_Denominator(1,outter_ij)   +wgf1*ws1*wgq10
          FLA_Denominator(1,outter_ij+1) = FLA_Denominator(1,outter_ij+1) +wgf1*ws1*wgq11
 
-         each_FLA_denominator(Fid) = each_FLA_denominator(Fid) + tmp_weight
-         test_FLA_val(Fid) = test_FLA_val(Fid) + gPPI(Pid,Fid)%a*tmp_weight
-      enddo
-   enddo
-
-
-   call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-   each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
-   call MPI_ALLREDUCE(test_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-   test_FLA_val = recvr(1:num_of_SampledFieldLines)
-
-   test_FLA_val = test_FLA_val/each_FLA_denominator
-   do Fid=1,num_of_SampledFieldLines
-      do Pid=1,num_of_gPPI_for_each_FieldLine(Fid)
-         gPPI(Pid,Fid)%test_FLA_a = test_FLA_val(Fid)
       enddo
    enddo
 

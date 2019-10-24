@@ -153,14 +153,11 @@ module FieldLineFollowing
    use precision
    type Poincare_Point_Information
       integer Fid  ! Fid (Field ID) for each field line
-      real(wp) ini_FLabel ! FLabel_Function will be used to estimate modified flux-surface labels
       real(wp) target_normalized_gf  ! target_zeta in [0,...,2*pi]
       real(wp) s, a, gq, gf
       real(wp) R, Z
       real(wp) dl, inv_B
-      ! abandon weight..
-      ! weight is the Jacobian at initial position to reflect accurate importance of each gPPI when using uniform distribution (s,gq,gf)
-      real(wp) test_FLA_a
+      real(wp) ini_FLabel ! FLabel_Function will be used to estimate modified flux-surface labels
    end type
 
    integer :: FLF_max_tor_num = 400, gPPI_max_tor_num = 200
