@@ -5,34 +5,7 @@
   F77 := mpif77
   LOADER := mpif90 -Wl,-z,muldefs -Wl,-z,noexecstack
 
-#GIT information
-GIT_CLEAN 	:= $(shell rm $(VPATH)/$(OBJDIR)/{git_info.o,gts_git_diff.out,gts_version_info.out})
-GIT_VERSION := $(shell git --no-pager describe --tags --always)
-GIT_BRANCH	:= $(shell git branch | grep \* | cut -c 3-)
-GIT_COM_MSG := $(shell git show -s --format=%B | head -n 1 | sed "s/'//g" | sed 's/"//g')
-GIT_COM_SHA := $(shell git rev-parse --verify HEAD)
-GIT_WTREE   := $()
-GIT_DATE    := $(firstword $(shell git --no-pager show --date=iso-strict --format="%ad" --name-only))
-BUILD_DATE  := $(shell date --iso=seconds)
-
-GIT_DIFF_RESULT:= $(shell git add -N -A)
-GIT_DIFF_RESULT:= $(shell git diff > gts_git_diff.out)
-GIT_DIFF_RESULT:= $(shell git reset HEAD)
-GIT_DIFF_XXD 	:= $(shell xxd -i gts_git_diff.out > gts_git_diff.h)
-
-# If working tree is dirty, append dirty flag (D)
-ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
-  GIT_VERSION := $(GIT_VERSION)-D
-  GIT_WTREE := $(shell git status --porcelain)
-endif
-
-GIT_FLAGS := 	-DGIT_VERSION="\"$(GIT_VERSION)\""\
- 					-DGIT_BRANCH="\"$(GIT_BRANCH)\""\
-					-DGIT_COM_MSG="\"$(GIT_COM_MSG)\""\
- 					-DGIT_COM_SHA="\"$(GIT_COM_SHA)\""\
-					-DGIT_WTREE="\"$(GIT_WTREE)\""\
- 					-DGIT_DATE="\"$(GIT_DATE)\""\
- 					-DBUILD_DATE="\"$(BUILD_DATE)\""
+  include  $(SRCDIR)/git_commands.mk
 
 
 ifeq ($(F90),mpif90)
@@ -110,7 +83,7 @@ LIB:=$(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLI
 	$(CPP)  $(COPT) -c $< -o $@
 
 %.o : %.c
-	$(CC)  $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) -c $< -o $@
+	$(CC)  $(COPT) -c $< -o $@
 
 %.o: %.f
 	$(F77) $(OPT) -c $< -o $@
@@ -123,21 +96,3 @@ LIB:=$(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLI
 
 %.o: %.F90
 	$(F90) $(OPT) -c $< -o $@
-
-
-all:
-	@echo -e "\n\n"
-	@echo "============ GTS VERSION INFORMATION ============" | tee gts_version_info.out
-	@echo " 										" 	| tee -a gts_version_info.out
-	@echo "       VERSION: $(GIT_VERSION)" | tee -a gts_version_info.out
-	@echo "        BRANCH: $(GIT_BRANCH)" 	| tee -a gts_version_info.out
-	@echo "    COMMIT MSG: $(GIT_COM_MSG)" | tee -a gts_version_info.out
-	@echo "    COMMIT SHA: $(GIT_COM_SHA)" | tee -a gts_version_info.out
-	@echo "      GIT DATE: $(GIT_DATE)" 	| tee -a gts_version_info.out
-	@echo "    BUILD DATE: $(BUILD_DATE)" 	| tee -a gts_version_info.out
-	@echo "  WORKING TREE: $(GIT_WTREE)" 	| tee -a gts_version_info.out
-	@echo " 										" 	| tee -a gts_version_info.out
-	@echo "=================================================" 	| tee -a gts_version_info.out
-	@echo " 										" 	| tee -a gts_version_info.out
-	@echo "If \"WORKING TREE\" is not clean, check \"git_diff.out\" for details" 	| tee -a gts_version_info.out
-	@echo " 										" 	| tee -a gts_version_info.out
