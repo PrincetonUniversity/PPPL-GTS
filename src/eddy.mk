@@ -83,7 +83,7 @@ FFLAGS:=$(FFLAGS) -I${PSPLINE_INC} -I${SPRNG_INC} -I${PSPLINE_MOD} -I${SPRNG_MOD
    else
      CMD:=GTS
      OPT:=$(NOOMPFLAG) $(OPT)
-     COPT:=$(NOOMPFLAG) $(COPT) 
+     COPT:=$(NOOMPFLAG) $(COPT)
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
@@ -93,7 +93,7 @@ LIB:=$(NAG) $(FEM) $(LOCAL_LIB) $(FFTLIB) $(PETSC_FLIB) $(ADIOS_FLIB)
 	$(CPP) -c $(COPT) -c $< -o $@
 
 %.o : %.c
-	$(CC)  -c $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) -c $< -o $@
+	$(CC)  -c $(COPT) $< -o $@
 
 %.o: %.f
 	$(F77) -c $(OPT)  $< -o $@
@@ -106,4 +106,3 @@ LIB:=$(NAG) $(FEM) $(LOCAL_LIB) $(FFTLIB) $(PETSC_FLIB) $(ADIOS_FLIB)
 
 %.o: %.F90
 	$(F90) -c $(OPT)  $< -o $@
-

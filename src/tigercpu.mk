@@ -8,22 +8,6 @@
 
 include  $(SRCDIR)/git_commands.mk
 
-
- # If working tree is dirty, append dirty flag (D)
-ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
-  GIT_VERSION := $(GIT_VERSION)-D
-  GIT_WTREE := $(shell git status --porcelain)
-endif
-
- GIT_FLAGS := 	-DGIT_VERSION="\"$(GIT_VERSION)\""\
- 					-DGIT_BRANCH="\"$(GIT_BRANCH)\""\
-					-DGIT_COM_MSG="\"$(GIT_COM_MSG)\""\
- 					-DGIT_COM_SHA="\"$(GIT_COM_SHA)\""\
-					-DGIT_WTREE="\"$(GIT_WTREE)\""\
- 					-DGIT_DATE="\"$(GIT_DATE)\""\
- 					-DBUILD_DATE="\"$(BUILD_DATE)\""\
- 					-DBUILD_DIR="\"$(BUILD_DIR)\""
-
  ifeq ($(F90),mpif90)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler
           FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
@@ -100,7 +84,7 @@ endif
 	$(CPP) $(COPT) -c $< -o $@
 
  %.o : %.c
-	$(CC) $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) -c $< -o $@
+	$(CC) $(COPT) -c $< -o $@
 
  %.o: %.f
 	$(F77) $(OPT) -c $< -o $@

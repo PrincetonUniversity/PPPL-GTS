@@ -110,7 +110,7 @@ LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PET
 	$(CPP)  $(COPT) -c $< -o $@
 
 %.o : %.c
-	$(CC)  $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) -c $< -o $@
+	$(CC)  $(COPT) -c $< -o $@
 
 %.o: %.f
 	$(F77) $(OPT) -c $< -o $@

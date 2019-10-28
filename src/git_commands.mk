@@ -54,3 +54,6 @@ all:
 	@echo " 										" 	| tee -a gts_version_info.out
 	@echo " 										" 	| tee -a gts_version_info.out
 	@cat gts_module_files.out | tee -a gts_version_info.out
+
+git_info.o: git_info.c
+		$(CC) -c $(COPT) -I$(VPATH)/$(OBJDIR) $(GIT_FLAGS) $< -o $@
