@@ -21,7 +21,7 @@ program GTS
   use solver_data_class
   use fem_data_class
   implicit none
-  
+
 ! to use parallel random number generator
 #define SIMPLE_SPRNG
 #define USE_MPI
@@ -70,7 +70,7 @@ program GTS
      istart=1
   end if
 
-  ! input parameters, setup equilibrium, allocate memory 
+  ! input parameters, setup equilibrium, allocate memory
   CALL SETUP
 
   ! solver
@@ -145,7 +145,7 @@ program GTS
   ! initialize particle position and velocity
   CALL LOAD
 
-  if(mype==0) then 
+  if(mype==0) then
      call check_eq
 !     call view_distribution(0)
   end if
@@ -181,10 +181,10 @@ program GTS
    call open_files
 
 ! ********************
-if(irun==0) then 
+if(irun==0) then
    istep=0
    CALL SNAPSHOT     ! snapshot at t=0
-end if 
+end if
 
 if(irun==-100) then
    mstep=(istart-1)+400   ! for continous debug runs with irun=-100
@@ -200,7 +200,7 @@ end if
   timewc(7)=timewc(7)+dtwc
   loop_time=t0wc
 
-!           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP 
+!           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
 
   do istep=istart,mstep
      do irk=1,2
@@ -222,7 +222,7 @@ end if
         call timer(t0,dt,t0wc,dtwc)
         time(1)=time(1)+dt
         timewc(1)=timewc(1)+dtwc
-          
+
 !        if(idiag==0)then
 !           CALL DIAGNOSIS
 !           CALL OUTPUT
@@ -234,7 +234,7 @@ end if
              call view_distribution(irk-1)
           endif
         endif
-        
+
 ! redistribute ion across PEs
         CALL SHIFTI
 
@@ -242,7 +242,7 @@ end if
         time(2)=time(2)+dt
         timewc(2)=timewc(2)+dtwc
 
-! Calculate ion weight damping 
+! Calculate ion weight damping
         if(irk==2.and.wimcompressibility==2) call WEIGHT_DAMPING_ION
 
 ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
@@ -263,8 +263,8 @@ end if
                   ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
                   ! via calling get_fluexs_e in pushe
 
-         !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation, 
-         !  but give almost identical results for particle weight and ererything else according to a short test (20 steps) 
+         !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation,
+         !  but give almost identical results for particle weight and ererything else according to a short test (20 steps)
 
          ! calculate electron collisions
               CALL COLLISION_EON  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
@@ -369,7 +369,7 @@ end if
 
         CALL SMOOTH(1)  ! 1. solve zonal flow for nonlinear run;
                         ! 2. smooth the complete phi;
-                        ! 3. fft and filter       
+                        ! 3. fft and filter
 
         call timer(t0,dt,t0wc,dtwc)
         time(5)=time(5)+dt
@@ -392,9 +392,10 @@ end if
 
 ! profile snapshots, write particle information to restart file
         !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
-        if(mod(istep,msnap) .eq. 0) then 
+        if(mod(istep,msnap) .eq. 0) then
            !  phi_tmp=phi_tmp/real(msnap,wp)
            CALL SNAPSHOT
+           call system_mem_usage
 
            !  phi_tmp=0.0_wp
         end if
@@ -404,7 +405,7 @@ end if
 !              call output3d
 !           end if
 !        end if
-              
+
 ! if(mype==0) CALL view_orbit
 
      !if(mype==0) print*,' MAIN_TIME_LOOP',  istep
@@ -412,7 +413,7 @@ end if
 
 !  call check_temperature
 
-     call timer(t0,dt,t0wc,dtwc) 
+     call timer(t0,dt,t0wc,dtwc)
 
   enddo      !    MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
 
@@ -494,3 +495,72 @@ subroutine timer(t0,dt,t0wc,dtwc)
 
 end subroutine timer
 
+subroutine system_mem_usage
+
+   use mpi_defs
+   use global_parameters
+   implicit none
+
+   integer :: val_VmRSS, val_VmSize, val_VmPeak
+
+   character(len=200):: filename=' '
+   character(len=80) :: line
+   character(len=8)  :: pid_char=' '
+   integer :: pid,getpid,rid,ierror
+   logical :: ifxst
+
+   integer :: int_arr(8), gathered_int_arr(8,numberpe)
+
+   ! return negative number if not found
+   val_VmRSS=-1
+   val_VmSize=-1
+   val_VmPeak=-1
+
+   !--- get process ID
+   pid=getpid()
+   write(pid_char,'(I8)') pid
+   filename='/proc/'//trim(adjustl(pid_char))//'/status'
+
+
+   !--- read system file
+   inquire (file=filename,exist=ifxst)
+   if (.not.ifxst) then
+      write (*,*) 'system file does not exist'
+      return
+   endif
+
+   open(unit=1234, file=filename, action='read')
+   do
+      read (1234,'(a)') line
+      if (line(1:7).eq.'VmSize:') then
+         read (line(8:),*) val_VmSize
+      elseif (line(1:7).eq.'VmPeak:') then
+         read (line(8:),*) val_VmPeak
+      elseif (line(1:6).eq.'VmRSS:') then
+         read (line(7:),*) val_VmRSS
+         exit
+      endif
+   enddo
+   close(1234)
+
+   !--- Print out mem. usage information
+   if(mype==0) then
+      write(stdout,*) 'istep=', istep, ' mype=',mype,'pid=',pid, '; VmRSS=', val_VmRSS, 'kB; ', 'VmSize=', val_VmSize, 'kB; ','VmPeak=', val_VmPeak, 'kB; '
+      call flush(stdout)
+   endif
+
+   int_arr(1:8)=[istep, mype, pid, mi, me, val_VmRSS, val_VmSize, val_VmPeak]
+
+   call MPI_GATHER(int_arr,8,MPI_INTEGER, gathered_int_arr, 8, MPI_INTEGER, 0,MPI_COMM_WORLD,ierror)
+
+   if(mype==0) then
+      open(unit=190923,file='gts_mem_usage.dat',position='append',action='write')
+      ! write(190923,*) istep, mype, pid, mi, me, val_VmRSS, val_VmSize, val_VmPeak
+      do rid=1,numberpe
+         write(190923, "(8(I8,1x))") gathered_int_arr(:,rid)
+      enddo
+      call flush(190923)
+      close(190923)
+   endif
+
+end subroutine
