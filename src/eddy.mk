@@ -33,10 +33,10 @@ else
    SPRNG_LIB:=/home/jinchen/LIB/INTEL18/intel-mpi/lib
    SPRNG_INC:=/home/jinchen/LIB/INTEL18/intel-mpi/include
    SPRNG_MOD:=/home/jinchen/LIB/INTEL18/intel-mpi/mod
- #2PETSC_DIR=/home/jinchen/LIB/petsc-3.8.3
- #2PETSC_ARCH=eddy-intel-openmpi-gts-2018
-   PETSC_DIR=/home/jinchen/LIB/INTEL18/petsc-3.8.4
+   PETSC_DIR=/home/jinchen/LIB/INTEL18/petsc-3.12.0
    PETSC_ARCH=eddy-intelmpi-gts-2019
+ #2PETSC_DIR=/home/jinchen/LIB/INTEL18/petsc-3.8.4
+ #2PETSC_ARCH=eddy-intelmpi-gts-2019
  #1PETSC_DIR=/home/jinchen/LIB/petsc-3.7.7
  #1PETSC_ARCH=intel-openmpi-real
 endif
