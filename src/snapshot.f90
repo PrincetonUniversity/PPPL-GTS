@@ -462,7 +462,7 @@ subroutine Interpolate_Data_into_Coarser_Grids(in_Data_Arr1D, gq_jump, a_jump, o
 
    integer, intent(in) :: gq_jump, a_jump
    real(wp), dimension(mgrid), intent(inout) :: in_Data_Arr1D
-   real(wp), dimension(((mpsi+1)/a_jump)*(mtheta(ipsi)/gq_jump+1)), intent(inout) :: out_intpl_Arr1D
+   real(wp), dimension(((mpsi+1)/a_jump)*(mtheta(ipsi)/gq_jump+1)), intent(out) :: out_intpl_Arr1D
    integer i,j,ij,k,jt,jm
 
    real(wp) inv_dgq(0:mpsi), gqdum, wt
@@ -504,7 +504,7 @@ subroutine snapshot_hdf5
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
    integer(HSIZE_T) :: h5dims(3)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM, gid_PVS, gid
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
@@ -531,9 +531,25 @@ subroutine snapshot_hdf5
    real(wp) dE_cov3(3,0:1,mgrid)  ! (-evector)=-grad(Phi) , This is instantaneous electric fields which might have many noises.
    real(wp), dimension(:), allocatable :: intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D
    real(wp),dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
-   character(LEN=128) :: file_path
+   character(LEN=128) :: file_path, file_path2
    character(LEN=128) :: cdum
 
+   real(wp) DG_FLA_Data(DG%dim_gq,DG%dim_a,0:1)
+   real(wp), dimension(:,:,:),allocatable :: DG_FLA_eScaData, DG_FLA_iScaData
+
+
+   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
+      allocate(DG_FLA_eScaData(DG%dim_gq,DG%dim_a,7:18), DG_FLA_iScaData(DG%dim_gq,DG%dim_a,9:20))
+      ! Calculate some DG FLA quantities
+      do i=7,18
+         call Do_FieldLineAverage_on_DG_by_using_gPPI((DG%eScaData(:,:,i,:)), DG_FLA_Data)
+         DG_FLA_eScaData(:,:,i) = DG_FLA_Data(:,:,1)
+      enddo
+      do i=9,20
+         call Do_FieldLineAverage_on_DG_by_using_gPPI((DG%iScaData(:,:,i,:)), DG_FLA_Data)
+         DG_FLA_iScaData(:,:,i) = DG_FLA_Data(:,:,1)
+      enddo
+   endif
 
    msnap_for_All = msnap*50
 
@@ -749,7 +765,7 @@ subroutine snapshot_hdf5
    ! Record some data on sparse grid points
    ! ==================================
    snap_flag=.false.
-   if(mod(istep,msnap_for_All)==0 .and. myrank_partd==0) then
+   if(mod(istep,msnap_for_All)==0 .and. myrank_partd==nproc_partd-1) then
       call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
       write(file_path, '("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
       snap_flag=.true.
@@ -771,6 +787,8 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "BIN", gid_BIN, h5err)
       call h5gcreate_f(file_id, "DG", gid_DG, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/SM", gid_DG_SM, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "DG/FLA", gid_DG_FLA, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "DG/FLA/SM", gid_DG_FLA_SM, h5err) ! Diagnostic Grid
 
       !
       h5dims(1) = 1
@@ -894,6 +912,11 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "BIN/dO_10",1,h5dims,H5T_NATIVE_DOUBLE, dO_10, h5err)
       call h5ltmake_dataset_f(file_id, "BIN/dT_10",1,h5dims,H5T_NATIVE_DOUBLE, dT_10, h5err)
 
+      h5dims(1)=1
+      call h5ltmake_dataset_f(file_id, "num_of_FLabel_pcws",1,h5dims,H5T_NATIVE_INTEGER, num_of_FLabel_pcws,h5err)
+      h5dims(1)=num_of_FLabel_pcws
+      call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
+      call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
 
       ! =======================
       ! 2D data
@@ -958,6 +981,12 @@ subroutine snapshot_hdf5
       call Interpolate_Data_into_Coarser_Grids(Node_simple_Vol,gq_jump,a_jump,intp_val_Arr)
       call h5ltmake_dataset_f(file_id, "ori_Node_simple_Vol",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "ori_Node_simple_Vol", "unit", "m^3", h5err)
+
+      call Interpolate_Data_into_Coarser_Grids(FLabel_Function(1,:),gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+
+
+
 
       ! dphi_2D
       k=1
@@ -1107,6 +1136,11 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "mean_full_dTe_SQ",2,h5dims,H5T_NATIVE_DOUBLE, (1e3*Tem_00)**2.0*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dTe_SQ", "unit", "eV", h5err)
 
+
+      ! FLA FLabel (Field Fid)
+      call Interpolate_Data_into_Coarser_Grids(FLA_FLabel(1,:),gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "FLA/FLabel",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+      call h5ltset_attribute_string_f(file_id, "FLA/FLabel", "unit", "", h5err)
 
       ! FLA psi0
       call Interpolate_Data_into_Coarser_Grids(FLA_psi0(1,:),gq_jump,a_jump,intp_val_Arr)
@@ -1324,6 +1358,50 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_a",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_a,h5err)
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gq,h5err)
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gf,h5err)
+      call h5ltmake_dataset_f(gid_DG, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLabel_Function(:,:,1),h5err)
+
+      call h5ltmake_dataset_f(gid_DG_FLA, "Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_Denominator(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_FLabel(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_psi0(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_Denominator,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel_Left",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel_Left,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel_Right",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel_Right,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_psi0,h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/mag_grad_FL",2,h5dims,H5T_NATIVE_DOUBLE, DG%mag_grad_FLA_SM_FLabel(:,:,1),h5err)
+
+
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,7),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,8),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,9),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,10),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,11),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_p_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_eScaData(:,:,12),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,13),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,14),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,15),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,16),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,17),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "eFlux_E_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_eScaData(:,:,18),h5err)
+
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,9),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,10),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,11),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,12),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,13),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_p_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*DG_FLA_iScaData(:,:,14),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,15),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,16),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,17),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,18),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,19),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "iFlux_E_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*DG_FLA_iScaData(:,:,20),h5err)
+
+
+
+      h5dims(1:3)=(/3,DG%dim_gq,DG%dim_a/)
+      call h5ltmake_dataset_f(gid_DG_FLA, "SM/grad_FL",3,h5dims,H5T_NATIVE_DOUBLE, DG%grad_FLA_SM_FLabel(:,:,:,1),h5err)
+      h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
 
       do i=1,2
          select case(i)
@@ -1332,7 +1410,7 @@ subroutine snapshot_hdf5
                gid=gid_DG
             case(2)
                ! Smooth GD variables and write them into /GD/SM group
-               call Smooth_DG_Scalar_Vector_Data(3) ! smooth 3 times
+               call Smooth_DG_Scalar_Vector_Data(2) ! smooth 3 times
                gid=gid_DG_SM
          end select
 
@@ -1351,6 +1429,19 @@ subroutine snapshot_hdf5
          call h5ltset_attribute_string_f(gid, "ne_tot", "unit", "#/m^3", h5err)
          call h5ltmake_dataset_f(gid, "Te",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,6,1)),h5err)
          call h5ltset_attribute_string_f(gid, "Te", "unit", "eV", h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_p_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,7,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_p_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,8,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_p_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,9,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_p_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,10,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_p_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,11,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_p_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,12,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_E_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eScaData(:,:,13,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_E_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eScaData(:,:,14,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_E_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eScaData(:,:,15,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_E_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eScaData(:,:,16,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_E_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eScaData(:,:,17,1)),h5err)
+         call h5ltmake_dataset_f(gid, "eFlux_E_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%eScaData(:,:,18,1)),h5err)
+
 
          call h5ltmake_dataset_f(gid, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%iScaData(:,:,1,1)),h5err)
          call h5ltset_attribute_string_f(gid, "dni", "unit", "#/m^3", h5err)
@@ -1364,11 +1455,22 @@ subroutine snapshot_hdf5
          call h5ltset_attribute_string_f(gid, "ni", "unit", "#/m^3", h5err)
          call h5ltmake_dataset_f(gid, "Ti",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,6,1)),h5err)
          call h5ltset_attribute_string_f(gid, "Ti", "unit", "eV", h5err)
-
          call h5ltmake_dataset_f(gid, "dni_Larmor",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%iScaData(:,:,7,1)),h5err)
          call h5ltset_attribute_string_f(gid, "dni_Larmor", "unit", "#/m^3", h5err)
          call h5ltmake_dataset_f(gid, "dTi_Larmor_consst",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,8,1)),h5err)
          call h5ltset_attribute_string_f(gid, "dTi_Larmor_consst", "unit", "eV", h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_p_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iScaData(:,:,9,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_p_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iScaData(:,:,10,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_p_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iScaData(:,:,11,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_p_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iScaData(:,:,12,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_p_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iScaData(:,:,13,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_p_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%iScaData(:,:,14,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_E_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iScaData(:,:,15,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_E_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iScaData(:,:,16,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_E_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iScaData(:,:,17,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_E_B_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iScaData(:,:,18,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_E_N_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iScaData(:,:,19,1)),h5err)
+         call h5ltmake_dataset_f(gid, "iFlux_E_BxN_outwards",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*E_00*1e-3*(DG%iScaData(:,:,20,1)),h5err)
 
 
          h5dims(1:3)=(/3,DG%dim_gq,DG%dim_a/)
@@ -1455,6 +1557,8 @@ subroutine snapshot_hdf5
       call h5gclose_f(gid_BIN, h5err)
       call h5gclose_f(gid_DG, h5err)
       call h5gclose_f(gid_DG_SM, h5err)
+      call h5gclose_f(gid_DG_FLA, h5err)
+      call h5gclose_f(gid_DG_FLA_SM, h5err)
 
       call h5fclose_f(file_id, h5err)
       call h5close_f(h5err)
@@ -1463,11 +1567,24 @@ subroutine snapshot_hdf5
    endif ! if(mype == numberpe-1)then !mype=0 must also have myrank_toroidal=0
 
 
+   ! Copy snapshot data of last poloidal plane into AllPlanes if istep==msnap_for_All
+   if(mod(istep,msnap_for_All)==0 .and. mype == numberpe-1) then
+      write(file_path, '("snapshots_hdf5/snap",i5.5,".h5")') istep/msnap
+      write(file_path2,'("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
+      call system("cp " // file_path // file_path2)
+   endif
+
+
    deallocate(intp_a_1D)
    deallocate(intp_mean_full_dphi, right_intp_mean_full_dphi, left_intp_mean_full_dphi)
    deallocate(intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi)
    deallocate(intp_mean_dE_cov3, right_mean_dE_cov3, left_mean_dE_cov3)
    deallocate(intp_FLA_dE_cov3, right_FLA_dE_cov3, left_FLA_dE_cov3)
+
+   if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
+      deallocate(DG_FLA_eScaData, DG_FLA_iScaData)
+   endif
+
 
 
    ! ! ===========================
@@ -1533,12 +1650,14 @@ subroutine snapshot_Magnetic_Information
    real(wp) :: intp_val, inv_dgq(0:mpsi)
    integer :: i,j,ij,k,jt,jm
 
-   real(wp), dimension(:), allocatable :: a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
+   real(wp), dimension(:), allocatable :: a_,s_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_
    real(wp), dimension(:), allocatable ::Jacobian_, esi_N_, esi_K_, g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
    real(wp), dimension(:), allocatable :: D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_
    real(wp), dimension(:,:), allocatable :: B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_
    real(wp), dimension(:), allocatable :: ini_ga_, ini_dga0dt_ ! initial magnetic perturbation
    real(wp), dimension(:,:), allocatable :: ini_dB_cov3_, ini_dB_cntv3_, ini_grad_ga_cov3_! initial magnetic perturbation at t=0
+   real(wp), dimension(:,:), allocatable :: uvec_B_cov, uvec_N_cov, uvec_BxN_cov
+   real(wp), dimension(:,:), allocatable :: uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv
 
    character(LEN=128) :: file_path
    integer(HSIZE_T) :: h5dims(3)
@@ -1555,11 +1674,13 @@ subroutine snapshot_Magnetic_Information
 
 
       allocate(a_(dim_gq*dim_a))
-      allocate(gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,mold=a_)
+      allocate(s_,gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,mold=a_)
       allocate(Jacobian_, esi_N_,esi_K_,g_aa_cov_,g_aq_cov_,g_qq_cov_,g_ff_cov_, mold=a_)
       allocate(D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_, mold=a_)
       allocate(B0_cov3_(3,size(a_)))
       allocate(B0_cntv3_,j0_cov3_,j0_cntv3_, mold=B0_cov3_)
+      allocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov, mold=B0_cov3_)
+      allocate(uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv, mold=B0_cov3_)
 
       if(electromagnetic==1) then
          allocate(ini_ga_,ini_dga0dt_, mold=a_)
@@ -1570,6 +1691,7 @@ subroutine snapshot_Magnetic_Information
       do i=0,mpsi,a_jump
          do j=0,jm
             a_(k)=psi_grid(i)
+            s_(k)=s_grid(i)
             gq_(k)=2.0*pi*real(j)/real(jm)
             k=k+1
          enddo
@@ -1608,6 +1730,9 @@ subroutine snapshot_Magnetic_Information
       j0_cov3_(2,:) = g_aq_cov_*j0_cntv3_(1,:) + g_qq_cov_*j0_cntv3_(2,:)
       j0_cov3_(3,:) = g_ff_cov_*j0_cntv3_(3,:)
 
+      do k=1,size(a_)
+         call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(a_(k), gq_(k), zetamax,s_(k),uvec_B_cov(:,k),uvec_B_cntv(:,k),uvec_N_cov(:,k),uvec_N_cntv(:,k),uvec_BxN_cov(:,k),uvec_BxN_cntv(:,k))
+      enddo
 
       if(electromagnetic==1)then
          ! Get initial magnetic perturbation information
@@ -1684,6 +1809,12 @@ subroutine snapshot_Magnetic_Information
       call h5ltmake_dataset_f(file_id, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, B0_cntv3_,h5err)
       call h5ltmake_dataset_f(file_id, "j0_cov",3,h5dims,H5T_NATIVE_DOUBLE, j0_cov3_,h5err)
       call h5ltmake_dataset_f(file_id, "j0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, j0_cntv3_,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_B_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_B_cov,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_N_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_N_cov,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_BxN_cov",3,h5dims,H5T_NATIVE_DOUBLE, uvec_BxN_cov,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_B_cntv",3,h5dims,H5T_NATIVE_DOUBLE, uvec_B_cntv,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_N_cntv",3,h5dims,H5T_NATIVE_DOUBLE, uvec_N_cntv,h5err)
+      call h5ltmake_dataset_f(file_id, "uvec_BxN_cntv",3,h5dims,H5T_NATIVE_DOUBLE, uvec_BxN_cntv,h5err)
 
 
 
@@ -1708,10 +1839,12 @@ subroutine snapshot_Magnetic_Information
       call h5close_f(h5err)
 
 
-      deallocate(a_, gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_)
+      deallocate(a_,s_,gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_)
       deallocate(Jacobian_, esi_N_, esi_K_, g_aa_cov_, g_aq_cov_, g_qq_cov_, g_ff_cov_)
       deallocate(D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_)
       deallocate(B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_)
+      deallocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
+      deallocate(uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv)
       if(electromagnetic==1)then
          deallocate(ini_ga_,ini_dga0dt_)
          deallocate(ini_dB_cov3_,ini_dB_cntv3_, ini_grad_ga_cov3_)

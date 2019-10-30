@@ -37,6 +37,7 @@ Subroutine setup
    real(wp) rtden_allnodes(nrbin),rtden_global
    real(wp),external :: f_jaco,object_1,object_5,object_12,reducedjacobian,FUN1,FUN3,FUN3e,FUN3n,FUN3u, &
       rho2a_zero,dsda,s2a_zero,FUN_J,smoothstep,gs
+   real(wp), external :: Cal_FLabel_Function
 
    namelist /run_parameters/ micell,misum,mpsi,mthetamax,mzetamax,numberpe,&
       nonlinear,ndiag,tstep,ifelectron,delr,delt,mid_theta,mgrid,mtdiag,&
@@ -1221,7 +1222,8 @@ Subroutine setup
    allocate(cum_full_dTe, cum_full_dTe_SQ, cum_full_dTi, cum_full_dTi_SQ,mold=cum_full_dphi)
 
    allocate(tot_dni(0:1,mgrid), tot_dne(0:1,mgrid), FLA_Denominator(0:1,mgrid), FLA_dphi(0:1,mgrid), FLA_dTe(0:1,mgrid), FLA_dTi(0:1,mgrid), FLA_dne(0:1,mgrid), FLA_dni(0:1,mgrid), FLA_ne_adiabatic(0:1,mgrid))
-   allocate(FLA_psi0(0:1,mgrid), FLA_Te0(0:1,mgrid), FLA_Ti0(0:1,mgrid), FLA_n0(0:1,mgrid))
+   allocate(FLA_psi0(0:1,mgrid), FLA_Te0(0:1,mgrid), FLA_Ti0(0:1,mgrid), FLA_n0(0:1,mgrid), FLA_FLabel(0:1,mgrid))
+   allocate(FLabel_Function(0:1,mgrid))
    allocate(Weighted_Vol(0:1,mgrid))
    allocate(Node_simple_Vol(mgrid))
    allocate(dni_init(0:1,mgrid), dni_vpara(0:1,mgrid), dni_vperp(0:1,mgrid), dni_accel(0:1,mgrid), dni_fdamp(0:1,mgrid))
@@ -1255,6 +1257,17 @@ Subroutine setup
       end do
       close(unit=734)
    end if
+
+   do i=0,mpsi
+      do j=0,mtheta(i)
+         ij=igrid(i)+j
+         tdum=modulo(real(j,wp)*deltat(i)+zetamin*qtinv(i),2.0*pi)
+         FLabel_Function(0,ij) = Cal_FLabel_Function(psi_grid(i), tdum, zetamin)
+         tdum=modulo(real(j,wp)*deltat(i)+zetamax*qtinv(i),2.0*pi)
+         FLabel_Function(1,ij) = Cal_FLabel_Function(psi_grid(i), tdum, zetamax)
+      enddo
+   enddo
+
 
    !   !$omp parallel do private(i,j,k,ij,ip,pdum,zdum,tdum,dpsi,ne0)
    do i=0, mpsi

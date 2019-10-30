@@ -48,7 +48,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
 
    real(wp) TRANSF_weight_Z0, TRANSF_weight_Z ! Transformed weigth Z=-ln(1-w) ; w=1-exp(-Z); Z0 and Z corresponds to zeon0 and zeon, respectively
-   real(wp) ds_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
+   real(wp) FullVelocity_da_dgq_dgf(3,me) ! Full velocity (including magnetic drifts) of da= a_dot, dgq=gq_dot, dgf=dgf_dot
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -1097,11 +1097,11 @@ subroutine pusheon(solver1, masssolver, irk_e)
       endif
       if(irk_e==1 .and. mod(istep,msnap)==0) then
          do m=1,me
-            ds_dgq_dgf(1,m) = (Tc/backT(m))**dsda_power*da(m)
-            ds_dgq_dgf(2,m) = dgq(m)
-            ds_dgq_dgf(3,m) = dgf(m)
+            FullVelocity_da_dgq_dgf(1,m) = da(m)
+            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
          enddo
-         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),ds_dgq_dgf)
+         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
       endif
 
    END IF
@@ -1159,7 +1159,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
-   real(wp) ds_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
+   real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -1585,11 +1585,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       endif
       if(irk_e==1 .and. mod(istep,msnap)==0) then
          do m=1,me
-         ds_dgq_dgf(1,m) = (Tc/backT(m))**dsda_power*da(m)
-         ds_dgq_dgf(2,m) = dgq(m)
-         ds_dgq_dgf(3,m) = dgf(m)
+         FullVelocity_da_dgq_dgf(1,m) = da(m)
+         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
          enddo
-         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),ds_dgq_dgf)
+         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
       endif
 
       call shifte
@@ -1864,7 +1864,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
 
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
-   real(wp) ds_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
+   real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -2349,11 +2349,11 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
       endif
       if(irk_e==1 .and. mod(istep,msnap)==0) then
          do m=1,me
-            ds_dgq_dgf(1,m) = (Tc/backT(m))**dsda_power*da(m)
-            ds_dgq_dgf(2,m) = dgq(m)
-            ds_dgq_dgf(3,m) = dgf(m)
+            FullVelocity_da_dgq_dgf(1,m) = da(m)
+            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
          enddo
-         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),ds_dgq_dgf)
+         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
       endif
 
 
