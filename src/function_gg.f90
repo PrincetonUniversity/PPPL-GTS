@@ -4664,20 +4664,22 @@ subroutine Init_Diagnostic_Grid
    DG%inv_dgq = 1.0/DG%dgq
    DG%inv_ds  = DG%a_jump*(real(mpsi)/(s1-s0))
 
+   Na=DG%dim_a
+   Nq=DG%dim_gq
 
-   allocate(DG%a_1D(DG%dim_a), DG%gq_1D(DG%dim_gq))
-   allocate(DG%ori_aid, DG%s_1D, DG%n0_1D, DG%Te0_1D, DG%Ti0_1D, mold=DG%a_1D)
-   allocate(DG%a_2D(DG%dim_gq,DG%dim_a))
-   allocate(DG%gq_2D, DG%Cell_dV, DG%inv_Cell_dV, DG%dne_adiab, mold=DG%a_2D)
-   allocate(DG%Cell_dS_a, DG%inv_Cell_dS_a, DG%Cell_dS_gq, DG%inv_Cell_dS_gq, DG%Cell_dS_gf, DG%inv_Cell_dS_gf, mold=DG%a_2D)
-   allocate(DG%FLabel_Function(DG%dim_gq,DG%dim_a,0:1))
-   allocate(DG%FLA_Denominator(DG%dim_gq,DG%dim_a,0:1), DG%FLA_FLabel(DG%dim_gq,DG%dim_a,0:1), DG%FLA_psi0(DG%dim_gq,DG%dim_a,0:1))
-   allocate(DG%FLA_SM_Denominator, DG%FLA_SM_FLabel, DG%FLA_SM_psi0,mold=DG%a_2D)
-   allocate(DG%FLA_SM_FLabel_Left, DG%FLA_SM_FLabel_Right,mold=DG%a_2D)
-   allocate(DG%grad_FLA_SM_FLabel(3,DG%dim_gq,DG%dim_a,0:1),DG%uvec_grad_FL_cov(3,DG%dim_gq,DG%dim_a,0:1), DG%mag_grad_FLA_SM_FLabel(DG%dim_gq,DG%dim_a,0:1))
+   allocate(DG%gq_1D(Nq))
+   allocate(DG%a_1D(Na), DG%ori_aid(Na), DG%s_1D(Na), DG%n0_1D(Na), DG%Te0_1D(Na), DG%Ti0_1D(Na))
+   allocate(DG%a_2D(Nq,Na))
+   allocate(DG%gq_2D(Nq,Na), DG%Cell_dV(Nq,Na), DG%inv_Cell_dV(Nq,Na), DG%dne_adiab(Nq,Na))
+   allocate(DG%Cell_dS_a(Nq,Na), DG%inv_Cell_dS_a(Nq,Na), DG%Cell_dS_gq(Nq,Na), DG%inv_Cell_dS_gq(Nq,Na), DG%Cell_dS_gf(Nq,Na), DG%inv_Cell_dS_gf(Nq,Na))
+   allocate(DG%FLabel_Function(Nq,Na,0:1))
+   allocate(DG%FLA_Denominator(Nq,Na,0:1), DG%FLA_FLabel(Nq,Na,0:1), DG%FLA_psi0(Nq,Na,0:1))
+   allocate(DG%FLA_SM_Denominator(Nq,Na), DG%FLA_SM_FLabel(Nq,Na), DG%FLA_SM_psi0(Nq,Na))
+   allocate(DG%FLA_SM_FLabel_Left(Nq,Na), DG%FLA_SM_FLabel_Right(Nq,Na))
+   allocate(DG%grad_FLA_SM_FLabel(3,Nq,Na,0:1),DG%uvec_grad_FL_cov(3,Nq,Na,0:1), DG%mag_grad_FLA_SM_FLabel(Nq,Na,0:1))
 
-   allocate(DG%eScaData(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), DG%eVecData(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1) )
-   allocate(DG%iScaData(DG%dim_gq,DG%dim_a,DG%num_iSD,0:1), DG%iVecData(3,DG%dim_gq,DG%dim_a,DG%num_iVD,0:1) )
+   allocate(DG%eScaData(Nq,Na,DG%num_eSD,0:1), DG%eVecData(3,Nq,Na,DG%num_eVD,0:1) )
+   allocate(DG%iScaData(Nq,Na,DG%num_iSD,0:1), DG%iVecData(3,Nq,Na,DG%num_iVD,0:1) )
 
    k=1
    do i=0,mpsi,DG%a_jump
@@ -4692,27 +4694,27 @@ subroutine Init_Diagnostic_Grid
       k=k+1
    enddo
 
-   do i=1,DG%dim_gq
-      DG%gq_1D(i) = (2.0*pi)/(DG%dim_gq-1)*(i-1)
+   do i=1,Nq
+      DG%gq_1D(i) = (2.0*pi)/(Nq-1)*(i-1)
       DG%gq_2D(i,:) = DG%gq_1D(i)
    enddo
 
    ! Calculate FLabel Function and add FLA_psi0
-   do j=1,DG%dim_gq
-      do i=1,DG%dim_a
+   do j=1,Nq
+      do i=1,Na
          DG%FLabel_Function(j,i,0) = Cal_FLabel_Function(DG%a_2D(j,i), DG%gq_2D(j,i), zetamin)
          DG%FLabel_Function(j,i,1) = Cal_FLabel_Function(DG%a_2D(j,i), DG%gq_2D(j,i), zetamax)
       enddo
    enddo
 
    !Set and Calculate Magnetic Information (ESI variables)
-   allocate(DG%Jacobian, DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,mold=DG%a_2D)
-   allocate(DG%esi_N,DG%esi_K,DG%g_aa_cov,DG%g_aq_cov,DG%g_qq_cov,DG%g_ff_cov,mold=DG%a_2D)
-   allocate(DG%D,DG%g_aa_cntv,DG%g_aq_cntv,DG%g_qq_cntv,DG%g_ff_cntv,mold=DG%a_2D)
-   allocate(DG%B0_cov3(3,DG%dim_gq,DG%dim_a))
-   allocate(DG%B0_cntv3,DG%j0_cov3,DG%j0_cntv3, mold=DG%B0_cov3)
+   allocate(DG%Jacobian(Nq,Na), DG%F(Nq,Na),DG%dFda(Nq,Na),DG%dgFda(Nq,Na),DG%dgYda(Nq,Na),DG%R(Nq,Na),DG%dRda(Nq,Na),DG%dRdgq(Nq,Na),DG%Z(Nq,Na),DG%dZda(Nq,Na),DG%dZdgq(Nq,Na),DG%BB(Nq,Na),DG%dBBda(Nq,Na),DG%dBBdgq(Nq,Na),DG%P(Nq,Na),DG%T(Nq,Na))
+   allocate(DG%esi_N(Nq,Na),DG%esi_K(Nq,Na),DG%g_aa_cov(Nq,Na),DG%g_aq_cov(Nq,Na),DG%g_qq_cov(Nq,Na),DG%g_ff_cov(Nq,Na))
+   allocate(DG%D(Nq,Na),DG%g_aa_cntv(Nq,Na),DG%g_aq_cntv(Nq,Na),DG%g_qq_cntv(Nq,Na),DG%g_ff_cntv(Nq,Na))
+   allocate(DG%B0_cov3(3,Nq,Na))
+   allocate(DG%B0_cntv3(3,Nq,Na),DG%j0_cov3(3,Nq,Na),DG%j0_cntv3(3,Nq,Na))
 
-   call esiget2dthese_more(DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,DG%a_2D,DG%gq_2D, DG%dim_gq*DG%dim_a)
+   call esiget2dthese_more(DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,DG%a_2D,DG%gq_2D, Nq*Na)
 
    DG%Jacobian = DG%R*(DG%dZda*DG%dRdgq-DG%dZdgq*DG%dRda)
    DG%esi_N = (DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq)/DG%Jacobian
@@ -4751,16 +4753,16 @@ subroutine Init_Diagnostic_Grid
    !        Following Cell_dV is an approximation
    !        For higher accuracy, a Weighted Volume by considering hellical particle shape and varying da is required
    approx_dgf=zetamax-zetamin
-   do aid=1,DG%dim_a
+   do aid=1,Na
       if(aid==1) then
          approx_da=0.5*(DG%a_1D(2)-DG%a_1D(1))    ! half cell
-      else if(aid==DG%dim_a) then
-         approx_da=0.5*(DG%a_1D(DG%dim_a)-DG%a_1D(DG%dim_a-1)) ! half cell
+      else if(aid==Na) then
+         approx_da=0.5*(DG%a_1D(Na)-DG%a_1D(Na-1)) ! half cell
       else
          approx_da=0.5*(DG%a_1D(aid+1)-DG%a_1D(aid-1))  ! full cell
       endif
 
-      do gqid=1,DG%dim_gq
+      do gqid=1,Nq
          DG%Cell_dV(gqid,aid)=DG%Jacobian(gqid,aid)*approx_da*DG%dgq*approx_dgf
          DG%Cell_dS_a(gqid,aid) = sqrt(DG%g_aa_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*DG%dgq*approx_dgf
          DG%Cell_dS_gq(gqid,aid) = sqrt(DG%g_qq_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*approx_dgf
@@ -4832,7 +4834,7 @@ subroutine Init_Diagnostic_Grid
 
       call Cal_FLA_Denominator_on_DG_using_gPPI
 
-      allocate(tmp_DG_Data1(DG%dim_gq, DG%dim_a,0:1),tmp_DG_Data2(DG%dim_gq, DG%dim_a,0:1))
+      allocate(tmp_DG_Data1(Nq, Na,0:1),tmp_DG_Data2(Nq, Na,0:1))
 
       DG%FLA_SM_Denominator=DG%FLA_Denominator(:,:,1)
       call Smooth_DG_Data_2D(3, DG%FLA_SM_Denominator)
@@ -4858,23 +4860,23 @@ subroutine Init_Diagnostic_Grid
    endif
 
    ! Broadcast calculated FLA data
-   call MPI_BCAST(DG%FLA_Denominator, 2*DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
-   call MPI_BCAST(DG%FLA_FLabel,      2*DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
-   call MPI_BCAST(DG%FLA_psi0,        2*DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
-   call MPI_BCAST(DG%FLA_SM_Denominator, DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
-   call MPI_BCAST(DG%FLA_SM_FLabel,      DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
-   call MPI_BCAST(DG%FLA_SM_psi0,        DG%dim_a*DG%dim_gq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_Denominator, 2*Na*Nq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_FLabel,      2*Na*Nq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_psi0,        2*Na*Nq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_SM_Denominator, Na*Nq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_SM_FLabel,      Na*Nq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
+   call MPI_BCAST(DG%FLA_SM_psi0,        Na*Nq,mpi_Rsize, nproc_partd-1,partd_comm,ierror)
 
    ! Communicate btw toroidal_comm to get Left and Right FLA_SM_FLabel
-   call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
-   DG%FLA_SM_FLabel_Left, DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
-   call MPI_SENDRECV(DG%FLA_SM_FLabel, DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
-   DG%FLA_SM_FLabel_Right, DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
+   call MPI_SENDRECV(DG%FLA_SM_FLabel, Nq*Na, mpi_Rsize, right_pe, myrank_toroidal, &
+   DG%FLA_SM_FLabel_Left, Nq*Na, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
+   call MPI_SENDRECV(DG%FLA_SM_FLabel, Nq*Na, mpi_Rsize, left_pe, myrank_toroidal, &
+   DG%FLA_SM_FLabel_Right, Nq*Na, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
 
 
    !Calculate normal vector (gradient) of FLA_SM_FLabel
-   Na=DG%dim_a
-   Nq=DG%dim_gq
+   Na=Na
+   Nq=Nq
    ! d(FL)/da
    DG%grad_FLA_SM_FLabel(1,:,1,1) = (DG%FLA_SM_FLabel(:,2)-DG%FLA_SM_FLabel(:,1))/(DG%a_1D(2)-DG%a_1D(1))
    DG%grad_FLA_SM_FLabel(1,:,2:Na-1,1) = (DG%FLA_SM_FLabel(:,3:Na)-DG%FLA_SM_FLabel(:,1:Na-2))/(DG%a_2D(:,3:Na)-DG%a_2D(:,1:Na-2))
@@ -4888,8 +4890,8 @@ subroutine Init_Diagnostic_Grid
    ! d(FL)/dgf with periodicity
    DG%grad_FLA_SM_FLabel(3,:,:,1) = (DG%FLA_SM_FLabel_Right - DG%FLA_SM_FLabel_Left)/(2.0*(zetamax-zetamin))
 
-   call MPI_SENDRECV(DG%grad_FLA_SM_FLabel(:,:,:,1), 3*DG%dim_gq*DG%dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
-                     DG%grad_FLA_SM_FLabel(:,:,:,0), 3*DG%dim_gq*DG%dim_a, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
+   call MPI_SENDRECV(DG%grad_FLA_SM_FLabel(:,:,:,1), 3*Nq*Na, mpi_Rsize, right_pe, myrank_toroidal, &
+                     DG%grad_FLA_SM_FLabel(:,:,:,0), 3*Nq*Na, mpi_Rsize, left_pe, left_pe, toroidal_comm, istatus, ierror)
 
 
 

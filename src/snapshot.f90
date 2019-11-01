@@ -923,7 +923,7 @@ subroutine snapshot_hdf5
       ! =======================
       h5dims(1:2)=(/dim_gq, dim_a/)
       allocate(intp_val_Arr(dim_a*dim_gq))
-      allocate(intp_R_2D, intp_Z_2D, intp_x_2D, intp_y_2D, mold=intp_val_Arr)
+      allocate(intp_R_2D(dim_a*dim_gq), intp_Z_2D(dim_a*dim_gq), intp_x_2D(dim_a*dim_gq), intp_y_2D(dim_a*dim_gq))
 
       k=1
       do i=0,mpsi,a_jump
@@ -1663,28 +1663,30 @@ subroutine snapshot_Magnetic_Information
    integer(HSIZE_T) :: h5dims(3)
    integer(HID_T) :: file_id, gid_MP ! gid_MP: group id for MP (Magnetic Perturbation)
    integer :: h5err
+   integer Naq
 
    inv_dgq=1.0/deltat
    jm=mtheta(ipsi)/gq_jump
    dim_a = (mpsi+1)/a_jump
    dim_gq = jm+1
 
+   Naq=dim_a*dim_gq
 
    if(mype == numberpe-1)then !mype=0 must also have myrank_toroidal=0
 
 
-      allocate(a_(dim_gq*dim_a))
-      allocate(s_,gq_,F_,dFda_,dgFda_,dgYda_,R_,dRda_,dRdgq_,Z_,dZda_,dZdgq_,BB_,dBBda_,dBBdgq_,P_,T_,mold=a_)
-      allocate(Jacobian_, esi_N_,esi_K_,g_aa_cov_,g_aq_cov_,g_qq_cov_,g_ff_cov_, mold=a_)
-      allocate(D_, g_aa_cntv_, g_aq_cntv_, g_qq_cntv_, g_ff_cntv_, mold=a_)
-      allocate(B0_cov3_(3,size(a_)))
-      allocate(B0_cntv3_,j0_cov3_,j0_cntv3_, mold=B0_cov3_)
-      allocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov, mold=B0_cov3_)
-      allocate(uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv, mold=B0_cov3_)
+      allocate(a_(Naq))
+      allocate(s_(Naq),gq_(Naq),F_(Naq),dFda_(Naq),dgFda_(Naq),dgYda_(Naq),R_(Naq),dRda_(Naq),dRdgq_(Naq),Z_(Naq),dZda_(Naq),dZdgq_(Naq),BB_(Naq),dBBda_(Naq),dBBdgq_(Naq),P_(Naq),T_(Naq))
+      allocate(Jacobian_(Naq), esi_N_(Naq),esi_K_(Naq),g_aa_cov_(Naq),g_aq_cov_(Naq),g_qq_cov_(Naq),g_ff_cov_(Naq))
+      allocate(D_(Naq), g_aa_cntv_(Naq), g_aq_cntv_(Naq), g_qq_cntv_(Naq), g_ff_cntv_(Naq))
+      allocate(B0_cov3_(3,Naq))
+      allocate(B0_cntv3_(3,Naq),j0_cov3_(3,Naq),j0_cntv3_(3,Naq))
+      allocate(uvec_B_cov(3,Naq), uvec_N_cov(3,Naq), uvec_BxN_cov(3,Naq))
+      allocate(uvec_B_cntv(3,Naq), uvec_N_cntv(3,Naq), uvec_BxN_cntv(3,Naq))
 
       if(electromagnetic==1) then
-         allocate(ini_ga_,ini_dga0dt_, mold=a_)
-         allocate(ini_dB_cov3_,ini_dB_cntv3_, ini_grad_ga_cov3_, mold=B0_cov3_)
+         allocate(ini_ga_(Naq),ini_dga0dt_(Naq))
+         allocate(ini_dB_cov3_(3,Naq),ini_dB_cntv3_(3,Naq), ini_grad_ga_cov3_(3,Naq))
       endif
 
       k=1

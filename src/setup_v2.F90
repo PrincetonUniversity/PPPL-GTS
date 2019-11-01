@@ -1214,12 +1214,14 @@ Subroutine setup
       allocate(old_phi00(0:mpsi),tmp_old_phi00(0:mpsi))
    endif
 
+   ! (MGYOO: 11/01/2019)
+   ! removed using "mold" for multiple variables because pgi compiler does not allow it
    allocate(cum_phi00(0:mpsi))
-   allocate(cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ, mold=cum_phi00)
-   allocate(cum_zonal_dTe, cum_zonal_dTe_SQ, cum_zonal_dTi, cum_zonal_dTi_SQ, mold=cum_phi00)
+   allocate(cum_phi00_SQ(0:mpsi), cum_zonali(0:mpsi), cum_zonali_SQ(0:mpsi), cum_zonale(0:mpsi), cum_zonale_SQ(0:mpsi))
+   allocate(cum_zonal_dTe(0:mpsi), cum_zonal_dTe_SQ(0:mpsi), cum_zonal_dTi(0:mpsi), cum_zonal_dTi_SQ(0:mpsi))
    allocate(cum_full_dphi(0:1,mgrid))
-   allocate(cum_full_dphi_SQ, cum_full_dne, cum_full_dne_SQ, cum_full_dni, cum_full_dni_SQ, mold=cum_full_dphi)
-   allocate(cum_full_dTe, cum_full_dTe_SQ, cum_full_dTi, cum_full_dTi_SQ,mold=cum_full_dphi)
+   allocate(cum_full_dphi_SQ(0:1,mgrid), cum_full_dne(0:1,mgrid), cum_full_dne_SQ(0:1,mgrid), cum_full_dni(0:1,mgrid), cum_full_dni_SQ(0:1,mgrid))
+   allocate(cum_full_dTe(0:1,mgrid), cum_full_dTe_SQ(0:1,mgrid), cum_full_dTi(0:1,mgrid), cum_full_dTi_SQ(0:1,mgrid))
 
    allocate(tot_dni(0:1,mgrid), tot_dne(0:1,mgrid), FLA_Denominator(0:1,mgrid), FLA_dphi(0:1,mgrid), FLA_dTe(0:1,mgrid), FLA_dTi(0:1,mgrid), FLA_dne(0:1,mgrid), FLA_dni(0:1,mgrid), FLA_ne_adiabatic(0:1,mgrid))
    allocate(FLA_psi0(0:1,mgrid), FLA_Te0(0:1,mgrid), FLA_Ti0(0:1,mgrid), FLA_n0(0:1,mgrid), FLA_FLabel(0:1,mgrid))
