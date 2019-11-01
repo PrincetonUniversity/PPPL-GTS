@@ -92,7 +92,7 @@ subroutine charge_eon
       densitye(1,ij) = densitye(1,ij) + wz1*wt11
 #endif
 
-      if(isnan(densitye(0,ij)) .or. isnan(densitye(1,ij))) then
+      if(ieee_is_nan(densitye(0,ij)) .or. ieee_is_nan(densitye(1,ij))) then
          write(stdout,*) 'charge_eon, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densitye(:,ij)=',densitye(:,ij)
          call flush(stdout)
       endif

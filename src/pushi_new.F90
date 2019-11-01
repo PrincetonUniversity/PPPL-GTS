@@ -1083,7 +1083,7 @@ subroutine pushion_RK4(irk_i)
 
       wdot = (wdrive+wdrift+wKH+wgradB)
 
-      if(isnan(wdot)) then
+      if(ieee_is_nan(wdot)) then
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
@@ -1179,7 +1179,7 @@ subroutine pushion_RK4(irk_i)
 
 
 
-      if(isnan(zion(5,m))) then
+      if(ieee_is_nan(zion(5,m))) then
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
          write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)

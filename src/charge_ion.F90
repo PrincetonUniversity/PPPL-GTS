@@ -202,7 +202,7 @@ subroutine charge_ion
          densityi(1,ij) = densityi(1,ij) + wz1*wt11
 #endif
 
-         if(isnan(densityi(0,ij)) .or. isnan(densityi(1,ij))) then
+         if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
             write(stdout,*) 'charge_ion, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
             call flush(stdout)
          endif
@@ -240,7 +240,7 @@ subroutine charge_ion
    endif
 
    do ij=1,mgrid
-      if(isnan(densityi(0,ij)) .or. isnan(densityi(1,ij))) then
+      if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
          write(stdout,*) 'charge_ion2, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
          call flush(stdout)
       endif
@@ -253,7 +253,7 @@ subroutine charge_ion
    enddo
 
    do ij=1,mgrid
-      if(isnan(densityi(0,ij)) .or. isnan(densityi(1,ij))) then
+      if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
          write(stdout,*) 'charge_ion3, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
          call flush(stdout)
       endif
@@ -287,7 +287,7 @@ subroutine charge_ion
    endif
 
    do ij=1,mgrid
-      if(isnan(densityi(0,ij)) .or. isnan(densityi(1,ij))) then
+      if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
          write(stdout,*) 'charge_ion4, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
          call flush(stdout)
       endif
@@ -477,7 +477,7 @@ subroutine charge_ion
       zonali=zonali/jaco_sum    ! =dn_00/n_0; new flux-surface avarage --> zonali; used in Jan. 2015
 
       do i=0,mpsi
-         if(isnan(zonali(i))) then
+         if(ieee_is_nan(zonali(i))) then
             write(stdout,*) 'charge_ion,hello0, mype=',mype,',zonali=',zonali
             call flush(stdout)
             exit
@@ -641,7 +641,7 @@ subroutine charge_ion
       end if   ! end (its_jacobi==1)
 
       do i=0,mpsi
-         if(isnan(zonali(i))) then
+         if(ieee_is_nan(zonali(i))) then
             write(stdout,*) 'charge_ion,hello1, mype=',mype,',zonali=',zonali
             call flush(stdout)
             exit

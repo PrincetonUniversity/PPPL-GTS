@@ -3,6 +3,7 @@ module mpi_defs
 end module mpi_defs
 
 module precision
+   use ieee_arithmetic
    use mpi_defs, only:MPI_DOUBLE_PRECISION,MPI_REAL,MPI_DOUBLE_COMPLEX
    integer, parameter :: mpi_Rsize=MPI_DOUBLE_PRECISION,&
       mpi_complex_size=MPI_DOUBLE_COMPLEX
