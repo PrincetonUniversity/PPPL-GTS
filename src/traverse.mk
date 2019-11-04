@@ -16,13 +16,13 @@ ifeq ($(F90),mpif90)
           CFLAGS:=
           OMPFLAG:=-mp=nonuma
           NOOMPFLAG:=
-          SPRNG_DIR=/projects/M3DC1/LIB/PGI195
+          SPRNG_DIR=/home/jinchen/LIB/PGI195
           SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
           SPRNG_INC:=-I${SPRNG_DIR}/include
-          PSPLINE_DIR=/projects/M3DC1/LIB/PGI195
+          PSPLINE_DIR=/home/jinchen/LIB/PGI195
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline
-          PETSC_DIR=/projects/M3DC1/PETSC/petsc-3.12.0
+          PETSC_DIR=/home/jinchen/LIB/petsc-3.12.0
           PETSC_ARCH=traverse-pgi-openmpi-gts-2019
           HDF5_LIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lhdf5_hl -lhdf5
           NETCDF_LIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lnetcdf
@@ -86,7 +86,7 @@ endif
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
-LIB:=$(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
+LIB:=-L$HDF5DIR/lib64 -lhdf5 -lhdf5_fortran -lhdf5hl_fortran $(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
 
 %.o : %.cpp
 	$(CPP)  $(COPT) -c $< -o $@
