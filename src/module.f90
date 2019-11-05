@@ -176,11 +176,13 @@ module particle_array
    integer,dimension(:,:),allocatable :: jtion0,jtion1
    real(wp),dimension(:),allocatable :: wzion,wzeon,wpeon,wteon0,wteon1
    real(wp),dimension(:,:),allocatable :: wpion,wtion0,wtion1
+   !$acc declare create(jtion0,jtion1,wzion,wpion,wtion0,wtion1) ! create ion variables in GPU side
    real(wp),dimension(:,:),allocatable :: zion_s_on_GyroOrbit, zion_gq_on_GyroOrbit
    ! Here we declare zion,zion0,zeon and zeon0 as array pointers
    ! so that we can pass them as dummy arguments to a subroutine and be allowed
    ! to reallocate them inside that subroutine if needed.
    real(wp),dimension(:,:), allocatable :: zion,zion0,zeon,zeon0,zeon00
+   !$acc declare create(zion,zion0,zeon,zeon0)
    real(wp), dimension(:,:),allocatable :: RK_cum_zion, RK_cum_zeon
    ! ============================
    ! MGYOO (07/31/2018)
@@ -206,7 +208,8 @@ module particle_array
       backne,backue,backTe,dlnndae,&
       dlnTdae,duda
    real(wp),dimension(:),allocatable :: back_f0_i, back_f0_e
-
+   !$acc declare create(backn,backu,backT,dlnnda,dlnTda,backne,backue,backTe,dlnndae,dlnTdae,duda)
+   !$acc declare create(back_f0_i,back_f0_e)
 end module particle_array
 
 module field_array
@@ -395,6 +398,8 @@ module esi_interface
    use precision
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
       rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw
+   !$acc declare create(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
+   !$acc       rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw)
    real(wp), dimension(:), allocatable :: dve_gf, dvi_gf  ! gf(zeta) component of delta_v (due to plasma potential and magnetic perturbation)
    real(wp), dimension(:), allocatable :: vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf  ! delta components (perturbed part) of ion v_para
    real(wp), dimension(:), allocatable :: vpara_dve_a, vpara_dve_gq,vpara_dve_gf  ! delta components (perturbed part) of electron v_para
