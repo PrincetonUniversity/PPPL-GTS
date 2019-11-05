@@ -32,6 +32,12 @@ ifeq (,$(filter _%,$(notdir $(CURDIR))))
 OPENMP:=n
 DEBUG:=n
 ESSL:=n
+ACC:=n
+
+ifeq ($(ACC), y)
+  BIN_POSTFIX := $(BIN_POSTFIX)-ACC
+else
+endif
 
 ifeq ($(OPENMP), y)
   BIN_POSTFIX := $(BIN_POSTFIX)-OMP

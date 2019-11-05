@@ -8,6 +8,8 @@
   include  $(SRCDIR)/git_commands.mk
 
 
+ACCFLAG:=-acc -Minfo=all
+
 ifeq ($(F90),mpif90)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler
           FFLAGS:= -r8 -Kieee -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR)
@@ -75,6 +77,13 @@ endif
      COPT:=$(COPT) $(CFLAGS)
      GOPT:= -g  $(CFLAGS)
    endif
+
+   ifeq ($(ACC),y)
+     OPT:=$(ACCFLAG) $(OPT)
+     COPT:=$(ACCFLAG) $(COPT)
+     GOPT:= $(ACCFLAG) $(GOPT)
+	 endif
+
 
    ifeq ($(OPENMP),y)
      OPT:=$(OMPFLAG) $(OPT)
