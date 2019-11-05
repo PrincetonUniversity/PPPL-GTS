@@ -8,7 +8,7 @@
   include  $(SRCDIR)/git_commands.mk
 
 
-ACCFLAG:=-acc -Minfo=all
+ACCFLAG:=-acc -Minfo=accel
 
 ifeq ($(F90),mpif90)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler

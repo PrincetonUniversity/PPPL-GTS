@@ -1539,12 +1539,16 @@ subroutine n_T_u_group
    use esi_interface
    use spl_profiles
    use profile_array
+   use mpi_defs
 
    implicit  none
    integer i, ip
    real(wp)  r, fip, dela, tempi
    real(wp) back_flux_A(mi), back_U_para, A_over_meanA, E_over_T
    real(wp) vpara, vperp
+   real(wp) time0, time1
+
+   time0 = MPI_WTIME()
 
    dela=(a1-a0)/real(jr,wp)
    dela=1.0_wp/dela
@@ -1555,7 +1559,7 @@ subroutine n_T_u_group
       if(linterp_from_nodes==1) then
 
          !$omp parallel do private(i,r,ip,fip)
-         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A,ne_node,Ti_node,Iomg_node,dne_node,dTi_node,dIomg_node,dlnA_da,flux_A)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
          do i=1,mi
             r=zion(1,i)-a0
             r=r*dela
@@ -1605,7 +1609,7 @@ subroutine n_T_u_group
 
       if(q2.gt.0.0) then  ! first analytic profile
          !$omp parallel do private(i,r,ip,fip)
-         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,dlnA_da,gh,back_flux_A,flux_A)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
          do i=1,mi
             backn(i)=n_0*Bn*exp(-dn*zion(1,i)**xn)
             backT(i)=T_0*Bt*exp(-dTemi*zion(1,i)**xt)
@@ -1637,7 +1641,7 @@ subroutine n_T_u_group
          end do
       else      ! second analytic profile
          !$omp parallel do private(i,r,ip,fip,tempi)
-         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,dlnA_da,gh,back_flux_A,flux_A,Ti_node,ne_node,Iomg_node)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
          do i=1,mi
             r=zion(1,i)-a0
             r=r*dela
@@ -1669,7 +1673,7 @@ subroutine n_T_u_group
       end if
    end if
 
-   !$acc update self(backn(:mi),backT(:mi),backu(:mi),dlnnda(:mi),dlnTda(:mi),duda,gh(:mi),back_flux_A(:mi))
+   !$acc update self(backn(:mi),backT(:mi),backu(:mi),dlnnda(:mi),dlnTda(:mi),duda(:mi),gh(:mi))
 
 
    !     neglect rotation
@@ -1679,7 +1683,7 @@ subroutine n_T_u_group
    ! Calculate Shifted Maxwellian f0 for ions.
    call esigetbf(zion, mi, size(zion,1))
 
-   !$acc parallel loop present(zion,BB,backu,backT,back_flux_A,back_f0_i,backn)
+   !$acc parallel loop present(zion,backu,backT,back_f0_i,backn)
    do i=1, mi
       vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
       vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
@@ -1692,6 +1696,10 @@ subroutine n_T_u_group
    enddo
    !$acc update self(back_f0_i(:mi))
 
+   time1 = MPI_WTIME()
+
+   write(stdout,*) "I'm=",mype, "n_T_u_group takes", time1-time0, "secs"
+   call flush(stdout)
 
 
 end subroutine n_T_u_group
@@ -1714,6 +1722,7 @@ subroutine n_T_u_group_e
    use esi_interface
    use spl_profiles
    use profile_array
+   use mpi_defs
 
    implicit  none
    integer i, ip
@@ -1722,8 +1731,11 @@ subroutine n_T_u_group_e
    real(wp) E_over_T
    real(wp) vpara, vperp
    real(wp) back_flux_A(me), omega_ui(me),backTi(me), back_Ui_para, A_over_meanA ! This is about given ion's rotation which determines theta dependency of density
+   real(wp) time0, time1
 
+   time0= MPI_WTIME()
    !$acc update device(zeon(:,:me))
+
 
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
@@ -1731,7 +1743,7 @@ subroutine n_T_u_group_e
          dela=1.0_wp/dela
 
          !$omp parallel do private(i,r,ip,fip)
-         !$acc parallel loop present(zeon,backTe,backTi,dlnTdae,backne,dlnndae,omega_ui,back_flux_A,ne_node,Te_node,Ti_node,dne_node,dTe_node,Iomg_node,flux_A)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -1758,7 +1770,7 @@ subroutine n_T_u_group_e
          call ezspline_derivative(spn,1,me,zeon(1,:),dlnndae,ier)
          call ezspline_derivative(spTe,1,me,zeon(1,:),dlnTdae,ier)
 
-         !$acc parallel loop present(zeon,back_flux_A,flux_A)
+         !$acc parallel loop present(zeon)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -1779,7 +1791,7 @@ subroutine n_T_u_group_e
 
       if(q2.gt.0.0) then  ! first analytic profile
          !$omp parallel do private(i)
-         !$acc parallel loop present(zeon,backTe,backTi,dlnTdae,backne,dlnndae,omega_ui,back_flux_A)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
          do i=1,me
             backne(i)=n_0*Bn*exp(-dn*zeon(1,i)**xn)
             backTe(i)=T_e0*Bt_e*exp(-dTeme*zeon(1,i)**xt_e)
@@ -1815,7 +1827,7 @@ subroutine n_T_u_group_e
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
          !$omp parallel do private(i,r,ip,fip,tempe)
-         !$acc parallel loop present(zeon,backTe,backTi,dlnTdae,backne,dlnndae,omega_ui,back_flux_A)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -1849,7 +1861,7 @@ subroutine n_T_u_group_e
 
    end if
 
-   !$acc update self(backTe(:me), backTi(:me), dlnTdae(:me), backne(:me), dlnndae(:me), omega_ui(:me), back_flux_A(:me))
+   !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
 
 
    backue=0._wp    ! neglect rotation
@@ -1858,7 +1870,7 @@ subroutine n_T_u_group_e
    ! Calculate Maxwellian f0 for electrons.
    call esigetb(zeon, me, size(zeon,1))
 
-   !$acc parallel loop present(zeon,F,BB,omega_ui,backne,backTe,backTi,back_flux_A,back_f0_e)
+   !$acc parallel loop present(zeon,backne,backTe,back_f0_e)
    do i=1, me
       ! Following part is to calculate theta dependency of density which needs ion rotation information
       back_Ui_para = F(i)/BB(i)*omega_ui(i)
@@ -1874,6 +1886,9 @@ subroutine n_T_u_group_e
    enddo
    !$acc update self(back_f0_e(:me))
 
+   time1=MPI_WTIME()
+   write(stdout,*) "I'm=",mype, "n_T_u_group_e takes", time1-time0, "secs"
+   call flush(stdout)
 
 end subroutine n_T_u_group_e
 
@@ -4474,13 +4489,15 @@ subroutine Ti_at_electrons
    integer i, ip
    real(wp)  r, fip, dela, tempi
 
+   !$acc update device(zeon(:,:me))
+
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
 
          !$omp parallel do private(i,r,ip,fip)
-         !$acc parallel loop present(zeon,Ti_node)
+         !$acc parallel loop present(zeon)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -4506,7 +4523,7 @@ subroutine Ti_at_electrons
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
          !$omp parallel do private(i,r,ip,fip,tempi)
-         !$acc parallel loop present(zeon,backT,Ti_node)
+         !$acc parallel loop present(zeon,backT)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
