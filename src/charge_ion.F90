@@ -42,6 +42,8 @@ subroutine charge_ion
 
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& wz1,pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
+   !$acc update device (zion(:,:mi))
+   !$acc parallel loop present(zion) private(intpl_pgyro,intpl_tgyro)
    do m=1,mi
       !     psitmp=zion(1,m)      ! =a
       psitmp=zion(7,m)       ! =s
@@ -50,12 +52,12 @@ subroutine charge_ion
       rhoi=zion(6,m)
 
       r=psitmp
-      ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
-      !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
+      ip=max(0,min(mpsi,floor((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
+      !   jt=max(0,min(mtheta(ip),floor(thetatmp*pi2_inv*delt(ip)+0.5)))
       thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane
       thedum=thedum*pi2_inv+100.0_wp
-      thedum=2.0_wp*pi*(thedum-aint(thedum))       ! bring back to range [0,2pi]
-      jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))
+      thedum=2.0_wp*pi*(thedum-floor(thedum))       ! bring back to range [0,2pi]
+      jt=max(0,min(mtheta(ip),floor(thedum*pi2_inv*delt(ip)+0.5)))
       ipjt=igrid(ip)+jt     ! note special case of jt=0
       wzion(m)=(zetatmp-zetamin)*delz
 
@@ -63,19 +65,19 @@ subroutine charge_ion
       !==========================================
       ! MGYOO (10/24/2018) : to store information of GC position.
       ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
-      inner_ip = max(0,min(mpsi-1,int((r-s0)*delr)))
+      inner_ip = max(0,min(mpsi-1,floor((r-s0)*delr)))
       thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane
       thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
-      inner_jt = int(thedum)
-      wtion0(0,m) = thedum - int(thedum)
+      inner_jt = floor(thedum)
+      wtion0(0,m) = thedum - floor(thedum)
       jtion0(0,m) = igrid(inner_ip) + inner_jt
       wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
 
       outter_ip = inner_ip+1
       thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane
       thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
-      outter_jt = int(thedum)
-      wtion1(0,m) = thedum - int(thedum)
+      outter_jt = floor(thedum)
+      wtion1(0,m) = thedum - floor(thedum)
       jtion1(0,m) = igrid(outter_ip) + outter_jt
       !==========================================
 
@@ -105,7 +107,7 @@ subroutine charge_ion
          pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
          zion_s_on_GyroOrbit(larmor,m)=pdum
          rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
-         ii=max(0,min(mpsi-1,int(rdum)))
+         ii=max(0,min(mpsi-1,floor(rdum)))
          !        wp1=rdum-real(ii)
          !        wpion(larmor,m)=wp1
          wp1=(pdum-s_grid(ii))/(s_grid(ii+1)-s_grid(ii))   !wx  finite rho_i case
@@ -118,16 +120,16 @@ subroutine charge_ion
          ! inner flux surface
          im=ii
          tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
-         tdum=(tdum-aint(tdum))*delt(im)
-         j00=max(0,min(mtheta(im)-1,int(tdum)))
+         tdum=(tdum-floor(tdum))*delt(im)
+         j00=max(0,min(mtheta(im)-1,floor(tdum)))
          jtion0(larmor,m)=igrid(im)+j00  ! pay attention to j00=0 case
          wtion0(larmor,m)=tdum-real(j00)
 
          ! outer flux surface
          im=ii+1
          tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
-         tdum=(tdum-aint(tdum))*delt(im)
-         j01=max(0,min(mtheta(im)-1,int(tdum)))
+         tdum=(tdum-floor(tdum))*delt(im)
+         j01=max(0,min(mtheta(im)-1,floor(tdum)))
          jtion1(larmor,m)=igrid(im)+j01  ! pay attention to j01=0 case
          wtion1(larmor,m)=tdum-real(j01)
       enddo
