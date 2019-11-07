@@ -1421,7 +1421,7 @@ subroutine ion_locator_at_larmor_points
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
    !$acc update device (zion(:,:mi))
-   !$acc parallel loop present(zion) private(intpl_pgyro,intpl_tgyro)
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1) private(intpl_pgyro,intpl_tgyro)
    do m=1,mi
       !psitmp=zion(1,m)   ! =a
       psitmp=zion(7,m)   ! =s
@@ -1507,5 +1507,6 @@ subroutine ion_locator_at_larmor_points
          wtion1(larmor,m)=tdum-real(j01)
       enddo
    enddo
+   !$acc update self(jtion0(:,:mi),jtion1(:,:mi),wzion(:mi),wpion(:,:mi),wtion0(:,:mi),wtion1(:,:mi))
 
 end subroutine ion_locator_at_larmor_points

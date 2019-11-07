@@ -2430,7 +2430,7 @@ subroutine electron_locator
    !$omp parallel do private(m,psitmp,thetatmp,zetatmp,&
    !$omp& rdum,ii,wp1,im,tdum,j00,j01)
    !$acc update device(zeon(:,:me))
-   !$acc parallel loop present(zeon)
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
       !     psitmp=zeon(1,m)      ! =a
       psitmp=zeon(7,m)       ! =s
@@ -2461,6 +2461,7 @@ subroutine electron_locator
       jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
       wteon1(m)=tdum-real(j01,wp)
    enddo
+   !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
 
 end subroutine electron_locator
 
