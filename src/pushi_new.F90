@@ -753,6 +753,7 @@ subroutine pushion_RK4(irk_i)
    use field_array
    use diagnosis_array
    use esi_interface
+   use function_gg_module
 
    implicit none
    integer, intent(in):: irk_i
@@ -781,7 +782,7 @@ subroutine pushion_RK4(irk_i)
 
    real(wp) tt0,tt1,cput0,cput1,rtc
 
-   real(wp), external :: D01AHF,dsda,SMOOTHSTEP
+   real(wp), external :: D01AHF,dsda !,SMOOTHSTEP
    integer minpts,ifail
    real(wp) acc,error_8
    real(wp) E_a,E_t,E_f,timef
@@ -795,6 +796,8 @@ subroutine pushion_RK4(irk_i)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
+
+   !$acc update device(zion(:,:mi),zion0(:,:mi))
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -811,6 +814,7 @@ subroutine pushion_RK4(irk_i)
       RK_cum_zion  =0.0
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
+     !$acc parallel loop present(zion,zion0)
       do m=1,mi
          ! Note that zion0(6,m) does not mean "mu", this is reserved for the other quantity
          zion0(1:5,m)=zion(1:5,m)
@@ -847,6 +851,7 @@ subroutine pushion_RK4(irk_i)
    ! are calculated at CHARGE_ION
    !
    !$omp parallel do private(m,e1,e2,e3,wz1,wz0,larmor,ij,wp0,wt00,wt10,wp1,wt01,wt11)
+   !$acc parallel loop present(zion,zion0)
    do m=1,mi
       e1=0.0_wp
       e2=0.0_wp
@@ -886,6 +891,9 @@ subroutine pushion_RK4(irk_i)
       wpi(2,m)=e2*inv_larmor_num
       wpi(3,m)=e3*inv_larmor_num
 
+   enddo
+
+   do m=1,mi
       !MGYOO (10/30/2018; to use analytic profile of ga0(a))
       call Get_MP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
    enddo
@@ -907,6 +915,7 @@ subroutine pushion_RK4(irk_i)
    dela=1.0_wp/Ydr
    ! if(istep.ge.4000) then
    !$omp parallel do private(m,r,ip,fip)
+   !$acc parallel loop present(zion,zion0)
    do m=1,mi
       r=zion(1,m)-a0
       r=r*dela
@@ -967,6 +976,7 @@ subroutine pushion_RK4(irk_i)
    ! Another OpenMP parallel loop...
    !$omp parallel do private(m,mu,vpara,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,energy1,B_inverse,u_vpara,vdq,wgradB,wKH, &
    !$omp& omega_t,r,ip,fip,ddT_da_particle,w_anti_relax,muB,instep,outstep,fdamp,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,v2,avw)
+   !$acc parallel loop present(zion,zion0)
    do m=1,mi
       !     dbdz=0.0   for axisymmetric system   !wx
 
@@ -1012,8 +1022,8 @@ subroutine pushion_RK4(irk_i)
       w_anti_relax=vdr*w_anti_relax
 
       if(zion(1,m).le.lmax.or.zion(1,m).ge.rmin) then
-         instep =smoothstep(lmin,lmax,zion(1,m))
-         outstep=smoothstep(rmin,rmax,zion(1,m))
+         instep =smoothstep_m(lmin,lmax,zion(1,m))
+         outstep=smoothstep_m(rmin,rmax,zion(1,m))
          !        fip=smoothstep(0.20_wp,0.25_wp,zion(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zion(1,m)))
          fip=instep*(1.0_wp-outstep)
          !  wdrive=wdrive*fip
@@ -1083,13 +1093,13 @@ subroutine pushion_RK4(irk_i)
 
       wdot = (wdrive+wdrift+wKH+wgradB)
 
-      if(ieee_is_nan(wdot)) then
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', now_w=', now_w,', wdot=',wdot,', wdrive=',wdrive,', wdrift=',wdrift,', wKH=',wKH,', wgradB=',wgradB
-         call flush(stdout)
-      endif
+      ! if(ieee_is_nan(wdot)) then
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', now_w=', now_w,', wdot=',wdot,', wdrive=',wdrive,', wdrift=',wdrift,', wKH=',wKH,', wgradB=',wgradB
+      !    call flush(stdout)
+      ! endif
 
 
       !==================================================
@@ -1101,10 +1111,10 @@ subroutine pushion_RK4(irk_i)
       !Caution!! Following routine is only available for neoclassical case which use full velocity.
       if(irk_i==4)then
          if(ifneoclassical==1) then
-            call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-            vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
-            vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
-            vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+            ! call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+            ! vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+            ! vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+            ! vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
          else
             vd_para_a_cntv = vpara_dvi_a(m)
             vd_para_gq_cntv = vpara_dvi_gq(m)
@@ -1179,13 +1189,13 @@ subroutine pushion_RK4(irk_i)
 
 
 
-      if(ieee_is_nan(zion(5,m))) then
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0(6,m)=',zion0(6,m),', now_w=', now_w, ', wdot=',wdot
-         call flush(stdout)
-      endif
+      ! if(ieee_is_nan(zion(5,m))) then
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0(6,m)=',zion0(6,m),', now_w=', now_w, ', wdot=',wdot
+      !    call flush(stdout)
+      ! endif
 
 
 
@@ -1212,6 +1222,7 @@ subroutine pushion_RK4(irk_i)
    if(irk_i==4)then
       ! out of boundary particle
       !$omp parallel do private(m)
+      !$acc parallel loop present(zion,zion0)
       do m=1,mi
          if(zion(1,m) > psimax)then
             zion(1,m)=zion0(1,m)
@@ -1232,6 +1243,7 @@ subroutine pushion_RK4(irk_i)
       enddo
    endif
 
+   !$acc update self(zion(:,:mi),zion0(:,:mi))
 
    if(idiag==0)then
       ! fluxes diagnose
@@ -1251,6 +1263,7 @@ subroutine pushion_RK4(irk_i)
       En_00=0.0_wp
       En_tur=0.0_wp
       En_tot=0.0_wp
+      !$acc parallel loop present(zion,zion0)
       do m=1,mi
          r=zion0(7,m)         ! old radial location
          ip=max(0,min(mpsi,int((r-s0)*delr+0.5_wp)))    ! ip [0,mpsi]
@@ -1383,6 +1396,8 @@ subroutine pushion_RK4(irk_i)
    !    write(stdout,*) "Measure_Ions_on_Diagnostic_Grid", tt1-tt0,"secs"
    !    call flush(stdout)
    ! endif
+
+
 
 end subroutine pushion_RK4
 
