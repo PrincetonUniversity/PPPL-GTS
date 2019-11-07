@@ -176,7 +176,6 @@ module particle_array
    integer,dimension(:,:),allocatable :: jtion0,jtion1
    real(wp),dimension(:),allocatable :: wzion,wzeon,wpeon,wteon0,wteon1
    real(wp),dimension(:,:),allocatable :: wpion,wtion0,wtion1
-   !$acc declare create(jtion0,jtion1,wzion,wpion,wtion0,wtion1) ! create ion variables in GPU side
    real(wp),dimension(:,:),allocatable :: zion_s_on_GyroOrbit, zion_gq_on_GyroOrbit
    ! Here we declare zion,zion0,zeon and zeon0 as array pointers
    ! so that we can pass them as dummy arguments to a subroutine and be allowed

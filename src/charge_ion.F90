@@ -147,6 +147,8 @@ subroutine charge_ion
    dnitmp=0.   ! Set array elements to zero
 #endif
    !$omp do private(m,larmor,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
+   !$acc update device(zion(:,:mi))
+   !$acc parallel loop present(zion)
    do m=1,mi
       weight=zion(5,m)
 
@@ -186,26 +188,34 @@ subroutine charge_ion
          ! If no loop-level parallelism, use original algorithm (write directly
          ! into array "densityi()".
          ij=jtion0(larmor,m)
+         !$acc atomic update
          densityi(0,ij) = densityi(0,ij) + wz0*wt00
+         !$acc atomic update
          densityi(1,ij) = densityi(1,ij) + wz1*wt00
 
          ij=ij+1
+         !$acc atomic update
          densityi(0,ij) = densityi(0,ij) + wz0*wt10
+         !$acc atomic update
          densityi(1,ij) = densityi(1,ij) + wz1*wt10
 
          ij=jtion1(larmor,m)
+         !$acc atomic update
          densityi(0,ij) = densityi(0,ij) + wz0*wt01
+         !$acc atomic update
          densityi(1,ij) = densityi(1,ij) + wz1*wt01
 
          ij=ij+1
+         !$acc atomic update
          densityi(0,ij) = densityi(0,ij) + wz0*wt11
+         !$acc atomic update
          densityi(1,ij) = densityi(1,ij) + wz1*wt11
 #endif
 
-         if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
-            write(stdout,*) 'charge_ion, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
-            call flush(stdout)
-         endif
+         ! if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
+         !    write(stdout,*) 'charge_ion, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
+         !    call flush(stdout)
+         ! endif
 
       enddo
    enddo
