@@ -1584,12 +1584,16 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       endif
       if(irk_e==1 .and. mod(istep,msnap)==0) then
+         tt0=MPI_WTIME()
          do m=1,me
          FullVelocity_da_dgq_dgf(1,m) = da(m)
          FullVelocity_da_dgq_dgf(2,m) = dgq(m)
          FullVelocity_da_dgq_dgf(3,m) = dgf(m)
          enddo
          call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+         tt1=MPI_WTIME()
+         write(stdout,*) "Measure_Electrons_on_Diagnostic_Grid", tt1-tt0,"secs"
+         call flush(stdout)
       endif
 
       call shifte
