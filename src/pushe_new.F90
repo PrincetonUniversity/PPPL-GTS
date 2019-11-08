@@ -1284,7 +1284,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    enddo
    !  ------------------------------------------------------------
 
-
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
    if(electromagnetic == 1)then
       !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
       if(Flag_GC_Solver==0) then
@@ -1300,6 +1302,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
    endif
 
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"
+   call flush(stdout)
+   #endif
 
    !  call n_T_u_group_e  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc at electrons.
    ! moved to collision_eon.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
@@ -1331,6 +1338,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !$omp parallel do private (m,mu,energy,kappa,wdrift,wgradB,vdr,wdrive,wdot,xdum,ydum,T_inverse,&
       !$omp& r,ip,Ea_00,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt,wdphidt2,muB,fip,&
       !$omp& instep,outstep,fdamp,vpara,v2,avw,E_f)
+
+      #ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+      #endif
       !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
       do m=1,me
          !     dbdz=0.0   for axisymmetric system   !wx
@@ -1576,6 +1587,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
 
+      #ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
+      call flush(stdout)
+      #endif
       !   fluxes diagnose
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
          !$omp parallel do private(m)
@@ -1596,16 +1612,20 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       endif
       ! if(irk_e==1 .and. mod(istep,msnap)==0) then
+      !    #ifdef _MGY_TIMER_
       !    tt0=MPI_WTIME()
+      !    #endif
       !    do m=1,me
       !    FullVelocity_da_dgq_dgf(1,m) = da(m)
       !    FullVelocity_da_dgq_dgf(2,m) = dgq(m)
       !    FullVelocity_da_dgq_dgf(3,m) = dgf(m)
       !    enddo
       !    call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+      !    #ifdef _MGY_TIMER_
       !    tt1=MPI_WTIME()
-      !    write(stdout,*) "Measure_Electrons_on_Diagnostic_Grid", tt1-tt0,"secs"
+      !    write(stdout,'(a,ES11.3,a)') "Measure_Electrons_on_Diagnostic_Grid", tt1-tt0," secs"
       !    call flush(stdout)
+      !    #endif
       ! endif
 
       call shifte

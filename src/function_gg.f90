@@ -1548,7 +1548,10 @@ subroutine n_T_u_group
    real(wp) vpara, vperp
    real(wp) time0, time1
 
+   #ifdef _MGY_TIMER_
    time0 = MPI_WTIME()
+   #endif
+
 
    dela=(a1-a0)/real(jr,wp)
    dela=1.0_wp/dela
@@ -1696,10 +1699,11 @@ subroutine n_T_u_group
    enddo
    !$acc update self(back_f0_i(:mi))
 
-   time1 = MPI_WTIME()
-
-   write(stdout,*) "I'm=",mype, "n_T_u_group takes", time1-time0, "secs"
+   #ifdef _MGY_TIMER_
+   time1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group takes", time1-time0, " secs"
    call flush(stdout)
+   #endif
 
 
 end subroutine n_T_u_group
@@ -1733,7 +1737,10 @@ subroutine n_T_u_group_e
    real(wp) back_flux_A(me), omega_ui(me),backTi(me), back_Ui_para, A_over_meanA ! This is about given ion's rotation which determines theta dependency of density
    real(wp) time0, time1
 
+
+   #ifdef _MGY_TIMER_
    time0= MPI_WTIME()
+   #endif
    !$acc update device(zeon(:,:me))
 
 
@@ -1886,9 +1893,11 @@ subroutine n_T_u_group_e
    enddo
    !$acc update self(back_f0_e(:me))
 
+   #ifdef _MGY_TIMER_
    time1=MPI_WTIME()
-   write(stdout,*) "I'm=",mype, "n_T_u_group_e takes", time1-time0, "secs"
+   if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_e takes", time1-time0, " secs"
    call flush(stdout)
+   #endif
 
 end subroutine n_T_u_group_e
 
@@ -2878,7 +2887,7 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
 
 
    call cpu_time(t_finish)
-   write(stdout,*) "I'm=", mype, "gPPI Construction Finished! delta_time = ", t_finish-t_start, " seconds."
+   write(stdout,'(a,I5,a,ES11.3,a)') "I'm=", mype, ", gPPI Construction Finished! delta_time = ", t_finish-t_start, " seconds."
    flush(stdout)
 
    call system("mkdir -p " // 'VacFieldAnalysis')

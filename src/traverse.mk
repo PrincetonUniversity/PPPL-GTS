@@ -7,14 +7,14 @@
 
   include  $(SRCDIR)/git_commands.mk
 
-
+DFLAGS:= -D_MGY_TIMER_
 ACCFLAG:=-acc -Minfo=accel
 
 ifeq ($(F90),mpif90)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler
           FFLAGS:= -r8 -Kieee -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR)
-          OPT:=-O2
-          COPT:=-O2
+          OPT:=-O3
+          COPT:=-O3
           CFLAGS:=
           OMPFLAG:=-mp=nonuma
           NOOMPFLAG:=
@@ -84,6 +84,10 @@ endif
      GOPT:= $(ACCFLAG) $(GOPT)
 	 endif
 
+	OPT:=$(OPT) $(DFLAGS)
+	COPT:=$(COPT) $(DFLAGS)
+	GOPT:= -g  $(DFLAGS)
+
 
    ifeq ($(OPENMP),y)
      OPT:=$(OMPFLAG) $(OPT)
@@ -110,7 +114,7 @@ LIB:=-L$HDF5DIR/lib64 -lhdf5 -lhdf5_fortran -lhdf5hl_fortran $(NAG) $(FEM) $(SPR
 	$(F77) $(OPT) -c $< -o $@
 
 %.o: %.f90
-	$(F90) $(OPT) -c $< -o $@
+	$(F90) -cpp $(OPT) -c $< -o $@
 
 %.o: %.F90
 	$(F90) $(OPT) -c $< -o $@
