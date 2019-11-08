@@ -252,6 +252,10 @@ program GTS
 
    !           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
    do istep=istart,mstep
+      if(mype==0) then
+         write(stdout,'(a,I8)')'istep=',istep
+         call flush(stdout)
+      endif
       do irk=1,nrk
 
          ! idiag=0: do time history diagnosis
@@ -477,10 +481,6 @@ program GTS
       time(14)=time(14)+dt
       timewc(14)=timewc(14)+dtwc
 
-      if(mype==0) then
-         write(stdout,*)'istep=',istep
-         call flush(stdout)
-      endif
 
       call timer(t0,dt,t0wc,dtwc)
       time(nc)=t0-starting_t0
@@ -620,7 +620,7 @@ subroutine system_mem_usage
 
    !--- Print out mem. usage information
    if(mype==0) then
-      write(stdout,*) 'istep=', istep, ' mype=',mype,'pid=',pid, '; VmRSS=', val_VmRSS, 'kB; ', 'VmSize=', val_VmSize, 'kB; ','VmPeak=', val_VmPeak, 'kB; '
+      write(stdout,'(3(a,I8),3(a,I8,a))')   'istep=', istep, ', mype=',mype,', pid=',pid, '; VmRSS=', val_VmRSS, ' kB;', ' VmSize=', val_VmSize, ' kB; ',' VmPeak=', val_VmPeak, ' kB; '
       call flush(stdout)
    endif
 
