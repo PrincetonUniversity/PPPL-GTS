@@ -1610,7 +1610,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       call shifte
 
-      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(5,:me))
 
 
       call electron_locator
@@ -1828,7 +1828,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       endif
 
-      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(5,:me))
 
 
    ELSE    !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
