@@ -1162,7 +1162,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
-  !$acc update device(zeon(:,:me),zeon0(:,:me))
+  !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -1178,16 +1178,16 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    fdamp0=0.0_wp
 
    if(irk_e==1)then ! 1st step of Runge-Kutta method
-      RK_cum_zeon  =0.0
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
-      !$acc parallel loop present(zeon,zeon0)
+      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
          ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity
          ! zeon0(8,m) is the adiabatic term in the weight evolution @ t={n}, x={n}
          ! zeon(8,m) is a kind of temporary pouch to bring wdot term during shifte
          zeon0(1:5,m)=zeon(1:5,m)
          zeon0(7,m)=zeon(7,m)
+         RK_cum_zeon(:,m)=0.0
       enddo
    elseif(irk_e==2) then
       RK_cum_coeff =(1.0/3.0)
@@ -1331,7 +1331,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !$omp parallel do private (m,mu,energy,kappa,wdrift,wgradB,vdr,wdrive,wdot,xdum,ydum,T_inverse,&
       !$omp& r,ip,Ea_00,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt,wdphidt2,muB,fip,&
       !$omp& instep,outstep,fdamp,vpara,v2,avw,E_f)
-      !$acc parallel loop present(zeon,zeon0,backT,backTe,dlnTdae,dlnndae)
+      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
       do m=1,me
          !     dbdz=0.0   for axisymmetric system   !wx
          mu=zeon(6,m)*zeon(6,m)        ! =normalized mu of electrons
@@ -1574,7 +1574,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       enddo
 
-      !$acc update self(zeon(:,:me),zeon0(:,:me))
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
 
       !   fluxes diagnose
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
@@ -1610,7 +1610,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       call shifte
 
-      !$acc update device(zeon(:,:me),zeon0(:,:me))
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
 
 
       call electron_locator
@@ -1695,7 +1695,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          call smooth_PHI
       endif
 
-      !$acc parallel loop present(zeon,zeon0,backTe)
+      !$acc parallel loop present(zeon,zeon0,backTe,RK_cum_zeon)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
 
@@ -1828,7 +1828,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       endif
 
-      !$acc update self(zeon(:,:me),zeon0(:,:me))
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
 
 
    ELSE    !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS

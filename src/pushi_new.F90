@@ -797,7 +797,7 @@ subroutine pushion_RK4(irk_i)
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
 
-   !$acc update device(zion(:,:mi),zion0(:,:mi))
+   !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -811,14 +811,14 @@ subroutine pushion_RK4(irk_i)
    fdamp0=0.0_wp
 
    if(irk_i==1)then ! 1st step of Runge-Kutta method
-      RK_cum_zion  =0.0
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
-     !$acc parallel loop present(zion,zion0)
+      !$acc parallel loop present(zion,zion0,RK_cum_zion)
       do m=1,mi
          ! Note that zion0(6,m) does not mean "mu", this is reserved for the other quantity
          zion0(1:5,m)=zion(1:5,m)
          zion0(7,m)=zion(7,m)
+         RK_cum_zion(:,m)  =0.0
       enddo
    elseif(irk_i==2) then
       RK_cum_coeff =(1.0/3.0)
@@ -976,7 +976,7 @@ subroutine pushion_RK4(irk_i)
    ! Another OpenMP parallel loop...
    !$omp parallel do private(m,mu,vpara,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,energy1,B_inverse,u_vpara,vdq,wgradB,wKH, &
    !$omp& omega_t,r,ip,fip,ddT_da_particle,w_anti_relax,muB,instep,outstep,fdamp,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,v2,avw)
-   !$acc parallel loop present(zion,zion0)
+   !$acc parallel loop present(zion,zion0,RK_cum_zion)
    do m=1,mi
       !     dbdz=0.0   for axisymmetric system   !wx
 
@@ -1243,7 +1243,7 @@ subroutine pushion_RK4(irk_i)
       enddo
    endif
 
-   !$acc update self(zion(:,:mi),zion0(:,:mi))
+   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
 
    if(idiag==0)then
       ! fluxes diagnose

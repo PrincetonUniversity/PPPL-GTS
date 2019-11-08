@@ -1878,8 +1878,10 @@ Subroutine setup
       wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers),&
       zion_s_on_GyroOrbit(larmor_num,mimax),zion_gq_on_GyroOrbit(larmor_num,mimax))
 
-   if(Flag_RK4==1) allocate(RK_cum_zion(7,mimax))
-
+   if(Flag_RK4==1) then
+      allocate(RK_cum_zion(7,mimax))
+      RK_cum_zion=0.0
+   endif
    if(ifelectron/=0) then
 
       if(Flag_RK4==1) then
@@ -1889,6 +1891,7 @@ Subroutine setup
          else
             allocate(RK_cum_zeon(7,memax))
          endif
+         RK_cum_zeon=0.0
       endif
 
       if(ifdphi>=2) then   ! use direct dphi/dt when ifelectron==2

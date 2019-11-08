@@ -185,6 +185,7 @@ module particle_array
    real(wp),dimension(:,:), allocatable :: zion,zion0,zeon,zeon0,zeon00
    !$acc declare create(zion,zion0,zeon,zeon0)
    real(wp), dimension(:,:),allocatable :: RK_cum_zion, RK_cum_zeon
+   !$acc declare create(RK_cum_zion,RK_cum_zeon)
    ! ============================
    ! MGYOO (07/31/2018)
    ! Information of Multiple-Tracers
