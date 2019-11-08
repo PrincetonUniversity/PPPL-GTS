@@ -213,11 +213,11 @@ program GTS
    call Init_Diagnostic_Grid
    if(irun==0) then
       istep=0
-      call get_Te_fluctuation_DirectlyFromParticles
-      call get_Ti_fluctuation_DirectlyFromParticles
+      ! call get_Te_fluctuation_DirectlyFromParticles
+      ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
-      call snapshot_hdf5
+      ! call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
       call check_tracer_i
@@ -462,7 +462,7 @@ program GTS
 
       if(mod(istep,msnap) .eq. 0) then
          !  phi_tmp=phi_tmp/real(msnap,wp)
-         call snapshot_hdf5
+         ! call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables
          call system_mem_usage
