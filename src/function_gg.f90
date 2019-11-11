@@ -5640,7 +5640,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
    enddo
 
 
-
+   !$acc parallel loop present(zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit)
    do m=1,mi
       if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
 

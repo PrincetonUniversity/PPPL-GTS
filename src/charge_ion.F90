@@ -43,7 +43,7 @@ subroutine charge_ion
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& wz1,pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
    !$acc update device (zion(:,:mi))
-   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1) private(intpl_pgyro,intpl_tgyro)
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit) private(intpl_pgyro,intpl_tgyro)
    do m=1,mi
       !     psitmp=zion(1,m)      ! =a
       psitmp=zion(7,m)       ! =s
