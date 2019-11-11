@@ -796,6 +796,8 @@ subroutine pushion_RK4(irk_i)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
+   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+
 
    !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
 
@@ -1246,6 +1248,9 @@ subroutine pushion_RK4(irk_i)
    !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
 
    if(idiag==0)then
+
+      !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
+
       ! fluxes diagnose
       !    wpi(1,1:mi)=wpi(1,1:mi)*gha(1:mi)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
       !$omp parallel do private(m)

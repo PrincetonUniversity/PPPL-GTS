@@ -1161,6 +1161,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
+   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
 
   !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
 
@@ -1594,6 +1595,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       #endif
       !   fluxes diagnose
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
+
+         !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+
          !$omp parallel do private(m)
          do m=1,me
             wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
