@@ -1201,7 +1201,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       RK_adv_coeff =1.0 ! This is used to calculate dphi/dt
 
       !$acc update device(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-
+      !$acc update device(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
    else
       write(stdout,*) "In pushe_RK4, irk_e=",irk_e,", is weird. Please Check It!!"
       call flush(stdout)
@@ -1307,7 +1307,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    endif
 
    !$acc update self (BB(:me),Bq(:me),Ba(:me),F(:me),gha(:me),ghq(:me),Pa(:me),Ta(:me))
-
+   !$acc update self (vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
 
    #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -1596,6 +1596,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       if(irk_e==4) then
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
       endif
 
       #ifdef _MGY_TIMER_
@@ -1727,6 +1728,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          call charge_eon
          call poisson( solver1, masssolver )
          call smooth_PHI
+      endif
+
+      if(irk_e==4) then
+         !$acc update device (we_adiab(:me))
       endif
 
       !$acc parallel loop present(zeon,zeon0,backTe,RK_cum_zeon)
@@ -1863,7 +1868,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       endif
 
       !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(5,:me))
-
+      if(irk_e==4) then
+         !$acc update self (we_adiab(:me))
+      endif
 
    ELSE    !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
       write(stdout,*) "In pushe_RK4, wrong flags are observed!! Please Check It!!"

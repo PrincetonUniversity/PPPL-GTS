@@ -833,7 +833,7 @@ subroutine pushion_RK4(irk_i)
       RK_adv_coeff =1.0
 
       !$acc update device(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-
+      !$acc update device(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
    else
       write(stdout,*) "In pushi_RK4, irk_i=",irk_i,", is weird. Please Check It!!"
       call flush(stdout)
@@ -947,6 +947,7 @@ subroutine pushion_RK4(irk_i)
    end if
 
    !$acc update self (BB(:mi),Bq(:mi),Ba(:mi),F(:mi),Fa(:mi),Pa(:mi),PP(:mi),gha(:mi),ghq(:mi),TT(:mi),Ta(:mi))
+   !$acc update self (vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
 
 
    !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
@@ -1254,6 +1255,7 @@ subroutine pushion_RK4(irk_i)
    !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
    if(irk_i==4) then
       !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+      !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
    endif
 
    if(idiag==0)then

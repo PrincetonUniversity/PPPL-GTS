@@ -202,7 +202,9 @@ module particle_array
    ! MGYOO (07/31/2018)
    ! Additional information about weight component ratio
    real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp ! for ion weight
+   !$acc declare create(wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp)
    real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp ! for electron weight
+   !$acc declare create(we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp)
    ! ============================
 
 
@@ -404,7 +406,9 @@ module esi_interface
    !$acc declare create(F,Fa,TT,Ta,PP,Pa,BB,Ba,Bq,gh,gha,ghq)
    real(wp), dimension(:), allocatable :: dve_gf, dvi_gf  ! gf(zeta) component of delta_v (due to plasma potential and magnetic perturbation)
    real(wp), dimension(:), allocatable :: vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf  ! delta components (perturbed part) of ion v_para
+   !$acc declare create (vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf)
    real(wp), dimension(:), allocatable :: vpara_dve_a, vpara_dve_gq,vpara_dve_gf  ! delta components (perturbed part) of electron v_para
+   !$acc declare create (vpara_dve_a, vpara_dve_gq,vpara_dve_gf)
    real(wp)  metric(6)
    real(wp)  djr
    real(wp), dimension(:), allocatable :: flux_it,dlnA_da,flux_A
