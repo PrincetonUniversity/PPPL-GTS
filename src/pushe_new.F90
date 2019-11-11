@@ -1303,6 +1303,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
    endif
 
+   !$acc update self (BB(:me),Bq(:me),Ba(:me),F(:me),gha(:me),ghq(:me),Pa(:me),Ta(:me))
+
+
    #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"

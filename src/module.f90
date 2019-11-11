@@ -400,7 +400,7 @@ module esi_interface
    use precision
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
       rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw
-   !$acc declare create(gh)
+   !$acc declare create(F,Fa,TT,Ta,PP,Pa,BB,Ba,Bq,gh,gha,ghq)
    real(wp), dimension(:), allocatable :: dve_gf, dvi_gf  ! gf(zeta) component of delta_v (due to plasma potential and magnetic perturbation)
    real(wp), dimension(:), allocatable :: vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf  ! delta components (perturbed part) of ion v_para
    real(wp), dimension(:), allocatable :: vpara_dve_a, vpara_dve_gq,vpara_dve_gf  ! delta components (perturbed part) of electron v_para

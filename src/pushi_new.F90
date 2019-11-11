@@ -943,6 +943,9 @@ subroutine pushion_RK4(irk_i)
       m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
    end if
 
+   !$acc update self (BB(:mi),Bq(:mi),Ba(:mi),F(:mi),Fa(:mi),Pa(:mi),PP(:mi),gha(:mi),ghq(:mi),TT(:mi),Ta(:mi))
+
+
    !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
    ! moved to collision.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
 
