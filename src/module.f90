@@ -195,6 +195,7 @@ module particle_array
    real(wp), dimension(:), allocatable :: etracers_labels, itracers_labels
    ! Unnormalized zeta&theta (not normalized into [0,2*pi))
    real(wp), dimension(:), allocatable :: UnNorm_zeta_e, UnNorm_theta_e, UnNorm_zeta_i, UnNorm_theta_i  ! These are not perfectly consistent when the particle touches the boundaries
+   !$acc declare create(UnNorm_zeta_e, UnNorm_theta_e, UnNorm_zeta_i, UnNorm_theta_i)
    ! ===========================
 
    ! ============================

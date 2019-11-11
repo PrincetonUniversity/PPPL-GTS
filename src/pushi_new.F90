@@ -831,6 +831,9 @@ subroutine pushion_RK4(irk_i)
    elseif(irk_i==4) then
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =1.0
+
+      !$acc update device(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+
    else
       write(stdout,*) "In pushi_RK4, irk_i=",irk_i,", is weird. Please Check It!!"
       call flush(stdout)
@@ -1249,6 +1252,9 @@ subroutine pushion_RK4(irk_i)
    endif
 
    !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+   if(irk_i==4) then
+      !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+   endif
 
    if(idiag==0)then
 

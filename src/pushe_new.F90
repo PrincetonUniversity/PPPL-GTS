@@ -1199,6 +1199,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    elseif(irk_e==4) then
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =1.0 ! This is used to calculate dphi/dt
+
+      !$acc update device(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+
    else
       write(stdout,*) "In pushe_RK4, irk_e=",irk_e,", is weird. Please Check It!!"
       call flush(stdout)
@@ -1590,6 +1593,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       enddo
 
       !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+
+      if(irk_e==4) then
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+      endif
 
       #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
