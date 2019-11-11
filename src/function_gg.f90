@@ -4653,7 +4653,7 @@ subroutine Init_Diagnostic_Grid
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
    ! DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
-   DG%dim_gq = 101
+   DG%dim_gq = max(101,mtheta(ipsi)/3)
    DG%num_eSD = 6 +6 +6
    DG%num_eVD = 5
 
