@@ -1633,8 +1633,11 @@ subroutine n_T_u_group
    dela=(a1-a0)/real(jr,wp)
    dela=1.0_wp/dela
 
-   !$acc update device(zion(:,:mi))
-
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
 
@@ -1818,8 +1821,12 @@ subroutine n_T_u_group_e
    #ifdef _MGY_TIMER_
    time0= MPI_WTIME()
    #endif
-   !$acc update device(zeon(:,:me))
 
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
 
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
@@ -4575,8 +4582,11 @@ subroutine Ti_at_electrons
    integer i, ip
    real(wp)  r, fip, dela, tempi
 
-   !$acc update device(zeon(:,:me))
-
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
          dela=(a1-a0)/real(jr,wp)

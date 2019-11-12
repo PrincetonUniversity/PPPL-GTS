@@ -798,8 +798,11 @@ subroutine pushion_RK4(irk_i)
 
    !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
 
-
-   !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -815,6 +818,7 @@ subroutine pushion_RK4(irk_i)
    if(irk_i==1)then ! 1st step of Runge-Kutta method
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
+      acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
       !$acc parallel loop present(zion,zion0,RK_cum_zion)
       do m=1,mi
          ! Note that zion0(6,m) does not mean "mu", this is reserved for the other quantity
@@ -992,6 +996,7 @@ subroutine pushion_RK4(irk_i)
    ! Another OpenMP parallel loop...
    !$omp parallel do private(m,mu,vpara,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,energy1,B_inverse,u_vpara,vdq,wgradB,wKH, &
    !$omp& omega_t,r,ip,fip,ddT_da_particle,w_anti_relax,muB,instep,outstep,fdamp,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,v2,avw)
+   acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
    !$acc parallel loop present(zion,zion0,RK_cum_zion)
    do m=1,mi
       !     dbdz=0.0   for axisymmetric system   !wx
@@ -1238,6 +1243,7 @@ subroutine pushion_RK4(irk_i)
    if(irk_i==4)then
       ! out of boundary particle
       !$omp parallel do private(m)
+      acc_newer_D_zion=.true.
       !$acc parallel loop present(zion,zion0)
       do m=1,mi
          if(zion(1,m) > psimax)then
@@ -1259,7 +1265,11 @@ subroutine pushion_RK4(irk_i)
       enddo
    endif
 
-   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+   if(acc_newer_D_zion) then
+      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_D_zion=.false.
+      acc_newer_H_zion=.false.
+   endif
    if(irk_i==4) then
       !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
       !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
@@ -1470,7 +1480,11 @@ subroutine ion_locator_at_larmor_points
 
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
-   !$acc update device (zion(:,:mi))
+   if(acc_newer_H_zion) then
+      !$acc update device (zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
    !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit) private(intpl_pgyro,intpl_tgyro)
    do m=1,mi
       !psitmp=zion(1,m)   ! =a

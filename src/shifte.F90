@@ -21,6 +21,11 @@ subroutine shifte
    integer MPI_Ptl_type
 
 
+   if(acc_newer_D_zeon) then
+      !$acc update self (zeon(:,:mi),zeon0(:,:mi),RK_cum_zeon(:,:mi))
+      acc_newer_D_zeon=.false.
+      acc_newer_H_zeon=.false.
+   endif
 
    dim_zeon = size(zeon,1)
    dim_zeon0 = size(zeon0,1)
@@ -69,6 +74,9 @@ subroutine shifte
 
       call MPI_ALLREDUCE(send_num,tot_send_num,1,MPI_INTEGER,MPI_SUM,toroidal_comm,ierr)
       if(tot_send_num==0) then
+         if(loop>1) then
+            acc_newer_H_zeon=.true.
+         endif
          return
       endif
 

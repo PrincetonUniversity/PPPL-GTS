@@ -20,6 +20,11 @@ subroutine shifti
 
    integer MPI_Ptl_type
 
+   if(acc_newer_D_zion) then
+      !$acc update self (zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_D_zion=.false.
+      acc_newer_H_zion=.false.
+   endif
 
 
    dim_zion = size(zion,1)
@@ -69,6 +74,9 @@ subroutine shifti
 
       call MPI_ALLREDUCE(send_num,tot_send_num,1,MPI_INTEGER,MPI_SUM,toroidal_comm,ierr)
       if(tot_send_num==0) then
+         if(loop>1) then
+            acc_newer_H_zion=.true.
+         endif
          return
       endif
 

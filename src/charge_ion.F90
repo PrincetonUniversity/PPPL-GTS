@@ -42,7 +42,11 @@ subroutine charge_ion
 
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& wz1,pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
-   !$acc update device (zion(:,:mi))
+   if(acc_newer_H_zion) then
+      !$acc update device (zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
    !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit) private(intpl_pgyro,intpl_tgyro)
    do m=1,mi
       !     psitmp=zion(1,m)      ! =a
@@ -151,7 +155,11 @@ subroutine charge_ion
    dnitmp=0.   ! Set array elements to zero
 #endif
    !$omp do private(m,larmor,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
-   !$acc update device(zion(:,:mi))
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
    !$acc parallel loop present(zion)
    do m=1,mi
       weight=zion(5,m)

@@ -1163,7 +1163,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
    !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
 
-  !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -1181,6 +1185,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    if(irk_e==1)then ! 1st step of Runge-Kutta method
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
+      acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
       !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
          ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity
@@ -1353,6 +1358,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
       #endif
+      acc_newer_D_zeon=.true.
       !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
       do m=1,me
          !     dbdz=0.0   for axisymmetric system   !wx
@@ -1596,8 +1602,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       enddo
 
-      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-
+      if(acc_newer_D_zeon) then
+         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         acc_newer_D_zeon=.false.
+         acc_newer_H_zeon=.false.
+      endif
       if(irk_e==4) then
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
          !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
@@ -1659,13 +1668,17 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       call shifte
 
-      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(5,:me))
-
+      if(acc_newer_H_zeon) then
+         !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(5,:me))
+         acc_newer_H_zeon=.false.
+         acc_newer_D_zeon=.false.
+      endif
 
       call electron_locator
       call n_T_u_group_e
       zeon00(5,1:me)=zeon(5,1:me)    ! use for temporary storage -- check again April, 2013
 
+      acc_newer_D_zeon=.true.
       !$acc parallel loop present(zeon,zeon0,backTe)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
@@ -1736,8 +1749,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       enddo
 
-
-      !$acc update self(zeon(:,:me))
+      if(acc_newer_D_zeon) then
+         !$acc update self(zeon(:,:me))
+         acc_newer_D_zeon=.false.
+         acc_newer_H_zeon=.false.
+      endif
       if(Flag_Poisson==1) then
          call charge_eon
          call poisson( solver1, masssolver )
@@ -1748,6 +1764,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update device (we_adiab(:me))
       endif
 
+      acc_newer_D_zeon=.true.
       !$acc parallel loop present(zeon,zeon0,backTe,RK_cum_zeon)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
@@ -1841,10 +1858,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       enddo
 
 
-
       if(irk_e==4)then
          ! out of boundary particle
          !$omp parallel do private(m)
+         acc_newer_D_zeon=.true.
          !$acc parallel loop present(zeon,zeon0)
          do m=1,me
             if(zeon(1,m) > psimax)then
@@ -1881,7 +1898,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       endif
 
-      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(5,:me))
+      if(acc_newer_D_zeon) then
+         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         acc_newer_D_zeon=.false.
+         acc_newer_H_zeon=.false.
+      endif
       if(irk_e==4) then
          !$acc update self (we_adiab(:me))
       endif
@@ -2508,7 +2529,13 @@ subroutine electron_locator
 
    !$omp parallel do private(m,psitmp,thetatmp,zetatmp,&
    !$omp& rdum,ii,wp1,im,tdum,j00,j01)
-   !$acc update device(zeon(:,:me))
+
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
    !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
       !     psitmp=zeon(1,m)      ! =a
