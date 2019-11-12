@@ -1255,12 +1255,16 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
    enddo
 
-   do m=1,me
-      ! (MGYOO: 05/01/2019)
-      ! For RK4 method, the time here must be updated as well.
-      !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
-   enddo
+
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
+   call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga(1:me), wga(1:3,1:me), gat(1:me))
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude_arr_at_zeon", tt1-tt0," secs"
+   call flush(stdout)
+   #endif
 
    !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------

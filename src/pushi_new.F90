@@ -898,10 +898,17 @@ subroutine pushion_RK4(irk_i)
 
    enddo
 
-   do m=1,mi
-      !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
-   enddo
+
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
+   !MGYOO (10/30/2018; to use analytic profile of ga0(a))
+   call Get_MP_alpha_amplitude_arr_at_zion(istep*tstep, ga(1:mi), wga(1:3,1:mi), gat(1:mi))
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude_arr_at_zion", tt1-tt0," secs"
+   call flush(stdout)
+   #endif
 
    !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------

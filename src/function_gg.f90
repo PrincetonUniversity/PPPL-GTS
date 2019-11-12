@@ -1078,6 +1078,83 @@ subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_
 
 end subroutine Get_MP_alpha_amplitude
 
+
+subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+
+   use iso_c_binding, only : c_double
+   use global_parameters
+   use particle_array
+   implicit  none
+   integer k
+   real(wp) MP_phase, ga_amplitude
+   real(wp),intent(in) :: in_time
+   real(wp),intent(out) :: out_ga(mi), out_grad_ga(3,mi), out_partial_dga0dt(mi)
+   integer m
+
+
+   if(electromagnetic==0) then ! when electromagnetic is turned off.
+      out_ga = 0
+      out_grad_ga(1:3,:) = 0
+      out_partial_dga0dt = 0
+   else
+      !$acc parallel loop present(zion)
+      do m=1,mi
+         out_ga(m) = 0
+         out_grad_ga(1:3,m) = 0
+         out_partial_dga0dt(m) = 0
+         do k=1,num_of_EMP
+            MP_phase = EMP(k)%gan*zion(3,m)- EMP(k)%gam*zion(2,m) - EMP(k)%gagw*in_time + EMP(k)%gagf0
+            ga_amplitude = (zion(1,m)/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((zion(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
+
+            out_ga(m) = out_ga(m) + ga_amplitude* cos(MP_phase);
+
+            out_grad_ga(1,m) = out_grad_ga(1,m) + ga_amplitude* cos(MP_phase)*(1.0/zion(1,m)  + (-sign(EMP(k)%ga_pp/EMP(k)%ga_rw, zion(1,m)-EMP(k)%ga_rc)*abs((zion(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**(EMP(k)%ga_pp-1)))
+            out_grad_ga(2,m) = out_grad_ga(2,m) + EMP(k)%gam*ga_amplitude*sin(MP_phase)
+            out_grad_ga(3,m) = out_grad_ga(3,m) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
+            out_partial_dga0dt(m) = out_partial_dga0dt(m) + EMP(k)%dga0dt*(zion(1,m)/EMP(k)%ga_rc)*exp(-abs((zion(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
+         enddo
+      enddo
+   endif
+end subroutine Get_MP_alpha_amplitude_arr_at_zion
+
+subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+
+   use iso_c_binding, only : c_double
+   use global_parameters
+   use particle_array
+   implicit  none
+   integer k
+   real(wp) MP_phase, ga_amplitude
+   real(wp),intent(in) :: in_time
+   real(wp),intent(out) :: out_ga(me), out_grad_ga(3,me), out_partial_dga0dt(me)
+   integer m
+
+
+   if(electromagnetic==0) then ! when electromagnetic is turned off.
+      out_ga = 0
+      out_grad_ga(1:3,:) = 0
+      out_partial_dga0dt = 0
+   else
+      !$acc parallel loop present(zeon)
+      do m=1,me
+         out_ga(m) = 0
+         out_grad_ga(1:3,m) = 0
+         out_partial_dga0dt(m) = 0
+         do k=1,num_of_EMP
+            MP_phase = EMP(k)%gan*zeon(3,m)- EMP(k)%gam*zeon(2,m) - EMP(k)%gagw*in_time + EMP(k)%gagf0
+            ga_amplitude = (zeon(1,m)/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((zeon(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
+
+            out_ga(m) = out_ga(m) + ga_amplitude* cos(MP_phase);
+
+            out_grad_ga(1,m) = out_grad_ga(1,m) + ga_amplitude* cos(MP_phase)*(1.0/zeon(1,m)  + (-sign(EMP(k)%ga_pp/EMP(k)%ga_rw, zeon(1,m)-EMP(k)%ga_rc)*abs((zeon(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**(EMP(k)%ga_pp-1)))
+            out_grad_ga(2,m) = out_grad_ga(2,m) + EMP(k)%gam*ga_amplitude*sin(MP_phase)
+            out_grad_ga(3,m) = out_grad_ga(3,m) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
+            out_partial_dga0dt(m) = out_partial_dga0dt(m) + EMP(k)%dga0dt*(zeon(1,m)/EMP(k)%ga_rc)*exp(-abs((zeon(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
+         enddo
+      enddo
+   endif
+end subroutine Get_MP_alpha_amplitude_arr_at_zeon
+
 subroutine Generate_FLabel_piecewise_radial_base_function
 
    use precision
