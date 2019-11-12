@@ -1304,6 +1304,10 @@ subroutine pushion_RK4(irk_i)
          entropyi=entropyi+zion0(5,m)*zion0(5,m)
       enddo
 
+
+      #ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+      #endif
       if(ZF_SEPARATION==0) then
          !     note: zonal flow component <phi> and phip00=d<phi>/da are calculated in field.f90
          adum=0.0_wp
@@ -1404,7 +1408,11 @@ subroutine pushion_RK4(irk_i)
       if(im==0) then
          call get_3D_flow(da,dgq,dgf,wpi(2,:))
       end if
-
+      #ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, idiag=0 diagnostics", tt1-tt0," secs"
+      call flush(stdout)
+      #endif
    endif
 
    ! if(irk_i==1 .and. mod(istep,msnap)==0) then

@@ -1613,6 +1613,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
 
+         #ifdef _MGY_TIMER_
+         tt0=MPI_WTIME()
+         #endif
+
          !$omp parallel do private(m)
          do m=1,me
             wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
@@ -1628,6 +1632,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! write(stdout,*) (wpi(2,i)*Tem_00,i=1,me,me/20)
             ! call flush(stdout)
          end if
+
+         #ifdef _MGY_TIMER_
+         tt1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, idiag_e=0 diagnostics", tt1-tt0," secs"
+         call flush(stdout)
+         #endif
 
       endif
       ! if(irk_e==1 .and. mod(istep,msnap)==0) then
