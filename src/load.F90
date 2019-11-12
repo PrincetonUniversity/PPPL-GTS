@@ -297,6 +297,7 @@ subroutine load
       ! ilabels(m) = mype*10**(floor(log10(real(mi))) + 2) + m
       ilabels(m) = mype + 1e5*m
    enddo
+   !$acc update device(ilabels(:mi))
 
    if(iload==0)then
       ! for arbitrary loading according to a distribution function g_0(x,v), then zion0(6,*)=f_0/g_0
@@ -425,6 +426,7 @@ subroutine load
          ! elabels(m) = mype*10**(floor(log10(real(me))) + 2) + m
          elabels(m) = mype +  1e5*m
       enddo
+      !$acc update device(elabels(:me))
 
 
       ! the tracer electron is initially on PE=0 with index ntracer_e=me
@@ -796,6 +798,9 @@ subroutine load_uniform_MGY
    enddo
    acc_newer_H_zion=.true.
 
+   !$acc update device(ilabels(:mi))
+
+
    call n_T_u_group  ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
 
    ! Set initial weights of ions
@@ -972,6 +977,7 @@ subroutine load_uniform_MGY
       we_fdamp = 0
    endif
 
+   !$acc update device(elabels(:me))
 
 
 

@@ -25,6 +25,8 @@ subroutine check_tracer_e
    character(len=30) file_name
 
 
+   !$acc update self(elabels)
+
    if(size(zeon,1) /= size(zeon0,1)) then
       write(*,*) "size(zeon,1)=", size(zeon,1), "size(zeon0,1)=", size(zeon0,1), " is differnet!!!!!"
       call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
@@ -240,6 +242,7 @@ subroutine check_tracer_i
    character(len=128) cdum
    character(len=30) file_name
 
+   !$acc update self(ilabels)
 
    if(size(zion,1) /= size(zion0,1)) then
       write(*,*) "size(zion,1)=", size(zion,1), "size(zion0,1)=", size(zion0,1), " is differnet!!!!!"
