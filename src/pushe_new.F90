@@ -1669,7 +1669,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       call shifte
 
       if(acc_newer_H_zeon) then
-         !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(5,:me))
+         !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
          acc_newer_H_zeon=.false.
          acc_newer_D_zeon=.false.
       endif

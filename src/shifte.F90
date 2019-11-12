@@ -22,7 +22,7 @@ subroutine shifte
 
 
    if(acc_newer_D_zeon) then
-      !$acc update self (zeon(:,:mi),zeon0(:,:mi),RK_cum_zeon(:,:mi))
+      !$acc update self (zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
       acc_newer_D_zeon=.false.
       acc_newer_H_zeon=.false.
    endif
