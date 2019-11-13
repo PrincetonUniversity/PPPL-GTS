@@ -830,10 +830,8 @@ subroutine pushion_RK4(irk_i)
       call flush(stdout)
    endif
 
-   ! !========================================
-   ! ! MGYOO (03/29/2018): Following ion_locator and n_T_u_groupt are required
-   ! !========================================
-   call ion_locator_at_larmor_points ! This is required to get correct wpi values which would use ion location info. such as jtion, wpion, wtion.
+   ! Followings are not required here, so commented out. (MGYOO: 11/13/2019)
+   ! call ion_locator_at_larmor_points ! This is required to get correct wpi values which would use ion location info. such as jtion, wpion, wtion.
    ! call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc.
 
 
