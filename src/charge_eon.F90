@@ -43,7 +43,7 @@ subroutine charge_eon
       acc_newer_H_zeon=.false.
       acc_newer_D_zeon=.false.
    endif
-   !$acc parallel loop present(zeon)
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
       weight=zeon(5,m)
 

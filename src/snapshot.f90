@@ -2282,7 +2282,7 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
    dne_init=0.0; dne_vpara=0.0; dne_vperp=0.0; dne_accel=0.0; dne_adiab=0.0; dne_fdamp=0.0;
    dTe_init=0.0; dTe_vpara=0.0; dTe_vperp=0.0; dTe_accel=0.0; dTe_adiab=0.0; dTe_fdamp=0.0;
 
-
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
 
       if (Flag_w_Threshold==1 .and. (zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max)) cycle

@@ -2568,7 +2568,6 @@ subroutine electron_locator
       jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
       wteon1(m)=tdum-real(j01,wp)
    enddo
-   !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
 
 end subroutine electron_locator
 

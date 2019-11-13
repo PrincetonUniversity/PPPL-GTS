@@ -35,6 +35,7 @@ subroutine current_eon
    ! The following line is an OpenMP directive for loop-level parallelism
    ! on shared memory machines (see http://www.openmp.org).
    !$omp parallel do private(m,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11)
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
       wz1=wzeon(m)
       wz0=1.0_wp-wz1
@@ -96,6 +97,7 @@ subroutine current_eon
       dnitmp=0.   ! Set array elements to zero
 #endif
       !$omp do private(m,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij,rdum)
+      !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
       do m=1,me
          weight=zeon(5,m)
 
