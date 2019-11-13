@@ -138,7 +138,6 @@ subroutine charge_ion
          wtion1(larmor,m)=tdum-real(j01)
       enddo
    enddo
-   !$acc update self(jtion0(:,:mi),jtion1(:,:mi),wzion(:mi),wpion(:,:mi),wtion0(:,:mi),wtion1(:,:mi))
 
 
 #ifdef _OPENMP

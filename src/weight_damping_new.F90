@@ -25,6 +25,7 @@ subroutine weight_damping_ion
    !  calculate average weight <w> at ions using wieght-field wfield and then weight damping term
 
    !$omp parallel do private(m,mu,muB,vpara,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,v2,avw)
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
       mu=zion(6,m)*zion(6,m)           ! =v_perp^2/2B
       muB=mu*BB(m)                     ! =v_perp^2/2
@@ -131,6 +132,7 @@ subroutine weight_field(wfield)
    dampf=0.0_wp   ! Set array elements to zero
 #endif
    !$omp do private(m,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij,rdum,vz,mu,enew)
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
       wz1=wzion(m)
       wz0=1.0-wz1
@@ -509,5 +511,3 @@ subroutine weight_field(wfield)
    !      (t2wc-t1wc),'  t3=',(t3wc-t2wc),'  t4=',(t4wc-t3wc),'  tot=',(t4wc-t0wc)
 
 end subroutine weight_field
-
-

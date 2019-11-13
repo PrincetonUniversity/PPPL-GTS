@@ -31,6 +31,7 @@ subroutine current_ion
    ! The following line is an OpenMP directive for loop-level parallelism
    ! on shared memory machines (see http://www.openmp.org).
    !$omp parallel do private(m,e1,e2,e3,wz1,wz0,larmor,ij,wp0,wt00,wt10,wp1,wt01,wt11)
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
       e1=0.0_wp
       e2=0.0_wp
@@ -100,6 +101,7 @@ subroutine current_ion
 #endif
 
       !$omp do private(m,larmor,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij,rdum)
+      !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
       do m=1,mi
          weight=zion(5,m)
 
