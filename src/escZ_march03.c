@@ -5692,7 +5692,9 @@ int esigetb(REAL *particle_array,int *nval, int *nn)
 	REAL f0,f1,fq0,fq1;
 	REAL a,q;
 
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX ,dXD,dxD,j00,j01,j10,j11)
+// #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX ,dXD,dxD,j00,j01,j10,j11)
+   #pragma acc data copyin(gq[:Np1],sa[:Na1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
+   #pragma acc parallel loop present(particle_array)
 	for(k =0; k < n; k++){
 		a	= *(particle_array+k*(*nn));    /* particle_array[k][0] */
 		q	= *(particle_array+k*(*nn)+1);  /* particle_array[k][1] */
@@ -5767,6 +5769,7 @@ int esigetb(REAL *particle_array,int *nval, int *nn)
 			B[k]	=aB[0];
 		}
 	}
+   #pragma acc update self(B[:n])
 	return(0);
 }
 
@@ -5789,7 +5792,9 @@ int esigetbf(REAL *particle_array,int *nval, int *nn)
 	REAL f0,f1,fq0,fq1;
 	REAL a,q;
 
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX ,dXD,dxD,j00,j01,j10,j11)
+// #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX ,dXD,dxD,j00,j01,j10,j11)
+   #pragma acc data copyin(gq[:Np1],sa[:Na1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1],aF[:Na1],daF[:Na1])
+   #pragma acc parallel loop present(particle_array)
 	for(k =0; k < n; k++){
 		a   = *(particle_array+k*(*nn));    /* particle_array[k][0] */
 		q   = *(particle_array+k*(*nn)+1);  /* particle_array[k][1] */
@@ -5867,6 +5872,7 @@ int esigetbf(REAL *particle_array,int *nval, int *nn)
 			F[k]	=aF[0];
 		}
 	}
+   #pragma acc update self(B[:n],F[:n])
 	return(0);
 }
 
