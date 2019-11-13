@@ -1317,7 +1317,6 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    endif
 
    !$acc update self (BB(:me),Bq(:me),Ba(:me),F(:me),gha(:me),ghq(:me),Pa(:me),Ta(:me))
-   !$acc update self (vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
 
    #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -1622,6 +1621,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
 
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+         !$acc update self (vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
 
          #ifdef _MGY_TIMER_
          tt0=MPI_WTIME()

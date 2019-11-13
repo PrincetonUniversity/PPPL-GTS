@@ -957,7 +957,6 @@ subroutine pushion_RK4(irk_i)
    end if
 
    !$acc update self (BB(:mi),Bq(:mi),Ba(:mi),F(:mi),Fa(:mi),Pa(:mi),PP(:mi),gha(:mi),ghq(:mi),TT(:mi),Ta(:mi))
-   !$acc update self (vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
 
 
    !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
@@ -1277,6 +1276,7 @@ subroutine pushion_RK4(irk_i)
    if(idiag==0)then
 
       !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
+      !$acc update self (vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
 
       ! fluxes diagnose
       !    wpi(1,1:mi)=wpi(1,1:mi)*gha(1:mi)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
