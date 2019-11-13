@@ -799,10 +799,11 @@ subroutine pushion_RK4(irk_i)
    !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
 
    if(acc_newer_H_zion) then
-      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      !$acc update device(zion(:,:mi))
       acc_newer_H_zion=.false.
       acc_newer_D_zion=.false.
    endif
+   !$acc update device(zion0(:,:mi),RK_cum_zion(:,:mi))
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat

@@ -1164,10 +1164,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
 
    if(acc_newer_H_zeon) then
-      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      !$acc update device(zeon(:,:me))
       acc_newer_H_zeon=.false.
       acc_newer_D_zeon=.false.
    endif
+   !$acc update device(zeon0(:,:me),RK_cum_zeon(:,:me))
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
