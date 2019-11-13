@@ -1316,7 +1316,6 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
    endif
 
-   !$acc update self (BB(:me),Bq(:me),Ba(:me),F(:me),gha(:me),ghq(:me),Pa(:me),Ta(:me))
 
    #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -1620,6 +1619,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !   fluxes diagnose
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
 
+         !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+         !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
 

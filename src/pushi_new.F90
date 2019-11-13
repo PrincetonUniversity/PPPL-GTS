@@ -956,7 +956,6 @@ subroutine pushion_RK4(irk_i)
       m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
    end if
 
-   !$acc update self (BB(:mi),Bq(:mi),Ba(:mi),F(:mi),Fa(:mi),Pa(:mi),PP(:mi),gha(:mi),ghq(:mi),TT(:mi),Ta(:mi))
 
 
    !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
@@ -1274,7 +1273,8 @@ subroutine pushion_RK4(irk_i)
    endif
 
    if(idiag==0)then
-
+      !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
       !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
       !$acc update self (vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
 
