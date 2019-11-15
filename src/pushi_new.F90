@@ -989,6 +989,10 @@ subroutine pushion_RK4(irk_i)
    dmaxv=0.0d0
 
 
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
+
    ! update GC position
    ! Another OpenMP parallel loop...
    !$omp parallel do private(m,mu,vpara,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,energy1,B_inverse,u_vpara,vdq,wgradB,wKH, &
@@ -1272,11 +1276,17 @@ subroutine pushion_RK4(irk_i)
       !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
    endif
 
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_RK4' takes", tt1-tt0," secs"
+   call flush(stdout)
+   #endif
+
    if(idiag==0)then
       !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
       !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
       !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
-      !$acc update self (vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
+      !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
 
       ! fluxes diagnose
       !    wpi(1,1:mi)=wpi(1,1:mi)*gha(1:mi)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)

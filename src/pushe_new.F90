@@ -1622,7 +1622,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
-         !$acc update self (vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+         !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
 
          #ifdef _MGY_TIMER_
          tt0=MPI_WTIME()
