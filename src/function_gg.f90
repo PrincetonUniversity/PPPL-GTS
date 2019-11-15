@@ -1100,8 +1100,12 @@ subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_
       !$acc parallel loop present(zion)
       do m=1,mi
          out_ga(m) = 0
-         out_grad_ga(1:3,m) = 0
+         !$acc loop seq
+         do k=1,3
+            out_grad_ga(k,m) = 0
+         enddo
          out_partial_dga0dt(m) = 0
+         !$acc loop seq
          do k=1,num_of_EMP
             MP_phase = EMP(k)%gan*zion(3,m)- EMP(k)%gam*zion(2,m) - EMP(k)%gagw*in_time + EMP(k)%gagf0
             ga_amplitude = (zion(1,m)/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((zion(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
@@ -1138,8 +1142,12 @@ subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_
       !$acc parallel loop present(zeon)
       do m=1,me
          out_ga(m) = 0
-         out_grad_ga(1:3,m) = 0
+         !$acc loop seq
+         do k=1,3
+            out_grad_ga(k,m) = 0
+         enddo
          out_partial_dga0dt(m) = 0
+         !$acc loop seq
          do k=1,num_of_EMP
             MP_phase = EMP(k)%gan*zeon(3,m)- EMP(k)%gam*zeon(2,m) - EMP(k)%gagw*in_time + EMP(k)%gagf0
             ga_amplitude = (zeon(1,m)/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((zeon(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)

@@ -823,9 +823,17 @@ subroutine pushion_RK4(irk_i)
       !$acc parallel loop present(zion,zion0,RK_cum_zion)
       do m=1,mi
          ! Note that zion0(6,m) does not mean "mu", this is reserved for the other quantity
-         zion0(1:5,m)=zion(1:5,m)
+         !$acc loop seq
+         do i=1,5
+            zion0(i,m)=zion(i,m)
+         enddo
+
          zion0(7,m)=zion(7,m)
-         RK_cum_zion(:,m)  =0.0
+
+         !$acc loop seq
+         do i=1,size(RK_cum_zion,1)
+            RK_cum_zion(i,m)=0.0
+         enddo
       enddo
    elseif(irk_i==2) then
       RK_cum_coeff =(1.0/3.0)
@@ -867,6 +875,7 @@ subroutine pushion_RK4(irk_i)
       wz1=wzion(m)
       wz0=1.0_wp-wz1
 
+      !$acc loop seq
       do larmor=1, larmor_num
          ij=jtion0(larmor,m)
          wp0=1.0_wp-wpion(larmor,m)
@@ -940,7 +949,9 @@ subroutine pushion_RK4(irk_i)
    enddo
    !  ------------------------------------------------------------
 
-
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
    if(electromagnetic == 1) then
       !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
       if(Flag_GC_Solver==0) then
@@ -956,7 +967,11 @@ subroutine pushion_RK4(irk_i)
       m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
    end if
 
-
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, ion gc motion takes", tt1-tt0," secs"
+   call flush(stdout)
+   #endif
 
    !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
    ! moved to collision.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
@@ -1197,7 +1212,10 @@ subroutine pushion_RK4(irk_i)
 
       else if(irk_i==4) then !irk_i==4
          ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
-         zion(1:4,m) = zion0(1:4,m) +RK_cum_zion(1:4,m)
+         !$acc loop seq
+         do i=1,4
+            zion(i,m) = zion0(i,m) +RK_cum_zion(i,m)
+         enddo
          zion(7,m) = zion0(7,m) +RK_cum_zion(7,m)
 
          if(Flag_w_Evol==1) then
@@ -1544,10 +1562,14 @@ subroutine ion_locator_at_larmor_points
       wt01 = 1.0_wp - wtion1(0,m)
       wt11 = wtion1(0,m)
 
-      intpl_pgyro(:) = wp0*(wt00*pgyro(:,jtion0(0,m)) + wt10*pgyro(:,jtion0(0,m)+1)) + wp1*(wt01*pgyro(:,jtion1(0,m)) + wt11*pgyro(:,jtion1(0,m)+1))
-      intpl_tgyro(:) = wp0*(wt00*tgyro(:,jtion0(0,m)) + wt10*tgyro(:,jtion0(0,m)+1)) + wp1*(wt01*tgyro(:,jtion1(0,m)) + wt11*tgyro(:,jtion1(0,m)+1))
+      !$acc loop seq
+      do larmor=1, larmor_num
+         intpl_pgyro(larmor) = wp0*(wt00*pgyro(larmor,jtion0(0,m)) + wt10*pgyro(larmor,jtion0(0,m)+1)) + wp1*(wt01*pgyro(larmor,jtion1(0,m)) + wt11*pgyro(larmor,jtion1(0,m)+1))
+         intpl_tgyro(larmor) = wp0*(wt00*tgyro(larmor,jtion0(0,m)) + wt10*tgyro(larmor,jtion0(0,m)+1)) + wp1*(wt01*tgyro(larmor,jtion1(0,m)) + wt11*tgyro(larmor,jtion1(0,m)+1))
+      enddo
       !==========================================
 
+      !$acc loop seq
       do larmor=1, larmor_num
          !  MODIFIED for FINITE GYRORADIUS CASE
          pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))

@@ -59,7 +59,7 @@ subroutine charge_ion
 
       wz1=weight*wzion(m)
       wz0=weight-wz1
-
+      !$acc loop seq
       do larmor=1, larmor_num
          wp1=wpion(larmor,m)
          wp0=1.0_wp-wp1

@@ -74,6 +74,7 @@ subroutine current_eon
    !    prepare equilibrium Er=dPhi/da at particles
    dela=1.0_wp/Ydr
    !$omp parallel do private(m,r,ip,fip)
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
       r=zeon(1,m)-a0
       r=r*dela

@@ -1192,9 +1192,17 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity
          ! zeon0(8,m) is the adiabatic term in the weight evolution @ t={n}, x={n}
          ! zeon(8,m) is a kind of temporary pouch to bring wdot term during shifte
-         zeon0(1:5,m)=zeon(1:5,m)
+
+         !$acc loop seq
+         do i=1,5
+            zeon0(i,m)=zeon(i,m)
+         enddo
          zeon0(7,m)=zeon(7,m)
-         RK_cum_zeon(:,m)=0.0
+
+         !$acc loop seq
+         do i=1,size(RK_cum_zeon,1)
+            RK_cum_zeon(i,m)=0.0
+         enddo
       enddo
    elseif(irk_e==2) then
       RK_cum_coeff =(1.0/3.0)
@@ -1578,7 +1586,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          else if(irk_e==4) then !irk_i==4
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
             ! zeon(1:5,m) = zeon0(1:5,m) +RK_cum_zeon(1:5,m)
-            zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)
+
+            !$acc loop seq
+            do i=1,4
+               zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
+            enddo
             zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
          endif
 
@@ -1678,12 +1690,14 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       call electron_locator
       call n_T_u_group_e
-      zeon00(5,1:me)=zeon(5,1:me)    ! use for temporary storage -- check again April, 2013
+      ! zeon00(5,1:me)=zeon(5,1:me)    ! use for temporary storage -- check again April, 2013
 
       acc_newer_D_zeon=.true.
       !$acc parallel loop present(zeon,zeon0,backTe)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
+
+         zeon00(5,m)=zeon(5,m)
 
          T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 

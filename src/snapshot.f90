@@ -1921,7 +1921,7 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
       !! Caution!! Is backu(m) here omega or real velocity?? Check it! Refer pushion routine
       energy = 0.5*(zion(4,m)*BB(m)-backu(m))**2.0 + ((zion(6,m)**2.0)*BB(m))
 
-
+      !$acc loop seq
       do larmor=1, larmor_num
          wa1=wpion(larmor,m)
          wa0=1.0-wa1
