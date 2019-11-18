@@ -8,7 +8,7 @@ subroutine shifti
 
    implicit none
 
-   integer i,k,tid, m, mtop,lasth, dim_zion, dim_zion0, dim_RK_cum_zion, dim_Ptl_package, ierr,istatus(MPI_STATUS_SIZE)
+   integer i,j,k,tid, m, mtop,lasth, dim_zion, dim_zion0, dim_RK_cum_zion, dim_Ptl_package, ierr,istatus(MPI_STATUS_SIZE)
    integer send_L_count,send_R_count, send_num, send_mid_arr(mimax), left_mid_arr(mimax), right_mid_arr(mimax)
    integer recv_L_count,recv_R_count, recv_num
    integer, dimension(:),allocatable :: fill_mid_arr
@@ -57,11 +57,8 @@ subroutine shifti
       send_R_count=0
       send_num = 0
 
-      write(stdout, '(5(a,I8))') "istep=",istep,"loop=",loop,"mype=",mype, "m0=",m0,"mi=",mi
-      call flush(stdout)
+      !$acc update self(zion(3,m0:mi))
 
-
-      !$acc parallel loop seq reduction(+:send_num,send_L_count,send_R_count)
       do m=m0,mi
          normalized_zeta =  modulo(zion(3,m),2.0*pi)
 
@@ -82,30 +79,11 @@ subroutine shifti
       enddo
 
 
-      !!!!$acc update self (send_mid_arr,left_mid_arr,right_mid_arr)
-      call quicksort_integer(send_mid_arr,1,send_num)
-      call quicksort_integer(right_mid_arr,1,send_R_count)
-      call quicksort_integer(left_mid_arr,1,send_L_count)
-      !!!!$acc update device (send_mid_arr,left_mid_arr,right_mid_arr)
-
-      write(stdout, '(a,I8,a,2I8)') "mype=",mype,"; SHIFTI!! send_mid_arr(1,send_num)=",send_mid_arr(1),send_mid_arr(send_num)
-      call flush(stdout)
-
-
-      write(stdout, '(2(a,I8),a,2I8)') "mype=",mype,"; SHIFTI!! send_num=",send_num,", send_counts=",send_L_count, send_R_count
-      write(stdout, '(a,I8,a,6I7))') "mype=",mype,"; send(1:2), right(1:2), left(1:2)=",send_mid_arr(1:2),right_mid_arr(1:2),left_mid_arr(1:2)
-      call flush(stdout)
-
-
-
       call MPI_ALLREDUCE(send_num,tot_send_num,1,MPI_INTEGER,MPI_SUM,toroidal_comm,ierr)
       if(tot_send_num==0) then
          if(loop>1) then
             !acc_newer_H_zion=.true.
          endif
-         write(stdout, '(5(a,I8))') "SHIFTI Finished!! istep=",istep,"loop=",loop,"mype=",mype, "m0=",m0,"mi=",mi
-         call flush(stdout)
-
          !$acc update self(zion0(:,:mi),RK_cum_zion(:,:mi))
          return
       endif
@@ -115,14 +93,11 @@ subroutine shifti
 
       recv_num=recv_L_count+recv_R_count
 
-      write(stdout, '(2(a,I8),a,2I8)') "mype=",mype,"; SHIFTI!! recv_num=",recv_num,", recv_counts=",recv_L_count,recv_R_count
-      call flush(stdout)
-
       allocate(send_Ptls(dim_Ptl_package, send_num), recv_Ptls(dim_Ptl_package, recv_num))
 
       ! copy all information of sending particles into tor_send_Ptls
 
-      !$acc parallel loop seq copyin(left_mid_arr(:send_L_count),right_mid_arr(:send_R_count))
+      !$acc parallel loop copyin(left_mid_arr(:send_L_count),right_mid_arr(:send_R_count))
       do i=1, send_num
 
          if (i<=send_L_count) then
@@ -132,12 +107,23 @@ subroutine shifti
          endif
 
          k=0
-         send_Ptls(k+1:k+dim_zion, i) =  zion(:,m)
+         !$acc loop seq
+         do j=1,dim_zion
+            send_Ptls(k+j, i) =  zion(j,m)
+         enddo
          k=k+dim_zion
-         send_Ptls(k+1:k+dim_zion0, i) =  zion0(:,m)
+
+         !$acc loop seq
+         do j=1,dim_zion0
+            send_Ptls(k+j, i) =  zion0(j,m)
+         enddo
          k=k+dim_zion0
+
          if(Flag_RK4==1) then
-            send_Ptls(k+1:k+dim_RK_cum_zion, i) =  RK_cum_zion(:,m)
+            !$acc loop seq
+            do j=1,dim_RK_cum_zion
+               send_Ptls(k+j, i) =  RK_cum_zion(j,m)
+            enddo
             k=k+dim_RK_cum_zion
          endif
          send_Ptls(k+1, i) =  ilabels(m)
@@ -155,22 +141,6 @@ subroutine shifti
       call MPI_SENDRECV(send_Ptls(:,1:send_L_count),send_L_count,MPI_Ptl_type,left_pe,0, recv_Ptls(:,1+recv_L_count:recv_num),recv_R_count,MPI_Ptl_type,right_pe ,0,toroidal_comm,istatus,ierr)
       ! Send to Right
       call MPI_SENDRECV(send_Ptls(:,1+send_L_count:send_num),send_R_count,MPI_Ptl_type,right_pe,0, recv_Ptls(:,1:recv_L_count),recv_L_count,MPI_Ptl_type,left_pe ,0,toroidal_comm,istatus,ierr)
-
-      write(stdout, '(a,I8,a,5F8.4))') "mype=",mype,"; send_Ptls_right(1:5,1)=",send_Ptls(1:5,1)
-      write(stdout, '(a,I8,a,5F8.4))') "mype=",mype,";  recv_Ptls_left(1:5,1)=",recv_Ptls(1:5,1+recv_L_count)
-      call flush(stdout)
-      write(stdout, '(a,I8,a,5F8.4))') "mype=",mype,"; send_Ptls_left(1:5,end)=",send_Ptls(1:5,send_num)
-      write(stdout, '(a,I8,a,5F8.4))') "mype=",mype,"; recv_Ptls_right(1:5,end)=",recv_Ptls(1:5,recv_L_count)
-      call flush(stdout)
-
-
-
-
-      !!!$acc parallel loop seq copy(mtop,lasth) copyin(mi) reduction(+:lasth,mtop) private(send_mid_arr)
-      !!$acc kernels copy(mtop,lasth,mi)
-
-
-
 
       ! fill holes
       mtop = mi
@@ -190,11 +160,7 @@ subroutine shifti
       enddo
 
 
-      write(stdout, '((a,I8),2(a,2(I8,1x)))') "mype=",mype,"; SHIFTI!! send_mid_arr=",send_mid_arr(1),send_mid_arr(send_num),"fill_mid_arr=",fill_mid_arr(1), fill_mid_arr(send_num)
-      write(stdout, '(4(a,I8))') "mype=",mype,"; SHIFTI!! mtop=",mtop,", mi=",mi,"  lasth=",lasth
-      call flush(stdout)
-
-      !$acc parallel loop seq
+      !$acc parallel loop
       do i=1, send_num
          m = send_mid_arr(i)
          if(m>mi) exit
@@ -214,18 +180,26 @@ subroutine shifti
          if(Flag_RK4==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
       enddo
 
-      ! write(stdout, '(4(a,I8),a,2I8)') "mype=",mype,"; SHIFTI!! mtop=",mtop,", mi=",mi,"  lasth=",lasth,  "; send_mid_arr(1,lasth)=",send_mid_arr(1), send_mid_arr(lasth)
-      ! call flush(stdout)
+
       ! append recv particles
-      !$acc parallel loop seq
+      !$acc parallel loop
       do i=1, recv_num
          k=0
-         zion(:,mi+i)    = recv_Ptls(k+1:k+dim_zion, i)
+         !$acc loop seq
+         do j=1,dim_zion
+            zion(j,mi+i)    = recv_Ptls(k+j, i)
+         enddo
          k=k+dim_zion
-         zion0(:,mi+i)   = recv_Ptls(k+1:k+dim_zion0, i)
+         !$acc loop seq
+         do j=1,dim_zion0
+            zion0(j,mi+i)   = recv_Ptls(k+j, i)
+         enddo
          k=k+dim_zion0
          if(Flag_RK4==1) then
-            RK_cum_zion(:,mi+i) = recv_Ptls(k+1:k+dim_RK_cum_zion, i)
+            !$acc loop seq
+            do j=1,dim_RK_cum_zion
+               RK_cum_zion(j,mi+i) = recv_Ptls(k+j, i)
+            enddo
             k=k+dim_RK_cum_zion
          endif
          ilabels(mi+i)   =  recv_Ptls(k+1, i)
