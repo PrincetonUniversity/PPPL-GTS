@@ -13,8 +13,8 @@ ACCFLAG:=-acc -Minfo=accel
 ifeq ($(F90),mpif90)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler
           FFLAGS:= -r8 -Kieee -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR)
-          OPT:=-O3
-          COPT:=-O3
+          OPT:=-fast
+          COPT:=-fast
           CFLAGS:=
           OMPFLAG:=-mp=nonuma
           NOOMPFLAG:=
