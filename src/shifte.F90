@@ -8,9 +8,10 @@ subroutine shifte
 
    implicit none
 
-   integer i,k,tid, m, mtop,lasth, dim_zeon, dim_zeon0, dim_RK_cum_zeon, dim_Ptl_package, ierr,istatus(MPI_STATUS_SIZE)
+   integer i,j,k,tid, m, mtop,lasth, dim_zeon, dim_zeon0, dim_RK_cum_zeon, dim_Ptl_package, ierr,istatus(MPI_STATUS_SIZE)
    integer send_counts(0:1), send_num, send_mid_arr(memax), left_mid_arr(memax), right_mid_arr(memax)
    integer recv_counts(0:1), recv_num
+   integer, dimension(:),allocatable :: fill_mid_arr
 
 
    integer m0, sid, rid, idest, isource, loop,tor_dir, tot_send_num
@@ -52,6 +53,9 @@ subroutine shifte
       ! find send_counts and related information
       send_counts = 0
       send_num = 0
+
+      !$acc update self(zeon(3,m0:me))
+
       do m=m0,me
          normalized_zeta =  modulo(zeon(3,m),2.0*pi)
 
@@ -75,8 +79,9 @@ subroutine shifte
       call MPI_ALLREDUCE(send_num,tot_send_num,1,MPI_INTEGER,MPI_SUM,toroidal_comm,ierr)
       if(tot_send_num==0) then
          if(loop>1) then
-            acc_newer_H_zeon=.true.
+            !acc_newer_H_zeon=.true.
          endif
+         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
          return
       endif
 
@@ -89,6 +94,7 @@ subroutine shifte
       allocate(send_Ptls(dim_Ptl_package, send_num), recv_Ptls(dim_Ptl_package, recv_num))
 
       ! copy all information of sending particles into tor_send_Ptls
+      !$acc parallel loop copyin(left_mid_arr(:send_counts(0)),right_mid_arr(:send_counts(1)))
       do i=1, send_num
 
          if (i<=send_counts(0)) then
@@ -98,12 +104,21 @@ subroutine shifte
          endif
 
          k=0
-         send_Ptls(k+1:k+dim_zeon, i) =  zeon(:,m)
+         !$acc loop seq
+         do j=1,dim_zeon
+            send_Ptls(k+j, i) =  zeon(j,m)
+         enddo
          k=k+dim_zeon
-         send_Ptls(k+1:k+dim_zeon0, i) =  zeon0(:,m)
+         !$acc loop seq
+         do j=1,dim_zeon0
+            send_Ptls(k+j, i) =  zeon0(j,m)
+         enddo
          k=k+dim_zeon0
          if(Flag_RK4==1) then
-            send_Ptls(k+1:k+dim_RK_cum_zeon, i) =  RK_cum_zeon(:,m)
+            !$acc loop seq
+            do j=1,dim_RK_cum_zeon
+               send_Ptls(k+j, i) =  RK_cum_zeon(j,m)
+            enddo
             k=k+dim_RK_cum_zeon
          endif
          send_Ptls(k+1, i) =  elabels(m)
@@ -127,14 +142,25 @@ subroutine shifte
       mtop = me
       me = me - send_num ! remained me after sending
       lasth = send_num
+
+      allocate(fill_mid_arr(send_num))
+
       do i=1, send_num
          m = send_mid_arr(i)
-
          if(m>me) exit
          do while(mtop == send_mid_arr(lasth))
             mtop=mtop-1
             lasth=lasth-1
          enddo
+         fill_mid_arr(i) = mtop
+         mtop = mtop -1
+      enddo
+
+      !$acc parallel loop
+      do i=1, send_num
+         m = send_mid_arr(i)
+         if(m>me) exit
+         mtop= fill_mid_arr(i)
 
          zeon(:, m)      = zeon(:, mtop)
          zeon0(:, m)     = zeon0(:, mtop)
@@ -149,19 +175,27 @@ subroutine shifte
          UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
          UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
          if(Flag_RK4==1) RK_cum_zeon(:,m)= RK_cum_zeon(:,mtop)
-
-         mtop = mtop -1
       enddo
 
       ! append recv particles
+      !$acc parallel loop
       do i=1, recv_num
          k=0
-         zeon(:,me+i)    = recv_Ptls(k+1:k+dim_zeon, i)
+         !$acc loop seq
+         do j=1,dim_zeon
+            zeon(j,me+i)    = recv_Ptls(k+j, i)
+         enddo
          k=k+dim_zeon
-         zeon0(:,me+i)   = recv_Ptls(k+1:k+dim_zeon0, i)
+         !$acc loop seq
+         do j=1,dim_zeon0
+            zeon0(j,me+i)   = recv_Ptls(k+j, i)
+         enddo
          k=k+dim_zeon0
          if(Flag_RK4==1) then
-            RK_cum_zeon(:,me+i) = recv_Ptls(k+1:k+dim_RK_cum_zeon, i)
+            !$acc loop seq
+            do j=1,dim_RK_cum_zeon
+               RK_cum_zeon(j,me+i) = recv_Ptls(k+j, i)
+            enddo
             k=k+dim_RK_cum_zeon
          endif
          elabels(me+i)   =  recv_Ptls(k+1, i)
@@ -178,7 +212,7 @@ subroutine shifte
 
       if(allocated(send_Ptls)) deallocate(send_Ptls)
       if(allocated(recv_Ptls)) deallocate(recv_Ptls)
-
+      if(allocated(fill_mid_arr)) deallocate(fill_mid_arr)
 
 
       m0=me-recv_num+1  ! new starting index of next loop
