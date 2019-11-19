@@ -12,6 +12,8 @@ subroutine shifti
    integer send_L_count,send_R_count, send_num, send_mid_arr(mimax), left_mid_arr(mimax), right_mid_arr(mimax)
    integer recv_L_count,recv_R_count, recv_num
    integer, dimension(:),allocatable :: fill_mid_arr
+   integer fill_num
+   real(wp) zion_zeta_arr(mimax)
 
    integer m0, sid, rid, idest, isource, loop,tor_dir, tot_send_num
 
@@ -20,7 +22,7 @@ subroutine shifti
 
    integer MPI_Ptl_type
 
-   !!!! $acc declare create (send_mid_arr,left_mid_arr,right_mid_arr)
+   !$acc declare create (zion_zeta_arr)
 
    if(acc_newer_D_zion) then
       !$acc update self (zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -57,16 +59,21 @@ subroutine shifti
       send_R_count=0
       send_num = 0
 
-      !$acc update self(zion(3,m0:mi))
+
+      !$acc parallel loop
+      do m=m0,mi
+         zion_zeta_arr(m)=zion(3,m)
+      enddo
+      !$acc update self(zion_zeta_arr(m0:mi))
 
       do m=m0,mi
-         normalized_zeta =  modulo(zion(3,m),2.0*pi)
+         normalized_zeta =  modulo(zion_zeta_arr(m),2.0*pi)
 
          if( (normalized_zeta-zetamax)*(normalized_zeta-zetamin) >0 ) then
             send_num=send_num+1
             send_mid_arr(send_num) = m
 
-            if( modulo(zion(3,m)-zetamax, 2.0*pi)<pi) then
+            if( modulo(zion_zeta_arr(m)-zetamax, 2.0*pi)<pi) then
                ! send to right rank
                send_R_count = send_R_count +1
                right_mid_arr(send_R_count) = m
@@ -82,9 +89,10 @@ subroutine shifti
       call MPI_ALLREDUCE(send_num,tot_send_num,1,MPI_INTEGER,MPI_SUM,toroidal_comm,ierr)
       if(tot_send_num==0) then
          if(loop>1) then
-            !acc_newer_H_zion=.true.
+            acc_newer_D_zion=.true.
+            acc_newer_H_zion=.false.
+            !$acc update self(zion0(:,:mi),RK_cum_zion(:,:mi))
          endif
-         !$acc update self(zion0(:,:mi),RK_cum_zion(:,:mi))
          return
       endif
 
@@ -148,6 +156,7 @@ subroutine shifti
       lasth = send_num
 
       allocate(fill_mid_arr(send_num))
+      fill_num=0
       do i=1, send_num
          m = send_mid_arr(i)
          if(m>mi) exit
@@ -157,17 +166,22 @@ subroutine shifti
          enddo
          fill_mid_arr(i) = mtop
          mtop = mtop -1
+         fill_num=i
       enddo
 
 
       !$acc parallel loop
-      do i=1, send_num
+      do i=1, fill_num
          m = send_mid_arr(i)
-         if(m>mi) exit
          mtop= fill_mid_arr(i)
-
-         zion(:, m)      = zion(:, mtop)
-         zion0(:, m)     = zion0(:, mtop)
+         !$acc loop seq
+         do j=1,dim_zion
+            zion(j, m)      = zion(j, mtop)
+         enddo
+         !$acc loop seq
+         do j=1,dim_zion0
+            zion0(j, m)     = zion0(j, mtop)
+         enddo
          ilabels(m)      = ilabels(mtop)
          wi_init(m)      = wi_init(mtop)
          wi_vpara(m)     = wi_vpara(mtop)
@@ -177,7 +191,12 @@ subroutine shifti
 
          UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
          UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
-         if(Flag_RK4==1) RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
+         if(Flag_RK4==1) then
+            !$acc loop seq
+            do j=1,dim_RK_cum_zion
+               RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
+            enddo
+         endif
       enddo
 
 

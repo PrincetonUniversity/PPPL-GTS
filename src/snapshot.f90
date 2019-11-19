@@ -27,6 +27,19 @@ subroutine snapshot
 
    real(wp),dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 
+
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me))
+      acc_newer_D_zeon=.false.
+      acc_newer_H_zeon=.false.
+   endif
+
+   if(acc_newer_D_zion) then
+      !$acc update self(zion(:,:mi))
+      acc_newer_D_zion=.false.
+      acc_newer_H_zion=.false.
+   endif
+
    ! write particle data for re-run
    !  call restart_write
    !ZHIXIN use flag irewrite to output RESTART

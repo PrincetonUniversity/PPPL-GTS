@@ -12,7 +12,8 @@ subroutine shifte
    integer send_counts(0:1), send_num, send_mid_arr(memax), left_mid_arr(memax), right_mid_arr(memax)
    integer recv_counts(0:1), recv_num
    integer, dimension(:),allocatable :: fill_mid_arr
-
+   integer fill_num
+   real(wp) zeon_zeta_arr(memax)
 
    integer m0, sid, rid, idest, isource, loop,tor_dir, tot_send_num
 
@@ -20,6 +21,8 @@ subroutine shifte
    real(wp),dimension(:,:),allocatable :: send_Ptls, recv_Ptls
 
    integer MPI_Ptl_type
+
+   !$acc declare create (zeon_zeta_arr)
 
 
    if(acc_newer_D_zeon) then
@@ -54,16 +57,20 @@ subroutine shifte
       send_counts = 0
       send_num = 0
 
-      !$acc update self(zeon(3,m0:me))
+      !$acc parallel loop
+      do m=m0,me
+         zeon_zeta_arr(m)=zeon(3,m)
+      enddo
+      !$acc update self(zeon_zeta_arr(m0:me))
 
       do m=m0,me
-         normalized_zeta =  modulo(zeon(3,m),2.0*pi)
+         normalized_zeta =  modulo(zeon_zeta_arr(m),2.0*pi)
 
          if( (normalized_zeta-zetamax)*(normalized_zeta-zetamin) >0 ) then
             send_num=send_num+1
             send_mid_arr(send_num) = m
 
-            if( modulo(zeon(3,m)-zetamax, 2.0*pi)<pi) then
+            if( modulo(zeon_zeta_arr(m)-zetamax, 2.0*pi)<pi) then
                ! send to right rank
                send_counts(1) = send_counts(1) +1
                right_mid_arr(send_counts(1)) = m
@@ -79,9 +86,10 @@ subroutine shifte
       call MPI_ALLREDUCE(send_num,tot_send_num,1,MPI_INTEGER,MPI_SUM,toroidal_comm,ierr)
       if(tot_send_num==0) then
          if(loop>1) then
-            !acc_newer_H_zeon=.true.
+            acc_newer_D_zeon=.true.
+            acc_newer_H_zeon=.false.
+            !$acc update self(zeon0(:,:me),RK_cum_zeon(:,:me))
          endif
-         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
          return
       endif
 
@@ -144,7 +152,7 @@ subroutine shifte
       lasth = send_num
 
       allocate(fill_mid_arr(send_num))
-
+      fill_num=0
       do i=1, send_num
          m = send_mid_arr(i)
          if(m>me) exit
@@ -154,16 +162,21 @@ subroutine shifte
          enddo
          fill_mid_arr(i) = mtop
          mtop = mtop -1
+         fill_num=i
       enddo
 
       !$acc parallel loop
-      do i=1, send_num
+      do i=1, fill_num
          m = send_mid_arr(i)
-         if(m>me) exit
          mtop= fill_mid_arr(i)
-
-         zeon(:, m)      = zeon(:, mtop)
-         zeon0(:, m)     = zeon0(:, mtop)
+         !$acc loop seq
+         do j=1,dim_zeon
+            zeon(j, m)   = zeon(j, mtop)
+         enddo
+         !$acc loop seq
+         do j=1,dim_zeon0
+            zeon0(j, m)  = zeon0(j, mtop)
+         enddo
          elabels(m)      = elabels(mtop)
          we_init(m)      = we_init(mtop)
          we_vpara(m)     = we_vpara(mtop)
@@ -174,7 +187,12 @@ subroutine shifte
 
          UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
          UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
-         if(Flag_RK4==1) RK_cum_zeon(:,m)= RK_cum_zeon(:,mtop)
+         if(Flag_RK4==1) then
+            !$acc loop seq
+            do j=1,dim_RK_cum_zeon
+               RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+            enddo
+         endif
       enddo
 
       ! append recv particles

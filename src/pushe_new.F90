@@ -1680,7 +1680,16 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !    #endif
       ! endif
 
+      #ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+      #endif
       call shifte
+      #ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", shifte in pushe takes", tt1-tt0, " secs"
+      call flush(stdout)
+      #endif
+
 
       if(acc_newer_H_zeon) then
          !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
