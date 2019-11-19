@@ -504,7 +504,7 @@ program GTS
       timewc(nc)=t0wc-starting_t0wc
 
       ! Print Elapsed Times
-      if(mype==0 .and. mod(istep,msnap)==0) then
+      if(mype==0 .and. mod(istep,1)==0) then
          write(190515,*) 'istep=', istep
          write(190515,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
          write(190515,'(4a16)')'==========      ',' =============',' ===============',' ==============='
