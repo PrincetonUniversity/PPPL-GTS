@@ -843,9 +843,6 @@ subroutine pushion_RK4(irk_i)
    elseif(irk_i==4) then
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =1.0
-
-      !$acc update device(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-      !$acc update device(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
    else
       write(stdout,*) "In pushi_RK4, irk_i=",irk_i,", is weird. Please Check It!!"
       call flush(stdout)
@@ -1283,11 +1280,6 @@ subroutine pushion_RK4(irk_i)
       enddo
    endif
 
-   if(irk_i==4) then
-      !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-      !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
-   endif
-
    #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_RK4' takes", tt1-tt0," secs"
@@ -1299,6 +1291,8 @@ subroutine pushion_RK4(irk_i)
       !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
       !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
       !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
+      !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+      !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
 
       if(acc_newer_D_zion) then
          !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))

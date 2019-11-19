@@ -397,7 +397,7 @@ program GTS
                   time(11)=time(11)+dt
                   timewc(11)=timewc(11)+dtwc
 
-                  if(irk==2) call check_tracer_e
+                  if(irk==nrk) call check_tracer_e
                   call timer(t0,dt,t0wc,dtwc)
                   time(13)=time(13)+dt
                   timewc(13)=timewc(13)+dtwc
@@ -470,6 +470,23 @@ program GTS
       end if
 
       if(mod(istep,10)==0) then
+         !$acc update self(elabels(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+         !$acc update self(ilabels(:mi))
+         !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+         !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+         if(acc_newer_D_zion) then
+            !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_D_zion=.false.
+            acc_newer_H_zion=.false.
+         endif
+
          if(Flag_Load_and_WeightDef==0) then
             call check_abnormal_weight_electrons
             call check_abnormal_weight_ions

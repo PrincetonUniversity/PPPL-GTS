@@ -26,6 +26,15 @@ subroutine check_tracer_e
 
 
    !$acc update self(elabels(:me))
+   !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+   !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_D_zeon=.false.
+      acc_newer_H_zeon=.false.
+   endif
+
 
    if(size(zeon,1) /= size(zeon0,1)) then
       write(*,*) "size(zeon,1)=", size(zeon,1), "size(zeon0,1)=", size(zeon0,1), " is differnet!!!!!"
@@ -243,6 +252,15 @@ subroutine check_tracer_i
    character(len=30) file_name
 
    !$acc update self(ilabels(:mi))
+   !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+   !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+
+   if(acc_newer_D_zion) then
+      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_D_zion=.false.
+      acc_newer_H_zion=.false.
+   endif
+
 
    if(size(zion,1) /= size(zion0,1)) then
       write(*,*) "size(zion,1)=", size(zion,1), "size(zion0,1)=", size(zion0,1), " is differnet!!!!!"

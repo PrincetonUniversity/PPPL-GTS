@@ -1212,9 +1212,6 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    elseif(irk_e==4) then
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =1.0 ! This is used to calculate dphi/dt
-
-      !$acc update device(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-      !$acc update device(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
    else
       write(stdout,*) "In pushe_RK4, irk_e=",irk_e,", is weird. Please Check It!!"
       call flush(stdout)
@@ -1613,11 +1610,6 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       enddo
 
 
-      if(irk_e==4) then
-         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
-      endif
-
       #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
@@ -1630,6 +1622,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+
 
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
