@@ -187,6 +187,7 @@ module particle_array
    ! to reallocate them inside that subroutine if needed.
    real(wp),dimension(:,:), allocatable :: zion,zion0,zeon,zeon0,zeon00
    !$acc declare create(zion,zion0,zeon,zeon0)
+
    real(wp), dimension(:,:),allocatable :: RK_cum_zion, RK_cum_zeon
    !$acc declare create(RK_cum_zion,RK_cum_zeon)
    ! ============================
@@ -237,6 +238,7 @@ module field_array
    real(wp),dimension(:,:),allocatable :: Weighted_Vol
    real(wp),dimension(:),allocatable :: Node_simple_Vol
    real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
+   !$acc declare create (phi)
    real(wp),dimension(:,:),allocatable :: old_phi, tmp_old_phi ! phi at previous time step
    real(wp),dimension(:),allocatable :: old_phi00, tmp_old_phi00 ! phi00 at previous time step
    real(wp),dimension(:),allocatable :: cum_phi00, cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ
