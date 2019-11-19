@@ -29,13 +29,13 @@ subroutine snapshot
 
 
    if(acc_newer_D_zeon) then
-      !$acc update self(zeon(:,:me))
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
       acc_newer_D_zeon=.false.
       acc_newer_H_zeon=.false.
    endif
 
    if(acc_newer_D_zion) then
-      !$acc update self(zion(:,:mi))
+      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
       acc_newer_D_zion=.false.
       acc_newer_H_zion=.false.
    endif

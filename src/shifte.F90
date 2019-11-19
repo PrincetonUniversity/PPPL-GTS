@@ -25,10 +25,10 @@ subroutine shifte
    !$acc declare create (zeon_zeta_arr)
 
 
-   if(acc_newer_D_zeon) then
-      !$acc update self (zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-      acc_newer_D_zeon=.false.
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
       acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
    endif
 
    dim_zeon = size(zeon,1)
@@ -88,7 +88,6 @@ subroutine shifte
          if(loop>1) then
             acc_newer_D_zeon=.true.
             acc_newer_H_zeon=.false.
-            !$acc update self(zeon0(:,:me),RK_cum_zeon(:,:me))
          endif
          return
       endif

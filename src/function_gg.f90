@@ -1642,7 +1642,7 @@ subroutine n_T_u_group
    dela=1.0_wp/dela
 
    if(acc_newer_H_zion) then
-      !$acc update device(zion(:,:mi))
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
       acc_newer_H_zion=.false.
       acc_newer_D_zion=.false.
    endif
@@ -1831,7 +1831,7 @@ subroutine n_T_u_group_e
    #endif
 
    if(acc_newer_H_zeon) then
-      !$acc update device(zeon(:,:me))
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
       acc_newer_H_zeon=.false.
       acc_newer_D_zeon=.false.
    endif
@@ -4626,7 +4626,7 @@ subroutine Ti_at_electrons
    real(wp)  r, fip, dela, tempi
 
    if(acc_newer_H_zeon) then
-      !$acc update device(zeon(:,:me))
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
       acc_newer_H_zeon=.false.
       acc_newer_D_zeon=.false.
    endif

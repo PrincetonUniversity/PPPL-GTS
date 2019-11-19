@@ -24,12 +24,11 @@ subroutine shifti
 
    !$acc declare create (zion_zeta_arr)
 
-   if(acc_newer_D_zion) then
-      !$acc update self (zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
-      acc_newer_D_zion=.false.
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
       acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
    endif
-
 
    dim_zion = size(zion,1)
    dim_zion0 = size(zion0,1)
@@ -91,7 +90,6 @@ subroutine shifti
          if(loop>1) then
             acc_newer_D_zion=.true.
             acc_newer_H_zion=.false.
-            !$acc update self(zion0(:,:mi),RK_cum_zion(:,:mi))
          endif
          return
       endif

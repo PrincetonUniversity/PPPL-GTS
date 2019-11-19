@@ -1164,11 +1164,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
 
    if(acc_newer_H_zeon) then
-      !$acc update device(zeon(:,:me))
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
       acc_newer_H_zeon=.false.
       acc_newer_D_zeon=.false.
    endif
-   !$acc update device(zeon0(:,:me),RK_cum_zeon(:,:me))
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -1613,11 +1612,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       enddo
 
-      if(acc_newer_D_zeon) then
-         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-         acc_newer_D_zeon=.false.
-         acc_newer_H_zeon=.false.
-      endif
+
       if(irk_e==4) then
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
          !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
@@ -1635,6 +1630,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
 
          #ifdef _MGY_TIMER_
          tt0=MPI_WTIME()
@@ -1690,12 +1691,6 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       call flush(stdout)
       #endif
 
-
-      if(acc_newer_H_zeon) then
-         !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-         acc_newer_H_zeon=.false.
-         acc_newer_D_zeon=.false.
-      endif
 
       call electron_locator
       call n_T_u_group_e
@@ -1770,15 +1765,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          else
             zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
-
-
       enddo
 
-      if(acc_newer_D_zeon) then
-         !$acc update self(zeon(:,:me))
-         acc_newer_D_zeon=.false.
-         acc_newer_H_zeon=.false.
-      endif
       if(Flag_Poisson==1) then
          call charge_eon
          call poisson( solver1, masssolver )
@@ -1923,11 +1911,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       endif
 
-      if(acc_newer_D_zeon) then
-         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-         acc_newer_D_zeon=.false.
-         acc_newer_H_zeon=.false.
-      endif
+
       if(irk_e==4) then
          !$acc update self (we_adiab(:me))
       endif
@@ -2556,7 +2540,7 @@ subroutine electron_locator
    !$omp& rdum,ii,wp1,im,tdum,j00,j01)
 
    if(acc_newer_H_zeon) then
-      !$acc update device(zeon(:,:me))
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
       acc_newer_H_zeon=.false.
       acc_newer_D_zeon=.false.
    endif

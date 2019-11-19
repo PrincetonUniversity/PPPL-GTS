@@ -799,11 +799,10 @@ subroutine pushion_RK4(irk_i)
    !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
 
    if(acc_newer_H_zion) then
-      !$acc update device(zion(:,:mi))
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
       acc_newer_H_zion=.false.
       acc_newer_D_zion=.false.
    endif
-   !$acc update device(zion0(:,:mi),RK_cum_zion(:,:mi))
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -1284,11 +1283,6 @@ subroutine pushion_RK4(irk_i)
       enddo
    endif
 
-   if(acc_newer_D_zion) then
-      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
-      acc_newer_D_zion=.false.
-      acc_newer_H_zion=.false.
-   endif
    if(irk_i==4) then
       !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
       !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
@@ -1305,6 +1299,12 @@ subroutine pushion_RK4(irk_i)
       !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
       !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
       !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
+
+      if(acc_newer_D_zion) then
+         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         acc_newer_D_zion=.false.
+         acc_newer_H_zion=.false.
+      endif
 
       ! fluxes diagnose
       !    wpi(1,1:mi)=wpi(1,1:mi)*gha(1:mi)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
@@ -1508,7 +1508,7 @@ subroutine ion_locator_at_larmor_points
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
    if(acc_newer_H_zion) then
-      !$acc update device (zion(:,:mi))
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
       acc_newer_H_zion=.false.
       acc_newer_D_zion=.false.
    endif

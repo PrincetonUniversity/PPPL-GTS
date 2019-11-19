@@ -39,7 +39,7 @@ subroutine charge_eon
 #endif
    !$omp do private(m,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
    if(acc_newer_H_zeon) then
-      !$acc update device(zeon(:,:me))
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
       acc_newer_H_zeon=.false.
       acc_newer_D_zeon=.false.
    endif
