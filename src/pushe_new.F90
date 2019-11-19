@@ -1162,6 +1162,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
    !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+   real(wp) tmp_zeon5(memax)
+   !$acc declare create (tmp_zeon5)
 
    if(acc_newer_H_zeon) then
       !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
@@ -1689,14 +1691,13 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       call electron_locator
       call n_T_u_group_e
-      ! zeon00(5,1:me)=zeon(5,1:me)    ! use for temporary storage -- check again April, 2013
 
       acc_newer_D_zeon=.true.
       !$acc parallel loop gang vector present(zeon,zeon0,backTe)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
 
-         zeon00(5,m)=zeon(5,m)
+         tmp_zeon5(m)=zeon(5,m)
 
          T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 
@@ -1758,7 +1759,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
             zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
          else
-            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
       enddo
 
@@ -1835,7 +1836,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
             RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(wdot+wdphidt)*(RK_cum_coeff*tstep)
          else
-            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
 
          ! Advance particle information for the next RK step
@@ -1845,7 +1846,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
                zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
             else
-               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
             endif
          else if(irk_e==4) then !irk_i==4
             if(Flag_w_Evol==1) then
@@ -1860,7 +1861,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !MGYOO(05/10/2019)
          ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
          if(irk_e==4) then
-            we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*zeon00(5,m))*wdphidt
+            we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*tmp_zeon5(m))*wdphidt
          endif
 
       enddo
