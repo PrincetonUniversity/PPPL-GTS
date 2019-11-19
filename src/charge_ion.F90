@@ -51,7 +51,7 @@ subroutine charge_ion
       acc_newer_H_zion=.false.
       acc_newer_D_zion=.false.
    endif
-   !$acc parallel loop present(zion)
+   !$acc parallel loop gang vector present(zion)
    do m=1,mi
       weight=zion(5,m)
 

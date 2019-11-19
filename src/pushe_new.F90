@@ -1366,7 +1366,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       tt0=MPI_WTIME()
       #endif
       acc_newer_D_zeon=.true.
-      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+      !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
       do m=1,me
          !     dbdz=0.0   for axisymmetric system   !wx
          mu=zeon(6,m)*zeon(6,m)        ! =normalized mu of electrons
@@ -1702,7 +1702,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       ! zeon00(5,1:me)=zeon(5,1:me)    ! use for temporary storage -- check again April, 2013
 
       acc_newer_D_zeon=.true.
-      !$acc parallel loop present(zeon,zeon0,backTe)
+      !$acc parallel loop gang vector present(zeon,zeon0,backTe)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
 
