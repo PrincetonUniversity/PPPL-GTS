@@ -1446,22 +1446,36 @@ subroutine pushion_RK4(irk_i)
       #endif
    endif
 
-   ! if(irk_i==1 .and. mod(istep,msnap)==0) then
-   !    #ifdef _MGY_TIMER_
-   !    tt0=MPI_WTIME()
-   !    #endif
-   !    do m=1,mi
-   !       FullVelocity_da_dgq_dgf(1,m) = da(m)
-   !       FullVelocity_da_dgq_dgf(2,m) = dgq(m)
-   !       FullVelocity_da_dgq_dgf(3,m) = dgf(m)
-   !    enddo
-   !    call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
-   !    #ifdef _MGY_TIMER_
-   !    tt1=MPI_WTIME()
-   !    if(mype==0) write(stdout,'(a,ES11.3,a)') "Measure_Ions_on_Diagnostic_Grid", tt1-tt0," secs"
-   !    call flush(stdout)
-   !    #endif
-   ! endif
+   if(irk_i==1 .and. mod(istep,msnap)==0) then
+      #ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+      #endif
+
+      !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
+      !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
+      !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
+      !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+      !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+
+      if(acc_newer_D_zion) then
+         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         acc_newer_D_zion=.false.
+         acc_newer_H_zion=.false.
+      endif
+
+      do m=1,mi
+         FullVelocity_da_dgq_dgf(1,m) = da(m)
+         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+      enddo
+      call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+      #ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,'(a,ES11.3,a)') "Measure_Ions_on_Diagnostic_Grid", tt1-tt0," secs"
+      call flush(stdout)
+      #endif
+   endif
 
 
 

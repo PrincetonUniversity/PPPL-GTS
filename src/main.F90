@@ -217,7 +217,7 @@ program GTS
       ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
-      ! call snapshot_hdf5
+      call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
       call check_tracer_i
@@ -461,8 +461,21 @@ program GTS
       call Cumulate_Some_Variables_for_Measure
 
       if(mod(istep,msnap) .eq. 0) then
+         !$acc update self(elabels(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+         if(acc_newer_D_zion) then
+            !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_D_zion=.false.
+            acc_newer_H_zion=.false.
+         endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
-         ! call snapshot_hdf5
+         call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables
          call system_mem_usage

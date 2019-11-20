@@ -1620,6 +1620,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !   fluxes diagnose
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
 
+         #ifdef _MGY_TIMER_
+         tt0=MPI_WTIME()
+         #endif
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
@@ -1634,9 +1637,6 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             acc_newer_H_zeon=.false.
          endif
 
-         #ifdef _MGY_TIMER_
-         tt0=MPI_WTIME()
-         #endif
 
          !$omp parallel do private(m)
          do m=1,me
@@ -1661,22 +1661,35 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          #endif
 
       endif
-      ! if(irk_e==1 .and. mod(istep,msnap)==0) then
-      !    #ifdef _MGY_TIMER_
-      !    tt0=MPI_WTIME()
-      !    #endif
-      !    do m=1,me
-      !    FullVelocity_da_dgq_dgf(1,m) = da(m)
-      !    FullVelocity_da_dgq_dgf(2,m) = dgq(m)
-      !    FullVelocity_da_dgq_dgf(3,m) = dgf(m)
-      !    enddo
-      !    call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
-      !    #ifdef _MGY_TIMER_
-      !    tt1=MPI_WTIME()
-      !    write(stdout,'(a,ES11.3,a)') "Measure_Electrons_on_Diagnostic_Grid", tt1-tt0," secs"
-      !    call flush(stdout)
-      !    #endif
-      ! endif
+      if(irk_e==1 .and. mod(istep,msnap)==0) then
+         #ifdef _MGY_TIMER_
+         tt0=MPI_WTIME()
+         #endif
+
+         !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+         !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+         !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+
+         do m=1,me
+         FullVelocity_da_dgq_dgf(1,m) = da(m)
+         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+         enddo
+         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+         #ifdef _MGY_TIMER_
+         tt1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,ES11.3,a)') "Measure_Electrons_on_Diagnostic_Grid", tt1-tt0," secs"
+         call flush(stdout)
+         #endif
+      endif
 
       #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
