@@ -32,8 +32,9 @@ program GTS
    character buffer1(MAX_PACKED_LENGTH)
 
    integer i,ierror,rng_type
-   integer,parameter :: nc=15
-   real(doubleprec) starting_t0, starting_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc,loop_time
+   integer,parameter :: nc=18
+   real(doubleprec) program_start_t0, program_start_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc
+   real(doubleprec) tmp_time(nc), tmp_timewc(nc), loop_start_time,loop_start_timewc, mainloop_time, mainloop_timewc
    character(len=16) ic(nc)
    type(solver_data) :: solver1,solver_dphi_dt,masssolver
    type(fem_data) :: fem1,femt,femm
@@ -63,8 +64,8 @@ program GTS
    t0wc=0.0_wp
 
    call timer(t0,dt,t0wc,dtwc)
-   starting_t0=t0
-   starting_t0wc=t0wc
+   program_start_t0=t0
+   program_start_t0wc=t0wc
 
    ! Set name of each clock
    ic(1)='push_ion'
@@ -81,7 +82,10 @@ program GTS
    ic(12)='charge_eon'
    ic(13)='check_tracers'
    ic(14)='snapshot'
-   ic(nc)='Total'
+   ic(15)='diagnostics'
+   ic(16)='Main_Loop'
+   ic(17)='others'
+   ic(nc)='TOTAL'
 
    if(irun==0) then      !  SPRNG initialize
       seed=985456376     !  random number seed advised in sprng 1.0 docum.
@@ -236,7 +240,8 @@ program GTS
    call timer(t0,dt,t0wc,dtwc)
    time(7)=time(7)+dt
    timewc(7)=timewc(7)+dtwc
-   loop_time=t0wc
+   loop_start_time=t0
+   loop_start_timewc=t0wc
 
    call system_mem_usage
 
@@ -284,7 +289,9 @@ program GTS
                call view_distribution(irk-1)
             endif
          endif
-
+         call timer(t0,dt,t0wc,dtwc)
+         time(17)=time(17)+dt
+         timewc(17)=timewc(17)+dtwc
          ! redistribute ion across PEs
          call shifti
          call timer(t0,dt,t0wc,dtwc)
@@ -513,16 +520,42 @@ program GTS
 
 
       call timer(t0,dt,t0wc,dtwc)
-      time(nc)=t0-starting_t0
-      timewc(nc)=t0wc-starting_t0wc
-
+      time(nc)=t0-program_start_t0
+      timewc(nc)=t0wc-program_start_t0wc
+      time(16)=t0-loop_start_time
+      timewc(16)=t0wc-loop_start_timewc
       ! Print Elapsed Times
       if(mype==0 .and. mod(istep,1)==0) then
+
+         tmp_time    = time
+         tmp_timewc  = timewc
+
+         tmp_time(1)  = tmp_time(1)  - sum(time_in_Pushi) ! pushion
+         tmp_time(4)  = tmp_time(4)  + time_in_Pushe(3)   ! Poisson
+         tmp_time(5)  = tmp_time(5)  + time_in_Pushe(4)   ! smooth
+         tmp_time(10) = tmp_time(10) - sum(time_in_Pushe) ! pusheon
+         tmp_time(11) = tmp_time(11) + time_in_Pushe(1)   ! shifte
+         tmp_time(12) = tmp_time(12) + time_in_Pushe(2)   ! charge_eon
+         tmp_time(15) = tmp_time(15) + time_in_Pushe(5) +time_in_Pushi(1) ! diagnostics in push routines
+
+         tmp_timewc(1)  = tmp_timewc(1)  - sum(timewc_in_Pushi) ! pushion
+         tmp_timewc(4)  = tmp_timewc(4)  + timewc_in_Pushe(3)   ! Poisson
+         tmp_timewc(5)  = tmp_timewc(5)  + timewc_in_Pushe(4)   ! smooth
+         tmp_timewc(10) = tmp_timewc(10) - sum(timewc_in_Pushe) ! pusheon
+         tmp_timewc(11) = tmp_timewc(11) + timewc_in_Pushe(1)   ! shifte
+         tmp_timewc(12) = tmp_timewc(12) + timewc_in_Pushe(2)   ! charge_eon
+         tmp_timewc(15) = tmp_timewc(15) + timewc_in_Pushe(5) +timewc_in_Pushi(1) ! diagnostics in push routines
+
          write(190515,*) 'istep=', istep
-         write(190515,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
-         write(190515,'(4a16)')'==========      ',' =============',' ===============',' ==============='
+         write(190515,'(5a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', '#/Total (%)', '#/MainLoop (%)'
+         write(190515,'(5a16)')'==========      ',' =============',' ===============',' ===============',' ==============='
          do i=1,nc
-            write(190515,'(a16,2f16.6, f16.4)')ic(i),time(i),timewc(i), timewc(i)/timewc(nc)*100
+            write(190515,'(a16,2f16.6, f16.4)',advance="no")ic(i),tmp_time(i),tmp_timewc(i), tmp_timewc(i)/tmp_timewc(nc)*100
+            if(i/=7 .and. i<nc-1) then
+               write(190515,'(f16.4)') tmp_timewc(i)/tmp_timewc(16)*100
+            else
+               write(190515,*) ' '
+            endif
          enddo
          write(190515,*) ' '
          write(190515,*) ' '
@@ -533,8 +566,6 @@ program GTS
 
    close(190515)
 
-   loop_time=t0wc-loop_time
-
    if(mype==0) write(stdout,*) 'end of main time loop'
 
    if(mype==0) then
@@ -542,16 +573,42 @@ program GTS
    end if
 
    call timer(t0,dt,t0wc,dtwc)
-   time(nc)=t0-starting_t0
-   timewc(nc)=t0wc-starting_t0wc
+   time(nc)=t0-program_start_t0
+   timewc(nc)=t0wc-program_start_t0wc
+   time(16)=t0-loop_start_time
+   timewc(16)=t0wc-loop_start_timewc
 
    if(mype==0)then
-      write(stdout,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
-      write(stdout,'(4a16)')'==========      ',' =============',' ===============',' ==============='
+
+      tmp_time    = time
+      tmp_timewc  = timewc
+
+      tmp_time(1)  = tmp_time(1)  - sum(time_in_Pushi) ! pushion
+      tmp_time(4)  = tmp_time(4)  + time_in_Pushe(3)   ! Poisson
+      tmp_time(5)  = tmp_time(5)  + time_in_Pushe(4)   ! smooth
+      tmp_time(10) = tmp_time(10) - sum(time_in_Pushe) ! pusheon
+      tmp_time(11) = tmp_time(11) + time_in_Pushe(1)   ! shifte
+      tmp_time(12) = tmp_time(12) + time_in_Pushe(2)   ! charge_eon
+      tmp_time(15) = tmp_time(15) + time_in_Pushe(5) +time_in_Pushi(1) ! diagnostics in push routines
+
+      tmp_timewc(1)  = tmp_timewc(1)  - sum(timewc_in_Pushi) ! pushion
+      tmp_timewc(4)  = tmp_timewc(4)  + timewc_in_Pushe(3)   ! Poisson
+      tmp_timewc(5)  = tmp_timewc(5)  + timewc_in_Pushe(4)   ! smooth
+      tmp_timewc(10) = tmp_timewc(10) - sum(timewc_in_Pushe) ! pusheon
+      tmp_timewc(11) = tmp_timewc(11) + timewc_in_Pushe(1)   ! shifte
+      tmp_timewc(12) = tmp_timewc(12) + timewc_in_Pushe(2)   ! charge_eon
+      tmp_timewc(15) = tmp_timewc(15) + timewc_in_Pushe(5) +timewc_in_Pushi(1) ! diagnostics in push routines
+
+      write(stdout,'(5a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)', '#/MainLoop (%)'
+      write(stdout,'(5a16)')'==========      ',' =============',' ===============',' ===============',' ==============='
       do i=1,nc
-         write(stdout,'(a16,2f16.6, f16.4)')ic(i),time(i),timewc(i), timewc(i)/timewc(nc)*100
+         write(stdout,'(a16,2f16.6, f16.4)',advance="no")ic(i),tmp_time(i),tmp_timewc(i), tmp_timewc(i)/tmp_timewc(nc)*100
+         if(i/=7 .and. i<nc-1) then
+            write(stdout,'(f16.4)') tmp_timewc(i)/tmp_timewc(16)*100
+         else
+            write(stdout,*) ' '
+         endif
       enddo
-      write(stdout,'(/,"MAIN LOOP TIME(SEC):",f15.6,/)')loop_time
    endif
 
    if( order .le. 0 ) then

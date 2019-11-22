@@ -1171,6 +1171,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       acc_newer_D_zeon=.false.
    endif
 
+   if(istep==istart .and. irk_e==1) then
+      time_in_Pushe =0
+      timewc_in_Pushe =0
+   endif
+
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
    delz=1.0_wp/deltaz
@@ -1620,9 +1625,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !   fluxes diagnose
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
 
-         #ifdef _MGY_TIMER_
+         call cpu_time(cput0)
          tt0=MPI_WTIME()
-         #endif
+
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
@@ -1654,17 +1659,17 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! call flush(stdout)
          end if
 
-         #ifdef _MGY_TIMER_
+         call cpu_time(cput1)
          tt1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, idiag_e=0 diagnostics", tt1-tt0," secs"
-         call flush(stdout)
-         #endif
+         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
 
       endif
+
+      !Another Diagnostics on DG (Diagnostic Grid)
       if(irk_e==1 .and. mod(istep,msnap)==0) then
-         #ifdef _MGY_TIMER_
+         call cpu_time(cput0)
          tt0=MPI_WTIME()
-         #endif
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
@@ -1684,22 +1689,20 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          FullVelocity_da_dgq_dgf(3,m) = dgf(m)
          enddo
          call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
-         #ifdef _MGY_TIMER_
+
+         call cpu_time(cput1)
          tt1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,ES11.3,a)') "Measure_Electrons_on_Diagnostic_Grid", tt1-tt0," secs"
-         call flush(stdout)
-         #endif
+         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
       endif
 
-      #ifdef _MGY_TIMER_
+      call cpu_time(cput0)
       tt0=MPI_WTIME()
-      #endif
       call shifte
-      #ifdef _MGY_TIMER_
+      call cpu_time(cput1)
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", shifte in pushe takes", tt1-tt0, " secs"
-      call flush(stdout)
-      #endif
+      time_in_Pushe(1) = time_in_Pushe(1) + (cput1-cput0)
+      timewc_in_Pushe(1) = timewc_in_Pushe(1) + (tt1-tt0)
 
 
       call electron_locator
@@ -1777,9 +1780,30 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       enddo
 
       if(Flag_Poisson==1) then
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
          call charge_eon
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(2) = time_in_Pushe(2) + (cput1-cput0)
+         timewc_in_Pushe(2) = timewc_in_Pushe(2) + (tt1-tt0)
+
+
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
          call poisson( solver1, masssolver )
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
+         timewc_in_Pushe(3) = timewc_in_Pushe(3) + (tt1-tt0)
+
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
          call smooth_PHI
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(4) = time_in_Pushe(4) + (cput1-cput0)
+         timewc_in_Pushe(4) = timewc_in_Pushe(4) + (tt1-tt0)
       endif
 
       if(irk_e==4) then

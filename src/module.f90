@@ -149,6 +149,13 @@ module global_parameters
 
    logical :: acc_newer_H_zion=.true., acc_newer_D_zion=.true., acc_newer_H_zeon=.true., acc_newer_D_zeon=.true.
 
+   ! To measure the elapsed times of the following routines in the Pusheon
+   ! (1) shifte, (2) charge_eon, (3) poisson, (4) Smooth_Phi (5) Diagnostics
+   real(wp) time_in_Pushe(5), timewc_in_Pushe(5)
+   ! To measure the elapsed times of the following routines in the Pushion
+   ! (1) Diagnostics
+   real(wp) time_in_Pushi(1), timewc_in_Pushi(1)
+
 end module global_parameters
 
 module FieldLineFollowing

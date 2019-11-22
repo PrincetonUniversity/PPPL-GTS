@@ -804,6 +804,11 @@ subroutine pushion_RK4(irk_i)
       acc_newer_D_zion=.false.
    endif
 
+   if(istep==istart .and. irk_i==1) then
+      time_in_Pushi =0
+      timewc_in_Pushi =0
+   endif
+
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
    delz=1.0_wp/deltaz
@@ -1287,6 +1292,10 @@ subroutine pushion_RK4(irk_i)
    #endif
 
    if(idiag==0)then
+
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
       !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
       !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
       !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
@@ -1336,9 +1345,6 @@ subroutine pushion_RK4(irk_i)
       enddo
 
 
-      #ifdef _MGY_TIMER_
-      tt0=MPI_WTIME()
-      #endif
       if(ZF_SEPARATION==0) then
          !     note: zonal flow component <phi> and phip00=d<phi>/da are calculated in field.f90
          adum=0.0_wp
@@ -1439,17 +1445,17 @@ subroutine pushion_RK4(irk_i)
       if(im==0) then
          call get_3D_flow(da,dgq,dgf,wpi(2,:))
       end if
-      #ifdef _MGY_TIMER_
+
+      call cpu_time(cput1)
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, idiag=0 diagnostics", tt1-tt0," secs"
-      call flush(stdout)
-      #endif
+      time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
+      timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
    endif
 
+   !Another Diagnostics on DG (Diagnostic Grid)
    if(irk_i==1 .and. mod(istep,msnap)==0) then
-      #ifdef _MGY_TIMER_
+      call cpu_time(cput0)
       tt0=MPI_WTIME()
-      #endif
 
       !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
       !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
@@ -1470,11 +1476,11 @@ subroutine pushion_RK4(irk_i)
          FullVelocity_da_dgq_dgf(3,m) = dgf(m)
       enddo
       call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
-      #ifdef _MGY_TIMER_
+
+      call cpu_time(cput1)
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,ES11.3,a)') "Measure_Ions_on_Diagnostic_Grid", tt1-tt0," secs"
-      call flush(stdout)
-      #endif
+      time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
+      timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
    endif
 
 
