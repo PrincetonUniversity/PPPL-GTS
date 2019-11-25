@@ -9,8 +9,8 @@ subroutine shifte
    implicit none
 
    integer i,j,k,tid, m, mtop,lasth, dim_zeon, dim_zeon0, dim_RK_cum_zeon, dim_Ptl_package, ierr,istatus(MPI_STATUS_SIZE)
-   integer send_counts(0:1), send_num, send_mid_arr(memax), left_mid_arr(memax), right_mid_arr(memax)
-   integer recv_counts(0:1), recv_num
+   integer send_L_count,send_R_count, send_num, send_mid_arr(memax), left_mid_arr(memax), right_mid_arr(memax)
+   integer recv_L_count,recv_R_count, recv_num
    integer, dimension(:),allocatable :: fill_mid_arr
    integer fill_num
    real(wp) zeon_zeta_arr(memax)
@@ -54,7 +54,8 @@ subroutine shifte
          call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
       endif
       ! find send_counts and related information
-      send_counts = 0
+      send_L_count=0
+      send_R_count=0
       send_num = 0
 
       !$acc parallel loop
@@ -72,12 +73,12 @@ subroutine shifte
 
             if( modulo(zeon_zeta_arr(m)-zetamax, 2.0*pi)<pi) then
                ! send to right rank
-               send_counts(1) = send_counts(1) +1
-               right_mid_arr(send_counts(1)) = m
+               send_R_count = send_R_count +1
+               right_mid_arr(send_R_count) = m
             else
                ! send to left rank
-               send_counts(0) = send_counts(0) +1
-               left_mid_arr(send_counts(0)) = m
+               send_L_count = send_L_count +1
+               left_mid_arr(send_L_count) = m
             endif
          endif
       enddo
@@ -92,22 +93,22 @@ subroutine shifte
          return
       endif
 
-      call MPI_SENDRECV(send_counts(1),1,MPI_INTEGER,right_pe,0, recv_counts(0),1,MPI_INTEGER,left_pe ,0,toroidal_comm,istatus,ierr)
-      call MPI_SENDRECV(send_counts(0),1,MPI_INTEGER,left_pe ,0, recv_counts(1),1,MPI_INTEGER,right_pe,0,toroidal_comm,istatus,ierr)
+      call MPI_SENDRECV(send_R_count,1,MPI_INTEGER,right_pe,0, recv_L_count,1,MPI_INTEGER,left_pe ,0,toroidal_comm,istatus,ierr)
+      call MPI_SENDRECV(send_L_count,1,MPI_INTEGER,left_pe ,0, recv_R_count,1,MPI_INTEGER,right_pe,0,toroidal_comm,istatus,ierr)
 
-      recv_num=recv_counts(0)+recv_counts(1)
+      recv_num=recv_L_count+recv_R_count
 
 
       allocate(send_Ptls(dim_Ptl_package, send_num), recv_Ptls(dim_Ptl_package, recv_num))
 
       ! copy all information of sending particles into tor_send_Ptls
-      !$acc parallel loop copyin(left_mid_arr(:send_counts(0)),right_mid_arr(:send_counts(1)))
+      !$acc parallel loop copyin(left_mid_arr(:send_L_count),right_mid_arr(:send_R_count))
       do i=1, send_num
 
-         if (i<=send_counts(0)) then
+         if (i<=send_L_count) then
             m=left_mid_arr(i)
          else
-            m=right_mid_arr(i-send_counts(0))
+            m=right_mid_arr(i-send_L_count)
          endif
 
          k=0
@@ -140,9 +141,9 @@ subroutine shifte
       enddo
 
       ! Send to Left
-      call MPI_SENDRECV(send_Ptls(:,1:send_counts(0)),send_counts(0),MPI_Ptl_type,left_pe,0, recv_Ptls(:,1+recv_counts(0):recv_num),recv_counts(1),MPI_Ptl_type,right_pe ,0,toroidal_comm,istatus,ierr)
+      call MPI_SENDRECV(send_Ptls(:,1:send_L_count),send_L_count,MPI_Ptl_type,left_pe,0, recv_Ptls(:,1+recv_L_count:recv_num),recv_R_count,MPI_Ptl_type,right_pe ,0,toroidal_comm,istatus,ierr)
       ! Send to Right
-      call MPI_SENDRECV(send_Ptls(:,1+send_counts(0):send_num),send_counts(1),MPI_Ptl_type,right_pe,0, recv_Ptls(:,1:recv_counts(0)),recv_counts(0),MPI_Ptl_type,left_pe ,0,toroidal_comm,istatus,ierr)
+      call MPI_SENDRECV(send_Ptls(:,1+send_L_count:send_num),send_R_count,MPI_Ptl_type,right_pe,0, recv_Ptls(:,1:recv_L_count),recv_L_count,MPI_Ptl_type,left_pe ,0,toroidal_comm,istatus,ierr)
 
 
       ! fill holes
