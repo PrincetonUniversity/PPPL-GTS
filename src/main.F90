@@ -21,6 +21,10 @@ program GTS
    use solver_data_class
    use fem_data_class
    use particle_decomp
+
+   #ifdef _ACCEL
+   use accel_lib
+   #endif _ACCEL
    implicit none
 
    ! to use parallel random number generator
@@ -39,6 +43,8 @@ program GTS
    type(solver_data) :: solver1,solver_dphi_dt,masssolver
    type(fem_data) :: fem1,femt,femm
    integer:: nrk !number of RK step (nrk=2 for RK2, nrk=4 for RK4)
+   integer:: ngpus_per_node !number of gpus per node
+   integer:: device_type,my_gpu_device_num
 
    interface
       subroutine shift(phase,phase0,mp,mpmax)
@@ -57,6 +63,18 @@ program GTS
    if(mype==0) then
       call Print_Git_Info()
    endif
+
+   #ifdef _ACCEL
+   device_type=acc_get_device_type()
+   ngpus_per_node=acc_get_num_devices(device_type)
+   my_gpu_device_num = acc_get_device_num(device_type)
+   write(stdout,'(3(a,I5))') "Before set_device, mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
+   call flush(stdout)
+   call acc_set_device_num(mod(mype,ngpus_per_node),device_type)
+   my_gpu_device_num = acc_get_device_num(device_type)
+   write(stdout,'(3(a,I5))') "After set_device,  mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
+   call flush(stdout)
+   #endif _ACCEL
 
    time=0.0_wp
    t0=0.0_wp
