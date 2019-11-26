@@ -33,9 +33,13 @@ OPENMP:=n
 DEBUG:=n
 ESSL:=n
 ACC:=n
-
+CUDA:=n
 ifeq ($(ACC), y)
-  BIN_POSTFIX := $(BIN_POSTFIX)-ACC
+  ifeq ($(CUDA), y)
+    BIN_POSTFIX := $(BIN_POSTFIX)-ACC-CUDA
+  else
+	 BIN_POSTFIX := $(BIN_POSTFIX)-ACC
+  endif
 else
 endif
 
