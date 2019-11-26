@@ -496,6 +496,12 @@ subroutine load
 
 
 
+   if(mype==0) then
+      ilabel_of_ntracer    = ilabels(ntracer)
+      elabel_of_ntracer_e  = elabels(ntracer_e)
+   endif
+   call MPI_BCAST(ilabel_of_ntracer,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
+   call MPI_BCAST(elabel_of_ntracer_e,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
 
 
 
@@ -1033,6 +1039,17 @@ subroutine load_uniform_MGY
 
    write(stdout,*) "In load_uniform_MGY, I'm=",mype, "mi=", mi, ", me=",me
    call flush(stdout)
+
+   ntracer=0
+   ntracer_e=0
+   if(mype==0) then
+      ntracer=mi
+      ntracer_e=me
+      ilabel_of_ntracer    = ilabels(ntracer)
+      elabel_of_ntracer_e  = elabels(ntracer_e)
+   endif
+   call MPI_BCAST(ilabel_of_ntracer,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
+   call MPI_BCAST(elabel_of_ntracer_e,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
 
 
 end subroutine load_uniform_MGY

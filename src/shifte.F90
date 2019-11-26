@@ -89,6 +89,14 @@ subroutine shifte
          if(loop>1) then
             acc_newer_D_zeon=.true.
             acc_newer_H_zeon=.false.
+
+            ntracer_e=0
+            !$acc parallel loop copy(ntracer_e)
+            do m=1,me
+               if(elabels(m)==elabel_of_ntracer_e) then
+                  ntracer_e=m
+               endif
+            enddo
          endif
          return
       endif

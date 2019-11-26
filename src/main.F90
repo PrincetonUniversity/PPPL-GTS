@@ -301,11 +301,6 @@ program GTS
          ! Calculate ion weight damping
          if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
 
-         if(irk==nrk) call check_tracer_i
-         call timer(t0,dt,t0wc,dtwc)
-         time(13)=time(13)+dt
-         timewc(13)=timewc(13)+dtwc
-
          ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
          ! in PUSHI for calculating electric force on ions
@@ -346,11 +341,6 @@ program GTS
                call timer(t0,dt,t0wc,dtwc)
                time(11)=time(11)+dt
                timewc(11)=timewc(11)+dtwc
-
-               if(irk==nrk) call check_tracer_e
-               call timer(t0,dt,t0wc,dtwc)
-               time(13)=time(13)+dt
-               timewc(13)=timewc(13)+dtwc
 
             else
                ! Note that Following Subelectron routines are only valid for RK2 scheme
@@ -404,10 +394,6 @@ program GTS
                   time(11)=time(11)+dt
                   timewc(11)=timewc(11)+dtwc
 
-                  if(irk==nrk) call check_tracer_e
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(13)=time(13)+dt
-                  timewc(13)=timewc(13)+dtwc
                end do
             end if    ! end if(nelectron==1)
 
@@ -463,6 +449,8 @@ program GTS
 
       enddo  ! enddo irk=1,nrk
 
+      call Print_Reference_ntracer_Information
+
       ! profile snapshots, write particle information to restart file
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
@@ -488,8 +476,11 @@ program GTS
          call system_mem_usage
          !  phi_tmp=0.0_wp
       end if
+      call timer(t0,dt,t0wc,dtwc)
+      time(14)=time(14)+dt
+      timewc(14)=timewc(14)+dtwc
 
-      if(mod(istep,10)==0) then
+      if(mod(istep,nstep_for_tracer_record)==0) then
          !$acc update self(elabels(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
          !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
@@ -507,16 +498,18 @@ program GTS
             acc_newer_H_zion=.false.
          endif
 
+         call check_tracer_e
+         call check_tracer_i
          if(Flag_Load_and_WeightDef==0) then
             call check_abnormal_weight_electrons
             call check_abnormal_weight_ions
          endif
          if(Flag_w_Threshold==2) call Abandon_Abnormal_Particles
       endif
-
       call timer(t0,dt,t0wc,dtwc)
-      time(14)=time(14)+dt
-      timewc(14)=timewc(14)+dtwc
+      time(13)=time(13)+dt
+      timewc(13)=timewc(13)+dtwc
+
 
 
       call timer(t0,dt,t0wc,dtwc)

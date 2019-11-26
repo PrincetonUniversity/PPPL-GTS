@@ -202,6 +202,7 @@ module particle_array
    ! Information of Multiple-Tracers
    real(wp), dimension(:), allocatable :: elabels, ilabels
    !$acc declare create(elabels,ilabels)
+   real(wp) :: elabel_of_ntracer_e, ilabel_of_ntracer
    integer :: num_of_etracers=200, num_of_itracers=200, nstep_for_tracer_record=5 ! Default values
    !real(wp), dimension(:), allocatable :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
    real(wp), dimension(:), allocatable :: etracers_labels, itracers_labels

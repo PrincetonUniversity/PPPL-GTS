@@ -90,6 +90,14 @@ subroutine shifti
          if(loop>1) then
             acc_newer_D_zion=.true.
             acc_newer_H_zion=.false.
+
+            ntracer=0
+            !$acc parallel loop copy(ntracer)
+            do m=1,mi
+               if(ilabels(m)==ilabel_of_ntracer) then
+                  ntracer=m
+               endif
+            enddo
          endif
          return
       endif
