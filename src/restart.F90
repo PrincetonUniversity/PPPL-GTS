@@ -61,6 +61,8 @@ subroutine restart_write
    write(222) elabels(1:me), ilabels(1:mi)
    ! =====================================
 
+   write(222) ilabel_of_ntracer,elabel_of_ntracer_e
+
    ! MGYOO (09/05/2019)
    ! Add information of eNrNm, iNrNm for Flag_Load_and_WeightDef
    if(Flag_Load_and_WeightDef==0) then
@@ -137,6 +139,8 @@ subroutine restart_read
    read(333) elabels(1:me), ilabels(1:mi)
    ! =====================================
 
+   read(333) ilabel_of_ntracer,elabel_of_ntracer_e
+
    ! MGYOO (09/05/2019)
    ! Read information of eNrNm, iNrNm for Flag_Load_and_WeightDef
    if(Flag_Load_and_WeightDef==0) then
@@ -168,5 +172,22 @@ subroutine restart_read
          endif
       enddo
    endif
+
+   !$acc update device(elabels(:me))
+   !$acc update device(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+   !$acc update device(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+   !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+   acc_newer_H_zeon=.false.
+   acc_newer_D_zeon=.false.
+
+
+   !$acc update device(ilabels(:mi))
+   !$acc update device(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+   !$acc update device(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+   !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+   acc_newer_H_zion=.false.
+   acc_newer_D_zion=.false.
+
+
 
 end subroutine restart_read
