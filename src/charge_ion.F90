@@ -28,110 +28,9 @@ subroutine charge_ion
    !  real,dimension(:,:),allocatable :: dnitmp
 #endif
 
-   delr=1.0_wp/deltar
-   delt=2.0_wp*pi/deltat
-   delz=1.0_wp/deltaz
-   pi2_inv=0.5_wp/pi
+   call ion_locator_at_larmor_points
+
    densityi=0.0_wp
-   !  psimin=psi_grid(0)
-   !  psimax=psi_grid(mpsi)
-   psimin=s_grid(0)
-   psimax=s_grid(mpsi)
-
-   zdum=zetamin+deltaz
-
-   !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
-   !$omp& wz1,pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
-   do m=1,mi
-      !     psitmp=zion(1,m)      ! =a
-      psitmp=zion(7,m)       ! =s
-      thetatmp=zion(2,m)
-      zetatmp=zion(3,m)
-      rhoi=zion(6,m)
-
-      r=psitmp
-      ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
-      !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
-      thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane
-      thedum=thedum*pi2_inv+100.0_wp
-      thedum=2.0_wp*pi*(thedum-aint(thedum))       ! bring back to range [0,2pi]
-      jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))
-      ipjt=igrid(ip)+jt     ! note special case of jt=0
-      wzion(m)=(zetatmp-zetamin)*delz
-
-
-      !==========================================
-      ! MGYOO (10/24/2018) : to store information of GC position.
-      ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
-      inner_ip = max(0,min(mpsi-1,int((r-s0)*delr)))
-      thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane
-      thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
-      inner_jt = int(thedum)
-      wtion0(0,m) = thedum - int(thedum)
-      jtion0(0,m) = igrid(inner_ip) + inner_jt
-      wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
-
-      outter_ip = inner_ip+1
-      thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane
-      thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
-      outter_jt = int(thedum)
-      wtion1(0,m) = thedum - int(thedum)
-      jtion1(0,m) = igrid(outter_ip) + outter_jt
-      !==========================================
-
-
-      !==========================================
-      ! MGYOO (10/25/2018) : to get linear-interpolation of pgyro and tgyro
-
-      wp0 = 1.0_wp - wpion(0,m)
-      wp1 = wpion(0,m)
-
-      wt00 = 1.0_wp - wtion0(0,m)
-      wt10 = wtion0(0,m)
-
-      wt01 = 1.0_wp - wtion1(0,m)
-      wt11 = wtion1(0,m)
-
-      intpl_pgyro(:) = wp0*(wt00*pgyro(:,jtion0(0,m)) + wt10*pgyro(:,jtion0(0,m)+1)) + wp1*(wt01*pgyro(:,jtion1(0,m)) + wt11*pgyro(:,jtion1(0,m)+1))
-      intpl_tgyro(:) = wp0*(wt00*tgyro(:,jtion0(0,m)) + wt10*tgyro(:,jtion0(0,m)+1)) + wp1*(wt01*tgyro(:,jtion1(0,m)) + wt11*tgyro(:,jtion1(0,m)+1))
-      !==========================================
-
-
-
-      do larmor=1, larmor_num
-         !
-         !  MODIFIED for FINITE GYRORADIUS CASE
-         !
-         pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
-         zion_s_on_GyroOrbit(larmor,m)=pdum
-         rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
-         ii=max(0,min(mpsi-1,int(rdum)))
-         !        wp1=rdum-real(ii)
-         !        wpion(larmor,m)=wp1
-         wp1=(pdum-s_grid(ii))/(s_grid(ii+1)-s_grid(ii))   !wx  finite rho_i case
-         wpion(larmor,m)=wp1                               !wx  finite rho_i case
-
-         ! particle position in theta
-         tflr=thetatmp+rhoi*intpl_tgyro(larmor)
-         zion_gq_on_GyroOrbit(larmor,m)=tflr
-
-         ! inner flux surface
-         im=ii
-         tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
-         tdum=(tdum-aint(tdum))*delt(im)
-         j00=max(0,min(mtheta(im)-1,int(tdum)))
-         jtion0(larmor,m)=igrid(im)+j00  ! pay attention to j00=0 case
-         wtion0(larmor,m)=tdum-real(j00)
-
-         ! outer flux surface
-         im=ii+1
-         tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
-         tdum=(tdum-aint(tdum))*delt(im)
-         j01=max(0,min(mtheta(im)-1,int(tdum)))
-         jtion1(larmor,m)=igrid(im)+j01  ! pay attention to j01=0 case
-         wtion1(larmor,m)=tdum-real(j01)
-      enddo
-   enddo
 
 #ifdef _OPENMP
    ! The following lines are OpenMP directives for loop-level parallelism
@@ -147,6 +46,12 @@ subroutine charge_ion
    dnitmp=0.   ! Set array elements to zero
 #endif
    !$omp do private(m,larmor,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
+   !$acc parallel loop gang vector present(zion)
    do m=1,mi
       weight=zion(5,m)
 
@@ -154,7 +59,7 @@ subroutine charge_ion
 
       wz1=weight*wzion(m)
       wz0=weight-wz1
-
+      !$acc loop seq
       do larmor=1, larmor_num
          wp1=wpion(larmor,m)
          wp0=1.0_wp-wp1
@@ -186,26 +91,34 @@ subroutine charge_ion
          ! If no loop-level parallelism, use original algorithm (write directly
          ! into array "densityi()".
          ij=jtion0(larmor,m)
+         !$acc atomic update
          densityi(0,ij) = densityi(0,ij) + wz0*wt00
+         !$acc atomic update
          densityi(1,ij) = densityi(1,ij) + wz1*wt00
 
          ij=ij+1
+         !$acc atomic update
          densityi(0,ij) = densityi(0,ij) + wz0*wt10
+         !$acc atomic update
          densityi(1,ij) = densityi(1,ij) + wz1*wt10
 
          ij=jtion1(larmor,m)
+         !$acc atomic update
          densityi(0,ij) = densityi(0,ij) + wz0*wt01
+         !$acc atomic update
          densityi(1,ij) = densityi(1,ij) + wz1*wt01
 
          ij=ij+1
+         !$acc atomic update
          densityi(0,ij) = densityi(0,ij) + wz0*wt11
+         !$acc atomic update
          densityi(1,ij) = densityi(1,ij) + wz1*wt11
 #endif
 
-         if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
-            write(stdout,*) 'charge_ion, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
-            call flush(stdout)
-         endif
+         ! if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
+         !    write(stdout,*) 'charge_ion, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
+         !    call flush(stdout)
+         ! endif
 
       enddo
    enddo

@@ -27,6 +27,7 @@ subroutine snapshot
 
    real(wp),dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 
+
    ! write particle data for re-run
    !  call restart_write
    !ZHIXIN use flag irewrite to output RESTART
@@ -1910,6 +1911,7 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
    dni_init=0.0; dni_vpara=0.0; dni_vperp=0.0; dni_accel=0.0; dni_fdamp=0.0;
    dTi_init=0.0; dTi_vpara=0.0; dTi_vperp=0.0; dTi_accel=0.0; dTi_fdamp=0.0;
 
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
 
       if (Flag_w_Threshold==1 .and. (zion(5,m)<w_Thold_min .or. zion(5,m)>w_Thold_max)) cycle
@@ -1920,7 +1922,7 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
       !! Caution!! Is backu(m) here omega or real velocity?? Check it! Refer pushion routine
       energy = 0.5*(zion(4,m)*BB(m)-backu(m))**2.0 + ((zion(6,m)**2.0)*BB(m))
 
-
+      !$acc loop seq
       do larmor=1, larmor_num
          wa1=wpion(larmor,m)
          wa0=1.0-wa1
@@ -2281,7 +2283,7 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
    dne_init=0.0; dne_vpara=0.0; dne_vperp=0.0; dne_accel=0.0; dne_adiab=0.0; dne_fdamp=0.0;
    dTe_init=0.0; dTe_vpara=0.0; dTe_vperp=0.0; dTe_accel=0.0; dTe_adiab=0.0; dTe_fdamp=0.0;
 
-
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
 
       if (Flag_w_Threshold==1 .and. (zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max)) cycle

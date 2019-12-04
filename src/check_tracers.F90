@@ -25,6 +25,13 @@ subroutine check_tracer_e
    character(len=30) file_name
 
 
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_D_zeon=.false.
+      acc_newer_H_zeon=.false.
+   endif
+
+
    if(size(zeon,1) /= size(zeon0,1)) then
       write(*,*) "size(zeon,1)=", size(zeon,1), "size(zeon0,1)=", size(zeon0,1), " is differnet!!!!!"
       call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
@@ -51,16 +58,16 @@ subroutine check_tracer_e
             num_of_MY_tracers = num_of_MY_tracers + 1
             my_tracer_indices(num_of_MY_tracers) = m
 
-            ! Print out a reference tracer information
-            if(elabels(m) == etracers_labels((num_of_etracers/2))) then
-               aaa(1)=zeon(1,m)
-               the(1)=zeon(2,m)
-               call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-               tracer_energy=0.5_wp*(zeon(4,m)*Bj(1))**2*m0ms*csc0**2+zeon(6,m)**2*Bj(1)
-               write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,I5,a,", size(zeon,1), "(ES11.3))"
-               write(stdout,cdum) 'istep=',istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer(',num_of_etracers/2,') =', zeon(:,m)
-               call flush(stdout)
-            endif
+            ! ! Print out a reference tracer information
+            ! if(elabels(m) == etracers_labels((num_of_etracers/2))) then
+            !    aaa(1)=zeon(1,m)
+            !    the(1)=zeon(2,m)
+            !    call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+            !    tracer_energy=0.5_wp*(zeon(4,m)*Bj(1))**2*m0ms*csc0**2+zeon(6,m)**2*Bj(1)
+            !    write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,I5,a,", size(zeon,1), "(ES11.3))"
+            !    write(stdout,cdum) 'istep=',istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer(',num_of_etracers/2,') =', zeon(:,m)
+            !    call flush(stdout)
+            ! endif
          endif
       enddo
    enddo
@@ -240,6 +247,12 @@ subroutine check_tracer_i
    character(len=128) cdum
    character(len=30) file_name
 
+   if(acc_newer_D_zion) then
+      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_D_zion=.false.
+      acc_newer_H_zion=.false.
+   endif
+
 
    if(size(zion,1) /= size(zion0,1)) then
       write(*,*) "size(zion,1)=", size(zion,1), "size(zion0,1)=", size(zion0,1), " is differnet!!!!!"
@@ -265,16 +278,16 @@ subroutine check_tracer_i
             num_of_MY_tracers = num_of_MY_tracers + 1
             my_tracer_indices(num_of_MY_tracers) = m
 
-            ! Print out a reference tracer information
-            if(ilabels(m) == itracers_labels((num_of_itracers/2))) then
-               aaa(1)=zion(1,m)
-               the(1)=zion(2,m)
-               call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-               tracer_energy=0.5_wp*(zion(4,m)*Bj(1))**2+zion(6,m)**2*Bj(1)  ! Ion energy
-               write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,I5,a,", size(zion,1), "(ES11.3))"
-               write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer(',num_of_itracers/2,') =', zion(:,m)
-               call flush(stdout)
-            endif
+            ! ! Print out a reference tracer information
+            ! if(ilabels(m) == itracers_labels((num_of_itracers/2))) then
+            !    aaa(1)=zion(1,m)
+            !    the(1)=zion(2,m)
+            !    call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+            !    tracer_energy=0.5_wp*(zion(4,m)*Bj(1))**2+zion(6,m)**2*Bj(1)  ! Ion energy
+            !    write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,I5,a,", size(zion,1), "(ES11.3))"
+            !    write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer(',num_of_itracers/2,') =', zion(:,m)
+            !    call flush(stdout)
+            ! endif
          endif
       enddo
    enddo
@@ -745,6 +758,49 @@ subroutine Abandon_Abnormal_Particles
    enddo
 
 end subroutine Abandon_Abnormal_Particles
+
+
+subroutine Print_Reference_ntracer_Information
+   use precision
+   use global_parameters
+   use particle_array
+   use esi_interface
+   implicit none
+
+   real tracer_energy
+   integer m,i, kk
+   real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+   character(len=128) cdum
+
+   if(ntracer>0) then
+      m=ntracer
+
+      !$acc update self(zion(:,m))
+
+      aaa(1)=zion(1,m)
+      the(1)=zion(2,m)
+      call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+      tracer_energy=0.5_wp*(zion(4,m)*Bj(1))**2+zion(6,m)**2*Bj(1)  ! Ion energy
+      write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,", size(zion,1), "(ES11.3))"
+      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer =', zion(:,m)
+      call flush(stdout)
+   endif
+
+   if(ntracer_e>0) then
+      m=ntracer_e
+
+      !$acc update self(zeon(:,m))
+
+      aaa(1)=zeon(1,m)
+      the(1)=zeon(2,m)
+      call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+      tracer_energy=0.5_wp*(zeon(4,m)*Bj(1))**2*m0ms*csc0**2+zeon(6,m)**2*Bj(1)
+      write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,", size(zeon,1), "(ES11.3))"
+      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer =', zeon(:,m)
+      call flush(stdout)
+   endif
+
+end subroutine
 
 ! subroutine Am_I_tracer_e(m, tf)
 !   use global_parameters

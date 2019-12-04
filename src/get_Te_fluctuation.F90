@@ -27,6 +27,7 @@ subroutine get_Te_fluctuation(wpi2)
    dnitmp=0._wp   ! Set array elements to zero
 #endif
    !$omp do private(m,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
       !  weight=zeon0(5,m)*wpi2(m)    ! calculation using zeon0 at irk_e=1 determined by idiag_e=0
       !                               ! wzeon, wpeon, wteon0, wteon1 etc are calculated in pusheon
@@ -246,6 +247,7 @@ subroutine get_Te_fluctuation_DirectlyFromParticles
    call esigetb(zeon,me,zeondim)   ! get B-->BB
 
    !$omp do private(m,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij)
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
       !  weight=zeon0(5,m)*wpi2(m)    ! calculation using zeon0 at irk_e=1 determined by idiag_e=0
       !                               ! wzeon, wpeon, wteon0, wteon1 etc are calculated in pusheon

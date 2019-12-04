@@ -1078,6 +1078,91 @@ subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_
 
 end subroutine Get_MP_alpha_amplitude
 
+
+subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+
+   use iso_c_binding, only : c_double
+   use global_parameters
+   use particle_array
+   implicit  none
+   integer k
+   real(wp) MP_phase, ga_amplitude
+   real(wp),intent(in) :: in_time
+   real(wp),intent(out) :: out_ga(mi), out_grad_ga(3,mi), out_partial_dga0dt(mi)
+   integer m
+
+
+   if(electromagnetic==0) then ! when electromagnetic is turned off.
+      out_ga = 0
+      out_grad_ga(1:3,:) = 0
+      out_partial_dga0dt = 0
+   else
+      !$acc parallel loop present(zion)
+      do m=1,mi
+         out_ga(m) = 0
+         !$acc loop seq
+         do k=1,3
+            out_grad_ga(k,m) = 0
+         enddo
+         out_partial_dga0dt(m) = 0
+         !$acc loop seq
+         do k=1,num_of_EMP
+            MP_phase = EMP(k)%gan*zion(3,m)- EMP(k)%gam*zion(2,m) - EMP(k)%gagw*in_time + EMP(k)%gagf0
+            ga_amplitude = (zion(1,m)/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((zion(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
+
+            out_ga(m) = out_ga(m) + ga_amplitude* cos(MP_phase);
+
+            out_grad_ga(1,m) = out_grad_ga(1,m) + ga_amplitude* cos(MP_phase)*(1.0/zion(1,m)  + (-sign(EMP(k)%ga_pp/EMP(k)%ga_rw, zion(1,m)-EMP(k)%ga_rc)*abs((zion(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**(EMP(k)%ga_pp-1)))
+            out_grad_ga(2,m) = out_grad_ga(2,m) + EMP(k)%gam*ga_amplitude*sin(MP_phase)
+            out_grad_ga(3,m) = out_grad_ga(3,m) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
+            out_partial_dga0dt(m) = out_partial_dga0dt(m) + EMP(k)%dga0dt*(zion(1,m)/EMP(k)%ga_rc)*exp(-abs((zion(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
+         enddo
+      enddo
+   endif
+end subroutine Get_MP_alpha_amplitude_arr_at_zion
+
+subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+
+   use iso_c_binding, only : c_double
+   use global_parameters
+   use particle_array
+   implicit  none
+   integer k
+   real(wp) MP_phase, ga_amplitude
+   real(wp),intent(in) :: in_time
+   real(wp),intent(out) :: out_ga(me), out_grad_ga(3,me), out_partial_dga0dt(me)
+   integer m
+
+
+   if(electromagnetic==0) then ! when electromagnetic is turned off.
+      out_ga = 0
+      out_grad_ga(1:3,:) = 0
+      out_partial_dga0dt = 0
+   else
+      !$acc parallel loop present(zeon)
+      do m=1,me
+         out_ga(m) = 0
+         !$acc loop seq
+         do k=1,3
+            out_grad_ga(k,m) = 0
+         enddo
+         out_partial_dga0dt(m) = 0
+         !$acc loop seq
+         do k=1,num_of_EMP
+            MP_phase = EMP(k)%gan*zeon(3,m)- EMP(k)%gam*zeon(2,m) - EMP(k)%gagw*in_time + EMP(k)%gagf0
+            ga_amplitude = (zeon(1,m)/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((zeon(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
+
+            out_ga(m) = out_ga(m) + ga_amplitude* cos(MP_phase);
+
+            out_grad_ga(1,m) = out_grad_ga(1,m) + ga_amplitude* cos(MP_phase)*(1.0/zeon(1,m)  + (-sign(EMP(k)%ga_pp/EMP(k)%ga_rw, zeon(1,m)-EMP(k)%ga_rc)*abs((zeon(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**(EMP(k)%ga_pp-1)))
+            out_grad_ga(2,m) = out_grad_ga(2,m) + EMP(k)%gam*ga_amplitude*sin(MP_phase)
+            out_grad_ga(3,m) = out_grad_ga(3,m) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
+            out_partial_dga0dt(m) = out_partial_dga0dt(m) + EMP(k)%dga0dt*(zeon(1,m)/EMP(k)%ga_rc)*exp(-abs((zeon(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
+         enddo
+      enddo
+   endif
+end subroutine Get_MP_alpha_amplitude_arr_at_zeon
+
 subroutine Generate_FLabel_piecewise_radial_base_function
 
    use precision
@@ -1539,20 +1624,33 @@ subroutine n_T_u_group
    use esi_interface
    use spl_profiles
    use profile_array
+   use mpi_defs
 
    implicit  none
    integer i, ip
    real(wp)  r, fip, dela, tempi
    real(wp) back_flux_A(mi), back_U_para, A_over_meanA, E_over_T
    real(wp) vpara, vperp
+   real(wp) time0, time1
+
+   #ifdef _MGY_TIMER_
+   time0 = MPI_WTIME()
+   #endif
+
 
    dela=(a1-a0)/real(jr,wp)
    dela=1.0_wp/dela
 
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
 
          !$omp parallel do private(i,r,ip,fip)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
          do i=1,mi
             r=zion(1,i)-a0
             r=r*dela
@@ -1592,6 +1690,7 @@ subroutine n_T_u_group
       end if
 
       !$omp parallel do private(i)
+      !$acc parallel loop present(dlnnda,backn,dlnTda,backT)
       do i=1,mi
          dlnnda(i)=dlnnda(i)/backn(i)      ! =dlnn/da
          dlnTda(i)=dlnTda(i)/backT(i)      ! =dlnT/da
@@ -1601,6 +1700,7 @@ subroutine n_T_u_group
 
       if(q2.gt.0.0) then  ! first analytic profile
          !$omp parallel do private(i,r,ip,fip)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
          do i=1,mi
             backn(i)=n_0*Bn*exp(-dn*zion(1,i)**xn)
             backT(i)=T_0*Bt*exp(-dTemi*zion(1,i)**xt)
@@ -1632,6 +1732,7 @@ subroutine n_T_u_group
          end do
       else      ! second analytic profile
          !$omp parallel do private(i,r,ip,fip,tempi)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
          do i=1,mi
             r=zion(1,i)-a0
             r=r*dela
@@ -1663,6 +1764,9 @@ subroutine n_T_u_group
       end if
    end if
 
+   !$acc update self(backn(:mi),backT(:mi),backu(:mi),dlnnda(:mi),dlnTda(:mi),duda(:mi),gh(:mi))
+
+
    !     neglect rotation
    !       backu=0.0
    !       duda=0.0
@@ -1670,6 +1774,7 @@ subroutine n_T_u_group
    ! Calculate Shifted Maxwellian f0 for ions.
    call esigetbf(zion, mi, size(zion,1))
 
+   !$acc parallel loop present(zion,backu,backT,back_f0_i,backn)
    do i=1, mi
       vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
       vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
@@ -1680,6 +1785,14 @@ subroutine n_T_u_group
 
       back_f0_i(i) = backn(i)*A_over_meanA*sqrt(inv_twopi)*((1.0/backT(i))**1.5)*vperp*exp(-E_over_T)
    enddo
+   !$acc update self(back_f0_i(:mi))
+
+   #ifdef _MGY_TIMER_
+   time1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group takes", time1-time0, " secs"
+   call flush(stdout)
+   #endif
+
 
 end subroutine n_T_u_group
 
@@ -1701,6 +1814,7 @@ subroutine n_T_u_group_e
    use esi_interface
    use spl_profiles
    use profile_array
+   use mpi_defs
 
    implicit  none
    integer i, ip
@@ -1709,6 +1823,18 @@ subroutine n_T_u_group_e
    real(wp) E_over_T
    real(wp) vpara, vperp
    real(wp) back_flux_A(me), omega_ui(me),backTi(me), back_Ui_para, A_over_meanA ! This is about given ion's rotation which determines theta dependency of density
+   real(wp) time0, time1
+
+
+   #ifdef _MGY_TIMER_
+   time0= MPI_WTIME()
+   #endif
+
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
 
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
@@ -1716,6 +1842,7 @@ subroutine n_T_u_group_e
          dela=1.0_wp/dela
 
          !$omp parallel do private(i,r,ip,fip)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -1742,6 +1869,7 @@ subroutine n_T_u_group_e
          call ezspline_derivative(spn,1,me,zeon(1,:),dlnndae,ier)
          call ezspline_derivative(spTe,1,me,zeon(1,:),dlnTdae,ier)
 
+         !$acc parallel loop present(zeon)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -1752,6 +1880,7 @@ subroutine n_T_u_group_e
       end if
 
       !$omp parallel do private(i)
+      !$acc parallel loop present(backne,backTe,dlnndae,dlnTdae)
       do i=1,me
          dlnndae(i)=dlnndae(i)/backne(i)      !=dlnn/da
          dlnTdae(i)=dlnTdae(i)/backTe(i)      !=dlnT/da
@@ -1761,6 +1890,7 @@ subroutine n_T_u_group_e
 
       if(q2.gt.0.0) then  ! first analytic profile
          !$omp parallel do private(i)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
          do i=1,me
             backne(i)=n_0*Bn*exp(-dn*zeon(1,i)**xn)
             backTe(i)=T_e0*Bt_e*exp(-dTeme*zeon(1,i)**xt_e)
@@ -1796,6 +1926,7 @@ subroutine n_T_u_group_e
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
          !$omp parallel do private(i,r,ip,fip,tempe)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -1829,11 +1960,16 @@ subroutine n_T_u_group_e
 
    end if
 
+   !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
+
+
    backue=0._wp    ! neglect rotation
+
 
    ! Calculate Maxwellian f0 for electrons.
    call esigetb(zeon, me, size(zeon,1))
 
+   !$acc parallel loop present(zeon,backne,backTe,back_f0_e)
    do i=1, me
       ! Following part is to calculate theta dependency of density which needs ion rotation information
       back_Ui_para = F(i)/BB(i)*omega_ui(i)
@@ -1847,6 +1983,13 @@ subroutine n_T_u_group_e
 
       back_f0_e(i) = backne(i)*A_over_meanA*sqrt(inv_twopi)*((msm0*inv_Te_norm)**1.5)*vperp*exp(-E_over_T)
    enddo
+   !$acc update self(back_f0_e(:me))
+
+   #ifdef _MGY_TIMER_
+   time1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_e takes", time1-time0, " secs"
+   call flush(stdout)
+   #endif
 
 end subroutine n_T_u_group_e
 
@@ -2836,7 +2979,7 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
 
 
    call cpu_time(t_finish)
-   write(stdout,*) "I'm=", mype, "gPPI Construction Finished! delta_time = ", t_finish-t_start, " seconds."
+   write(stdout,'(a,I5,a,ES11.3,a)') "I'm=", mype, ", gPPI Construction Finished! delta_time = ", t_finish-t_start, " seconds."
    flush(stdout)
 
    call system("mkdir -p " // 'VacFieldAnalysis')
@@ -3939,6 +4082,41 @@ subroutine Cal_FLA_Denominator_on_DG_using_gPPI
 
 end subroutine Cal_FLA_Denominator_on_DG_using_gPPI
 
+recursive subroutine quicksort_integer(a, first, last)
+   ! quicksort.f -*-f90-*-
+   ! Author: t-nissie
+   ! License: GPLv3
+   ! Gist: https://gist.github.com/t-nissie/479f0f16966925fa29ea
+   !!
+   use precision
+   implicit none
+
+   integer  a(*), x, t
+   integer first, last
+   integer i, j
+
+   x = a( (first+last) / 2 )
+   i = first
+   j = last
+   do
+      do while (a(i) < x)
+         i=i+1
+      end do
+
+      do while (x < a(j))
+         j=j-1
+      end do
+
+      if (i >= j) exit
+      t = a(i);  a(i) = a(j);  a(j) = t
+      i=i+1
+      j=j-1
+   end do
+
+   if (first < i-1) call quicksort_integer(a, first, i-1)
+   if (j+1 < last)  call quicksort_integer(a, j+1, last)
+end subroutine quicksort_integer
+
 recursive subroutine quicksort_real(a, first, last)
    ! quicksort.f -*-f90-*-
    ! Author: t-nissie
@@ -4447,12 +4625,18 @@ subroutine Ti_at_electrons
    integer i, ip
    real(wp)  r, fip, dela, tempi
 
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
    if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
       if(linterp_from_nodes==1) then
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
 
          !$omp parallel do private(i,r,ip,fip)
+         !$acc parallel loop present(zeon)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -4469,6 +4653,7 @@ subroutine Ti_at_electrons
 
       if(q2.gt.0.0) then  ! first analytic profile
          !$omp parallel do private(i)
+         !$acc parallel loop present(zeon,backT)
          do i=1,me
             backT(i)=T_0*Bt*exp(-dTemi*zeon(1,i)**xt)
             backT(i)=Tc*(backT(i)/Tc)**r0
@@ -4477,6 +4662,7 @@ subroutine Ti_at_electrons
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
          !$omp parallel do private(i,r,ip,fip,tempi)
+         !$acc parallel loop present(zeon,backT)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -4489,12 +4675,42 @@ subroutine Ti_at_electrons
 
    end if
 
+   !$acc update self(backT(:me))
+
 end subroutine Ti_at_electrons
 
+module function_gg_module
+
+   contains
+
+      FUNCTION SMOOTHSTEP_M(xmin,xmax,x)
+         !$acc routine seq
+         use precision
+         !      use global_parameters,only: pi
+         !
+         !      SMOOTHSTEP generates a smooth step function using
+         !      SMOOTHSTEP=1/2-cos(pi*x)/2
+         !      SMOOTHSTEP=0 if x<xmin; =1 if x>xmax; otherwise 0<SMOOTHSTEP<1
+         !      with xmax > xmin
+         !
+
+         implicit  none
+         real(wp) SMOOTHSTEP_M
+         real(wp) xmin,xmax,x,y
+         real(wp) pi
+
+         pi = acos(-1.0_wp)
+         y=(x-xmin)/(xmax-xmin)
+         y=max(0.0_wp,min(1.0_wp,y))
+         SMOOTHSTEP_M=0.5_wp-0.5_wp*cos(pi*y)
+
+         RETURN
+      end function SMOOTHSTEP_M
+end module function_gg_module
 
 FUNCTION SMOOTHSTEP(xmin,xmax,x)
+   use function_gg_module, only : smoothstep_m
    use precision
-   use global_parameters,only: pi
    !
    !      SMOOTHSTEP generates a smooth step function using
    !      SMOOTHSTEP=1/2-cos(pi*x)/2
@@ -4504,11 +4720,9 @@ FUNCTION SMOOTHSTEP(xmin,xmax,x)
 
    implicit  none
    real(wp) SMOOTHSTEP
-   real(wp) xmin,xmax,x,y
+   real(wp) xmin,xmax,x
 
-   y=(x-xmin)/(xmax-xmin)
-   y=max(0.0_wp,min(1.0_wp,y))
-   SMOOTHSTEP=0.5_wp-0.5_wp*cos(pi*y)
+   SMOOTHSTEP = smoothstep_m (xmin,xmax,x)
 
    RETURN
 end function SMOOTHSTEP
@@ -5555,8 +5769,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
       enddo
    enddo
 
-
-
+   !$acc update self (zion_s_on_GyroOrbit(:,mi),zion_gq_on_GyroOrbit(:,mi))
    do m=1,mi
       if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
 

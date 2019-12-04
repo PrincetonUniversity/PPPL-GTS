@@ -753,6 +753,7 @@ subroutine pushion_RK4(irk_i)
    use field_array
    use diagnosis_array
    use esi_interface
+   use function_gg_module
 
    implicit none
    integer, intent(in):: irk_i
@@ -781,7 +782,7 @@ subroutine pushion_RK4(irk_i)
 
    real(wp) tt0,tt1,cput0,cput1,rtc
 
-   real(wp), external :: D01AHF,dsda,SMOOTHSTEP
+   real(wp), external :: D01AHF,dsda !,SMOOTHSTEP
    integer minpts,ifail
    real(wp) acc,error_8
    real(wp) E_a,E_t,E_f,timef
@@ -795,6 +796,18 @@ subroutine pushion_RK4(irk_i)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
+   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
+
+   if(istep==istart .and. irk_i==1) then
+      time_in_Pushi =0
+      timewc_in_Pushi =0
+   endif
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -808,13 +821,23 @@ subroutine pushion_RK4(irk_i)
    fdamp0=0.0_wp
 
    if(irk_i==1)then ! 1st step of Runge-Kutta method
-      RK_cum_zion  =0.0
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
+      acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
+      !$acc parallel loop present(zion,zion0,RK_cum_zion)
       do m=1,mi
          ! Note that zion0(6,m) does not mean "mu", this is reserved for the other quantity
-         zion0(1:5,m)=zion(1:5,m)
+         !$acc loop seq
+         do i=1,5
+            zion0(i,m)=zion(i,m)
+         enddo
+
          zion0(7,m)=zion(7,m)
+
+         !$acc loop seq
+         do i=1,size(RK_cum_zion,1)
+            RK_cum_zion(i,m)=0.0
+         enddo
       enddo
    elseif(irk_i==2) then
       RK_cum_coeff =(1.0/3.0)
@@ -845,6 +868,7 @@ subroutine pushion_RK4(irk_i)
    ! are calculated at CHARGE_ION
    !
    !$omp parallel do private(m,e1,e2,e3,wz1,wz0,larmor,ij,wp0,wt00,wt10,wp1,wt01,wt11)
+   !$acc parallel loop present(zion,zion0)
    do m=1,mi
       e1=0.0_wp
       e2=0.0_wp
@@ -852,6 +876,7 @@ subroutine pushion_RK4(irk_i)
       wz1=wzion(m)
       wz0=1.0_wp-wz1
 
+      !$acc loop seq
       do larmor=1, larmor_num
          ij=jtion0(larmor,m)
          wp0=1.0_wp-wpion(larmor,m)
@@ -884,9 +909,19 @@ subroutine pushion_RK4(irk_i)
       wpi(2,m)=e2*inv_larmor_num
       wpi(3,m)=e3*inv_larmor_num
 
-      !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
    enddo
+
+
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
+   !MGYOO (10/30/2018; to use analytic profile of ga0(a))
+   call Get_MP_alpha_amplitude_arr_at_zion(istep*tstep, ga(1:mi), wga(1:3,1:mi), gat(1:mi))
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude_arr_at_zion", tt1-tt0," secs"
+   call flush(stdout)
+   #endif
 
    !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------
@@ -905,6 +940,7 @@ subroutine pushion_RK4(irk_i)
    dela=1.0_wp/Ydr
    ! if(istep.ge.4000) then
    !$omp parallel do private(m,r,ip,fip)
+   !$acc parallel loop present(zion,zion0)
    do m=1,mi
       r=zion(1,m)-a0
       r=r*dela
@@ -914,7 +950,9 @@ subroutine pushion_RK4(irk_i)
    enddo
    !  ------------------------------------------------------------
 
-
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
    if(electromagnetic == 1) then
       !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
       if(Flag_GC_Solver==0) then
@@ -929,6 +967,12 @@ subroutine pushion_RK4(irk_i)
    else
       m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
    end if
+
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, ion gc motion takes", tt1-tt0," secs"
+   call flush(stdout)
+   #endif
 
    !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
    ! moved to collision.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
@@ -961,10 +1005,16 @@ subroutine pushion_RK4(irk_i)
    dmaxv=0.0d0
 
 
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
+
    ! update GC position
    ! Another OpenMP parallel loop...
    !$omp parallel do private(m,mu,vpara,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,energy1,B_inverse,u_vpara,vdq,wgradB,wKH, &
    !$omp& omega_t,r,ip,fip,ddT_da_particle,w_anti_relax,muB,instep,outstep,fdamp,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,v2,avw)
+   acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
+   !$acc parallel loop present(zion,zion0,RK_cum_zion)
    do m=1,mi
       !     dbdz=0.0   for axisymmetric system   !wx
 
@@ -1010,8 +1060,8 @@ subroutine pushion_RK4(irk_i)
       w_anti_relax=vdr*w_anti_relax
 
       if(zion(1,m).le.lmax.or.zion(1,m).ge.rmin) then
-         instep =smoothstep(lmin,lmax,zion(1,m))
-         outstep=smoothstep(rmin,rmax,zion(1,m))
+         instep =smoothstep_m(lmin,lmax,zion(1,m))
+         outstep=smoothstep_m(rmin,rmax,zion(1,m))
          !        fip=smoothstep(0.20_wp,0.25_wp,zion(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zion(1,m)))
          fip=instep*(1.0_wp-outstep)
          !  wdrive=wdrive*fip
@@ -1081,13 +1131,13 @@ subroutine pushion_RK4(irk_i)
 
       wdot = (wdrive+wdrift+wKH+wgradB)
 
-      if(ieee_is_nan(wdot)) then
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', now_w=', now_w,', wdot=',wdot,', wdrive=',wdrive,', wdrift=',wdrift,', wKH=',wKH,', wgradB=',wgradB
-         call flush(stdout)
-      endif
+      ! if(ieee_is_nan(wdot)) then
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', now_w=', now_w,', wdot=',wdot,', wdrive=',wdrive,', wdrift=',wdrift,', wKH=',wKH,', wgradB=',wgradB
+      !    call flush(stdout)
+      ! endif
 
 
       !==================================================
@@ -1099,10 +1149,10 @@ subroutine pushion_RK4(irk_i)
       !Caution!! Following routine is only available for neoclassical case which use full velocity.
       if(irk_i==4)then
          if(ifneoclassical==1) then
-            call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-            vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
-            vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
-            vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+            ! call esiget_Intp_B_vec_cov_and_cntv(zion(1,m), zion(2,m), zion(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+            ! vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+            ! vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+            ! vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
          else
             vd_para_a_cntv = vpara_dvi_a(m)
             vd_para_gq_cntv = vpara_dvi_gq(m)
@@ -1163,7 +1213,10 @@ subroutine pushion_RK4(irk_i)
 
       else if(irk_i==4) then !irk_i==4
          ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
-         zion(1:4,m) = zion0(1:4,m) +RK_cum_zion(1:4,m)
+         !$acc loop seq
+         do i=1,4
+            zion(i,m) = zion0(i,m) +RK_cum_zion(i,m)
+         enddo
          zion(7,m) = zion0(7,m) +RK_cum_zion(7,m)
 
          if(Flag_w_Evol==1) then
@@ -1177,13 +1230,13 @@ subroutine pushion_RK4(irk_i)
 
 
 
-      if(ieee_is_nan(zion(5,m))) then
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
-         write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0(6,m)=',zion0(6,m),', now_w=', now_w, ', wdot=',wdot
-         call flush(stdout)
-      endif
+      ! if(ieee_is_nan(zion(5,m))) then
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0(6,m)=',zion0(6,m),', now_w=', now_w, ', wdot=',wdot
+      !    call flush(stdout)
+      ! endif
 
 
 
@@ -1210,6 +1263,8 @@ subroutine pushion_RK4(irk_i)
    if(irk_i==4)then
       ! out of boundary particle
       !$omp parallel do private(m)
+      acc_newer_D_zion=.true.
+      !$acc parallel loop present(zion,zion0)
       do m=1,mi
          if(zion(1,m) > psimax)then
             zion(1,m)=zion0(1,m)
@@ -1230,8 +1285,30 @@ subroutine pushion_RK4(irk_i)
       enddo
    endif
 
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_RK4' takes", tt1-tt0," secs"
+   call flush(stdout)
+   #endif
 
    if(idiag==0)then
+
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
+      !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
+      !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
+      !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+      !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+
+      if(acc_newer_D_zion) then
+         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         acc_newer_D_zion=.false.
+         acc_newer_H_zion=.false.
+      endif
+
       ! fluxes diagnose
       !    wpi(1,1:mi)=wpi(1,1:mi)*gha(1:mi)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
       !$omp parallel do private(m)
@@ -1249,6 +1326,7 @@ subroutine pushion_RK4(irk_i)
       En_00=0.0_wp
       En_tur=0.0_wp
       En_tot=0.0_wp
+      !$acc parallel loop present(zion,zion0)
       do m=1,mi
          r=zion0(7,m)         ! old radial location
          ip=max(0,min(mpsi,int((r-s0)*delr+0.5_wp)))    ! ip [0,mpsi]
@@ -1265,6 +1343,7 @@ subroutine pushion_RK4(irk_i)
          dflowi=dflowi+BB(m)*zion0(4,m)*zion0(5,m)
          entropyi=entropyi+zion0(5,m)*zion0(5,m)
       enddo
+
 
       if(ZF_SEPARATION==0) then
          !     note: zonal flow component <phi> and phip00=d<phi>/da are calculated in field.f90
@@ -1367,16 +1446,44 @@ subroutine pushion_RK4(irk_i)
          call get_3D_flow(da,dgq,dgf,wpi(2,:))
       end if
 
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
+      timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
    endif
 
+   !Another Diagnostics on DG (Diagnostic Grid)
    if(irk_i==1 .and. mod(istep,msnap)==0) then
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
+      !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
+      !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
+      !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+      !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+
+      if(acc_newer_D_zion) then
+         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         acc_newer_D_zion=.false.
+         acc_newer_H_zion=.false.
+      endif
+
       do m=1,mi
          FullVelocity_da_dgq_dgf(1,m) = da(m)
          FullVelocity_da_dgq_dgf(2,m) = dgq(m)
          FullVelocity_da_dgq_dgf(3,m) = dgf(m)
       enddo
       call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
+      timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
    endif
+
+
 
 end subroutine pushion_RK4
 
@@ -1414,6 +1521,12 @@ subroutine ion_locator_at_larmor_points
 
    !$omp parallel do private(m,larmor,psitmp,thetatmp,zetatmp,rhoi,r,ip,jt,ipjt,&
    !$omp& pdum,rdum,thedum,ii,wp1,tflr,im,tdum,j00,j01)
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit) private(intpl_pgyro,intpl_tgyro)
    do m=1,mi
       !psitmp=zion(1,m)   ! =a
       psitmp=zion(7,m)   ! =s
@@ -1422,12 +1535,12 @@ subroutine ion_locator_at_larmor_points
       rhoi=zion(6,m)
 
       r=psitmp
-      ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
-      !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
+      ip=max(0,min(mpsi,floor((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
+      !   jt=max(0,min(mtheta(ip),floor(thetatmp*pi2_inv*delt(ip)+0.5)))
       thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane
       thedum=thedum*pi2_inv+100.0_wp
-      thedum=2.0_wp*pi*(thedum-aint(thedum))       ! bring back to range [0,2pi]
-      jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))
+      thedum=2.0_wp*pi*(thedum-floor(thedum))       ! bring back to range [0,2pi]
+      jt=max(0,min(mtheta(ip),floor(thedum*pi2_inv*delt(ip)+0.5)))
       ipjt=igrid(ip)+jt     ! note special case of jt=0
       wzion(m)=(zetatmp-zetamin)*delz
 
@@ -1435,19 +1548,19 @@ subroutine ion_locator_at_larmor_points
       !==========================================
       ! MGYOO (10/24/2018) : to store information of GC position.
       ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
-      inner_ip = max(0,min(mpsi-1,int((r-s0)*delr)))
+      inner_ip = max(0,min(mpsi-1,floor((r-s0)*delr)))
       thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane
       thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
-      inner_jt = int(thedum)
-      wtion0(0,m) = thedum - int(thedum)
+      inner_jt = floor(thedum)
+      wtion0(0,m) = thedum - floor(thedum)
       jtion0(0,m) = igrid(inner_ip) + inner_jt
       wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
 
       outter_ip = inner_ip+1
       thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane
       thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
-      outter_jt = int(thedum)
-      wtion1(0,m) = thedum - int(thedum)
+      outter_jt = floor(thedum)
+      wtion1(0,m) = thedum - floor(thedum)
       jtion1(0,m) = igrid(outter_ip) + outter_jt
       !==========================================
 
@@ -1463,16 +1576,20 @@ subroutine ion_locator_at_larmor_points
       wt01 = 1.0_wp - wtion1(0,m)
       wt11 = wtion1(0,m)
 
-      intpl_pgyro(:) = wp0*(wt00*pgyro(:,jtion0(0,m)) + wt10*pgyro(:,jtion0(0,m)+1)) + wp1*(wt01*pgyro(:,jtion1(0,m)) + wt11*pgyro(:,jtion1(0,m)+1))
-      intpl_tgyro(:) = wp0*(wt00*tgyro(:,jtion0(0,m)) + wt10*tgyro(:,jtion0(0,m)+1)) + wp1*(wt01*tgyro(:,jtion1(0,m)) + wt11*tgyro(:,jtion1(0,m)+1))
+      !$acc loop seq
+      do larmor=1, larmor_num
+         intpl_pgyro(larmor) = wp0*(wt00*pgyro(larmor,jtion0(0,m)) + wt10*pgyro(larmor,jtion0(0,m)+1)) + wp1*(wt01*pgyro(larmor,jtion1(0,m)) + wt11*pgyro(larmor,jtion1(0,m)+1))
+         intpl_tgyro(larmor) = wp0*(wt00*tgyro(larmor,jtion0(0,m)) + wt10*tgyro(larmor,jtion0(0,m)+1)) + wp1*(wt01*tgyro(larmor,jtion1(0,m)) + wt11*tgyro(larmor,jtion1(0,m)+1))
+      enddo
       !==========================================
 
+      !$acc loop seq
       do larmor=1, larmor_num
          !  MODIFIED for FINITE GYRORADIUS CASE
          pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
          zion_s_on_GyroOrbit(larmor,m)=pdum
          rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
-         ii=max(0,min(mpsi-1,int(rdum)))
+         ii=max(0,min(mpsi-1,floor(rdum)))
          !        wp1=rdum-real(ii)
          !        wpion(larmor,m)=wp1
          wp1=(pdum-s_grid(ii))/(s_grid(ii+1)-s_grid(ii))   !wx  finite rho_i case
@@ -1485,16 +1602,16 @@ subroutine ion_locator_at_larmor_points
          ! inner flux surface
          im=ii
          tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
-         tdum=(tdum-aint(tdum))*delt(im)
-         j00=max(0,min(mtheta(im)-1,int(tdum)))
+         tdum=(tdum-floor(tdum))*delt(im)
+         j00=max(0,min(mtheta(im)-1,floor(tdum)))
          jtion0(larmor,m)=igrid(im)+j00  ! pay attention to j00=0 case
          wtion0(larmor,m)=tdum-real(j00)
 
          ! outer flux surface
          im=ii+1
          tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
-         tdum=(tdum-aint(tdum))*delt(im)
-         j01=max(0,min(mtheta(im)-1,int(tdum)))
+         tdum=(tdum-floor(tdum))*delt(im)
+         j01=max(0,min(mtheta(im)-1,floor(tdum)))
          jtion1(larmor,m)=igrid(im)+j01  ! pay attention to j01=0 case
          wtion1(larmor,m)=tdum-real(j01)
       enddo

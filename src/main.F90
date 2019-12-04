@@ -21,6 +21,10 @@ program GTS
    use solver_data_class
    use fem_data_class
    use particle_decomp
+
+   #ifdef _ACCEL
+   use accel_lib
+   #endif _ACCEL
    implicit none
 
    ! to use parallel random number generator
@@ -32,12 +36,15 @@ program GTS
    character buffer1(MAX_PACKED_LENGTH)
 
    integer i,ierror,rng_type
-   integer,parameter :: nc=15
-   real(doubleprec) starting_t0, starting_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc,loop_time
+   integer,parameter :: nc=18
+   real(doubleprec) program_start_t0, program_start_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc
+   real(doubleprec) tmp_time(nc), tmp_timewc(nc), loop_start_time,loop_start_timewc, mainloop_time, mainloop_timewc
    character(len=16) ic(nc)
    type(solver_data) :: solver1,solver_dphi_dt,masssolver
    type(fem_data) :: fem1,femt,femm
    integer:: nrk !number of RK step (nrk=2 for RK2, nrk=4 for RK4)
+   integer:: ngpus_per_node !number of gpus per node
+   integer:: device_type,my_gpu_device_num
 
    interface
       subroutine shift(phase,phase0,mp,mpmax)
@@ -57,14 +64,26 @@ program GTS
       call Print_Git_Info()
    endif
 
+   #ifdef _ACCEL
+   device_type=acc_get_device_type()
+   ngpus_per_node=acc_get_num_devices(device_type)
+   my_gpu_device_num = acc_get_device_num(device_type)
+   write(stdout,'(3(a,I5))') "Before set_device, mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
+   call flush(stdout)
+   call acc_set_device_num(mod(mype,ngpus_per_node),device_type)
+   my_gpu_device_num = acc_get_device_num(device_type)
+   write(stdout,'(3(a,I5))') "After set_device,  mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
+   call flush(stdout)
+   #endif _ACCEL
+
    time=0.0_wp
    t0=0.0_wp
    timewc=0.0_wp
    t0wc=0.0_wp
 
    call timer(t0,dt,t0wc,dtwc)
-   starting_t0=t0
-   starting_t0wc=t0wc
+   program_start_t0=t0
+   program_start_t0wc=t0wc
 
    ! Set name of each clock
    ic(1)='push_ion'
@@ -81,7 +100,10 @@ program GTS
    ic(12)='charge_eon'
    ic(13)='check_tracers'
    ic(14)='snapshot'
-   ic(nc)='Total'
+   ic(15)='diagnostics'
+   ic(16)='Main_Loop'
+   ic(17)='others'
+   ic(nc)='TOTAL'
 
    if(irun==0) then      !  SPRNG initialize
       seed=985456376     !  random number seed advised in sprng 1.0 docum.
@@ -213,8 +235,8 @@ program GTS
    call Init_Diagnostic_Grid
    if(irun==0) then
       istep=0
-      call get_Te_fluctuation_DirectlyFromParticles
-      call get_Ti_fluctuation_DirectlyFromParticles
+      ! call get_Te_fluctuation_DirectlyFromParticles
+      ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
       call snapshot_hdf5
@@ -236,7 +258,8 @@ program GTS
    call timer(t0,dt,t0wc,dtwc)
    time(7)=time(7)+dt
    timewc(7)=timewc(7)+dtwc
-   loop_time=t0wc
+   loop_start_time=t0
+   loop_start_timewc=t0wc
 
    call system_mem_usage
 
@@ -284,7 +307,9 @@ program GTS
                call view_distribution(irk-1)
             endif
          endif
-
+         call timer(t0,dt,t0wc,dtwc)
+         time(17)=time(17)+dt
+         timewc(17)=timewc(17)+dtwc
          ! redistribute ion across PEs
          call shifti
          call timer(t0,dt,t0wc,dtwc)
@@ -293,11 +318,6 @@ program GTS
 
          ! Calculate ion weight damping
          if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
-
-         if(irk==nrk) call check_tracer_i
-         call timer(t0,dt,t0wc,dtwc)
-         time(13)=time(13)+dt
-         timewc(13)=timewc(13)+dtwc
 
          ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
@@ -339,11 +359,6 @@ program GTS
                call timer(t0,dt,t0wc,dtwc)
                time(11)=time(11)+dt
                timewc(11)=timewc(11)+dtwc
-
-               if(irk==nrk) call check_tracer_e
-               call timer(t0,dt,t0wc,dtwc)
-               time(13)=time(13)+dt
-               timewc(13)=timewc(13)+dtwc
 
             else
                ! Note that Following Subelectron routines are only valid for RK2 scheme
@@ -397,10 +412,6 @@ program GTS
                   time(11)=time(11)+dt
                   timewc(11)=timewc(11)+dtwc
 
-                  if(irk==2) call check_tracer_e
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(13)=time(13)+dt
-                  timewc(13)=timewc(13)+dtwc
                end do
             end if    ! end if(nelectron==1)
 
@@ -456,11 +467,26 @@ program GTS
 
       enddo  ! enddo irk=1,nrk
 
+      call Print_Reference_ntracer_Information
+
       ! profile snapshots, write particle information to restart file
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
 
       if(mod(istep,msnap) .eq. 0) then
+         !$acc update self(elabels(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+         if(acc_newer_D_zion) then
+            !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_D_zion=.false.
+            acc_newer_H_zion=.false.
+         endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
          call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
@@ -468,31 +494,79 @@ program GTS
          call system_mem_usage
          !  phi_tmp=0.0_wp
       end if
+      call timer(t0,dt,t0wc,dtwc)
+      time(14)=time(14)+dt
+      timewc(14)=timewc(14)+dtwc
 
-      if(mod(istep,10)==0) then
+      if(mod(istep,nstep_for_tracer_record)==0) then
+         !$acc update self(elabels(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+         !$acc update self(ilabels(:mi))
+         !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+         !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+         if(acc_newer_D_zion) then
+            !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_D_zion=.false.
+            acc_newer_H_zion=.false.
+         endif
+
+         call check_tracer_e
+         call check_tracer_i
          if(Flag_Load_and_WeightDef==0) then
             call check_abnormal_weight_electrons
             call check_abnormal_weight_ions
          endif
          if(Flag_w_Threshold==2) call Abandon_Abnormal_Particles
       endif
+      call timer(t0,dt,t0wc,dtwc)
+      time(13)=time(13)+dt
+      timewc(13)=timewc(13)+dtwc
+
+
 
       call timer(t0,dt,t0wc,dtwc)
-      time(14)=time(14)+dt
-      timewc(14)=timewc(14)+dtwc
-
-
-      call timer(t0,dt,t0wc,dtwc)
-      time(nc)=t0-starting_t0
-      timewc(nc)=t0wc-starting_t0wc
-
+      time(nc)=t0-program_start_t0
+      timewc(nc)=t0wc-program_start_t0wc
+      time(16)=t0-loop_start_time
+      timewc(16)=t0wc-loop_start_timewc
       ! Print Elapsed Times
-      if(mype==0 .and. mod(istep,msnap)==0) then
+      if(mype==0 .and. mod(istep,1)==0) then
+
+         tmp_time    = time
+         tmp_timewc  = timewc
+
+         tmp_time(1)  = tmp_time(1)  - sum(time_in_Pushi) ! pushion
+         tmp_time(4)  = tmp_time(4)  + time_in_Pushe(3)   ! Poisson
+         tmp_time(5)  = tmp_time(5)  + time_in_Pushe(4)   ! smooth
+         tmp_time(10) = tmp_time(10) - sum(time_in_Pushe) ! pusheon
+         tmp_time(11) = tmp_time(11) + time_in_Pushe(1)   ! shifte
+         tmp_time(12) = tmp_time(12) + time_in_Pushe(2)   ! charge_eon
+         tmp_time(15) = tmp_time(15) + time_in_Pushe(5) +time_in_Pushi(1) ! diagnostics in push routines
+
+         tmp_timewc(1)  = tmp_timewc(1)  - sum(timewc_in_Pushi) ! pushion
+         tmp_timewc(4)  = tmp_timewc(4)  + timewc_in_Pushe(3)   ! Poisson
+         tmp_timewc(5)  = tmp_timewc(5)  + timewc_in_Pushe(4)   ! smooth
+         tmp_timewc(10) = tmp_timewc(10) - sum(timewc_in_Pushe) ! pusheon
+         tmp_timewc(11) = tmp_timewc(11) + timewc_in_Pushe(1)   ! shifte
+         tmp_timewc(12) = tmp_timewc(12) + timewc_in_Pushe(2)   ! charge_eon
+         tmp_timewc(15) = tmp_timewc(15) + timewc_in_Pushe(5) +timewc_in_Pushi(1) ! diagnostics in push routines
+
          write(190515,*) 'istep=', istep
-         write(190515,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
-         write(190515,'(4a16)')'==========      ',' =============',' ===============',' ==============='
+         write(190515,'(5a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', '#/Total (%)', '#/MainLoop (%)'
+         write(190515,'(5a16)')'==========      ',' =============',' ===============',' ===============',' ==============='
          do i=1,nc
-            write(190515,'(a16,2f16.6, f16.4)')ic(i),time(i),timewc(i), timewc(i)/timewc(nc)*100
+            write(190515,'(a16,2f16.6, f16.4)',advance="no")ic(i),tmp_time(i),tmp_timewc(i), tmp_timewc(i)/tmp_timewc(nc)*100
+            if(i/=7 .and. i<nc-1) then
+               write(190515,'(f16.4)') tmp_timewc(i)/tmp_timewc(16)*100
+            else
+               write(190515,*) ' '
+            endif
          enddo
          write(190515,*) ' '
          write(190515,*) ' '
@@ -503,8 +577,6 @@ program GTS
 
    close(190515)
 
-   loop_time=t0wc-loop_time
-
    if(mype==0) write(stdout,*) 'end of main time loop'
 
    if(mype==0) then
@@ -512,16 +584,42 @@ program GTS
    end if
 
    call timer(t0,dt,t0wc,dtwc)
-   time(nc)=t0-starting_t0
-   timewc(nc)=t0wc-starting_t0wc
+   time(nc)=t0-program_start_t0
+   timewc(nc)=t0wc-program_start_t0wc
+   time(16)=t0-loop_start_time
+   timewc(16)=t0wc-loop_start_timewc
 
    if(mype==0)then
-      write(stdout,'(4a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)'
-      write(stdout,'(4a16)')'==========      ',' =============',' ===============',' ==============='
+
+      tmp_time    = time
+      tmp_timewc  = timewc
+
+      tmp_time(1)  = tmp_time(1)  - sum(time_in_Pushi) ! pushion
+      tmp_time(4)  = tmp_time(4)  + time_in_Pushe(3)   ! Poisson
+      tmp_time(5)  = tmp_time(5)  + time_in_Pushe(4)   ! smooth
+      tmp_time(10) = tmp_time(10) - sum(time_in_Pushe) ! pusheon
+      tmp_time(11) = tmp_time(11) + time_in_Pushe(1)   ! shifte
+      tmp_time(12) = tmp_time(12) + time_in_Pushe(2)   ! charge_eon
+      tmp_time(15) = tmp_time(15) + time_in_Pushe(5) +time_in_Pushi(1) ! diagnostics in push routines
+
+      tmp_timewc(1)  = tmp_timewc(1)  - sum(timewc_in_Pushi) ! pushion
+      tmp_timewc(4)  = tmp_timewc(4)  + timewc_in_Pushe(3)   ! Poisson
+      tmp_timewc(5)  = tmp_timewc(5)  + timewc_in_Pushe(4)   ! smooth
+      tmp_timewc(10) = tmp_timewc(10) - sum(timewc_in_Pushe) ! pusheon
+      tmp_timewc(11) = tmp_timewc(11) + timewc_in_Pushe(1)   ! shifte
+      tmp_timewc(12) = tmp_timewc(12) + timewc_in_Pushe(2)   ! charge_eon
+      tmp_timewc(15) = tmp_timewc(15) + timewc_in_Pushe(5) +timewc_in_Pushi(1) ! diagnostics in push routines
+
+      write(stdout,'(5a16)')' ROUTINES       ',' CPU TIME(sec)',' WALL CLOCK TIME', 'REL_WC_TIME (%)', '#/MainLoop (%)'
+      write(stdout,'(5a16)')'==========      ',' =============',' ===============',' ===============',' ==============='
       do i=1,nc
-         write(stdout,'(a16,2f16.6, f16.4)')ic(i),time(i),timewc(i), timewc(i)/timewc(nc)*100
+         write(stdout,'(a16,2f16.6, f16.4)',advance="no")ic(i),tmp_time(i),tmp_timewc(i), tmp_timewc(i)/tmp_timewc(nc)*100
+         if(i/=7 .and. i<nc-1) then
+            write(stdout,'(f16.4)') tmp_timewc(i)/tmp_timewc(16)*100
+         else
+            write(stdout,*) ' '
+         endif
       enddo
-      write(stdout,'(/,"MAIN LOOP TIME(SEC):",f15.6,/)')loop_time
    endif
 
    if( order .le. 0 ) then

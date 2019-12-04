@@ -158,6 +158,7 @@ subroutine load
 
       mp0=mp1
    enddo
+   acc_newer_H_zion=.true.
 
    mp1_i8=mp1   !Copy value of mp1 into 8-byte integer variable  mp1_i8
    ! Sum up the number of particles from all the processors using an 8-byte
@@ -241,6 +242,7 @@ subroutine load
       ! Maxwellian distribution in V_perp
       zion(6,m)=max(1.0e-20_wp,min(umax*umax,-log(max(1.0e-20_wp,zion(6,m))))) ! =[v_perp/sqrt(2T/m)]^2 ???
    enddo
+   acc_newer_H_zion=.true.
 
    ! transform zion(4,:) to rho_para, zion(6,:) to sqrt(mu)
    cmratio=qion/aion
@@ -287,6 +289,7 @@ subroutine load
       zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,IFAIL)
       zion(7,m)=min(s1,max(s0,zion(7,m)))
    enddo
+   acc_newer_H_zion=.true.
 
 
    ! Give unique label numbers for every particle
@@ -294,6 +297,7 @@ subroutine load
       ! ilabels(m) = mype*10**(floor(log10(real(mi))) + 2) + m
       ilabels(m) = mype + 1e5*m
    enddo
+   !$acc update device(ilabels(:mi))
 
    if(iload==0)then
       ! for arbitrary loading according to a distribution function g_0(x,v), then zion0(6,*)=f_0/g_0
@@ -313,6 +317,7 @@ subroutine load
          ave0=fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip)       ! ave0=<exp(u^2/2T)> at particles
          zion0(6,m)=exp(backu(m)**2/(2.0*backT(m)))/ave0     ! =1 if u_//=0 (no rotation)
       end do
+      acc_newer_H_zion=.true.
 
       !!! the following print may hang forever when using large number of processors Jan, 2011
       ! print*, 'f_0/g_0=', zion0(6,mi/2), mype
@@ -350,6 +355,7 @@ subroutine load
    do m=1,mi
       zion(5,m)=zion(5,m)-pdum
    enddo
+   acc_newer_H_zion=.true.
 
    do m=1,mi
       wi_init(m)  = zion(5,m)
@@ -394,6 +400,7 @@ subroutine load
          !        zeon0(6,m)=zion0(6,m)
          zeon0(6,m)=1.0_wp
       enddo
+      acc_newer_H_zeon=.true.
 
       do m=1,me
          we_init(m)  = zeon(5,m)
@@ -412,12 +419,14 @@ subroutine load
          zeon(4,m)=zeon(4,m)*msm0*c0cs*sqrt(backTe(m)/backT(m))  !checked; neglect electron rotation
          zeon(6,m)=zion(6,m)*sqrt(msm0*(backTe(m)/backT(m)))     ! =sqrt(mu_e)
       enddo
+      acc_newer_H_zeon=.true.
 
       ! Give unique label numbers for every particle
       do m=1,me
          ! elabels(m) = mype*10**(floor(log10(real(me))) + 2) + m
          elabels(m) = mype +  1e5*m
       enddo
+      !$acc update device(elabels(:me))
 
 
       ! the tracer electron is initially on PE=0 with index ntracer_e=me
@@ -460,6 +469,7 @@ subroutine load
          !        print*, 'TRACER Elec5', zeon(5,ntracer_e)
          !        print*, 'TRACER Elec6', zeon(6,ntracer_e)*abs(c0cs)*sqrt(msm0)
       endif
+      acc_newer_H_zeon=.true.
 
       !     zeon(5,:)=zeon(5,:)/10.0
       !     zeon(5,:)=zeon(5,:)*1.0d2
@@ -486,6 +496,12 @@ subroutine load
 
 
 
+   if(mype==0) then
+      ilabel_of_ntracer    = ilabels(ntracer)
+      elabel_of_ntracer_e  = elabels(ntracer_e)
+   endif
+   call MPI_BCAST(ilabel_of_ntracer,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
+   call MPI_BCAST(elabel_of_ntracer_e,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
 
 
 
@@ -724,6 +740,7 @@ subroutine load_uniform_MGY
       zion(3,m) = 2.0*pi*rand_5d(2,m)
       zion(2,m) = mod(zion(3,m)/P_q + 2.0*pi*rand_5d(3,m), 2.0*pi)
    enddo
+   acc_newer_H_zion=.true.
 
    call esigetbf(zion,mi,size(zion,1))
    call n_T_u_group  ! get T, n and omega_t, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
@@ -785,6 +802,10 @@ subroutine load_uniform_MGY
       zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
       ilabels(m) = mype + 1e5*m
    enddo
+   acc_newer_H_zion=.true.
+
+   !$acc update device(ilabels(:mi))
+
 
    call n_T_u_group  ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
 
@@ -806,6 +827,7 @@ subroutine load_uniform_MGY
       zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
       zion0(6,m) = integral_f0 + zion(5,m)
    enddo
+   acc_newer_H_zion=.true.
 
    wi_init  = zion(5,:)
    wi_vpara = 0
@@ -862,6 +884,7 @@ subroutine load_uniform_MGY
             elabels(m) = mype +  1e5*m
          enddo
       endif
+      acc_newer_H_zeon=.true.
 
       call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
 
@@ -925,6 +948,7 @@ subroutine load_uniform_MGY
             zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
          enddo
       endif
+      acc_newer_H_zeon=.true.
 
       call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
 
@@ -949,6 +973,7 @@ subroutine load_uniform_MGY
             zeon0(6,m) = integral_f0 + zeon(5,m)
          enddo
       endif
+      acc_newer_H_zeon=.true.
 
       we_init(:)  = zeon(5,:)
       we_vpara = 0
@@ -958,6 +983,7 @@ subroutine load_uniform_MGY
       we_fdamp = 0
    endif
 
+   !$acc update device(elabels(:me))
 
 
 
@@ -1013,6 +1039,17 @@ subroutine load_uniform_MGY
 
    write(stdout,*) "In load_uniform_MGY, I'm=",mype, "mi=", mi, ", me=",me
    call flush(stdout)
+
+   ntracer=0
+   ntracer_e=0
+   if(mype==0) then
+      ntracer=mi
+      ntracer_e=me
+      ilabel_of_ntracer    = ilabels(ntracer)
+      elabel_of_ntracer_e  = elabels(ntracer_e)
+   endif
+   call MPI_BCAST(ilabel_of_ntracer,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
+   call MPI_BCAST(elabel_of_ntracer_e,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
 
 
 end subroutine load_uniform_MGY

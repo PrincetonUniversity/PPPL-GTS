@@ -47,6 +47,7 @@ subroutine get_3D_flow(da,dgq,dgf,wpi2)
       dnitmp=0.   ! Set array elements to zero
 #endif
       !$omp do private(m,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij,rdum)
+      !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
       do m=1,mi
          weight=zion0(5,m)
 
@@ -361,6 +362,7 @@ subroutine get_Ti_fluctuation_DirectlyFromParticles
    dnitmp=0.   ! Set array elements to zero
 #endif
    !$omp do private(m,weight,wz1,wz0,wp1,wp0,wt10,wt00,wt11,wt01,ij,rdum)
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
       weight=zion0(5,m)
 
@@ -580,6 +582,7 @@ subroutine ion_locator0  ! Added to calculate delta-vi and delta Ti on grid
 
    !$omp parallel do private(m,psitmp,thetatmp,zetatmp, &
    !$omp& rdum,ii,wp1,im,tdum,j00,j01)
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
       !     psitmp=zion0(1,m)      ! =a
       psitmp=zion0(7,m)       ! =s
@@ -641,6 +644,7 @@ subroutine ion_locator  ! Added to calculate delta-vi and delta Ti on grid
 
    !$omp parallel do private(m,psitmp,thetatmp,zetatmp, &
    !$omp& rdum,ii,wp1,im,tdum,j00,j01)
+   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
       !     psitmp=zion(1,m)      ! =a
       psitmp=zion(7,m)       ! =s

@@ -1117,6 +1117,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    use diagnosis_array
    use esi_interface
    use solver_data_class
+   use function_gg_module
 
    implicit none
 
@@ -1148,7 +1149,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
    real(wp) tt0,tt1,cput0,cput1,rtc
 
-   real(wp), external :: D01AHF,dsda,SMOOTHSTEP
+   real(wp), external :: D01AHF,dsda!,SMOOTHSTEP
    integer minpts,ifail
    real(wp)  acc,error_8
    real(wp)  E_a,E_t,E_f,timef
@@ -1160,6 +1161,20 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
+   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+   real(wp) tmp_zeon5(memax)
+   !$acc declare create (tmp_zeon5)
+
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   if(istep==istart .and. irk_e==1) then
+      time_in_Pushe =0
+      timewc_in_Pushe =0
+   endif
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -1175,15 +1190,25 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    fdamp0=0.0_wp
 
    if(irk_e==1)then ! 1st step of Runge-Kutta method
-      RK_cum_zeon  =0.0
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
+      acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
+      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
          ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity
          ! zeon0(8,m) is the adiabatic term in the weight evolution @ t={n}, x={n}
          ! zeon(8,m) is a kind of temporary pouch to bring wdot term during shifte
-         zeon0(1:5,m)=zeon(1:5,m)
+
+         !$acc loop seq
+         do i=1,5
+            zeon0(i,m)=zeon(i,m)
+         enddo
          zeon0(7,m)=zeon(7,m)
+
+         !$acc loop seq
+         do i=1,size(RK_cum_zeon,1)
+            RK_cum_zeon(i,m)=0.0
+         enddo
       enddo
    elseif(irk_e==2) then
       RK_cum_coeff =(1.0/3.0)
@@ -1209,6 +1234,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    ! The following line is an OpenMP directive for loop-level parallelism
    ! on shared memory machines (see http://www.openmp.org).
    !$omp parallel do private(m,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11)
+   !$acc parallel loop present(zeon,zeon0)
    do m=1,me
       wz1=wzeon(m)
       wz0=1.0_wp-wz1
@@ -1243,12 +1269,19 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       wpi(2,m)=e2
       wpi(3,m)=e3
 
-      ! (MGYOO: 05/01/2019)
-      ! For RK4 method, the time here must be updated as well.
-      !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
 
    enddo
+
+
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
+   call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga(1:me), wga(1:3,1:me), gat(1:me))
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude_arr_at_zeon", tt1-tt0," secs"
+   call flush(stdout)
+   #endif
 
    !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------
@@ -1266,6 +1299,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    dela=1.0_wp/Ydr
    ! if(istep.ge.4000) then
    !$omp parallel do private(m,r,ip,fip)
+   !$acc parallel loop present(zeon,zeon0)
    do m=1,me
       r=zeon(1,m)-a0
       r=r*dela
@@ -1275,7 +1309,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    enddo
    !  ------------------------------------------------------------
 
-
+   #ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+   #endif
    if(electromagnetic == 1)then
       !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
       if(Flag_GC_Solver==0) then
@@ -1291,6 +1327,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
    endif
 
+
+   #ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"
+   call flush(stdout)
+   #endif
 
    !  call n_T_u_group_e  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc at electrons.
    ! moved to collision_eon.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
@@ -1322,6 +1364,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !$omp parallel do private (m,mu,energy,kappa,wdrift,wgradB,vdr,wdrive,wdot,xdum,ydum,T_inverse,&
       !$omp& r,ip,Ea_00,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt,wdphidt2,muB,fip,&
       !$omp& instep,outstep,fdamp,vpara,v2,avw,E_f)
+
+      #ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+      #endif
+      acc_newer_D_zeon=.true.
+      !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
       do m=1,me
          !     dbdz=0.0   for axisymmetric system   !wx
          mu=zeon(6,m)*zeon(6,m)        ! =normalized mu of electrons
@@ -1390,8 +1438,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
 
          if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-            instep =smoothstep(lmin,lmax,zeon(1,m))
-            outstep=smoothstep(rmin,rmax,zeon(1,m))
+            instep =smoothstep_m(lmin,lmax,zeon(1,m))
+            outstep=smoothstep_m(rmin,rmax,zeon(1,m))
             !  fip=smoothstep(0.20_wp,0.25_wp,zeon(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zeon(1,m)))
             fip=instep*(1.0_wp-outstep)
             !  wdrive=wdrive*fip
@@ -1483,11 +1531,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !Note that f0 is toroidally symmetric so that grad_lnf0_gf=0 and we do not need vd_para_gf or vd_perp_gf terms to calculate weight evolution
          if(irk_e==4) then
             if(ifneoclassical==1) then
-               !Caution!! Following routine is only available for neoclassical case which use full velocity.
-               call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
-               vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
-               vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
-               vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+               ! !Caution!! Following routine is only available for neoclassical case which use full velocity.
+               ! call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+               ! vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+               ! vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+               ! vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
             else ! perturbed components only (ignoring neoclassical parts)
                vd_para_a_cntv = vpara_dve_a(m)
                vd_para_gq_cntv = vpara_dve_gq(m)
@@ -1541,7 +1589,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          else if(irk_e==4) then !irk_i==4
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
             ! zeon(1:5,m) = zeon0(1:5,m) +RK_cum_zeon(1:5,m)
-            zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)
+
+            !$acc loop seq
+            do i=1,4
+               zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
+            enddo
             zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
          endif
 
@@ -1564,8 +1616,33 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       enddo
 
+
+      #ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
+      call flush(stdout)
+      #endif
       !   fluxes diagnose
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
+
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+
+         !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+         !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+         !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+
+
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+
+
          !$omp parallel do private(m)
          do m=1,me
             wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
@@ -1582,23 +1659,61 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! call flush(stdout)
          end if
 
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+
       endif
+
+      !Another Diagnostics on DG (Diagnostic Grid)
       if(irk_e==1 .and. mod(istep,msnap)==0) then
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+
+         !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+         !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+         !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+
          do m=1,me
          FullVelocity_da_dgq_dgf(1,m) = da(m)
          FullVelocity_da_dgq_dgf(2,m) = dgq(m)
          FullVelocity_da_dgq_dgf(3,m) = dgf(m)
          enddo
          call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
       endif
 
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
       call shifte
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushe(1) = time_in_Pushe(1) + (cput1-cput0)
+      timewc_in_Pushe(1) = timewc_in_Pushe(1) + (tt1-tt0)
+
+
       call electron_locator
       call n_T_u_group_e
-      zeon00(5,1:me)=zeon(5,1:me)    ! use for temporary storage -- check again April, 2013
 
+      acc_newer_D_zeon=.true.
+      !$acc parallel loop gang vector present(zeon,zeon0,backTe)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
+
+         tmp_zeon5(m)=zeon(5,m)
 
          T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 
@@ -1631,8 +1746,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
 
          if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-            instep =smoothstep(lmin,lmax,zeon(1,m))
-            outstep=smoothstep(rmin,rmax,zeon(1,m))
+            instep =smoothstep_m(lmin,lmax,zeon(1,m))
+            outstep=smoothstep_m(rmin,rmax,zeon(1,m))
             fip=instep*(1.0_wp-outstep)
             !  wdrive=wdrive*fip
             fdamp=(1.0_wp-fip)*fdamp0
@@ -1660,18 +1775,43 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
             zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
          else
-            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
-
-
       enddo
 
       if(Flag_Poisson==1) then
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
          call charge_eon
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(2) = time_in_Pushe(2) + (cput1-cput0)
+         timewc_in_Pushe(2) = timewc_in_Pushe(2) + (tt1-tt0)
+
+
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
          call poisson( solver1, masssolver )
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
+         timewc_in_Pushe(3) = timewc_in_Pushe(3) + (tt1-tt0)
+
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
          call smooth_PHI
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(4) = time_in_Pushe(4) + (cput1-cput0)
+         timewc_in_Pushe(4) = timewc_in_Pushe(4) + (tt1-tt0)
       endif
 
+      if(irk_e==4) then
+         !$acc update device (we_adiab(:me))
+      endif
+
+      acc_newer_D_zeon=.true.
+      !$acc parallel loop present(zeon,zeon0,backTe,RK_cum_zeon)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
 
@@ -1705,8 +1845,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
 
          if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-            instep =smoothstep(lmin,lmax,zeon(1,m))
-            outstep=smoothstep(rmin,rmax,zeon(1,m))
+            instep =smoothstep_m(lmin,lmax,zeon(1,m))
+            outstep=smoothstep_m(rmin,rmax,zeon(1,m))
             fip=instep*(1.0_wp-outstep)
             !  wdrive=wdrive*fip
             fdamp=(1.0_wp-fip)*fdamp0
@@ -1733,7 +1873,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
             RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(wdot+wdphidt)*(RK_cum_coeff*tstep)
          else
-            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
 
          ! Advance particle information for the next RK step
@@ -1743,7 +1883,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
                zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
             else
-               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon00(5,m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
             endif
          else if(irk_e==4) then !irk_i==4
             if(Flag_w_Evol==1) then
@@ -1758,16 +1898,17 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !MGYOO(05/10/2019)
          ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
          if(irk_e==4) then
-            we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*zeon00(5,m))*wdphidt
+            we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*tmp_zeon5(m))*wdphidt
          endif
 
       enddo
 
 
-
       if(irk_e==4)then
          ! out of boundary particle
          !$omp parallel do private(m)
+         acc_newer_D_zeon=.true.
+         !$acc parallel loop present(zeon,zeon0)
          do m=1,me
             if(zeon(1,m) > psimax)then
                zeon(1,m)=zeon0(1,m)
@@ -1801,6 +1942,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          end if
          ! ********************************
 
+      endif
+
+
+      if(irk_e==4) then
+         !$acc update self (we_adiab(:me))
       endif
 
    ELSE    !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
@@ -2425,6 +2571,14 @@ subroutine electron_locator
 
    !$omp parallel do private(m,psitmp,thetatmp,zetatmp,&
    !$omp& rdum,ii,wp1,im,tdum,j00,j01)
+
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me
       !     psitmp=zeon(1,m)      ! =a
       psitmp=zeon(7,m)       ! =s
@@ -2435,23 +2589,23 @@ subroutine electron_locator
 
       rdum=psitmp
       rdum=delr*max(0.0_wp,min(s1-s0,rdum-s0))
-      ii=max(0,min(mpsi-1,int(rdum)))
+      ii=max(0,min(mpsi-1,floor(rdum)))
       wp1=rdum-real(ii,wp)
       wpeon(m)=wp1
 
       ! inner flux surface
       im=ii
       tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
-      tdum=(tdum-aint(tdum))*delt(im)
-      j00=max(0,min(mtheta(im)-1,int(tdum)))
+      tdum=(tdum-floor(tdum))*delt(im)
+      j00=max(0,min(mtheta(im)-1,floor(tdum)))
       jteon0(m)=igrid(im)+j00  ! pay attention to j00=0 case
       wteon0(m)=tdum-real(j00,wp)
 
       ! outer flux surface
       im=ii+1
       tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
-      tdum=(tdum-aint(tdum))*delt(im)
-      j01=max(0,min(mtheta(im)-1,int(tdum)))
+      tdum=(tdum-floor(tdum))*delt(im)
+      j01=max(0,min(mtheta(im)-1,floor(tdum)))
       jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
       wteon1(m)=tdum-real(j01,wp)
    enddo

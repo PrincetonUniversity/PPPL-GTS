@@ -147,6 +147,15 @@ module global_parameters
    integer :: Flag_Load_and_WeightDef=0 ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
    integer :: Flag_Quiet_Start=1 ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
 
+   logical :: acc_newer_H_zion=.true., acc_newer_D_zion=.true., acc_newer_H_zeon=.true., acc_newer_D_zeon=.true.
+
+   ! To measure the elapsed times of the following routines in the Pusheon
+   ! (1) shifte, (2) charge_eon, (3) poisson, (4) Smooth_Phi (5) Diagnostics
+   real(wp) time_in_Pushe(5), timewc_in_Pushe(5)
+   ! To measure the elapsed times of the following routines in the Pushion
+   ! (1) Diagnostics
+   real(wp) time_in_Pushi(1), timewc_in_Pushi(1)
+
 end module global_parameters
 
 module FieldLineFollowing
@@ -176,28 +185,39 @@ module particle_array
    integer,dimension(:,:),allocatable :: jtion0,jtion1
    real(wp),dimension(:),allocatable :: wzion,wzeon,wpeon,wteon0,wteon1
    real(wp),dimension(:,:),allocatable :: wpion,wtion0,wtion1
+   !$acc declare create(jtion0,jtion1,wzion,wpion,wtion0,wtion1)
+   !$acc declare create(jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    real(wp),dimension(:,:),allocatable :: zion_s_on_GyroOrbit, zion_gq_on_GyroOrbit
+   !$acc declare create(zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit)
    ! Here we declare zion,zion0,zeon and zeon0 as array pointers
    ! so that we can pass them as dummy arguments to a subroutine and be allowed
    ! to reallocate them inside that subroutine if needed.
    real(wp),dimension(:,:), allocatable :: zion,zion0,zeon,zeon0,zeon00
+   !$acc declare create(zion,zion0,zeon,zeon0)
+
    real(wp), dimension(:,:),allocatable :: RK_cum_zion, RK_cum_zeon
+   !$acc declare create(RK_cum_zion,RK_cum_zeon)
    ! ============================
    ! MGYOO (07/31/2018)
    ! Information of Multiple-Tracers
    real(wp), dimension(:), allocatable :: elabels, ilabels
+   !$acc declare create(elabels,ilabels)
+   real(wp) :: elabel_of_ntracer_e, ilabel_of_ntracer
    integer :: num_of_etracers=200, num_of_itracers=200, nstep_for_tracer_record=5 ! Default values
    !real(wp), dimension(:), allocatable :: etracers_labels(num_of_etracers), itracers_labels(num_of_itracers)
    real(wp), dimension(:), allocatable :: etracers_labels, itracers_labels
    ! Unnormalized zeta&theta (not normalized into [0,2*pi))
    real(wp), dimension(:), allocatable :: UnNorm_zeta_e, UnNorm_theta_e, UnNorm_zeta_i, UnNorm_theta_i  ! These are not perfectly consistent when the particle touches the boundaries
+   !$acc declare create(UnNorm_zeta_e, UnNorm_theta_e, UnNorm_zeta_i, UnNorm_theta_i)
    ! ===========================
 
    ! ============================
    ! MGYOO (07/31/2018)
    ! Additional information about weight component ratio
    real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp ! for ion weight
+   !$acc declare create(wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp)
    real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp ! for electron weight
+   !$acc declare create(we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp)
    ! ============================
 
 
@@ -206,7 +226,8 @@ module particle_array
       backne,backue,backTe,dlnndae,&
       dlnTdae,duda
    real(wp),dimension(:),allocatable :: back_f0_i, back_f0_e
-
+   !$acc declare create(backn,backu,backT,dlnnda,dlnTda,backne,backue,backTe,dlnndae,dlnTdae,duda)
+   !$acc declare create(back_f0_i,back_f0_e)
 end module particle_array
 
 module field_array
@@ -225,6 +246,7 @@ module field_array
    real(wp),dimension(:,:),allocatable :: Weighted_Vol
    real(wp),dimension(:),allocatable :: Node_simple_Vol
    real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
+   !$acc declare create (phi)
    real(wp),dimension(:,:),allocatable :: old_phi, tmp_old_phi ! phi at previous time step
    real(wp),dimension(:),allocatable :: old_phi00, tmp_old_phi00 ! phi00 at previous time step
    real(wp),dimension(:),allocatable :: cum_phi00, cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ
@@ -395,9 +417,13 @@ module esi_interface
    use precision
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
       rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw
+   !$acc declare create(F,Fa,TT,Ta,PP,Pa,BB,Ba,Bq,gh,gha,ghq)
    real(wp), dimension(:), allocatable :: dve_gf, dvi_gf  ! gf(zeta) component of delta_v (due to plasma potential and magnetic perturbation)
+   !$acc declare create(dve_gf,dvi_gf)
    real(wp), dimension(:), allocatable :: vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf  ! delta components (perturbed part) of ion v_para
+   !$acc declare create (vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf)
    real(wp), dimension(:), allocatable :: vpara_dve_a, vpara_dve_gq,vpara_dve_gf  ! delta components (perturbed part) of electron v_para
+   !$acc declare create (vpara_dve_a, vpara_dve_gq,vpara_dve_gf)
    real(wp)  metric(6)
    real(wp)  djr
    real(wp), dimension(:), allocatable :: flux_it,dlnA_da,flux_A
