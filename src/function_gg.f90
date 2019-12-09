@@ -4866,8 +4866,7 @@ subroutine Init_Diagnostic_Grid
    real(wp) uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
-   ! DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
-   DG%dim_gq = max(101,mtheta(ipsi)/3)
+   DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
    DG%num_eSD = 6 +6 +6
    DG%num_eVD = 5
 

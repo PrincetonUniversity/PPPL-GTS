@@ -499,7 +499,7 @@ subroutine snapshot_hdf5
 
    implicit none
 
-   integer, parameter :: gq_jump=2, a_jump=1
+   integer, parameter :: gq_jump=3, a_jump=1
    integer :: msnap_for_All
    integer :: dim_a, dim_gq
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
@@ -1646,7 +1646,7 @@ subroutine snapshot_Magnetic_Information
 
    implicit none
 
-   integer, parameter :: gq_jump=2, a_jump=1
+   integer, parameter :: gq_jump=3, a_jump=1
    integer :: dim_a, dim_gq
    real(wp) :: intp_val, inv_dgq(0:mpsi)
    integer :: i,j,ij,k,jt,jm

@@ -313,8 +313,8 @@ module Diagnostic_Grid
    implicit none
 
    type Grid_Info
-      integer :: gq_jump, a_jump=1
-      integer :: dim_a, dim_gq=101
+      integer :: gq_jump=3, a_jump=1
+      integer :: dim_a, dim_gq
       integer :: num_eSD, num_eVD ! number of eScaData and eVecData (electrons)
       integer :: num_iSD, num_iVD ! number of iScaData and iVecData (ions)
       real(wp) zetamin, zetamax ! zeta value of this plane
