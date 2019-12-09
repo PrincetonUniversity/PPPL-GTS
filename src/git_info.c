@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include "gts_git_diff.h"
 #include "gts_module_files.h"
+#include <unistd.h>
+#include <stdio.h>
+#include <limits.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netdb.h>
+#include <time.h>
+
 #define Print_Git_Info print_git_info_
 
 int Print_Git_Info(){
@@ -50,6 +61,56 @@ int Print_Git_Info(){
 
    FILE *fid= fopen("GTS_GIT_DIFF.out","w+");
    fprintf(fid,"%s\n",gts_git_diff_out);
+   fclose(fid);
+
+
+
+   // Print Out run-time information of GTS
+   fid= fopen("GTS_RUNTIME_INFO.out","w+");
+
+
+	// TIME information
+	int hours, minutes, seconds, day, month, year;
+	time_t now;
+	time(&now);
+	struct tm *local = localtime(&now);
+
+   hours = local->tm_hour;      	// get hours since midnight (0-23)
+   minutes = local->tm_min;     	// get minutes passed after the hour (0-59)
+   seconds = local->tm_sec;     	// get seconds passed after minute (0-59)
+   day = local->tm_mday;        	// get day of month (1 to 31)
+   month = local->tm_mon + 1;   	// get month of year (0 to 11)
+   year = local->tm_year + 1900;	// get year since 1900
+
+	fprintf(fid,"Date: %02d/%02d/%d\n", day, month, year);
+   fprintf(fid,"Time: %02d:%02d:%02d\n", hours, minutes, seconds);
+
+
+	// Woring Directory information
+   char cwd[PATH_MAX]; //current working directory
+   if (getcwd(cwd, sizeof(cwd)) != NULL) {
+      fprintf(fid,"Current working dir: %s\n", cwd);
+   } else {
+      perror("getcwd() error");
+      return 1;
+   }
+
+   // hostname and IP information
+   char hostbuffer[256];
+   char *IPbuffer;
+   struct hostent *host_entry;
+   int hostname;
+   // To retrieve hostname
+   hostname = gethostname(hostbuffer, sizeof(hostbuffer));
+   // To retrieve host information
+   host_entry = gethostbyname(hostbuffer);
+   // To convert an Internet network
+   // address into ASCII string
+   IPbuffer = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
+   fprintf(fid,"Hostname: %s\n", hostbuffer);
+   fprintf(fid,"Host IP: %s\n", IPbuffer);
+
+
    fclose(fid);
 
    return(0);
