@@ -30,6 +30,10 @@ clean:
 	(cd cmlib; $(MAKE) clean ; cd ..)
 	(cd fem; $(MAKE) clean ; cd ..)
 
+cleanall:
+	rm -rf _$(_ARCH)*
+	(cd cmlib; $(MAKE) clean ; cd ..)
+	(cd fem; $(MAKE) clean ; cd ..)
 # gmake cleangts to clean GTS code
 .PHONY: cleangts
 cleangts:
