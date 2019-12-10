@@ -5778,7 +5778,8 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
          P_gf = modulo(zion0(3,m),2*pi)
          P_s  = zion_s_on_GyroOrbit(larmor,m)
 
-         ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+         ! ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+         ori_sid = max(0,min(int((P_s-s0)*ori_inv_ds),mpsi-1)) ! To avoid segmentation fault
          ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
          P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
          P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
