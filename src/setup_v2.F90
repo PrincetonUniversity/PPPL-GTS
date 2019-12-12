@@ -2521,6 +2521,7 @@ Subroutine read_input_params
    namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
       its,                &   ! number of iteration used for superLU interation in poisson solver
       its_jacobi,         &   ! used to be for Jacobi iteration in poisson solver -> used control parameter for charge density conservation 05/12
+      its_phip00_tolerance, &
       nelectron,          &   ! number of sub-step  for pushing electrons; must take 1 or an even number due to 2nd RK used
       nv,                 &   ! number of grids in vz and vper
       delta_v,            &   ! grid size in velocity space
@@ -2568,6 +2569,7 @@ Subroutine read_input_params
       write(0,*) 'm=', m
       write(0,*) 'jr=', jr, 'print end'
       write(0,*) 'gama0=', gama0, 'its=', its,' nelectron=',nelectron     !cj...added....sept...28...2006
+      write(0,*) 'its_phip00_tolerance=', its_phip00_tolerance
       write(0,*) 'finite element order=', order
       write(0,*) 'larmor_num=', larmor_num
 

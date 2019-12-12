@@ -22,7 +22,7 @@ subroutine poisson( solver, masssolver )
    real(wp) tmp,rms ! gamma0,
 
    real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi),adum_11(0:mpsi)
-
+   real(wp) old_phip00(0:mpsi), phip00_convergency
    !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
    real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
    real(wp) add_phi(mgrid), yy(mgrid), bb2(mgrid)
@@ -227,11 +227,15 @@ subroutine poisson( solver, masssolver )
          else             ! FEM solver solves delta-phi and d<phi>/da interatively
 
             !   adum_11=0.0_wp
-            do it=1,its
+            ! do it=1,its
 
+            if(mype==0 .and. mod(istep,msnap)==0 ) open(unit=191209,file='phip00_its.dat',position='append',action='write')
+            phip00_convergency=1.0 ! any initial value to go inside do while
+            it=0
+
+            do while(phip00_convergency>its_phip00_tolerance .and. it<its)
+               it=it+1
                !  phip00=0.0_wp    ! for debug
-
-
 
                if(ZF_SEPARATION==-100) then   !  direct numerical derivative to calculate -beta*div[sum(gs)*d<phi>/da*grad(a)]
 
@@ -333,6 +337,8 @@ subroutine poisson( solver, masssolver )
                call MPI_ALLREDUCE(adum,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
                phi_flux_ave=phi_flux_ave/jaco_sum    !  =<sum(gs)*grad_perp(delta-phi).grad(a)>
 
+               old_phip00 = phip00
+
                phip00=0.0_wp
                do i=1,mpsi
                   phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
@@ -345,7 +351,13 @@ subroutine poisson( solver, masssolver )
 
                phip00=phip00+Er_a0        ! --> phip00=dphi_00/da with phip00(0)=Er_a0 which is Er_NC when ifneoclassical=1
 
+               phip00_convergency = sum(sqrt((phip00 - old_phip00)**2.0))/sum(sqrt(old_phip00**2.0))
+               if(mype==0 .and. mod(istep,msnap)==0 ) write(191209,"(2(I8,1x),200(ES16.8,1x))") istep, it, phip00_convergency, phip00(0:mpsi)
             end do     !  end iteration for FEM
+            if(mype==0 .and. mod(istep,msnap)==0 ) then
+               call flush(191209)
+               close(191209)
+            endif
 
             phi(1,:) = xx
 
