@@ -476,14 +476,14 @@ subroutine pusheon(solver1, masssolver, irk_e)
          !     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**0.4_wp*da(m)
          zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**dsda_power*da(m)
 
-#ifdef _TREAT_MAGNETIC_AXIS
+         #ifdef _TREAT_MAGNETIC_AXIS
          if(sw(m).eq.1) then    ! convert to (a, theta) coordinates
             xdum=sqrt(zeon(1,m)**2+zeon(2,m)**2)
             ydum=sign(1.0_wp,zeon(2,m))*acos(zeon(1,m)/xdum)
             zeon(1,m)=xdum
             zeon(2,m)=ydum
          end if
-#endif
+         #endif
 
          ! theta and zeta normalize to [0,2*pi), modulo is slower than hand coded procedure
          !     zeon(2,m)=zeon(2,m)*pi2_inv+100.0 !period of 1
@@ -1472,7 +1472,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !MGYOO (03/27/2019)
          ! Following evaluation might be wrong
          ! Please check again (dw/dt) equation
-         wdot=(1.0_wp-E_f)*wdot
+         ! MGYOO (12/15/2019):
+         ! weight evolution of delta-h scheme:
+         ! dw/dt=(1-w)*(-dln(f0)/dt)+(1-w)/(1-E_f)*(d(E_f)/dt)
+         ! (1-E_f) is not needed for wdot, it is needed for wdphidt term
+         ! wdot=(1.0_wp-E_f)*wdot
 
 
 
@@ -1764,7 +1768,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !======================================================
          ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
          wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
-         ! Advance particle information for the next RK step
+         ! MGYOO (12/15/2019):
+         ! weight evolution of delta-h scheme:
+         ! dw/dt=(1-w)*(-dln(f0)/dt)+(1-w)/(1-E_f)*(d(E_f)/dt)
+         ! (1-E_f) is not needed for wdot, it is needed for wdphidt term
+         wdphidt = wdphidt/(1.0-E_f)
+
          ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
 
 
@@ -1863,6 +1872,13 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !======================================================
          ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
          wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
+         ! MGYOO (12/15/2019):
+         ! weight evolution of delta-h scheme:
+         ! dw/dt=(1-w)*(-dln(f0)/dt)+(1-w)/(1-E_f)*(d(E_f)/dt)
+         ! (1-E_f) is not needed for wdot, it is needed for wdphidt term
+         wdphidt = wdphidt/(1.0-E_f)
+
+
          ! Advance particle information for the next RK step
 
          ! Calculate dADdt and evolve weight
