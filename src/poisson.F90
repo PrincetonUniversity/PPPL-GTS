@@ -127,58 +127,14 @@ subroutine poisson( solver, masssolver )
          dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
       enddo
 
-      if(solver%order <= 0 ) then   ! use original integral solver
 
-         phi(1,:)=0.0_wp   ! addition to RHS with phi=0 for 1st iteration
-         ! NO converage if using phi of last step!!
-         do it=1,its
-            add_phi=0.0_wp
-            !... finite element needs xx be set to 0 on bdy vertex as well
-            xx=0.0_wp
-            do i=0,mpsi
-               outstep=smoothstep(rmin,rmax,psi_grid(i))
-               !       instep=smoothstep(lmin,lmax,psi_grid(i))
-               !       instep=instep*(1.0d0-outstep)
-               !       outstep=1.0d0-instep
-               ! tmp = (0.21 + 0.09*outstep)     ! full electron (no split) --> tmp=0.01+0.09=0.1  for r > rmax  -- see solver_petsc.f90
-               tmp = (gama0 + gama1*outstep)     ! full electron (no split) --> tmp=0.01+0.09=0.1  for r > rmax  -- see solver_petsc.f90
-               do j=1,mtheta(i)
-                  ij=igrid(i)+j
-                  add_phi(ij)=dentmp(ij)+tmp*phi(1,ij)
-               end do
-               add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i))
-            end do
+      xx=0.0_wp
+      call solve( solver, masssolver, mgrid, dentmp, xx, ierr )
+      phi(1,:) = xx
 
-            call solve( solver, masssolver, mgrid, add_phi, xx, ierr )
-            phi(1,:) = xx
-
-            ! DEBUG
-            !         if(mype==200) print*, 'Dirichlet', phi(1,igrid(0)), phi(1,igrid(0)+mtheta(0)/2),phi(1,igrid(0)+mtheta(0)-1), &
-            !                                phi(1,igrid(mpsi)), phi(1,igrid(mpsi)+mtheta(mpsi)/2),phi(1,igrid(mpsi)+mtheta(mpsi)-1)
-
-            ! BCs !!!!
-            ! radial boundary  Note wx: this could enforce a constraint on long wave length modes
-            !                           ---- a constraint on large scale Er (???)
-            phi(1,igrid(0):igrid(0)+mtheta(0))=0.0_wp
-
-            !            it is questionalbe to set phi=0 at both inner and uter boundaries
-            !            phi(1,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
-
-            do i=0, mpsi
-               phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
-            enddo
-         end do
-
-      else   !  use FEM solver
-
-         xx=0.0_wp
-         call solve( solver, masssolver, mgrid, dentmp, xx, ierr )
-         phi(1,:) = xx
-
-         do i=0, mpsi
-            phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
-         enddo
-      endif
+      do i=0, mpsi
+         phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
+      enddo
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    else     ! for both delta-h (ifelectron=2) and adiabatic (ifelectron=0) electrons
