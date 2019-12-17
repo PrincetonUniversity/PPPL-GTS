@@ -1979,10 +1979,302 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self (we_adiab(:me))
       endif
 
-   ELSE    !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
-      write(stdout,*) "In pushe_RK4, wrong flags are observed!! Please Check It!!"
-      write(stdout,*) "Pushe_RK4 routine cannot deal with, ifelectron=", ifelectron,", ifdphi=", ifdphi
+   ELSE    !IF(ifelectron==1) delta-f scheme
+
+      #ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+      #endif
+
+      acc_newer_D_zeon=.true.
+      !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+      do m=1,me
+         !     dbdz=0.0   for axisymmetric system   !wx
+         mu=zeon(6,m)*zeon(6,m)        ! =normalized mu of electrons
+         muB=mu*BB(m)                  ! =normalized perpendicular energy of electrons
+         T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+         !     energy=0.5_wp*for_E*(zeon(4,m)*BB(m))**2+mu*BB(m)
+
+         vpara=zeon(4,m)*BB(m)
+         v2=vpara**2
+
+         !     energy=0.5_wp*for_E*(zeon(4,m)*BB(m))**2+muB
+         energy=0.5_wp*for_E*v2+muB
+
+         vpara=vpara*f_rho                ! =normalized v_//
+         v2=vpara*vpara+muB*2.0_wp*m0ms   ! =v^2
+
+         kappa=(min(umax*umax,energy*T_inverse)-1.5_wp)*(-dlnTdae(m))+(-dlnndae(m)) !=-dlnf_M/da
+
+         if(ifneoclassical==1) then
+            vdr=da(m)                 !  full da/dt including NC dynamics
+            vdq=dgq(m)
+            vdgf=dgf(m)
+         else
+            ! ExB drift in radial direction for w-dot and flux diagnostics
+            vdr=ghq(m)             !  da/dt|_EXB
+            vdq=Ta(m)
+            vdgf=dve_gf(m)
+         end if
+
+         wdrive=vdr*kappa
+         wgradB=vdr*Ba(m)+vdq*Bq(m)
+
+         if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
+            instep =smoothstep_m(lmin,lmax,zeon(1,m))
+            outstep=smoothstep_m(rmin,rmax,zeon(1,m))
+            fip=instep*(1.0_wp-outstep)
+            fdamp=(1.0_wp-fip)*fdamp0
+         else
+            fip=1.0_wp
+            fdamp=0.0_wp
+         end if
+
+         if(ifneoclassical==1) then
+            wdrift=(dgr(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+         else
+            wdrift=(Pa(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
+         end if
+
+         wgradB=wgradB*mu*T_inverse   ! see note: additional term due to v_ExB*grad(f_M)
+
+         wdot=(wdrive+wdrift+wgradB)
+
+         !==================================================
+         ! MGYOO(03/27/2019)
+         ! NOTE that the following routine should be upgraded to calculate correct RK4
+         !==================================================
+         !==================================================
+         !MGYOO(01/14/2019)
+         !Note that f0 is toroidally symmetric so that grad_lnf0_gf=0 and we do not need vd_para_gf or vd_perp_gf terms to calculate weight evolution
+         if(irk_e==4) then
+            if(ifneoclassical==1) then
+               ! !Caution!! Following routine is only available for neoclassical case which use full velocity.
+               ! call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, tot_B_vec_cov, tot_B_vec_cntv)
+               ! vd_para_mag = (vdr*tot_B_vec_cov(1) + vdq*tot_B_vec_cov(2) + vdgf*tot_B_vec_cov(3))/BB(m)
+               ! vd_para_a_cntv = vd_para_mag*(tot_B_vec_cntv(1)/BB(m))
+               ! vd_para_gq_cntv = vd_para_mag*(tot_B_vec_cntv(2)/BB(m))
+            else ! perturbed components only (ignoring neoclassical parts)
+               vd_para_a_cntv = vpara_dve_a(m)
+               vd_para_gq_cntv = vpara_dve_gq(m)
+            endif
+            vd_perp_a_cntv = vdr -vd_para_a_cntv
+            vd_perp_gq_cntv = vdq -vd_para_gq_cntv
+
+            !=================================================================
+            !MGYOO (01/30/2019)
+            ! grad_lnf0 includes (wdrive) terms
+            ! wdot_accel includes (wdrift + wgradB) terms
+            grad_lnf0_a_cov = -kappa
+            grad_lnf0_gq_cov = 0.0
+
+            wdot_vpara = -vd_para_a_cntv*grad_lnf0_a_cov -vd_para_gq_cntv*grad_lnf0_gq_cov
+            wdot_vperp = -vd_perp_a_cntv*grad_lnf0_a_cov -vd_perp_gq_cntv*grad_lnf0_gq_cov
+            wdot_accel  = wdrift + wgradB
+            !=================================================================
+
+            we_vpara(m) = we_vpara(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_vpara*fip)
+            we_vperp(m) = we_vperp(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_vperp*fip)
+            we_accel(m) = we_accel(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_accel*fip)
+            we_fdamp(m) = we_fdamp(m) + tstep*(-fdamp*zeon(5,m))
+         endif
+         !=================================================
+
+
+         ! Accumulate k-th RK terms (k1,k2,k3,k4) for the future value: f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4)
+         RK_cum_zeon(1,m) = RK_cum_zeon(1,m) +RK_cum_coeff*tstep*da(m)
+         RK_cum_zeon(2,m) = RK_cum_zeon(2,m) +RK_cum_coeff*tstep*dgq(m)
+         RK_cum_zeon(3,m) = RK_cum_zeon(3,m) +RK_cum_coeff*tstep*dgf(m)
+         RK_cum_zeon(4,m) = RK_cum_zeon(4,m) +RK_cum_coeff*tstep*dgr(m)
+         RK_cum_zeon(7,m) = RK_cum_zeon(7,m) +RK_cum_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+
+         if(Flag_w_Evol==1) then
+            ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
+            ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
+            ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
+            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(wdot)*(RK_cum_coeff*tstep)
+         else
+            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
+         endif
+         ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
+
+
+
+         ! Advance particle position for the next RK step
+         if(irk_e<4) then
+
+            zeon(1,m) = zeon0(1,m)+RK_adv_coeff*tstep*da(m)
+            zeon(2,m) = zeon0(2,m)+RK_adv_coeff*tstep*dgq(m)
+            zeon(3,m) = zeon0(3,m)+RK_adv_coeff*tstep*dgf(m)
+            zeon(4,m) = zeon0(4,m)+RK_adv_coeff*tstep*dgr(m)
+            zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+
+            ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
+            if(Flag_w_Evol==1) then
+               !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
+               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot)*(RK_adv_coeff*tstep)))
+            else
+               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
+            endif
+         else if(irk_e==4) then !irk_i==4
+            ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
+            ! zeon(1:5,m) = zeon0(1:5,m) +RK_cum_zeon(1:5,m)
+
+            !$acc loop seq
+            do i=1,4
+               zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
+            enddo
+            zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
+
+            if(Flag_w_Evol==1) then
+               ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
+               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
+            else
+               ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
+               zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
+            endif
+         endif
+
+         zeon(2,m)=modulo(zeon(2,m),twopi)
+         zeon(3,m)=modulo(zeon(3,m),twopi)
+
+         ! store GC information for flux measurements
+         wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
+         wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
+         wpi(3,m)=muB       ! normalizd electron perpendicular energy
+
+         if(irk_e==4) then
+            UnNorm_theta_e(m) = UnNorm_theta_e(m) +RK_cum_zeon(2,m)
+            UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +RK_cum_zeon(3,m)
+         endif
+
+      enddo
+
+      #ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
       call flush(stdout)
+      #endif
+
+
+
+      if(irk_e==4)then
+         ! out of boundary particle
+         !$omp parallel do private(m)
+         acc_newer_D_zeon=.true.
+         !$acc parallel loop present(zeon,zeon0)
+         do m=1,me
+            if(zeon(1,m) > psimax)then
+               zeon(1,m)=zeon0(1,m)
+               zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+               zeon(3,m)=zeon0(3,m)
+               zeon(4,m)=zeon0(4,m)
+               zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+               !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+               !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
+               zeon(7,m)=zeon0(7,m)
+
+            elseif(zeon(1,m) < psimin)then
+               zeon(1,m)=zeon0(1,m)
+               zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+               zeon(3,m)=zeon0(3,m)
+               zeon(4,m)=zeon0(4,m)
+               zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+               !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+               !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
+               zeon(7,m)=zeon0(7,m)
+            endif
+         enddo
+
+         ! ********************************
+         if(mype==2) then
+            error_8=1.0e-5_wp
+            IFAIL=1
+            rdum=D01AHF(0.0d0,zeon(1,me/2),error_8,minpts,acc,dsda,-1,IFAIL)
+            print*, 'EEEEEEEEEEEE', zeon(7,me/2),'  ', rdum
+            !   write(stdout,*)'######## electron gcmotion: wall =',(tt1-tt0),'  cpu =',(cput1-cput0)
+         end if
+         ! ********************************
+
+      endif
+
+
+
+      !   fluxes diagnose
+      if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
+
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+
+         !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+         !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+         !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+
+
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+
+
+         !$omp parallel do private(m)
+         do m=1,me
+            wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
+         end do
+
+         call get_fluxes_e(wpi)
+
+         !   im=mod(istep,100)
+         im=mod(istep,ndiag)
+         if(im==0) then
+            call get_Te_fluctuation(wpi(2,:))
+            ! write(stdout,*) 'irk=',irk,', energy(1:me:100) in keV'
+            ! write(stdout,*) (wpi(2,i)*Tem_00,i=1,me,me/20)
+            ! call flush(stdout)
+         end if
+
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+
+      endif
+
+      !Another Diagnostics on DG (Diagnostic Grid)
+      if(irk_e==1 .and. mod(istep,msnap)==0) then
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+
+         !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+         !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+         !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+         !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+
+         do m=1,me
+         FullVelocity_da_dgq_dgf(1,m) = da(m)
+         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+         enddo
+         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+      endif
+
+
+
    ENDIF   !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
 
 end subroutine pusheon_RK4
