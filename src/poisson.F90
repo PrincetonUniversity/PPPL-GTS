@@ -118,7 +118,11 @@ subroutine poisson( solver, masssolver )
             endif
 
             !... finite element needs not this modification
-            if( solver%order <= 0 ) dentmp(ij)=dentmp(ij)*vth_grid(i)**2
+            if( solver%order <= 0 ) then
+               dentmp(ij)=dentmp(ij)*vth_grid(i)**2
+            else
+               if(ZF_SEPARATION==1) dentmp(ij)=dentmp(ij)+(zonali(i)-zonale(i))  ! total density fluctuations used for FEM solver with ZF_SEPARATION=1
+            endif
 
          enddo
       enddo
@@ -143,14 +147,127 @@ subroutine poisson( solver, masssolver )
          enddo
       enddo
 
+      if(ZF_SEPARATION==1) then
 
-      xx=0.0_wp
-      call solve( solver, masssolver, mgrid, dentmp, xx, ierr )
-      phi(1,:) = xx
+         if(mype==0 .and. mod(istep,msnap)==0 ) open(unit=191209,file='phip00_its.dat',position='append',action='write')
+         phip00_convergency=1.0 ! any initial value to go inside do while
+         it=0
 
-      do i=0, mpsi
-         phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
-      enddo
+         do while(phip00_convergency>its_phip00_tolerance .and. it<its)
+            it=it+1
+
+            call solve( solver, masssolver, mgrid, dentmp, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
+            do i=0, mpsi
+               xx(igrid(i))=xx(igrid(i)+mtheta(i))  !validate xx(1,igrid(i)) for safe
+            enddo
+
+            call find_dxdadxdt( masssolver, mgrid, xx, add_phi, yy, ierr )
+
+            add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))*gsij(:)   ! --> sum(gs)*grad_perp(delta-phi).grad(a)
+            adum=0.0_wp
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  adum(i)=adum(i)+dtemper(ij)*add_phi(ij)   ! surface averaging
+               enddo
+            enddo
+
+            phi_flux_ave=0.0_wp
+            call MPI_ALLREDUCE(adum,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+            phi_flux_ave=phi_flux_ave/jaco_sum    !  =<sum(gs)*grad_perp(delta-phi).grad(a)>
+
+            old_phip00 = phip00
+
+            phip00=0.0_wp
+            do i=1,mpsi
+               phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
+                  (-den_grid(i-1)*dVda(i-1)*(zonali(i-1)-zonale(i-1))  &
+                  -den_grid(i)*dVda(i)*(zonali(i)-zonale(i)) )
+            enddo
+
+            phip00=phip00/dVda/gsgaa
+            phip00=phip00 -(phi_flux_ave*dVda-phi_flux_ave(0)*dVda(0))/dVda/gsgaa   ! --> phip00=dphi_00/da with phip00(0)=0
+
+            phip00=phip00+Er_a0        ! --> phip00=dphi_00/da with phip00(0)=Er_a0 which is Er_NC when ifneoclassical=1
+
+            phip00_convergency = sum(sqrt((phip00 - old_phip00)**2.0))/sum(sqrt(old_phip00**2.0))
+            if(mype==0 .and. mod(istep,msnap)==0 ) write(191209,"(2(I8,1x),200(ES16.8,1x))") istep, it, phip00_convergency, phip00(0:mpsi)
+         enddo
+         if(mype==0 .and. mod(istep,msnap)==0 ) then
+            call flush(191209)
+            close(191209)
+         endif
+
+         phi(1,:) = xx
+
+         ! (0,0) mode potential store in phi00
+         phi00=0.0_wp   ! phi00(0)=0.0 is chosen
+         do i=1,mpsi
+            phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
+         enddo
+
+      else  ! ZF_SEPARATION=0 --> solve total potential
+
+         ! TODO : convergence check is not implemented yet.
+         adum0=phi00
+         do it=1,its
+            !   calculate <phi> using phi of last time step for the 1st iteration
+
+            ! if(mype==-100) then      !  keep the following coding in the record
+            adum=0.0_wp
+            rms=0.0_wp
+            phi_flux_ave=0.0_wp
+            !$omp parallel private(i,j,ij) reduction(+:adum,rms)
+            !$omp do
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  adum(i)=adum(i)+dtemper(ij)*phi(1,ij)  ! surface averaging
+                  rms=rms+phi(1,ij)**2
+               enddo
+            enddo
+            !$omp end parallel
+            call MPI_ALLREDUCE(adum,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+            phi_flux_ave=phi_flux_ave/jaco_sum    !  =<phi>
+
+            rtc=phi_flux_ave(0)
+
+            ! re-level phi and <phi> by subtracting a constant for original integral solver
+            if(solver%order <= 0 )  phi_flux_ave=phi_flux_ave - phi_flux_ave(0)
+
+            t1=sum((phi_flux_ave-adum0)**2)/sum(adum0**2)  ! calculated for checking convergence
+            adum0=phi_flux_ave
+
+            phi(1,:)=phi(1,:)-phi_flux_ave(0)
+            if(solver%order <= 0 ) then   ! use original integral solver
+               phi_flux_ave=phi_flux_ave*tite        !  =<phi>*(Ti/Te)
+            else                          ! use FEM solver
+               phi_flux_ave=phi_flux_ave*abs(csc0)/Te_grid   ! =(e/e0)*(m0/ms)*<phi>/T_e with <phi>, T_e normalized
+            endif
+
+            if(mype==0)   print*, 'mype=', mype, 'its=', it, '  <phi>(',ipsi,')=',  phi_flux_ave(ipsi), 'rms=', rms,  '  <phi>(0)=', rtc, &
+               'relative error in <phi>^2=', t1
+
+            add_phi=0.0_wp
+            xx=0.0_wp
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  add_phi(ij)=dentmp(ij) + phi_flux_ave(i)
+               end do
+               add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i))
+            end do
+
+            call solve( solver, masssolver, mgrid, add_phi, xx, ierr )
+            phi(1,:) = xx
+
+            do i=0, mpsi
+               phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
+            enddo
+
+         enddo  ! end of iteration do it=1,its
+      endif
+
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    else     ! for both delta-h (ifelectron=2) and adiabatic (ifelectron=0) electrons
