@@ -31,6 +31,8 @@ subroutine poisson( solver, masssolver )
    real(wp) instep,outstep
 
    real(wp) zdum,tdum,tdum0,tdum1
+   real(wp), external :: temperature_e
+   real(wp) tmp_Te0_inverse
 
    real(wp) dpsi_inv,e_psi2,e_psi1,dpsi2_inv,dpsi1,dpsi2,dpsi1_inv
 
@@ -105,9 +107,15 @@ subroutine poisson( solver, masssolver )
 
       !$omp parallel do private(i,j,ij)
       do i=0,mpsi
+         tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
          do j=1,mtheta(i)
             ij=igrid(i)+j
             dentmp(ij)=densityi(1,ij)-densitye(1,ij)
+            if(adiab > 0.0_wp) then
+               dentmp(ij) = dentmp(ij) + adiab * abs(csc0) * m0ms * tmp_Te0_inverse * phi(1, ij)
+            else
+               dentmp(ij) = dentmp(ij) + 0.01/(Cs*Cs) * phi(1,ij)
+            endif
 
             !... finite element needs not this modification
             if( solver%order <= 0 ) dentmp(ij)=dentmp(ij)*vth_grid(i)**2

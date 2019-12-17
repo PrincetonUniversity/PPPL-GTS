@@ -2446,6 +2446,7 @@ Subroutine read_input_params
       mzetamax,           &   ! number of poloidal planes (toroidal grid points)
       npartdom,           &   ! number of MPI tasks between which the particles are divided within a toroidal domain
       ifelectron,         &   ! =0 or 1 or 2; 0: adiabatic electrons; 1: full delta-f electrons; 2: delta-h (non-adiabatic) electrons
+      adiab,              &   ! (Default=0.0) In the case of delta-f electrons, this is used for poisson equation for better convergence
       a,                  &   ! normalized minor radius, always =1, not really neceassary
       a0,                 &   ! inner boundary (r/a) of radial domain
       a1,                 &   ! outer boundary (r/a) of radial domain
@@ -2543,6 +2544,10 @@ Subroutine read_input_params
       write(0,*) 'mstep=', mstep
       write(0,*) 'nonlinear=', nonlinear
       write(0,*) 'ifdphi=', ifdphi
+      write(0,*) 'ifelectron=',ifelectron
+      if(ifelectron==1) then
+         write(0,*) 'adiab=',adiab
+      endif
       write(0,*) 'Flag_RK4=',Flag_RK4
       write(0,*) 'Flag_GC_Solver=',Flag_GC_Solver
       write(0,*) 'Flag_Poisson=', Flag_Poisson
@@ -2603,15 +2608,14 @@ Subroutine read_input_params
 
    !Check conflicting parameters
    if(Flag_RK4==1) then
-      if(wimcompressibility==1 .or. nelectron/=1 .or. ifdphi/=2 .or. ifelectron/=2) then
+      if(wimcompressibility==1 .or. nelectron/=1 .or. ifdphi/=2) then
          write(stdout,*) 'Conflicting parameters!! Check and Change parameters'
          write(stdout,*) 'Flag_RK4=1 does not deal with one of the following parameters'
-         write(stdout,*) 'wimcompressibility=', wimcompressibility, ", nelectron=",nelectron, ", ifdphi", ifdphi, ", ifelectron",ifelectron
+         write(stdout,*) 'wimcompressibility=', wimcompressibility, ", nelectron=",nelectron, ", ifdphi", ifdphi
          call flush(stdout)
          stop
       endif
    endif
-
 end subroutine read_input_params
 
 

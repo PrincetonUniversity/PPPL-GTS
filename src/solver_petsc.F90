@@ -3755,7 +3755,7 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   use field_array,only: psi_grid,qtinv,Jcbn, dRda, dRdt, dZda, dZdt
 #endif
   use particle_decomp,only:myrank_partd,nproc_partd
-  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi !, pade
+  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi, Cs, adiab !, pade
   use esi_interface, only : metric
   use fem_data_class
   implicit none
@@ -4068,7 +4068,11 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
         vthe3(i)=temperature_e(aaa(i),0.0_wp)
      enddo
      if(ifelectron==1 .or. mat_type==2) then
-        alpha = 0.0_wp
+        if(adiab>0.0_wp) then
+          alpha = adiab*abs(csc0)*m0ms/mean(vthe3,fe_ns)
+        else
+          alpha = 0.01/(Cs*Cs)
+        endif
      else
         alpha = abs(csc0) * m0ms / mean(vthe3, fe_ns)
      endif

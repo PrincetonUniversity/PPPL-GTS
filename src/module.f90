@@ -66,6 +66,8 @@ module global_parameters
    integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,ifelectron,ecollision,  &
       ifdphi,zeondim,ziondim
 
+   real(wp) :: adiab=0.0 !(Default=0.0) In the case of delta-f electrons, this is used for poisson equation for better convergence
+
    real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,csc0_i,c0cs_i
    real(wp)  ntracer_energy_ion0, ntracer_energy_electron0
    real(wp)  cloud_i, cloud_e
