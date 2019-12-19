@@ -227,9 +227,13 @@ program GTS
    ! initial field
    irk=2
    idiag=1
+   call ion_locator_at_larmor_points
    call charge_ion
 
-   if(ifelectron/=0) call charge_eon
+   if(ifelectron/=0) then
+      call electron_locator
+      call charge_eon
+   endif
 
    if(Flag_Poisson==1) call poisson( solver1, masssolver  )
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
@@ -305,18 +309,22 @@ program GTS
          write(stdout,'(a,I8)')'istep=',istep
          call flush(stdout)
       endif
+
+      ! idiag=0: do time history diagnosis
+      irk=1
+      idiag=mod(irk-1,nrk)+mod(istep,ndiag)
+
+      ! calculate test like-particle collisions
+      call n_T_u_group
+      call collision  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
+
+      call timer(t0,dt,t0wc,dtwc)
+      time(8)=time(8)+dt
+      timewc(8)=timewc(8)+dtwc
+
       do irk=1,nrk
-
-         ! idiag=0: do time history diagnosis
          idiag=mod(irk-1,nrk)+mod(istep,ndiag)
-
-         ! calculate test like-particle collisions
-         call collision  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
-
-         call timer(t0,dt,t0wc,dtwc)
-         time(8)=time(8)+dt
-         timewc(8)=timewc(8)+dtwc
-
+         call n_T_u_group
          ! push ion
          if(Flag_RK4==1) then
             call pushion_RK4(irk)
@@ -327,50 +335,62 @@ program GTS
          time(1)=time(1)+dt
          timewc(1)=timewc(1)+dtwc
 
-
-         if(istep==mstep) then
-            if(mype==0) then
-               call view_distribution(irk-1)
-            endif
-         endif
-         call timer(t0,dt,t0wc,dtwc)
-         time(17)=time(17)+dt
-         timewc(17)=timewc(17)+dtwc
          ! redistribute ion across PEs
          call shifti
          call timer(t0,dt,t0wc,dtwc)
          time(2)=time(2)+dt
          timewc(2)=timewc(2)+dtwc
 
-         ! Calculate ion weight damping
-         if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
-
-         ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
-         ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
-         ! in PUSHI for calculating electric force on ions
-         call charge_ion
-         call timer(t0,dt,t0wc,dtwc)
-         time(3)=time(3)+dt
-         timewc(3)=timewc(3)+dtwc
+         call ion_locator_at_larmor_points
+      enddo
 
 
-         if(ifelectron/=0) then    ! include kinetic electrons
+      if(istep==mstep) then
+         if(mype==0) then
+            call view_distribution(irk-1)
+         endif
+      endif
+      call timer(t0,dt,t0wc,dtwc)
+      time(17)=time(17)+dt
+      timewc(17)=timewc(17)+dtwc
 
-            ! NOTE: nelectron must take 1 or even number due to the use of 2nd order Runge-Kutta
-            if(nelectron==1) then  ! electrons have the same step size as ions
+
+      ! Calculate ion weight damping
+      if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
+
+      ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
+      ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
+      ! in PUSHI for calculating electric force on ions
+      call charge_ion
+      call timer(t0,dt,t0wc,dtwc)
+      time(3)=time(3)+dt
+      timewc(3)=timewc(3)+dtwc
+
+
+      if(ifelectron/=0) then    ! include kinetic electrons
+
+         ! NOTE: nelectron must take 1 or even number due to the use of 2nd order Runge-Kutta
+         if(nelectron==1) then  ! electrons have the same step size as ions
+
+
+            irk=1
+            idiag_e=mod(irk-1,nrk)+mod(istep,ndiag)
+            ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
+            ! via calling get_fluexs_e in pushe
+
+            !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation,
+            !  but give almost identical results for particle weight and ererything else according to a short test (20 steps)
+
+            ! calculate electron collisions
+            call n_T_u_group_e  ! prepare n, T, dlnn/da, dlnT/da, etc. which are also used for PUSHE/PUSHEON
+            call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
+            call timer(t0,dt,t0wc,dtwc)
+            time(9)=time(9)+dt
+            timewc(9)=timewc(9)+dtwc
+
+            do irk=1,4
                idiag_e=mod(irk-1,nrk)+mod(istep,ndiag)
-               ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
-               ! via calling get_fluexs_e in pushe
-
-               !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation,
-               !  but give almost identical results for particle weight and ererything else according to a short test (20 steps)
-
-               ! calculate electron collisions
-               call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
-               call timer(t0,dt,t0wc,dtwc)
-               time(9)=time(9)+dt
-               timewc(9)=timewc(9)+dtwc
-
+               call n_T_u_group_e  ! prepare n, T, dlnn/da, dlnT/da, etc. which are also used for PUSHE/PUSHEON
                !     CALL PUSHE(irk)
                if(Flag_RK4==1) then
                   call pusheon_RK4(solver1, masssolver, irk)
@@ -386,7 +406,15 @@ program GTS
                time(11)=time(11)+dt
                timewc(11)=timewc(11)+dtwc
 
-            else
+               call electron_locator
+            enddo
+
+         else
+
+            do irk=1,4
+
+               call n_T_u_group_e  ! prepare n, T, dlnn/da, dlnT/da, etc. which are also used for PUSHE/PUSHEON
+
                ! Note that Following Subelectron routines are only valid for RK2 scheme
                ! 1 ion step = nelectron(>1) electron steps
                ! originally, 1 ion step = 2*nelectron electron steps
@@ -438,60 +466,61 @@ program GTS
                   time(11)=time(11)+dt
                   timewc(11)=timewc(11)+dtwc
 
+                  call electron_locator
                end do
-            end if    ! end if(nelectron==1)
+            enddo
+         end if    ! end if(nelectron==1)
 
-            if(irk==nrk.and.wimcompressibility==2) call weight_damping_eon
+         if(irk==nrk.and.wimcompressibility==2) call weight_damping_eon
 
-            ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
-            ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
-            ! for calculating gamma_e
-            call charge_eon
-            call timer(t0,dt,t0wc,dtwc)
-            time(12)=time(12)+dt
-            timewc(12)=timewc(12)+dtwc
-
-         endif    ! end if(ifelectron/=0)
-
-         ! solve GK Poisson equation using adiabatic electron
-         if(Flag_Poisson==1) call poisson( solver1, masssolver )
-         !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
-
+         ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
+         ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
+         ! for calculating gamma_e
+         call charge_eon
          call timer(t0,dt,t0wc,dtwc)
-         time(4)=time(4)+dt
-         timewc(4)=timewc(4)+dtwc
+         time(12)=time(12)+dt
+         timewc(12)=timewc(12)+dtwc
 
-         ! smoothing,field diagnosis and finite difference for e_field
-         call smooth(0)
+      endif    ! end if(ifelectron/=0)
 
-         call timer(t0,dt,t0wc,dtwc)
-         time(5)=time(5)+dt
-         timewc(5)=timewc(5)+dtwc
 
-         idiag=mod(irk,nrk)+mod(istep+1,ndiag)
+      ! solve GK Poisson equation using adiabatic electron
+      if(Flag_Poisson==1) call poisson( solver1, masssolver )
+      !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
-         call smooth(1)  ! 1. solve zonal flow for nonlinear run;
-         ! 2. smooth the complete phi;
-         ! 3. fft and filter
+      call timer(t0,dt,t0wc,dtwc)
+      time(4)=time(4)+dt
+      timewc(4)=timewc(4)+dtwc
 
-         call timer(t0,dt,t0wc,dtwc)
-         time(5)=time(5)+dt
-         timewc(5)=timewc(5)+dtwc
+      ! smoothing,field diagnosis and finite difference for e_field
+      call smooth(0)
 
-         ! field
-         call field(masssolver)
+      call timer(t0,dt,t0wc,dtwc)
+      time(5)=time(5)+dt
+      timewc(5)=timewc(5)+dtwc
 
-         call timer(t0,dt,t0wc,dtwc)
-         time(6)=time(6)+dt
-         timewc(6)=timewc(6)+dtwc
+      idiag=mod(irk,nrk)+mod(istep+1,ndiag)
 
-         if(ifelectron==2.and.ifdphi==1) then
-            call current_ion
-            call current_eon
-            call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
-         end if
+      call smooth(1)  ! 1. solve zonal flow for nonlinear run;
+      ! 2. smooth the complete phi;
+      ! 3. fft and filter
 
-      enddo  ! enddo irk=1,nrk
+      call timer(t0,dt,t0wc,dtwc)
+      time(5)=time(5)+dt
+      timewc(5)=timewc(5)+dtwc
+
+      ! field
+      call field(masssolver)
+
+      call timer(t0,dt,t0wc,dtwc)
+      time(6)=time(6)+dt
+      timewc(6)=timewc(6)+dtwc
+
+      if(ifelectron==2.and.ifdphi==1) then
+         call current_ion
+         call current_eon
+         call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
+      end if
 
       call Print_Reference_ntracer_Information
 

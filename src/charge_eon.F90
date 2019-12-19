@@ -20,7 +20,7 @@ subroutine charge_eon
    real(wp) dphi_NZ(0:1), dn_adiabatic(0:1)
    real(wp), external :: SMOOTHSTEP
 
-   call electron_locator
+   ! call electron_locator
 
    densitye=0.0_wp
 

@@ -13,7 +13,7 @@ subroutine collision
    !          B(=BB) and I(=F) at particles are needed for calculating u_//=I*omega_t/B;
    !          BB, I can be obtained after call gcmotion, or call esigetbf, esiget2dfunctions.
 
-   call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc., which are also used in PUSHI/PUSHION
+   ! call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc., which are also used in PUSHI/PUSHION
 
    if(icollision.gt.0) then   ! include collision
       i=mod(istep,icollision)
