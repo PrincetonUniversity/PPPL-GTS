@@ -912,16 +912,16 @@ subroutine pushion_RK4(irk_i)
    enddo
 
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
-   #endif
+#endif
    !MGYOO (10/30/2018; to use analytic profile of ga0(a))
    call Get_MP_alpha_amplitude_arr_at_zion(istep*tstep, ga(1:mi), wga(1:3,1:mi), gat(1:mi))
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude_arr_at_zion", tt1-tt0," secs"
    call flush(stdout)
-   #endif
+#endif
 
    !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------
@@ -950,9 +950,9 @@ subroutine pushion_RK4(irk_i)
    enddo
    !  ------------------------------------------------------------
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
-   #endif
+#endif
    if(electromagnetic == 1) then
       !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
       if(Flag_GC_Solver==0) then
@@ -968,11 +968,11 @@ subroutine pushion_RK4(irk_i)
       m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi)
    end if
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, ion gc motion takes", tt1-tt0," secs"
    call flush(stdout)
-   #endif
+#endif
 
    !  call n_T_u_group  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc.
    ! moved to collision.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
@@ -1005,9 +1005,9 @@ subroutine pushion_RK4(irk_i)
    dmaxv=0.0d0
 
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
-   #endif
+#endif
 
    ! update GC position
    ! Another OpenMP parallel loop...
@@ -1285,11 +1285,11 @@ subroutine pushion_RK4(irk_i)
       enddo
    endif
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_RK4' takes", tt1-tt0," secs"
    call flush(stdout)
-   #endif
+#endif
 
    if(idiag==0)then
 

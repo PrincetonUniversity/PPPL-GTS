@@ -476,14 +476,14 @@ subroutine pusheon(solver1, masssolver, irk_e)
          !     zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**0.4_wp*da(m)
          zeon(7,m) = zeon0(7,m)+dtime*(Tc/backT(m))**dsda_power*da(m)
 
-         #ifdef _TREAT_MAGNETIC_AXIS
+#ifdef _TREAT_MAGNETIC_AXIS
          if(sw(m).eq.1) then    ! convert to (a, theta) coordinates
             xdum=sqrt(zeon(1,m)**2+zeon(2,m)**2)
             ydum=sign(1.0_wp,zeon(2,m))*acos(zeon(1,m)/xdum)
             zeon(1,m)=xdum
             zeon(2,m)=ydum
          end if
-         #endif
+#endif
 
          ! theta and zeta normalize to [0,2*pi), modulo is slower than hand coded procedure
          !     zeon(2,m)=zeon(2,m)*pi2_inv+100.0 !period of 1
@@ -1273,15 +1273,15 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    enddo
 
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
-   #endif
+#endif
    call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga(1:me), wga(1:3,1:me), gat(1:me))
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude_arr_at_zeon", tt1-tt0," secs"
    call flush(stdout)
-   #endif
+#endif
 
    !    prepare equilibrium Er=dPhi/da at particles
    !  ------------------------------------------------------------
@@ -1309,9 +1309,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    enddo
    !  ------------------------------------------------------------
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
-   #endif
+#endif
    if(electromagnetic == 1)then
       !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
       if(Flag_GC_Solver==0) then
@@ -1328,11 +1328,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    endif
 
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"
    call flush(stdout)
-   #endif
+#endif
 
    !  call n_T_u_group_e  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc at electrons.
    ! moved to collision_eon.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
@@ -1365,9 +1365,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !$omp& r,ip,Ea_00,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt,wdphidt2,muB,fip,&
       !$omp& instep,outstep,fdamp,vpara,v2,avw,E_f)
 
-      #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
-      #endif
+#endif
       acc_newer_D_zeon=.true.
       !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
       do m=1,me
@@ -1621,11 +1621,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       enddo
 
 
-      #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
       call flush(stdout)
-      #endif
+#endif
       !   fluxes diagnose
       if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
 

@@ -1633,9 +1633,9 @@ subroutine n_T_u_group
    real(wp) vpara, vperp
    real(wp) time0, time1
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    time0 = MPI_WTIME()
-   #endif
+#endif
 
 
    dela=(a1-a0)/real(jr,wp)
@@ -1787,11 +1787,11 @@ subroutine n_T_u_group
    enddo
    !$acc update self(back_f0_i(:mi))
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    time1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group takes", time1-time0, " secs"
    call flush(stdout)
-   #endif
+#endif
 
 
 end subroutine n_T_u_group
@@ -1826,9 +1826,9 @@ subroutine n_T_u_group_e
    real(wp) time0, time1
 
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    time0= MPI_WTIME()
-   #endif
+#endif
 
    if(acc_newer_H_zeon) then
       !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
@@ -1985,11 +1985,11 @@ subroutine n_T_u_group_e
    enddo
    !$acc update self(back_f0_e(:me))
 
-   #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
    time1=MPI_WTIME()
    if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_e takes", time1-time0, " secs"
    call flush(stdout)
-   #endif
+#endif
 
 end subroutine n_T_u_group_e
 

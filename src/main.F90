@@ -22,9 +22,9 @@ program GTS
    use fem_data_class
    use particle_decomp
 
-   #ifdef _ACCEL
+#ifdef _ACCEL
    use accel_lib
-   #endif _ACCEL
+#endif _ACCEL
    implicit none
 
    ! to use parallel random number generator
@@ -45,6 +45,7 @@ program GTS
    integer:: nrk !number of RK step (nrk=2 for RK2, nrk=4 for RK4)
    integer:: ngpus_per_node !number of gpus per node
    integer:: device_type,my_gpu_device_num
+   real(wp),external::temperature_e
 
    interface
       subroutine shift(phase,phase0,mp,mpmax)
@@ -64,7 +65,7 @@ program GTS
       call Print_Git_Info()
    endif
 
-   #ifdef _ACCEL
+#ifdef _ACCEL
    device_type=acc_get_device_type()
    ngpus_per_node=acc_get_num_devices(device_type)
    my_gpu_device_num = acc_get_device_num(device_type)
@@ -74,7 +75,7 @@ program GTS
    my_gpu_device_num = acc_get_device_num(device_type)
    write(stdout,'(3(a,I5))') "After set_device,  mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
    call flush(stdout)
-   #endif _ACCEL
+#endif _ACCEL
 
    time=0.0_wp
    t0=0.0_wp
