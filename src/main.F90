@@ -726,7 +726,7 @@ subroutine system_mem_usage
 
    !--- Print out mem. usage information
    if(mype==0) then
-      write(stdout,'(3(a,I8),3(a,I8,a))')   'istep=', istep, ', mype=',mype,', pid=',pid, '; VmRSS=', val_VmRSS, ' kB;', ' VmSize=', val_VmSize, ' kB; ',' VmPeak=', val_VmPeak, ' kB; '
+      write(stdout,'(3(a,I8),3(a,I12,a))')   'istep=', istep, ', mype=',mype,', pid=',pid, '; VmRSS=', val_VmRSS, ' kB;', ' VmSize=', val_VmSize, ' kB; ',' VmPeak=', val_VmPeak, ' kB; '
       call flush(stdout)
    endif
 
@@ -738,14 +738,14 @@ subroutine system_mem_usage
       open(unit=190923,file='gts_mem_usage_every_rank.dat',position='append',action='write')
       ! write(190923,*) istep, mype, pid, mi, me, val_VmRSS, val_VmSize, val_VmPeak
       do rid=1,numberpe
-         write(190923, "(8(I8,1x))") gathered_int_arr(:,rid)
+         write(190923, "(8(I12,1x))") gathered_int_arr(:,rid)
       enddo
       call flush(190923)
       close(190923)
 
       open(unit=190924,file='gts_mem_usage_total_sum.dat',position='append',action='write')
       ! write(190924,*) istep, mi, me, val_VmRSS, val_VmSize, val_VmPeak
-      write(190924,"(6(I8,1x))") gathered_int_arr(1,1), sum(gathered_int_arr(4:8,:),dim=2)
+      write(190924,"(6(I12,1x))") gathered_int_arr(1,1), sum(gathered_int_arr(4:8,:),dim=2)
       call flush(190924)
       close(190924)
    endif
