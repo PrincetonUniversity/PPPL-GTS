@@ -262,10 +262,6 @@ program GTS
    loop_start_time=t0
    loop_start_timewc=t0wc
 
-#ifdef _ACCEL
-   call acc_clear_freelists()
-#endif
-
    call system_mem_usage
 
    open(unit=190515,file='elapsed_Time.dat',action='write')
@@ -498,9 +494,6 @@ program GTS
          call SetZeros_Cumulative_Variables
          call system_mem_usage
          !  phi_tmp=0.0_wp
-#ifdef _ACCEL
-         call acc_clear_freelists()
-#endif
       end if
       call timer(t0,dt,t0wc,dtwc)
       time(14)=time(14)+dt
