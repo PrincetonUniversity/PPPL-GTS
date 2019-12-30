@@ -98,6 +98,14 @@ subroutine shifte
                endif
             enddo
          endif
+
+#ifdef _MGY_DEBUG_
+         if(mype==0) then
+            write(stdout,*) "In shifte, istep=",istep," irk=",irk, ", loop=",loop
+            call flush(stdout)
+         endif
+#endif
+
          return
       endif
 

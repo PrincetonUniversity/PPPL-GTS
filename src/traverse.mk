@@ -7,7 +7,7 @@
 
   include  $(SRCDIR)/git_commands.mk
 
-DFLAGS:= -D_MGY_TIMER_
+DFLAGS:= -D_MGY_TIMER_ -D_MGY_DEBUG_
 ACCFLAG:=-acc -Minfo=accel
 
 ifeq ($(F90),mpif90)
