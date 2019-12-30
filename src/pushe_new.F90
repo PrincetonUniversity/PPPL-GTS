@@ -1767,12 +1767,14 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
          !======================================================
          ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
-         wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
-         ! MGYOO (12/15/2019):
+         ! MGYOO (12/30/2019):
          ! weight evolution of delta-h scheme:
          ! dw/dt=(1-w)*(-dln(f0)/dt)+(1-w)/(1-E_f)*(d(E_f)/dt)
-         ! (1-E_f) is not needed for wdot, it is needed for wdphidt term
-         wdphidt = wdphidt/(1.0-E_f)
+         ! More exact form is the following:
+         ! dz/dt= d(-ln(f0))/dt + d(-ln(|1-E_f|))/dt
+         ! wdphidt = d(-ln(|1-E_f|))/dt
+         wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(8,m))))/(RK_adv_coeff*tstep)
+
 
          ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
 
@@ -1871,12 +1873,13 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
          !======================================================
          ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
-         wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
-         ! MGYOO (12/15/2019):
+         ! MGYOO (12/30/2019):
          ! weight evolution of delta-h scheme:
          ! dw/dt=(1-w)*(-dln(f0)/dt)+(1-w)/(1-E_f)*(d(E_f)/dt)
-         ! (1-E_f) is not needed for wdot, it is needed for wdphidt term
-         wdphidt = wdphidt/(1.0-E_f)
+         ! More exact form is the following:
+         ! dz/dt= d(-ln(f0))/dt + d(-ln(|1-E_f|))/dt
+         ! wdphidt = d(-ln(|1-E_f|))/dt
+         wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(8,m))))/(RK_adv_coeff*tstep)
 
 
          ! Advance particle information for the next RK step
