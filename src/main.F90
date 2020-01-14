@@ -42,10 +42,12 @@ program GTS
    character(len=16) ic(nc)
    type(solver_data) :: solver1,solver_dphi_dt,masssolver
    type(fem_data) :: fem1,femt,femm
+   character(len=40) cdum
+   integer DT_int(8)
+   character(len=10) DT_str(3)
    integer:: nrk !number of RK step (nrk=2 for RK2, nrk=4 for RK4)
    integer:: ngpus_per_node !number of gpus per node
    integer:: device_type,my_gpu_device_num
-   real(wp),external::temperature_e
 
    interface
       subroutine shift(phase,phase0,mp,mpmax)
@@ -264,8 +266,11 @@ program GTS
 
    call system_mem_usage
 
-   open(unit=190515,file='elapsed_Time.dat',action='write')
-
+   call date_and_time(DT_str(1),DT_str(2),DT_str(3),DT_int)
+   if(mype==0) then
+      write(cdum,'("elapsed_Time.dat_",A,".",A)')trim(DT_str(1)(3:8)),trim(DT_str(2)(1:4))
+      open(unit=190515,file=cdum,action='write')
+   endif
 
    if(Flag_RK4==1) then
       nrk=4 !RK4
@@ -576,7 +581,7 @@ program GTS
       endif
    enddo      !    MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
 
-   close(190515)
+   if(mype==0) close(190515)
 
    if(mype==0) write(stdout,*) 'end of main time loop'
 
