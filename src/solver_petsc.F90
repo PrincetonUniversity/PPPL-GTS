@@ -46,7 +46,8 @@ contains
     type(phit_matrix_data) :: this
     Mat mat
     !integer,dimension(0:) :: mtheta
-    integer mindex, mat_type
+    integer  mat_type
+PetscInt  mindex
     ! locals
     integer i, j, ierr, it, id
     !real(doubleprec) val
@@ -127,8 +128,11 @@ contains
     integer :: ij, ij0
     real(wp) rs 
     !
-    integer nt, ierr, ii, jj
+    integer nt
+    PetscErrorCode  ierr
+    PetscInt ii, jj
     PetscScalar val, zero
+    PetscScalar :: ione=1
 
     ! insignificant point replaced by the original grid point !!!
     val = rs
@@ -139,14 +143,14 @@ contains
        if( mod(ii,nproc_partd) .eq. myrank_partd ) then
           if(val<0.00001)then
           !           if(val<1.0d-9)then
-             call MatSetValues(this%data,1,ii,1,ii,val,ADD_VALUES,ierr)
+             call MatSetValue(this%data,ii,ii,val,ADD_VALUES,ierr)
              if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
              !ring(1,ij0,k)= this%ring(1,ij0,k)+rr
           else
-             call MatSetValues(this%data,1,ii,1,jj,val,ADD_VALUES,ierr)
+             call MatSetValue(this%data,ii,jj,val,ADD_VALUES,ierr)
              if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
              ! symmmetrize for partitioning
-             call MatSetValues(this%data,1,jj,1,ii,zero,ADD_VALUES,ierr)
+             call MatSetValue(this%data,jj,ii,zero,ADD_VALUES,ierr)
              if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
           end if
        end if
@@ -237,7 +241,7 @@ contains
     type(solver_data) :: this
     character,intent(in) :: prefix*(*)
     Mat :: Amat
-    integer,intent(in) :: neq
+    PetscInt :: neq
     integer,intent(out) :: ierr
     IS               mis,isn,id_is,gts_petsc_is
     PetscInt         cnt(4096)
@@ -247,12 +251,14 @@ contains
     PC               prec
     Vec              vec, oneVec, rhsVec
     real(doubleprec):: tol,value(17),zeros(17), norm
-    integer          i,flg,j,col(17),inz,n_loc,start,kk
+    integer          i,flg,j,col(17),inz
+    PetscInt         n_loc,start,kk
     PetscViewer viewer
     MatPartitioning  mpart
     MatNullSpace  nullsp;
     PetscBool  isNull;
     MPI_Comm  comm;
+    PetscInt  ::     ione=1, izero=0;
 
     call nullify_solver( this )
 
@@ -320,7 +326,7 @@ contains
        call VecSetFromOptions( this%xVec, ierr )
        call VecDuplicate( this%xVec, this%bVec, ierr )
        
-       call ISCreateStride(MPI_COMM_SELF,n_loc,start,1,id_is,ierr)
+       call ISCreateStride(MPI_COMM_SELF,n_loc,start,ione,id_is,ierr)
        if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
        !     scatter object
        call VecCreateSeq( MPI_COMM_SELF, neq, vec, ierr )
@@ -371,7 +377,7 @@ contains
 
        call PetscObjectGetComm(Amat,comm,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-       call MatNullSpaceCreate(partd_comm, PETSC_TRUE, 0, PETSC_NULL_VEC, nullsp, ierr);
+       call MatNullSpaceCreate(partd_comm, PETSC_TRUE, izero, PETSC_NULL_VEC, nullsp, ierr);
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call MatNullSpaceTest(nullsp, Amat, isNull,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -484,10 +490,14 @@ contains
     real(wp), external :: SMOOTHSTEP
     real(wp) instep,outstep
     ! locals
-    integer iv,ib,sz,j,i
+    integer ib,sz,j,i
+    PetscInt iv
+    PetscInt :: ione=1
     type(phit_matrix_data) :: m
     Mat Amat
-    integer ierr,neq,mindex,mring
+    integer ierr,mring
+    PetscInt mindex
+    PetscInt neq
     PetscScalar a
     ! init PETSc here, need to fix for multiple solvers!!!
     !call PetscInitialize('./.petscrc',ierr) 
@@ -589,7 +599,7 @@ contains
        endif
        do j=1,sz
           if(mod(i,nproc_partd) .eq. myrank_partd) then
-             call MatSetValues(Amat,1,iv,1,iv,a,ADD_VALUES,ierr)
+             call MatSetValues(Amat,ione,iv,ione,iv,a,ADD_VALUES,ierr)
           endif
           iv = iv + 1
        enddo
@@ -627,10 +637,13 @@ contains
     ! locals
     real(wp) :: alpha,beta
     Mat Amat, Mmat
-    integer ierr,neq,mindex,mring, i, j, ir, it, ib, ib2, id, ki
+    integer ierr,mring, i, j, ir, it, ib, id, ki
+    PetscInt ib2
+    PetscInt mindex
+    PetscInt neq
     PetscScalar a
     PetscViewer viewer
-    integer, dimension(:), allocatable :: bdy
+    PetscInt, dimension(:), allocatable :: bdy
     Vec              vec_yy
     integer :: fe_ndof=1, ie, ind1, ind2, ind3, ind4, ind5, ind6, msize, nsize
 
@@ -816,7 +829,8 @@ contains
     real(wp) :: alpha,beta
     Mat Amat, Mmat
     Mat Rmat, Zmat
-    integer ierr,neq,mindex,mring
+    integer ierr,mring
+    PetscInt neq,mindex
 
 
     mring=2
@@ -1325,8 +1339,8 @@ contains
 
     real(wp) :: M=1., L=1., alfa=0.
     real(wp) :: rms=0., eps, err, pim, rr, zz
-    logical :: flg
-    integer :: whichone = 5
+    PetscBool :: flg
+    PetscInt :: whichone = 5
     integer :: ki, fe_ndof, i0, i1, i2, i3, i4, i5
 
     real(wp) dxda, dxdt, fcj
@@ -1765,8 +1779,8 @@ contains
 
     real(wp) :: M=1., L=1., alfa=0., rms=0., pim, rr, zz, tmpr, tmpz
     integer :: i,ii,j,jj,k,kk
-    logical :: flg
-    integer :: whichone = 5
+    PetscBool :: flg
+    PetscInt :: whichone = 5
     integer :: fe_ns=3, fe_order=1
     real(wp),allocatable,dimension(:,:) :: xlt
     integer,dimension(:),allocatable :: ind
@@ -2008,8 +2022,8 @@ contains
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk,ix,iy
-    logical :: flg
-    integer :: whichone = 1
+    PetscBool :: flg
+    PetscInt :: whichone = 1
 
 
     if(solver%order .gt. 0) then
@@ -2195,8 +2209,8 @@ contains
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk,ix,iy
-    logical :: flg
-    integer :: whichone = 5
+    PetscBool :: flg
+    PetscInt :: whichone = 5
 
 
     if(solver%order .gt. 0) then
@@ -2338,8 +2352,8 @@ contains
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk,ix,iy
-    logical :: flg
-    integer :: whichone = 5
+    PetscBool :: flg
+    PetscInt :: whichone = 5
 
 
     if(solver%order .gt. 0) then
@@ -3055,8 +3069,8 @@ end subroutine neumbcfix
     integer,dimension(:),allocatable :: ind
     integer,allocatable,dimension(:) :: indlocal, indglobal
     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
-    logical :: flg
-    integer :: whichone = 5
+    PetscBool :: flg
+    PetscInt :: whichone = 5
     real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, beta, bh_kk
 
 
@@ -3267,8 +3281,8 @@ end subroutine neumbcfix
     ! locals
     real(doubleprec),allocatable,dimension(:) :: phbjgaa,phbjgat,phbjgpp,qq2
     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
-    logical :: flg
-    integer :: whichone = 5
+    PetscBool :: flg
+    PetscInt :: whichone = 5
     real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt
     real(wp) :: bpade_gk(mgrid)
     integer :: ivsl, ivgts, ioffset, ir, itmax
@@ -3359,8 +3373,8 @@ end subroutine neumbcfix
     integer :: neq
     real(doubleprec),allocatable,dimension(:) :: phbjgaa,phbjgat,phbjgpp,qq2
     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
-    logical :: flg
-    integer :: whichone = 5
+    PetscBool :: flg
+    PetscInt :: whichone = 5
     real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt, bpade_gk
     integer :: ivsl, ivgts, ioffset, ir, itmax
 
@@ -3468,8 +3482,8 @@ end subroutine neumbcfix
     integer,dimension(:),allocatable :: ind
     integer,allocatable,dimension(:) :: indlocal, indglobal
     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
-    logical :: flg
-    integer :: whichone = 5
+    PetscBool :: flg
+    PetscInt :: whichone = 5
 
 
    !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
@@ -3760,7 +3774,8 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   use fem_data_class
   implicit none
   type(fem_data) :: fem
-  integer order,iemax,npts,ierr
+  integer order,iemax,ierr
+PetscInt  npts
   integer mat_type, bc_type
 ! integer,dimension(:),allocatable :: iet1,iet2,iet3
 ! integer,dimension(:,:) :: iet
@@ -3773,15 +3788,17 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   real(doubleprec) eps,big ! therm2d uses *8
   real(doubleprec),dimension(:,:,:),allocatable ::  fe_Pijk
   real(doubleprec),dimension(:,:),allocatable ::  xlt,sarr,marr,ul ! therm2d uses *8
-  real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
+PetscScalar,dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
   real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
   real(doubleprec),dimension(:),allocatable ::  rarr2,zarr2            ! r&z matrix
   real(doubleprec) :: c1=1., c2=1.
   real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
   real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
 ! integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
-  integer ie,i,j,k,n,kk,ki,nz,nel,nst
-  integer,dimension(:),allocatable :: ind2,ind3,ind
+  integer ie,i,j,k,n,kk,ki,nel,nst
+PetscInt nz
+  integer,dimension(:),allocatable :: ind3,ind
+  PetscInt,dimension(:),allocatable :: ind2
 ! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 ! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
   real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
@@ -3800,8 +3817,8 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   real(doubleprec),dimension(:),allocatable :: fe_weight
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
-  logical :: flg
-  integer :: whichone = 5
+  PetscBool :: flg
+  PetscInt :: whichone = 5
 
 
   call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
@@ -4131,7 +4148,8 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   use fem_data_class
   implicit none
   type(fem_data) :: fem
-  integer order,iemax,npts,ierr
+  integer order,iemax,ierr
+  PetscInt npts
   integer mat_type, bc_type
 ! integer,dimension(:),allocatable :: iet1,iet2,iet3
 ! integer,dimension(:,:) :: iet
@@ -4145,15 +4163,16 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   real(doubleprec) eps,big ! therm2d uses *8
   real(doubleprec),dimension(:,:,:),allocatable ::  fe_Pijk
   real(doubleprec),dimension(:,:),allocatable ::  xlt,sarr,marr,ul ! therm2d uses *8
-  real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
+PetscScalar,dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
   real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
   real(doubleprec),dimension(:),allocatable ::  rarr2,zarr2            ! r&z matrix
   real(doubleprec) :: c1=1., c2=1.
   real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
   real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
 ! integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
-  integer ie,i,j,k,n,kk,kkk,ki,nz,nel,nst
-  integer,dimension(:),allocatable :: ind2,ind3,ind
+  integer ie,i,j,k,n,kk,kkk,ki,nel,nst
+PetscInt nz
+  PetscInt,dimension(:),allocatable :: ind2,ind3,ind
 ! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 ! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
   real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
@@ -4169,8 +4188,8 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   real(doubleprec),dimension(:),allocatable :: fe_weight
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
-  logical :: flg
-  integer :: whichone = 5
+  PetscBool :: flg
+  PetscInt :: whichone = 5
 
 
   call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
