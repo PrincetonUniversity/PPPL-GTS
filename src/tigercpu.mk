@@ -10,16 +10,25 @@
 
 ifeq ($(F90),mpif90)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler
-          FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
+          #FFLAGS:= -r8 -Kieee -Dflush_=flush -module .
+          FFLAGS:= -r8 -Kieee -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR)
           OPT:=-O2
           COPT:=-O2
           CFLAGS:=
           OMPFLAG:=-mp=nonuma
           NOOMPFLAG:=
+          SPRNG_DIR=/home/jinchen/LIB/tigergpu_pgi195_GTS
           SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
           SPRNG_INC:=-I${SPRNG_DIR}/include
+          PSPLINE_DIR=/home/jinchen/LIB/tigergpu_pgi195_GTS
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-          PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -lezcdf -L${NETCDF_DIR}/lib -lnetcdf
+          PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
+          PETSC_DIR=/home/jinchen/LIB/petsc
+          PETSC_ARCH=tiger-pgi-openmpi-gts-cuda-2019-64bit
+          HDF5_LIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lhdf5_hl -lhdf5 -lfftw3
+          CUDA_LIB:=-L/usr/local/cuda-10.2/lib64 -lcudart -lcusparse -lcusolver -lstdc++ -llapack -lblas -L/usr/local/cuda-10.0/lib64 -lcublas_static -lcublas
+          PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
+          PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lz -lpthread -lm -ldl -lparmetis -lmetis
        else   # Using INTEL compiler
           FFLAGS:=-r8 -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR)
           OPT:=-O2 -no-ipo
@@ -36,8 +45,8 @@ ifeq ($(F90),mpif90)
           PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline
           #PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
           PETSC_DIR=/home/jinchen/LIB/petsc-3.12.0
-          HDF5_LIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lhdf5_hl -lhdf5 -lfftw3
           PETSC_ARCH=tigercpu-intel19_gts_petsc3120
+          HDF5_LIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lhdf5_hl -lhdf5 -lfftw3
           PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
           ###PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lcraypetsc_intel_real
           PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lz  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
@@ -76,7 +85,7 @@ endif
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
-LIB:=$(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
+LIB:=$(CUDA_LIB) $(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
 
 %.o : %.cpp
 	$(CPP)  $(COPT) -c $< -o $@
