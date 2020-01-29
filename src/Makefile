@@ -76,7 +76,7 @@ OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o 
      $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
      check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
      get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o\
-     weight_damping_new.o weight_damping_eon_new2.o sobol.o git_info.o
+     weight_damping_new.o weight_damping_eon_new2.o sobol.o mgy_petsc.o git_info.o
 #output_profiles.o
 
 #hypre openmp solver
