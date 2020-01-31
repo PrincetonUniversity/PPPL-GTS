@@ -8,10 +8,7 @@ module precision
    integer, parameter :: mpi_Rsize=MPI_DOUBLE_PRECISION,&
       mpi_complex_size=MPI_DOUBLE_COMPLEX
 
-   integer, parameter :: doubleprec=selected_real_kind(12),&
-      &singleprec=selected_real_kind(6),&
-      &int8=selected_int_kind(10),&  !Can hold int >10 billion
-      &wp=doubleprec   ! working precision
+   integer, parameter :: doubleprec=selected_real_kind(12),singleprec=selected_real_kind(6),int8=selected_int_kind(10), wp=doubleprec
 end module precision
 
 module global_parameters
@@ -341,6 +338,10 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: Jacobian, esi_N, esi_K, g_aa_cov, g_aq_cov, g_qq_cov, g_ff_cov
       real(wp), allocatable, dimension(:,:) :: D, g_aa_cntv, g_aq_cntv, g_qq_cntv, g_ff_cntv
       real(wp), allocatable, dimension(:,:,:) :: B0_cov3, B0_cntv3, j0_cov3, j0_cntv3
+
+      ! Test 2D phi calculated by solving 3D Poission equation
+      real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D
+      real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D
    end type
 
 

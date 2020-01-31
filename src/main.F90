@@ -236,6 +236,7 @@ program GTS
 
    ! ********************
    call Init_Diagnostic_Grid
+   call Construct_Poisson3D_Solver_using_DiagnosticGrid
    if(irun==0) then
       istep=0
       ! call get_Te_fluctuation_DirectlyFromParticles
@@ -494,6 +495,9 @@ program GTS
             acc_newer_H_zion=.false.
          endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
+
+         call Solve_Poisson3D_using_DiagnosticGrid
+
          call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables

@@ -4877,6 +4877,9 @@ subroutine Init_Diagnostic_Grid
    DG%inv_dgq = 1.0/DG%dgq
    DG%inv_ds  = DG%a_jump*(real(mpsi)/(s1-s0))
 
+   DG%zetamax = zetamax
+   DG%zetamin = zetamin
+
    Na=DG%dim_a
    Nq=DG%dim_gq
 
@@ -4893,6 +4896,9 @@ subroutine Init_Diagnostic_Grid
 
    allocate(DG%eScaData(Nq,Na,DG%num_eSD,0:1), DG%eVecData(3,Nq,Na,DG%num_eVD,0:1) )
    allocate(DG%iScaData(Nq,Na,DG%num_iSD,0:1), DG%iVecData(3,Nq,Na,DG%num_iVD,0:1) )
+
+   allocate(DG%test_phi_2D(Nq,Na),DG%test_src_2D(Nq,Na))
+   allocate(DG%test_phi_3D(Nq,Na,mzetamax),DG%test_src_3D(Nq,Na,mzetamax))
 
    k=1
    do i=0,mpsi,DG%a_jump
