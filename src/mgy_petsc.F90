@@ -259,31 +259,39 @@ subroutine Construct_Poisson3D_Solver_using_DiagnosticGrid
       tarGid(tnum,Lid)=mapP2G(gqid,aid,gfid+1); tarVal(tnum,Lid)=-Coeff_gf; tnum=tnum+1;
    enddo
 
-   ! Apply Neumann Condition at inner and outer boundary
+   ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
    do gfid=1,ntoroidal
       do gqid=1,DG%dim_gq-1
          ! Neumann condition (Er=0 at inner, outer boundary)
-         Lid=mapP2L(gqid,1,gfid)
+         Lid=mapP2L(gqid,2,gfid)
          if(Lid>0) then
             tarVal(:,Lid)=0
-            tarVal(1,Lid)=-1.0 !phi(aid=1)
-            tarVal(5,Lid)=+1.0 !phi(aid=2)
+            tarVal(1,Lid)=-1.0 !phi(aid=2)
+            tarVal(4,Lid)=+1.0 !phi(aid=1)
          endif
+         Lid=mapP2L(gqid,DG%dim_a-1,gfid)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=-1.0 !phi(aid=dim_a-1)
+            tarVal(5,Lid)=+1.0 !phi(aid=dim_a)
+         endif
+
+         ! Neumann condition (E_theta=0 at inner, outer boundary)
          Lid=mapP2L(gqid,DG%dim_a,gfid)
          if(Lid>0) then
             tarVal(:,Lid)=0
-            tarVal(1,Lid)=-1.0 !phi(aid=dim_a)
-            tarVal(4,Lid)=+1.0 !phi(aid=dim_a-1)
+            tarVal(1,Lid)=-1.0 !phi(aid=dim_a, gqid)
+            tarVal(3,Lid)=+1.0 !phi(aid=dim_a, gqid+1)
+         endif
+
+         !Dirichlet condition (phi=0 at inner boundary)
+         Lid=mapP2L(gqid,1,gfid)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=1.0 !phi(aid=1)
          endif
       enddo
    enddo
-   ! Set Reference potential value 0 at (gqid,aid,gfid)=(1,1,1)
-   if(mapP2L(1,2,1)>0) then
-      Lid=mapP2L(1,2,1)
-      tarVal(:,Lid)=0
-      tarVal(1,Lid)=1
-   endif
-
 
    ! if(mype==0) then
    !    do Lid=1,Lsize
@@ -353,13 +361,29 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    do gfid=1,mzetamax
       do gqid=1,DG%dim_gq-1
          ! Neumann condition (Er=0 at inner, outer boundary)
-         Lid=mapP2L(gqid,1,gfid)
+         Lid=mapP2L(gqid,2,gfid)
          if(Lid>0) then
             Gid=mapL2G(Lid)
             val=0
             call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
          endif
+         Lid=mapP2L(gqid,DG%dim_a-1,gfid)
+         if(Lid>0) then
+            Gid=mapL2G(Lid)
+            val=0
+            call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+         endif
+
+         ! Neumann condition (E_theta=0 at outer boundary)
          Lid=mapP2L(gqid,DG%dim_a,gfid)
+         if(Lid>0) then
+            Gid=mapL2G(Lid)
+            val=0
+            call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+         endif
+
+         !Dirichlet condition (phi=0 at inner boundary)
+         Lid=mapP2L(gqid,1,gfid)
          if(Lid>0) then
             Gid=mapL2G(Lid)
             val=0
@@ -368,13 +392,13 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
       enddo
    enddo
 
-   ! Set Zero bValue at the reference value
-   if(mapP2L(1,2,1)>0) then
-      Lid=mapP2L(1,2,1)
-      Gid=mapL2G(Lid)
-      val=0
-      call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-   endif
+   ! ! Set Zero bValue at the reference value
+   ! if(mapP2L(1,2,1)>0) then
+   !    Lid=mapP2L(1,2,1)
+   !    Gid=mapL2G(Lid)
+   !    val=0
+   !    call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+   ! endif
 
 
 
