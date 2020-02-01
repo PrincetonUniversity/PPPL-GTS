@@ -340,8 +340,8 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:,:) :: B0_cov3, B0_cntv3, j0_cov3, j0_cntv3
 
       ! Test 2D phi calculated by solving 3D Poission equation
-      real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D
-      real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D
+      real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D, test_res_2D
+      real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D, test_res_3D
    end type
 
 

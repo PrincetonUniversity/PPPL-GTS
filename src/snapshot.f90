@@ -510,7 +510,7 @@ subroutine snapshot_hdf5
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
    real(wp) :: intp_val, intp_val2
-   real(wp), dimension(:), allocatable ::intp_val_Arr  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
+   real(wp), dimension(:), allocatable ::intp_val_Arr, test_dphi_3D  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
    integer :: i,j,ij,k,jt,jm,istatus(MPI_STATUS_SIZE),ierror, pbid
    real(wp) full_dphi(0:1,mgrid), intpl_dphi_NZ(0:1), dne_adiabatic(0:1,mgrid)
    real(wp) full_dni(0:1,mgrid), full_dne(0:1,mgrid), FLA_full_dni(0:1,mgrid), FLA_full_dne(0:1,mgrid)
@@ -758,6 +758,18 @@ subroutine snapshot_hdf5
    call MPI_SENDRECV(intp_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, left_pe, myrank_toroidal, &
       right_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
 
+
+   ! Gather mean_full_dphi into test_dphi_3D to record full 3D potential
+   if(myrank_partd==nproc_partd-1) then
+      h5dims(1:2)=(/dim_gq, dim_a/)
+      allocate(intp_val_Arr(dim_a*dim_gq))
+      allocate(test_dphi_3D(dim_a*dim_gq*mzetamax))
+
+      ! (temporal) Mean full_dphi
+      call Interpolate_Data_into_Coarser_Grids(mean_full_dphi(1,:),gq_jump,a_jump,intp_val_Arr)
+      call MPI_ALLGATHER(intp_val_Arr,dim_a*dim_gq,mpi_Rsize,test_dphi_3D,dim_a*dim_gq,mpi_Rsize,toroidal_comm,h5err)
+      deallocate(intp_val_Arr)
+   endif
 
 
 
@@ -1093,6 +1105,10 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "mean_full_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dphi", "unit", "V", h5err)
 
+      h5dims(1:3)=(/dim_gq, dim_a, mzetamax/)
+      call h5ltmake_dataset_f(file_id, "mean_full_dphi_3D",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*test_dphi_3D,h5err)
+      call h5ltset_attribute_string_f(file_id, "mean_full_dphi_3D", "unit", "V", h5err)
+
       ! Mean full_dphi of Right poloidal plane
       call h5ltmake_dataset_f(file_id, "mean_full_dphi_Right",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*right_intp_mean_full_dphi,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dphi_Right", "unit", "V", h5err)
@@ -1362,11 +1378,13 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLabel_Function(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%test_phi_2D,h5err)
       call h5ltmake_dataset_f(gid_DG, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_src_2D,h5err)
+      call h5ltmake_dataset_f(gid_DG, "test_res_2D",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_res_2D,h5err)
 
       !Following 3D data are for temporary diagnostic purpose
       h5dims(1:3)=(/DG%dim_gq,DG%dim_a,mzetamax/)
       call h5ltmake_dataset_f(gid_DG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, DG%test_phi_3D,h5err)
       call h5ltmake_dataset_f(gid_DG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_src_3D,h5err)
+      call h5ltmake_dataset_f(gid_DG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_res_3D,h5err)
       h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
 
       call h5ltmake_dataset_f(gid_DG_FLA, "Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_Denominator(:,:,1),h5err)
@@ -1589,6 +1607,10 @@ subroutine snapshot_hdf5
    deallocate(intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi)
    deallocate(intp_mean_dE_cov3, right_mean_dE_cov3, left_mean_dE_cov3)
    deallocate(intp_FLA_dE_cov3, right_FLA_dE_cov3, left_FLA_dE_cov3)
+
+   if(myrank_partd==nproc_partd-1) then
+      deallocate(test_dphi_3D)
+   endif
 
    if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
       deallocate(DG_FLA_eScaData, DG_FLA_iScaData)

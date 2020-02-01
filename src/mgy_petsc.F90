@@ -9,7 +9,7 @@ module MGY_PETSc_Interface_Data
 
 
    type(PEST_Coord),allocatable,dimension(:) :: mapG2P ! From Global node index to PEST node indices
-   PetscInt, allocatable, dimension(:,:,:) :: mapP2G ! From PEST indices to Global node index
+   PetscInt, allocatable, dimension(:,:,:) :: mapP2G, mapP2L ! From PEST indices to Global or Local node index
    PetscInt, allocatable, dimension(:) :: mapL2G ! From Local indices to Global indices (this depends on the MPI process)
    PetscInt Lsize, Gsize, sum_Lsize_partd ! Size of Local nodes and Global nodes
    PetscInt, allocatable, dimension(:) :: recv_Lsize_partd, displs_Lsize_partd
@@ -62,7 +62,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
    allocate(mapL2G(Lsize))
    allocate(mapG2P(0:neq_All3D-1)) ! 1-dimensional array (starting index is 0 because of PETSc's C-style indexing)
    allocate(mapP2G(0:dim_gq,0:dim_a+1,0:dim_gf+1)) ! 3-dimensional array (Note that 0, and dim+1 are ghost nodes)
-
+   allocate(mapP2L(0:dim_gq,0:dim_a+1,0:dim_gf+1))
    ! Construct mapping from Local to Global index
    do Lid=1,Lsize
       mapL2G(Lid)=Gid_start+(Lid-1)
@@ -79,6 +79,12 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
             Gid=Gid+1
          enddo
       enddo
+   enddo
+
+   mapP2L=-100 ! Default value is negative (-100), so one can tell whether a specific PETS point is out of the its process (mapP2L<0)
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      mapP2L(mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid)=Lid
    enddo
 
    ! Fill ghost nodes of mapP2G
@@ -206,7 +212,7 @@ subroutine Finalize_MGY_PETSc_Interface_Data
    use MGY_PETSc_Interface_Data
    implicit none
 
-   deallocate(mapG2P,mapP2G,mapL2G)
+   deallocate(mapG2P,mapP2G,mapP2L,mapL2G)
    deallocate(recv_Lsize_partd,displs_Lsize_partd)
    deallocate(recv_mapL2G_partd)
 
@@ -217,7 +223,7 @@ subroutine Construct_Poisson3D_Solver_using_DiagnosticGrid
    use MGY_PETSc_Interface_Data
    use Diagnostic_Grid
    use particle_decomp
-   use global_parameters,only:mype,stdout,zetamax,zetamin
+   use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
    implicit none
 
    PetscInt Lid,Gid,gqid,aid,gfid,tnum
@@ -243,8 +249,6 @@ subroutine Construct_Poisson3D_Solver_using_DiagnosticGrid
       Coeff_a  = DG%g_aa_cntv(gqid,aid)*(dsda(DG%a_1D(aid))*DG%inv_ds)**2.0
       Coeff_gf = DG%g_ff_cntv(gqid,aid)/((zetamax-zetamin)**2.0)
 
-      if(mype==0) write(stdout,"(A,I5,A,3(I5,1x),3(A,ES13.5))") "Lid=",Lid,",(gq,a,gf)id=(",gqid,aid,gfid, "), Coeff_gq=",Coeff_gq,", Coeff_a=",Coeff_a, ", Coeff_gf",Coeff_gf
-
       tnum=1
       tarGid(tnum,Lid)=mapP2G(gqid,aid,gfid);   tarVal(tnum,Lid)=2.0*(Coeff_gq+Coeff_a+Coeff_gf);  tnum=tnum+1;
       tarGid(tnum,Lid)=mapP2G(gqid-1,aid,gfid); tarVal(tnum,Lid)=-Coeff_gq; tnum=tnum+1;
@@ -255,7 +259,42 @@ subroutine Construct_Poisson3D_Solver_using_DiagnosticGrid
       tarGid(tnum,Lid)=mapP2G(gqid,aid,gfid+1); tarVal(tnum,Lid)=-Coeff_gf; tnum=tnum+1;
    enddo
 
-   
+   ! Apply Neumann Condition at inner and outer boundary
+   do gfid=1,ntoroidal
+      do gqid=1,DG%dim_gq-1
+         ! Neumann condition (Er=0 at inner, outer boundary)
+         Lid=mapP2L(gqid,1,gfid)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=-1.0 !phi(aid=1)
+            tarVal(5,Lid)=+1.0 !phi(aid=2)
+         endif
+         Lid=mapP2L(gqid,DG%dim_a,gfid)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=-1.0 !phi(aid=dim_a)
+            tarVal(4,Lid)=+1.0 !phi(aid=dim_a-1)
+         endif
+      enddo
+   enddo
+   ! Set Reference potential value 0 at (gqid,aid,gfid)=(1,1,1)
+   if(mapP2L(1,2,1)>0) then
+      Lid=mapP2L(1,2,1)
+      tarVal(:,Lid)=0
+      tarVal(1,Lid)=1
+   endif
+
+
+   ! if(mype==0) then
+   !    do Lid=1,Lsize
+   !       Gid=mapL2G(Lid)
+   !       gqid=mapG2P(Gid)%gqid
+   !       aid=mapG2P(Gid)%aid
+   !       gfid=mapG2P(Gid)%gfid
+   !       write(stdout,"(2(A,I5),A,3(I5,1x),A,7(ES10.2,1x))") "Lid=",Lid,",Gid=",Gid,",(gq,a,gf)id=(",gqid,aid,gfid, "), tarVal=", tarVal(:,Lid)
+   !    enddo
+   !    call flush(stdout)
+   ! endif
 
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
@@ -287,18 +326,18 @@ end subroutine Construct_Poisson3D_Solver_using_DiagnosticGrid
 
 subroutine Solve_Poisson3D_using_DiagnosticGrid()
    use precision, only:wp
-   use global_parameters, only:stdout,mype,ifelectron
+   use global_parameters, only:stdout,mype,ifelectron,mzetamax
    use MGY_PETSc_Interface_Data
    use Diagnostic_Grid
    use particle_decomp
    implicit none
 
-   PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:)
-   PetscInt Lid,Gid,its
+   PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
+   PetscInt Lid,Gid,its, gqid,gfid
    PetscReal val, res_norm2, src_norm2
    PetscErrorCode ierr
    PetscReal source(DG%dim_gq,DG%dim_a)
-   PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:)
+   PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
    real(wp) tt0,tt1
 
    source = DG%iScaData(:,:,1,1)-(DG%eScaData(:,:,1,1)+int(ifelectron/2)*DG%dne_adiab)
@@ -309,6 +348,37 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
       val=source(mapG2P(Gid)%gqid,mapG2P(Gid)%aid)
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
+
+   ! Set Zero bValues at both inner&outer boundary fo Neumann Condition
+   do gfid=1,mzetamax
+      do gqid=1,DG%dim_gq-1
+         ! Neumann condition (Er=0 at inner, outer boundary)
+         Lid=mapP2L(gqid,1,gfid)
+         if(Lid>0) then
+            Gid=mapL2G(Lid)
+            val=0
+            call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+         endif
+         Lid=mapP2L(gqid,DG%dim_a,gfid)
+         if(Lid>0) then
+            Gid=mapL2G(Lid)
+            val=0
+            call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+         endif
+      enddo
+   enddo
+
+   ! Set Zero bValue at the reference value
+   if(mapP2L(1,2,1)>0) then
+      Lid=mapP2L(1,2,1)
+      Gid=mapL2G(Lid)
+      val=0
+      call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+   endif
+
+
+
+
    call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
    call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
 
@@ -333,7 +403,6 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    call VecGetArrayReadF90(xVec,ptr_xVec,ierr)
    xVec_mype(:)=ptr_xVec(1:Lsize)
    call VecRestoreArrayReadF90(xVec,ptr_xVec,ierr)
-
    call MPI_ALLGATHERV(xVec_mype,Lsize,mpi_Rsize,xVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
    do Lid=1,sum_Lsize_partd
       Gid=recv_mapL2G_partd(Lid)
@@ -343,25 +412,37 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    deallocate(xVec_mype, xVec_partd)
 
 
-   ! Copy bVec (solution) to the DG%test_phi vector
+   ! Copy bVec (source) to the DG%test_phi vector
    allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
    call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
    bVec_mype(:)=ptr_bVec(1:Lsize)
    call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
-
    call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
    do Lid=1,sum_Lsize_partd
       Gid=recv_mapL2G_partd(Lid)
       DG%test_src_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
    enddo
    DG%test_src_2D(DG%dim_gq,:)=DG%test_src_2D(1,:)
-
    deallocate(bVec_mype, bVec_partd)
+
+   ! Copy ResVec (residual=A*x-b) to the DG%test_phi vector
+   allocate(ResVec_mype(Lsize), ResVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(ResVec,ptr_ResVec,ierr)
+   ResVec_mype(:)=ptr_ResVec(1:Lsize)
+   call VecRestoreArrayReadF90(ResVec,ptr_ResVec,ierr)
+   call MPI_ALLGATHERV(ResVec_mype,Lsize,mpi_Rsize,ResVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      DG%test_res_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = ResVec_partd(Lid)
+   enddo
+   DG%test_res_2D(DG%dim_gq,:)=DG%test_res_2D(1,:)
+   deallocate(ResVec_mype, ResVec_partd)
 
 
    ! To get full 3D data for diagnostic purpose
-   call MPI_ALLGATHER(DG%test_phi_2D,sum_Lsize_partd,mpi_Rsize,DG%test_phi_3D,sum_Lsize_partd,mpi_Rsize,toroidal_comm,ierr)
-   call MPI_ALLGATHER(DG%test_src_2D,sum_Lsize_partd,mpi_Rsize,DG%test_src_3D,sum_Lsize_partd,mpi_Rsize,toroidal_comm,ierr)
+   call MPI_ALLGATHER(DG%test_phi_2D,DG%dim_gq*DG%dim_a,mpi_Rsize,DG%test_phi_3D,DG%dim_gq*DG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   call MPI_ALLGATHER(DG%test_src_2D,DG%dim_gq*DG%dim_a,mpi_Rsize,DG%test_src_3D,DG%dim_gq*DG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   call MPI_ALLGATHER(DG%test_res_2D,DG%dim_gq*DG%dim_a,mpi_Rsize,DG%test_res_3D,DG%dim_gq*DG%dim_a,mpi_Rsize,toroidal_comm,ierr)
 
 end subroutine Solve_Poisson3D_using_DiagnosticGrid
 
