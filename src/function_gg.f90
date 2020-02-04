@@ -4857,10 +4857,10 @@ subroutine Init_Diagnostic_Grid
 
    integer i,j,k,aid,gqid,ij,Na,Nq
    integer pbid ! probe id
-   real(wp), external :: temperature, temperature_e, density, Cal_FLabel_Function
+   real(wp), external :: temperature, temperature_e, density, Cal_FLabel_Function, dsda
 
    ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
-   real(wp) approx_da, approx_dgf
+   real(wp) approx_da, approx_dgf, tmp
    real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data1, tmp_DG_Data2
    integer ierror, istatus(MPI_STATUS_SIZE)
    real(wp) uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
@@ -4933,6 +4933,9 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%B0_cov3(3,Nq,Na))
    allocate(DG%B0_cntv3(3,Nq,Na),DG%j0_cov3(3,Nq,Na),DG%j0_cntv3(3,Nq,Na))
 
+   allocate(DG%g_ss_cntv(Nq,Na),DG%g_sq_cntv(Nq,Na),DG%g_ss_cov(Nq,Na),DG%g_sq_cov(Nq,Na),DG%Jacob_sqf(Nq,Na))
+   allocate(DG%B0_cntv3_sqf(3,Nq,Na))
+
    call esiget2dthese_more(DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,DG%a_2D,DG%gq_2D, Nq*Na)
 
    DG%Jacobian = DG%R*(DG%dZda*DG%dRdgq-DG%dZdgq*DG%dRda)
@@ -4951,8 +4954,8 @@ subroutine Init_Diagnostic_Grid
    DG%j0_cntv3(2,:,:) = -DG%dFda/DG%Jacobian
    DG%j0_cntv3(3,:,:) = DG%P + DG%T/(DG%R**2)
 
-   DG%g_aa_cov   = DG%dRda*DG%dRda+DG%dZda*DG%dZda
-   DG%g_aq_cov  = DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq
+   DG%g_aa_cov = DG%dRda*DG%dRda+DG%dZda*DG%dZda
+   DG%g_aq_cov = DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq
    DG%g_qq_cov = DG%dRdgq*DG%dRdgq+DG%dZdgq*DG%dZdgq
    DG%g_ff_cov = DG%R**2
 
@@ -4962,6 +4965,22 @@ subroutine Init_Diagnostic_Grid
    DG%g_qq_cntv=(DG%dZda**2+DG%dRda**2)/DG%D**2   ! DG%gradtheta^2
    DG%g_ff_cntv=1.0/DG%R**2                 ! DG%gradphi^2
    DG%g_aq_cntv=(-DG%dRda*DG%dRdgq-DG%dZda*DG%dZdgq)/DG%D**2  ! DG%gradagradtheta
+
+
+   ! Metrics regarding s coordinate
+   do aid=1,DG%dim_a
+      tmp=dsda(DG%a_1D(aid))
+      DG%g_ss_cov(:,aid)   = DG%g_aa_cov(:,aid)/(tmp**2.0)
+      DG%g_sq_cov(:,aid)   = DG%g_aq_cov(:,aid)/tmp
+
+      DG%g_ss_cntv(:,aid)  = DG%g_aa_cntv(:,aid)*(tmp**2.0)
+      DG%g_sq_cntv(:,aid)  = DG%g_aq_cntv(:,aid)*tmp
+
+      DG%Jacob_sqf(:,aid) = DG%Jacobian(:,aid)/tmp
+
+      DG%B0_cntv3_sqf(1,:,aid) = DG%B0_cntv3(1,:,aid)*tmp
+   enddo
+   DG%B0_cntv3_sqf(2:3,:,:)=DG%B0_cntv3(2:3,:,:)
 
    DG%j0_cov3(1,:,:) = DG%g_aa_cov*DG%j0_cntv3(1,:,:) + DG%g_aq_cov*DG%j0_cntv3(2,:,:)
    DG%j0_cov3(2,:,:) = DG%g_aq_cov*DG%j0_cntv3(1,:,:) + DG%g_qq_cov*DG%j0_cntv3(2,:,:)
