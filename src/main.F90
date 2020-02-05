@@ -237,7 +237,8 @@ program GTS
    ! ********************
    call Init_Diagnostic_Grid
    ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
-   call Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
+   ! call Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
+   call Construct_GK_Poisson3D_Solver_with_Extremal_Method
    if(irun==0) then
       istep=0
       ! call get_Te_fluctuation_DirectlyFromParticles

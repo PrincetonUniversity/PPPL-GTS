@@ -141,6 +141,36 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
    ! call flush(stdout)
    ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
+   if(mype==0) then
+      open(unit=200205,file="mapG2P.dat",action='write')
+      do Gid=0,Gsize-1
+         write(200205,"(4(I8))") Gid, mapG2P(Gid)%gqid, mapG2P(Gid)%aid, mapG2P(Gid)%gfid
+      enddo
+      call flush(200205)
+      close(200205)
+
+      open(unit=200205,file="mapL2G.dat",action='write')
+      do Lid=1,Lsize
+         write(200205,"(2(I8))") Lid, mapL2G(Lid)
+      enddo
+      call flush(200205)
+      close(200205)
+
+
+      open(unit=200205,file="mapP2LandP2G.dat",action='write')
+      do gfid=0,dim_gf+1
+         do aid=0,dim_a+1
+            do gqid=0,dim_gq
+               if(mapP2G(gqid,aid,gfid)>0) then
+                  write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), mapP2G(gqid,aid,gfid), gqid, aid, gfid
+               endif
+            enddo
+         enddo
+      enddo
+      call flush(200205)
+      close(200205)
+
+   endif
 
 
 end subroutine Initialize_MGY_PETSc_Interface_Data
@@ -272,6 +302,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
+   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
    call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
@@ -381,6 +412,8 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
+
+   ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
    call MatMult(Amat,xVec,ResVec,ierr); CHKERRQ(ierr)
@@ -768,7 +801,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
@@ -792,17 +825,229 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
 
 end subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
 
+subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
+   use MGY_PETSc_Interface_Data
+   use Diagnostic_Grid
+   use particle_decomp
+   use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   PetscInt, allocatable :: tarGid(:,:)
+   PetscReal, allocatable :: tarVal(:,:)
+   real tt0, tt1
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   real, external:: dsda
+   integer :: max_nnz=19 ! maximum number of non-zero values per each row
+   integer, allocatable :: o_nnz(:), d_nnz(:)
+   integer :: dim_gq, dim_a
+   PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
+
+   dim_a =DG%dim_a
+   dim_gq=DG%dim_gq
+
+   call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
+
+   ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
+   ! Note that there are ghost cells for easier indexing
+   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1), Eps_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   call Determine_GK_PoissonTensors_on_DiagnosticGrid()
+
+   allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+
+      ! 2 (gqid-1) & 3 (gqid+1)
+      AntiSym1 = 0.5*(CT(1,2,qq+1,ss,0)-CT(1,2,qq-1,ss,0))
+      AntiSym2 = 0.5*(CT(3,2,qq+1,ss,0)-CT(3,2,qq-1,ss,0))
+      tarGid(2 ,Lid) = mapP2G(qq-1,ss,ff)
+      tarVal(2 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq-1,ss,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(3 ,Lid) = mapP2G(qq+1,ss,ff)
+      tarVal(3 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq+1,ss,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 4 (sid-1) & 5 (sid+1)
+      AntiSym1 = 0.5*(CT(2,1,qq,ss+1,0)-CT(2,1,qq,ss-1,0))
+      AntiSym2 = 0.5*(CT(3,1,qq,ss+1,0)-CT(3,1,qq,ss-1,0))
+      tarGid(4 ,Lid) = mapP2G(qq,ss-1,ff)
+      tarVal(4 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss-1,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(5 ,Lid) = mapP2G(qq,ss+1,ff)
+      tarVal(5 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss+1,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 6 (gfid-1) & 7 (gfid+1)
+      AntiSym1 = 0.5*(CT(1,3,qq,ss,+1)-CT(1,3,qq,ss,-1))
+      AntiSym2 = 0.5*(CT(2,3,qq,ss,+1)-CT(2,3,qq,ss,-1))
+      tarGid(6 ,Lid) = mapP2G(qq,ss,ff-1)
+      tarVal(6 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,-1)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(7 ,Lid) = mapP2G(qq,ss,ff+1)
+      tarVal(7 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,+1)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+
+
+
+      Sym1 = 0.25*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+      ! 8 (sid+1,qid+1) & 9 (sid-1,qid-1)
+      tarGid(8 ,Lid) = mapP2G(qq+1,ss+1,ff)
+      tarVal(8 ,Lid) = +Sym1
+      tarGid(9 ,Lid) = mapP2G(qq-1,ss-1,ff)
+      tarVal(9 ,Lid) = +Sym1
+      ! 10 (sid+1,qid-1) & 11 (sid-1,qid+1)
+      tarGid(10,Lid) = mapP2G(qq-1,ss+1,ff)
+      tarVal(10,Lid) = -Sym1
+      tarGid(11,Lid) = mapP2G(qq+1,ss-1,ff)
+      tarVal(11,Lid) = -Sym1
+
+      Sym1 = 0.25*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+      ! 12 (sid+1,gfid+1) & 13 (sid-1,gfid-1)
+      tarGid(12,Lid) = mapP2G(qq,ss+1,ff+1)
+      tarVal(12,Lid) = +Sym1
+      tarGid(13,Lid) = mapP2G(qq,ss-1,ff-1)
+      tarVal(13,Lid) = +Sym1
+      ! 14 (sid+1,gfid-1) & 15 (sid-1,gfid+1)
+      tarGid(14,Lid) = mapP2G(qq,ss+1,ff-1)
+      tarVal(14,Lid) = -Sym1
+      tarGid(15,Lid) = mapP2G(qq,ss-1,ff+1)
+      tarVal(15,Lid) = -Sym1
+
+
+      Sym1 = 0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+      ! 16 (gqid+1,gfid+1) & 17  (gqid-1, gfid-1)
+      tarGid(16,Lid) = mapP2G(qq+1,ss,ff+1)
+      tarVal(16,Lid) = +Sym1
+      tarGid(17,Lid) = mapP2G(qq-1,ss,ff-1)
+      tarVal(17,Lid) = +Sym1
+      ! 18 (gqid+1,gfid-1) & 18 (gqid-1, gfid+1)
+      tarGid(18,Lid) = mapP2G(qq+1,ss,ff-1)
+      tarVal(18,Lid) = -Sym1
+      tarGid(19,Lid) = mapP2G(qq-1,ss,ff+1)
+      tarVal(19,Lid) = -Sym1
+
+
+      ! 1 (gqid,sid,gfid)
+      tarGid(1,Lid)=mapP2G(qq,ss,ff)
+      tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+
+      ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+      ! so make sure that target coefficient values represent (-nabla*(eps_T*nabla*phi))
+      tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+
+   enddo
+
+   ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
+   do ff=1,ntoroidal
+      do qq=1,dim_gq-1
+         ! Neumann condition (Er=0 at inner, outer boundary)
+         Lid=mapP2L(qq,2,ff)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=-1.0 !phi(ss=2)
+            tarVal(4,Lid)=+1.0 !phi(ss=1)
+         endif
+         Lid=mapP2L(qq,dim_a-1,ff)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=-1.0 !phi(ss=dim_a-1)
+            tarVal(5,Lid)=+1.0 !phi(ss=dim_a)
+         endif
+
+         ! Neumann condition (E_theta=0 at inner, outer boundary)
+         Lid=mapP2L(qq,dim_a,ff)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=-1.0 !phi(ss=dim_a, qq)
+            tarVal(3,Lid)=+1.0 !phi(ss=dim_a, qq+1)
+         endif
+
+         !Dirichlet condition (phi=0 at inner boundary)
+         Lid=mapP2L(qq,1,ff)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=1.0 !phi(ss=1)
+         endif
+      enddo
+   enddo
+
+
+   ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
+   allocate(d_nnz(Lsize), o_nnz(Lsize))
+   d_nnz=0; o_nnz=0;
+   do Lid=1,Lsize
+      do tnum=1,max_nnz
+         if(tarGid(tnum,Lid)>=0) then
+            if(tarGid(tnum,Lid)<Gid_start .or. tarGid(tnum,Lid)>Gid_end) then
+               o_nnz(Lid)=o_nnz(Lid)+1
+            else
+               d_nnz(Lid)=d_nnz(Lid)+1
+            endif
+         endif
+      enddo
+   enddo
+
+
+   ! Construct Matrix (Amat)
+   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(Amat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   ! Preallocate the memory using o_nnz and d_nnz
+   call MatMPIAIJSetPreallocation(Amat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+
+   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
+   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
+   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
+
+   ! Construct KSP
+   tt0=MPI_WTIME()
+   call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
+   call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   deallocate(tarGid, tarVal)
+   deallocate(d_nnz, o_nnz)
+
+end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
+
 
 subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
    use precision, only:wp
-   use global_parameters, only:stdout,mype,ifelectron,mzetamax,msm0
+   use global_parameters, only:stdout,mype,ifelectron,mzetamax,msm0,amasse,amassi
    use MGY_PETSc_Interface_Data
    use Diagnostic_Grid
    use particle_decomp
    implicit none
 
    integer sid,gqid,i,j
-   real(wp) invBsq,n0,tmp ! 1/(B^2)
+   real(wp) invEpsilon,invBsq,n0,tmp ! 1/(B^2)
    real(wp), external :: density
    real(wp) inv_du(3)
    integer istatus(MPI_STATUS_SIZE), icount, ierror
@@ -826,15 +1071,17 @@ subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
    Metric_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
    Metric_T(:,:,:,DG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
+   invEpsilon=1.0/8.8541878128e-12
 
    do sid=1,DG%dim_a
       ! Assuming the static equilibrium density for ions and electrons
-      n0=density(DG%a_1D(sid))
+      n0=1e6*density(DG%a_1D(sid)) ! unit (#/m^(3))
       do gqid=1,DG%dim_gq
-         invBsq=1.0/(DG%BB(gqid,sid)**2.0)
+         invBsq=1.0/(DG%BB(gqid,sid)**2.0) ! unit (T^2)
+         ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",DG%BB(gqid,sid), ", Polar(sid)=", invEpsilon*1e-3*(n0*amasse + n0*amassi)*invBsq
          do j=1,3
             do i=1,3
-               tmp=(n0 + n0*msm0)*invBsq  ! Polarization contribution from ions (n0) and electrons (n0*msm0)
+               tmp=invEpsilon*1e-3*(n0*amasse + n0*amassi)*invBsq  ! Polarization contribution from ions (n0*(1e-3*amassi)) and electrons (n0*1e-3*amasse)
                Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(DG%B0_cntv3_sqf(i,gqid,sid)*DG%B0_cntv3_sqf(j,gqid,sid)))
             enddo
          enddo
