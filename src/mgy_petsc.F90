@@ -733,27 +733,27 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
    ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
    do ff=1,ntoroidal
       do qq=1,dim_gq-1
-         ! Neumann condition (Er=0 at inner, outer boundary)
-         Lid=mapP2L(qq,2,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=-1.0 !phi(ss=2)
-            tarVal(4,Lid)=+1.0 !phi(ss=1)
-         endif
-         Lid=mapP2L(qq,dim_a-1,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=-1.0 !phi(ss=dim_a-1)
-            tarVal(5,Lid)=+1.0 !phi(ss=dim_a)
-         endif
+         ! ! Neumann condition (Er=0 at inner, outer boundary)
+         ! Lid=mapP2L(qq,2,ff)
+         ! if(Lid>0) then
+         !    tarVal(:,Lid)=0
+         !    tarVal(1,Lid)=-1.0 !phi(ss=2)
+         !    tarVal(4,Lid)=+1.0 !phi(ss=1)
+         ! endif
+         ! Lid=mapP2L(qq,dim_a-1,ff)
+         ! if(Lid>0) then
+         !    tarVal(:,Lid)=0
+         !    tarVal(1,Lid)=-1.0 !phi(ss=dim_a-1)
+         !    tarVal(5,Lid)=+1.0 !phi(ss=dim_a)
+         ! endif
 
-         ! Neumann condition (E_theta=0 at inner, outer boundary)
-         Lid=mapP2L(qq,dim_a,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=-1.0 !phi(ss=dim_a, qq)
-            tarVal(3,Lid)=+1.0 !phi(ss=dim_a, qq+1)
-         endif
+         ! ! Neumann condition (E_theta=0 at inner, outer boundary)
+         ! Lid=mapP2L(qq,dim_a,ff)
+         ! if(Lid>0) then
+         !    tarVal(:,Lid)=0
+         !    tarVal(1,Lid)=-1.0 !phi(ss=dim_a, qq)
+         !    tarVal(3,Lid)=+1.0 !phi(ss=dim_a, qq+1)
+         ! endif
 
          !Dirichlet condition (phi=0 at inner boundary)
          Lid=mapP2L(qq,1,ff)
@@ -761,9 +761,15 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
             tarVal(:,Lid)=0
             tarVal(1,Lid)=1.0 !phi(ss=1)
          endif
+
+         !Dirichlet condition (phi=0 at outer boundary)
+         Lid=mapP2L(qq,dim_a,ff)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=1.0 !phi(ss=dim_a, qq)
+         endif
       enddo
    enddo
-
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
    allocate(d_nnz(Lsize), o_nnz(Lsize))
@@ -945,33 +951,40 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
    do ff=1,ntoroidal
       do qq=1,dim_gq-1
-         ! Neumann condition (Er=0 at inner, outer boundary)
-         Lid=mapP2L(qq,2,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=-1.0 !phi(ss=2)
-            tarVal(4,Lid)=+1.0 !phi(ss=1)
-         endif
-         Lid=mapP2L(qq,dim_a-1,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=-1.0 !phi(ss=dim_a-1)
-            tarVal(5,Lid)=+1.0 !phi(ss=dim_a)
-         endif
+         ! ! Neumann condition (Er=0 at inner, outer boundary)
+         ! Lid=mapP2L(qq,2,ff)
+         ! if(Lid>0) then
+         !    tarVal(:,Lid)=0
+         !    tarVal(1,Lid)=-1.0 !phi(ss=2)
+         !    tarVal(4,Lid)=+1.0 !phi(ss=1)
+         ! endif
+         ! Lid=mapP2L(qq,dim_a-1,ff)
+         ! if(Lid>0) then
+         !    tarVal(:,Lid)=0
+         !    tarVal(1,Lid)=-1.0 !phi(ss=dim_a-1)
+         !    tarVal(5,Lid)=+1.0 !phi(ss=dim_a)
+         ! endif
 
-         ! Neumann condition (E_theta=0 at inner, outer boundary)
-         Lid=mapP2L(qq,dim_a,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=-1.0 !phi(ss=dim_a, qq)
-            tarVal(3,Lid)=+1.0 !phi(ss=dim_a, qq+1)
-         endif
+         ! ! Neumann condition (E_theta=0 at inner, outer boundary)
+         ! Lid=mapP2L(qq,dim_a,ff)
+         ! if(Lid>0) then
+         !    tarVal(:,Lid)=0
+         !    tarVal(1,Lid)=-1.0 !phi(ss=dim_a, qq)
+         !    tarVal(3,Lid)=+1.0 !phi(ss=dim_a, qq+1)
+         ! endif
 
          !Dirichlet condition (phi=0 at inner boundary)
          Lid=mapP2L(qq,1,ff)
          if(Lid>0) then
             tarVal(:,Lid)=0
             tarVal(1,Lid)=1.0 !phi(ss=1)
+         endif
+
+         !Dirichlet condition (phi=0 at outer boundary)
+         Lid=mapP2L(qq,dim_a,ff)
+         if(Lid>0) then
+            tarVal(:,Lid)=0
+            tarVal(1,Lid)=1.0 !phi(ss=dim_a, qq)
          endif
       enddo
    enddo

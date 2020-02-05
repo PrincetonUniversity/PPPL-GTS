@@ -496,6 +496,7 @@ subroutine snapshot_hdf5
    use hdf5
    use h5lt
    use Diagnostic_Grid
+   use MGY_PETSc_Interface_Data,only:CT,Metric_T,Polar_T
 
    implicit none
 
@@ -504,7 +505,7 @@ subroutine snapshot_hdf5
    integer :: dim_a, dim_gq
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
-   integer(HSIZE_T) :: h5dims(3)
+   integer(HSIZE_T) :: h5dims(5)
    integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid
    integer :: h5err
    logical :: snap_flag=.false.
@@ -1385,6 +1386,15 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, DG%test_phi_3D,h5err)
       call h5ltmake_dataset_f(gid_DG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_src_3D,h5err)
       call h5ltmake_dataset_f(gid_DG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_res_3D,h5err)
+
+      h5dims(1:2)=3
+      h5dims(3)=DG%dim_gq+1
+      h5dims(4)=DG%dim_a+2
+      h5dims(5)=3
+      call h5ltmake_dataset_f(gid_DG, "test_CT",5,h5dims,H5T_NATIVE_DOUBLE, CT,h5err)
+      call h5ltmake_dataset_f(gid_DG, "test_Metric_T",4,h5dims,H5T_NATIVE_DOUBLE, Metric_T,h5err)
+      call h5ltmake_dataset_f(gid_DG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
+
       h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
 
       call h5ltmake_dataset_f(gid_DG_FLA, "Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_Denominator(:,:,1),h5err)
