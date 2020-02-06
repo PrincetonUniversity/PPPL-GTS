@@ -93,7 +93,7 @@ subroutine poisson( solver, masssolver )
    !      ifelectron=0 --> adiabatic electrons
    !      ifelectron=1 --> full delta-f electrons
    !      ifelectron=2 --> delta-h electrons (non-adiabatic electrons)
-
+   old_phi=phi
    if(ifelectron==1) then  ! full delta-f electron case
       ! this part works for both ZF_SEPARATION=0 and 1
 
@@ -123,8 +123,24 @@ subroutine poisson( solver, masssolver )
          enddo
       enddo
 
-      do i=0, mpsi
-         dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+      zonali=0.0;
+      zonale=0.0;
+      dentmp=0.0;
+      dentmp=test_src
+
+      do i=0,mpsi
+         tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
+         do j=1,mtheta(i)
+            ij=igrid(i)+j
+            if(adiab > 0.0_wp) then
+               dentmp(ij) = dentmp(ij) + adiab * abs(csc0) * m0ms * tmp_Te0_inverse * phi(1, ij)
+            else
+               dentmp(ij) = dentmp(ij) + 0.01/(Cs*Cs) * phi(1,ij)
+            endif
+            do i=0, mpsi
+               dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+            enddo
+         enddo
       enddo
 
 

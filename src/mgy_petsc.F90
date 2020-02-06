@@ -333,17 +333,33 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    use MGY_PETSc_Interface_Data
    use Diagnostic_Grid
    use particle_decomp
+   use field_array, only: test_src
    implicit none
 
    PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
-   PetscInt Lid,Gid,num_its, gqid,gfid
-   PetscReal val, res_norm2, src_norm2
+   PetscInt Lid,Gid,num_its, gqid,gfid,aid
+   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff
    PetscErrorCode ierr
    PetscReal source(DG%dim_gq,DG%dim_a)
    PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
    real(wp) tt0,tt1
+   real(wp), external :: density
 
-   source = DG%iScaData(:,:,1,1)-(DG%eScaData(:,:,1,1)+int(ifelectron/2)*DG%dne_adiab)
+   ! source = DG%iScaData(:,:,1,1)-(DG%eScaData(:,:,1,1)+int(ifelectron/2)*DG%dne_adiab)
+   source=0.0
+   ! do aid=20,30
+   !    do gqid=1,DG%dim_gq
+   !       source(gqid,aid)=sin(6*(DG%gq_1D(gqid))-4*(DG%zetamin))
+   !    enddo
+   ! enddo
+   call Interpolate_OriGridData_into_DG(test_src,source)
+
+   RHS_leading_coeff=1.602176634e-19/8.8541878128e-12  ! element_charge/permittivity (e/eps0)
+
+   source=RHS_leading_coeff*source
+   do aid=1,DG%dim_a
+      source(:,aid) = 1e6*density(DG%a_1D(aid),0.0)*source(:,aid)
+   enddo
 
    ! Set Zero bValues at both inner&outer boundary fo Neumann Condition
    source(:,1:2)=0.0                   ! (phi=0 @ aid=1) + (Er=0 at aid=2)
@@ -1088,7 +1104,7 @@ subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
 
    do sid=1,DG%dim_a
       ! Assuming the static equilibrium density for ions and electrons
-      n0=1e6*density(DG%a_1D(sid)) ! unit (#/m^(3))
+      n0=1e6*density(DG%a_1D(sid),0) ! unit (#/m^(3))
       do gqid=1,DG%dim_gq
          invBsq=1.0/(DG%BB(gqid,sid)**2.0) ! unit (T^2)
          ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",DG%BB(gqid,sid), ", Polar(sid)=", invEpsilon*1e-3*(n0*amasse + n0*amassi)*invBsq

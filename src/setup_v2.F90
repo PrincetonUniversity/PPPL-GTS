@@ -487,7 +487,7 @@ Subroutine setup
 
    Cs=sqrt(Tc_e*msm0)                 ! normalized Cs
    MM_Cs = Cs
-
+   if(mype==0) write(stdout,*) "Cs=",Cs
    if(mype==1) call get_profiles
 
    ! rescale radial coordinator  rho=a*sqrt(Tc/T)
@@ -1209,9 +1209,20 @@ Subroutine setup
       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),   &
       dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
 
+   allocate(test_src(mgrid))
+   test_src=0.0
+   do i=20,30
+      do j=0,mtheta(i)
+         ij=igrid(i)+j
+         test_src(ij) = sin(6*modulo(real(j,wp)*deltat(i)+zetamax*qtinv(i),2.0*pi) - 4*zetamax)
+      enddo
+   enddo
+
    if(ifdphi==3) then
       allocate(old_phi(0:1,mgrid),tmp_old_phi(0:1,mgrid))
       allocate(old_phi00(0:mpsi),tmp_old_phi00(0:mpsi))
+   else
+      allocate(old_phi(0:1,mgrid))
    endif
 
    ! (MGYOO: 11/01/2019)

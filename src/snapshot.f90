@@ -538,7 +538,8 @@ subroutine snapshot_hdf5
 
    real(wp) DG_FLA_Data(DG%dim_gq,DG%dim_a,0:1)
    real(wp), dimension(:,:,:),allocatable :: DG_FLA_eScaData, DG_FLA_iScaData
-
+   real(wp) tmp_vec_mgrid_size(mgrid),tmp_Te0_inverse
+   real(wp), external::density,temperature_e
 
    if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
       allocate(DG_FLA_eScaData(DG%dim_gq,DG%dim_a,7:18), DG_FLA_iScaData(DG%dim_gq,DG%dim_a,9:20))
@@ -1106,6 +1107,44 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "mean_full_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dphi", "unit", "V", h5err)
 
+      do i=0,mpsi
+         do j=1,mtheta(i)
+            ij=igrid(i)+j
+            tmp_vec_mgrid_size(ij) = test_src(ij)*density(psi_grid(i),0)
+         enddo
+      enddo
+
+      call Interpolate_Data_into_Coarser_Grids(tmp_vec_mgrid_size,gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "test_src",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+      call h5ltset_attribute_string_f(file_id, "test_src", "unit", "/#^3", h5err)
+
+      if(ifelectron==1) then
+         tmp_vec_mgrid_size=0.0
+         do i=0,mpsi
+            tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               if(adiab > 0.0_wp) then
+                  tmp_vec_mgrid_size(ij) = adiab * abs(csc0) * m0ms * tmp_Te0_inverse * (phi(1, ij)-old_phi(1,ij))
+               else
+                  tmp_vec_mgrid_size(ij) = 0.01/(Cs*Cs) * (phi(1,ij)-old_phi(1,ij))
+               endif
+               tmp_vec_mgrid_size(ij)=tmp_vec_mgrid_size(ij)*density(psi_grid(i),0)
+            enddo
+         enddo
+         do i=0, mpsi
+            tmp_vec_mgrid_size(igrid(i))=tmp_vec_mgrid_size(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+
+         call Interpolate_Data_into_Coarser_Grids(old_phi(1,:),gq_jump,a_jump,intp_val_Arr)
+         call h5ltmake_dataset_f(file_id, "old_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
+         call h5ltset_attribute_string_f(file_id, "old_dphi", "unit", "V", h5err)
+
+         call Interpolate_Data_into_Coarser_Grids(tmp_vec_mgrid_size,gq_jump,a_jump,intp_val_Arr)
+         call h5ltmake_dataset_f(file_id, "missing_src",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+         call h5ltset_attribute_string_f(file_id, "missing_src", "unit", "/#^3", h5err)
+      endif
+
       h5dims(1:3)=(/dim_gq, dim_a, mzetamax/)
       call h5ltmake_dataset_f(file_id, "mean_full_dphi_3D",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*test_dphi_3D,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dphi_3D", "unit", "V", h5err)
@@ -1378,14 +1417,14 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gf,h5err)
       call h5ltmake_dataset_f(gid_DG, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLabel_Function(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%test_phi_2D,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_src_2D,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_res_2D",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_res_2D,h5err)
+      call h5ltmake_dataset_f(gid_DG, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*DG%test_src_2D,h5err)
+      call h5ltmake_dataset_f(gid_DG, "test_res_2D",2,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*DG%test_res_2D,h5err)
 
       !Following 3D data are for temporary diagnostic purpose
       h5dims(1:3)=(/DG%dim_gq,DG%dim_a,mzetamax/)
       call h5ltmake_dataset_f(gid_DG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, DG%test_phi_3D,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_src_3D,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, 1e6*DG%test_res_3D,h5err)
+      call h5ltmake_dataset_f(gid_DG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*DG%test_src_3D,h5err)
+      call h5ltmake_dataset_f(gid_DG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*DG%test_res_3D,h5err)
 
       h5dims(1:2)=3
       h5dims(3)=DG%dim_gq+1
