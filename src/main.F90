@@ -281,7 +281,7 @@ program GTS
       nrk=2 !RK2
    endif
 
-
+   call SetZeros_Cumulative_Variables
    !           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
    do istep=istart,mstep
       if(mype==0) then
