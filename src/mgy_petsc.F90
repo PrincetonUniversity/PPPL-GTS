@@ -94,7 +94,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
       enddo
    enddo
 
-   mapP2L=-100 ! Default value is negative (-100), so one can tell whether a specific PETS point is out of the its process (mapP2L<0)
+   mapP2L=-100 ! Default value is negative (-100), so one can tell whether a specific PETS point is out of the num_its process (mapP2L<0)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
       mapP2L(mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid)=Lid
@@ -336,7 +336,7 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    implicit none
 
    PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
-   PetscInt Lid,Gid,its, gqid,gfid
+   PetscInt Lid,Gid,num_its, gqid,gfid
    PetscReal val, res_norm2, src_norm2
    PetscErrorCode ierr
    PetscReal source(DG%dim_gq,DG%dim_a)
@@ -420,8 +420,8 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp,its,ierr); CHKERRQ(ierr)
-   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",its
+   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
    ! Copy xVec (solution) to the DG%test_phi vector
@@ -483,7 +483,7 @@ subroutine test_Laplacian_2D()
    Mat Amat
    KSP ksp
    PetscReal val,x_norm2
-   PetscInt :: gid, fGidx, MGidx_start, MGidx_end, VGidx_start, VGidx_end, nx=30,ny=30, neq, idxm, its
+   PetscInt :: gid, fGidx, MGidx_start, MGidx_end, VGidx_start, VGidx_end, nx=30,ny=30, neq, idxm, num_its
    PetscErrorCode ierr
 
    real tt0,tt1
@@ -600,9 +600,9 @@ subroutine test_Laplacian_2D()
    ! Check solution and error
    call VecAXPY(x,-1.0,u,ierr); CHKERRQ(ierr)
    call VecNorm(x,NORM_2,x_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp,its,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
 
-   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", x_norm2, ", iterations=",its
+   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", x_norm2, ", iterations=",num_its
 
    call MPI_Barrier(PETSC_COMM_WORLD,ierr)
    write(stdout,"(A,I8,A,(I8,A,I8),A,(I8,A,I8),A)")"mype=",mype,", idx_start_(M,V)=(",MGidx_start,",",VGidx_start,"), idx_end_(M,V)=(",MGidx_end,",",VGidx_end,")"
