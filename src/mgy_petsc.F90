@@ -18,6 +18,8 @@ module MGY_PETSc_Interface_Data
    Vec bVec, xVec, ResVec
    KSP ksp
 
+   PetscInt, allocatable, dimension(:,:) :: tarGid
+   PetscReal, allocatable, dimension(:,:) :: tarVal
 
    ! Following Tensors will be used to determine Amat components (Poisson equation)
    ! Note that they are composed with the contravariant components
@@ -44,8 +46,6 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
    integer, intent(in):: dim_gq,dim_a,dim_gf
    integer :: gqid, aid, gfid, Gid, Lid, tnum, extra, i, j
    PetscInt neq_Pol2D
-   integer, allocatable :: tarGid(:,:)
-   PetscReal, allocatable :: tarVal(:,:)
    real(wp) :: tt0,tt1
    PetscErrorCode ierr
    PetscScalar, pointer :: ptr_bVec(:)
@@ -197,9 +197,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    implicit none
 
    PetscInt Lid,Gid,gqid,aid,gfid,tnum
-   PetscInt, allocatable :: tarGid(:,:)
    PetscReal Coeff_gq, Coeff_a, Coeff_gf
-   PetscReal, allocatable :: tarVal(:,:)
    real tt0, tt1
    PetscErrorCode ierr
    real, external:: dsda
@@ -321,7 +319,6 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   deallocate(tarGid, tarVal)
    deallocate(d_nnz, o_nnz)
 
 end subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
@@ -362,8 +359,6 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    enddo
 
    ! Set Zero bValues at both inner&outer boundary fo Neumann Condition
-   source(:,1:2)=0.0                   ! (phi=0 @ aid=1) + (Er=0 at aid=2)
-   source(:,DG%dim_a-1:DG%dim_a)=0.0   ! (E_r=0 @ aid=dim_a-1) + (E_theta=0 at aid=dim_a)
 
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
@@ -372,49 +367,20 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
+   ! Apply  Dirichlet Condition at outer boundary
+   do gfid=1,mzetamax
+      do gqid=1,DG%dim_gq-1
+         ! Dirichlet condition (phi=0 at outer boundary)
+         aid=DG%dim_a
+         Lid=mapP2L(gqid,aid,gfid)
+         if(Lid>0) then
+            Gid=mapL2G(Lid)
+            val=0
+            call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+         endif
+      enddo
+   enddo
 
-   ! ! Set Zero bValues at both inner&outer boundary fo Neumann Condition
-   ! do gfid=1,mzetamax
-   !    do gqid=1,DG%dim_gq-1
-   !       ! Neumann condition (Er=0 at inner, outer boundary)
-   !       Lid=mapP2L(gqid,2,gfid)
-   !       if(Lid>0) then
-   !          Gid=mapL2G(Lid)
-   !          val=0
-   !          call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-   !       endif
-   !       Lid=mapP2L(gqid,DG%dim_a-1,gfid)
-   !       if(Lid>0) then
-   !          Gid=mapL2G(Lid)
-   !          val=0
-   !          call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-   !       endif
-
-   !       ! Neumann condition (E_theta=0 at outer boundary)
-   !       Lid=mapP2L(gqid,DG%dim_a,gfid)
-   !       if(Lid>0) then
-   !          Gid=mapL2G(Lid)
-   !          val=0
-   !          call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-   !       endif
-
-   !       !Dirichlet condition (phi=0 at inner boundary)
-   !       Lid=mapP2L(gqid,1,gfid)
-   !       if(Lid>0) then
-   !          Gid=mapL2G(Lid)
-   !          val=0
-   !          call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-   !       endif
-   !    enddo
-   ! enddo
-
-   ! ! Set Zero bValue at the reference value
-   ! if(mapP2L(1,2,1)>0) then
-   !    Lid=mapP2L(1,2,1)
-   !    Gid=mapL2G(Lid)
-   !    val=0
-   !    call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-   ! endif
 
 
 
@@ -644,9 +610,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
    implicit none
 
    PetscInt Lid,Gid,qq,ss,ff,tnum
-   PetscInt, allocatable :: tarGid(:,:)
    PetscReal off_val
-   PetscReal, allocatable :: tarVal(:,:)
    real tt0, tt1
    PetscReal inv_Jacob
    PetscErrorCode ierr
@@ -842,7 +806,6 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   deallocate(tarGid, tarVal)
    deallocate(d_nnz, o_nnz)
 
 end subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
@@ -855,8 +818,6 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    implicit none
 
    PetscInt Lid,Gid,qq,ss,ff,tnum
-   PetscInt, allocatable :: tarGid(:,:)
-   PetscReal, allocatable :: tarVal(:,:)
    real tt0, tt1
    PetscReal inv_Jacob
    PetscErrorCode ierr
@@ -963,47 +924,10 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
 
    enddo
+   call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
-   ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
-   do ff=1,ntoroidal
-      do qq=1,dim_gq-1
-         ! ! Neumann condition (Er=0 at inner, outer boundary)
-         ! Lid=mapP2L(qq,2,ff)
-         ! if(Lid>0) then
-         !    tarVal(:,Lid)=0
-         !    tarVal(1,Lid)=-1.0 !phi(ss=2)
-         !    tarVal(4,Lid)=+1.0 !phi(ss=1)
-         ! endif
-         ! Lid=mapP2L(qq,dim_a-1,ff)
-         ! if(Lid>0) then
-         !    tarVal(:,Lid)=0
-         !    tarVal(1,Lid)=-1.0 !phi(ss=dim_a-1)
-         !    tarVal(5,Lid)=+1.0 !phi(ss=dim_a)
-         ! endif
 
-         ! ! Neumann condition (E_theta=0 at inner, outer boundary)
-         ! Lid=mapP2L(qq,dim_a,ff)
-         ! if(Lid>0) then
-         !    tarVal(:,Lid)=0
-         !    tarVal(1,Lid)=-1.0 !phi(ss=dim_a, qq)
-         !    tarVal(3,Lid)=+1.0 !phi(ss=dim_a, qq+1)
-         ! endif
 
-         !Dirichlet condition (phi=0 at inner boundary)
-         Lid=mapP2L(qq,1,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=1.0 !phi(ss=1)
-         endif
-
-         !Dirichlet condition (phi=0 at outer boundary)
-         Lid=mapP2L(qq,dim_a,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=1.0 !phi(ss=dim_a, qq)
-         endif
-      enddo
-   enddo
 
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
@@ -1061,7 +985,6 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   deallocate(tarGid, tarVal)
    deallocate(d_nnz, o_nnz)
 
 end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
@@ -1155,3 +1078,91 @@ subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
 
 
 end subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid
+
+
+
+subroutine Apply_BC_to_Amat_Coeffs
+   use MGY_PETSc_Interface_Data
+   use Diagnostic_Grid
+   use global_parameters, only:mzetamax,stdout,mype,stdout
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   integer :: dim_gq, dim_a
+   PetscReal inv_Jacob
+   dim_a =DG%dim_a
+   dim_gq=DG%dim_gq
+
+
+   ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
+   do ff=1,mzetamax
+      do qq=1,dim_gq-1
+         ! Neumann condition (abs(E)=0 at inner)
+         ss=1
+         Lid=mapP2L(qq,ss,ff)
+         if(Lid>0) then
+
+            inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+
+            tarGid(:, Lid) = -100
+            tarVal(:, Lid) = 0.0
+
+            tarGid(2, Lid) = mapP2G(qq-1,ss,ff)
+            tarVal(2, Lid) = CT(2,2,qq,ss,0) + 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+            tarGid(3, Lid) = mapP2G(qq+1,ss,ff)
+            tarVal(3, Lid) = CT(2,2,qq,ss,0) - 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+
+            tarGid(4, Lid) = mapP2G(qq,ss+1,ff)
+            tarVal(4, Lid) = 2.0*CT(1,1,qq,ss,0)
+
+            tarGid(5, Lid) = mapP2G(qq,ss,ff-1)
+            tarVal(5, Lid) = CT(3,3,qq,ss,0) + 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+            tarGid(6, Lid) = mapP2G(qq,ss,ff+1)
+            tarVal(6, Lid) = CT(3,3,qq,ss,0) - 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+
+            tarGid(7, Lid) = mapP2G(qq+1,ss+1,ff)
+            tarVal(7, Lid) = +0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+            tarGid(8, Lid) = mapP2G(qq-1,ss+1,ff)
+            tarVal(8, Lid) = -0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+
+            tarGid(9, Lid) = mapP2G(qq,ss+1,ff+1)
+            tarVal(9, Lid) = +0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+            tarGid(10,Lid) = mapP2G(qq,ss+1,ff-1)
+            tarVal(10,Lid) = -0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+
+            tarGid(11,Lid) = mapP2G(qq+1,ss,ff+1)
+            tarVal(11,Lid) = +0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+            tarGid(12,Lid) = mapP2G(qq-1,ss,ff-1)
+            tarVal(12,Lid) = +0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+
+            tarGid(13,Lid) = mapP2G(qq+1,ss,ff-1)
+            tarVal(13,Lid) = -0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+            tarGid(14,Lid) = mapP2G(qq-1,ss,ff+1)
+            tarVal(14,Lid) = -0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+
+            tarGid(1, Lid) = mapP2G(qq,ss,ff)
+            tarVal(1, Lid) = -sum(tarVal(2:14,Lid))
+
+
+            ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+            ! so make sure that target coefficient values represent (-nabla*(eps_T*nabla*phi))
+            tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+
+         endif
+
+
+
+         ss=dim_a
+         Lid=mapP2L(qq,ss,ff)
+         if(Lid>0) then
+            tarGid(:, Lid) = -100
+            tarVal(:, Lid) = 0.0
+
+            tarGid(1, Lid) = mapP2G(qq,ss,ff)
+            tarVal(1, Lid) = 1.0 !phi(ss=dim_a)
+         endif
+
+      enddo
+   enddo
+
+end subroutine Apply_BC_to_Amat_Coeffs
