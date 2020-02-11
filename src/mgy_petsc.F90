@@ -28,8 +28,8 @@ module MGY_PETSc_Interface_Data
    ! eps_T:
    ! CT:
 
-   real(wp), allocatable, dimension(:,:,:,:) :: Metric_T, Polar_T, Eps_T! On the poloidal plane (PEST structured coordinate)
-   real(wp), allocatable, dimension(:,:,:,:,:) :: CT ! Including neighboring left and right poloidal planes
+   real(wp), allocatable, dimension(:,:,:,:) :: Metric_T, Polar_T ! On the poloidal plane (PEST structured coordinate)
+   real(wp), allocatable, dimension(:,:,:,:,:) :: Eps_T, CT ! Including neighboring left and right poloidal planes
 
 
    ! Note that indices are (-1,0,1) for each direction. This is very convenient to describe neighboring points.
@@ -627,8 +627,8 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
 
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
-   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1), Eps_T(3,3,0:dim_gq,0:dim_a+1))
-   allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_DiagnosticGrid()
 
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
@@ -834,8 +834,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
-   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1), Eps_T(3,3,0:dim_gq,0:dim_a+1))
-   allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_DiagnosticGrid()
 
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
@@ -1045,7 +1045,15 @@ subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
    Polar_T(:,:,:,DG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
    ! Construct Epsilon Tensor ( eps=eps_0*Metric_T + Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2)) )
-   Eps_T=Metric_T+Polar_T
+   Eps_T(:,:,:,:,0)=Metric_T+Polar_T
+
+   ! Communicate Eps_T with neighboring left and right planes.
+   ! So, Eps_T(:,:,:,:,tid) ==>  tid=-1(left plane), tid=0(my plane), tid=1(right plane)
+   ! Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1)
+   icount=3*3*(DG%dim_gq+1)*(DG%dim_a+2)
+   call MPI_SENDRECV(Eps_T(:,:,:,:,0),icount,mpi_Rsize,left_pe,0,Eps_T(:,:,:,:,1),icount,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierror)
+   call MPI_SENDRECV(Eps_T(:,:,:,:,0),icount,mpi_Rsize,right_pe,0,Eps_T(:,:,:,:,-1),icount,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierror)
+
 
 
    inv_du(1) = DG%inv_ds
@@ -1057,24 +1065,15 @@ subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
       do gqid=1,DG%dim_gq
          do j=1,3
             do i=1,3
-               CT(i,j,gqid,sid,0) = DG%Jacob_sqf(gqid,sid)*Eps_T(i,j,gqid,sid)*inv_du(i)*inv_du(j)
+               CT(i,j,gqid,sid,:) = DG%Jacob_sqf(gqid,sid)*Eps_T(i,j,gqid,sid,:)*inv_du(i)*inv_du(j)
             enddo
          enddo
       enddo
    enddo
-   CT(:,:,DG%dim_gq,:,0)  =CT(:,:,1,:,0)
-   CT(:,:,0,:,0)          =CT(:,:,DG%dim_gq-1,:,0)
-   CT(:,:,:,0,0)          =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-   CT(:,:,:,DG%dim_a+1,0) =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-
-
-
-   ! Communicate CT with neighboring left and right planes.
-   ! So, CT(:,:,:,:,tid) ==>  tid=-1(left plane), tid=0(my plane), tid=1(right plane)
-   ! CT(3,3,0:dim_gq,0:dim_a+1,-1:1)
-   icount=3*3*(DG%dim_gq+1)*(DG%dim_a+2)
-   call MPI_SENDRECV(CT(:,:,:,:,0),icount,mpi_Rsize,left_pe,0,CT(:,:,:,:,1),icount,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierror)
-   call MPI_SENDRECV(CT(:,:,:,:,0),icount,mpi_Rsize,right_pe,0,CT(:,:,:,:,-1),icount,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierror)
+   CT(:,:,DG%dim_gq,:,:)  =CT(:,:,1,:,:)
+   CT(:,:,0,:,:)          =CT(:,:,DG%dim_gq-1,:,:)
+   CT(:,:,:,0,:)          =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   CT(:,:,:,DG%dim_a+1,:) =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
 
 end subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid
