@@ -335,7 +335,8 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
 
    PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
-   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff
+   PetscInt ss,qq,ff
+   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
    PetscErrorCode ierr
    PetscReal source(DG%dim_gq,DG%dim_a)
    PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
@@ -367,16 +368,35 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
+   inv_du(1) = DG%inv_ds
+   inv_du(2) = DG%inv_dgq
+   inv_du(3) = 1.0/(DG%zetamax-DG%zetamin)
+
+
    ! Apply  Dirichlet Condition at outer boundary
-   do gfid=1,mzetamax
-      do gqid=1,DG%dim_gq-1
+   do ff=1,mzetamax
+      do qq=1,DG%dim_gq-1
          ! Dirichlet condition (phi=0 at outer boundary)
-         aid=DG%dim_a
-         Lid=mapP2L(gqid,aid,gfid)
+         ss=DG%dim_a
+         Lid=mapP2L(qq,ss,ff)
          if(Lid>0) then
             Gid=mapL2G(Lid)
             val=0
             call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+         endif
+
+         ! Neumann condition (Er value at inner boundary)
+         ss=1
+         Lid=mapP2L(qq,ss,ff)
+         if(Lid>0) then
+            Gid=mapL2G(Lid)
+            Kss_coeff =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*DG%Jacob_sqf(qq,ss+1)*Eps_T(1,1,qq,ss+1,0) -DG%Jacob_sqf(qq,ss+2)*Eps_T(1,1,qq,ss+2,0)) &
+                      +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
+                      +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
+
+            val= -(-2.0*Eps_T(1,1,qq,ss,00)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
+            val=val*0.0 ! multiply dfds @s=s0
+            call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
          endif
       enddo
    enddo
@@ -1086,12 +1106,16 @@ subroutine Apply_BC_to_Amat_Coeffs
    use global_parameters, only:mzetamax,stdout,mype,stdout
    implicit none
 
-   PetscInt Lid,Gid,qq,ss,ff,tnum
+   PetscInt Lid,Gid,qq,ss,ff,j
    integer :: dim_gq, dim_a
-   PetscReal inv_Jacob
+   PetscReal inv_Jacob, Kj_coeff(3), inv_du(3)
+
    dim_a =DG%dim_a
    dim_gq=DG%dim_gq
 
+   inv_du(1) = DG%inv_ds
+   inv_du(2) = DG%inv_dgq
+   inv_du(3) = 1.0/(DG%zetamax-DG%zetamin)
 
    ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
    do ff=1,mzetamax
@@ -1103,21 +1127,27 @@ subroutine Apply_BC_to_Amat_Coeffs
 
             inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
 
+            do j=1,3
+               Kj_coeff(j) =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*DG%Jacob_sqf(qq,ss+1)*Eps_T(1,j,qq,ss+1,0) -DG%Jacob_sqf(qq,ss+2)*Eps_T(1,j,qq,ss+2,0)) &
+                           +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
+                           +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
+            enddo
+
             tarGid(:, Lid) = -100
             tarVal(:, Lid) = 0.0
 
             tarGid(2, Lid) = mapP2G(qq-1,ss,ff)
-            tarVal(2, Lid) = CT(2,2,qq,ss,0) + 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+            tarVal(2, Lid) = CT(2,2,qq,ss,0) + 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0)) - 0.5*Kj_coeff(2)*inv_du(2)
             tarGid(3, Lid) = mapP2G(qq+1,ss,ff)
-            tarVal(3, Lid) = CT(2,2,qq,ss,0) - 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+            tarVal(3, Lid) = CT(2,2,qq,ss,0) - 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0)) + 0.5*Kj_coeff(2)*inv_du(2)
 
             tarGid(4, Lid) = mapP2G(qq,ss+1,ff)
             tarVal(4, Lid) = 2.0*CT(1,1,qq,ss,0)
 
             tarGid(5, Lid) = mapP2G(qq,ss,ff-1)
-            tarVal(5, Lid) = CT(3,3,qq,ss,0) + 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+            tarVal(5, Lid) = CT(3,3,qq,ss,0) + 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0)) - 0.5*Kj_coeff(3)*inv_du(3)
             tarGid(6, Lid) = mapP2G(qq,ss,ff+1)
-            tarVal(6, Lid) = CT(3,3,qq,ss,0) - 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+            tarVal(6, Lid) = CT(3,3,qq,ss,0) - 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0)) + 0.5*Kj_coeff(3)*inv_du(3)
 
             tarGid(7, Lid) = mapP2G(qq+1,ss+1,ff)
             tarVal(7, Lid) = +0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
