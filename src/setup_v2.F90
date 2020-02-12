@@ -2419,6 +2419,7 @@ Subroutine read_input_params
    use spl_profiles
    use profile_array
    use FieldLineFollowing
+   use MGY_PETSc_Interface_Data
 
    implicit none
    integer :: max_EMP_num = 20, k
@@ -2528,7 +2529,11 @@ Subroutine read_input_params
       num_of_etracers, num_of_itracers, nstep_for_tracer_record, & ! Multi-tracers information
       larmor_num,         &    !how many points are used to do something on gyro orbit
       FLF_max_tor_num,    &    ! For FieldLineFollowing routine, Maximum toroidal rotation in each direction (+,-)
-      gPPI_max_tor_num         ! For gPPI routine, Maximum toroidal rotation in each direction (+,-)
+      gPPI_max_tor_num,   &    ! For gPPI routine, Maximum toroidal rotation in each direction (+,-)
+      BC0_type,           &    ! type of BC0 (inner boundary; s=s0) (type=0: Dirichelt, type=1: Neumann)
+      BC0_value,          &    ! value of BC0 (inner boundary; s=s0)
+      BC1_type,           &    ! type of BC1 (outer boundary; s=s1) (type=0: Dirichelt, type=1: Neumann)
+      BC1_value                ! value of BC1 (outer boundary; s=s1)
 
    namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
       its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2595,6 +2600,9 @@ Subroutine read_input_params
       write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
       write(0,*) 'num_of_etracers=', num_of_etracers,', num_of_itracers=',num_of_itracers, ', nstep_for_tracer_record=', nstep_for_tracer_record
       write(0,*) 'FLF_max_tor_num=', FLF_max_tor_num,', gPPI_max_tor_num=',gPPI_max_tor_num
+      write(0,*) 'BC0_type=', BC0_type,', BC0_value=',BC0_value
+      write(0,*) 'BC1_type=', BC1_type,', BC1_value=',BC1_value
+
    endif
 
 

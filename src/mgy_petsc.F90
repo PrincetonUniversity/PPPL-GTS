@@ -7,6 +7,11 @@ module MGY_PETSc_Interface_Data
       PetscInt gqid, aid, gfid
    end type PEST_Indices
 
+   ! Boundary Conditions
+   ! (BC0 and BC1 are inner (s=s0) and outer (s=s1) conditions, respectively)
+   PetscInt :: BC0_type=0, BC1_type=0
+   PetscReal :: BC0_value=0,  BC1_value=0
+
    type(PEST_Indices),allocatable,dimension(:) :: mapG2P ! From Global node index to PEST node indices
    PetscInt, allocatable, dimension(:,:,:) :: mapP2G, mapP2L ! From PEST indices to Global or Local node index
    PetscInt, allocatable, dimension(:) :: mapL2G ! From Local indices to Global indices (this depends on the MPI process)
@@ -23,17 +28,15 @@ module MGY_PETSc_Interface_Data
 
    ! Following Tensors will be used to determine Amat components (Poisson equation)
    ! Note that they are composed with the contravariant components
-   ! gg_T:  contravariant Metrics; g^(ij)=e^i*e^j, where e is covariant vector on the PEST coordinate
-   ! polar_T: Polarization shielding tensor. (n_s*m_s/B^2)*(I_tensor-b*b), where b is unit vector of the magnetic field
-   ! eps_T:
-   ! CT:
+   ! Metric_T:  contravariant Metrics; g^(ij)=e^i*e^j, where e is covariant vector on the PEST coordinate
+   ! Polar_T: Polarization shielding tensor. (n_s*m_s/B^2)*(I_tensor-b*b), where b is unit vector of the magnetic field
+   ! Eps_T: Metric_T + Polar_T
+   ! CT: Jacobian*Eps_T/(dui*duj)
 
    real(wp), allocatable, dimension(:,:,:,:) :: Metric_T, Polar_T ! On the poloidal plane (PEST structured coordinate)
    real(wp), allocatable, dimension(:,:,:,:,:) :: Eps_T, CT ! Including neighboring left and right poloidal planes
 
 
-   ! Note that indices are (-1,0,1) for each direction. This is very convenient to describe neighboring points.
-   ! Vec Metric_T(-1:1,-1:1), Polar_T(-1:1,-1:1), Eps_T(-1:1,-1:1), CT(-1:1,-1:1)
 
 end module MGY_PETSc_Interface_Data
 
@@ -359,8 +362,6 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
       source(:,aid) = 1e6*density(DG%a_1D(aid),0.0)*source(:,aid)
    enddo
 
-   ! Set Zero bValues at both inner&outer boundary fo Neumann Condition
-
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
@@ -368,39 +369,7 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
-   inv_du(1) = DG%inv_ds
-   inv_du(2) = DG%inv_dgq
-   inv_du(3) = 1.0/(DG%zetamax-DG%zetamin)
-
-
-   ! Apply  Dirichlet Condition at outer boundary
-   do ff=1,mzetamax
-      do qq=1,DG%dim_gq-1
-         ! Dirichlet condition (phi=0 at outer boundary)
-         ss=DG%dim_a
-         Lid=mapP2L(qq,ss,ff)
-         if(Lid>0) then
-            Gid=mapL2G(Lid)
-            val=0
-            call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-         endif
-
-         ! Neumann condition (Er value at inner boundary)
-         ss=1
-         Lid=mapP2L(qq,ss,ff)
-         if(Lid>0) then
-            Gid=mapL2G(Lid)
-            Kss_coeff =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*DG%Jacob_sqf(qq,ss+1)*Eps_T(1,1,qq,ss+1,0) -DG%Jacob_sqf(qq,ss+2)*Eps_T(1,1,qq,ss+2,0)) &
-                      +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
-                      +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
-
-            val= -(-2.0*Eps_T(1,1,qq,ss,00)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
-            val=val*0.0 ! multiply dfds @s=s0
-            call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
-         endif
-      enddo
-   enddo
-
+   call Apply_BC_to_bVec_Coeffs
 
 
 
@@ -1103,7 +1072,7 @@ end subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid
 subroutine Apply_BC_to_Amat_Coeffs
    use MGY_PETSc_Interface_Data
    use Diagnostic_Grid
-   use global_parameters, only:mzetamax,stdout,mype,stdout
+   use global_parameters, only:mzetamax,stdout,mype
    implicit none
 
    PetscInt Lid,Gid,qq,ss,ff,j
@@ -1118,80 +1087,178 @@ subroutine Apply_BC_to_Amat_Coeffs
    inv_du(3) = 1.0/(DG%zetamax-DG%zetamin)
 
    ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
-   do ff=1,mzetamax
-      do qq=1,dim_gq-1
-         ! Neumann condition (abs(E)=0 at inner)
-         ss=1
-         Lid=mapP2L(qq,ss,ff)
-         if(Lid>0) then
+   if(BC0_type==0) then !Dirichlet condition
+      ss=1
+      do ff=1,mzetamax
+         do qq=1,dim_gq-1
 
-            inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+            !Dirichlet condition
+            Lid=mapP2L(qq,ss,ff)
+            if(Lid>0) then
+               tarGid(:,Lid) = -100
+               tarVal(:,Lid) = 0.0
 
-            do j=1,3
-               Kj_coeff(j) =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*DG%Jacob_sqf(qq,ss+1)*Eps_T(1,j,qq,ss+1,0) -DG%Jacob_sqf(qq,ss+2)*Eps_T(1,j,qq,ss+2,0)) &
-                           +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
-                           +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
-            enddo
-
-            tarGid(:, Lid) = -100
-            tarVal(:, Lid) = 0.0
-
-            tarGid(2, Lid) = mapP2G(qq-1,ss,ff)
-            tarVal(2, Lid) = CT(2,2,qq,ss,0) + 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0)) - 0.5*Kj_coeff(2)*inv_du(2)
-            tarGid(3, Lid) = mapP2G(qq+1,ss,ff)
-            tarVal(3, Lid) = CT(2,2,qq,ss,0) - 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0)) + 0.5*Kj_coeff(2)*inv_du(2)
-
-            tarGid(4, Lid) = mapP2G(qq,ss+1,ff)
-            tarVal(4, Lid) = 2.0*CT(1,1,qq,ss,0)
-
-            tarGid(5, Lid) = mapP2G(qq,ss,ff-1)
-            tarVal(5, Lid) = CT(3,3,qq,ss,0) + 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0)) - 0.5*Kj_coeff(3)*inv_du(3)
-            tarGid(6, Lid) = mapP2G(qq,ss,ff+1)
-            tarVal(6, Lid) = CT(3,3,qq,ss,0) - 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0)) + 0.5*Kj_coeff(3)*inv_du(3)
-
-            tarGid(7, Lid) = mapP2G(qq+1,ss+1,ff)
-            tarVal(7, Lid) = +0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
-            tarGid(8, Lid) = mapP2G(qq-1,ss+1,ff)
-            tarVal(8, Lid) = -0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
-
-            tarGid(9, Lid) = mapP2G(qq,ss+1,ff+1)
-            tarVal(9, Lid) = +0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
-            tarGid(10,Lid) = mapP2G(qq,ss+1,ff-1)
-            tarVal(10,Lid) = -0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
-
-            tarGid(11,Lid) = mapP2G(qq+1,ss,ff+1)
-            tarVal(11,Lid) = +0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
-            tarGid(12,Lid) = mapP2G(qq-1,ss,ff-1)
-            tarVal(12,Lid) = +0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
-
-            tarGid(13,Lid) = mapP2G(qq+1,ss,ff-1)
-            tarVal(13,Lid) = -0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
-            tarGid(14,Lid) = mapP2G(qq-1,ss,ff+1)
-            tarVal(14,Lid) = -0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
-
-            tarGid(1, Lid) = mapP2G(qq,ss,ff)
-            tarVal(1, Lid) = -sum(tarVal(2:14,Lid))
-
-
-            ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
-            ! so make sure that target coefficient values represent (-nabla*(eps_T*nabla*phi))
-            tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
-
-         endif
-
-
-
-         ss=dim_a
-         Lid=mapP2L(qq,ss,ff)
-         if(Lid>0) then
-            tarGid(:, Lid) = -100
-            tarVal(:, Lid) = 0.0
-
-            tarGid(1, Lid) = mapP2G(qq,ss,ff)
-            tarVal(1, Lid) = 1.0 !phi(ss=dim_a)
-         endif
-
+               tarGid(1,Lid) = mapP2G(qq,ss,ff)
+               tarVal(1,Lid) = 1.0 !phi @ (ss=1)
+            endif
+         enddo
       enddo
-   enddo
+   elseif(BC0_type==1) then
+      ss=1
+      do ff=1,mzetamax
+         do qq=1,dim_gq-1
+            ! Neumann condition (abs(E)=0 at inner)
+            Lid=mapP2L(qq,ss,ff)
+            if(Lid>0) then
+
+               inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+
+               do j=1,3
+                  Kj_coeff(j) =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*DG%Jacob_sqf(qq,ss+1)*Eps_T(1,j,qq,ss+1,0) -DG%Jacob_sqf(qq,ss+2)*Eps_T(1,j,qq,ss+2,0)) &
+                              +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
+                              +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
+               enddo
+
+               tarGid(:, Lid) = -100
+               tarVal(:, Lid) = 0.0
+
+               tarGid(2, Lid) = mapP2G(qq-1,ss,ff)
+               tarVal(2, Lid) = CT(2,2,qq,ss,0) + 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0)) - 0.5*Kj_coeff(2)*inv_du(2)
+               tarGid(3, Lid) = mapP2G(qq+1,ss,ff)
+               tarVal(3, Lid) = CT(2,2,qq,ss,0) - 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0)) + 0.5*Kj_coeff(2)*inv_du(2)
+
+               tarGid(4, Lid) = mapP2G(qq,ss+1,ff)
+               tarVal(4, Lid) = 2.0*CT(1,1,qq,ss,0)
+
+               tarGid(5, Lid) = mapP2G(qq,ss,ff-1)
+               tarVal(5, Lid) = CT(3,3,qq,ss,0) + 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0)) - 0.5*Kj_coeff(3)*inv_du(3)
+               tarGid(6, Lid) = mapP2G(qq,ss,ff+1)
+               tarVal(6, Lid) = CT(3,3,qq,ss,0) - 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0)) + 0.5*Kj_coeff(3)*inv_du(3)
+
+               tarGid(7, Lid) = mapP2G(qq+1,ss+1,ff)
+               tarVal(7, Lid) = +0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+               tarGid(8, Lid) = mapP2G(qq-1,ss+1,ff)
+               tarVal(8, Lid) = -0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+
+               tarGid(9, Lid) = mapP2G(qq,ss+1,ff+1)
+               tarVal(9, Lid) = +0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+               tarGid(10,Lid) = mapP2G(qq,ss+1,ff-1)
+               tarVal(10,Lid) = -0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+
+               tarGid(11,Lid) = mapP2G(qq+1,ss,ff+1)
+               tarVal(11,Lid) = +0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+               tarGid(12,Lid) = mapP2G(qq-1,ss,ff-1)
+               tarVal(12,Lid) = +0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+
+               tarGid(13,Lid) = mapP2G(qq+1,ss,ff-1)
+               tarVal(13,Lid) = -0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+               tarGid(14,Lid) = mapP2G(qq-1,ss,ff+1)
+               tarVal(14,Lid) = -0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+
+               tarGid(1, Lid) = mapP2G(qq,ss,ff)
+               tarVal(1, Lid) = -sum(tarVal(2:14,Lid))
+
+
+               ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+               ! so make sure that target coefficient values represent (-nabla*(eps_T*nabla*phi))
+               tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+
+            endif
+         enddo
+      enddo
+   endif
+
+
+   if(BC1_type==0) then
+      ss=dim_a
+      do ff=1,mzetamax
+         do qq=1,dim_gq-1
+            Lid=mapP2L(qq,ss,ff)
+            if(Lid>0) then
+               tarGid(:, Lid) = -100
+               tarVal(:, Lid) = 0.0
+
+               tarGid(1, Lid) = mapP2G(qq,ss,ff)
+               tarVal(1, Lid) = 1.0 !phi(ss=dim_a)
+            endif
+         enddo
+      enddo
+   elseif(BC1_type==1) then
+      write(stdout,*) "BC1_type=1 (Neumann condition at outer boundary) is not implemented yet !!"
+      call flush(stdout)
+      stop
+   endif
+
 
 end subroutine Apply_BC_to_Amat_Coeffs
+
+subroutine Apply_BC_to_bVec_Coeffs
+   use MGY_PETSc_Interface_Data
+   use Diagnostic_Grid
+   use global_parameters, only:mzetamax,stdout,mype
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,j
+   integer :: dim_gq, dim_a
+   PetscReal Kss_coeff, inv_du(3), val
+   PetscErrorCode ierr
+
+
+   dim_a =DG%dim_a
+   dim_gq=DG%dim_gq
+
+   inv_du(1) = DG%inv_ds
+   inv_du(2) = DG%inv_dgq
+   inv_du(3) = 1.0/(DG%zetamax-DG%zetamin)
+
+
+   if(BC0_type==0) then ! Dirichlet condition (phi at inner boundary)
+      ss=1
+      do ff=1,mzetamax
+         do qq=1,DG%dim_gq-1
+            Lid=mapP2L(qq,ss,ff)
+            if(Lid>0) then
+               Gid=mapL2G(Lid)
+               val=BC0_value
+               call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+            endif
+         enddo
+      enddo
+   elseif(BC0_type==1) then ! Neumann condition (Er value at inner boundary)
+      ss=1
+      do ff=1,mzetamax
+         do qq=1,DG%dim_gq-1
+            Lid=mapP2L(qq,ss,ff)
+            if(Lid>0) then
+               Gid=mapL2G(Lid)
+               Kss_coeff =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*DG%Jacob_sqf(qq,ss+1)*Eps_T(1,1,qq,ss+1,0) -DG%Jacob_sqf(qq,ss+2)*Eps_T(1,1,qq,ss+2,0)) &
+                        +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
+                        +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
+
+               val= -(-2.0*Eps_T(1,1,qq,ss,00)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
+               val=val*BC0_value ! multiply dfds @s=s0
+               call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
+            endif
+         enddo
+      enddo
+   endif
+
+   if(BC1_type==0) then ! Dirichlet condition (phi at outer boundary)
+      ss=DG%dim_a
+      do ff=1,mzetamax
+         do qq=1,DG%dim_gq-1
+            Lid=mapP2L(qq,ss,ff)
+            if(Lid>0) then
+               Gid=mapL2G(Lid)
+               val=BC1_value
+               call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+            endif
+         enddo
+      enddo
+   elseif(BC1_type==1) then
+      write(stdout,*) "BC1_type=1 (Neumann condition at outer boundary) is not implemented yet !!"
+      call flush(stdout)
+      stop
+   endif
+
+end subroutine Apply_BC_to_bVec_Coeffs
