@@ -699,46 +699,8 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
 
    enddo
 
-   ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
-   do ff=1,ntoroidal
-      do qq=1,dim_gq-1
-         ! ! Neumann condition (Er=0 at inner, outer boundary)
-         ! Lid=mapP2L(qq,2,ff)
-         ! if(Lid>0) then
-         !    tarVal(:,Lid)=0
-         !    tarVal(1,Lid)=-1.0 !phi(ss=2)
-         !    tarVal(4,Lid)=+1.0 !phi(ss=1)
-         ! endif
-         ! Lid=mapP2L(qq,dim_a-1,ff)
-         ! if(Lid>0) then
-         !    tarVal(:,Lid)=0
-         !    tarVal(1,Lid)=-1.0 !phi(ss=dim_a-1)
-         !    tarVal(5,Lid)=+1.0 !phi(ss=dim_a)
-         ! endif
+   call Apply_BC_to_Amat_Coeffs
 
-         ! ! Neumann condition (E_theta=0 at inner, outer boundary)
-         ! Lid=mapP2L(qq,dim_a,ff)
-         ! if(Lid>0) then
-         !    tarVal(:,Lid)=0
-         !    tarVal(1,Lid)=-1.0 !phi(ss=dim_a, qq)
-         !    tarVal(3,Lid)=+1.0 !phi(ss=dim_a, qq+1)
-         ! endif
-
-         !Dirichlet condition (phi=0 at inner boundary)
-         Lid=mapP2L(qq,1,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=1.0 !phi(ss=1)
-         endif
-
-         !Dirichlet condition (phi=0 at outer boundary)
-         Lid=mapP2L(qq,dim_a,ff)
-         if(Lid>0) then
-            tarVal(:,Lid)=0
-            tarVal(1,Lid)=1.0 !phi(ss=dim_a, qq)
-         endif
-      enddo
-   enddo
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
    allocate(d_nnz(Lsize), o_nnz(Lsize))
@@ -968,7 +930,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
    call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
    call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
@@ -1184,11 +1146,84 @@ subroutine Apply_BC_to_Amat_Coeffs
          enddo
       enddo
    elseif(BC1_type==1) then
-      write(stdout,*) "BC1_type=1 (Neumann condition at outer boundary) is not implemented yet !!"
-      call flush(stdout)
-      stop
+      ss=dim_a
+      inv_du(1)=-1.0*inv_du(1) ! since delta_s is now negative value for outer boundary case
+      do ff=1,mzetamax
+         do qq=1,dim_gq-1
+            ! Neumann condition (abs(E)=0 at inner)
+            Lid=mapP2L(qq,ss,ff)
+            if(Lid>0) then
+
+               inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+
+               do j=1,3
+                  Kj_coeff(j) =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*DG%Jacob_sqf(qq,ss-1)*Eps_T(1,j,qq,ss-1,0) -DG%Jacob_sqf(qq,ss-2)*Eps_T(1,j,qq,ss-2,0)) &
+                              +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
+                              +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
+               enddo
+
+               tarGid(:, Lid) = -100
+               tarVal(:, Lid) = 0.0
+
+               tarGid(2, Lid) = mapP2G(qq-1,ss,ff)
+               tarVal(2, Lid) = CT(2,2,qq,ss,0) + 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0)) - 0.5*Kj_coeff(2)*inv_du(2)
+               tarGid(3, Lid) = mapP2G(qq+1,ss,ff)
+               tarVal(3, Lid) = CT(2,2,qq,ss,0) - 0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0)) + 0.5*Kj_coeff(2)*inv_du(2)
+
+               tarGid(4, Lid) = mapP2G(qq,ss-1,ff)
+               tarVal(4, Lid) = 2.0*CT(1,1,qq,ss,0)
+
+               tarGid(5, Lid) = mapP2G(qq,ss,ff-1)
+               tarVal(5, Lid) = CT(3,3,qq,ss,0) + 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0)) - 0.5*Kj_coeff(3)*inv_du(3)
+               tarGid(6, Lid) = mapP2G(qq,ss,ff+1)
+               tarVal(6, Lid) = CT(3,3,qq,ss,0) - 0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0)) + 0.5*Kj_coeff(3)*inv_du(3)
+
+               tarGid(7, Lid) = mapP2G(qq+1,ss-1,ff)
+               tarVal(7, Lid) = +0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+               tarGid(8, Lid) = mapP2G(qq-1,ss-1,ff)
+               tarVal(8, Lid) = -0.5*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+
+               tarGid(9, Lid) = mapP2G(qq,ss-1,ff+1)
+               tarVal(9, Lid) = +0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+               tarGid(10,Lid) = mapP2G(qq,ss-1,ff-1)
+               tarVal(10,Lid) = -0.5*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+
+               tarGid(11,Lid) = mapP2G(qq+1,ss,ff+1)
+               tarVal(11,Lid) = +0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+               tarGid(12,Lid) = mapP2G(qq-1,ss,ff-1)
+               tarVal(12,Lid) = +0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+
+               tarGid(13,Lid) = mapP2G(qq+1,ss,ff-1)
+               tarVal(13,Lid) = -0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+               tarGid(14,Lid) = mapP2G(qq-1,ss,ff+1)
+               tarVal(14,Lid) = -0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+
+               tarGid(1, Lid) = mapP2G(qq,ss,ff)
+               tarVal(1, Lid) = -sum(tarVal(2:14,Lid))
+
+
+               ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+               ! so make sure that target coefficient values represent (-nabla*(eps_T*nabla*phi))
+               tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+
+            endif
+         enddo
+      enddo
    endif
 
+
+   if(BC0_type==1 .and. BC1_type==1) then
+      ! This is purely Neumann conditions.. so the solution is not unique
+      ! We need a reference point (Dirichlet condition)
+      Lid=mapP2L(1,1,1) ! This is a reference point
+      if(Lid>0) then
+         tarGid(:, Lid) = -100
+         tarVal(:, Lid) = 0.0
+
+         tarGid(1, Lid) = mapL2G(Lid)
+         tarVal(1, Lid) = 1.0
+      endif
+   endif
 
 end subroutine Apply_BC_to_Amat_Coeffs
 
@@ -1215,7 +1250,7 @@ subroutine Apply_BC_to_bVec_Coeffs
    if(BC0_type==0) then ! Dirichlet condition (phi at inner boundary)
       ss=1
       do ff=1,mzetamax
-         do qq=1,DG%dim_gq-1
+         do qq=1,dim_gq-1
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
                Gid=mapL2G(Lid)
@@ -1227,7 +1262,7 @@ subroutine Apply_BC_to_bVec_Coeffs
    elseif(BC0_type==1) then ! Neumann condition (Er value at inner boundary)
       ss=1
       do ff=1,mzetamax
-         do qq=1,DG%dim_gq-1
+         do qq=1,dim_gq-1
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
                Gid=mapL2G(Lid)
@@ -1244,9 +1279,9 @@ subroutine Apply_BC_to_bVec_Coeffs
    endif
 
    if(BC1_type==0) then ! Dirichlet condition (phi at outer boundary)
-      ss=DG%dim_a
+      ss=dim_a
       do ff=1,mzetamax
-         do qq=1,DG%dim_gq-1
+         do qq=1,dim_gq-1
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
                Gid=mapL2G(Lid)
@@ -1256,9 +1291,35 @@ subroutine Apply_BC_to_bVec_Coeffs
          enddo
       enddo
    elseif(BC1_type==1) then
-      write(stdout,*) "BC1_type=1 (Neumann condition at outer boundary) is not implemented yet !!"
-      call flush(stdout)
-      stop
+      ss=dim_a
+      inv_du(1)=-1.0*inv_du(1) ! since delta_s is now negative value for outer boundary case
+      do ff=1,mzetamax
+         do qq=1,dim_gq-1
+            Lid=mapP2L(qq,ss,ff)
+            if(Lid>0) then
+               Gid=mapL2G(Lid)
+               Kss_coeff =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*DG%Jacob_sqf(qq,ss-1)*Eps_T(1,1,qq,ss-1,0) -DG%Jacob_sqf(qq,ss-2)*Eps_T(1,1,qq,ss-2,0)) &
+                        +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
+                        +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
+
+               val= -(-2.0*Eps_T(1,1,qq,ss,00)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
+               val=val*BC0_value ! multiply dfds @s=s0
+               call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
+            endif
+         enddo
+      enddo
+   endif
+
+
+   if(BC0_type==1 .and. BC1_type==1) then
+      ! This is purely Neumann conditions.. so the solution is not unique
+      ! We need a reference point (Dirichlet condition)
+      Lid=mapP2L(1,1,1) ! This is a reference point
+      if(Lid>0) then
+         Gid=mapL2G(Lid)
+         val=0.0 ! Reference value
+         call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      endif
    endif
 
 end subroutine Apply_BC_to_bVec_Coeffs
