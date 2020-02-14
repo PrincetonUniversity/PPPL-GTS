@@ -187,6 +187,11 @@ contains
       real(wp) tmp_dne(SG%dim_gq,SG%dim_s,0:1)
       integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror
 
+      real(wp) tt0,tt1
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
       SG%dne = 0.0
 
       do m=1,me
@@ -259,6 +264,12 @@ contains
          SG%dne(:,:,1) = SG%dne(:,:,1)*SG%inv_Cell_dV
       endif
 
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "Measure_Electron_Density_on_SG takes", tt1-tt0, " secs"
+      call flush(stdout)
+#endif
+
    end subroutine Measure_Electron_Density_on_SG
 
    subroutine Measure_Ion_Density_on_SG
@@ -275,7 +286,11 @@ contains
       real(wp) target_gq, target_gf
       real(wp) tmp_dni(SG%dim_gq,SG%dim_s,0:1)
       integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror
+      real(wp) tt0, tt1
 
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
       SG%dni = 0.0
 
       do m=1,mi
@@ -348,6 +363,11 @@ contains
          SG%dni(:,:,1) = SG%dni(:,:,1)*SG%inv_Cell_dV
       endif
 
+ #ifdef _MGY_TIMER_
+     tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "Measure_Ion_Density_on_SG takes", tt1-tt0, " secs"
+      call flush(stdout)
+#endif
    end subroutine Measure_Ion_Density_on_SG
 
 end module Structured_Grid
