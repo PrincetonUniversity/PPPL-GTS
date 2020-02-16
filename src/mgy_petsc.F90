@@ -807,6 +807,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   tarVal=0.0
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
 
@@ -1285,7 +1286,7 @@ subroutine Apply_BC_to_bVec_Coeffs
                         +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
                         +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
 
-               val= -(-2.0*Eps_T(1,1,qq,ss,00)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
+               val= -(-2.0*Eps_T(1,1,qq,ss,0)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
                val=val*BC0_value ! multiply dfds @s=s0
                call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
             endif
@@ -1317,7 +1318,7 @@ subroutine Apply_BC_to_bVec_Coeffs
                         +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
                         +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
 
-               val= -(-2.0*Eps_T(1,1,qq,ss,00)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
+               val= -(-2.0*Eps_T(1,1,qq,ss,0)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
                val=val*BC0_value ! multiply dfds @s=s0
                call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
             endif
