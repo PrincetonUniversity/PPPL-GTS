@@ -329,7 +329,9 @@ end subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
 
 subroutine Solve_Poisson3D_using_DiagnosticGrid()
    use precision, only:wp
-   use global_parameters, only:stdout,mype,ifelectron,mzetamax
+   ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
+   use global_parameters
+   use field_array
    use MGY_PETSc_Interface_Data
    use Diagnostic_Grid
    use particle_decomp
@@ -345,6 +347,8 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
    real(wp) tt0,tt1
    real(wp), external :: density
+   real(wp) source_from_GTS(mgrid), dne_adiab_ratio, intpl_dphi_NZ
+   integer :: i,j,ij
 
    ! source = DG%iScaData(:,:,1,1)-(DG%eScaData(:,:,1,1)+int(ifelectron/2)*DG%dne_adiab)
    source=0.0
@@ -354,6 +358,17 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    !    enddo
    ! enddo
    call Interpolate_OriGridData_into_DG(test_src,source)
+
+   ! do i=0,mpsi
+   !    do j=0,mtheta(i)
+   !       ij=igrid(i) + j
+
+   !       intpl_dphi_NZ = phi(1,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
+   !       dne_adiab_ratio = abs(csc0)*intpl_dphi_NZ/Te_grid(i)
+   !       source_from_GTS(ij)=(densityi(1,ij)+real(ZF_SEPARATION)*zonali(i)) - (densitye(1,ij)+real(ZF_SEPARATION)*zonale(i) + int(ifelectron/2)*dne_adiab_ratio)
+   !    enddo
+   ! enddo
+   ! call Interpolate_OriGridData_into_DG(source_from_GTS,source)
 
    RHS_leading_coeff=1.602176634e-19/8.8541878128e-12  ! element_charge/permittivity (e/eps0)
 
