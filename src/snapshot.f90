@@ -496,6 +496,7 @@ subroutine snapshot_hdf5
    use hdf5
    use h5lt
    use Diagnostic_Grid
+   use Structured_Grid
    use MGY_PETSc_Interface_Data,only:CT,Metric_T,Polar_T
 
    implicit none
@@ -506,7 +507,7 @@ subroutine snapshot_hdf5
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
    integer(HSIZE_T) :: h5dims(5)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_SG, gid_SG_SM, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
@@ -800,6 +801,8 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "FLA", gid_FLA, h5err)
       call h5gcreate_f(file_id, "DCOMP", gid_DCOMP, h5err)
       call h5gcreate_f(file_id, "BIN", gid_BIN, h5err)
+      call h5gcreate_f(file_id, "SG", gid_SG, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "SG/SM", gid_SG_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG", gid_DG, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/SM", gid_DG_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/FLA", gid_DG_FLA, h5err) ! Diagnostic Grid
@@ -1398,6 +1401,46 @@ subroutine snapshot_hdf5
       deallocate(intp_val_Arr)
 
 
+      ! Print SG (Diagnostic Grid) Data
+      ! Note that dimension has to use SG%dim_* rather than dim_*
+      ! because the dimension of snapshot_hdf5 and SG might not be the same
+      h5dims(1)=SG%dim_s
+      call h5ltmake_dataset_f(gid_SG, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%a_1D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%s_1D,h5err)
+
+      h5dims(1)=SG%dim_gq
+      call h5ltmake_dataset_f(gid_SG, "gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%gq_1D,h5err)
+
+      h5dims(1:2)=(/SG%dim_gq,SG%dim_s/)
+      call h5ltmake_dataset_f(gid_SG, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%a_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%gq_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dV,h5err)
+      call h5ltmake_dataset_f(gid_SG, "Cell_dS_s",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_s,h5err)
+      call h5ltmake_dataset_f(gid_SG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gq,h5err)
+      call h5ltmake_dataset_f(gid_SG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gf,h5err)
+
+      call h5ltmake_dataset_f(gid_SG, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
+
+
+      call Smooth_SG_Data_2D(5,SG%dni(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D(5,SG%dne(:,:,1),SG%Cell_dV)
+      call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
+
+
+      call h5ltmake_dataset_f(gid_SG, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*SG%test_src_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_res_2D",2,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*SG%test_res_2D,h5err)
+
+      !Following 3D data are for temporary diagnostic purpose
+      h5dims(1:3)=(/SG%dim_gq,SG%dim_s,mzetamax/)
+      call h5ltmake_dataset_f(gid_SG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_3D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*SG%test_src_3D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*SG%test_res_3D,h5err)
+
+
+
+
       ! Print DG (Diagnostic Grid) Data
       ! Note that dimension has to use DG%dim_* rather than dim_*
       ! because the dimension of snapshot_hdf5 and DG might not be the same
@@ -1631,6 +1674,8 @@ subroutine snapshot_hdf5
       call h5gclose_f(gid_FLA, h5err)
       call h5gclose_f(gid_DCOMP, h5err)
       call h5gclose_f(gid_BIN, h5err)
+      call h5gclose_f(gid_SG, h5err)
+      call h5gclose_f(gid_SG_SM, h5err)
       call h5gclose_f(gid_DG, h5err)
       call h5gclose_f(gid_DG_SM, h5err)
       call h5gclose_f(gid_DG_FLA, h5err)

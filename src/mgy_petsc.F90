@@ -192,9 +192,9 @@ subroutine Finalize_MGY_PETSc_Interface_Data
 end subroutine Finalize_MGY_PETSc_Interface_Data
 
 
-subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
+subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    use MGY_PETSc_Interface_Data
-   use Diagnostic_Grid
+   use Structured_Grid
    use particle_decomp
    use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
    implicit none
@@ -207,7 +207,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    integer :: max_nnz=7
    integer, allocatable :: d_nnz(:),o_nnz(:)
 
-   call Initialize_MGY_PETSc_Interface_Data(DG%dim_gq,DG%dim_a,ntoroidal)
+   call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
 
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
@@ -219,9 +219,9 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
       aid =mapG2P(Gid)%aid
       gfid=mapG2P(Gid)%gfid
 
-      Coeff_gq = DG%g_qq_cntv(gqid,aid)*DG%inv_dgq**2.0
-      Coeff_a  = DG%g_aa_cntv(gqid,aid)*(dsda(DG%a_1D(aid))*DG%inv_ds)**2.0
-      Coeff_gf = DG%g_ff_cntv(gqid,aid)/((zetamax-zetamin)**2.0)
+      Coeff_gq = SG%g_qq_cntv(gqid,aid)*SG%inv_dgq**2.0
+      Coeff_a  = SG%g_aa_cntv(gqid,aid)*(dsda(SG%a_1D(aid))*SG%inv_ds)**2.0
+      Coeff_gf = SG%g_ff_cntv(gqid,aid)/((zetamax-zetamin)**2.0)
 
       tnum=1
       tarGid(tnum,Lid)=mapP2G(gqid,aid,gfid);   tarVal(tnum,Lid)=2.0*(Coeff_gq+Coeff_a+Coeff_gf);  tnum=tnum+1;
@@ -235,7 +235,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
 
    ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
    do gfid=1,ntoroidal
-      do gqid=1,DG%dim_gq-1
+      do gqid=1,SG%dim_gq-1
          ! Neumann condition (Er=0 at inner, outer boundary)
          Lid=mapP2L(gqid,2,gfid)
          if(Lid>0) then
@@ -243,7 +243,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
             tarVal(1,Lid)=-1.0 !phi(aid=2)
             tarVal(4,Lid)=+1.0 !phi(aid=1)
          endif
-         Lid=mapP2L(gqid,DG%dim_a-1,gfid)
+         Lid=mapP2L(gqid,SG%dim_a-1,gfid)
          if(Lid>0) then
             tarVal(:,Lid)=0
             tarVal(1,Lid)=-1.0 !phi(aid=dim_a-1)
@@ -251,7 +251,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
          endif
 
          ! Neumann condition (E_theta=0 at inner, outer boundary)
-         Lid=mapP2L(gqid,DG%dim_a,gfid)
+         Lid=mapP2L(gqid,SG%dim_a,gfid)
          if(Lid>0) then
             tarVal(:,Lid)=0
             tarVal(1,Lid)=-1.0 !phi(aid=dim_a, gqid)
@@ -324,16 +324,16 @@ subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
 
    deallocate(d_nnz, o_nnz)
 
-end subroutine Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
+end subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
 
 
-subroutine Solve_Poisson3D_using_DiagnosticGrid()
+subroutine Solve_Poisson3D_using_Structured_Grid()
    use precision, only:wp
    ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
    use global_parameters
    use field_array
    use MGY_PETSc_Interface_Data
-   use Diagnostic_Grid
+   use Structured_Grid
    use particle_decomp
    use field_array, only: test_src
    implicit none
@@ -343,21 +343,21 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    PetscInt ss,qq,ff
    PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
    PetscErrorCode ierr
-   PetscReal source(DG%dim_gq,DG%dim_a)
+   PetscReal source(SG%dim_gq,SG%dim_a)
    PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
    real(wp) tt0,tt1
    real(wp), external :: density
    real(wp) source_from_GTS(mgrid), dne_adiab_ratio, intpl_dphi_NZ
    integer :: i,j,ij
 
-   ! source = DG%iScaData(:,:,1,1)-(DG%eScaData(:,:,1,1)+int(ifelectron/2)*DG%dne_adiab)
+   ! source = SG%iScaData(:,:,1,1)-(SG%eScaData(:,:,1,1)+int(ifelectron/2)*SG%dne_adiab)
    source=0.0
    ! do aid=20,30
-   !    do gqid=1,DG%dim_gq
-   !       source(gqid,aid)=sin(6*(DG%gq_1D(gqid))-4*(DG%zetamin))
+   !    do gqid=1,SG%dim_gq
+   !       source(gqid,aid)=sin(6*(SG%gq_1D(gqid))-4*(SG%zetamin))
    !    enddo
    ! enddo
-   call Interpolate_OriGridData_into_DG(test_src,source)
+   call Interpolate_OriGridData_into_SG(test_src,source)
 
    ! do i=0,mpsi
    !    do j=0,mtheta(i)
@@ -373,8 +373,8 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    RHS_leading_coeff=1.602176634e-19/8.8541878128e-12  ! element_charge/permittivity (e/eps0)
 
    source=RHS_leading_coeff*source
-   do aid=1,DG%dim_a
-      source(:,aid) = 1e6*density(DG%a_1D(aid),0.0)*source(:,aid)
+   do aid=1,SG%dim_a
+      source(:,aid) = 1e6*density(SG%a_1D(aid),0.0)*source(:,aid)
    enddo
 
    ! Assign and Assemble bVec (source term)
@@ -410,7 +410,7 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
-   ! Copy xVec (solution) to the DG%test_phi vector
+   ! Copy xVec (solution) to the SG%test_phi vector
    allocate(xVec_mype(Lsize), xVec_partd(sum_Lsize_partd))
    call VecGetArrayReadF90(xVec,ptr_xVec,ierr)
    xVec_mype(:)=ptr_xVec(1:Lsize)
@@ -418,13 +418,13 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    call MPI_ALLGATHERV(xVec_mype,Lsize,mpi_Rsize,xVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
    do Lid=1,sum_Lsize_partd
       Gid=recv_mapL2G_partd(Lid)
-      DG%test_phi_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = xVec_partd(Lid)
+      SG%test_phi_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = xVec_partd(Lid)
    enddo
-   DG%test_phi_2D(DG%dim_gq,:)=DG%test_phi_2D(1,:)
+   SG%test_phi_2D(SG%dim_gq,:)=SG%test_phi_2D(1,:)
    deallocate(xVec_mype, xVec_partd)
 
 
-   ! Copy bVec (source) to the DG%test_phi vector
+   ! Copy bVec (source) to the SG%test_phi vector
    allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
    call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
    bVec_mype(:)=ptr_bVec(1:Lsize)
@@ -432,12 +432,12 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
    do Lid=1,sum_Lsize_partd
       Gid=recv_mapL2G_partd(Lid)
-      DG%test_src_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
+      SG%test_src_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
    enddo
-   DG%test_src_2D(DG%dim_gq,:)=DG%test_src_2D(1,:)
+   SG%test_src_2D(SG%dim_gq,:)=SG%test_src_2D(1,:)
    deallocate(bVec_mype, bVec_partd)
 
-   ! Copy ResVec (residual=A*x-b) to the DG%test_phi vector
+   ! Copy ResVec (residual=A*x-b) to the SG%test_phi vector
    allocate(ResVec_mype(Lsize), ResVec_partd(sum_Lsize_partd))
    call VecGetArrayReadF90(ResVec,ptr_ResVec,ierr)
    ResVec_mype(:)=ptr_ResVec(1:Lsize)
@@ -445,18 +445,18 @@ subroutine Solve_Poisson3D_using_DiagnosticGrid()
    call MPI_ALLGATHERV(ResVec_mype,Lsize,mpi_Rsize,ResVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
    do Lid=1,sum_Lsize_partd
       Gid=recv_mapL2G_partd(Lid)
-      DG%test_res_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = ResVec_partd(Lid)
+      SG%test_res_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = ResVec_partd(Lid)
    enddo
-   DG%test_res_2D(DG%dim_gq,:)=DG%test_res_2D(1,:)
+   SG%test_res_2D(SG%dim_gq,:)=SG%test_res_2D(1,:)
    deallocate(ResVec_mype, ResVec_partd)
 
 
    ! To get full 3D data for diagnostic purpose
-   call MPI_ALLGATHER(DG%test_phi_2D,DG%dim_gq*DG%dim_a,mpi_Rsize,DG%test_phi_3D,DG%dim_gq*DG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-   call MPI_ALLGATHER(DG%test_src_2D,DG%dim_gq*DG%dim_a,mpi_Rsize,DG%test_src_3D,DG%dim_gq*DG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-   call MPI_ALLGATHER(DG%test_res_2D,DG%dim_gq*DG%dim_a,mpi_Rsize,DG%test_res_3D,DG%dim_gq*DG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   call MPI_ALLGATHER(SG%test_phi_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   call MPI_ALLGATHER(SG%test_res_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_res_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
 
-end subroutine Solve_Poisson3D_using_DiagnosticGrid
+end subroutine Solve_Poisson3D_using_Structured_Grid
 
 
 subroutine test_Laplacian_2D()
@@ -606,9 +606,9 @@ subroutine test_Laplacian_2D()
 end subroutine test_Laplacian_2D
 
 
-subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
+subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    use MGY_PETSc_Interface_Data
-   use Diagnostic_Grid
+   use Structured_Grid
    use particle_decomp
    use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
    implicit none
@@ -624,8 +624,8 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
    integer :: dim_gq, dim_a
 
 
-   dim_a =DG%dim_a
-   dim_gq=DG%dim_gq
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
 
    call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
 
@@ -633,7 +633,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
    ! Note that there are ghost cells for easier indexing
    allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   call Determine_GK_PoissonTensors_on_DiagnosticGrid()
+   call Determine_GK_PoissonTensors_on_Structured_Grid()
 
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
@@ -645,7 +645,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
       ss = mapG2P(Gid)%aid
       ff = mapG2P(Gid)%gfid
 
-      inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
 
 
       ! 2 (gqid-1) & 3 (gqid+1)
@@ -774,11 +774,11 @@ subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
 
    deallocate(d_nnz, o_nnz)
 
-end subroutine Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
+end subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
 subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    use MGY_PETSc_Interface_Data
-   use Diagnostic_Grid
+   use Structured_Grid
    use particle_decomp
    use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
    implicit none
@@ -793,8 +793,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
 
-   dim_a =DG%dim_a
-   dim_gq=DG%dim_gq
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
 
    call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
 
@@ -802,7 +802,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    ! Note that there are ghost cells for easier indexing
    allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   call Determine_GK_PoissonTensors_on_DiagnosticGrid()
+   call Determine_GK_PoissonTensors_on_Structured_Grid()
 
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
@@ -815,7 +815,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
       ss = mapG2P(Gid)%aid
       ff = mapG2P(Gid)%gfid
 
-      inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
 
       ! 2 (gqid-1) & 3 (gqid+1)
       AntiSym1 = 0.5*(CT(1,2,qq+1,ss,0)-CT(1,2,qq-1,ss,0))
@@ -957,11 +957,11 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
-subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
+subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    use precision, only:wp
    use global_parameters, only:stdout,mype,ifelectron,mzetamax,msm0,amasse,amassi
    use MGY_PETSc_Interface_Data
-   use Diagnostic_Grid
+   use Structured_Grid
    use particle_decomp
    implicit none
 
@@ -973,43 +973,43 @@ subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
 
 
    ! Metric Tensor is based on the static equilibrium magnetic field (PEST coordinate)
-   do sid=1,DG%dim_a
-      do gqid=1,DG%dim_gq
+   do sid=1,SG%dim_a
+      do gqid=1,SG%dim_gq
          Metric_T(:,:,gqid,sid)=0.0
-         Metric_T(1,1,gqid,sid)=DG%g_ss_cntv(gqid,sid)
-         Metric_T(2,1,gqid,sid)=DG%g_sq_cntv(gqid,sid)
-         Metric_T(1,2,gqid,sid)=DG%g_sq_cntv(gqid,sid)
-         Metric_T(2,2,gqid,sid)=DG%g_qq_cntv(gqid,sid)
-         Metric_T(3,3,gqid,sid)=DG%g_ff_cntv(gqid,sid)
+         Metric_T(1,1,gqid,sid)=SG%g_ss_cntv(gqid,sid)
+         Metric_T(2,1,gqid,sid)=SG%g_sq_cntv(gqid,sid)
+         Metric_T(1,2,gqid,sid)=SG%g_sq_cntv(gqid,sid)
+         Metric_T(2,2,gqid,sid)=SG%g_qq_cntv(gqid,sid)
+         Metric_T(3,3,gqid,sid)=SG%g_ff_cntv(gqid,sid)
       enddo
    enddo
 
    ! Fill ghost nodes of Metric_T
-   Metric_T(:,:,DG%dim_gq,:)=Metric_T(:,:,1,:)
-   Metric_T(:,:,0,:)        =Metric_T(:,:,DG%dim_gq-1,:)
+   Metric_T(:,:,SG%dim_gq,:)=Metric_T(:,:,1,:)
+   Metric_T(:,:,0,:)        =Metric_T(:,:,SG%dim_gq-1,:)
    Metric_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-   Metric_T(:,:,:,DG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   Metric_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
    invEpsilon=1.0/8.8541878128e-12
 
-   do sid=1,DG%dim_a
+   do sid=1,SG%dim_a
       ! Assuming the static equilibrium density for ions and electrons
-      n0=1e6*density(DG%a_1D(sid),0) ! unit (#/m^(3))
-      do gqid=1,DG%dim_gq
-         invBsq=1.0/(DG%BB(gqid,sid)**2.0) ! unit (T^2)
-         ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",DG%BB(gqid,sid), ", Polar(sid)=", invEpsilon*1e-3*(n0*amasse + n0*amassi)*invBsq
+      n0=1e6*density(SG%a_1D(sid),0) ! unit (#/m^(3))
+      do gqid=1,SG%dim_gq
+         invBsq=1.0/(SG%BB(gqid,sid)**2.0) ! unit (T^2)
+         ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",SG%BB(gqid,sid), ", Polar(sid)=", invEpsilon*1e-3*(n0*amasse + n0*amassi)*invBsq
          do j=1,3
             do i=1,3
                tmp=invEpsilon*1e-3*(n0*amasse + n0*amassi)*invBsq  ! Polarization contribution from ions (n0*(1e-3*amassi)) and electrons (n0*1e-3*amasse)
-               Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(DG%B0_cntv3_sqf(i,gqid,sid)*DG%B0_cntv3_sqf(j,gqid,sid)))
+               Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(SG%B0_cntv3_sqf(i,gqid,sid)*SG%B0_cntv3_sqf(j,gqid,sid)))
             enddo
          enddo
       enddo
    enddo
-   Polar_T(:,:,DG%dim_gq,:)=Polar_T(:,:,1,:)
-   Polar_T(:,:,0,:)        =Polar_T(:,:,DG%dim_gq-1,:)
+   Polar_T(:,:,SG%dim_gq,:)=Polar_T(:,:,1,:)
+   Polar_T(:,:,0,:)        =Polar_T(:,:,SG%dim_gq-1,:)
    Polar_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-   Polar_T(:,:,:,DG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   Polar_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
    ! Construct Epsilon Tensor ( eps=eps_0*Metric_T + Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2)) )
    Eps_T(:,:,:,:,0)=Metric_T+Polar_T
@@ -1017,39 +1017,39 @@ subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid()
    ! Communicate Eps_T with neighboring left and right planes.
    ! So, Eps_T(:,:,:,:,tid) ==>  tid=-1(left plane), tid=0(my plane), tid=1(right plane)
    ! Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1)
-   icount=3*3*(DG%dim_gq+1)*(DG%dim_a+2)
+   icount=3*3*(SG%dim_gq+1)*(SG%dim_a+2)
    call MPI_SENDRECV(Eps_T(:,:,:,:,0),icount,mpi_Rsize,left_pe,0,Eps_T(:,:,:,:,1),icount,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierror)
    call MPI_SENDRECV(Eps_T(:,:,:,:,0),icount,mpi_Rsize,right_pe,0,Eps_T(:,:,:,:,-1),icount,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierror)
 
 
 
-   inv_du(1) = DG%inv_ds
-   inv_du(2) = DG%inv_dgq
-   inv_du(3) = 1.0/(DG%zetamax-DG%zetamin)
+   inv_du(1) = SG%inv_ds
+   inv_du(2) = SG%inv_dgq
+   inv_du(3) = 1.0/(SG%zetamax-SG%zetamin)
 
    ! Determine Coefficient Tensor (CT = J*Eps_T(i,j)/(du^i*du^j))
-   do sid=1,DG%dim_a
-      do gqid=1,DG%dim_gq
+   do sid=1,SG%dim_a
+      do gqid=1,SG%dim_gq
          do j=1,3
             do i=1,3
-               CT(i,j,gqid,sid,:) = DG%Jacob_sqf(gqid,sid)*Eps_T(i,j,gqid,sid,:)*inv_du(i)*inv_du(j)
+               CT(i,j,gqid,sid,:) = SG%Jacob_sqf(gqid,sid)*Eps_T(i,j,gqid,sid,:)*inv_du(i)*inv_du(j)
             enddo
          enddo
       enddo
    enddo
-   CT(:,:,DG%dim_gq,:,:)  =CT(:,:,1,:,:)
-   CT(:,:,0,:,:)          =CT(:,:,DG%dim_gq-1,:,:)
+   CT(:,:,SG%dim_gq,:,:)  =CT(:,:,1,:,:)
+   CT(:,:,0,:,:)          =CT(:,:,SG%dim_gq-1,:,:)
    CT(:,:,:,0,:)          =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-   CT(:,:,:,DG%dim_a+1,:) =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   CT(:,:,:,SG%dim_a+1,:) =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
 
-end subroutine Determine_GK_PoissonTensors_on_DiagnosticGrid
+end subroutine Determine_GK_PoissonTensors_on_Structured_Grid
 
 
 
 subroutine Apply_BC_to_Amat_Coeffs
    use MGY_PETSc_Interface_Data
-   use Diagnostic_Grid
+   use Structured_Grid
    use global_parameters, only:mzetamax,stdout,mype
    implicit none
 
@@ -1057,12 +1057,12 @@ subroutine Apply_BC_to_Amat_Coeffs
    integer :: dim_gq, dim_a
    PetscReal inv_Jacob, Kj_coeff(3), inv_du(3)
 
-   dim_a =DG%dim_a
-   dim_gq=DG%dim_gq
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
 
-   inv_du(1) = DG%inv_ds
-   inv_du(2) = DG%inv_dgq
-   inv_du(3) = 1.0/(DG%zetamax-DG%zetamin)
+   inv_du(1) = SG%inv_ds
+   inv_du(2) = SG%inv_dgq
+   inv_du(3) = 1.0/(SG%zetamax-SG%zetamin)
 
    ! Apply Neumann (+Dirichlet) Condition at inner and outer boundary
    if(BC0_type==0) then !Dirichlet condition
@@ -1089,12 +1089,12 @@ subroutine Apply_BC_to_Amat_Coeffs
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
 
-               inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+               inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
 
                do j=1,3
-                  Kj_coeff(j) =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*DG%Jacob_sqf(qq,ss+1)*Eps_T(1,j,qq,ss+1,0) -DG%Jacob_sqf(qq,ss+2)*Eps_T(1,j,qq,ss+2,0)) &
-                              +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
-                              +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
+                  Kj_coeff(j) =    inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*SG%Jacob_sqf(qq,ss+1)*Eps_T(1,j,qq,ss+1,0) -SG%Jacob_sqf(qq,ss+2)*Eps_T(1,j,qq,ss+2,0)) &
+                              +0.5*inv_du(2)*(SG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -SG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
+                              +0.5*inv_du(3)*(SG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -SG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
                enddo
 
                tarGid(:, Lid) = -100
@@ -1170,12 +1170,12 @@ subroutine Apply_BC_to_Amat_Coeffs
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
 
-               inv_Jacob=1.0/DG%Jacob_sqf(qq,ss)
+               inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
 
                do j=1,3
-                  Kj_coeff(j) =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*DG%Jacob_sqf(qq,ss-1)*Eps_T(1,j,qq,ss-1,0) -DG%Jacob_sqf(qq,ss-2)*Eps_T(1,j,qq,ss-2,0)) &
-                              +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
-                              +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
+                  Kj_coeff(j) =    inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*SG%Jacob_sqf(qq,ss-1)*Eps_T(1,j,qq,ss-1,0) -SG%Jacob_sqf(qq,ss-2)*Eps_T(1,j,qq,ss-2,0)) &
+                              +0.5*inv_du(2)*(SG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -SG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
+                              +0.5*inv_du(3)*(SG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -SG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
                enddo
 
                tarGid(:, Lid) = -100
@@ -1245,7 +1245,7 @@ end subroutine Apply_BC_to_Amat_Coeffs
 
 subroutine Apply_BC_to_bVec_Coeffs
    use MGY_PETSc_Interface_Data
-   use Diagnostic_Grid
+   use Structured_Grid
    use global_parameters, only:mzetamax,stdout,mype
    implicit none
 
@@ -1255,12 +1255,12 @@ subroutine Apply_BC_to_bVec_Coeffs
    PetscErrorCode ierr
 
 
-   dim_a =DG%dim_a
-   dim_gq=DG%dim_gq
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
 
-   inv_du(1) = DG%inv_ds
-   inv_du(2) = DG%inv_dgq
-   inv_du(3) = 1.0/(DG%zetamax-DG%zetamin)
+   inv_du(1) = SG%inv_ds
+   inv_du(2) = SG%inv_dgq
+   inv_du(3) = 1.0/(SG%zetamax-SG%zetamin)
 
 
    if(BC0_type==0) then ! Dirichlet condition (phi at inner boundary)
@@ -1282,11 +1282,11 @@ subroutine Apply_BC_to_bVec_Coeffs
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
                Gid=mapL2G(Lid)
-               Kss_coeff =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*DG%Jacob_sqf(qq,ss+1)*Eps_T(1,1,qq,ss+1,0) -DG%Jacob_sqf(qq,ss+2)*Eps_T(1,1,qq,ss+2,0)) &
-                        +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
-                        +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
+               Kss_coeff =    inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*SG%Jacob_sqf(qq,ss+1)*Eps_T(1,1,qq,ss+1,0) -SG%Jacob_sqf(qq,ss+2)*Eps_T(1,1,qq,ss+2,0)) &
+                        +0.5*inv_du(2)*(SG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -SG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
+                        +0.5*inv_du(3)*(SG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -SG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
 
-               val= -(-2.0*Eps_T(1,1,qq,ss,0)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
+               val= -(-2.0*Eps_T(1,1,qq,ss,0)*inv_du(1) + Kss_coeff/(SG%Jacob_sqf(qq,ss)))
                val=val*BC0_value ! multiply dfds @s=s0
                call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
             endif
@@ -1314,11 +1314,11 @@ subroutine Apply_BC_to_bVec_Coeffs
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
                Gid=mapL2G(Lid)
-               Kss_coeff =    inv_du(1)*(-3*DG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*DG%Jacob_sqf(qq,ss-1)*Eps_T(1,1,qq,ss-1,0) -DG%Jacob_sqf(qq,ss-2)*Eps_T(1,1,qq,ss-2,0)) &
-                        +0.5*inv_du(2)*(DG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -DG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
-                        +0.5*inv_du(3)*(DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -DG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
+               Kss_coeff =    inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*SG%Jacob_sqf(qq,ss-1)*Eps_T(1,1,qq,ss-1,0) -SG%Jacob_sqf(qq,ss-2)*Eps_T(1,1,qq,ss-2,0)) &
+                        +0.5*inv_du(2)*(SG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -SG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
+                        +0.5*inv_du(3)*(SG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -SG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
 
-               val= -(-2.0*Eps_T(1,1,qq,ss,0)*inv_du(1) + Kss_coeff/(DG%Jacob_sqf(qq,ss)))
+               val= -(-2.0*Eps_T(1,1,qq,ss,0)*inv_du(1) + Kss_coeff/(SG%Jacob_sqf(qq,ss)))
                val=val*BC0_value ! multiply dfds @s=s0
                call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
             endif

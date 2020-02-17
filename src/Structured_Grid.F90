@@ -7,7 +7,7 @@ module Structured_Grid
    type Grid_Info
 
       integer :: gq_jump=1,s_jump=1
-      integer :: dim_s,dim_gq
+      integer :: dim_s,dim_a,dim_gq
       real(wp) zetamin,zetamax,dgf,inv_dgf ! zeta value of this plane
       real(wp) dgq,inv_dgq ! dgq is constant since it is uniform along theta direction
       real(wp) ds,inv_ds   ! ds is constant since this is the structured grid on (s-gq-gf) coordinate.
@@ -32,6 +32,10 @@ module Structured_Grid
       real(wp),allocatable, dimension(:,:,:) :: dni,dTi ! dimension: (dim_gq, dim_s, 0:1)
       real(wp),allocatable, dimension(:,:,:) :: dne,dTe
 
+      ! Test 2D phi calculated by solving 3D Poission equation
+      real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D, test_res_2D
+      real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D, test_res_3D
+
    end type
 
    type(Grid_Info) :: SG ! Structure Grid
@@ -45,9 +49,10 @@ contains
 
       integer i,j,k,sid,gqid,ij,Ns,Nq
       real(wp), external :: dsda
-      real(wp) tmp
+      real(wp) tmp, this_ds
 
       SG%dim_s=(mpsi+1)/SG%s_jump
+      SG%dim_a=SG%dim_s
       SG%dim_gq=mtheta(ipsi)/SG%gq_jump+1
 
       SG%dgq=2.0*pi/(SG%dim_gq-1)
@@ -55,7 +60,6 @@ contains
 
       SG%ds=((s1-s0)/real(mpsi))*SG%s_jump
       SG%inv_ds=1.0/SG%ds
-
 
       SG%zetamax=zetamax
       SG%zetamin=zetamin
@@ -158,17 +162,28 @@ contains
       !        For higher accuracy, a Weighted Volume by considering helical particle shape and varying da is required
 
       do sid=1,Ns
+         if(sid==1 .or. sid==Ns) then
+            this_ds=0.5*SG%ds
+         else
+            this_ds=SG%ds
+         endif
+
          do gqid=1,Nq
-            SG%Cell_dV(gqid,sid)=SG%Jacob_sqf(gqid,sid)*SG%ds*SG%dgq*SG%dgf
+            SG%Cell_dV(gqid,sid)=SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgq*SG%dgf
             SG%Cell_dS_s(gqid,sid)=sqrt(SG%g_aa_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*SG%dgq*SG%dgf
-            SG%Cell_dS_gq(gqid,sid)=sqrt(SG%g_qq_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*SG%ds*SG%dgf
-            SG%Cell_dS_gf(gqid,sid)=sqrt(SG%g_ff_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*SG%ds*SG%dgq
+            SG%Cell_dS_gq(gqid,sid)=sqrt(SG%g_qq_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgf
+            SG%Cell_dS_gf(gqid,sid)=sqrt(SG%g_ff_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgq
          enddo
       enddo
       SG%inv_Cell_dV=1.0/SG%Cell_dV
       SG%inv_Cell_dS_s=1.0/SG%Cell_dS_s
       SG%inv_Cell_dS_gq=1.0/SG%Cell_dS_gq
       SG%inv_Cell_dS_gf=1.0/SG%Cell_dS_gf
+
+
+      allocate(SG%test_phi_2D(Nq,Ns),SG%test_src_2D(Nq,Ns),SG%test_res_2D(Nq,Ns))
+      allocate(SG%test_phi_3D(Nq,Ns,mzetamax),SG%test_src_3D(Nq,Ns,mzetamax),SG%test_res_3D(Nq,Ns,mzetamax))
+
 
    end subroutine Initialize_Structured_Grid
 
@@ -363,11 +378,120 @@ contains
          SG%dni(:,:,1) = SG%dni(:,:,1)*SG%inv_Cell_dV
       endif
 
- #ifdef _MGY_TIMER_
-     tt1=MPI_WTIME()
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
       if(mype==0) write(stdout,*) "Measure_Ion_Density_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
    end subroutine Measure_Ion_Density_on_SG
+
+   subroutine Smooth_SG_Data_2D(num_smooth, target_Data2D, Reference_Data2D)
+
+      use precision
+      use global_parameters
+      implicit none
+
+      integer, intent(in) :: num_smooth
+      real(wp),intent(inout) :: target_Data2D(SG%dim_gq, SG%dim_s)
+      real(wp),optional:: Reference_Data2D(SG%dim_gq, SG%dim_s)
+      real(wp) :: VV(SG%dim_gq, SG%dim_s)
+      integer :: smid, aid, gqid, Ns,Nq, vid,k
+      real(wp) :: SM_Data(0:SG%dim_gq+1, 0:SG%dim_s+1)  ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+      real(wp) :: SM_gq_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_s+1), SM_s_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_s+1)
+
+      Ns = SG%dim_s
+      Nq = SG%dim_gq
+
+      VV=1.0
+      if(present(Reference_Data2D)) VV=Reference_Data2D
+
+      ! Get Smooth Coeffs which conserves Volume Weighted Integration
+      call Get_Conserving_Smooth_Coeffs_on_SG(VV, SM_s_Coeff, SM_gq_Coeff)
+
+      SM_Data = 0.0
+      SM_Data(1:Nq,1:Ns) = target_Data2D
+      do smid=1,num_smooth
+         ! Set ghost cell periodic in theta direction
+         SM_Data(0,:)    = SM_Data(Nq,:)
+         SM_Data(Nq+1,:) = SM_Data(1,:)
+         ! Smooth in theta direction
+         SM_Data(1:Nq,:) = SM_gq_Coeff(-1,1:Nq,:)*SM_Data(0:Nq-1,:) + SM_gq_Coeff(0,1:Nq,:)*SM_Data(1:Nq,:) + SM_gq_Coeff(1,1:Nq,:)*SM_Data(2:Nq+1,:)
+         ! Smooth in radial direction
+         SM_Data(:,1:Ns) = SM_s_Coeff(-1,:,1:Ns)*SM_Data(:,0:Ns-1) + SM_s_Coeff(0,:,1:Ns)*SM_Data(:,1:Ns) + SM_s_Coeff(1,:,1:Ns)*SM_Data(:,2:Ns+1)
+      enddo
+      target_Data2D = SM_Data(1:Nq,1:Ns)
+
+   end subroutine Smooth_SG_Data_2D
+
+
+   subroutine Get_Conserving_Smooth_Coeffs_on_SG(in_VOLorAREA, SM_s_Coeff, SM_gq_Coeff)
+
+      use precision
+      use global_parameters
+      use field_array
+      use Diagnostic_Grid
+      implicit none
+
+      integer :: Ns,Nq
+      real(wp), intent(in) :: in_VOLorAREA(SG%dim_gq, SG%dim_a) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+      real(wp) :: VV(0:SG%dim_gq+1, 0:SG%dim_a+1) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+      real(wp), intent(out):: SM_gq_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_a+1), SM_s_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_a+1)
+
+      Ns = SG%dim_a
+      Nq = SG%dim_gq
+
+      VV = 0
+      VV(1:Nq,1:Ns) = in_VOLorAREA
+
+      ! Note that theta direction is periodic
+      VV(0,:) = VV(Nq,:)
+      VV(Nq+1,:) = VV(1,:)
+
+      SM_gq_Coeff(-1,1:Nq,:) = 0.5*VV(0:Nq-1,:)/(VV(0:Nq-1,:) + VV(1:Nq,:)) ! Coeff_L = 0.5*VL/(VL+VC)
+      SM_gq_Coeff( 0,1:Nq,:) = 0.5*VV(1:Nq,:)*(VV(0:Nq-1,:)+2.0*VV(1:Nq,:)+VV(2:Nq+1,:))/((VV(0:Nq-1,:)+VV(1:Nq,:))*(VV(1:Nq,:)+VV(2:Nq+1,:))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+      SM_gq_Coeff( 1,1:Nq,:) = 0.5*VV(2:Nq+1,:)/(VV(2:Nq+1,:) + VV(1:Nq,:)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+      SM_s_Coeff(-1,:,1:Ns) = 0.5*VV(:,0:Ns-1)/(VV(:,0:Ns-1) + VV(:,1:Ns)) ! Coeff_L = 0.5*VL/(VL+VC)
+      SM_s_Coeff( 0,:,1:Ns) = 0.5*VV(:,1:Ns)*(VV(:,0:Ns-1)+2.0*VV(:,1:Ns)+VV(:,2:Ns+1))/((VV(:,0:Ns-1)+VV(:,1:Ns))*(VV(:,1:Ns)+VV(:,2:Ns+1))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+      SM_s_Coeff( 1,:,1:Ns) = 0.5*VV(:,2:Ns+1)/(VV(:,2:Ns+1) + VV(:,1:Ns)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+      ! To remove NsN values at the raidal ghost cells
+      SM_gq_Coeff(:,:,0)   = 0
+      SM_gq_Coeff(:,:,Ns+1)= 0
+      SM_s_Coeff(:,:,0)    = 0
+      SM_s_Coeff(:,:,Ns+1) = 0
+
+   end subroutine Get_Conserving_Smooth_Coeffs_on_SG
+
+   subroutine Interpolate_OriGridData_into_SG(oriData_1D, out_IntpData_2D)
+
+      use precision
+      use global_parameters
+      use field_array
+      use Diagnostic_Grid
+      implicit none
+
+      real(wp), dimension(mgrid), intent(in) :: oriData_1D
+      real(wp), dimension(SG%dim_gq,SG%dim_a), intent(out) :: out_IntpData_2D
+
+      integer i,j,ij,jt, ori_sid
+
+      real(wp) ori_inv_dgq(0:mpsi), gqdum, wt
+
+      ori_inv_dgq=1.0/deltat
+
+      do i=1,SG%dim_s
+         do j=1,SG%dim_gq
+
+            ori_sid = SG%ori_sid(i)
+
+            gqdum = modulo(SG%gq_1D(j) - qtinv(ori_sid)*zetamax, 2.0*pi) * ori_inv_dgq(ori_sid)
+            jt=int(gqdum);  wt=gqdum-jt
+            ij=igrid(ori_sid)+jt
+            out_IntpData_2D(j,i) =(1.0-wt)*oriData_1D(ij) + wt*oriData_1D(ij+1)
+         enddo
+      enddo
+
+   end subroutine Interpolate_OriGridData_into_SG
 
 end module Structured_Grid
