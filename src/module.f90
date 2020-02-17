@@ -346,9 +346,6 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: g_ss_cntv, g_sq_cntv, g_ss_cov, g_sq_cov, Jacob_sqf
       real(wp), allocatable, dimension(:,:,:) :: B0_cntv3_sqf
 
-      ! Test 2D phi calculated by solving 3D Poission equation
-      real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D, test_res_2D
-      real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D, test_res_3D
    end type
 
 

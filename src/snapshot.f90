@@ -1439,6 +1439,13 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*SG%test_res_3D,h5err)
 
 
+      h5dims(1:2)=3
+      h5dims(3)=SG%dim_gq+1
+      h5dims(4)=SG%dim_a+2
+      h5dims(5)=3
+      call h5ltmake_dataset_f(gid_SG, "test_CT",5,h5dims,H5T_NATIVE_DOUBLE, CT,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_Metric_T",4,h5dims,H5T_NATIVE_DOUBLE, Metric_T,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
 
 
       ! Print DG (Diagnostic Grid) Data
@@ -1459,25 +1466,6 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gq,h5err)
       call h5ltmake_dataset_f(gid_DG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, DG%Cell_dS_gf,h5err)
       call h5ltmake_dataset_f(gid_DG, "FLabel_Function",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLabel_Function(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, DG%test_phi_2D,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*DG%test_src_2D,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_res_2D",2,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*DG%test_res_2D,h5err)
-
-      !Following 3D data are for temporary diagnostic purpose
-      h5dims(1:3)=(/DG%dim_gq,DG%dim_a,mzetamax/)
-      call h5ltmake_dataset_f(gid_DG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, DG%test_phi_3D,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*DG%test_src_3D,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, (8.8541878128e-12/1.602176634e-19)*DG%test_res_3D,h5err)
-
-      h5dims(1:2)=3
-      h5dims(3)=DG%dim_gq+1
-      h5dims(4)=DG%dim_a+2
-      h5dims(5)=3
-      call h5ltmake_dataset_f(gid_DG, "test_CT",5,h5dims,H5T_NATIVE_DOUBLE, CT,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_Metric_T",4,h5dims,H5T_NATIVE_DOUBLE, Metric_T,h5err)
-      call h5ltmake_dataset_f(gid_DG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
-
-      h5dims(1:2)=(/DG%dim_gq,DG%dim_a/)
 
       call h5ltmake_dataset_f(gid_DG_FLA, "Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_Denominator(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_FLabel(:,:,1),h5err)
