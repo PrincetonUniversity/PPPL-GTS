@@ -433,11 +433,11 @@ contains
       implicit none
 
       integer :: Ns,Nq
-      real(wp), intent(in) :: in_VOLorAREA(SG%dim_gq, SG%dim_a) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
-      real(wp) :: VV(0:SG%dim_gq+1, 0:SG%dim_a+1) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
-      real(wp), intent(out):: SM_gq_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_a+1), SM_s_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_a+1)
+      real(wp), intent(in) :: in_VOLorAREA(SG%dim_gq, SG%dim_s) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+      real(wp) :: VV(0:SG%dim_gq+1, 0:SG%dim_s+1) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+      real(wp), intent(out):: SM_gq_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_s+1), SM_s_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_s+1)
 
-      Ns = SG%dim_a
+      Ns = SG%dim_s
       Nq = SG%dim_gq
 
       VV = 0
@@ -468,11 +468,10 @@ contains
       use precision
       use global_parameters
       use field_array
-      use Diagnostic_Grid
       implicit none
 
       real(wp), dimension(mgrid), intent(in) :: oriData_1D
-      real(wp), dimension(SG%dim_gq,SG%dim_a), intent(out) :: out_IntpData_2D
+      real(wp), dimension(SG%dim_gq,SG%dim_s), intent(out) :: out_IntpData_2D
 
       integer i,j,ij,jt, ori_sid
 
@@ -493,5 +492,36 @@ contains
       enddo
 
    end subroutine Interpolate_OriGridData_into_SG
+
+   subroutine Interpolate_SG_into_GTSmgrid(SG_Data_2D, GTS_mgrid_Data1D)
+      use precision
+      use field_array
+      use global_parameters
+      use particle_decomp
+      implicit none
+      real(wp), dimension(SG%dim_gq,SG%dim_s), intent(in) :: SG_Data_2D
+      real(wp), dimension(mgrid), intent(out) :: GTS_mgrid_Data1D
+      integer i,j,ij,sid, gqid
+      real(wp) tmp_gq, tmp_s, ws0, ws1, wq0, wq1
+
+      do i=0,mpsi
+         do j=0,mtheta(i)
+            ij = igrid(i)+j
+
+            tmp_s  = s_grid(i)
+            sid = (tmp_s-s0)*SG%inv_ds +1  ! +1 is due to Fortran's default index starting from 1
+            ws1 = (tmp_s-SG%s_1D(sid))*SG%inv_ds
+            ws0 = 1.0 - ws1
+
+            tmp_gq = modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi)
+            gqid= tmp_gq*SG%inv_dgq +1  !+1 is due to Fortran's default index starting from 1
+            wq1 = (tmp_gq-SG%gq_1D(gqid))*SG%inv_dgq
+            wq0 = 1.0 - wq1
+
+            GTS_mgrid_Data1D(ij) = ws0*(wq0*SG_Data_2D(gqid,sid)+wq1*SG_Data_2D(gqid+1,sid)) + ws1*(wq0*SG_Data_2D(gqid,sid+1)+wq1*SG_Data_2D(gqid+1,sid+1))
+         enddo
+      enddo
+
+   end subroutine Interpolate_SG_into_GTSmgrid
 
 end module Structured_Grid

@@ -1404,6 +1404,10 @@ subroutine snapshot_hdf5
       ! Print SG (Diagnostic Grid) Data
       ! Note that dimension has to use SG%dim_* rather than dim_*
       ! because the dimension of snapshot_hdf5 and SG might not be the same
+      h5dims(1)=1
+      call h5ltmake_dataset_f(gid_SG, "ds",1,h5dims,H5T_NATIVE_DOUBLE, SG%ds,h5err)
+      call h5ltmake_dataset_f(gid_SG, "dgq",1,h5dims,H5T_NATIVE_DOUBLE, SG%dgq,h5err)
+
       h5dims(1)=SG%dim_s
       call h5ltmake_dataset_f(gid_SG, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%a_1D,h5err)
       call h5ltmake_dataset_f(gid_SG, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%s_1D,h5err)
@@ -1421,6 +1425,18 @@ subroutine snapshot_hdf5
 
       call h5ltmake_dataset_f(gid_SG, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
+
+
+
+      allocate(intp_val_Arr(SG%dim_gq*SG%dim_s))
+      call Interpolate_SG_into_GTSmgrid(1e6*SG%dne(:,:,1),tmp_vec_mgrid_size)
+      call Interpolate_OriGridData_into_SG(tmp_vec_mgrid_size,intp_val_Arr)
+      call h5ltmake_dataset_f(gid_SG, "intp_dne",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+
+      call Interpolate_SG_into_GTSmgrid((8.8541878128e-12/1.602176634e-19)*SG%test_src_2D,tmp_vec_mgrid_size)
+      call Interpolate_OriGridData_into_SG(tmp_vec_mgrid_size,intp_val_Arr)
+      call h5ltmake_dataset_f(gid_SG, "intp_test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+      deallocate(intp_val_Arr)
 
 
       call Smooth_SG_Data_2D(5,SG%dni(:,:,1),SG%Cell_dV)
