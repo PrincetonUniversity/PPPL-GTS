@@ -327,7 +327,116 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
 end subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
 
 
-subroutine Solve_Poisson3D_using_Structured_Grid()
+
+subroutine Solve_Poisson3D_on_SG()
+   use precision, only:wp
+   ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
+   use global_parameters
+   use field_array
+   use MGY_PETSc_Interface_Data
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
+   PetscInt Lid,Gid,num_its, gqid,gfid,aid
+   PetscInt ss,qq,ff
+   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
+   PetscErrorCode ierr
+   integer istatus(MPI_STATUS_SIZE)
+   PetscReal source(SG%dim_gq,SG%dim_a)
+   PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
+   real(wp) tt0,tt1
+   integer :: i,j,ij
+
+   RHS_leading_coeff=1.602176634e-19/8.8541878128e-12  ! element_charge/permittivity (e/eps0)
+
+   ! Assign and Assemble bVec (source term)
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      qq=mapG2P(Lid)%gqid
+      ss=mapG2P(Lid)%aid
+      val=RHS_leading_coeff*1e6*(SG%dni(qq,ss,1)-SG%dne(qq,ss,1))
+      call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   call Apply_BC_to_bVec_Coeffs
+
+
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+   ! Solve the linear system
+   tt0=MPI_WTIME()
+   call KSPSolve(ksp,bVec,xVec,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "KSPSolve takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+
+   ! Check the residual error and number of the iterations
+   call MatMult(Amat,xVec,ResVec,ierr); CHKERRQ(ierr)
+   call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
+   call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
+   call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   call flush(stdout)
+
+   ! Copy xVec (solution) to the SG%test_phi vector
+   allocate(xVec_mype(Lsize), xVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(xVec,ptr_xVec,ierr)
+   xVec_mype(:)=ptr_xVec(1:Lsize)
+   call VecRestoreArrayReadF90(xVec,ptr_xVec,ierr)
+   call MPI_ALLGATHERV(xVec_mype,Lsize,mpi_Rsize,xVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%phi(mapG2P(Gid)%gqid,mapG2P(Gid)%aid,1) = xVec_partd(Lid)
+   enddo
+   SG%phi(SG%dim_gq,:,1)=SG%phi(1,:,1)
+   deallocate(xVec_mype, xVec_partd)
+
+
+   ! Copy bVec (source) to the SG%test_phi vector
+   allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
+   bVec_mype(:)=ptr_bVec(1:Lsize)
+   call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
+   call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%test_src_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
+   enddo
+   SG%test_src_2D(SG%dim_gq,:)=SG%test_src_2D(1,:)
+   deallocate(bVec_mype, bVec_partd)
+
+   ! Copy ResVec (residual=A*x-b) to the SG%test_phi vector
+   allocate(ResVec_mype(Lsize), ResVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(ResVec,ptr_ResVec,ierr)
+   ResVec_mype(:)=ptr_ResVec(1:Lsize)
+   call VecRestoreArrayReadF90(ResVec,ptr_ResVec,ierr)
+   call MPI_ALLGATHERV(ResVec_mype,Lsize,mpi_Rsize,ResVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%test_res_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = ResVec_partd(Lid)
+   enddo
+   SG%test_res_2D(SG%dim_gq,:)=SG%test_res_2D(1,:)
+   deallocate(ResVec_mype, ResVec_partd)
+
+   call MPI_SENDRECV(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,&
+                     SG%phi(:,:,0),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+   call MPI_SENDRECV(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,&
+                     SG%phi(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
+
+   ! To get full 3D data for diagnostic purpose
+   call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   call MPI_ALLGATHER(SG%test_res_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_res_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+
+end subroutine Solve_Poisson3D_on_SG
+
+subroutine Solve_test_Poisson3D_on_SG()
    use precision, only:wp
    ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
    use global_parameters
@@ -337,7 +446,6 @@ subroutine Solve_Poisson3D_using_Structured_Grid()
    use particle_decomp
    use field_array, only: test_src
    implicit none
-
    PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
@@ -456,7 +564,7 @@ subroutine Solve_Poisson3D_using_Structured_Grid()
    call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
    call MPI_ALLGATHER(SG%test_res_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_res_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
 
-end subroutine Solve_Poisson3D_using_Structured_Grid
+end subroutine Solve_test_Poisson3D_on_SG
 
 
 subroutine test_Laplacian_2D()
