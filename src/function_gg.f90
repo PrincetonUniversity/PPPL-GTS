@@ -996,6 +996,29 @@ FUNCTION temperature(adum,thedum)
    return
 end function temperature
 
+function Ti0_eV(adum,thedum)
+   use precision
+   use global_parameters, only:Tem_00
+   implicit none
+   real(wp), intent(in) :: adum, thedum
+   real(wp) Ti0_eV
+   real(wp),external::temperature
+
+   Ti0_eV=1e3*Tem_00*temperature(adum,thedum)
+   return
+end function Ti0_eV
+
+function Te0_eV(adum,thedum)
+   use precision
+   use global_parameters, only:Tem_00,msm0
+   implicit none
+   real(wp), intent(in) :: adum, thedum
+   real(wp) Te0_eV
+   real(wp),external::temperature_e
+
+   Te0_eV=1e3*Tem_00*msm0*temperature_e(adum,thedum)
+   return
+end function Te0_eV
 
 FUNCTION temperature_e(adum,thedum)
    use precision

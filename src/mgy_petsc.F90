@@ -349,7 +349,7 @@ subroutine Solve_Poisson3D_on_SG()
    real(wp) tt0,tt1
    integer :: i,j,ij
 
-   RHS_leading_coeff=1.602176634e-19/8.8541878128e-12  ! element_charge/permittivity (e/eps0)
+   RHS_leading_coeff=1.602176634e-19 ! element_chargey (e)
 
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
@@ -444,7 +444,7 @@ subroutine Solve_test_Poisson3D_on_SG()
    use MGY_PETSc_Interface_Data
    use Structured_Grid
    use particle_decomp
-   use field_array, only: test_src
+   use field_array
    implicit none
    PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
@@ -465,20 +465,21 @@ subroutine Solve_test_Poisson3D_on_SG()
    !       source(gqid,aid)=sin(6*(SG%gq_1D(gqid))-4*(SG%zetamin))
    !    enddo
    ! enddo
-   call Interpolate_OriGridData_into_SG(test_src,source)
+   ! call Interpolate_OriGridData_into_SG(test_src,source)
 
-   ! do i=0,mpsi
-   !    do j=0,mtheta(i)
-   !       ij=igrid(i) + j
+   do i=0,mpsi
+      do j=0,mtheta(i)
+         ij=igrid(i) + j
 
-   !       intpl_dphi_NZ = phi(1,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-   !       dne_adiab_ratio = abs(csc0)*intpl_dphi_NZ/Te_grid(i)
-   !       source_from_GTS(ij)=(densityi(1,ij)+real(ZF_SEPARATION)*zonali(i)) - (densitye(1,ij)+real(ZF_SEPARATION)*zonale(i) + int(ifelectron/2)*dne_adiab_ratio)
-   !    enddo
-   ! enddo
-   ! call Interpolate_OriGridData_into_DG(source_from_GTS,source)
+         intpl_dphi_NZ = phi(1,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
+         dne_adiab_ratio = abs(csc0)*intpl_dphi_NZ/Te_grid(i)
+         source_from_GTS(ij)=(densityi(1,ij)+real(ZF_SEPARATION)*zonali(i)) - (densitye(1,ij)+real(ZF_SEPARATION)*zonale(i) + int(ifelectron/2)*dne_adiab_ratio)
+         source_from_GTS(ij)=source_from_GTS(ij) + int(ifelectron/2)*abs(csc0)*(phi(1,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+      enddo
+   enddo
+   call Interpolate_OriGridData_into_SG(source_from_GTS,source)
 
-   RHS_leading_coeff=1.602176634e-19/8.8541878128e-12  ! element_charge/permittivity (e/eps0)
+   RHS_leading_coeff=1.602176634e-19 ! element_charge/permittivity (e/eps0)
 
    source=RHS_leading_coeff*source
    do aid=1,SG%dim_a
@@ -861,7 +862,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
@@ -900,6 +901,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    integer, allocatable :: o_nnz(:), d_nnz(:)
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
+   real(wp), external :: Te0_eV, Ti0_eV, density
 
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
@@ -1001,6 +1003,16 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    enddo
    call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
+   !In the case of delta-h electron simulation,
+   !add the adiabatic electron response term in the LHS (Amat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   if(ifelectron==2) then
+      do Lid=1,Lsize
+         qq = mapG2P(Gid)%gqid
+         ss = mapG2P(Gid)%aid
+         tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+      enddo
+   endif
 
 
 
@@ -1074,7 +1086,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    implicit none
 
    integer sid,gqid,i,j
-   real(wp) invEpsilon,invBsq,n0,tmp ! 1/(B^2)
+   real(wp) invBsq,n0,tmp ! 1/(B^2)
    real(wp), external :: density
    real(wp) inv_du(3)
    integer istatus(MPI_STATUS_SIZE), icount, ierror
@@ -1098,17 +1110,16 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    Metric_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
    Metric_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
-   invEpsilon=1.0/8.8541878128e-12
 
    do sid=1,SG%dim_a
       ! Assuming the static equilibrium density for ions and electrons
       n0=1e6*density(SG%a_1D(sid),0) ! unit (#/m^(3))
       do gqid=1,SG%dim_gq
          invBsq=1.0/(SG%BB(gqid,sid)**2.0) ! unit (T^2)
-         ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",SG%BB(gqid,sid), ", Polar(sid)=", invEpsilon*1e-3*(n0*amasse + n0*amassi)*invBsq
+         ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",SG%BB(gqid,sid), ", Polar(sid)=", 1e-3*(n0*amasse + n0*amassi)*invBsq
          do j=1,3
             do i=1,3
-               tmp=invEpsilon*1e-3*(n0*amasse + n0*amassi)*invBsq  ! Polarization contribution from ions (n0*(1e-3*amassi)) and electrons (n0*1e-3*amasse)
+               tmp=1e-3*(n0*amasse + n0*amassi)*invBsq  ! Polarization contribution from ions (n0*(1e-3*amassi)) and electrons (n0*1e-3*amasse)
                Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(SG%B0_cntv3_sqf(i,gqid,sid)*SG%B0_cntv3_sqf(j,gqid,sid)))
             enddo
          enddo
@@ -1120,7 +1131,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    Polar_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
    ! Construct Epsilon Tensor ( eps=eps_0*Metric_T + Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2)) )
-   Eps_T(:,:,:,:,0)=Metric_T+Polar_T
+   Eps_T(:,:,:,:,0)=8.8541878128e-12*Metric_T+Polar_T
 
    ! Communicate Eps_T with neighboring left and right planes.
    ! So, Eps_T(:,:,:,:,tid) ==>  tid=-1(left plane), tid=0(my plane), tid=1(right plane)
