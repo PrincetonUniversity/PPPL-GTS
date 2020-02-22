@@ -226,7 +226,7 @@ contains
 
          sid = max(0,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
-         ws0 = (1.0-ws0)
+         ws0 = (1.0-ws1)
 
          P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
 
@@ -274,8 +274,7 @@ contains
       length = SG%dim_gq*SG%dim_s
       call MPI_SENDRECV(SG%dne(:,:,0),length,mpi_Rsize,left_pe,1, tmp_dne(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
       SG%dne(:,:,1) = SG%dne(:,:,1) + tmp_dne(:,:,1)
-      call MPI_SENDRECV(SG%dne(:,:,1),length,mpi_Rsize,right_pe,1, tmp_dne(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
-      SG%dne(:,:,0) = SG%dne(:,:,0) + tmp_dne(:,:,0)
+      call MPI_SENDRECV(SG%dne(:,:,1),length,mpi_Rsize,right_pe,1, SG%dne(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
       if(Flag_Load_and_WeightDef==0) then
          SG%dne(:,:,0) = eNrNm*SG%dne(:,:,0)*SG%inv_Cell_dV
@@ -325,7 +324,7 @@ contains
 
          sid = max(0,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
-         ws0 = (1.0-ws0)
+         ws0 = (1.0-ws1)
 
          P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
 
@@ -373,8 +372,7 @@ contains
       length = SG%dim_gq*SG%dim_s
       call MPI_SENDRECV(SG%dni(:,:,0),length,mpi_Rsize,left_pe,1, tmp_dni(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
       SG%dni(:,:,1) = SG%dni(:,:,1) + tmp_dni(:,:,1)
-      call MPI_SENDRECV(SG%dni(:,:,1),length,mpi_Rsize,right_pe,1, tmp_dni(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
-      SG%dni(:,:,0) = SG%dni(:,:,0) + tmp_dni(:,:,0)
+      call MPI_SENDRECV(SG%dni(:,:,1),length,mpi_Rsize,right_pe,1, SG%dni(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
       if(Flag_Load_and_WeightDef==0) then
          SG%dni(:,:,0) = iNrNm*SG%dni(:,:,0)*SG%inv_Cell_dV
