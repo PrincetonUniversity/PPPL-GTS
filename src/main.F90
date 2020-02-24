@@ -284,8 +284,9 @@ program GTS
 
    call date_and_time(DT_str(1),DT_str(2),DT_str(3),DT_int)
    if(mype==0) then
-      write(cdum,'("elapsed_Time.dat_",A,".",A)')trim(DT_str(1)(3:8)),trim(DT_str(2)(1:4))
-      open(unit=190515,file=cdum,action='write')
+      ! write(cdum,'("elapsed_Time.dat_",A,".",A)')trim(DT_str(1)(3:8)),trim(DT_str(2)(1:4))
+      ! open(unit=190515,file=cdum,action='write')
+      open(unit=190515,file="elapsed_Time.dat",action="write",position="append")
    endif
 
    if(Flag_RK4==1) then
