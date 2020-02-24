@@ -9,6 +9,7 @@ subroutine poisson( solver, masssolver )
    use diagnosis_array
    !use linear_system
    use solver_data_class
+   use Structured_Grid
    implicit none
    !
    type(solver_data) :: solver, masssolver
@@ -297,6 +298,16 @@ subroutine poisson( solver, masssolver )
       do i=0, mpsi
          dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
       enddo
+
+
+      if(Flag_Poisson3D_on_SG==1) then
+         call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         call Solve_test_Poisson3D_on_SG
+         call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         ! Note that phi(0,:) will be communicated in smooth_phi or field subroutine..
+         ! Also, phi00 will be calculated in smooth_phi in the case of ZE_SEPRATION=0
+         return
+      endif
 
       if(ZF_SEPARATION==1) then
 

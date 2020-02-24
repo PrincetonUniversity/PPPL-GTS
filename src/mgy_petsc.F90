@@ -467,17 +467,26 @@ subroutine Solve_test_Poisson3D_on_SG()
    ! enddo
    ! call Interpolate_OriGridData_into_SG(test_src,source)
 
-   do i=0,mpsi
-      do j=0,mtheta(i)
-         ij=igrid(i) + j
+   ! do i=0,mpsi
+   !    do j=0,mtheta(i)
+   !       ij=igrid(i) + j
 
-         intpl_dphi_NZ = phi(1,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-         dne_adiab_ratio = abs(csc0)*intpl_dphi_NZ/Te_grid(i)
-         source_from_GTS(ij)=(densityi(1,ij)+real(ZF_SEPARATION)*zonali(i)) - (densitye(1,ij)+real(ZF_SEPARATION)*zonale(i) + int(ifelectron/2)*dne_adiab_ratio)
-         source_from_GTS(ij)=source_from_GTS(ij) + int(ifelectron/2)*abs(csc0)*(phi(1,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
-      enddo
-   enddo
-   call Interpolate_OriGridData_into_SG(source_from_GTS,source)
+   !       intpl_dphi_NZ = phi(1,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
+   !       dne_adiab_ratio = abs(csc0)*intpl_dphi_NZ/Te_grid(i)
+   !       source_from_GTS(ij)=(densityi(1,ij)+real(ZF_SEPARATION)*zonali(i)) - (densitye(1,ij)+real(ZF_SEPARATION)*zonale(i) + int(ifelectron/2)*dne_adiab_ratio)
+   !       source_from_GTS(ij)=source_from_GTS(ij) + int(ifelectron/2)*abs(csc0)*(phi(1,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+   !    enddo
+   ! enddo
+   ! call Interpolate_OriGridData_into_SG(source_from_GTS,source)
+
+
+   source=SG%test_src_2D
+   ! do aid=20,25
+   !    do gqid=1,SG%dim_gq
+   !       source(gqid,aid)=0.02
+   !    enddo
+   ! enddo
+
 
    RHS_leading_coeff=1.602176634e-19 ! element_charge/permittivity (e/eps0)
 
@@ -532,6 +541,8 @@ subroutine Solve_test_Poisson3D_on_SG()
    SG%test_phi_2D(SG%dim_gq,:)=SG%test_phi_2D(1,:)
    deallocate(xVec_mype, xVec_partd)
 
+   ! Convert phi from V into GTS unit.
+   SG%test_phi_2D=(charg0*1e8)/(E_00*c)*SG%test_phi_2D
 
    ! Copy bVec (source) to the SG%test_phi vector
    allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))

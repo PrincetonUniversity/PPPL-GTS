@@ -21,6 +21,7 @@ program GTS
    use solver_data_class
    use fem_data_class
    use particle_decomp
+   use Structured_Grid
 
 #ifdef _ACCEL
    use accel_lib
@@ -205,6 +206,13 @@ program GTS
       !     call view_distribution(0)
    end if
 
+
+
+   call Initialize_Structured_Grid
+   ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
+   ! call Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
+   call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+
    istep=0
    !  if(mype==0) call view_orbit
 
@@ -236,15 +244,15 @@ program GTS
 
    ! ********************
    call Init_Diagnostic_Grid
-   ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
-   ! call Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
-   call Construct_GK_Poisson3D_Solver_with_Extremal_Method
    if(irun==0) then
       istep=0
       ! call get_Te_fluctuation_DirectlyFromParticles
       ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
+
+      call Measure_Electron_Density_on_SG
+      call Measure_Ion_Density_on_SG
       call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
@@ -498,7 +506,8 @@ program GTS
          endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
 
-         call Solve_Poisson3D_using_DiagnosticGrid
+         call Measure_Electron_Density_on_SG
+         call Measure_Ion_Density_on_SG
 
          call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside

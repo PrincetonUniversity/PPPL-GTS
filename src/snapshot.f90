@@ -609,8 +609,14 @@ subroutine snapshot_hdf5
       do j=0,mtheta(i)
          ij=igrid(i) + j
          full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)
-         intpl_dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-         dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ/Te_grid(i)
+         if (Flag_Poisson3D_on_SG==0) then
+            intpl_dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
+            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ/Te_grid(i)
+         else !Flag_Poisson3D_on_SG==1
+            ! adiabatic electron is using full_dphi instead of nonzonal phi
+            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+         end if
+
          full_dne(:,ij) =  den_grid(i)*(densitye(:,ij)+real(ZF_SEPARATION)*zonale(i)) + int(ifelectron/2)*dne_adiabatic(:,ij)
          full_dni(:,ij) =  den_grid(i)*(densityi(:,ij)+real(ZF_SEPARATION)*zonali(i))
       enddo
@@ -1411,6 +1417,7 @@ subroutine snapshot_hdf5
       h5dims(1)=SG%dim_s
       call h5ltmake_dataset_f(gid_SG, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%a_1D,h5err)
       call h5ltmake_dataset_f(gid_SG, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%s_1D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "safety_q_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%safety_q_1D,h5err)
 
       h5dims(1)=SG%dim_gq
       call h5ltmake_dataset_f(gid_SG, "gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%gq_1D,h5err)
@@ -1448,13 +1455,13 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "intp_test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
       deallocate(intp_val_Arr)
 
-      call h5ltmake_dataset_f(gid_SG, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*SG%test_phi_2D,h5err)
       call h5ltmake_dataset_f(gid_SG, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_2D,h5err)
       call h5ltmake_dataset_f(gid_SG, "test_res_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_res_2D,h5err)
 
       !Following 3D data are for temporary diagnostic purpose
       h5dims(1:3)=(/SG%dim_gq,SG%dim_s,mzetamax/)
-      call h5ltmake_dataset_f(gid_SG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_3D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*SG%test_phi_3D,h5err)
       call h5ltmake_dataset_f(gid_SG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_3D,h5err)
       call h5ltmake_dataset_f(gid_SG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_res_3D,h5err)
 

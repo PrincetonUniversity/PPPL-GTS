@@ -2442,6 +2442,7 @@ Subroutine read_input_params
       Flag_RK4,           &   ! Default=0 (OFF), can be set =1(ON) by INPUT.d
       Flag_GC_Solver,     &   ! Default=1 (vector form), can be set =0(matrix form) by INPUT.d
       Flag_Poisson,       &   ! Default=1 (ON), can be set =0(OFF) by INPUT.d
+      Flag_Poisson3D_on_SG, & ! Default=0 (ON), can be set =1(ON) by INPUT.d
       Flag_w_Evol, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
       Flag_w_Threshold,   &
       Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
@@ -2567,6 +2568,7 @@ Subroutine read_input_params
       write(0,*) 'Flag_RK4=',Flag_RK4
       write(0,*) 'Flag_GC_Solver=',Flag_GC_Solver
       write(0,*) 'Flag_Poisson=', Flag_Poisson
+      write(0,*) 'Flag_Poisson3D_on_SG=', Flag_Poisson3D_on_SG
       write(0,*) 'Flag_w_Evol=', Flag_w_Evol
       write(0,*) 'Flag_w_Threshold=', Flag_w_Threshold
       write(0,*) 'Flag_Load_and_WeightDef=', Flag_Load_and_WeightDef

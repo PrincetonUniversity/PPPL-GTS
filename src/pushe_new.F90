@@ -1425,16 +1425,19 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          wt11=1.0_wp-wt01
          e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
 
-         if(ZF_SEPARATION==0) then
-            !    calculate <phi> at electrons (no FLR effect -- x=R)
-            r=zeon(7,m)-s0       ! in radial coordinator s
-            r=r*delr
-            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-            fip=r-real(ip,wp)
-            Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-         end if
+         !    calculate <phi> at electrons (no FLR effect -- x=R)
+         r=zeon(7,m)-s0       ! in radial coordinator s
+         r=r*delr
+         ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+         fip=r-real(ip,wp)
+         Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
 
-         E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+         if ( Flag_Poisson3D_on_SG==0 ) then
+            E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+         else
+            ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         endif
 
 
          if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
@@ -1739,15 +1742,19 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          wt11=1.0_wp-wt01
          e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
 
-         if(ZF_SEPARATION==0) then
-            !    calculate <phi> at electrons (no FLR effect -- x=R)
-            r=zeon(7,m)-s0       ! in radial coordinator s
-            r=r*delr
-            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-            fip=r-real(ip,wp)
-            Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-         end if
-         E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+         !    calculate <phi> at electrons (no FLR effect -- x=R)
+         r=zeon(7,m)-s0       ! in radial coordinator s
+         r=r*delr
+         ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+         fip=r-real(ip,wp)
+         Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+
+         if ( Flag_Poisson3D_on_SG==0 ) then
+            E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+         else
+            ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         endif
 
          if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
             instep =smoothstep_m(lmin,lmax,zeon(1,m))
@@ -1845,15 +1852,19 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          wt11=1.0_wp-wt01
          e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
 
-         if(ZF_SEPARATION==0) then
-            !    calculate <phi> at electrons (no FLR effect -- x=R)
-            r=zeon(7,m)-s0       ! in radial coordinator s
-            r=r*delr
-            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-            fip=r-real(ip,wp)
-            Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-         end if
-         E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+         !    calculate <phi> at electrons (no FLR effect -- x=R)
+         r=zeon(7,m)-s0       ! in radial coordinator s
+         r=r*delr
+         ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+         fip=r-real(ip,wp)
+         Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+
+         if ( Flag_Poisson3D_on_SG==0 ) then
+            E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+         else
+            ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         endif
 
          if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
             instep =smoothstep_m(lmin,lmax,zeon(1,m))
