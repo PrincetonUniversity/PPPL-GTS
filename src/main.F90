@@ -205,6 +205,12 @@ program GTS
       !     call view_distribution(0)
    end if
 
+   if(mype==0) then
+      call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
+      call system("mkdir -p " // 'snapshots_hdf5')
+   endif
+
+
    istep=0
    !  if(mype==0) call view_orbit
 
