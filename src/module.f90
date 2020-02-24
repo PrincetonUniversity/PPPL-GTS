@@ -275,7 +275,7 @@ module field_array
    !real(wp),dimension(:,:,:),allocatable :: ring
    real(wp) gama0, gama1
    integer(wp) its,its_jacobi
-   real(wp) :: its_phip00_tolerance=1e-3 ! tolerance for inner iteraions of zonal and nonzonal possion solve
+   real(wp) :: its_phip00_tolerance=1e-5 ! tolerance for inner iteraions of zonal and nonzonal possion solve
 
    real,dimension(:),allocatable :: save_flux_ave
 
