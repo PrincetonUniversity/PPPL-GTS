@@ -206,11 +206,16 @@ program GTS
       !     call view_distribution(0)
    end if
 
+   if(mype==0) then
+      call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
+      call system("mkdir -p " // 'snapshots_hdf5')
+   endif
+   call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 
 
    call Initialize_Structured_Grid
    ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
-   ! call Construct_GK_Poisson3D_Solver_using_DiagnosticGrid
+   ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
    call Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    istep=0
