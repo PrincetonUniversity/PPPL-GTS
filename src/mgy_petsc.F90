@@ -164,9 +164,8 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
       do gfid=0,dim_gf+1
          do aid=0,dim_a+1
             do gqid=0,dim_gq
-               if(mapP2G(gqid,aid,gfid)>0) then
-                  write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), mapP2G(gqid,aid,gfid), gqid, aid, gfid
-               endif
+               Gid=mapP2G(gqid,aid,gfid)
+               write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), Gid, mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid
             enddo
          enddo
       enddo
@@ -1222,7 +1221,7 @@ subroutine Apply_BC_to_Amat_Coeffs
                inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
 
                do j=1,3
-                  Kj_coeff(j) =    inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*SG%Jacob_sqf(qq,ss+1)*Eps_T(1,j,qq,ss+1,0) -SG%Jacob_sqf(qq,ss+2)*Eps_T(1,j,qq,ss+2,0)) &
+                  Kj_coeff(j) = 0.5*inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*SG%Jacob_sqf(qq,ss+1)*Eps_T(1,j,qq,ss+1,0) -SG%Jacob_sqf(qq,ss+2)*Eps_T(1,j,qq,ss+2,0)) &
                               +0.5*inv_du(2)*(SG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -SG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
                               +0.5*inv_du(3)*(SG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -SG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
                enddo
@@ -1293,7 +1292,7 @@ subroutine Apply_BC_to_Amat_Coeffs
       enddo
    elseif(BC1_type==1) then
       ss=dim_a
-      inv_du(1)=-1.0*inv_du(1) ! since delta_s is now negative value for outer boundary case
+      inv_du(1)=-1.0*SG%inv_ds ! since delta_s is now negative value for outer boundary case
       do ff=1,mzetamax
          do qq=1,dim_gq-1
             ! Neumann condition (abs(E)=0 at inner)
@@ -1303,7 +1302,7 @@ subroutine Apply_BC_to_Amat_Coeffs
                inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
 
                do j=1,3
-                  Kj_coeff(j) =    inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*SG%Jacob_sqf(qq,ss-1)*Eps_T(1,j,qq,ss-1,0) -SG%Jacob_sqf(qq,ss-2)*Eps_T(1,j,qq,ss-2,0)) &
+                  Kj_coeff(j) = 0.5*inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,j,qq,ss,0) +4*SG%Jacob_sqf(qq,ss-1)*Eps_T(1,j,qq,ss-1,0) -SG%Jacob_sqf(qq,ss-2)*Eps_T(1,j,qq,ss-2,0)) &
                               +0.5*inv_du(2)*(SG%Jacob_sqf(qq+1,ss)*Eps_T(2,j,qq+1,ss,0) -SG%Jacob_sqf(qq-1,ss)*Eps_T(2,j,qq-1,ss,0)) &
                               +0.5*inv_du(3)*(SG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,+1) -SG%Jacob_sqf(qq,ss)*Eps_T(3,j,qq,ss,-1));
                enddo
@@ -1412,7 +1411,7 @@ subroutine Apply_BC_to_bVec_Coeffs
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
                Gid=mapL2G(Lid)
-               Kss_coeff =    inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*SG%Jacob_sqf(qq,ss+1)*Eps_T(1,1,qq,ss+1,0) -SG%Jacob_sqf(qq,ss+2)*Eps_T(1,1,qq,ss+2,0)) &
+               Kss_coeff = 0.5*inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*SG%Jacob_sqf(qq,ss+1)*Eps_T(1,1,qq,ss+1,0) -SG%Jacob_sqf(qq,ss+2)*Eps_T(1,1,qq,ss+2,0)) &
                         +0.5*inv_du(2)*(SG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -SG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
                         +0.5*inv_du(3)*(SG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -SG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
 
@@ -1438,18 +1437,18 @@ subroutine Apply_BC_to_bVec_Coeffs
       enddo
    elseif(BC1_type==1) then
       ss=dim_a
-      inv_du(1)=-1.0*inv_du(1) ! since delta_s is now negative value for outer boundary case
+      inv_du(1)=-1.0*SG%inv_ds ! since delta_s is now negative value for outer boundary case
       do ff=1,mzetamax
          do qq=1,dim_gq-1
             Lid=mapP2L(qq,ss,ff)
             if(Lid>0) then
                Gid=mapL2G(Lid)
-               Kss_coeff =    inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*SG%Jacob_sqf(qq,ss-1)*Eps_T(1,1,qq,ss-1,0) -SG%Jacob_sqf(qq,ss-2)*Eps_T(1,1,qq,ss-2,0)) &
+               Kss_coeff = 0.5*inv_du(1)*(-3*SG%Jacob_sqf(qq,ss)*Eps_T(1,1,qq,ss,0) +4*SG%Jacob_sqf(qq,ss-1)*Eps_T(1,1,qq,ss-1,0) -SG%Jacob_sqf(qq,ss-2)*Eps_T(1,1,qq,ss-2,0)) &
                         +0.5*inv_du(2)*(SG%Jacob_sqf(qq+1,ss)*Eps_T(2,1,qq+1,ss,0) -SG%Jacob_sqf(qq-1,ss)*Eps_T(2,1,qq-1,ss,0)) &
                         +0.5*inv_du(3)*(SG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,+1) -SG%Jacob_sqf(qq,ss)*Eps_T(3,1,qq,ss,-1));
 
                val= -(-2.0*Eps_T(1,1,qq,ss,0)*inv_du(1) + Kss_coeff/(SG%Jacob_sqf(qq,ss)))
-               val=val*BC0_value ! multiply dfds @s=s0
+               val=val*BC1_value ! multiply dfds @s=s0
                call VecSetValues(bVec,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
             endif
          enddo
