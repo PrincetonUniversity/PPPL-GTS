@@ -5329,10 +5329,17 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
    ! Calculate dne_adiabatic by interpolating dphi on original grids
    call Interpolate_OriGridData_into_DG(phi(1,:), intpl_dphi)
-   do aid=1,DG%dim_a
-      i = DG%ori_aid(aid)
-      DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(1.0-ZF_SEPARATION)*phi00(i))/Te_grid(i)
-   enddo
+   if (Flag_Poisson3D_on_SG==0) then
+      do aid=1,DG%dim_a
+         i = DG%ori_aid(aid)
+         DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(1.0-ZF_SEPARATION)*phi00(i))/Te_grid(i)
+      enddo
+   else !Flag_Poisson3D_on_SG>=1
+      do aid=1,DG%dim_a
+         i = DG%ori_aid(aid)
+         DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+      enddo
+   endif
 
 
    if(Flag_Load_and_WeightDef==0)then

@@ -1018,6 +1018,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
    if(ifelectron==2) then
       do Lid=1,Lsize
+         Gid= mapL2G(Lid)
          qq = mapG2P(Gid)%gqid
          ss = mapG2P(Gid)%aid
          tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
