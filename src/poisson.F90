@@ -128,20 +128,41 @@ subroutine poisson( solver, masssolver )
          enddo
       enddo
 
-      do i=0,mpsi
-         tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
-         do j=1,mtheta(i)
-            ij=igrid(i)+j
-            if(adiab > 0.0_wp) then
-               dentmp(ij) = dentmp(ij) + adiab * abs(csc0) * m0ms * tmp_Te0_inverse * phi(1, ij)
-            else
-               dentmp(ij) = dentmp(ij) + 0.01/(Cs*Cs) * phi(1,ij)
-            endif
-            do i=0, mpsi
-               dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+
+      if(Flag_Poisson3D_on_SG==0) then
+         do i=0,mpsi
+            tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               if(adiab > 0.0_wp) then
+                  dentmp(ij) = dentmp(ij) + adiab * abs(csc0) * m0ms * tmp_Te0_inverse * phi(1, ij)
+               else
+                  dentmp(ij) = dentmp(ij) + 0.01/(Cs*Cs) * phi(1,ij)
+               endif
+               do i=0, mpsi
+                  dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+               enddo
             enddo
          enddo
-      enddo
+      else
+         ! This adding (artificial constant or adiabatic-like) part will be conducted in Solve_test_Poisson3D_onSG routine in mgy_pestc.F90
+         ! In the case of the comparison test case (when Flag_Poisson3D_on_SG=2), Poisson3D_on_SG will also add an artificial term.
+         ! However, for a realistic delat-f simulation using SG (Structured Grid) will not use any adding artificial diagonal term.
+      endif
+
+      if(Flag_Poisson3D_on_SG>=1) then
+         call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
+         call Solve_test_Poisson3D_on_SG
+         ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
+         ! Therefore, a unit conversion is needed afther the interpolation
+         call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:) ! Convert from V unit to GTS normalized unit
+         ! Note that phi(0,:) will be communicated in smooth_phi or field subroutine..
+         ! Also, phi00 will be calculated in smooth_phi in the case of ZE_SEPRATION=0
+         return
+      endif
+
 
       if(ZF_SEPARATION==1) then
 
@@ -294,14 +315,17 @@ subroutine poisson( solver, masssolver )
          dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
       enddo
 
-
-      if(Flag_Poisson3D_on_SG==1) then
+      if(Flag_Poisson3D_on_SG>=1) then
          call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
          call Solve_test_Poisson3D_on_SG
+         ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
+         ! Therefore, a unit conversion is needed afther the interpolation
          call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:) ! Convert from V unit to GTS normalized unit
          ! Note that phi(0,:) will be communicated in smooth_phi or field subroutine..
          ! Also, phi00 will be calculated in smooth_phi in the case of ZE_SEPRATION=0
-         return
+        return
       endif
 
       if(ZF_SEPARATION==1) then

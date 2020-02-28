@@ -453,7 +453,7 @@ subroutine Solve_test_Poisson3D_on_SG()
    PetscReal source(SG%dim_gq,SG%dim_a)
    PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
    real(wp) tt0,tt1
-   real(wp), external :: density
+   real(wp), external :: density,Te0_eV
    real(wp) source_from_GTS(mgrid), dne_adiab_ratio, intpl_dphi_NZ
    integer :: i,j,ij
 
@@ -494,6 +494,27 @@ subroutine Solve_test_Poisson3D_on_SG()
       source(:,aid) = 1e6*density(SG%a_1D(aid),0.0)*source(:,aid)
    enddo
 
+   !add the adiabatic electron response term in the LHS (Amat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   if(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
+      ! To mimic GTS Way
+      if(adiab > 0.0_wp) then
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            source(qq,ss) = source(qq,ss) + adiab*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))*SG%test_phi_2D(qq,ss)
+         enddo
+      else
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            source(qq,ss) = source(qq,ss) + 0.01/(Cs*Cs)/(1e3*Tem_00)*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))*SG%test_phi_2D(qq,ss)
+         enddo
+      endif
+   endif
+
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
@@ -508,6 +529,8 @@ subroutine Solve_test_Poisson3D_on_SG()
 
    call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
    call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+   ! call VecView(bVec,PETSC_VIEWER_STDOUT_WORLD,ierr);CHKERRQ(ierr)
 
    ! Solve the linear system
    tt0=MPI_WTIME()
@@ -540,8 +563,6 @@ subroutine Solve_test_Poisson3D_on_SG()
    SG%test_phi_2D(SG%dim_gq,:)=SG%test_phi_2D(1,:)
    deallocate(xVec_mype, xVec_partd)
 
-   ! Convert phi from V into GTS unit.
-   SG%test_phi_2D=(charg0*1e8)/(E_00*c)*SG%test_phi_2D
 
    ! Copy bVec (source) to the SG%test_phi vector
    allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
@@ -1023,6 +1044,23 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
          ss = mapG2P(Gid)%aid
          tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
       enddo
+   elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
+      ! To mimic GTS Way
+      if(adiab > 0.0_wp) then
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + adiab*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      else
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + 0.01/(Cs*Cs)/(1e3*Tem_00)*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      endif
    endif
 
 
