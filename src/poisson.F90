@@ -108,25 +108,18 @@ subroutine poisson( solver, masssolver )
 
       !$omp parallel do private(i,j,ij)
       do i=0,mpsi
-         tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
          do j=1,mtheta(i)
             ij=igrid(i)+j
             dentmp(ij)=densityi(1,ij)-densitye(1,ij)
-            if(adiab > 0.0_wp) then
-               dentmp(ij) = dentmp(ij) + adiab * abs(csc0) * m0ms * tmp_Te0_inverse * phi(1, ij)
-            else
-               dentmp(ij) = dentmp(ij) + 0.01/(Cs*Cs) * phi(1,ij)
-            endif
-
             !... finite element needs not this modification
             if( solver%order <= 0 ) then
                dentmp(ij)=dentmp(ij)*vth_grid(i)**2
             else
                if(ZF_SEPARATION==1) dentmp(ij)=dentmp(ij)+(zonali(i)-zonale(i))  ! total density fluctuations used for FEM solver with ZF_SEPARATION=1
             endif
-
          enddo
-      enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
 
 
       if(Flag_Poisson3D_on_SG==0) then
@@ -139,10 +132,8 @@ subroutine poisson( solver, masssolver )
                else
                   dentmp(ij) = dentmp(ij) + 0.01/(Cs*Cs) * phi(1,ij)
                endif
-               do i=0, mpsi
-                  dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
-               enddo
             enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
          enddo
       else
          ! This adding (artificial constant or adiabatic-like) part will be conducted in Solve_test_Poisson3D_onSG routine in mgy_pestc.F90
