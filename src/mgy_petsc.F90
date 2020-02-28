@@ -315,7 +315,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
    call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
    call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
@@ -708,7 +708,7 @@ subroutine test_Laplacian_2D()
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
    call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
    call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
@@ -906,7 +906,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
    call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
    call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
@@ -1115,7 +1115,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
    call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
    call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
