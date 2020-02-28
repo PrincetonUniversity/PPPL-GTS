@@ -1782,7 +1782,7 @@ subroutine snapshot_Magnetic_Information
    use field_array
    use hdf5
    use h5lt
-
+   use Structured_Grid
    implicit none
 
    integer, parameter :: gq_jump=3, a_jump=1
@@ -1801,7 +1801,7 @@ subroutine snapshot_Magnetic_Information
 
    character(LEN=128) :: file_path
    integer(HSIZE_T) :: h5dims(3)
-   integer(HID_T) :: file_id, gid_MP ! gid_MP: group id for MP (Magnetic Perturbation)
+   integer(HID_T) :: file_id, gid_MP, gid_SG! gid_MP: group id for MP (Magnetic Perturbation)
    integer :: h5err
    integer Naq
 
@@ -1976,6 +1976,56 @@ subroutine snapshot_Magnetic_Information
 
          call h5gclose_f(gid_MP, h5err)
       endif
+
+
+      if(Flag_Poisson3D_on_SG>=1) then
+         call h5gcreate_f(file_id, "SG", gid_SG, h5err)
+
+         h5dims(1:2)=(/SG%dim_gq, SG%dim_s/)
+         call h5ltmake_dataset_f(gid_SG, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%a_2D,h5err)
+         call h5ltmake_dataset_f(gid_SG, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%gq_2D,h5err)
+         call h5ltmake_dataset_f(gid_SG, "F",2,h5dims,H5T_NATIVE_DOUBLE, SG%F,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dFda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dFda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dgFda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dgFda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dgYda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dgYda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "R",2,h5dims,H5T_NATIVE_DOUBLE, SG%R,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dRda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dRda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dRdgq",2,h5dims,H5T_NATIVE_DOUBLE, SG%dRdgq,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Z",2,h5dims,H5T_NATIVE_DOUBLE, SG%Z,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dZda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dZda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dZdgq",2,h5dims,H5T_NATIVE_DOUBLE, SG%dZdgq,h5err)
+         call h5ltmake_dataset_f(gid_SG, "BB",2,h5dims,H5T_NATIVE_DOUBLE, SG%BB,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dBBda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dBBda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dBBdgq",2,h5dims,H5T_NATIVE_DOUBLE, SG%dBBdgq,h5err)
+         call h5ltmake_dataset_f(gid_SG, "P",2,h5dims,H5T_NATIVE_DOUBLE, SG%P,h5err)
+         call h5ltmake_dataset_f(gid_SG, "T",2,h5dims,H5T_NATIVE_DOUBLE, SG%T,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Jacobian",2,h5dims,H5T_NATIVE_DOUBLE, SG%Jacobian,h5err)
+         call h5ltmake_dataset_f(gid_SG, "esi_N",2,h5dims,H5T_NATIVE_DOUBLE, SG%esi_N,h5err)
+         call h5ltmake_dataset_f(gid_SG, "esi_K",2,h5dims,H5T_NATIVE_DOUBLE, SG%esi_K,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_aa_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_aa_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_aq_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_aq_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_qq_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_qq_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_ff_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_ff_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_aa_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_aa_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_aq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_aq_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_qq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_qq_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_ff_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_ff_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Jaco_over_R",2,h5dims,H5T_NATIVE_DOUBLE, SG%D,h5err)
+
+         call h5ltmake_dataset_f(gid_SG, "Jacob_sqf",2,h5dims,H5T_NATIVE_DOUBLE, SG%Jacob_sqf,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_ss_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_ss_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_sq_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_sq_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_ss_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_ss_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_sq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_sq_cntv,h5err)
+
+         call h5ltmake_dataset_f(gid_SG, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dV,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Cell_dS_s",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_s,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gq,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gf,h5err)
+
+         call h5gclose_f(gid_SG, h5err)
+      end if
+
 
       call h5fclose_f(file_id, h5err)
       call h5close_f(h5err)
