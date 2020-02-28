@@ -209,6 +209,7 @@ program GTS
    if(mype==0) then
       call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
       call system("mkdir -p " // 'snapshots_hdf5')
+      call system("sleep 2")
    endif
    call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 
