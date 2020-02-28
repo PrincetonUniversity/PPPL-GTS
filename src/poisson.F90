@@ -128,11 +128,6 @@ subroutine poisson( solver, masssolver )
          enddo
       enddo
 
-      zonali=0.0;
-      zonale=0.0;
-      dentmp=0.0;
-      dentmp=test_src
-
       do i=0,mpsi
          tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
          do j=1,mtheta(i)
