@@ -2046,7 +2046,13 @@ subroutine Cumulate_Some_Variables_for_Measure
 
          full_dphi     = phi(:,ij)+(ZF_SEPARATION)*phi00(i)
          full_dni      = den_grid(i)*(densityi(:,ij) +(ZF_SEPARATION)*zonali(i))
-         adiab_dne_n0  = abs(csc0)*(full_dphi-(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+         if (Flag_Poisson3D_on_SG==0) then
+            ! Adiabatic electron is defined using nonzonal component of phi
+            adiab_dne_n0  = abs(csc0)*(full_dphi-phi00(i))/Te_grid(i)
+         else !Flag_Poisson3D_on_SG==1
+            ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
+            adiab_dne_n0  = abs(csc0)*(full_dphi)/Te_grid(i)
+         end if
          full_dne      = den_grid(i)*(densitye(:,ij) +(ZF_SEPARATION)*zonale(i) +int(ifelectron/2)*adiab_dne_n0)
 
          cum_full_dphi(:,ij)    = cum_full_dphi(:,ij)    +full_dphi
