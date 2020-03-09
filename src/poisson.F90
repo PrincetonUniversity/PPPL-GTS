@@ -120,8 +120,8 @@ subroutine poisson( solver, masssolver )
                if(ZF_SEPARATION==1) dentmp(ij)=dentmp(ij)+(zonali(i)-zonale(i))  ! total density fluctuations used for FEM solver with ZF_SEPARATION=1
             endif
          enddo
-            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
-         enddo
+         dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+      enddo
 
 
       if(Flag_Poisson3D_on_SG==0) then
@@ -339,6 +339,27 @@ subroutine poisson( solver, masssolver )
       do i=0, mpsi
          dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
       enddo
+
+      if(Flag_Poisson3D_on_SG==0) then
+         if(Flag_Def_dne_adiab==1) then
+            do i=0, mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  dentmp(ij)=dentmp(ij) - abs(csc0)*phi00(i)/Te_grid(i)
+                enddo
+            enddo
+         endif
+      else
+          if(Flag_Def_dne_adiab==0) then
+            do i=0, mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  dentmp(ij)=dentmp(ij) + abs(csc0)*phi00(i)/Te_grid(i)
+                enddo
+            enddo
+         endif
+      endif
+
 
       if(Flag_Poisson3D_on_SG>=1) then
          call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)

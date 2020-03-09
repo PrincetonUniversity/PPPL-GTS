@@ -609,12 +609,14 @@ subroutine snapshot_hdf5
       do j=0,mtheta(i)
          ij=igrid(i) + j
          full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)
-         if (Flag_Poisson3D_on_SG==0) then
+         if (Flag_Def_dne_adiab==0) then
             intpl_dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
             dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ/Te_grid(i)
-         else !Flag_Poisson3D_on_SG==1
+         elseif(Flag_Def_dne_adiab==1) then !Flag_Def_dne_adiab==1
             ! adiabatic electron is using full_dphi instead of nonzonal phi
             dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+         elseif(Flag_Def_dne_adiab==2) then
+            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/FLA_Te0(:,ij)
          end if
 
          full_dne(:,ij) =  den_grid(i)*(densitye(:,ij)+real(ZF_SEPARATION)*zonale(i)) + int(ifelectron/2)*dne_adiabatic(:,ij)
@@ -1223,6 +1225,12 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "FLA/Te0",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "FLA/Te0", "unit", "eV", h5err)
 
+      ! FLA Te0_Left
+      call Interpolate_Data_into_Coarser_Grids(FLA_Te0(0,:),gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "FLA/Te0_Left",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+      call h5ltset_attribute_string_f(file_id, "FLA/Te0_Left", "unit", "eV", h5err)
+
+
       ! FLA n0
       call Interpolate_Data_into_Coarser_Grids(FLA_n0(1,:),gq_jump,a_jump,intp_val_Arr)
       call h5ltmake_dataset_f(file_id, "FLA/n0",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
@@ -1433,8 +1441,8 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
 
-      call Smooth_SG_Data_2D(5,SG%dni(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D(5,SG%dne(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
       call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
 
@@ -1464,6 +1472,11 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_3D,h5err)
       call h5ltmake_dataset_f(gid_SG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_3D,h5err)
       call h5ltmake_dataset_f(gid_SG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_res_3D,h5err)
+
+      call Smooth_SG_Data_2D(3,SG%test_phi_2D,SG%Cell_dV)
+      call Smooth_SG_Data_2D(3,SG%test_src_2D,SG%Cell_dV)
+      call h5ltmake_dataset_f(gid_SG_SM, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_2D,h5err)
 
 
       h5dims(1:2)=3
@@ -1497,6 +1510,7 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_FLA, "Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_Denominator(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_FLabel(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_psi0(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "psi0_Left",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_psi0(:,:,0),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_Denominator,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel_Left",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel_Left,h5err)

@@ -2046,12 +2046,14 @@ subroutine Cumulate_Some_Variables_for_Measure
 
          full_dphi     = phi(:,ij)+(ZF_SEPARATION)*phi00(i)
          full_dni      = den_grid(i)*(densityi(:,ij) +(ZF_SEPARATION)*zonali(i))
-         if (Flag_Poisson3D_on_SG==0) then
+         if (Flag_Def_dne_adiab==0) then
             ! Adiabatic electron is defined using nonzonal component of phi
             adiab_dne_n0  = abs(csc0)*(full_dphi-phi00(i))/Te_grid(i)
-         else !Flag_Poisson3D_on_SG==1
+         elseif(Flag_Def_dne_adiab==1) then!Flag_Def_dne_adiab==1
             ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
             adiab_dne_n0  = abs(csc0)*(full_dphi)/Te_grid(i)
+         elseif(Flag_Def_dne_adiab==2) then
+            adiab_dne_n0  = abs(csc0)*(full_dphi)/FLA_Te0(:,ij)
          end if
          full_dne      = den_grid(i)*(densitye(:,ij) +(ZF_SEPARATION)*zonale(i) +int(ifelectron/2)*adiab_dne_n0)
 
@@ -5318,7 +5320,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1)
    real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
-
+   real(wp) :: intpl_FLA_Te0(DG%dim_gq,DG%dim_a)
    real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
    real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
 
@@ -5335,15 +5337,23 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
    ! Calculate dne_adiabatic by interpolating dphi on original grids
    call Interpolate_OriGridData_into_DG(phi(1,:), intpl_dphi)
-   if (Flag_Poisson3D_on_SG==0) then
+   call Interpolate_OriGridData_into_DG(FLA_Te0(1,:), intpl_FLA_Te0)
+   if (Flag_Def_dne_adiab==0) then
       do aid=1,DG%dim_a
          i = DG%ori_aid(aid)
          DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(1.0-ZF_SEPARATION)*phi00(i))/Te_grid(i)
       enddo
-   else !Flag_Poisson3D_on_SG>=1
+   elseif(Flag_Def_dne_adiab==1) then
       do aid=1,DG%dim_a
          i = DG%ori_aid(aid)
-         DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+         DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+      enddo
+   elseif(Flag_Def_dne_adiab==2) then
+      do aid=1,DG%dim_a
+         do gqid=1,DG%dim_gq
+            i = DG%ori_aid(aid)
+            DG%dne_adiab(gqid,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(gqid,aid)+real(ZF_SEPARATION)*phi00(i))/intpl_FLA_Te0(gqid,aid)
+         enddo
       enddo
    endif
 

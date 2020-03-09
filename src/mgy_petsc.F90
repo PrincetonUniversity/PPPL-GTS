@@ -920,7 +920,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    use MGY_PETSc_Interface_Data
    use Structured_Grid
    use particle_decomp
-   use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
+   use global_parameters
+   use field_array, only:FLA_Te0
    implicit none
 
    PetscInt Lid,Gid,qq,ss,ff,tnum
@@ -933,6 +934,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
+   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
 
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
@@ -1038,12 +1040,24 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    !add the adiabatic electron response term in the LHS (Amat)
    ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
    if(ifelectron==2) then
-      do Lid=1,Lsize
-         Gid= mapL2G(Lid)
-         qq = mapG2P(Gid)%gqid
-         ss = mapG2P(Gid)%aid
-         tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
-      enddo
+      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      elseif(Flag_Def_dne_adiab==2) then
+         ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
+         call Interpolate_OriGridData_into_SG(FLA_Te0(1,:), intpl_FLA_Te0)
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/(1e3*Tem_00*intpl_FLA_Te0(qq,ss))
+         enddo
+      endif
+
    elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
       ! To mimic GTS Way
       if(adiab > 0.0_wp) then

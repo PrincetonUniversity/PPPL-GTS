@@ -22,7 +22,7 @@ program GTS
    use fem_data_class
    use particle_decomp
    use Structured_Grid
-
+   use particle_decomp
 #ifdef _ACCEL
    use accel_lib
 #endif _ACCEL
@@ -126,6 +126,8 @@ program GTS
       ! call Construct_gPPI_for_FieldLineAverage
       call Construct_gPPI_for_FieldLineAverage_Parallelized
    endif
+
+   call MPI_Bcast(FLA_Te0,2*mgrid,MPI_Rsize,nproc_partd-1,partd_comm,ierror)
    ! solver
    ! which solver to use
    ! order = 0 original solver
@@ -207,9 +209,9 @@ program GTS
    end if
 
    if(mype==0) then
-      call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
       call system("mkdir -p " // 'snapshots_hdf5')
-      call system("sleep 2")
+      call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
+      call sleep(5)
    endif
    call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 

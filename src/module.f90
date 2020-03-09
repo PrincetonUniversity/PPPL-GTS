@@ -142,6 +142,7 @@ module global_parameters
    integer :: Flag_RK4=0 ! Default value is 0 (OFF), it can be controlled by INPUT.d file
    integer :: Flag_Poisson=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
    integer :: Flag_Poisson3D_on_SG=0 ! Default=0 (OFF; using original equation), can be set =1 (new 3D Poisson Solver on SG)
+   integer :: Flag_Def_dne_adiab=0 ! Default=0 (original definition; using nonzonal phi), can be set =1 (using full phi with Te0), =2 (using full phi with FLA_Te0)
    integer :: Flag_w_Evol=0  ! Default=0 (OFF;original equation), can be set =1(Transformed Weight Evolution Equation) by INPUT.d
    integer :: Flag_GC_Solver=1 ! Default=1 (Vector form GC equation), can be set =0(Matrix form GC equation)
    integer :: Flag_Load_and_WeightDef=0 ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)

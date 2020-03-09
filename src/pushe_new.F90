@@ -1146,6 +1146,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
    real(wp) MP_phase ! MP_phase(x,t) : time-varying phase angle of given Magnetic Perturbation at specific position in radian unit.
    integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
+   real(wp) inv_intpl_FLA_Te0
 
    real(wp) tt0,tt1,cput0,cput1,rtc
 
@@ -1411,19 +1412,25 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          wp0=1.0_wp-wpeon(m)
          wt00=1.0_wp-wteon0(m)
          e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0 = wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=ij+1
          wt10=1.0_wp-wt00
          e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=jteon1(m)
          wp1=1.0_wp-wp0
          wt01=1.0_wp-wteon1(m)
          e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=ij+1
          wt11=1.0_wp-wt01
          e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+         inv_intpl_FLA_Te0 = 1.0/inv_intpl_FLA_Te0
 
          !    calculate <phi> at electrons (no FLR effect -- x=R)
          r=zeon(7,m)-s0       ! in radial coordinator s
@@ -1432,11 +1439,18 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          fip=r-real(ip,wp)
          Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
 
-         if ( Flag_Poisson3D_on_SG==0 ) then
+         if ( Flag_Def_dne_adiab==0 ) then
             E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
-         else
+         elseif(Flag_Def_dne_adiab==1) then
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
             E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         elseif(Flag_Def_dne_adiab==2) then
+             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*inv_intpl_FLA_Te0*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         else
+            E_f=-1e100
+            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+            STOP
          endif
 
 
@@ -1731,16 +1745,25 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          wp0=1.0_wp-wpeon(m)
          wt00=1.0_wp-wteon0(m)
          e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0=   wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
          ij=ij+1
          wt10=1.0_wp-wt00
          e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
          ij=jteon1(m)
          wp1=1.0_wp-wp0
          wt01=1.0_wp-wteon1(m)
          e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
          ij=ij+1
          wt11=1.0_wp-wt01
          e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij)) ! --> phi at electrons
+
+         inv_intpl_FLA_Te0 = 1.0/inv_intpl_FLA_Te0
 
          !    calculate <phi> at electrons (no FLR effect -- x=R)
          r=zeon(7,m)-s0       ! in radial coordinator s
@@ -1749,11 +1772,18 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          fip=r-real(ip,wp)
          Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
 
-         if ( Flag_Poisson3D_on_SG==0 ) then
+         if ( Flag_Def_dne_adiab==0 ) then
             E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
-         else
+         elseif(Flag_Def_dne_adiab==1) then
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
             E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         elseif(Flag_Def_dne_adiab==2) then
+             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*inv_intpl_FLA_Te0*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         else
+            E_f=-1e100
+            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+            STOP
          endif
 
          if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
@@ -1841,16 +1871,25 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          wp0=1.0_wp-wpeon(m)
          wt00=1.0_wp-wteon0(m)
          e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0=   wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
          ij=ij+1
          wt10=1.0_wp-wt00
          e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
          ij=jteon1(m)
          wp1=1.0_wp-wp0
          wt01=1.0_wp-wteon1(m)
          e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
          ij=ij+1
          wt11=1.0_wp-wt01
          e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+         inv_intpl_FLA_Te0 = 1.0/inv_intpl_FLA_Te0
 
          !    calculate <phi> at electrons (no FLR effect -- x=R)
          r=zeon(7,m)-s0       ! in radial coordinator s
@@ -1859,11 +1898,18 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          fip=r-real(ip,wp)
          Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
 
-         if ( Flag_Poisson3D_on_SG==0 ) then
+         if ( Flag_Def_dne_adiab==0 ) then
             E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
-         else
+         elseif(Flag_Def_dne_adiab==1) then
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
             E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         elseif(Flag_Def_dne_adiab==2) then
+             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*inv_intpl_FLA_Te0*csc0 ! Adiabatic term (q*dphi_tot/Te)
+         else
+            E_f=-1e100
+            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+            STOP
          endif
 
          if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
