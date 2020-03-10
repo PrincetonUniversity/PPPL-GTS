@@ -224,7 +224,7 @@ contains
          wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
          wgf0 = (1.0-wgf1)
 
-         sid = max(0,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
          ws0 = (1.0-ws1)
 
@@ -322,7 +322,7 @@ contains
          wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
          wgf0 = (1.0-wgf1)
 
-         sid = max(0,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
          ws0 = (1.0-ws1)
 

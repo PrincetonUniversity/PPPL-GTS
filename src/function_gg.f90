@@ -3535,7 +3535,7 @@ subroutine Do_FieldLineAverage_from_oriGrid_to_DG(oriG_TargetData, DG_FLA_Result
          ff  = (this_s-s_grid(ori_sid))*inv_ds
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -3651,7 +3651,7 @@ subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultD
          ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -3713,7 +3713,7 @@ subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultD
          ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -3844,7 +3844,7 @@ subroutine Cal_FLA_FLabel_on_DG_by_using_gPPI_iniFLabel(DG_FLA_ResultData)
          ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -4060,7 +4060,7 @@ subroutine Cal_FLA_Denominator_on_DG_using_gPPI
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -4906,7 +4906,7 @@ subroutine Init_Diagnostic_Grid
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
    DG%inv_dgq = 1.0/DG%dgq
-   DG%inv_ds  = DG%a_jump*(real(mpsi)/(s1-s0))
+   DG%inv_ds  = (real(mpsi)/(s1-s0))/DG%a_jump
 
    DG%zetamax = zetamax
    DG%zetamin = zetamin
@@ -5228,7 +5228,7 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
    ori_sid = (in_s-s0)*ori_inv_ds ! s index of original full grid
    ff  = (in_s-s_grid(ori_sid))*ori_inv_ds
    safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
-   sid = max(0,min(int((in_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+   sid = max(1,min(int((in_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
    ws1 = (in_s-DG%s_1D(sid))*DG%inv_ds
    ws0 = 1.0-ws1
 
@@ -5380,7 +5380,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
       P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
       P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
-      sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+      sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
@@ -5687,7 +5687,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
       P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
       P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
-      sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+      sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
@@ -5853,7 +5853,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
          P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
          P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
-         sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
