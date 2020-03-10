@@ -31,6 +31,7 @@ module Structured_Grid
       ! Plasma information
       real(wp),allocatable, dimension(:,:,:) :: dni,dTi ! dimension: (dim_gq, dim_s, 0:1)
       real(wp),allocatable, dimension(:,:,:) :: dne,dTe
+      real(wp),allocatable, dimension(:,:,:) :: ne,ni ! These are total electron density and ion density including equilibrium density (So, f=f0+df)
 
       real(wp), allocatable, dimension(:,:,:) :: phi ! dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
       real(wp), allocatable, dimension(:,:,:,:) :: grad_phi_cov
@@ -109,6 +110,7 @@ contains
 
       allocate(SG%dne(Nq,Ns,0:1),SG%dni(Nq,Ns,0:1))
       allocate(SG%dTe(Nq,Ns,0:1),SG%dTi(Nq,Ns,0:1))
+      allocate(SG%ne(Nq,Ns,0:1),SG%ni(Nq,Ns,0:1))
 
       call esiget2dthese_more(SG%F,SG%dFda,SG%dgFda,SG%dgYda,SG%R,SG%dRda,SG%dRdgq,SG%Z,SG%dZda,SG%dZdgq,SG%BB,SG%dBBda,SG%dBBdgq,SG%P,SG%T,SG%a_2D,SG%gq_2D,Nq*Ns)
 
@@ -203,23 +205,33 @@ contains
       implicit none
 
       real(wp) ratio, ws0,ws1,wgq0,wgq1,wgf0,wgf1
-      real(wp) P_s, P_gq, P_gf, P_safety_q, P_weight
+      real(wp) P_s, P_gq, P_gf, P_safety_q
       real(wp) target_gq, target_gf
-      real(wp) tmp_dne(SG%dim_gq,SG%dim_s,0:1)
+      real(wp) tmp_var(SG%dim_gq,SG%dim_s,0:1)
       integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror
 
+      real(wp) df_or_dh(me), f_tot(me)
       real(wp) tt0,tt1
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
       SG%dne = 0.0
+      SG%ne  = 0.0
+
+      if(Flag_Load_and_WeightDef==0)then
+         df_or_dh(:) = zeon(5,1:me)*eNrNm
+         f_tot(:)    = eNrNm
+      else
+         df_or_dh(:) = zeon(5,1:me)
+         f_tot(:)    = zeon0(6,1:me)
+      endif
+
 
       do m=1,me
          P_s = zeon(7,m)
          P_gq = modulo(zeon(2,m),2*pi)
          P_gf = modulo(zeon(3,m),2*pi)
-         P_weight = zeon(5,m)
 
          wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
          wgf0 = (1.0-wgf1)
@@ -237,10 +249,18 @@ contains
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
-         SG%dne(gqid  ,sid  ,0)   =  SG%dne(gqid  ,sid  ,0) + wgf0*ws0*wgq0*P_weight
-         SG%dne(gqid+1,sid  ,0)   =  SG%dne(gqid+1,sid  ,0) + wgf0*ws0*wgq1*P_weight
-         SG%dne(gqid  ,sid+1,0)   =  SG%dne(gqid  ,sid+1,0) + wgf0*ws1*wgq0*P_weight
-         SG%dne(gqid+1,sid+1,0)   =  SG%dne(gqid+1,sid+1,0) + wgf0*ws1*wgq1*P_weight
+         ratio=wgf0*ws0*wgq0
+         SG%dne(gqid  ,sid  ,0)  =  SG%dne(gqid  ,sid  ,0) + ratio*df_or_dh(m)
+         SG%ne(gqid   ,sid  ,0)  =  SG%ne(gqid   ,sid  ,0) + ratio*f_tot(m)
+         ratio=wgf0*ws0*wgq1
+         SG%dne(gqid+1,sid  ,0)  =  SG%dne(gqid+1,sid  ,0) + ratio*df_or_dh(m)
+         SG%ne(gqid+1,sid  ,0)   =  SG%ne(gqid+1 ,sid  ,0) + ratio*f_tot(m)
+         ratio=wgf0*ws1*wgq0
+         SG%dne(gqid  ,sid+1,0)  =  SG%dne(gqid  ,sid+1,0) + ratio*df_or_dh(m)
+         SG%ne(gqid   ,sid+1,0)  =  SG%ne(gqid   ,sid+1,0) + ratio*f_tot(m)
+         ratio=wgf0*ws1*wgq1
+         SG%dne(gqid+1,sid+1,0)  =  SG%dne(gqid+1,sid+1,0) + ratio*df_or_dh(m)
+         SG%ne(gqid+1 ,sid+1,0)  =  SG%ne(gqid+1 ,sid+1,0) + ratio*f_tot(m)
 
          ! Scatter particle to zetamax plane
          target_gf = zetamax
@@ -249,17 +269,28 @@ contains
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
-         SG%dne(gqid  ,sid  ,1)   =  SG%dne(gqid  ,sid  ,1) + wgf1*ws0*wgq0*P_weight
-         SG%dne(gqid+1,sid  ,1)   =  SG%dne(gqid+1,sid  ,1) + wgf1*ws0*wgq1*P_weight
-         SG%dne(gqid  ,sid+1,1)   =  SG%dne(gqid  ,sid+1,1) + wgf1*ws1*wgq0*P_weight
-         SG%dne(gqid+1,sid+1,1)   =  SG%dne(gqid+1,sid+1,1) + wgf1*ws1*wgq1*P_weight
+         ratio=wgf1*ws0*wgq0
+         SG%dne(gqid  ,sid  ,1)  =  SG%dne(gqid  ,sid  ,1) + ratio*df_or_dh(m)
+         SG%ne(gqid   ,sid  ,1)  =  SG%ne(gqid   ,sid  ,1) + ratio*f_tot(m)
+         ratio=wgf1*ws0*wgq1
+         SG%dne(gqid+1,sid  ,1)  =  SG%dne(gqid+1,sid  ,1) + ratio*df_or_dh(m)
+         SG%ne(gqid+1 ,sid  ,1)  =  SG%ne(gqid+1 ,sid  ,1) + ratio*f_tot(m)
+         ratio=wgf1*ws1*wgq0
+         SG%dne(gqid  ,sid+1,1)  =  SG%dne(gqid  ,sid+1,1) + ratio*df_or_dh(m)
+         SG%ne(gqid   ,sid+1,1)  =  SG%ne(gqid   ,sid+1,1) + ratio*f_tot(m)
+         ratio=wgf1*ws1*wgq1
+         SG%dne(gqid+1,sid+1,1)  =  SG%dne(gqid+1,sid+1,1) + ratio*df_or_dh(m)
+         SG%ne(gqid+1 ,sid+1,1)  =  SG%ne(gqid+1 ,sid+1,1) + ratio*f_tot(m)
 
       enddo
 
       if(npartdom>1) then
-         tmp_dne = SG%dne
+         tmp_var = SG%dne
          length  = SG%dim_gq*SG%dim_s*2
-         call MPI_ALLREDUCE(tmp_dne, SG%dne, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         call MPI_ALLREDUCE(tmp_var, SG%dne, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         tmp_var = SG%ne
+         length  = SG%dim_gq*SG%dim_s*2
+         call MPI_ALLREDUCE(tmp_var, SG%ne, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
       endif
 
       ! Match poloidal end cell
@@ -268,21 +299,24 @@ contains
       do sid=1,SG%dim_s
          SG%dne(1,sid,:) = SG%dne(1,sid,:) + SG%dne(SG%dim_gq,sid,:)
          SG%dne(SG%dim_gq,sid,:) = SG%dne(1,sid,:)
+         SG%ne(1,sid,:)  = SG%ne(1,sid,:) + SG%ne(SG%dim_gq,sid,:)
+         SG%ne(SG%dim_gq,sid,:) = SG%ne(1,sid,:)
       enddo
 
       ! toroidal communication
       length = SG%dim_gq*SG%dim_s
-      call MPI_SENDRECV(SG%dne(:,:,0),length,mpi_Rsize,left_pe,1, tmp_dne(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
-      SG%dne(:,:,1) = SG%dne(:,:,1) + tmp_dne(:,:,1)
+      call MPI_SENDRECV(SG%dne(:,:,0),length,mpi_Rsize,left_pe,1, tmp_var(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+      SG%dne(:,:,1) = SG%dne(:,:,1) + tmp_var(:,:,1)
       call MPI_SENDRECV(SG%dne(:,:,1),length,mpi_Rsize,right_pe,1, SG%dne(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+      length = SG%dim_gq*SG%dim_s
+      call MPI_SENDRECV(SG%ne(:,:,0),length,mpi_Rsize,left_pe,1, tmp_var(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+      SG%ne(:,:,1) = SG%ne(:,:,1) + tmp_var(:,:,1)
+      call MPI_SENDRECV(SG%ne(:,:,1),length,mpi_Rsize,right_pe,1, SG%ne(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
-      if(Flag_Load_and_WeightDef==0) then
-         SG%dne(:,:,0) = eNrNm*SG%dne(:,:,0)*SG%inv_Cell_dV
-         SG%dne(:,:,1) = eNrNm*SG%dne(:,:,1)*SG%inv_Cell_dV
-      else
-         SG%dne(:,:,0) = SG%dne(:,:,0)*SG%inv_Cell_dV
-         SG%dne(:,:,1) = SG%dne(:,:,1)*SG%inv_Cell_dV
-      endif
+      SG%dne(:,:,0) = SG%dne(:,:,0)*SG%inv_Cell_dV
+      SG%dne(:,:,1) = SG%dne(:,:,1)*SG%inv_Cell_dV
+      SG%ne(:,:,0) = SG%ne(:,:,0)*SG%inv_Cell_dV
+      SG%ne(:,:,1) = SG%ne(:,:,1)*SG%inv_Cell_dV
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
@@ -302,22 +336,32 @@ contains
       implicit none
 
       real(wp) ratio, ws0,ws1,wgq0,wgq1,wgf0,wgf1
-      real(wp) P_s, P_gq, P_gf, P_safety_q, P_weight
+      real(wp) P_s, P_gq, P_gf, P_safety_q
       real(wp) target_gq, target_gf
-      real(wp) tmp_dni(SG%dim_gq,SG%dim_s,0:1)
+      real(wp) tmp_var(SG%dim_gq,SG%dim_s,0:1)
       integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror
       real(wp) tt0, tt1
+      real(wp) df(mi), f_tot(mi)
+
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
       SG%dni = 0.0
+      SG%ni  = 0.0
+
+      if(Flag_Load_and_WeightDef==0)then
+         df(:)       = zion(5,1:mi)*iNrNm
+         f_tot(:)    = iNrNm
+      else
+         df(:)       = zion(5,1:mi)
+         f_tot(:)    = zion0(6,1:mi)
+      endif
 
       do m=1,mi
          P_s = zion(7,m)
          P_gq = modulo(zion(2,m),2*pi)
          P_gf = modulo(zion(3,m),2*pi)
-         P_weight = zion(5,m)
 
          wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
          wgf0 = (1.0-wgf1)
@@ -335,10 +379,18 @@ contains
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
-         SG%dni(gqid  ,sid  ,0)   =  SG%dni(gqid  ,sid  ,0) + wgf0*ws0*wgq0*P_weight
-         SG%dni(gqid+1,sid  ,0)   =  SG%dni(gqid+1,sid  ,0) + wgf0*ws0*wgq1*P_weight
-         SG%dni(gqid  ,sid+1,0)   =  SG%dni(gqid  ,sid+1,0) + wgf0*ws1*wgq0*P_weight
-         SG%dni(gqid+1,sid+1,0)   =  SG%dni(gqid+1,sid+1,0) + wgf0*ws1*wgq1*P_weight
+         ratio=wgf0*ws0*wgq0
+         SG%dni(gqid  ,sid  ,0)   =  SG%dni(gqid  ,sid  ,0) + ratio*df(m)
+         SG%ni(gqid   ,sid  ,0)   =  SG%ni(gqid   ,sid  ,0) + ratio*f_tot(m)
+         ratio=wgf0*ws0*wgq1
+         SG%dni(gqid+1,sid  ,0)   =  SG%dni(gqid+1,sid  ,0) + ratio*df(m)
+         SG%ni(gqid+1 ,sid  ,0)   =  SG%ni(gqid+1 ,sid  ,0) + ratio*f_tot(m)
+         ratio=wgf0*ws1*wgq0
+         SG%dni(gqid  ,sid+1,0)   =  SG%dni(gqid  ,sid+1,0) + ratio*df(m)
+         SG%ni(gqid   ,sid+1,0)   =  SG%ni(gqid   ,sid+1,0) + ratio*f_tot(m)
+         ratio=wgf0*ws1*wgq1
+         SG%dni(gqid+1,sid+1,0)   =  SG%dni(gqid+1,sid+1,0) + ratio*df(m)
+         SG%ni(gqid+1 ,sid+1,0)   =  SG%ni(gqid+1 ,sid+1,0) + ratio*f_tot(m)
 
          ! Scatter particle to zetamax plane
          target_gf = zetamax
@@ -347,17 +399,28 @@ contains
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
-         SG%dni(gqid  ,sid  ,1)   =  SG%dni(gqid  ,sid  ,1) + wgf1*ws0*wgq0*P_weight
-         SG%dni(gqid+1,sid  ,1)   =  SG%dni(gqid+1,sid  ,1) + wgf1*ws0*wgq1*P_weight
-         SG%dni(gqid  ,sid+1,1)   =  SG%dni(gqid  ,sid+1,1) + wgf1*ws1*wgq0*P_weight
-         SG%dni(gqid+1,sid+1,1)   =  SG%dni(gqid+1,sid+1,1) + wgf1*ws1*wgq1*P_weight
+         ratio=wgf1*ws0*wgq0
+         SG%dni(gqid  ,sid  ,1)   =  SG%dni(gqid  ,sid  ,1) + ratio*df(m)
+         SG%ni(gqid   ,sid  ,1)   =  SG%ni(gqid   ,sid  ,1) + ratio*f_tot(m)
+         ratio=wgf1*ws0*wgq1
+         SG%dni(gqid+1,sid  ,1)   =  SG%dni(gqid+1,sid  ,1) + ratio*df(m)
+         SG%ni(gqid+1 ,sid  ,1)   =  SG%ni(gqid+1 ,sid  ,1) + ratio*f_tot(m)
+         ratio=wgf1*ws1*wgq0
+         SG%dni(gqid  ,sid+1,1)   =  SG%dni(gqid  ,sid+1,1) + ratio*df(m)
+         SG%ni(gqid   ,sid+1,1)   =  SG%ni(gqid   ,sid+1,1) + ratio*f_tot(m)
+         ratio=wgf1*ws1*wgq1
+         SG%dni(gqid+1,sid+1,1)   =  SG%dni(gqid+1,sid+1,1) + ratio*df(m)
+         SG%ni(gqid+1 ,sid+1,1)   =  SG%ni(gqid+1 ,sid+1,1) + ratio*f_tot(m)
 
       enddo
 
       if(npartdom>1) then
-         tmp_dni = SG%dni
+         tmp_var = SG%dni
          length  = SG%dim_gq*SG%dim_s*2
-         call MPI_ALLREDUCE(tmp_dni, SG%dni, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         call MPI_ALLREDUCE(tmp_var, SG%dni, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         tmp_var = SG%ni
+         length  = SG%dim_gq*SG%dim_s*2
+         call MPI_ALLREDUCE(tmp_var, SG%ni, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
       endif
 
       ! Match poloidal end cell
@@ -366,21 +429,24 @@ contains
       do sid=1,SG%dim_s
          SG%dni(1,sid,:) = SG%dni(1,sid,:) + SG%dni(SG%dim_gq,sid,:)
          SG%dni(SG%dim_gq,sid,:) = SG%dni(1,sid,:)
+         SG%ni(1,sid,:) = SG%ni(1,sid,:) + SG%ni(SG%dim_gq,sid,:)
+         SG%ni(SG%dim_gq,sid,:) = SG%ni(1,sid,:)
       enddo
 
       ! toroidal communication
       length = SG%dim_gq*SG%dim_s
-      call MPI_SENDRECV(SG%dni(:,:,0),length,mpi_Rsize,left_pe,1, tmp_dni(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
-      SG%dni(:,:,1) = SG%dni(:,:,1) + tmp_dni(:,:,1)
+      call MPI_SENDRECV(SG%dni(:,:,0),length,mpi_Rsize,left_pe,1, tmp_var(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+      SG%dni(:,:,1) = SG%dni(:,:,1) + tmp_var(:,:,1)
       call MPI_SENDRECV(SG%dni(:,:,1),length,mpi_Rsize,right_pe,1, SG%dni(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+      length = SG%dim_gq*SG%dim_s
+      call MPI_SENDRECV(SG%ni(:,:,0),length,mpi_Rsize,left_pe,1, tmp_var(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+      SG%ni(:,:,1) = SG%ni(:,:,1) + tmp_var(:,:,1)
+      call MPI_SENDRECV(SG%ni(:,:,1),length,mpi_Rsize,right_pe,1, SG%ni(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
-      if(Flag_Load_and_WeightDef==0) then
-         SG%dni(:,:,0) = iNrNm*SG%dni(:,:,0)*SG%inv_Cell_dV
-         SG%dni(:,:,1) = iNrNm*SG%dni(:,:,1)*SG%inv_Cell_dV
-      else
-         SG%dni(:,:,0) = SG%dni(:,:,0)*SG%inv_Cell_dV
-         SG%dni(:,:,1) = SG%dni(:,:,1)*SG%inv_Cell_dV
-      endif
+      SG%dni(:,:,0) = SG%dni(:,:,0)*SG%inv_Cell_dV
+      SG%dni(:,:,1) = SG%dni(:,:,1)*SG%inv_Cell_dV
+      SG%ni(:,:,0)  = SG%ni(:,:,0)*SG%inv_Cell_dV
+      SG%ni(:,:,1)  = SG%ni(:,:,1)*SG%inv_Cell_dV
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
