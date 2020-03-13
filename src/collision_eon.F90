@@ -13,10 +13,10 @@ subroutine collision_eon
    !          B(=BB) and I(=F) at particles are needed for calculating u_//=I*omega_t/B;
    !          BB, I can be obtained after call gcmotion, or call esigetbf, esiget2dfunctions.
 
-   ! call n_T_u_group_e  ! prepare n, T, dlnn/da, dlnT/da, etc. which are also used for PUSHE/PUSHEON
+   call n_T_u_group_e  ! prepare n, T, dlnn/da, dlnT/da, etc. which are also used for PUSHE/PUSHEON
 
    if(ecollision.gt.0) then   ! include collision
-      i=mod(istep,ecollision)
+      i=mod(istep,ecollision) 
       if(i==0) then           ! calculate collisions every ecollision-step
          if(irk==1) then      ! calculate collisions at irk=1
             call esigetb(zeon,me,zeondim)   ! get B-->BB
@@ -33,7 +33,7 @@ subroutine collision_eon
 
          end if
       end if
-   end if
+   end if   
 
 end subroutine collision_eon
 
@@ -58,9 +58,9 @@ SUBROUTINE Lorentz_coll
 
    real(wp) x(me), x2(me), vz(me)   ! working arrays
 
-   !      C_{pitch-angle}:  Cells are not
-   !              necessary, but taking local collision frequency into
-   !              account through n(r) and T(r)
+   !      C_{pitch-angle}:  Cells are not 
+   !              necessary, but taking local collision frequency into 
+   !              account through n(r) and T(r)           
 
    !     dlne=16.0d0
    !     Tee=1.0d0/4.0d0/pi*amasse
@@ -109,7 +109,7 @@ SUBROUTINE Lorentz_coll
          pitch*(1.0d0-x2(i))+unitf*sqrt((1.0d0-pitch**2)*x2(i)) ))
 
       vz(i)=panew*x(i)
-   end do
+   end do   
 
    sff=0.4d0
    do j=1,j2
@@ -131,7 +131,7 @@ SUBROUTINE Lorentz_coll
 
    !  if(me==63) then
    !     do i=1,me
-   !       if((x(i)**2-vz(i)**2).lt.0.0d0) then
+   !       if((x(i)**2-vz(i)**2).lt.0.0d0) then 
    !          print*, '@@@@@@@@@@i=',i, x(i)**2, vz(i)**2, (x(i)**2-vz(i)**2)
    !       end if
    !     end do
@@ -176,9 +176,9 @@ SUBROUTINE CTPandCELL_eon
    real*8, dimension(:), allocatable :: Afsp,Af0dt,Afp,Afsr,Afr,Afpr
 
    !
-   !      C_{TP}: The drag and diffusion operator. Cells are not
-   !              necessary, but taking local collision frequency into
-   !              account through n(r) and T(r)
+   !      C_{TP}: The drag and diffusion operator. Cells are not 
+   !              necessary, but taking local collision frequency into 
+   !              account through n(r) and T(r)           
    !
 
    d1=2.0_wp/sqrt(pi)
@@ -189,7 +189,7 @@ SUBROUTINE CTPandCELL_eon
    do i=1,me
       dgr(i)=zeon(4,i)*BB(i)*f_rho                 ! normalized v_//
       da(i)=zeon(6,i)*zeon(6,i)*BB(i)*2.0_wp*m0ms  ! normalized vper^2
-      dgq(i)=dgr(i)**2+da(i)                       ! v^2
+      dgq(i)=dgr(i)**2+da(i)                       ! v^2      
       dgf(i)=dgq(i)/backTe(i)*0.5_wp               ! v^2/v_th^2 with v_th^2=2T/m
       mu(i)=sqrt(dgf(i))                           ! v/v_th
       gha(i)=d1*mu(i)*exp(-dgf(i))                 ! 2.0d0/sqrt(pi)*x*dexp(-x^2) with x=v/v_th
@@ -218,7 +218,7 @@ SUBROUTINE CTPandCELL_eon
       fr=4.0_wp*h2*(h2*HH+h3*GG)
       fpr=2.0_wp*h2*dgr(i)*(HH-GG)
       rv0=1.0_wp/(sqrt(dgq(i))*dgq(i))
-      f0dt=dt_coll_e*backne(i)*rv0
+      f0dt=dt_coll_e*backne(i)*rv0    
 
       ghq(i)=-fsp*f0dt+(zeon(4,i)-0.5_wp)*sqrt(12.0_wp*fp*f0dt)    ! dvz
 
@@ -232,15 +232,15 @@ SUBROUTINE CTPandCELL_eon
    !       dang=topi/dfloat(np_grid)
    !       da_size=1.0d0/dfloat(n_grid)
    !       mm=0
-   !
+   ! 
    !       do i=1,me
    !         ang=dmod(theta(i),topi)+topi
    !         ang=dmod(ang,topi)
    !         ang=ang/dang
-   !
+   ! 
    !         nc=idint(ang)+1
    !         jpol(i)=min(np_grid,max(1,nc))
-   !
+   ! 
    !         kc=idint(aa(i)/da_size)+1
    !         jpsi(i)=min(n_grid,max(1,kc))
    !       end do
@@ -264,7 +264,7 @@ SUBROUTINE CTPandCELL_eon
    ! simulation though.
 
    !
-   !       For particles with vxy<0, re-calculate using
+   !       For particles with vxy<0, re-calculate using 
    !       small step size---dt_coll/nss
    !
    if(m.gt.0) then

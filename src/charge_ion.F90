@@ -28,7 +28,7 @@ subroutine charge_ion
    !  real,dimension(:,:),allocatable :: dnitmp
 #endif
 
-   ! call ion_locator_at_larmor_points
+   call ion_locator_at_larmor_points
 
    densityi=0.0_wp
 
