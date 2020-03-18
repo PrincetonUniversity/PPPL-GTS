@@ -14,8 +14,8 @@ subroutine poisson( solver, masssolver )
    !
    type(solver_data) :: solver, masssolver
    ! local vars
-   integer i,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2
-
+   integer i,ii,jt,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2
+   integer istatus(MPI_STATUS_SIZE)
    !  integer,dimension(:,:),allocatable :: nindex
    !  integer,dimension(:,:,:),allocatable :: indexp
    !  real,dimension(:,:,:),allocatable :: ring
@@ -27,7 +27,7 @@ subroutine poisson( solver, masssolver )
    !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
    real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
    real(wp) add_phi(mgrid), yy(mgrid), bb2(mgrid)
-
+   real(wp) recvl(mgrid)
    real(wp), external :: SMOOTHSTEP
    real(wp) instep,outstep
 
@@ -144,15 +144,37 @@ subroutine poisson( solver, masssolver )
       endif
 
       if(Flag_Poisson3D_on_SG>=1) then
-         call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
-         call Solve_test_Poisson3D_on_SG
+         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         ! ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
+         ! call Solve_test_Poisson3D_on_SG
+
+         call Measure_Electron_Density_on_SG
+         call Measure_Ion_Density_on_SG
+         ! call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
+         ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+         call Solve_Poisson3D_on_SG
+         call Cal_gradPhi_on_SG
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
-         call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
          phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:) ! Convert from V unit to GTS normalized unit
          ! Note that phi(0,:) will be communicated in smooth_phi or field subroutine..
          ! Also, phi00 will be calculated in smooth_phi in the case of ZE_SEPRATION=0
+
+         ! Send phi(1,:) to right poloidal plane
+         call MPI_SENDRECV(phi(1,:),mgrid,mpi_Rsize,right_pe,0,recvl,mgrid,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+         if(myrank_toroidal==0)then
+            do i=0,mpsi
+               ii=igrid(i)
+               jt=mtheta(i)
+               phi(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
+            enddo
+         else
+            phi(0,:)=recvl
+         endif
+
+
 
          if(ZF_SEPARATION==1) then
             ! flux surface average and normalization
@@ -362,15 +384,32 @@ subroutine poisson( solver, masssolver )
 
 
       if(Flag_Poisson3D_on_SG>=1) then
-         call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
-         call Solve_test_Poisson3D_on_SG
+
+         call Measure_Electron_Density_on_SG
+         call Measure_Ion_Density_on_SG
+         ! call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
+         ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+         call Solve_Poisson3D_on_SG
+         call Cal_gradPhi_on_SG
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
-         call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
-         phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:) ! Convert from V unit to GTS normalized unit
-         ! Note that phi(0,:) will be communicated in smooth_phi or field subroutine..
-         ! Also, phi00 will be calculated in smooth_phi in the case of ZE_SEPRATION=0
+         ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
+         phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:)
+
+         ! Send phi(1,:) to right poloidal plane
+         call MPI_SENDRECV(phi(1,:),mgrid,mpi_Rsize,right_pe,0,recvl,mgrid,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+         if(myrank_toroidal==0)then
+            do i=0,mpsi
+               ii=igrid(i)
+               jt=mtheta(i)
+               phi(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
+            enddo
+         else
+            phi(0,:)=recvl
+         endif
+
+
 
          if(ZF_SEPARATION==1) then
             ! flux surface average and normalization
