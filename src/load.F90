@@ -894,7 +894,7 @@ subroutine load_uniform_MGY
 
       if(Flag_Quiet_Start==1) then
          do m=1,me
-            zeon(4,m)=zeon(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
+            zeon(4,m)=zion(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
             zeon(6,m)=zion(6,m)*sqrt(Te_norm(m)/backT(m))     ! =sqrt(mu_e)
          enddo
       else
