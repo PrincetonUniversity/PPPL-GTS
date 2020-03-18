@@ -1863,7 +1863,7 @@ subroutine n_T_u_group_e
       else              ! use spline
          call ezspline_interp(spn,me,zeon(1,:),backne,ier)
          call ezspline_interp(spTe,me,zeon(1,:),backTe,ier)
-         call ezspline_interp(spTi,mi,zeon(1,:),backTi,ier)
+         call ezspline_interp(spTi,me,zeon(1,:),backTi,ier)
          call ezspline_interp(spO,me,zeon(1,:),omega_ui,ier)
          !            backu=backu*F/B
          call ezspline_derivative(spn,1,me,zeon(1,:),dlnndae,ier)
