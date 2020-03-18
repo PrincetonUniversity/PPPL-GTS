@@ -1967,7 +1967,7 @@ subroutine n_T_u_group_e
 
 
    ! Calculate Maxwellian f0 for electrons.
-   call esigetb(zeon, me, size(zeon,1))
+   call esigetbf(zeon, me, size(zeon,1))
 
    !$acc parallel loop present(zeon,backne,backTe,back_f0_e)
    do i=1, me
