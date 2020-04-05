@@ -1053,3 +1053,220 @@ subroutine load_uniform_MGY
 
 
 end subroutine load_uniform_MGY
+
+
+subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
+
+   use global_parameters
+   use particle_array
+   use precision
+   use field_array
+   use esi_interface
+   use mpi_defs
+   implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+   integer,intent(in) :: num_of_new_ptls
+   real(wp),intent(in) :: delta_t_seconds
+
+   real(wp) target_a
+   integer ::  normal_vec_a_direction=-1, sign_f0=-1
+   integer :: Nm,m0,m
+   real(wp) integral_f0
+   real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
+   real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio, Rand !For Flag_Load_and_WeightDef==2 case.
+
+
+   integer :: minpts, ifail=1, ierror
+   real(wp) :: acc, error_8=1e-5
+   real(wp), external:: dsda, D01AHF,jacobian
+
+   integer sid
+   real(wp) P_s,ff,P_q,inv_ds
+   real(wp), allocatable ::Te_norm(:), B_vec_cov(:,:), B_vec_cntv(:,:), ge_val(:)
+
+
+   target_a = a1-0.1
+
+   ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
+   call MPI_ALLREDUCE(num_of_new_ptls,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
+
+   if(num_of_new_ptls<=0) then
+      return
+   endif
+
+   m0 = me+1 ! starting index of newly loaded particles
+   me = me+num_of_new_ptls
+
+
+   allocate(ge_val(m0:me))
+
+   write(stdout,'(5(A,I8))') "istep=",istep, "mype=",mype,"; m0=",m0,"; me=",me,"; memax=",memax
+   call flush(stdout)
+   call MPI_Barrier(MPI_COMM_WORLD,ierror)
+
+   do m=m0,me
+      zeon(1,m) = target_a
+      zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
+      zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+
+      ! Pick random points (theta,phi) with Helically aligned along B field
+      zeon(3,m) = 2.0*pi*sprng()
+      zeon(2,m) = 2.0*pi*sprng()
+
+      elabels(m) = mype +  1e5*m
+   enddo
+   acc_newer_H_zeon=.true.
+
+   ! call n_T_u_group_e(m0)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+   call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+
+   allocate(Te_norm(m0:me))
+   do m=m0,me
+      Te_norm(m) = backTe(m)*msm0
+   enddo
+
+   allocate(B_vec_cov(3,m0:me),B_vec_cntv(3,m0:me))
+   do m=m0,me
+      call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, B_vec_cov(:,m), B_vec_cntv(:,m))
+   enddo
+
+
+   ! ! Do Sampling for the following ranges
+   ! ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+   ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
+   ! ! 0 < u_perp < umax*sqrt(2T/m)
+   ! ! 0 < sqrt(mu) < sqrt(T/B)*u
+   ! zeon(4,m) = (2.0*rand_5d(4,m)-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
+   ! zeon(6,m) = sqrt(Te_norm(m)/BB(m))*rand_5d(5,m)*umax
+
+   if(Flag_Load_and_WeightDef==0) then
+
+   elseif(Flag_Load_and_WeightDef==1) then
+      do m=m0,me
+         v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
+         v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
+
+         !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+         ! Marker Distribution Funcion for full range: ge = Nm / (Jacobian* (2pi) * (2pi) * (0.5*pi*v_abs_max^2))
+         ge_val(m) = Nm/(Jacobian(zeon(1,m),zeon(2,m))*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)
+         ! NOTE: We only need a half va part, so MarkerDistribution for half range is twice of the original
+         ge_val(m) = 2.0*ge_val(m)
+
+         ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
+         vpara=sign(1.0_wp,normal_vec_a_direction*B_vec_cov(1,m))*abs(v_abs*cos(v_theta))
+         vperp=v_abs*sin(v_theta)
+
+         zeon(4,m) = msm0*vpara/(csc0*BB(m))
+         zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+      enddo
+   elseif(Flag_Load_and_WeightDef==2) then
+      do m=m0,me
+         ! First, get v_abs using sprng()
+         vmax=umax*sqrt(Te_norm(m)*m0ms)
+         vc=2.0*sqrt(Te_norm(m)*m0ms)
+         c2=0.01
+         f2val=0.2
+         c1 = -((-2+c2*vmax+f2val*vmax+ c2*vc-f2val*vc)/( vmax*vc))
+         c3 = -((2-2*f2val*vmax-c2*vc+ f2val*vc)/( vmax*(vmax-vc)))
+         c4 = -((-2+f2val*vmax+c2*vc)/(vmax-vc))
+         Rand = sprng()
+         if (Rand < c2*vc+c1*vc**2/2) then
+            v_abs = (-c2+sqrt(c2**2+2*c1*Rand))/c1
+         else
+            Rand = Rand -(c2*vc+c1*vc**2/2)
+            v_abs = (-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
+         endif
+         ! Second, get v_theta using sprng()
+         ratio=0.2 ! ratio of (max/min)
+         c5=1.0/((1.0+ratio)*0.5*pi)
+         c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
+         Rand = sprng()
+         v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
+
+         if(v_abs<vc) then
+            ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
+         else
+            ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
+         endif
+         ! NOTE: We only need a half va part, so MarkerDistribution for half range is twice of the original
+         ge_val(m) = 2.0*ge_val(m)
+
+         ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
+         vpara=sign(1.0_wp,normal_vec_a_direction*B_vec_cov(1,m))*abs(v_abs*cos(v_theta))
+         vperp=v_abs*sin(v_theta)
+
+         zeon(4,m) = msm0*vpara/(csc0*BB(m))
+         zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+      enddo
+   endif
+   acc_newer_H_zeon=.true.
+
+   ! call n_T_u_group_e(m0)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+   call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+
+   if(mype==0) then
+      write(stdout,'(3(A,ES14.6))') "uveloci=", uveloci,"; utime=", utime, "; multiplied=",utime*uveloci
+      write(stdout,'(3(A,ES14.6))') "vpara(m0)=", m0ms*csc0*BB(m0)*zeon(4,m0),"; delta_t_seconds=", delta_t_seconds, "; multiplied=",m0ms*csc0*BB(m0)*zeon(4,m0)*uveloci*delta_t_seconds
+      call flush(stdout)
+   endif
+
+   ! Set initial weights of electrons
+   ! zeon(5,m) is "df" or "dh"
+   ! zeon0(6,m) is "f_tot"
+
+   do m=m0,me
+      vpara = m0ms*csc0*BB(m)*zeon(4,m)  ! vpara = (eB/m)*rho_para
+      mean_vabs = sqrt(8.0*Te_norm(m)/(pi*msm0))
+      ! integral_f0 = 0.25*mean_vabs*delta_t_seconds*vpara*back_f0_e(m)/ge_val(m)
+      ! integral_f0 = vpara*back_f0_e(m)/ge_val(m)
+      ! integral_f0 = vpara*delta_t_seconds*back_f0_e(m)/ge_val(m)
+      integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
+      zeon(5,m)  = sign_f0*integral_f0
+      zeon0(6,m) = 0.0
+   enddo
+
+   acc_newer_H_zeon=.true.
+
+   we_init(m0:me)  = zeon(5,m0:me)
+   we_vpara(m0:me) = 0
+   we_vperp(m0:me) = 0
+   we_accel(m0:me) = 0
+   we_adiab(m0:me) = 0
+   we_fdamp(m0:me) = 0
+
+   zeon0(1:5,m0:me)     = zeon(1:5,m0:me)
+   zeon0(7,m0:me)       = zeon(7,m0:me)
+   UnNorm_theta_e(m0:me)= zeon(2,m0:me)
+   UnNorm_zeta_e(m0:me) = zeon(3,m0:me)
+
+   ! Distribute electrons to appropriate MPI ranks
+   call shifte
+   call electron_locator
+   call n_T_u_group_e
+
+   ! NOTE : Don't forget to update device or host as the followings
+   if(acc_newer_H_zeon) then
+      !$acc update device(we_init(m0:me),we_vpara(m0:me),we_vperp(m0:me),we_accel(m0:me),we_adiab(m0:me),we_fdamp(m0:me))
+      !$acc update device(zeon(:,m0:me),zeon0(:,m0:me),elabels(m0:me))
+      !$acc update device(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+   if(acc_newer_D_zeon) then
+      !$acc update self(we_init(m0:me),we_vpara(m0:me),we_vperp(m0:me),we_accel(m0:me),we_adiab(m0:me),we_fdamp(m0:me))
+      !$acc update self(zeon(:,m0:me),zeon0(:,m0:me),elabels(m0:me))
+      !$acc update self(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+
+   deallocate(Te_norm)
+   deallocate(B_vec_cov,B_vec_cntv)
+   deallocate(ge_val)
+
+end subroutine load_electrons_In_or_Out_Flux
