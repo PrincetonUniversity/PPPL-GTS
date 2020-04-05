@@ -787,9 +787,9 @@ subroutine load_uniform_MGY
          v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
 
          if(v_abs<vc) then
-            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs*sqrt(1000.0)) ! Last 1000.0 is due to keV->eV for Jacobian
+            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
          else
-            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs*sqrt(1000.0)) ! Last 1000.0 is due to keV->eV for Jacobian
+            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
          endif
       endif
 
@@ -935,9 +935,9 @@ subroutine load_uniform_MGY
                v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
 
                if(v_abs<vc) then
-                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs*sqrt(1000.0)) ! Last 1000.0 is due to keV->eV for Jacobian
+                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
                else
-                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs*sqrt(1000.0)) ! Last 1000.0 is due to keV->eV for Jacobian
+                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
                endif
             endif
 
