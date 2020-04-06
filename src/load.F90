@@ -1088,8 +1088,13 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    real(wp) P_s,ff,P_q,inv_ds
    real(wp), allocatable ::Te_norm(:), B_vec_cov(:,:), B_vec_cntv(:,:), ge_val(:)
 
+   real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
+   real(wp) fip,r,dela
+   real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
+   integer ip,ij
+   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
 
-   target_a = a1-0.1
+   target_a = a1
 
    ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
    call MPI_ALLREDUCE(num_of_new_ptls,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
@@ -1104,12 +1109,12 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
 
    allocate(ge_val(m0:me))
 
-   write(stdout,'(5(A,I8))') "istep=",istep, "mype=",mype,"; m0=",m0,"; me=",me,"; memax=",memax
+   write(stdout,'(5(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; me=",me,"; memax=",memax
    call flush(stdout)
    call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
    do m=m0,me
-      zeon(1,m) = target_a
+      zeon(1,m)=target_a
       zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
       zeon(7,m)=min(s1,max(s0,zeon(7,m)))
 
@@ -1153,11 +1158,9 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
          !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
          ! Marker Distribution Funcion for full range: ge = Nm / (Jacobian* (2pi) * (2pi) * (0.5*pi*v_abs_max^2))
          ge_val(m) = Nm/(Jacobian(zeon(1,m),zeon(2,m))*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)
-         ! NOTE: We only need a half va part, so MarkerDistribution for half range is twice of the original
-         ge_val(m) = 2.0*ge_val(m)
 
          ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
-         vpara=sign(1.0_wp,normal_vec_a_direction*B_vec_cov(1,m))*abs(v_abs*cos(v_theta))
+         vpara=v_abs*cos(v_theta)
          vperp=v_abs*sin(v_theta)
 
          zeon(4,m) = msm0*vpara/(csc0*BB(m))
@@ -1192,11 +1195,9 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
          else
             ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
          endif
-         ! NOTE: We only need a half va part, so MarkerDistribution for half range is twice of the original
-         ge_val(m) = 2.0*ge_val(m)
 
          ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
-         vpara=sign(1.0_wp,normal_vec_a_direction*B_vec_cov(1,m))*abs(v_abs*cos(v_theta))
+         vpara=v_abs*cos(v_theta)
          vperp=v_abs*sin(v_theta)
 
          zeon(4,m) = msm0*vpara/(csc0*BB(m))
@@ -1208,9 +1209,85 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    ! call n_T_u_group_e(m0)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
    call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
 
+   call electron_locator ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
+
+
+
+
+
+   allocate(wpi(3,me),ga(me),wga(3,me),gat(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
+
+
+
+   ! Calculate evector (wpi) first
+   do m=1,me
+      wz1=wzeon(m)
+      wz0=1.0_wp-wz1
+
+      ij=jteon0(m)
+      wp0=1.0_wp-wpeon(m)
+      wt00=1.0_wp-wteon0(m)
+      e1=wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+      e2=wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+      e3=wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+      ij=ij+1
+      wt10=1.0_wp-wt00
+      e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+      e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+      e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+      ij=jteon1(m)
+      wp1=1.0_wp-wp0
+      wt01=1.0_wp-wteon1(m)
+      e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+      e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+      e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+      ij=ij+1
+      wt11=1.0_wp-wt01
+      e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+      e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+      e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+      wpi(1,m)=e1
+      wpi(2,m)=e2
+      wpi(3,m)=e3
+   enddo
+
+   ! Get Er_particle
+   Er401_bp=Er401_bp0
+   Er_grid=Er_grid0
+   dela=1.0_wp/Ydr
+   do m=1,me
+      r=zeon(1,m)-a0
+      r=r*dela
+      ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
+      fip=r-real(ip,wp)
+      Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
+   enddo
+
+   if(electromagnetic == 1)then
+      call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga(1:me), wga(1:3,1:me), gat(1:me))
+
+      !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+      if(Flag_GC_Solver==0) then
+         m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+      elseif(Flag_GC_Solver==1) then
+         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+      else
+         write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
+         call flush(stdout)
+         stop
+      endif
+   else
+      m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
+   endif
+
    if(mype==0) then
       write(stdout,'(3(A,ES14.6))') "uveloci=", uveloci,"; utime=", utime, "; multiplied=",utime*uveloci
-      write(stdout,'(3(A,ES14.6))') "vpara(m0)=", m0ms*csc0*BB(m0)*zeon(4,m0),"; delta_t_seconds=", delta_t_seconds, "; multiplied=",m0ms*csc0*BB(m0)*zeon(4,m0)*uveloci*delta_t_seconds
+      write(stdout,'(3(A,ES14.6))') "vpara(m0)/uveloci=", m0ms*csc0*BB(m0)*zeon(4,m0),"; delta_t_seconds=", delta_t_seconds, "; multiplied=",m0ms*csc0*BB(m0)*zeon(4,m0)*uveloci*delta_t_seconds
+      write(stdout,'(3(A,ES14.6))') "da(m0)/uveloci=", da(m0),"; delta_t_seconds=", delta_t_seconds, "; multiplied=",da(m0)*uveloci*delta_t_seconds
       call flush(stdout)
    endif
 
@@ -1224,9 +1301,20 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
       ! integral_f0 = 0.25*mean_vabs*delta_t_seconds*vpara*back_f0_e(m)/ge_val(m)
       ! integral_f0 = vpara*back_f0_e(m)/ge_val(m)
       ! integral_f0 = vpara*delta_t_seconds*back_f0_e(m)/ge_val(m)
-      integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
+      ! integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
+      integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
       zeon(5,m)  = sign_f0*integral_f0
       zeon0(6,m) = 0.0
+
+      if(da(m)<0) then
+         zeon(1,m)=target_a-1e-5
+         zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
+         zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+      else
+         zeon(1,m)=target_a+1e-5
+         zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
+         zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+      endif
    enddo
 
    acc_newer_H_zeon=.true.
@@ -1268,5 +1356,6 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    deallocate(Te_norm)
    deallocate(B_vec_cov,B_vec_cntv)
    deallocate(ge_val)
+   deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
 
 end subroutine load_electrons_In_or_Out_Flux
