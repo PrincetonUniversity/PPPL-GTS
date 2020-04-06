@@ -1332,6 +1332,7 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    UnNorm_zeta_e(m0:me) = zeon(3,m0:me)
 
    ! Distribute electrons to appropriate MPI ranks
+   call treat_electrons_out_of_boundary
    call shifte
    call electron_locator
    call n_T_u_group_e
@@ -1359,3 +1360,130 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
 
 end subroutine load_electrons_In_or_Out_Flux
+
+
+subroutine treat_electrons_out_of_boundary()
+
+   use global_parameters
+   use particle_array
+   use field_array
+
+   implicit none
+
+   integer m,i,j
+   real(wp) psimax,psimin
+   integer lost_mid_arr(memax) ! index of loss particles
+   integer lost_num ! number of loss particles across boundary
+   integer, allocatable :: fill_mid_arr(:)
+   integer fill_num
+   integer mtop, lasth
+   integer dim_zeon, dim_zeon0, dim_RK_cum_zeon
+
+   dim_zeon = size(zeon,1)
+   dim_zeon0 = size(zeon0,1)
+   dim_RK_cum_zeon = size(RK_cum_zeon,1)
+
+   psimax=psi_grid(mpsi)
+   psimin=psi_grid(0)
+
+
+   lost_num=0
+   ! out of boundary particle
+   acc_newer_D_zeon=.true.
+   !$acc parallel loop present(zeon,zeon0)
+   do m=1,me
+      if(zeon(1,m) > psimax)then
+
+         lost_num = lost_num +1
+         lost_mid_arr(lost_num) = m
+
+         ! zeon(1,m)=zeon0(1,m)
+         ! zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+         ! zeon(3,m)=zeon0(3,m)
+         ! zeon(4,m)=zeon0(4,m)
+         ! zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+         ! !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+         ! !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
+         ! zeon(7,m)=zeon0(7,m)
+
+      elseif(zeon(1,m) < psimin)then
+         ! lost_num = lost_num +1
+         ! lost_mid_arr(lost_num) = m
+
+         zeon(1,m)=psimin
+         zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+         zeon(3,m)=zeon0(3,m)
+         zeon(4,m)=zeon0(4,m)
+         zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+         !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+         !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
+         zeon(7,m)=zeon0(7,m)
+      endif
+
+
+   enddo
+
+
+   write(stdout,'(3(A,I8))') "istep=",istep,"; mype=",mype,"; electron lost_num=",lost_num
+   ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
+   call flush(stdout)
+
+
+   ! fill holes
+   mtop = me
+   me = me - lost_num ! remained me after loss
+   lasth = lost_num
+
+   allocate(fill_mid_arr(lost_num))
+   fill_num=0
+   do i=1, lost_num
+      m = lost_mid_arr(i)
+      if(m>me) exit
+      do while(mtop == lost_mid_arr(lasth))
+         mtop=mtop-1
+         lasth=lasth-1
+      enddo
+      fill_mid_arr(i) = mtop
+      mtop = mtop -1
+      fill_num=i
+   enddo
+
+   ! write(stdout,*) "mype=",mype,"fill_num=",fill_num, "fill_mid_arr=",fill_mid_arr(1:fill_num)
+   ! call flush(stdout)
+
+   !$acc parallel loop
+   do i=1, fill_num
+      m = lost_mid_arr(i)
+      mtop= fill_mid_arr(i)
+      !$acc loop seq
+      do j=1,dim_zeon
+         zeon(j, m)   = zeon(j, mtop)
+      enddo
+      !$acc loop seq
+      do j=1,dim_zeon0
+         zeon0(j, m)  = zeon0(j, mtop)
+      enddo
+      elabels(m)      = elabels(mtop)
+      we_init(m)      = we_init(mtop)
+      we_vpara(m)     = we_vpara(mtop)
+      we_vperp(m)     = we_vperp(mtop)
+      we_accel(m)     = we_accel(mtop)
+      we_adiab(m)     = we_adiab(mtop)
+      we_fdamp(m)     = we_fdamp(mtop)
+
+      UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
+      UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+      if(Flag_RK4==1) then
+         !$acc loop seq
+         do j=1,dim_RK_cum_zeon
+            RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+         enddo
+      endif
+   enddo
+   deallocate(fill_mid_arr)
+   acc_newer_D_zeon=.true.
+
+   call electron_locator
+   call n_T_u_group_e
+
+end subroutine treat_electrons_out_of_boundary

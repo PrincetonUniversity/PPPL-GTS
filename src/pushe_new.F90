@@ -1924,32 +1924,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
 
       if(irk_e==4)then
-         ! out of boundary particle
-         !$omp parallel do private(m)
-         acc_newer_D_zeon=.true.
-         !$acc parallel loop present(zeon,zeon0)
-         do m=1,me
-            if(zeon(1,m) > psimax)then
-               zeon(1,m)=zeon0(1,m)
-               zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-               zeon(3,m)=zeon0(3,m)
-               zeon(4,m)=zeon0(4,m)
-               zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-               !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-               !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
-               zeon(7,m)=zeon0(7,m)
 
-            elseif(zeon(1,m) < psimin)then
-               zeon(1,m)=zeon0(1,m)
-               zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-               zeon(3,m)=zeon0(3,m)
-               zeon(4,m)=zeon0(4,m)
-               zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-               !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-               !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
-               zeon(7,m)=zeon0(7,m)
-            endif
-         enddo
+         call treat_electrons_out_of_boundary
 
          ! ********************************
          if(mype==2) then
