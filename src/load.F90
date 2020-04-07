@@ -1089,6 +1089,7 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    real(wp), allocatable ::Te_norm(:), B_vec_cov(:,:), B_vec_cntv(:,:), ge_val(:)
 
    real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
+   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
    real(wp) fip,r,dela
    real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
    integer ip,ij
@@ -1124,10 +1125,11 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
 
       elabels(m) = mype +  1e5*m
    enddo
-   acc_newer_H_zeon=.true.
+   !$acc update device(zeon(:,m0:me),elabels(m0:me))
 
    ! call n_T_u_group_e(m0)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
    call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+   !$acc update self(BB(m0:me))
 
    allocate(Te_norm(m0:me))
    do m=m0,me
@@ -1204,7 +1206,7 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
          zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
       enddo
    endif
-   acc_newer_H_zeon=.true.
+   !$acc update device(zeon(:,m0:me))
 
    ! call n_T_u_group_e(m0)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
    call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
@@ -1220,6 +1222,7 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
 
 
    ! Calculate evector (wpi) first
+   !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1,wpi)
    do m=1,me
       wz1=wzeon(m)
       wz0=1.0_wp-wz1
@@ -1259,6 +1262,7 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    Er401_bp=Er401_bp0
    Er_grid=Er_grid0
    dela=1.0_wp/Ydr
+   !$acc parallel loop present(zeon,zeon0,Er_particle)
    do m=1,me
       r=zeon(1,m)-a0
       r=r*dela
@@ -1283,6 +1287,8 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    else
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
    endif
+
+   !$acc update self(da(m0:me))
 
    if(mype==0) then
       write(stdout,'(3(A,ES14.6))') "uveloci=", uveloci,"; utime=", utime, "; multiplied=",utime*uveloci
@@ -1317,7 +1323,6 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
       endif
    enddo
 
-   acc_newer_H_zeon=.true.
 
    we_init(m0:me)  = zeon(5,m0:me)
    we_vpara(m0:me) = 0
@@ -1331,27 +1336,17 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
    UnNorm_theta_e(m0:me)= zeon(2,m0:me)
    UnNorm_zeta_e(m0:me) = zeon(3,m0:me)
 
+
+   !$acc update device(we_init(m0:me),we_vpara(m0:me),we_vperp(m0:me),we_accel(m0:me),we_adiab(m0:me),we_fdamp(m0:me))
+   !$acc update device(zeon(:,m0:me),zeon0(:,m0:me),elabels(m0:me))
+   !$acc update device(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
+
    ! Distribute electrons to appropriate MPI ranks
    call treat_electrons_out_of_boundary
    call shifte
    call electron_locator
    call n_T_u_group_e
 
-   ! NOTE : Don't forget to update device or host as the followings
-   if(acc_newer_H_zeon) then
-      !$acc update device(we_init(m0:me),we_vpara(m0:me),we_vperp(m0:me),we_accel(m0:me),we_adiab(m0:me),we_fdamp(m0:me))
-      !$acc update device(zeon(:,m0:me),zeon0(:,m0:me),elabels(m0:me))
-      !$acc update device(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
-      acc_newer_H_zeon=.false.
-      acc_newer_D_zeon=.false.
-   endif
-   if(acc_newer_D_zeon) then
-      !$acc update self(we_init(m0:me),we_vpara(m0:me),we_vperp(m0:me),we_accel(m0:me),we_adiab(m0:me),we_fdamp(m0:me))
-      !$acc update self(zeon(:,m0:me),zeon0(:,m0:me),elabels(m0:me))
-      !$acc update self(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
-      acc_newer_H_zeon=.false.
-      acc_newer_D_zeon=.false.
-   endif
 
 
    deallocate(Te_norm)
@@ -1378,6 +1373,7 @@ subroutine treat_electrons_out_of_boundary()
    integer fill_num
    integer mtop, lasth
    integer dim_zeon, dim_zeon0, dim_RK_cum_zeon
+   real(wp) zeon_a_arr(me)
 
    dim_zeon = size(zeon,1)
    dim_zeon0 = size(zeon0,1)
@@ -1387,12 +1383,16 @@ subroutine treat_electrons_out_of_boundary()
    psimin=psi_grid(0)
 
 
+   !$acc parallel loop
+   do m=1,me
+      zeon_a_arr(m)=zeon(1,m)
+   enddo
+
    lost_num=0
    ! out of boundary particle
    acc_newer_D_zeon=.true.
-   !$acc parallel loop present(zeon,zeon0)
    do m=1,me
-      if(zeon(1,m) > psimax)then
+      if(zeon_a_arr(m) > psimax)then
 
          lost_num = lost_num +1
          lost_mid_arr(lost_num) = m
@@ -1406,7 +1406,7 @@ subroutine treat_electrons_out_of_boundary()
          ! !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
          ! zeon(7,m)=zeon0(7,m)
 
-      elseif(zeon(1,m) < psimin)then
+      elseif(zeon_a_arr(m) < psimin)then
          ! lost_num = lost_num +1
          ! lost_mid_arr(lost_num) = m
 
@@ -1419,12 +1419,10 @@ subroutine treat_electrons_out_of_boundary()
          !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
          zeon(7,m)=zeon0(7,m)
       endif
-
-
    enddo
 
 
-   write(stdout,'(3(A,I8))') "istep=",istep,"; mype=",mype,"; electron lost_num=",lost_num
+   write(stdout,'(3(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num
    ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
    call flush(stdout)
 
