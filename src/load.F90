@@ -1382,106 +1382,127 @@ subroutine treat_electrons_out_of_boundary()
    psimax=psi_grid(mpsi)
    psimin=psi_grid(0)
 
-
-   !$acc parallel loop
-   do m=1,me
-      zeon_a_arr(m)=zeon(1,m)
-   enddo
-
-   lost_num=0
-   ! out of boundary particle
-   acc_newer_D_zeon=.true.
-   do m=1,me
-      if(zeon_a_arr(m) > psimax)then
-
-         lost_num = lost_num +1
-         lost_mid_arr(lost_num) = m
-
-         ! zeon(1,m)=zeon0(1,m)
-         ! zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-         ! zeon(3,m)=zeon0(3,m)
-         ! zeon(4,m)=zeon0(4,m)
-         ! zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-         ! !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-         ! !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
-         ! zeon(7,m)=zeon0(7,m)
-
-      elseif(zeon_a_arr(m) < psimin)then
-         ! lost_num = lost_num +1
-         ! lost_mid_arr(lost_num) = m
-
-         zeon(1,m)=psimin
-         zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-         zeon(3,m)=zeon0(3,m)
-         zeon(4,m)=zeon0(4,m)
-         zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-         !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-         !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
-         zeon(7,m)=zeon0(7,m)
-      endif
-   enddo
-
-
-   write(stdout,'(3(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num
-   ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
-   call flush(stdout)
-
-
-   ! fill holes
-   mtop = me
-   me = me - lost_num ! remained me after loss
-   lasth = lost_num
-
-   allocate(fill_mid_arr(lost_num))
-   fill_num=0
-   do i=1, lost_num
-      m = lost_mid_arr(i)
-      if(m>me) exit
-      do while(mtop == lost_mid_arr(lasth))
-         mtop=mtop-1
-         lasth=lasth-1
+   if(Flag_Ptl_BC_type==0) then
+      !$acc parallel loop present(zeon,zeon0)
+      do m=1,me
+         if(zeon(1,m) > psimax)then
+            zeon(1,m)=zeon0(1,m)
+            zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+            zeon(3,m)=zeon0(3,m)
+            zeon(4,m)=zeon0(4,m)
+            zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+            !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+            !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
+            zeon(7,m)=zeon0(7,m)
+         elseif(zeon(1,m) < psimin)then
+            zeon(1,m)=psimin
+            zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+            zeon(3,m)=zeon0(3,m)
+            zeon(4,m)=zeon0(4,m)
+            zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+            !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+            !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
+            zeon(7,m)=zeon0(7,m)
+         endif
       enddo
-      fill_mid_arr(i) = mtop
-      mtop = mtop -1
-      fill_num=i
-   enddo
+      acc_newer_D_zeon=.true.
 
-   ! write(stdout,*) "mype=",mype,"fill_num=",fill_num, "fill_mid_arr=",fill_mid_arr(1:fill_num)
-   ! call flush(stdout)
+      return
 
-   !$acc parallel loop
-   do i=1, fill_num
-      m = lost_mid_arr(i)
-      mtop= fill_mid_arr(i)
-      !$acc loop seq
-      do j=1,dim_zeon
-         zeon(j, m)   = zeon(j, mtop)
+   elseif(Flag_Ptl_BC_type==1) then ! delete out-of_boundary particles from the list
+
+      !$acc parallel loop
+      do m=1,me
+         zeon_a_arr(m)=zeon(1,m)
       enddo
-      !$acc loop seq
-      do j=1,dim_zeon0
-         zeon0(j, m)  = zeon0(j, mtop)
-      enddo
-      elabels(m)      = elabels(mtop)
-      we_init(m)      = we_init(mtop)
-      we_vpara(m)     = we_vpara(mtop)
-      we_vperp(m)     = we_vperp(mtop)
-      we_accel(m)     = we_accel(mtop)
-      we_adiab(m)     = we_adiab(mtop)
-      we_fdamp(m)     = we_fdamp(mtop)
 
-      UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
-      UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
-      if(Flag_RK4==1) then
-         !$acc loop seq
-         do j=1,dim_RK_cum_zeon
-            RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+      lost_num=0
+      ! out of boundary particle
+      do m=1,me
+         if(zeon_a_arr(m) > psimax)then
+
+            lost_num = lost_num +1
+            lost_mid_arr(lost_num) = m
+
+         elseif(zeon_a_arr(m) < psimin)then
+            ! lost_num = lost_num +1
+            ! lost_mid_arr(lost_num) = m
+
+            zeon(1,m)=psimin
+            zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+            zeon(3,m)=zeon0(3,m)
+            zeon(4,m)=zeon0(4,m)
+            zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+            !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+            !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
+            zeon(7,m)=zeon0(7,m)
+         endif
+      enddo
+
+
+      write(stdout,'(3(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num
+      ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
+      call flush(stdout)
+
+
+      ! fill holes
+      mtop = me
+      me = me - lost_num ! remained me after loss
+      lasth = lost_num
+
+      allocate(fill_mid_arr(lost_num))
+      fill_num=0
+      do i=1, lost_num
+         m = lost_mid_arr(i)
+         if(m>me) exit
+         do while(mtop == lost_mid_arr(lasth))
+            mtop=mtop-1
+            lasth=lasth-1
          enddo
-      endif
-   enddo
-   deallocate(fill_mid_arr)
-   acc_newer_D_zeon=.true.
+         fill_mid_arr(i) = mtop
+         mtop = mtop -1
+         fill_num=i
+      enddo
 
-   call electron_locator
-   call n_T_u_group_e
+      ! write(stdout,*) "mype=",mype,"fill_num=",fill_num, "fill_mid_arr=",fill_mid_arr(1:fill_num)
+      ! call flush(stdout)
+
+      !$acc parallel loop
+      do i=1, fill_num
+         m = lost_mid_arr(i)
+         mtop= fill_mid_arr(i)
+         !$acc loop seq
+         do j=1,dim_zeon
+            zeon(j, m)   = zeon(j, mtop)
+         enddo
+         !$acc loop seq
+         do j=1,dim_zeon0
+            zeon0(j, m)  = zeon0(j, mtop)
+         enddo
+         elabels(m)      = elabels(mtop)
+         we_init(m)      = we_init(mtop)
+         we_vpara(m)     = we_vpara(mtop)
+         we_vperp(m)     = we_vperp(mtop)
+         we_accel(m)     = we_accel(mtop)
+         we_adiab(m)     = we_adiab(mtop)
+         we_fdamp(m)     = we_fdamp(mtop)
+
+         UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
+         UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+         if(Flag_RK4==1) then
+            !$acc loop seq
+            do j=1,dim_RK_cum_zeon
+               RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+            enddo
+         endif
+      enddo
+      deallocate(fill_mid_arr)
+      acc_newer_D_zeon=.true.
+
+      call electron_locator
+      call n_T_u_group_e
+   endif
+
+
 
 end subroutine treat_electrons_out_of_boundary
