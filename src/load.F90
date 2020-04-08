@@ -1120,7 +1120,8 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
       zeon(7,m)=min(s1,max(s0,zeon(7,m)))
 
       ! Pick random points (theta,phi) with Helically aligned along B field
-      zeon(3,m) = 2.0*pi*sprng()
+      ! zeon(3,m) = 2.0*pi*sprng()
+      zeon(3,m) = zetamin + sprng()*(zetamax-zetamin)
       zeon(2,m) = 2.0*pi*sprng()
 
       elabels(m) = mype +  1e5*m
@@ -1343,7 +1344,6 @@ subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
 
    ! Distribute electrons to appropriate MPI ranks
    call treat_electrons_out_of_boundary
-   call shifte
    call electron_locator
    call n_T_u_group_e
 
