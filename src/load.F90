@@ -1055,448 +1055,457 @@ subroutine load_uniform_MGY
 end subroutine load_uniform_MGY
 
 
-subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
+module Ptl_Src_Loss
 
-   use global_parameters
-   use particle_array
-   use precision
-   use field_array
-   use esi_interface
-   use mpi_defs
+
    implicit none
+   integer lost_num_BDY0, lost_num_BDY1 ! number of loss particles across boundary
+
+
+
+   contains
+
+      subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
+
+         use global_parameters
+         use particle_array
+         use precision
+         use field_array
+         use esi_interface
+         use mpi_defs
+         implicit none
 
 #define SIMPLE_SPRNG
 #define USE_MPI
 #include "sprng_f.h"
 
-   integer,intent(in) :: num_of_new_ptls
-   real(wp),intent(in) :: delta_t_seconds
+         integer,intent(in) :: num_of_new_ptls
+         real(wp),intent(in) :: delta_t_seconds
 
-   real(wp) target_a
-   integer ::  normal_vec_a_direction=-1, sign_f0=-1
-   integer :: Nm,m0,m
-   real(wp) integral_f0
-   real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
-   real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio, Rand !For Flag_Load_and_WeightDef==2 case.
-
-
-   integer :: minpts, ifail=1, ierror
-   real(wp) :: acc, error_8=1e-5
-   real(wp), external:: dsda, D01AHF,jacobian
-
-   integer sid
-   real(wp) P_s,ff,P_q,inv_ds
-   real(wp), allocatable ::Te_norm(:), B_vec_cov(:,:), B_vec_cntv(:,:), ge_val(:)
-
-   real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
-   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
-   real(wp) fip,r,dela
-   real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
-   integer ip,ij
-   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
-
-   target_a = a1
-
-   ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
-   call MPI_ALLREDUCE(num_of_new_ptls,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
-
-   if(num_of_new_ptls<=0) then
-      return
-   endif
-
-   m0 = me+1 ! starting index of newly loaded particles
-   me = me+num_of_new_ptls
+         real(wp) target_a
+         integer ::  normal_vec_a_direction=-1, sign_f0=-1
+         integer :: Nm,m0,m
+         real(wp) integral_f0
+         real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
+         real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio, Rand !For Flag_Load_and_WeightDef==2 case.
 
 
-   allocate(ge_val(m0:me))
+         integer :: minpts, ifail=1, ierror
+         real(wp) :: acc, error_8=1e-5
+         real(wp), external:: dsda, D01AHF,jacobian
 
-   write(stdout,'(5(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; me=",me,"; memax=",memax
-   call flush(stdout)
-   call MPI_Barrier(MPI_COMM_WORLD,ierror)
+         integer sid
+         real(wp) P_s,ff,P_q,inv_ds
+         real(wp), allocatable ::Te_norm(:), B_vec_cov(:,:), B_vec_cntv(:,:), ge_val(:)
 
-   do m=m0,me
-      zeon(1,m)=target_a
-      zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
-      zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+         real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
+         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+         real(wp) fip,r,dela
+         real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
+         integer ip,ij
+         integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
 
-      ! Pick random points (theta,phi) with Helically aligned along B field
-      ! zeon(3,m) = 2.0*pi*sprng()
-      zeon(3,m) = zetamin + sprng()*(zetamax-zetamin)
-      zeon(2,m) = 2.0*pi*sprng()
+         target_a = a1
 
-      elabels(m) = mype +  1e5*m
-   enddo
-   !$acc update device(zeon(:,m0:me),elabels(m0:me))
+         ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
+         call MPI_ALLREDUCE(num_of_new_ptls,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
 
-   ! call n_T_u_group_e(m0)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
-   call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
-   !$acc update self(BB(m0:me))
-
-   allocate(Te_norm(m0:me))
-   do m=m0,me
-      Te_norm(m) = backTe(m)*msm0
-   enddo
-
-   allocate(B_vec_cov(3,m0:me),B_vec_cntv(3,m0:me))
-   do m=m0,me
-      call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, B_vec_cov(:,m), B_vec_cntv(:,m))
-   enddo
-
-
-   ! ! Do Sampling for the following ranges
-   ! ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
-   ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
-   ! ! 0 < u_perp < umax*sqrt(2T/m)
-   ! ! 0 < sqrt(mu) < sqrt(T/B)*u
-   ! zeon(4,m) = (2.0*rand_5d(4,m)-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
-   ! zeon(6,m) = sqrt(Te_norm(m)/BB(m))*rand_5d(5,m)*umax
-
-   if(Flag_Load_and_WeightDef==0) then
-
-   elseif(Flag_Load_and_WeightDef==1) then
-      do m=m0,me
-         v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
-         v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
-
-         !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-         ! Marker Distribution Funcion for full range: ge = Nm / (Jacobian* (2pi) * (2pi) * (0.5*pi*v_abs_max^2))
-         ge_val(m) = Nm/(Jacobian(zeon(1,m),zeon(2,m))*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)
-
-         ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
-         vpara=v_abs*cos(v_theta)
-         vperp=v_abs*sin(v_theta)
-
-         zeon(4,m) = msm0*vpara/(csc0*BB(m))
-         zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
-      enddo
-   elseif(Flag_Load_and_WeightDef==2) then
-      do m=m0,me
-         ! First, get v_abs using sprng()
-         vmax=umax*sqrt(Te_norm(m)*m0ms)
-         vc=2.0*sqrt(Te_norm(m)*m0ms)
-         c2=0.01
-         f2val=0.2
-         c1 = -((-2+c2*vmax+f2val*vmax+ c2*vc-f2val*vc)/( vmax*vc))
-         c3 = -((2-2*f2val*vmax-c2*vc+ f2val*vc)/( vmax*(vmax-vc)))
-         c4 = -((-2+f2val*vmax+c2*vc)/(vmax-vc))
-         Rand = sprng()
-         if (Rand < c2*vc+c1*vc**2/2) then
-            v_abs = (-c2+sqrt(c2**2+2*c1*Rand))/c1
-         else
-            Rand = Rand -(c2*vc+c1*vc**2/2)
-            v_abs = (-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
-         endif
-         ! Second, get v_theta using sprng()
-         ratio=0.2 ! ratio of (max/min)
-         c5=1.0/((1.0+ratio)*0.5*pi)
-         c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
-         Rand = sprng()
-         v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
-
-         if(v_abs<vc) then
-            ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
-         else
-            ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
+         if(num_of_new_ptls<=0) then
+            return
          endif
 
-         ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
-         vpara=v_abs*cos(v_theta)
-         vperp=v_abs*sin(v_theta)
-
-         zeon(4,m) = msm0*vpara/(csc0*BB(m))
-         zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
-      enddo
-   endif
-   !$acc update device(zeon(:,m0:me))
-
-   ! call n_T_u_group_e(m0)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
-   call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
-
-   call electron_locator ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
+         m0 = me+1 ! starting index of newly loaded particles
+         me = me+num_of_new_ptls
 
 
+         allocate(ge_val(m0:me))
 
-
-
-   allocate(wpi(3,me),ga(me),wga(3,me),gat(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
-
-
-
-   ! Calculate evector (wpi) first
-   !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1,wpi)
-   do m=1,me
-      wz1=wzeon(m)
-      wz0=1.0_wp-wz1
-
-      ij=jteon0(m)
-      wp0=1.0_wp-wpeon(m)
-      wt00=1.0_wp-wteon0(m)
-      e1=wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-      e2=wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-      e3=wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-      ij=ij+1
-      wt10=1.0_wp-wt00
-      e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-      e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-      e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-      ij=jteon1(m)
-      wp1=1.0_wp-wp0
-      wt01=1.0_wp-wteon1(m)
-      e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-      e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-      e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-      ij=ij+1
-      wt11=1.0_wp-wt01
-      e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-      e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-      e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-      wpi(1,m)=e1
-      wpi(2,m)=e2
-      wpi(3,m)=e3
-   enddo
-
-   ! Get Er_particle
-   Er401_bp=Er401_bp0
-   Er_grid=Er_grid0
-   dela=1.0_wp/Ydr
-   !$acc parallel loop present(zeon,zeon0,Er_particle)
-   do m=1,me
-      r=zeon(1,m)-a0
-      r=r*dela
-      ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
-      fip=r-real(ip,wp)
-      Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
-   enddo
-
-   if(electromagnetic == 1)then
-      call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga(1:me), wga(1:3,1:me), gat(1:me))
-
-      !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
-      if(Flag_GC_Solver==0) then
-         m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
-      elseif(Flag_GC_Solver==1) then
-         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
-      else
-         write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
+         write(stdout,'(5(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; me=",me,"; memax=",memax
          call flush(stdout)
-         stop
-      endif
-   else
-      m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
-   endif
+         call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
-   !$acc update self(da(m0:me))
+         do m=m0,me
+            zeon(1,m)=target_a
+            zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
+            zeon(7,m)=min(s1,max(s0,zeon(7,m)))
 
-   if(mype==0) then
-      write(stdout,'(3(A,ES14.6))') "uveloci=", uveloci,"; utime=", utime, "; multiplied=",utime*uveloci
-      write(stdout,'(3(A,ES14.6))') "vpara(m0)/uveloci=", m0ms*csc0*BB(m0)*zeon(4,m0),"; delta_t_seconds=", delta_t_seconds, "; multiplied=",m0ms*csc0*BB(m0)*zeon(4,m0)*uveloci*delta_t_seconds
-      write(stdout,'(3(A,ES14.6))') "da(m0)/uveloci=", da(m0),"; delta_t_seconds=", delta_t_seconds, "; multiplied=",da(m0)*uveloci*delta_t_seconds
-      call flush(stdout)
-   endif
+            ! Pick random points (theta,phi) with Helically aligned along B field
+            ! zeon(3,m) = 2.0*pi*sprng()
+            zeon(3,m) = zetamin + sprng()*(zetamax-zetamin)
+            zeon(2,m) = 2.0*pi*sprng()
 
-   ! Set initial weights of electrons
-   ! zeon(5,m) is "df" or "dh"
-   ! zeon0(6,m) is "f_tot"
-
-   do m=m0,me
-      vpara = m0ms*csc0*BB(m)*zeon(4,m)  ! vpara = (eB/m)*rho_para
-      mean_vabs = sqrt(8.0*Te_norm(m)/(pi*msm0))
-      ! integral_f0 = 0.25*mean_vabs*delta_t_seconds*vpara*back_f0_e(m)/ge_val(m)
-      ! integral_f0 = vpara*back_f0_e(m)/ge_val(m)
-      ! integral_f0 = vpara*delta_t_seconds*back_f0_e(m)/ge_val(m)
-      ! integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-      integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-      zeon(5,m)  = sign_f0*integral_f0
-      zeon0(6,m) = 0.0
-
-      if(da(m)<0) then
-         zeon(1,m)=target_a-1e-5
-         zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
-         zeon(7,m)=min(s1,max(s0,zeon(7,m)))
-      else
-         zeon(1,m)=target_a+1e-5
-         zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
-         zeon(7,m)=min(s1,max(s0,zeon(7,m)))
-      endif
-   enddo
-
-
-   we_init(m0:me)  = zeon(5,m0:me)
-   we_vpara(m0:me) = 0
-   we_vperp(m0:me) = 0
-   we_accel(m0:me) = 0
-   we_adiab(m0:me) = 0
-   we_fdamp(m0:me) = 0
-
-   zeon0(1:5,m0:me)     = zeon(1:5,m0:me)
-   zeon0(7,m0:me)       = zeon(7,m0:me)
-   UnNorm_theta_e(m0:me)= zeon(2,m0:me)
-   UnNorm_zeta_e(m0:me) = zeon(3,m0:me)
-
-
-   !$acc update device(we_init(m0:me),we_vpara(m0:me),we_vperp(m0:me),we_accel(m0:me),we_adiab(m0:me),we_fdamp(m0:me))
-   !$acc update device(zeon(:,m0:me),zeon0(:,m0:me),elabels(m0:me))
-   !$acc update device(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
-
-   ! Distribute electrons to appropriate MPI ranks
-   call treat_electrons_out_of_boundary
-   call electron_locator
-   call n_T_u_group_e
-
-
-
-   deallocate(Te_norm)
-   deallocate(B_vec_cov,B_vec_cntv)
-   deallocate(ge_val)
-   deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
-
-end subroutine load_electrons_In_or_Out_Flux
-
-
-subroutine treat_electrons_out_of_boundary()
-
-   use global_parameters
-   use particle_array
-   use field_array
-
-   implicit none
-
-   integer m,i,j
-   real(wp) psimax,psimin
-   integer lost_mid_arr(memax) ! index of loss particles
-   integer lost_num ! number of loss particles across boundary
-   integer lost_num_BDY0, lost_num_BDY1 ! number of loss particles across boundary
-   integer, allocatable :: fill_mid_arr(:)
-   integer fill_num
-   integer mtop, lasth
-   integer dim_zeon, dim_zeon0, dim_RK_cum_zeon
-   real(wp) zeon_a_arr(me)
-
-   dim_zeon = size(zeon,1)
-   dim_zeon0 = size(zeon0,1)
-   dim_RK_cum_zeon = size(RK_cum_zeon,1)
-
-   psimax=psi_grid(mpsi)
-   psimin=psi_grid(0)
-
-   if(Flag_Ptl_BC_type==0) then
-      !$acc parallel loop present(zeon,zeon0)
-      do m=1,me
-         if(zeon(1,m) > psimax)then
-            zeon(1,m)=psimax
-            zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-            zeon(3,m)=zeon0(3,m)
-            zeon(4,m)=zeon0(4,m)
-            zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-            !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-            !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
-            zeon(7,m)=zeon0(7,m)
-         elseif(zeon(1,m) < psimin)then
-            zeon(1,m)=psimin
-            zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-            zeon(3,m)=zeon0(3,m)
-            zeon(4,m)=zeon0(4,m)
-            zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-            !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-            !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
-            zeon(7,m)=zeon0(7,m)
-         endif
-      enddo
-      acc_newer_D_zeon=.true.
-
-      return
-
-   elseif(Flag_Ptl_BC_type==1) then ! delete out-of_boundary particles from the list
-
-      !$acc parallel loop
-      do m=1,me
-         zeon_a_arr(m)=zeon(1,m)
-      enddo
-
-      lost_num=0
-      lost_num_BDY0=0
-      lost_num_BDY1=0
-      ! Find particle indices exiting the boundary
-      do m=1,me
-         if(zeon_a_arr(m) > psimax)then
-            lost_num = lost_num +1
-            lost_mid_arr(lost_num) = m
-            lost_num_BDY1 = lost_num_BDY1 +1
-         elseif(zeon_a_arr(m) < psimin)then
-            lost_num = lost_num +1
-            lost_mid_arr(lost_num) = m
-            lost_num_BDY0 = lost_num_BDY0 +1
-         endif
-      enddo
-
-
-      write(stdout,'(5(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num, "=",lost_num_BDY0, "+",lost_num_BDY1
-      ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
-      call flush(stdout)
-
-
-      ! fill holes
-      mtop = me
-      me = me - lost_num ! remained me after loss
-      lasth = lost_num
-
-      allocate(fill_mid_arr(lost_num))
-      fill_num=0
-      do i=1, lost_num
-         m = lost_mid_arr(i)
-         if(m>me) exit
-         do while(mtop == lost_mid_arr(lasth))
-            mtop=mtop-1
-            lasth=lasth-1
+            elabels(m) = mype +  1e5*m
          enddo
-         fill_mid_arr(i) = mtop
-         mtop = mtop -1
-         fill_num=i
-      enddo
+         !$acc update device(zeon(:,m0:me),elabels(m0:me))
 
-      ! write(stdout,*) "mype=",mype,"fill_num=",fill_num, "fill_mid_arr=",fill_mid_arr(1:fill_num)
-      ! call flush(stdout)
+         ! call n_T_u_group_e(m0)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+         call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(BB(m0:me))
 
-      !$acc parallel loop
-      do i=1, fill_num
-         m = lost_mid_arr(i)
-         mtop= fill_mid_arr(i)
-         !$acc loop seq
-         do j=1,dim_zeon
-            zeon(j, m)   = zeon(j, mtop)
+         allocate(Te_norm(m0:me))
+         do m=m0,me
+            Te_norm(m) = backTe(m)*msm0
          enddo
-         !$acc loop seq
-         do j=1,dim_zeon0
-            zeon0(j, m)  = zeon0(j, mtop)
-         enddo
-         elabels(m)      = elabels(mtop)
-         we_init(m)      = we_init(mtop)
-         we_vpara(m)     = we_vpara(mtop)
-         we_vperp(m)     = we_vperp(mtop)
-         we_accel(m)     = we_accel(mtop)
-         we_adiab(m)     = we_adiab(mtop)
-         we_fdamp(m)     = we_fdamp(mtop)
 
-         UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
-         UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zeon
-               RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+         allocate(B_vec_cov(3,m0:me),B_vec_cntv(3,m0:me))
+         do m=m0,me
+            call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, B_vec_cov(:,m), B_vec_cntv(:,m))
+         enddo
+
+
+         ! ! Do Sampling for the following ranges
+         ! ! -umax*sqrt(T/m) < u_para < umax*sqrt(T/m)
+         ! ! -umax*sqrt(m*T)/(eB) < rho_para < umax*sqrt(m*T)/(eB)
+         ! ! 0 < u_perp < umax*sqrt(2T/m)
+         ! ! 0 < sqrt(mu) < sqrt(T/B)*u
+         ! zeon(4,m) = (2.0*rand_5d(4,m)-1.0)*umax *sqrt(msm0*Te_norm(m))/(csc0*BB(m)) !neglected electron rotation
+         ! zeon(6,m) = sqrt(Te_norm(m)/BB(m))*rand_5d(5,m)*umax
+
+         if(Flag_Load_and_WeightDef==0) then
+
+         elseif(Flag_Load_and_WeightDef==1) then
+            do m=m0,me
+               v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
+               v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
+
+               !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+               ! Marker Distribution Funcion for full range: ge = Nm / (Jacobian* (2pi) * (2pi) * (0.5*pi*v_abs_max^2))
+               ge_val(m) = Nm/(Jacobian(zeon(1,m),zeon(2,m))*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)
+
+               ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
+               vpara=v_abs*cos(v_theta)
+               vperp=v_abs*sin(v_theta)
+
+               zeon(4,m) = msm0*vpara/(csc0*BB(m))
+               zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+            enddo
+         elseif(Flag_Load_and_WeightDef==2) then
+            do m=m0,me
+               ! First, get v_abs using sprng()
+               vmax=umax*sqrt(Te_norm(m)*m0ms)
+               vc=2.0*sqrt(Te_norm(m)*m0ms)
+               c2=0.01
+               f2val=0.2
+               c1 = -((-2+c2*vmax+f2val*vmax+ c2*vc-f2val*vc)/( vmax*vc))
+               c3 = -((2-2*f2val*vmax-c2*vc+ f2val*vc)/( vmax*(vmax-vc)))
+               c4 = -((-2+f2val*vmax+c2*vc)/(vmax-vc))
+               Rand = sprng()
+               if (Rand < c2*vc+c1*vc**2/2) then
+                  v_abs = (-c2+sqrt(c2**2+2*c1*Rand))/c1
+               else
+                  Rand = Rand -(c2*vc+c1*vc**2/2)
+                  v_abs = (-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
+               endif
+               ! Second, get v_theta using sprng()
+               ratio=0.2 ! ratio of (max/min)
+               c5=1.0/((1.0+ratio)*0.5*pi)
+               c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
+               Rand = sprng()
+               v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
+
+               if(v_abs<vc) then
+                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
+               else
+                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
+               endif
+
+               ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
+               vpara=v_abs*cos(v_theta)
+               vperp=v_abs*sin(v_theta)
+
+               zeon(4,m) = msm0*vpara/(csc0*BB(m))
+               zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
             enddo
          endif
-      enddo
-      deallocate(fill_mid_arr)
-      acc_newer_D_zeon=.true.
+         !$acc update device(zeon(:,m0:me))
 
-      call electron_locator
-      call n_T_u_group_e
-   endif
+         ! call n_T_u_group_e(m0)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+         call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
 
+         call electron_locator ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
 
 
-end subroutine treat_electrons_out_of_boundary
+
+
+
+         allocate(wpi(3,me),ga(me),wga(3,me),gat(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
+
+
+
+         ! Calculate evector (wpi) first
+         !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1,wpi)
+         do m=1,me
+            wz1=wzeon(m)
+            wz0=1.0_wp-wz1
+
+            ij=jteon0(m)
+            wp0=1.0_wp-wpeon(m)
+            wt00=1.0_wp-wteon0(m)
+            e1=wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+            e2=wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+            e3=wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+            ij=ij+1
+            wt10=1.0_wp-wt00
+            e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+            e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+            e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+            ij=jteon1(m)
+            wp1=1.0_wp-wp0
+            wt01=1.0_wp-wteon1(m)
+            e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+            e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+            e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+            ij=ij+1
+            wt11=1.0_wp-wt01
+            e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+            e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+            e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+            wpi(1,m)=e1
+            wpi(2,m)=e2
+            wpi(3,m)=e3
+         enddo
+
+         ! Get Er_particle
+         Er401_bp=Er401_bp0
+         Er_grid=Er_grid0
+         dela=1.0_wp/Ydr
+         !$acc parallel loop present(zeon,zeon0,Er_particle)
+         do m=1,me
+            r=zeon(1,m)-a0
+            r=r*dela
+            ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
+            fip=r-real(ip,wp)
+            Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
+         enddo
+
+         if(electromagnetic == 1)then
+            call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga(1:me), wga(1:3,1:me), gat(1:me))
+
+            !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+            if(Flag_GC_Solver==0) then
+               m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+            elseif(Flag_GC_Solver==1) then
+               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+            else
+               write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
+               call flush(stdout)
+               stop
+            endif
+         else
+            m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
+         endif
+
+         !$acc update self(da(m0:me))
+
+         if(mype==0) then
+            write(stdout,'(3(A,ES14.6))') "uveloci=", uveloci,"; utime=", utime, "; multiplied=",utime*uveloci
+            write(stdout,'(3(A,ES14.6))') "vpara(m0)/uveloci=", m0ms*csc0*BB(m0)*zeon(4,m0),"; delta_t_seconds=", delta_t_seconds, "; multiplied=",m0ms*csc0*BB(m0)*zeon(4,m0)*uveloci*delta_t_seconds
+            write(stdout,'(3(A,ES14.6))') "da(m0)/uveloci=", da(m0),"; delta_t_seconds=", delta_t_seconds, "; multiplied=",da(m0)*uveloci*delta_t_seconds
+            call flush(stdout)
+         endif
+
+         ! Set initial weights of electrons
+         ! zeon(5,m) is "df" or "dh"
+         ! zeon0(6,m) is "f_tot"
+
+         do m=m0,me
+            vpara = m0ms*csc0*BB(m)*zeon(4,m)  ! vpara = (eB/m)*rho_para
+            mean_vabs = sqrt(8.0*Te_norm(m)/(pi*msm0))
+            ! integral_f0 = 0.25*mean_vabs*delta_t_seconds*vpara*back_f0_e(m)/ge_val(m)
+            ! integral_f0 = vpara*back_f0_e(m)/ge_val(m)
+            ! integral_f0 = vpara*delta_t_seconds*back_f0_e(m)/ge_val(m)
+            ! integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
+            integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
+            zeon(5,m)  = sign_f0*integral_f0
+            zeon0(6,m) = 0.0
+
+            if(da(m)<0) then
+               zeon(1,m)=target_a-1e-5
+               zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
+               zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+            else
+               zeon(1,m)=target_a+1e-5
+               zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
+               zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+            endif
+         enddo
+
+
+         we_init(m0:me)  = zeon(5,m0:me)
+         we_vpara(m0:me) = 0
+         we_vperp(m0:me) = 0
+         we_accel(m0:me) = 0
+         we_adiab(m0:me) = 0
+         we_fdamp(m0:me) = 0
+
+         zeon0(1:5,m0:me)     = zeon(1:5,m0:me)
+         zeon0(7,m0:me)       = zeon(7,m0:me)
+         UnNorm_theta_e(m0:me)= zeon(2,m0:me)
+         UnNorm_zeta_e(m0:me) = zeon(3,m0:me)
+
+
+         !$acc update device(we_init(m0:me),we_vpara(m0:me),we_vperp(m0:me),we_accel(m0:me),we_adiab(m0:me),we_fdamp(m0:me))
+         !$acc update device(zeon(:,m0:me),zeon0(:,m0:me),elabels(m0:me))
+         !$acc update device(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
+
+         ! Distribute electrons to appropriate MPI ranks
+         call treat_electrons_out_of_boundary
+         call electron_locator
+         call n_T_u_group_e
+
+
+
+         deallocate(Te_norm)
+         deallocate(B_vec_cov,B_vec_cntv)
+         deallocate(ge_val)
+         deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
+
+      end subroutine load_electrons_In_or_Out_Flux
+
+
+      subroutine treat_electrons_out_of_boundary()
+
+         use global_parameters
+         use particle_array
+         use field_array
+
+         implicit none
+
+         integer m,i,j
+         real(wp) psimax,psimin
+         integer lost_mid_arr(memax) ! index of loss particles
+         integer lost_num ! number of loss particles across boundary
+         integer, allocatable :: fill_mid_arr(:)
+         integer fill_num
+         integer mtop, lasth
+         integer dim_zeon, dim_zeon0, dim_RK_cum_zeon
+         real(wp) zeon_a_arr(me)
+
+         dim_zeon = size(zeon,1)
+         dim_zeon0 = size(zeon0,1)
+         dim_RK_cum_zeon = size(RK_cum_zeon,1)
+
+         psimax=psi_grid(mpsi)
+         psimin=psi_grid(0)
+
+         if(Flag_Ptl_BC_type==0) then
+            !$acc parallel loop present(zeon,zeon0)
+            do m=1,me
+               if(zeon(1,m) > psimax)then
+                  zeon(1,m)=psimax
+                  zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+                  zeon(3,m)=zeon0(3,m)
+                  zeon(4,m)=zeon0(4,m)
+                  zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+                  !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+                  !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
+                  zeon(7,m)=zeon0(7,m)
+               elseif(zeon(1,m) < psimin)then
+                  zeon(1,m)=psimin
+                  zeon(2,m)=2.0_wp*pi-zeon0(2,m)
+                  zeon(3,m)=zeon0(3,m)
+                  zeon(4,m)=zeon0(4,m)
+                  zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
+                  !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
+                  !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
+                  zeon(7,m)=zeon0(7,m)
+               endif
+            enddo
+            acc_newer_D_zeon=.true.
+
+            return
+
+         elseif(Flag_Ptl_BC_type==1) then ! delete out-of_boundary particles from the list
+
+            !$acc parallel loop
+            do m=1,me
+               zeon_a_arr(m)=zeon(1,m)
+            enddo
+
+            lost_num=0
+            lost_num_BDY0=0
+            lost_num_BDY1=0
+            ! Find particle indices exiting the boundary
+            do m=1,me
+               if(zeon_a_arr(m) > psimax)then
+                  lost_num = lost_num +1
+                  lost_mid_arr(lost_num) = m
+                  lost_num_BDY1 = lost_num_BDY1 +1
+               elseif(zeon_a_arr(m) < psimin)then
+                  lost_num = lost_num +1
+                  lost_mid_arr(lost_num) = m
+                  lost_num_BDY0 = lost_num_BDY0 +1
+               endif
+            enddo
+
+
+            write(stdout,'(5(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num, "=",lost_num_BDY0, "+",lost_num_BDY1
+            ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
+            call flush(stdout)
+
+
+            ! fill holes
+            mtop = me
+            me = me - lost_num ! remained me after loss
+            lasth = lost_num
+
+            allocate(fill_mid_arr(lost_num))
+            fill_num=0
+            do i=1, lost_num
+               m = lost_mid_arr(i)
+               if(m>me) exit
+               do while(mtop == lost_mid_arr(lasth))
+                  mtop=mtop-1
+                  lasth=lasth-1
+               enddo
+               fill_mid_arr(i) = mtop
+               mtop = mtop -1
+               fill_num=i
+            enddo
+
+            ! write(stdout,*) "mype=",mype,"fill_num=",fill_num, "fill_mid_arr=",fill_mid_arr(1:fill_num)
+            ! call flush(stdout)
+
+            !$acc parallel loop
+            do i=1, fill_num
+               m = lost_mid_arr(i)
+               mtop= fill_mid_arr(i)
+               !$acc loop seq
+               do j=1,dim_zeon
+                  zeon(j, m)   = zeon(j, mtop)
+               enddo
+               !$acc loop seq
+               do j=1,dim_zeon0
+                  zeon0(j, m)  = zeon0(j, mtop)
+               enddo
+               elabels(m)      = elabels(mtop)
+               we_init(m)      = we_init(mtop)
+               we_vpara(m)     = we_vpara(mtop)
+               we_vperp(m)     = we_vperp(mtop)
+               we_accel(m)     = we_accel(mtop)
+               we_adiab(m)     = we_adiab(mtop)
+               we_fdamp(m)     = we_fdamp(mtop)
+
+               UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
+               UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+               if(Flag_RK4==1) then
+                  !$acc loop seq
+                  do j=1,dim_RK_cum_zeon
+                     RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+                  enddo
+               endif
+            enddo
+            deallocate(fill_mid_arr)
+            acc_newer_D_zeon=.true.
+
+            call electron_locator
+            call n_T_u_group_e
+         endif
+
+      end subroutine treat_electrons_out_of_boundary
+
+end module Ptl_Src_Loss

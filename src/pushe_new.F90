@@ -1118,6 +1118,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    use esi_interface
    use solver_data_class
    use function_gg_module
+   use Ptl_Src_Loss
 
    implicit none
 

@@ -21,6 +21,7 @@ program GTS
    use solver_data_class
    use fem_data_class
    use particle_decomp
+   use Ptl_Src_Loss
 
 #ifdef _ACCEL
    use accel_lib
