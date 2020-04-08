@@ -1369,6 +1369,7 @@ subroutine treat_electrons_out_of_boundary()
    real(wp) psimax,psimin
    integer lost_mid_arr(memax) ! index of loss particles
    integer lost_num ! number of loss particles across boundary
+   integer lost_num_BDY0, lost_num_BDY1 ! number of loss particles across boundary
    integer, allocatable :: fill_mid_arr(:)
    integer fill_num
    integer mtop, lasth
@@ -1386,7 +1387,7 @@ subroutine treat_electrons_out_of_boundary()
       !$acc parallel loop present(zeon,zeon0)
       do m=1,me
          if(zeon(1,m) > psimax)then
-            zeon(1,m)=zeon0(1,m)
+            zeon(1,m)=psimax
             zeon(2,m)=2.0_wp*pi-zeon0(2,m)
             zeon(3,m)=zeon0(3,m)
             zeon(4,m)=zeon0(4,m)
@@ -1417,30 +1418,23 @@ subroutine treat_electrons_out_of_boundary()
       enddo
 
       lost_num=0
-      ! out of boundary particle
+      lost_num_BDY0=0
+      lost_num_BDY1=0
+      ! Find particle indices exiting the boundary
       do m=1,me
          if(zeon_a_arr(m) > psimax)then
-
             lost_num = lost_num +1
             lost_mid_arr(lost_num) = m
-
+            lost_num_BDY1 = lost_num_BDY1 +1
          elseif(zeon_a_arr(m) < psimin)then
-            ! lost_num = lost_num +1
-            ! lost_mid_arr(lost_num) = m
-
-            zeon(1,m)=psimin
-            zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-            zeon(3,m)=zeon0(3,m)
-            zeon(4,m)=zeon0(4,m)
-            zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-            !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-            !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
-            zeon(7,m)=zeon0(7,m)
+            lost_num = lost_num +1
+            lost_mid_arr(lost_num) = m
+            lost_num_BDY0 = lost_num_BDY0 +1
          endif
       enddo
 
 
-      write(stdout,'(3(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num
+      write(stdout,'(5(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num, "=",lost_num_BDY0, "+",lost_num_BDY1
       ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
       call flush(stdout)
 
