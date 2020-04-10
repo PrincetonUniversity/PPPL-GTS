@@ -1426,7 +1426,7 @@ subroutine snapshot_hdf5
          call h5ltset_attribute_string_f(gid, "dTe_consst", "unit", "eV", h5err)
          call h5ltmake_dataset_f(gid, "ne_marker",2,h5dims,H5T_NATIVE_DOUBLE, DG%eScaData(:,:,4,1),h5err)
          call h5ltset_attribute_string_f(gid, "ne_marker", "unit", "#/m^3", h5err)
-         call h5ltmake_dataset_f(gid, "ne_tot",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%eScaData(:,:,5,1)+int(ifelectron/2)*DG%dne_adiab),h5err)
+         call h5ltmake_dataset_f(gid, "ne_tot",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%eScaData(:,:,5,1)),h5err)
          call h5ltset_attribute_string_f(gid, "ne_tot", "unit", "#/m^3", h5err)
          call h5ltmake_dataset_f(gid, "Te",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,6,1)),h5err)
          call h5ltset_attribute_string_f(gid, "Te", "unit", "eV", h5err)
