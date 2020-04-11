@@ -1927,6 +1927,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       if(irk_e==4)then
 
          call treat_electrons_out_of_boundary
+         call Cumulate_e_lost_num
 
          ! ********************************
          if(mype==2) then

@@ -1059,11 +1059,78 @@ module Ptl_Src_Loss
 
 
    implicit none
-   integer lost_num_BDY0, lost_num_BDY1 ! number of loss particles across boundary
 
+   ! Following numbers are local things estimated and controlled by each rank.
+   ! They are not global things for all ranks (MPI_COMM_WORLD)
+   integer :: e_lost_num_BDY0=0, e_lost_num_BDY1=0 ! number of loss particles across boundary per each call of treat_electrons_out_of_boundary
+   integer :: e_cum_lost_num_BDY0=0, e_cum_lost_num_BDY1=0 ! cumulative number of lost particles across boundary during a period of time.
 
+   integer :: i_lost_num_BDY0=0, i_lost_num_BDY1=0 ! number of loss particles across boundary at each istep and per each rank
+   integer :: i_cum_lost_num_BDY0=0, i_cum_lost_num_BDY1=0 ! Sum of number of loss particles across boundary over all ranks and isteps.
 
    contains
+
+      subroutine Cumulate_e_lost_num
+         implicit none
+         e_cum_lost_num_BDY0 = e_cum_lost_num_BDY0 + e_lost_num_BDY0
+         e_cum_lost_num_BDY1 = e_cum_lost_num_BDY1 + e_lost_num_BDY1
+      end subroutine Cumulate_e_lost_num
+
+      subroutine Cumulate_i_lost_num
+         implicit none
+         i_cum_lost_num_BDY0 = i_cum_lost_num_BDY0 + i_lost_num_BDY0
+         i_cum_lost_num_BDY1 = i_cum_lost_num_BDY1 + i_lost_num_BDY1
+      end subroutine Cumulate_i_lost_num
+
+      subroutine Clear_e_cum_lost_num
+         implicit none
+         e_cum_lost_num_BDY0 = 0
+         e_cum_lost_num_BDY1 = 0
+      end subroutine Clear_e_cum_lost_num
+
+      subroutine Clear_i_cum_lost_num
+         implicit none
+         i_cum_lost_num_BDY0 = 0
+         i_cum_lost_num_BDY1 = 0
+      end subroutine Clear_i_cum_lost_num
+
+
+      subroutine Inject_electrons_from_Boundaries(delta_t_seconds)
+         use global_parameters
+         use mpi_defs
+         implicit none
+
+         real(wp), intent(in) :: delta_t_seconds
+
+         integer ierror
+         integer global_e_cum_lost_num_BDY0
+         integer global_e_cum_lost_num_BDY1
+         integer num_of_new_ptls_per_rank
+
+         call MPI_ALLREDUCE(e_cum_lost_num_BDY0, global_e_cum_lost_num_BDY0, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(e_cum_lost_num_BDY1, global_e_cum_lost_num_BDY1, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+
+
+         num_of_new_ptls_per_rank = max(1, global_e_cum_lost_num_BDY1/numberpe)
+         ! We put two times of the required number of the particles,
+         ! because almost a half of new_ptls (outwards to wall) would be disappeared immediately during the loading
+         num_of_new_ptls_per_rank = 2*num_of_new_ptls_per_rank !
+
+         if(mype==0) then
+            write(stdout,*) "istep=",istep, "Inject electrons, e_cum_lost_num_BDY1",e_cum_lost_num_BDY1,"; global_e_cum_lost_num_BDY1=",global_e_cum_lost_num_BDY1
+            write(stdout,*) "Inject_electrons_form_Boundaries, num_of_new_ptls_per_rank=",num_of_new_ptls_per_rank
+            call flush(stdout)
+         endif
+
+         call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds)
+
+         call Clear_e_cum_lost_num
+
+
+      end subroutine Inject_electrons_from_Boundaries
+
+
+
 
       subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
 
@@ -1427,23 +1494,23 @@ module Ptl_Src_Loss
             enddo
 
             lost_num=0
-            lost_num_BDY0=0
-            lost_num_BDY1=0
+            e_lost_num_BDY0=0
+            e_lost_num_BDY1=0
             ! Find particle indices exiting the boundary
             do m=1,me
                if(zeon_a_arr(m) > psimax)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
-                  lost_num_BDY1 = lost_num_BDY1 +1
+                  e_lost_num_BDY1 = e_lost_num_BDY1 +1
                elseif(zeon_a_arr(m) < psimin)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
-                  lost_num_BDY0 = lost_num_BDY0 +1
+                  e_lost_num_BDY0 = e_lost_num_BDY0 +1
                endif
             enddo
 
 
-            write(stdout,'(5(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num, "=",lost_num_BDY0, "+",lost_num_BDY1
+            write(stdout,'(5(A,I8))') "istep=",istep,"; mype=",mype,"; e_lost_num=",lost_num, "=",e_lost_num_BDY0, "+",e_lost_num_BDY1
             ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
             call flush(stdout)
 
