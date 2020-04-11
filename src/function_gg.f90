@@ -4883,7 +4883,8 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%gq_1D(Nq))
    allocate(DG%a_1D(Na), DG%ori_aid(Na), DG%s_1D(Na), DG%n0_1D(Na), DG%Te0_1D(Na), DG%Ti0_1D(Na))
    allocate(DG%a_2D(Nq,Na))
-   allocate(DG%gq_2D(Nq,Na),DG%n0_2D(Nq,Na), DG%Cell_dV(Nq,Na), DG%inv_Cell_dV(Nq,Na), DG%dne_adiab(Nq,Na))
+   allocate(DG%n0_2D(Nq,Na),DG%Te0_2D(Nq,Na),DG%Ti0_2D(Nq,Na))
+   allocate(DG%gq_2D(Nq,Na), DG%Cell_dV(Nq,Na), DG%inv_Cell_dV(Nq,Na), DG%dne_adiab(Nq,Na))
    allocate(DG%Cell_dS_a(Nq,Na), DG%inv_Cell_dS_a(Nq,Na), DG%Cell_dS_gq(Nq,Na), DG%inv_Cell_dS_gq(Nq,Na), DG%Cell_dS_gf(Nq,Na), DG%inv_Cell_dS_gf(Nq,Na))
    allocate(DG%FLabel_Function(Nq,Na,0:1))
    allocate(DG%FLA_Denominator(Nq,Na,0:1), DG%FLA_FLabel(Nq,Na,0:1), DG%FLA_psi0(Nq,Na,0:1))
@@ -4902,9 +4903,12 @@ subroutine Init_Diagnostic_Grid
       DG%s_1D(k) = s_grid(i)
 
       DG%n0_1D(k)  = den_grid(i)
-      DG%n0_2D(:,k)= den_grid(i)
       DG%Te0_1D(k) = Te_grid(i)
       DG%Ti0_1D(k) = vth_grid(i)**2.0
+
+      DG%n0_2D(:,k)= DG%n0_1D(k)
+      DG%Te0_2D(:,k)= DG%Te0_1D(k)
+      DG%Ti0_2D(:,k)= DG%Ti0_1D(k)
       k=k+1
    enddo
 
@@ -5348,7 +5352,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
             vid=1; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m) ! Density
             vid=2; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f(m) !Temperature definition 1
-            vid=3; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f(m) !
+            vid=3; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*delta_f(m) !
             vid=4; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Marker Distribution
             vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
             vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
@@ -5519,7 +5523,8 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
    ! Convert Energy to Temperature
    DG%eScaData(:,:,2,1) = DG%eScaData(:,:,2,1)/DG%n0_2D ! Convert Energy to Temperature
    ! Consistent Temperature by considering density fluctuation in the denominator
-   DG%eScaData(:,:,3,1) = DG%eScaData(:,:,3,1)*inv_tot_ne
+   ! delta_T = ((2/3)*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)], where dEnergy=Integral[(df or dh)*energy(m)]+1.5*T0*dne_adiab
+   DG%eScaData(:,:,3,1) = (DG%eScaData(:,:,3,1)+int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne !delta_T = (2/3*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)]
    DG%eScaData(:,:,6,1) = DG%eScaData(:,:,6,1)/DG%eScaData(:,:,5,1)! Te_tot = Energy_tot/Density_tot
 
 
@@ -5649,7 +5654,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
             vid=1; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m) ! Density
             vid=2; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backT(m))*delta_f(m) !Temperature definition 1
-            vid=3; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backT(m))*delta_f(m) !
+            vid=3; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*delta_f(m) !
             vid=4; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Marker Distribution
             vid=5; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
             vid=6; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
@@ -5812,7 +5817,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
                ! Scalar Data
                vid=7; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*inv_larmor_num*delta_f(m) ! Density
-               vid=8; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*inv_larmor_num*(2.0/3.0*energy(m)-backT(m))*delta_f(m) !Temperature definition 1
+               vid=8; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*inv_larmor_num*(2.0/3.0*energy(m))*delta_f(m) !Temperature definition 1
 
                ! Vector Data
                vid=6 ! Turbulent Particle Flux
@@ -5892,8 +5897,8 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
    DG%iScaData(:,:,2,1) = DG%iScaData(:,:,2,1)/DG%n0_2D ! Convert Energy to Temperature
    ! Consistent Temperature by considering density fluctuation in the denominator
-   DG%iScaData(:,:,3,1) = DG%iScaData(:,:,3,1)/(DG%n0_2D+DG%iScaData(:,:,1,1)) ! dTi_consst using consistent varying ion density
-   DG%iScaData(:,:,8,1) = DG%iScaData(:,:,8,1)/(DG%n0_2D+DG%iScaData(:,:,7,1)) ! dTi_consst using consistent ion density on Larmor points
+   DG%iScaData(:,:,3,1) = (DG%iScaData(:,:,3,1)-DG%Ti0_2D*DG%iScaData(:,:,1,1))/(DG%n0_2D+DG%iScaData(:,:,1,1)) ! dTi_consst using consistent varying ion density
+   DG%iScaData(:,:,8,1) = (DG%iScaData(:,:,8,1)-DG%Ti0_2D*DG%iScaData(:,:,7,1))/(DG%n0_2D+DG%iScaData(:,:,7,1)) ! dTi_consst using consistent ion density on Larmor points
    DG%iScaData(:,:,6,1) = DG%iScaData(:,:,6,1)/(DG%iScaData(:,:,5,1))! Ti_tot using f_tot on GC
 
    ! Get Flux Density by dividing Area in each direction
@@ -6024,7 +6029,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    ! Convert temperature to EnergyDensity before smoothing
    tot_ne = DG%n0_2D + DG%eScaData(:,:,1,1) + int(ifelectron/2)*DG%dne_adiab ! using df or dh
    DG%eScaData(:,:,2,1)=DG%eScaData(:,:,2,1)*DG%n0_2D ! dTe which is nonconsistent because of using n0 density
-   DG%eScaData(:,:,3,1)=DG%eScaData(:,:,3,1)*tot_ne ! dTe_consst using consistent varying electron density
+   DG%eScaData(:,:,3,1)=DG%eScaData(:,:,3,1)*tot_ne -int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D+DG%Te0_2D*DG%eScaData(:,:,1,1) ! dTe_consst using consistent varying electron density
    DG%eScaData(:,:,6,1)=DG%eScaData(:,:,6,1)*DG%eScaData(:,:,5,1) ! using full-f, Energy_tot=Te_tot*ne_tot
 
    ! In the case of electrons, dne_adiab should be smoothed as well.
@@ -6057,7 +6062,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    ! Convert smoothed energy density to the temperature using smoothed plasma density
    tot_ne = DG%n0_2D + DG%eScaData(:,:,1,1) + int(ifelectron/2)*DG%dne_adiab ! smoothed total density using df or dh
    DG%eScaData(:,:,2,1)=DG%eScaData(:,:,2,1)/DG%n0_2D ! dTe which is nonconsistent because of using n0 density
-   DG%eScaData(:,:,3,1)=DG%eScaData(:,:,3,1)/tot_ne ! dTe_consst using consistent varying electron density
+   DG%eScaData(:,:,3,1)=(DG%eScaData(:,:,3,1)+int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D-DG%Te0_2D*DG%eScaData(:,:,1,1))/tot_ne !delta_T = (2/3*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)]
    DG%eScaData(:,:,6,1)=DG%eScaData(:,:,6,1)/DG%eScaData(:,:,5,1) ! using full-f, Energy_tot=Te_tot*ne_tot
 
    ! =======================================
@@ -6066,8 +6071,8 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
 
    ! Convert temperature to EnergyDensity before smoothing
    DG%iScaData(:,:,2,1)=DG%iScaData(:,:,2,1)*DG%n0_2D ! dTi which is nonconsistent because of using n0 density
-   DG%iScaData(:,:,3,1)=DG%iScaData(:,:,3,1)*(DG%n0_2D+DG%iScaData(:,:,1,1))   ! dTi_consst using consistent varying ion density
-   DG%iScaData(:,:,8,1)=DG%iScaData(:,:,8,1)*(DG%n0_2D+DG%iScaData(:,:,7,1))   ! dTi_consst using consistent ion density on Larmor points
+   DG%iScaData(:,:,3,1)=DG%iScaData(:,:,3,1)*(DG%n0_2D+DG%iScaData(:,:,1,1)) +DG%Ti0_2D*DG%iScaData(:,:,1,1)  ! dTi_consst using consistent varying ion density
+   DG%iScaData(:,:,8,1)=DG%iScaData(:,:,8,1)*(DG%n0_2D+DG%iScaData(:,:,7,1)) +DG%Ti0_2D*DG%iScaData(:,:,7,1)  ! dTi_consst using consistent ion density on Larmor points
    DG%iScaData(:,:,6,1)=DG%iScaData(:,:,6,1)*DG%iScaData(:,:,5,1) ! using full-f, Energy_tot=Ti_tot*ni_tot
 
 
@@ -6087,8 +6092,8 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
 
    ! Convert smoothed energy density to the temperature using smoothed plasma density
    DG%iScaData(:,:,2,1)=DG%iScaData(:,:,2,1)/DG%n0_2D ! dTi which is nonconsistent because of using n0 density
-   DG%iScaData(:,:,3,1)=DG%iScaData(:,:,3,1)/(DG%n0_2D+DG%iScaData(:,:,1,1))   ! dTi_consst using consistent varying ion density
-   DG%iScaData(:,:,8,1)=DG%iScaData(:,:,8,1)/(DG%n0_2D+DG%iScaData(:,:,7,1))   ! dTi_consst using consistent ion density on Larmor points
+   DG%iScaData(:,:,3,1)=(DG%iScaData(:,:,3,1)-DG%Ti0_2D*DG%iScaData(:,:,1,1))/(DG%n0_2D+DG%iScaData(:,:,1,1)) ! dTi_consst using consistent varying ion density
+   DG%iScaData(:,:,8,1)=(DG%iScaData(:,:,8,1)-DG%Ti0_2D*DG%iScaData(:,:,7,1))/(DG%n0_2D+DG%iScaData(:,:,7,1)) ! dTi_consst using consistent ion density on Larmor points
    DG%iScaData(:,:,6,1)=DG%iScaData(:,:,6,1)/DG%iScaData(:,:,5,1) ! using full-f, Energy_tot=Ti_tot*ni_tot
 
    ! =======================================
