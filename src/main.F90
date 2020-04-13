@@ -21,6 +21,7 @@ program GTS
    use solver_data_class
    use fem_data_class
    use particle_decomp
+   use Ptl_Src_Loss
 
 #ifdef _ACCEL
    use accel_lib
@@ -485,6 +486,11 @@ program GTS
       ! profile snapshots, write particle information to restart file
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
+
+      call Inject_electrons_from_Boundaries(tstep*utime)
+      call Inject_ions_from_Boundaries(tstep*utime)
+      ! call load_electrons_In_or_Out_Flux(100,tstep*utime)
+      ! call load_electrons_In_or_Out_Flux(10,tstep)
 
       if(mod(istep,msnap) .eq. 0) then
          !$acc update self(elabels(:me))
