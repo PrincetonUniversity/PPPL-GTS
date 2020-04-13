@@ -754,6 +754,7 @@ subroutine pushion_RK4(irk_i)
    use diagnosis_array
    use esi_interface
    use function_gg_module
+   use Ptl_Src_Loss
 
    implicit none
    integer, intent(in):: irk_i
@@ -1261,28 +1262,8 @@ subroutine pushion_RK4(irk_i)
 
 
    if(irk_i==4)then
-      ! out of boundary particle
-      !$omp parallel do private(m)
-      acc_newer_D_zion=.true.
-      !$acc parallel loop present(zion,zion0)
-      do m=1,mi
-         if(zion(1,m) > psimax)then
-            zion(1,m)=zion0(1,m)
-            zion(2,m)=2.0_wp*pi-zion0(2,m)
-            zion(3,m)=zion0(3,m)
-            zion(4,m)=zion0(4,m)
-            zion(5,m)=zion0(5,m)  ! this sounds reasonable: energy, momentum and particle conserving boundary
-            zion(7,m)=zion0(7,m)
-
-         elseif(zion(1,m) < psimin)then
-            zion(1,m)=zion0(1,m)
-            zion(2,m)=2.0_wp*pi-zion0(2,m)
-            zion(3,m)=zion0(3,m)
-            zion(4,m)=zion0(4,m)
-            zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-            zion(7,m)=zion0(7,m)
-         endif
-      enddo
+      call treat_ions_out_of_boundary
+      call Cumulate_i_lost_num
    endif
 
 #ifdef _MGY_TIMER_
