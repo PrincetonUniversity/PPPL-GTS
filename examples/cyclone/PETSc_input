@@ -1,6 +1,6 @@
 -pc_type hypre
 -pc_hypre_type boomeramg
--ksp_tol 1.e-5
+-ksp_rtol 1.e-6
 -mat_partitioning_type current
 -dphidt_pc_type hypre
 -dphidt_pc_hypre_type boomeramg

@@ -152,12 +152,12 @@ subroutine charge_ion
          partd_comm,ierror)
    endif
 
-   do ij=1,mgrid
-      if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
-         write(stdout,*) 'charge_ion2, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
-         call flush(stdout)
-      endif
-   enddo
+   ! do ij=1,mgrid
+   !    if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
+   !       write(stdout,*) 'charge_ion2, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
+   !       call flush(stdout)
+   !    endif
+   ! enddo
 
    ! poloidal end cell; need valid data for densityi(:,igrid(i))
    do i=0,mpsi
@@ -165,12 +165,12 @@ subroutine charge_ion
       densityi(:,igrid(i))=densityi(:,igrid(i)+mtheta(i))
    enddo
 
-   do ij=1,mgrid
-      if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
-         write(stdout,*) 'charge_ion3, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
-         call flush(stdout)
-      endif
-   enddo
+   ! do ij=1,mgrid
+   !    if(ieee_is_nan(densityi(0,ij)) .or. ieee_is_nan(densityi(1,ij))) then
+   !       write(stdout,*) 'charge_ion3, mype=',mype,',m=',m,'ij=',ij,'weight=',weight,'densityi(:,ij)=',densityi(:,ij)
+   !       call flush(stdout)
+   !    endif
+   ! enddo
 
    ! toroidal end cell
    sendl=densityi(0,:)

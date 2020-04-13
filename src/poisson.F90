@@ -9,12 +9,13 @@ subroutine poisson( solver, masssolver )
    use diagnosis_array
    !use linear_system
    use solver_data_class
+   use Structured_Grid
    implicit none
    !
    type(solver_data) :: solver, masssolver
    ! local vars
-   integer i,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2
-
+   integer i,ii,jt,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2
+   integer istatus(MPI_STATUS_SIZE)
    !  integer,dimension(:,:),allocatable :: nindex
    !  integer,dimension(:,:,:),allocatable :: indexp
    !  real,dimension(:,:,:),allocatable :: ring
@@ -26,13 +27,17 @@ subroutine poisson( solver, masssolver )
    !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
    real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
    real(wp) add_phi(mgrid), yy(mgrid), bb2(mgrid)
-
+   real(wp) recvl(mgrid)
    real(wp), external :: SMOOTHSTEP
    real(wp) instep,outstep
 
    real(wp) zdum,tdum,tdum0,tdum1
+   real(wp), external :: temperature_e
+   real(wp) tmp_Te0_inverse
 
    real(wp) dpsi_inv,e_psi2,e_psi1,dpsi2_inv,dpsi1,dpsi2,dpsi1_inv
+   real(wp) inv_ds
+   real(wp), external :: dsda
 
    real(doubleprec),save :: t0=0.0_wp
    real(doubleprec) t1,rtc
@@ -91,7 +96,7 @@ subroutine poisson( solver, masssolver )
    !      ifelectron=0 --> adiabatic electrons
    !      ifelectron=1 --> full delta-f electrons
    !      ifelectron=2 --> delta-h electrons (non-adiabatic electrons)
-
+   old_phi=phi
    if(ifelectron==1) then  ! full delta-f electron case
       ! this part works for both ZF_SEPARATION=0 and 1
 
@@ -108,35 +113,211 @@ subroutine poisson( solver, masssolver )
          do j=1,mtheta(i)
             ij=igrid(i)+j
             dentmp(ij)=densityi(1,ij)-densitye(1,ij)
-
             !... finite element needs not this modification
-            if( solver%order <= 0 ) dentmp(ij)=dentmp(ij)*vth_grid(i)**2
-
+            if( solver%order <= 0 ) then
+               dentmp(ij)=dentmp(ij)*vth_grid(i)**2
+            else
+               if(ZF_SEPARATION==1) dentmp(ij)=dentmp(ij)+(zonali(i)-zonale(i))  ! total density fluctuations used for FEM solver with ZF_SEPARATION=1
+            endif
          enddo
-      enddo
-
-      do i=0, mpsi
          dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
       enddo
 
-      if(solver%order <= 0 ) then   ! use original integral solver
 
-         phi(1,:)=0.0_wp   ! addition to RHS with phi=0 for 1st iteration
-         ! NO converage if using phi of last step!!
-         do it=1,its
-            add_phi=0.0_wp
-            !... finite element needs xx be set to 0 on bdy vertex as well
-            xx=0.0_wp
+      if(Flag_Poisson3D_on_SG==0) then
+         do i=0,mpsi
+            tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               if(adiab > 0.0_wp) then
+                  dentmp(ij) = dentmp(ij) + adiab * abs(csc0) * m0ms * tmp_Te0_inverse * phi(1, ij)
+               else
+                  dentmp(ij) = dentmp(ij) + 0.01/(Cs*Cs) * phi(1,ij)
+               endif
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+      else
+         ! This adding (artificial constant or adiabatic-like) part will be conducted in Solve_test_Poisson3D_onSG routine in mgy_pestc.F90
+         ! In the case of the comparison test case (when Flag_Poisson3D_on_SG=2), Poisson3D_on_SG will also add an artificial term.
+         ! However, for a realistic delat-f simulation using SG (Structured Grid) will not use any adding artificial diagonal term.
+      endif
+
+      if(Flag_Poisson3D_on_SG>=1) then
+         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         ! ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
+         ! call Solve_test_Poisson3D_on_SG
+
+         call Measure_Electron_Density_on_SG
+         call Measure_Ion_Density_on_SG
+         ! call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
+         ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+         call Solve_Poisson3D_on_SG
+         call Cal_gradPhi_on_SG
+         ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
+         ! Therefore, a unit conversion is needed afther the interpolation
+         ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
+         phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:) ! Convert from V unit to GTS normalized unit
+         ! Note that phi(0,:) will be communicated in smooth_phi or field subroutine..
+         ! Also, phi00 will be calculated in smooth_phi in the case of ZE_SEPRATION=0
+
+         ! Send phi(1,:) to right poloidal plane
+         call MPI_SENDRECV(phi(1,:),mgrid,mpi_Rsize,right_pe,0,recvl,mgrid,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+         if(myrank_toroidal==0)then
             do i=0,mpsi
-               outstep=smoothstep(rmin,rmax,psi_grid(i))
-               !       instep=smoothstep(lmin,lmax,psi_grid(i))
-               !       instep=instep*(1.0d0-outstep)
-               !       outstep=1.0d0-instep
-               ! tmp = (0.21 + 0.09*outstep)     ! full electron (no split) --> tmp=0.01+0.09=0.1  for r > rmax  -- see solver_petsc.f90
-               tmp = (gama0 + gama1*outstep)     ! full electron (no split) --> tmp=0.01+0.09=0.1  for r > rmax  -- see solver_petsc.f90
+               ii=igrid(i)
+               jt=mtheta(i)
+               phi(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
+            enddo
+         else
+            phi(0,:)=recvl
+         endif
+
+
+
+         if(ZF_SEPARATION==1) then
+            ! flux surface average and normalization
+            adum=0.0_wp
+            do i=0,mpsi
+               do j=1,mtheta(i)  !j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
+                  ij=igrid(i)+j
+                  adum(i)=adum(i)+dtemper(ij)*phi(1,ij)   ! surface averaging
+               enddo
+            enddo
+            phi00=0.0_wp
+            call MPI_ALLREDUCE(adum,phi00,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+            phi00=phi00/jaco_sum     !phi00=flux-surface avarage
+
+            ! Subtract zonal_phi so get nonzonal phi
+            do i=0,mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  phi(1,ij) = phi(1,ij) - phi00(i)
+               enddo
+            enddo
+
+            ! direct numerical derivative to get d<phi>/da
+            inv_ds = real(mpsi)/(s1-s0)
+            do i=1,mpsi-1
+               phip00(i) = dsda(psi_grid(i))*0.5*inv_ds*(phi00(i+1)-phi00(i-1))
+            enddo
+            ! 3-point forward (or backward) difference at the boundaries
+            phip00(0) = dsda(psi_grid(0))*0.5*inv_ds*(-3.0*phi00(0)+4.0*phi00(1)-phi00(2))
+            phip00(mpsi) = dsda(psi_grid(mpsi))*0.5*(-inv_ds)*(-3.0*phi00(mpsi)+4.0*phi00(mpsi-1)-phi00(mpsi-2))
+         endif
+
+         return
+      endif
+
+
+      if(ZF_SEPARATION==1) then
+
+         if(mype==0 .and. mod(istep,msnap)==0 ) open(unit=191209,file='phip00_its.dat',position='append',action='write')
+         phip00_convergency=1.0 ! any initial value to go inside do while
+         it=0
+
+         do while(phip00_convergency>its_phip00_tolerance .and. it<its)
+            it=it+1
+
+            call solve( solver, masssolver, mgrid, dentmp, xx, ierr )  !  --> delta-phi for given phip00=d<phi>/da
+            do i=0, mpsi
+               xx(igrid(i))=xx(igrid(i)+mtheta(i))  !validate xx(1,igrid(i)) for safe
+            enddo
+
+            call find_dxdadxdt( masssolver, mgrid, xx, add_phi, yy, ierr )
+
+            add_phi(:)=(add_phi(:)*gij(1,:)+yy(:)*gij(4,:))*gsij(:)   ! --> sum(gs)*grad_perp(delta-phi).grad(a)
+            adum=0.0_wp
+            do i=0,mpsi
                do j=1,mtheta(i)
                   ij=igrid(i)+j
-                  add_phi(ij)=dentmp(ij)+tmp*phi(1,ij)
+                  adum(i)=adum(i)+dtemper(ij)*add_phi(ij)   ! surface averaging
+               enddo
+            enddo
+
+            phi_flux_ave=0.0_wp
+            call MPI_ALLREDUCE(adum,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+            phi_flux_ave=phi_flux_ave/jaco_sum    !  =<sum(gs)*grad_perp(delta-phi).grad(a)>
+
+            old_phip00 = phip00
+
+            phip00=0.0_wp
+            do i=1,mpsi
+               phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
+                  (-den_grid(i-1)*dVda(i-1)*(zonali(i-1)-zonale(i-1))  &
+                  -den_grid(i)*dVda(i)*(zonali(i)-zonale(i)) )
+            enddo
+
+            phip00=phip00/dVda/gsgaa
+            phip00=phip00 -(phi_flux_ave*dVda-phi_flux_ave(0)*dVda(0))/dVda/gsgaa   ! --> phip00=dphi_00/da with phip00(0)=0
+
+            phip00=phip00+Er_a0        ! --> phip00=dphi_00/da with phip00(0)=Er_a0 which is Er_NC when ifneoclassical=1
+
+            phip00_convergency = sum(sqrt((phip00 - old_phip00)**2.0))/sum(sqrt(old_phip00**2.0))
+            if(mype==0 .and. mod(istep,msnap)==0 ) write(191209,"(2(I8,1x),200(ES16.8,1x))") istep, it, phip00_convergency, phip00(0:mpsi)
+         enddo
+         if(mype==0 .and. mod(istep,msnap)==0 ) then
+            call flush(191209)
+            close(191209)
+         endif
+
+         phi(1,:) = xx
+
+         ! (0,0) mode potential store in phi00
+         phi00=0.0_wp   ! phi00(0)=0.0 is chosen
+         do i=1,mpsi
+            phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
+         enddo
+
+      else  ! ZF_SEPARATION=0 --> solve total potential
+
+         ! TODO : convergence check is not implemented yet.
+         adum0=phi00
+         do it=1,its
+            !   calculate <phi> using phi of last time step for the 1st iteration
+
+            ! if(mype==-100) then      !  keep the following coding in the record
+            adum=0.0_wp
+            rms=0.0_wp
+            phi_flux_ave=0.0_wp
+            !$omp parallel private(i,j,ij) reduction(+:adum,rms)
+            !$omp do
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  adum(i)=adum(i)+dtemper(ij)*phi(1,ij)  ! surface averaging
+                  rms=rms+phi(1,ij)**2
+               enddo
+            enddo
+            !$omp end parallel
+            call MPI_ALLREDUCE(adum,phi_flux_ave,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+            phi_flux_ave=phi_flux_ave/jaco_sum    !  =<phi>
+
+            rtc=phi_flux_ave(0)
+
+            ! re-level phi and <phi> by subtracting a constant for original integral solver
+            if(solver%order <= 0 )  phi_flux_ave=phi_flux_ave - phi_flux_ave(0)
+
+            t1=sum((phi_flux_ave-adum0)**2)/sum(adum0**2)  ! calculated for checking convergence
+            adum0=phi_flux_ave
+
+            phi(1,:)=phi(1,:)-phi_flux_ave(0)
+            if(solver%order <= 0 ) then   ! use original integral solver
+               phi_flux_ave=phi_flux_ave*tite        !  =<phi>*(Ti/Te)
+            else                          ! use FEM solver
+               phi_flux_ave=phi_flux_ave*abs(csc0)/Te_grid   ! =(e/e0)*(m0/ms)*<phi>/T_e with <phi>, T_e normalized
+            endif
+
+            if(mype==0)   print*, 'mype=', mype, 'its=', it, '  <phi>(',ipsi,')=',  phi_flux_ave(ipsi), 'rms=', rms,  '  <phi>(0)=', rtc, &
+               'relative error in <phi>^2=', t1
+
+            add_phi=0.0_wp
+            xx=0.0_wp
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  add_phi(ij)=dentmp(ij) + phi_flux_ave(i)
                end do
                add_phi(igrid(i))=add_phi(igrid(i)+mtheta(i))
             end do
@@ -144,33 +325,13 @@ subroutine poisson( solver, masssolver )
             call solve( solver, masssolver, mgrid, add_phi, xx, ierr )
             phi(1,:) = xx
 
-            ! DEBUG
-            !         if(mype==200) print*, 'Dirichlet', phi(1,igrid(0)), phi(1,igrid(0)+mtheta(0)/2),phi(1,igrid(0)+mtheta(0)-1), &
-            !                                phi(1,igrid(mpsi)), phi(1,igrid(mpsi)+mtheta(mpsi)/2),phi(1,igrid(mpsi)+mtheta(mpsi)-1)
-
-            ! BCs !!!!
-            ! radial boundary  Note wx: this could enforce a constraint on long wave length modes
-            !                           ---- a constraint on large scale Er (???)
-            phi(1,igrid(0):igrid(0)+mtheta(0))=0.0_wp
-
-            !            it is questionalbe to set phi=0 at both inner and uter boundaries
-            !            phi(1,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
-
             do i=0, mpsi
                phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
             enddo
-         end do
 
-      else   !  use FEM solver
-
-         xx=0.0_wp
-         call solve( solver, masssolver, mgrid, dentmp, xx, ierr )
-         phi(1,:) = xx
-
-         do i=0, mpsi
-            phi(1,igrid(i))=phi(1,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
-         enddo
+         enddo  ! end of iteration do it=1,its
       endif
+
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    else     ! for both delta-h (ifelectron=2) and adiabatic (ifelectron=0) electrons
@@ -200,6 +361,89 @@ subroutine poisson( solver, masssolver )
       do i=0, mpsi
          dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
       enddo
+
+      if(Flag_Poisson3D_on_SG==0) then
+         if(Flag_Def_dne_adiab==1) then
+            do i=0, mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  dentmp(ij)=dentmp(ij) - abs(csc0)*phi00(i)/Te_grid(i)
+                enddo
+            enddo
+         endif
+      else
+          if(Flag_Def_dne_adiab==0) then
+            do i=0, mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  dentmp(ij)=dentmp(ij) + abs(csc0)*phi00(i)/Te_grid(i)
+                enddo
+            enddo
+         endif
+      endif
+
+
+      if(Flag_Poisson3D_on_SG>=1) then
+
+         call Measure_Electron_Density_on_SG
+         call Measure_Ion_Density_on_SG
+         ! call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
+         ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+         call Solve_Poisson3D_on_SG
+         call Cal_gradPhi_on_SG
+         ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
+         ! Therefore, a unit conversion is needed afther the interpolation
+         ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
+         phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:)
+
+         ! Send phi(1,:) to right poloidal plane
+         call MPI_SENDRECV(phi(1,:),mgrid,mpi_Rsize,right_pe,0,recvl,mgrid,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+         if(myrank_toroidal==0)then
+            do i=0,mpsi
+               ii=igrid(i)
+               jt=mtheta(i)
+               phi(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
+            enddo
+         else
+            phi(0,:)=recvl
+         endif
+
+
+
+         if(ZF_SEPARATION==1) then
+            ! flux surface average and normalization
+            adum=0.0_wp
+            do i=0,mpsi
+               do j=1,mtheta(i)  !j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
+                  ij=igrid(i)+j
+                  adum(i)=adum(i)+dtemper(ij)*phi(1,ij)   ! surface averaging
+               enddo
+            enddo
+            phi00=0.0_wp
+            call MPI_ALLREDUCE(adum,phi00,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+            phi00=phi00/jaco_sum     !phi00=flux-surface avarage
+
+            ! Subtract zonal_phi so get nonzonal phi
+            do i=0,mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  phi(1,ij) = phi(1,ij) - phi00(i)
+               enddo
+            enddo
+
+            ! direct numerical derivative to get d<phi>/da
+            inv_ds = real(mpsi)/(s1-s0)
+            do i=1,mpsi-1
+               phip00(i) = dsda(psi_grid(i))*0.5*inv_ds*(phi00(i+1)-phi00(i-1))
+            enddo
+            ! 3-point forward (or backward) difference at the boundaries
+            phip00(0) = dsda(psi_grid(0))*0.5*inv_ds*(-3.0*phi00(0)+4.0*phi00(1)-phi00(2))
+            phip00(mpsi) = dsda(psi_grid(mpsi))*0.5*(-inv_ds)*(-3.0*phi00(mpsi)+4.0*phi00(mpsi-1)-phi00(mpsi-2))
+         endif
+
+         return
+      endif
 
       if(ZF_SEPARATION==1) then
 

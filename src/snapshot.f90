@@ -496,6 +496,8 @@ subroutine snapshot_hdf5
    use hdf5
    use h5lt
    use Diagnostic_Grid
+   use Structured_Grid
+   use MGY_PETSc_Interface_Data,only:CT,Metric_T,Polar_T
 
    implicit none
 
@@ -504,13 +506,13 @@ subroutine snapshot_hdf5
    integer :: dim_a, dim_gq
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
-   integer(HSIZE_T) :: h5dims(3)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid
+   integer(HSIZE_T) :: h5dims(5)
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_SG, gid_SG_SM, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
    real(wp) :: intp_val, intp_val2
-   real(wp), dimension(:), allocatable ::intp_val_Arr  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
+   real(wp), dimension(:), allocatable ::intp_val_Arr, test_dphi_3D  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
    integer :: i,j,ij,k,jt,jm,istatus(MPI_STATUS_SIZE),ierror, pbid
    real(wp) full_dphi(0:1,mgrid), intpl_dphi_NZ(0:1), dne_adiabatic(0:1,mgrid)
    real(wp) full_dni(0:1,mgrid), full_dne(0:1,mgrid), FLA_full_dni(0:1,mgrid), FLA_full_dne(0:1,mgrid)
@@ -537,7 +539,8 @@ subroutine snapshot_hdf5
 
    real(wp) DG_FLA_Data(DG%dim_gq,DG%dim_a,0:1)
    real(wp), dimension(:,:,:),allocatable :: DG_FLA_eScaData, DG_FLA_iScaData
-
+   real(wp) tmp_vec_mgrid_size(mgrid),tmp_Te0_inverse
+   real(wp), external::density,temperature_e
 
    if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
       allocate(DG_FLA_eScaData(DG%dim_gq,DG%dim_a,7:18), DG_FLA_iScaData(DG%dim_gq,DG%dim_a,9:20))
@@ -606,8 +609,16 @@ subroutine snapshot_hdf5
       do j=0,mtheta(i)
          ij=igrid(i) + j
          full_dphi(:,ij) = phi(:,ij) +real(ZF_SEPARATION)*phi00(i)
-         intpl_dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-         dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ/Te_grid(i)
+         if (Flag_Def_dne_adiab==0) then
+            intpl_dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
+            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*intpl_dphi_NZ/Te_grid(i)
+         elseif(Flag_Def_dne_adiab==1) then !Flag_Def_dne_adiab==1
+            ! adiabatic electron is using full_dphi instead of nonzonal phi
+            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+         elseif(Flag_Def_dne_adiab==2) then
+            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/FLA_Te0(:,ij)
+         end if
+
          full_dne(:,ij) =  den_grid(i)*(densitye(:,ij)+real(ZF_SEPARATION)*zonale(i)) + int(ifelectron/2)*dne_adiabatic(:,ij)
          full_dni(:,ij) =  den_grid(i)*(densityi(:,ij)+real(ZF_SEPARATION)*zonali(i))
       enddo
@@ -759,6 +770,18 @@ subroutine snapshot_hdf5
       right_FLA_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, right_pe, toroidal_comm, istatus, ierror)
 
 
+   ! Gather mean_full_dphi into test_dphi_3D to record full 3D potential
+   if(myrank_partd==nproc_partd-1) then
+      h5dims(1:2)=(/dim_gq, dim_a/)
+      allocate(intp_val_Arr(dim_a*dim_gq))
+      allocate(test_dphi_3D(dim_a*dim_gq*mzetamax))
+
+      ! (temporal) Mean full_dphi
+      call Interpolate_Data_into_Coarser_Grids(mean_full_dphi(1,:),gq_jump,a_jump,intp_val_Arr)
+      call MPI_ALLGATHER(intp_val_Arr,dim_a*dim_gq,mpi_Rsize,test_dphi_3D,dim_a*dim_gq,mpi_Rsize,toroidal_comm,h5err)
+      deallocate(intp_val_Arr)
+   endif
+
 
 
 
@@ -786,6 +809,8 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "FLA", gid_FLA, h5err)
       call h5gcreate_f(file_id, "DCOMP", gid_DCOMP, h5err)
       call h5gcreate_f(file_id, "BIN", gid_BIN, h5err)
+      call h5gcreate_f(file_id, "SG", gid_SG, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "SG/SM", gid_SG_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG", gid_DG, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/SM", gid_DG_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/FLA", gid_DG_FLA, h5err) ! Diagnostic Grid
@@ -1093,6 +1118,48 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "mean_full_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dphi", "unit", "V", h5err)
 
+      do i=0,mpsi
+         do j=1,mtheta(i)
+            ij=igrid(i)+j
+            tmp_vec_mgrid_size(ij) = test_src(ij)*density(psi_grid(i),0)
+         enddo
+      enddo
+
+      call Interpolate_Data_into_Coarser_Grids(tmp_vec_mgrid_size,gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "test_src",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+      call h5ltset_attribute_string_f(file_id, "test_src", "unit", "/#^3", h5err)
+
+      if(ifelectron==1) then
+         tmp_vec_mgrid_size=0.0
+         do i=0,mpsi
+            tmp_Te0_inverse = 1.0/temperature_e(psi_grid(i),0.0_wp)
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               if(adiab > 0.0_wp) then
+                  tmp_vec_mgrid_size(ij) = adiab * abs(csc0) * m0ms * tmp_Te0_inverse * (phi(1, ij)-old_phi(1,ij))
+               else
+                  tmp_vec_mgrid_size(ij) = 0.01/(Cs*Cs) * (phi(1,ij)-old_phi(1,ij))
+               endif
+               tmp_vec_mgrid_size(ij)=tmp_vec_mgrid_size(ij)*density(psi_grid(i),0)
+            enddo
+         enddo
+         do i=0, mpsi
+            tmp_vec_mgrid_size(igrid(i))=tmp_vec_mgrid_size(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+
+         call Interpolate_Data_into_Coarser_Grids(old_phi(1,:),gq_jump,a_jump,intp_val_Arr)
+         call h5ltmake_dataset_f(file_id, "old_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
+         call h5ltset_attribute_string_f(file_id, "old_dphi", "unit", "V", h5err)
+
+         call Interpolate_Data_into_Coarser_Grids(tmp_vec_mgrid_size,gq_jump,a_jump,intp_val_Arr)
+         call h5ltmake_dataset_f(file_id, "missing_src",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
+         call h5ltset_attribute_string_f(file_id, "missing_src", "unit", "/#^3", h5err)
+      endif
+
+      h5dims(1:3)=(/dim_gq, dim_a, mzetamax/)
+      call h5ltmake_dataset_f(file_id, "mean_full_dphi_3D",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*test_dphi_3D,h5err)
+      call h5ltset_attribute_string_f(file_id, "mean_full_dphi_3D", "unit", "V", h5err)
+
       ! Mean full_dphi of Right poloidal plane
       call h5ltmake_dataset_f(file_id, "mean_full_dphi_Right",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*right_intp_mean_full_dphi,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dphi_Right", "unit", "V", h5err)
@@ -1157,6 +1224,12 @@ subroutine snapshot_hdf5
       call Interpolate_Data_into_Coarser_Grids(FLA_Te0(1,:),gq_jump,a_jump,intp_val_Arr)
       call h5ltmake_dataset_f(file_id, "FLA/Te0",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "FLA/Te0", "unit", "eV", h5err)
+
+      ! FLA Te0_Left
+      call Interpolate_Data_into_Coarser_Grids(FLA_Te0(0,:),gq_jump,a_jump,intp_val_Arr)
+      call h5ltmake_dataset_f(file_id, "FLA/Te0_Left",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*intp_val_Arr,h5err)
+      call h5ltset_attribute_string_f(file_id, "FLA/Te0_Left", "unit", "eV", h5err)
+
 
       ! FLA n0
       call Interpolate_Data_into_Coarser_Grids(FLA_n0(1,:),gq_jump,a_jump,intp_val_Arr)
@@ -1342,6 +1415,85 @@ subroutine snapshot_hdf5
       deallocate(intp_val_Arr)
 
 
+      ! Print SG (Diagnostic Grid) Data
+      ! Note that dimension has to use SG%dim_* rather than dim_*
+      ! because the dimension of snapshot_hdf5 and SG might not be the same
+      h5dims(1)=1
+      call h5ltmake_dataset_f(gid_SG, "ds",1,h5dims,H5T_NATIVE_DOUBLE, SG%ds,h5err)
+      call h5ltmake_dataset_f(gid_SG, "dgq",1,h5dims,H5T_NATIVE_DOUBLE, SG%dgq,h5err)
+
+      h5dims(1)=SG%dim_s
+      call h5ltmake_dataset_f(gid_SG, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%a_1D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%s_1D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "safety_q_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%safety_q_1D,h5err)
+
+      h5dims(1)=SG%dim_gq
+      call h5ltmake_dataset_f(gid_SG, "gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, SG%gq_1D,h5err)
+
+      h5dims(1:2)=(/SG%dim_gq,SG%dim_s/)
+      call h5ltmake_dataset_f(gid_SG, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%a_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%gq_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dV,h5err)
+      call h5ltmake_dataset_f(gid_SG, "Cell_dS_s",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_s,h5err)
+      call h5ltmake_dataset_f(gid_SG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gq,h5err)
+      call h5ltmake_dataset_f(gid_SG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gf,h5err)
+
+      call h5ltmake_dataset_f(gid_SG, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "ni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "ne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne(:,:,1),h5err)
+
+      call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D(3,SG%ni(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D(3,SG%ne(:,:,1),SG%Cell_dV)
+      call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "ni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "ne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne(:,:,1),h5err)
+
+      call h5ltmake_dataset_f(gid_SG, "phi",2,h5dims,H5T_NATIVE_DOUBLE, SG%phi(:,:,1),h5err)
+      h5dims(1:3)=(/3,SG%dim_gq,SG%dim_s/)
+      call h5ltmake_dataset_f(gid_SG, "grad_phi_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_phi_cov(:,:,:,1),h5err)
+
+
+      h5dims(1:2)=(/SG%dim_gq,SG%dim_s/)
+      ! Followings are for the debugging purpose
+      allocate(intp_val_Arr(SG%dim_gq*SG%dim_s))
+      call Interpolate_SG_into_GTSmgrid(1e6*SG%dne(:,:,1),tmp_vec_mgrid_size)
+      call Interpolate_OriGridData_into_SG(tmp_vec_mgrid_size,intp_val_Arr)
+      call h5ltmake_dataset_f(gid_SG, "intp_SM_dne",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+
+      call Interpolate_SG_into_GTSmgrid((1.0/1.602176634e-19)*SG%test_src_2D,tmp_vec_mgrid_size)
+      call Interpolate_OriGridData_into_SG(tmp_vec_mgrid_size,intp_val_Arr)
+      call h5ltmake_dataset_f(gid_SG, "intp_test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+      deallocate(intp_val_Arr)
+
+      call h5ltmake_dataset_f(gid_SG, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_res_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_res_2D,h5err)
+
+      !Following 3D data are for temporary diagnostic purpose
+      h5dims(1:3)=(/SG%dim_gq,SG%dim_s,mzetamax/)
+      call h5ltmake_dataset_f(gid_SG, "test_phi_3D",3,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_3D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_3D,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_res_3D,h5err)
+
+      call Smooth_SG_Data_2D(3,SG%test_phi_2D,SG%Cell_dV)
+      call Smooth_SG_Data_2D(3,SG%test_src_2D,SG%Cell_dV)
+      call h5ltmake_dataset_f(gid_SG_SM, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_2D,h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_2D,h5err)
+
+
+      h5dims(1:2)=3
+      h5dims(3)=SG%dim_gq+1
+      h5dims(4)=SG%dim_a+2
+      h5dims(5)=3
+      call h5ltmake_dataset_f(gid_SG, "test_CT",5,h5dims,H5T_NATIVE_DOUBLE, CT,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_Metric_T",4,h5dims,H5T_NATIVE_DOUBLE, Metric_T,h5err)
+      call h5ltmake_dataset_f(gid_SG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
+
+
       ! Print DG (Diagnostic Grid) Data
       ! Note that dimension has to use DG%dim_* rather than dim_*
       ! because the dimension of snapshot_hdf5 and DG might not be the same
@@ -1364,6 +1516,7 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_FLA, "Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_Denominator(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_FLabel(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "psi0",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_psi0(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_DG_FLA, "psi0_Left",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_psi0(:,:,0),h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/Denominator",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_Denominator,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel,h5err)
       call h5ltmake_dataset_f(gid_DG_FLA, "SM/FLabel_Left",2,h5dims,H5T_NATIVE_DOUBLE, DG%FLA_SM_FLabel_Left,h5err)
@@ -1566,6 +1719,8 @@ subroutine snapshot_hdf5
       call h5gclose_f(gid_FLA, h5err)
       call h5gclose_f(gid_DCOMP, h5err)
       call h5gclose_f(gid_BIN, h5err)
+      call h5gclose_f(gid_SG, h5err)
+      call h5gclose_f(gid_SG_SM, h5err)
       call h5gclose_f(gid_DG, h5err)
       call h5gclose_f(gid_DG_SM, h5err)
       call h5gclose_f(gid_DG_FLA, h5err)
@@ -1591,6 +1746,10 @@ subroutine snapshot_hdf5
    deallocate(intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi)
    deallocate(intp_mean_dE_cov3, right_mean_dE_cov3, left_mean_dE_cov3)
    deallocate(intp_FLA_dE_cov3, right_FLA_dE_cov3, left_FLA_dE_cov3)
+
+   if(myrank_partd==nproc_partd-1) then
+      deallocate(test_dphi_3D)
+   endif
 
    if((myrank_partd==nproc_partd-1) .and. (mod(istep,msnap) .eq. 0)) then
       deallocate(DG_FLA_eScaData, DG_FLA_iScaData)
@@ -1653,7 +1812,7 @@ subroutine snapshot_Magnetic_Information
    use field_array
    use hdf5
    use h5lt
-
+   use Structured_Grid
    implicit none
 
    integer, parameter :: gq_jump=3, a_jump=1
@@ -1672,7 +1831,7 @@ subroutine snapshot_Magnetic_Information
 
    character(LEN=128) :: file_path
    integer(HSIZE_T) :: h5dims(3)
-   integer(HID_T) :: file_id, gid_MP ! gid_MP: group id for MP (Magnetic Perturbation)
+   integer(HID_T) :: file_id, gid_MP, gid_SG! gid_MP: group id for MP (Magnetic Perturbation)
    integer :: h5err
    integer Naq
 
@@ -1847,6 +2006,56 @@ subroutine snapshot_Magnetic_Information
 
          call h5gclose_f(gid_MP, h5err)
       endif
+
+
+      if(Flag_Poisson3D_on_SG>=1) then
+         call h5gcreate_f(file_id, "SG", gid_SG, h5err)
+
+         h5dims(1:2)=(/SG%dim_gq, SG%dim_s/)
+         call h5ltmake_dataset_f(gid_SG, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%a_2D,h5err)
+         call h5ltmake_dataset_f(gid_SG, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%gq_2D,h5err)
+         call h5ltmake_dataset_f(gid_SG, "F",2,h5dims,H5T_NATIVE_DOUBLE, SG%F,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dFda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dFda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dgFda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dgFda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dgYda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dgYda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "R",2,h5dims,H5T_NATIVE_DOUBLE, SG%R,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dRda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dRda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dRdgq",2,h5dims,H5T_NATIVE_DOUBLE, SG%dRdgq,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Z",2,h5dims,H5T_NATIVE_DOUBLE, SG%Z,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dZda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dZda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dZdgq",2,h5dims,H5T_NATIVE_DOUBLE, SG%dZdgq,h5err)
+         call h5ltmake_dataset_f(gid_SG, "BB",2,h5dims,H5T_NATIVE_DOUBLE, SG%BB,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dBBda",2,h5dims,H5T_NATIVE_DOUBLE, SG%dBBda,h5err)
+         call h5ltmake_dataset_f(gid_SG, "dBBdgq",2,h5dims,H5T_NATIVE_DOUBLE, SG%dBBdgq,h5err)
+         call h5ltmake_dataset_f(gid_SG, "P",2,h5dims,H5T_NATIVE_DOUBLE, SG%P,h5err)
+         call h5ltmake_dataset_f(gid_SG, "T",2,h5dims,H5T_NATIVE_DOUBLE, SG%T,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Jacobian",2,h5dims,H5T_NATIVE_DOUBLE, SG%Jacobian,h5err)
+         call h5ltmake_dataset_f(gid_SG, "esi_N",2,h5dims,H5T_NATIVE_DOUBLE, SG%esi_N,h5err)
+         call h5ltmake_dataset_f(gid_SG, "esi_K",2,h5dims,H5T_NATIVE_DOUBLE, SG%esi_K,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_aa_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_aa_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_aq_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_aq_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_qq_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_qq_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_ff_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_ff_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_aa_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_aa_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_aq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_aq_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_qq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_qq_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_ff_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_ff_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Jaco_over_R",2,h5dims,H5T_NATIVE_DOUBLE, SG%D,h5err)
+
+         call h5ltmake_dataset_f(gid_SG, "Jacob_sqf",2,h5dims,H5T_NATIVE_DOUBLE, SG%Jacob_sqf,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_ss_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_ss_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_sq_cov",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_sq_cov,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_ss_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_ss_cntv,h5err)
+         call h5ltmake_dataset_f(gid_SG, "g_sq_cntv",2,h5dims,H5T_NATIVE_DOUBLE, SG%g_sq_cntv,h5err)
+
+         call h5ltmake_dataset_f(gid_SG, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dV,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Cell_dS_s",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_s,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gq,h5err)
+         call h5ltmake_dataset_f(gid_SG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gf,h5err)
+
+         call h5gclose_f(gid_SG, h5err)
+      end if
+
 
       call h5fclose_f(file_id, h5err)
       call h5close_f(h5err)

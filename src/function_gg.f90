@@ -996,6 +996,29 @@ FUNCTION temperature(adum,thedum)
    return
 end function temperature
 
+function Ti0_eV(adum,thedum)
+   use precision
+   use global_parameters, only:Tem_00
+   implicit none
+   real(wp), intent(in) :: adum, thedum
+   real(wp) Ti0_eV
+   real(wp),external::temperature
+
+   Ti0_eV=1e3*Tem_00*temperature(adum,thedum)
+   return
+end function Ti0_eV
+
+function Te0_eV(adum,thedum)
+   use precision
+   use global_parameters, only:Tem_00,msm0
+   implicit none
+   real(wp), intent(in) :: adum, thedum
+   real(wp) Te0_eV
+   real(wp),external::temperature_e
+
+   Te0_eV=1e3*Tem_00*msm0*temperature_e(adum,thedum)
+   return
+end function Te0_eV
 
 FUNCTION temperature_e(adum,thedum)
    use precision
@@ -2023,7 +2046,15 @@ subroutine Cumulate_Some_Variables_for_Measure
 
          full_dphi     = phi(:,ij)+(ZF_SEPARATION)*phi00(i)
          full_dni      = den_grid(i)*(densityi(:,ij) +(ZF_SEPARATION)*zonali(i))
-         adiab_dne_n0  = abs(csc0)*(full_dphi-(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+         if (Flag_Def_dne_adiab==0) then
+            ! Adiabatic electron is defined using nonzonal component of phi
+            adiab_dne_n0  = abs(csc0)*(full_dphi-phi00(i))/Te_grid(i)
+         elseif(Flag_Def_dne_adiab==1) then!Flag_Def_dne_adiab==1
+            ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
+            adiab_dne_n0  = abs(csc0)*(full_dphi)/Te_grid(i)
+         elseif(Flag_Def_dne_adiab==2) then
+            adiab_dne_n0  = abs(csc0)*(full_dphi)/FLA_Te0(:,ij)
+         end if
          full_dne      = den_grid(i)*(densitye(:,ij) +(ZF_SEPARATION)*zonale(i) +int(ifelectron/2)*adiab_dne_n0)
 
          cum_full_dphi(:,ij)    = cum_full_dphi(:,ij)    +full_dphi
@@ -3504,7 +3535,7 @@ subroutine Do_FieldLineAverage_from_oriGrid_to_DG(oriG_TargetData, DG_FLA_Result
          ff  = (this_s-s_grid(ori_sid))*inv_ds
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -3620,7 +3651,7 @@ subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultD
          ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -3682,7 +3713,7 @@ subroutine Do_FieldLineAverage_on_DG_by_using_gPPI(DG_TargetData, DG_FLA_ResultD
          ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -3813,7 +3844,7 @@ subroutine Cal_FLA_FLabel_on_DG_by_using_gPPI_iniFLabel(DG_FLA_ResultData)
          ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -4029,7 +4060,7 @@ subroutine Cal_FLA_Denominator_on_DG_using_gPPI
          this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
 
-         sid = max(0,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((this_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (this_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 
@@ -4857,10 +4888,10 @@ subroutine Init_Diagnostic_Grid
 
    integer i,j,k,aid,gqid,ij,Na,Nq
    integer pbid ! probe id
-   real(wp), external :: temperature, temperature_e, density, Cal_FLabel_Function
+   real(wp), external :: temperature, temperature_e, density, Cal_FLabel_Function, dsda
 
    ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
-   real(wp) approx_da, approx_dgf
+   real(wp) approx_da, approx_dgf, tmp
    real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data1, tmp_DG_Data2
    integer ierror, istatus(MPI_STATUS_SIZE)
    real(wp) uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
@@ -4875,7 +4906,10 @@ subroutine Init_Diagnostic_Grid
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
    DG%inv_dgq = 1.0/DG%dgq
-   DG%inv_ds  = DG%a_jump*(real(mpsi)/(s1-s0))
+   DG%inv_ds  = (real(mpsi)/(s1-s0))/DG%a_jump
+
+   DG%zetamax = zetamax
+   DG%zetamin = zetamin
 
    Na=DG%dim_a
    Nq=DG%dim_gq
@@ -4935,6 +4969,9 @@ subroutine Init_Diagnostic_Grid
    allocate(DG%B0_cov3(3,Nq,Na))
    allocate(DG%B0_cntv3(3,Nq,Na),DG%j0_cov3(3,Nq,Na),DG%j0_cntv3(3,Nq,Na))
 
+   allocate(DG%g_ss_cntv(Nq,Na),DG%g_sq_cntv(Nq,Na),DG%g_ss_cov(Nq,Na),DG%g_sq_cov(Nq,Na),DG%Jacob_sqf(Nq,Na))
+   allocate(DG%B0_cntv3_sqf(3,Nq,Na))
+
    call esiget2dthese_more(DG%F,DG%dFda,DG%dgFda,DG%dgYda,DG%R,DG%dRda,DG%dRdgq,DG%Z,DG%dZda,DG%dZdgq,DG%BB,DG%dBBda,DG%dBBdgq,DG%P,DG%T,DG%a_2D,DG%gq_2D, Nq*Na)
 
    DG%Jacobian = DG%R*(DG%dZda*DG%dRdgq-DG%dZdgq*DG%dRda)
@@ -4953,8 +4990,8 @@ subroutine Init_Diagnostic_Grid
    DG%j0_cntv3(2,:,:) = -DG%dFda/DG%Jacobian
    DG%j0_cntv3(3,:,:) = DG%P + DG%T/(DG%R**2)
 
-   DG%g_aa_cov   = DG%dRda*DG%dRda+DG%dZda*DG%dZda
-   DG%g_aq_cov  = DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq
+   DG%g_aa_cov = DG%dRda*DG%dRda+DG%dZda*DG%dZda
+   DG%g_aq_cov = DG%dRda*DG%dRdgq+DG%dZda*DG%dZdgq
    DG%g_qq_cov = DG%dRdgq*DG%dRdgq+DG%dZdgq*DG%dZdgq
    DG%g_ff_cov = DG%R**2
 
@@ -4964,6 +5001,22 @@ subroutine Init_Diagnostic_Grid
    DG%g_qq_cntv=(DG%dZda**2+DG%dRda**2)/DG%D**2   ! DG%gradtheta^2
    DG%g_ff_cntv=1.0/DG%R**2                 ! DG%gradphi^2
    DG%g_aq_cntv=(-DG%dRda*DG%dRdgq-DG%dZda*DG%dZdgq)/DG%D**2  ! DG%gradagradtheta
+
+
+   ! Metrics regarding s coordinate
+   do aid=1,DG%dim_a
+      tmp=dsda(DG%a_1D(aid))
+      DG%g_ss_cov(:,aid)   = DG%g_aa_cov(:,aid)/(tmp**2.0)
+      DG%g_sq_cov(:,aid)   = DG%g_aq_cov(:,aid)/tmp
+
+      DG%g_ss_cntv(:,aid)  = DG%g_aa_cntv(:,aid)*(tmp**2.0)
+      DG%g_sq_cntv(:,aid)  = DG%g_aq_cntv(:,aid)*tmp
+
+      DG%Jacob_sqf(:,aid) = DG%Jacobian(:,aid)/tmp
+
+      DG%B0_cntv3_sqf(1,:,aid) = DG%B0_cntv3(1,:,aid)*tmp
+   enddo
+   DG%B0_cntv3_sqf(2:3,:,:)=DG%B0_cntv3(2:3,:,:)
 
    DG%j0_cov3(1,:,:) = DG%g_aa_cov*DG%j0_cntv3(1,:,:) + DG%g_aq_cov*DG%j0_cntv3(2,:,:)
    DG%j0_cov3(2,:,:) = DG%g_aq_cov*DG%j0_cntv3(1,:,:) + DG%g_qq_cov*DG%j0_cntv3(2,:,:)
@@ -5182,7 +5235,7 @@ subroutine Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(in_a, in_g
    ori_sid = (in_s-s0)*ori_inv_ds ! s index of original full grid
    ff  = (in_s-s_grid(ori_sid))*ori_inv_ds
    safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
-   sid = max(0,min(int((in_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+   sid = max(1,min(int((in_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
    ws1 = (in_s-DG%s_1D(sid))*DG%inv_ds
    ws0 = 1.0-ws1
 
@@ -5274,7 +5327,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
    real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1)
    real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
-
+   real(wp) :: intpl_FLA_Te0(DG%dim_gq,DG%dim_a)
    real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
    real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
 
@@ -5291,10 +5344,25 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
 
    ! Calculate dne_adiabatic by interpolating dphi on original grids
    call Interpolate_OriGridData_into_DG(phi(1,:), intpl_dphi)
-   do aid=1,DG%dim_a
-      i = DG%ori_aid(aid)
-      DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(1.0-ZF_SEPARATION)*phi00(i))/Te_grid(i)
-   enddo
+   call Interpolate_OriGridData_into_DG(FLA_Te0(1,:), intpl_FLA_Te0)
+   if (Flag_Def_dne_adiab==0) then
+      do aid=1,DG%dim_a
+         i = DG%ori_aid(aid)
+         DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)-real(1.0-ZF_SEPARATION)*phi00(i))/Te_grid(i)
+      enddo
+   elseif(Flag_Def_dne_adiab==1) then
+      do aid=1,DG%dim_a
+         i = DG%ori_aid(aid)
+         DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
+      enddo
+   elseif(Flag_Def_dne_adiab==2) then
+      do aid=1,DG%dim_a
+         do gqid=1,DG%dim_gq
+            i = DG%ori_aid(aid)
+            DG%dne_adiab(gqid,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(gqid,aid)+real(ZF_SEPARATION)*phi00(i))/intpl_FLA_Te0(gqid,aid)
+         enddo
+      enddo
+   endif
 
 
    if(Flag_Load_and_WeightDef==0)then
@@ -5319,7 +5387,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
       P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
       P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
-      sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+      sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
@@ -5627,7 +5695,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
       P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
       P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
-      sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+      sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
@@ -5793,7 +5861,7 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
          P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
          P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
-         sid = max(0,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+         sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
          ws0 = 1.0-ws1
 

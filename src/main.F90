@@ -22,7 +22,8 @@ program GTS
    use fem_data_class
    use particle_decomp
    use Ptl_Src_Loss
-
+   use Structured_Grid
+   use particle_decomp
 #ifdef _ACCEL
    use accel_lib
 #endif _ACCEL
@@ -126,6 +127,8 @@ program GTS
       ! call Construct_gPPI_for_FieldLineAverage
       call Construct_gPPI_for_FieldLineAverage_Parallelized
    endif
+
+   call MPI_Bcast(FLA_Te0,2*mgrid,MPI_Rsize,nproc_partd-1,partd_comm,ierror)
    ! solver
    ! which solver to use
    ! order = 0 original solver
@@ -207,10 +210,17 @@ program GTS
    end if
 
    if(mype==0) then
-      call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
       call system("mkdir -p " // 'snapshots_hdf5')
+      call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
+      call sleep(5)
    endif
+   call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 
+
+   call Initialize_Structured_Grid
+   ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
+   ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
+   call Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    istep=0
    !  if(mype==0) call view_orbit
@@ -249,6 +259,9 @@ program GTS
       ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
+
+      call Measure_Electron_Density_on_SG
+      call Measure_Ion_Density_on_SG
       call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
@@ -507,6 +520,10 @@ program GTS
             acc_newer_H_zion=.false.
          endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
+
+         call Measure_Electron_Density_on_SG
+         call Measure_Ion_Density_on_SG
+
          call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables

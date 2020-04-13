@@ -8,10 +8,7 @@ module precision
    integer, parameter :: mpi_Rsize=MPI_DOUBLE_PRECISION,&
       mpi_complex_size=MPI_DOUBLE_COMPLEX
 
-   integer, parameter :: doubleprec=selected_real_kind(12),&
-      &singleprec=selected_real_kind(6),&
-      &int8=selected_int_kind(10),&  !Can hold int >10 billion
-      &wp=doubleprec   ! working precision
+   integer, parameter :: doubleprec=selected_real_kind(12),singleprec=selected_real_kind(6),int8=selected_int_kind(10), wp=doubleprec
 end module precision
 
 module global_parameters
@@ -68,6 +65,8 @@ module global_parameters
    real(wp),dimension(:),allocatable :: tite
    integer plasma,linterp_from_nodes,icollision,nss,ZF_SEPARATION,ifelectron,ecollision,  &
       ifdphi,zeondim,ziondim
+
+   real(wp) :: adiab=0.0 !(Default=0.0) In the case of delta-f electrons, this is used for poisson equation for better convergence
 
    real(wp)  msm0,m0ms,csc0,c0cs,for_rho,for_E,msm0_i,m0ms_i,csc0_i,c0cs_i
    real(wp)  ntracer_energy_ion0, ntracer_energy_electron0
@@ -142,6 +141,8 @@ module global_parameters
 
    integer :: Flag_RK4=0 ! Default value is 0 (OFF), it can be controlled by INPUT.d file
    integer :: Flag_Poisson=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
+   integer :: Flag_Poisson3D_on_SG=0 ! Default=0 (OFF; using original equation), can be set =1 (new 3D Poisson Solver on SG)
+   integer :: Flag_Def_dne_adiab=0 ! Default=0 (original definition; using nonzonal phi), can be set =1 (using full phi with Te0), =2 (using full phi with FLA_Te0)
    integer :: Flag_w_Evol=0  ! Default=0 (OFF;original equation), can be set =1(Transformed Weight Evolution Equation) by INPUT.d
    integer :: Flag_GC_Solver=1 ! Default=1 (Vector form GC equation), can be set =0(Matrix form GC equation)
    integer :: Flag_Load_and_WeightDef=0 ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
@@ -247,6 +248,7 @@ module field_array
    real(wp),dimension(:,:),allocatable :: Weighted_Vol
    real(wp),dimension(:),allocatable :: Node_simple_Vol
    real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
+   real(wp),dimension(:),allocatable :: test_src ! test charge src in ratio ((ni-ne)/n0)
    !$acc declare create (phi)
    real(wp),dimension(:,:),allocatable :: old_phi, tmp_old_phi ! phi at previous time step
    real(wp),dimension(:),allocatable :: old_phi00, tmp_old_phi00 ! phi00 at previous time step
@@ -347,6 +349,11 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: Jacobian, esi_N, esi_K, g_aa_cov, g_aq_cov, g_qq_cov, g_ff_cov
       real(wp), allocatable, dimension(:,:) :: D, g_aa_cntv, g_aq_cntv, g_qq_cntv, g_ff_cntv
       real(wp), allocatable, dimension(:,:,:) :: B0_cov3, B0_cntv3, j0_cov3, j0_cntv3
+
+      ! Metrics and some vectors regarding s coordinates
+      real(wp), allocatable, dimension(:,:) :: g_ss_cntv, g_sq_cntv, g_ss_cov, g_sq_cov, Jacob_sqf
+      real(wp), allocatable, dimension(:,:,:) :: B0_cntv3_sqf
+
    end type
 
 

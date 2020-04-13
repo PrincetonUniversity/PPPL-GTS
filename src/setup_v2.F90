@@ -487,7 +487,7 @@ Subroutine setup
 
    Cs=sqrt(Tc_e*msm0)                 ! normalized Cs
    MM_Cs = Cs
-
+   if(mype==0) write(stdout,*) "Cs=",Cs
    if(mype==1) call get_profiles
 
    ! rescale radial coordinator  rho=a*sqrt(Tc/T)
@@ -1209,9 +1209,20 @@ Subroutine setup
       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),   &
       dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
 
+   allocate(test_src(mgrid))
+   test_src=0.0
+   do i=20,30
+      do j=0,mtheta(i)
+         ij=igrid(i)+j
+         test_src(ij) = sin(6*modulo(real(j,wp)*deltat(i)+zetamax*qtinv(i),2.0*pi) - 4*zetamax)
+      enddo
+   enddo
+
    if(ifdphi==3) then
       allocate(old_phi(0:1,mgrid),tmp_old_phi(0:1,mgrid))
       allocate(old_phi00(0:mpsi),tmp_old_phi00(0:mpsi))
+   else
+      allocate(old_phi(0:1,mgrid))
    endif
 
    ! (MGYOO: 11/01/2019)
@@ -2408,6 +2419,7 @@ Subroutine read_input_params
    use spl_profiles
    use profile_array
    use FieldLineFollowing
+   use MGY_PETSc_Interface_Data
 
    implicit none
    integer :: max_EMP_num = 20, k
@@ -2430,6 +2442,8 @@ Subroutine read_input_params
       Flag_RK4,           &   ! Default=0 (OFF), can be set =1(ON) by INPUT.d
       Flag_GC_Solver,     &   ! Default=1 (vector form), can be set =0(matrix form) by INPUT.d
       Flag_Poisson,       &   ! Default=1 (ON), can be set =0(OFF) by INPUT.d
+      Flag_Poisson3D_on_SG, & ! Default=0 (ON), can be set =1(ON) by INPUT.d
+      Flag_Def_dne_adiab, & ! Default=0 (OFF), can be set =1(ON) by INPUT.d
       Flag_w_Evol, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
       Flag_w_Threshold,   &
       Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
@@ -2447,6 +2461,7 @@ Subroutine read_input_params
       mzetamax,           &   ! number of poloidal planes (toroidal grid points)
       npartdom,           &   ! number of MPI tasks between which the particles are divided within a toroidal domain
       ifelectron,         &   ! =0 or 1 or 2; 0: adiabatic electrons; 1: full delta-f electrons; 2: delta-h (non-adiabatic) electrons
+      adiab,              &   ! (Default=0.0) In the case of delta-f electrons, this is used for poisson equation for better convergence
       a,                  &   ! normalized minor radius, always =1, not really neceassary
       a0,                 &   ! inner boundary (r/a) of radial domain
       a1,                 &   ! outer boundary (r/a) of radial domain
@@ -2517,7 +2532,11 @@ Subroutine read_input_params
       num_of_etracers, num_of_itracers, nstep_for_tracer_record, & ! Multi-tracers information
       larmor_num,         &    !how many points are used to do something on gyro orbit
       FLF_max_tor_num,    &    ! For FieldLineFollowing routine, Maximum toroidal rotation in each direction (+,-)
-      gPPI_max_tor_num         ! For gPPI routine, Maximum toroidal rotation in each direction (+,-)
+      gPPI_max_tor_num,   &    ! For gPPI routine, Maximum toroidal rotation in each direction (+,-)
+      BC0_type,           &    ! type of BC0 (inner boundary; s=s0) (type=0: Dirichelt, type=1: Neumann)
+      BC0_value,          &    ! value of BC0 (inner boundary; s=s0)
+      BC1_type,           &    ! type of BC1 (outer boundary; s=s1) (type=0: Dirichelt, type=1: Neumann)
+      BC1_value                ! value of BC1 (outer boundary; s=s1)
 
    namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
       its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2544,9 +2563,15 @@ Subroutine read_input_params
       write(0,*) 'mstep=', mstep
       write(0,*) 'nonlinear=', nonlinear
       write(0,*) 'ifdphi=', ifdphi
+      write(0,*) 'ifelectron=',ifelectron
+      if(ifelectron==1) then
+         write(0,*) 'adiab=',adiab
+      endif
       write(0,*) 'Flag_RK4=',Flag_RK4
       write(0,*) 'Flag_GC_Solver=',Flag_GC_Solver
       write(0,*) 'Flag_Poisson=', Flag_Poisson
+      write(0,*) 'Flag_Poisson3D_on_SG=', Flag_Poisson3D_on_SG
+      write(0,*) 'Flag_Def_dne_adiab=', Flag_Def_dne_adiab
       write(0,*) 'Flag_w_Evol=', Flag_w_Evol
       write(0,*) 'Flag_w_Threshold=', Flag_w_Threshold
       write(0,*) 'Flag_Load_and_WeightDef=', Flag_Load_and_WeightDef
@@ -2581,6 +2606,9 @@ Subroutine read_input_params
       write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
       write(0,*) 'num_of_etracers=', num_of_etracers,', num_of_itracers=',num_of_itracers, ', nstep_for_tracer_record=', nstep_for_tracer_record
       write(0,*) 'FLF_max_tor_num=', FLF_max_tor_num,', gPPI_max_tor_num=',gPPI_max_tor_num
+      write(0,*) 'BC0_type=', BC0_type,', BC0_value=',BC0_value
+      write(0,*) 'BC1_type=', BC1_type,', BC1_value=',BC1_value
+
    endif
 
 
@@ -2605,15 +2633,14 @@ Subroutine read_input_params
 
    !Check conflicting parameters
    if(Flag_RK4==1) then
-      if(wimcompressibility==1 .or. nelectron/=1 .or. ifdphi/=2 .or. ifelectron/=2) then
+      if(wimcompressibility==1 .or. nelectron/=1 .or. ifdphi/=2) then
          write(stdout,*) 'Conflicting parameters!! Check and Change parameters'
          write(stdout,*) 'Flag_RK4=1 does not deal with one of the following parameters'
-         write(stdout,*) 'wimcompressibility=', wimcompressibility, ", nelectron=",nelectron, ", ifdphi", ifdphi, ", ifelectron",ifelectron
+         write(stdout,*) 'wimcompressibility=', wimcompressibility, ", nelectron=",nelectron, ", ifdphi", ifdphi
          call flush(stdout)
          stop
       endif
    endif
-
 end subroutine read_input_params
 
 
