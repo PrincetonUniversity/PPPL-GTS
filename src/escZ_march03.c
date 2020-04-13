@@ -3,6 +3,7 @@
 
 #define esigetb esigetb_
 #define esigetbf esigetbf_
+#define esigetbf_partial esigetbf_partial_
 #define esigetrzb esigetrzb_
 #define esiget2dfunctions esiget2dfunctions_
 #define esiget2dthese  esiget2dthese_
@@ -5881,6 +5882,110 @@ int esigetbf(REAL *particle_array,int *nval, int *nn)
 		}
 	}
    #pragma acc update self(B[:n],F[:n])
+	return(0);
+}
+
+
+int esigetbf_partial(REAL *particle_array,int *m_start,int *m_end, int *nn)
+{
+	/* Exception: at a=0 the routine returns:
+		dr_q/a, dz_q/a, dB_q/a, dgF/a, dgY/a
+		rather than
+		dr_q=0, dz_q=0, dB_q=0, dgF=0, dgY=0 */
+
+	/*
+		a  = particle_array[k][0] = zion(1,k+1) (Fortran side)
+		q  = particle_array[k][1] = zion(2,k+1) (Fortran side)
+		*/
+
+	int n = *m_end;
+   int n0 = (*m_start)-1; // Note that -1 is required to convert fortran-style index to C-style index
+	int j0,j1,k;
+	REAL x,X,xx,XX;
+	REAL f0,f1,fq0,fq1;
+	REAL a,q;
+
+// #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX ,dXD,dxD,j00,j01,j10,j11)
+   #pragma acc data copyin(gq[:Np1],sa[:Na1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1],aF[:Na1],daF[:Na1])
+   #pragma acc parallel loop present(particle_array) copy(B[:n],F[:n])
+	for(k =n0; k < n; k++){
+		a   = *(particle_array+k*(*nn));    /* particle_array[k][0] */
+		q   = *(particle_array+k*(*nn)+1);  /* particle_array[k][1] */
+
+		j1	=q*crgq0;
+		if(q < 0.){
+			j1--;
+		}
+		q	-=cgq0*j1;
+		j0	=q*rhq;
+		if(j0 >= Np){
+			j0	-=Np;
+			q	-=cgq0;
+		}
+		if(j0 < 0){
+			j0	+=Np;
+			q	+=cgq0;
+		}
+		j1	=j0+1;
+		y	=(q-gq[j0])*rhq;
+		Y	=1.-y;
+
+		YY	=Y*Y;
+		yy	=y*y;
+		YF	=YY*(3.-2.*Y);
+		YD	=YY*y*hq;
+		yF	=yy*(3.-2.*y);
+		yD	=-yy*Y*hq;
+
+		dY	=3.*y*Y;
+		dYD	=Y-dY;
+		dyD	=y-dY;
+		dY	*=2.*rhq;
+		if(a < 0.){
+			a	=-a;
+		}
+		i0	=(a-sa[0])*rha;
+		if(a != 0.){
+			if(i0 >= Na){
+				i0	=Na-1;
+			}
+			i1	=i0+1;
+
+			x	=(a-sa[i0])*rha;
+			X	=1.-x;
+
+			XX	=X*X;
+			xx	=x*x;
+			XF	=XX*(3.-2.*X);
+			XD	=XX*x*ha;
+			xF	=xx*(3.-2.*x);
+			xD	=-xx*X*ha;
+
+			dX	=3.*x*X;
+			dXD	=X-dX;
+			dxD	=x-dX;
+			dX	*=2.*rha;
+
+			j00	=Np1*i0+j0;
+			j01	=j00+1;
+			j10	=j00+Np1;
+			j11	=j10+1;
+
+			/* B, F */
+			f0	=XF*aB [j00]+xF*aB [j10]+XD*aBa [j00]+xD*aBa [j10];
+			f1	=XF*aB [j01]+xF*aB [j11]+XD*aBa [j01]+xD*aBa [j11];
+			fq0	=XF*aBq[j00]+xF*aBq[j10]+XD*aBaq[j00]+xD*aBaq[j10];
+			fq1	=XF*aBq[j01]+xF*aBq[j11]+XD*aBaq[j01]+xD*aBaq[j11];
+			B[k]=YF*f0+yF*f1+YD*fq0+yD*fq1;
+
+			F[k]	=XF*aF[i0]+xF*aF[i1]+XD*daF[i0]+xD*daF[i1];
+		}
+		else{	/* a == 0. */
+			B[k]	=aB[0];
+			F[k]	=aF[0];
+		}
+	}
+   #pragma acc update self(B[n0:n-n0],F[n0:n-n0])
 	return(0);
 }
 
