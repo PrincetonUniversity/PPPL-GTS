@@ -487,8 +487,10 @@ program GTS
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
 
-      call Inject_electrons_from_Boundaries(tstep*utime)
-      call Inject_ions_from_Boundaries(tstep*utime)
+      if(Flag_Ptl_BC_type==1) then
+         call Inject_electrons_from_Boundaries(tstep*utime)
+         call Inject_ions_from_Boundaries(tstep*utime)
+      endif
       ! call load_electrons_In_or_Out_Flux(100,tstep*utime)
       ! call load_electrons_In_or_Out_Flux(10,tstep)
 

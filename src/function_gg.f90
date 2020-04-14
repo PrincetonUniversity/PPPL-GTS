@@ -4867,10 +4867,10 @@ subroutine Init_Diagnostic_Grid
 
    DG%dim_a  = (mpsi+1)/DG%a_jump
    DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
-   DG%num_eSD = 6 +6 +6
+   DG%num_eSD = 6 +6 +6 +1 !19
    DG%num_eVD = 5
 
-   DG%num_iSD = 8 +6 +6! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
+   DG%num_iSD = 8 +6 +6 +1! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
    DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
@@ -5360,6 +5360,10 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
             vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
             vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
+            if(f_tot(m)==0) then
+               vid=19; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Negative df Markers from Walls
+            endif
+
             ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
             vid=7; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_B_cov)
             vid=8; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_N_cov)
@@ -5667,6 +5671,10 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
             vid=4; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Marker Distribution
             vid=5; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
             vid=6; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+            if(f_tot(m)==0) then
+               vid=21; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Negative df Markers from Walls
+            endif
 
             ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
             vid=9; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*delta_f(m)*dot_product(Full_dadgqdgf(:,m),uvec_B_cov)
