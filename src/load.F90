@@ -1251,7 +1251,7 @@ module Ptl_Src_Loss
             zeon(3,m) = zetamin + sprng()*(zetamax-zetamin)
             zeon(2,m) = 2.0*pi*sprng()
 
-            elabels(m) = mype +  1e5*m
+            elabels(m) = -1.0
          enddo
          !$acc update device(zeon(:,m0:me),elabels(m0:me))
 
@@ -1552,7 +1552,7 @@ module Ptl_Src_Loss
             zion(3,m) = zetamin + sprng()*(zetamax-zetamin)
             zion(2,m) = 2.0*pi*sprng()
 
-            ilabels(m) = mype +  1e5*m
+            ilabels(m) = -1.0
          enddo
          !$acc update device(zion(:,m0:mi),ilabels(m0:mi))
 
