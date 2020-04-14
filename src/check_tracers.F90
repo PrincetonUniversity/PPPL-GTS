@@ -775,28 +775,28 @@ subroutine Print_Reference_ntracer_Information
    if(ntracer>0) then
       m=ntracer
 
-      !$acc update self(zion(:,m))
+      !$acc update self(zion(:,m),zion0(:,m))
 
       aaa(1)=zion(1,m)
       the(1)=zion(2,m)
       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
       tracer_energy=0.5_wp*(zion(4,m)*Bj(1))**2+zion(6,m)**2*Bj(1)  ! Ion energy
       write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,", size(zion,1), "(ES11.3),a,ES11.3)"
-      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer =', zion(:,m), "; ini_weight=",zion0(6,m)
+      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer =', zion(:,m), "; ini_f_tot=",zion0(6,m)
       call flush(stdout)
    endif
 
    if(ntracer_e>0) then
       m=ntracer_e
 
-      !$acc update self(zeon(:,m))
+      !$acc update self(zeon(:,m),zeon0(:,m))
 
       aaa(1)=zeon(1,m)
       the(1)=zeon(2,m)
       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
       tracer_energy=0.5_wp*(zeon(4,m)*Bj(1))**2*m0ms*csc0**2+zeon(6,m)**2*Bj(1)
       write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,", size(zeon,1), "(ES11.3),a,ES11.3)"
-      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer =', zeon(:,m),"; ini_weight=",zeon0(6,m)
+      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer =', zeon(:,m),"; ini_f_tot=",zeon0(6,m)
       call flush(stdout)
    endif
 
