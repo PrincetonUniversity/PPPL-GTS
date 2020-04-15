@@ -216,6 +216,12 @@ contains
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
+      if(acc_newer_D_zeon) then
+         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         acc_newer_H_zeon=.false.
+         acc_newer_D_zeon=.false.
+      endif
+
       SG%dne = 0.0
       SG%ne  = 0.0
 
@@ -347,6 +353,13 @@ contains
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
+
+      if(acc_newer_D_zion) then
+         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         acc_newer_D_zion=.false.
+         acc_newer_H_zion=.false.
+      endif
+
       SG%dni = 0.0
       SG%ni  = 0.0
 
