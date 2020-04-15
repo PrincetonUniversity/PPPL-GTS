@@ -353,8 +353,8 @@ subroutine Solve_Poisson3D_on_SG()
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      qq=mapG2P(Lid)%gqid
-      ss=mapG2P(Lid)%aid
+      qq=mapG2P(Gid)%gqid
+      ss=mapG2P(Gid)%aid
       val=RHS_leading_coeff*1e6*(SG%dni(qq,ss,1)-SG%dne(qq,ss,1))
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
