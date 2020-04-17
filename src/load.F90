@@ -1125,8 +1125,12 @@ module Ptl_Src_Loss
             write(stdout,'((A,I7))') "Inject_electrons_form_Boundaries, num_of_new_ptls_per_rank=",num_of_new_ptls_per_rank
             call flush(stdout)
          endif
+         call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,0.0,a1)
 
-         call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds)
+         ! Create Src from inner boundary (BDY0)
+         num_of_new_ptls_per_rank = max(1, global_e_cum_lost_num_BDY0/numberpe)
+         num_of_new_ptls_per_rank = 2*num_of_new_ptls_per_rank
+         call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,1.0,a0)
 
          call Clear_e_cum_lost_num
 
@@ -1169,7 +1173,12 @@ module Ptl_Src_Loss
             call flush(stdout)
          endif
 
-         call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds)
+         call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,0.0,a1)
+
+         ! Create Src from inner boundary (BDY0)
+         num_of_new_ptls_per_rank = max(1, global_i_cum_lost_num_BDY0/numberpe)
+         num_of_new_ptls_per_rank = 2*num_of_new_ptls_per_rank !
+         call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,1.0,a0)
 
          call Clear_i_cum_lost_num
 
@@ -1182,7 +1191,7 @@ module Ptl_Src_Loss
 
 
 
-      subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
+      subroutine load_electrons_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds, FluxFactor_over_f0, target_a)
 
          use global_parameters
          use particle_array
@@ -1198,9 +1207,9 @@ module Ptl_Src_Loss
 
          integer,intent(in) :: num_of_new_ptls
          real(wp),intent(in) :: delta_t_seconds
+         real(wp),intent(in) :: FluxFactor_over_f0
+         real(wp),intent(in) :: target_a
 
-         real(wp) target_a
-         integer ::  normal_vec_a_direction=-1, sign_f0=-1
          integer :: Nm,m0,m
          real(wp) integral_f0
          real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
@@ -1222,7 +1231,6 @@ module Ptl_Src_Loss
          integer ip,ij
          integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
 
-         target_a = a1
 
          ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
          call MPI_ALLREDUCE(num_of_new_ptls,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
@@ -1437,8 +1445,8 @@ module Ptl_Src_Loss
             ! integral_f0 = vpara*delta_t_seconds*back_f0_e(m)/ge_val(m)
             ! integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
             integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-            zeon(5,m)  = sign_f0*integral_f0
-            zeon0(6,m) = 0.0
+            zeon0(6,m) = FluxFactor_over_f0*integral_f0
+            zeon(5,m)  = zeon0(6,m)-integral_f0
 
             if(da(m)<0) then
                zeon(1,m)=target_a-1e-5
@@ -1483,7 +1491,7 @@ module Ptl_Src_Loss
 
       end subroutine load_electrons_In_or_Out_Flux
 
-      subroutine load_ions_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds)
+      subroutine load_ions_In_or_Out_Flux(num_of_new_ptls, delta_t_seconds, FluxFactor_over_f0, target_a)
 
          use global_parameters
          use particle_array
@@ -1499,9 +1507,9 @@ module Ptl_Src_Loss
 
          integer,intent(in) :: num_of_new_ptls
          real(wp),intent(in) :: delta_t_seconds
+         real(wp),intent(in) :: FluxFactor_over_f0
+         real(wp),intent(in) :: target_a
 
-         real(wp) target_a
-         integer ::  normal_vec_a_direction=-1, sign_f0=-1
          integer :: Nm,m0,m
          real(wp) integral_f0
          real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
@@ -1522,8 +1530,6 @@ module Ptl_Src_Loss
          real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
          integer ip,ij,larmor
          integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
-
-         target_a = a1
 
          ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
          call MPI_ALLREDUCE(num_of_new_ptls,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
@@ -1732,8 +1738,8 @@ module Ptl_Src_Loss
          do m=m0,mi
             vpara = BB(m)*zion(4,m)  ! vpara = (eB/m)*rho_para
             integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_i(m)/gi_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-            zion(5,m)  = sign_f0*integral_f0
-            zion0(6,m) = 0.0
+            zion0(6,m) = FluxFactor_over_f0*integral_f0
+            zion(5,m)  = zion0(6,m)-integral_f0
 
             if(da(m)<0) then
                zion(1,m)=target_a-1e-5
