@@ -5612,7 +5612,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
    DG%eScaData(:,:,2,1) = DG%eScaData(:,:,2,1)/DG%n0_2D ! Convert Energy to Temperature
    ! Consistent Temperature by considering density fluctuation in the denominator
    ! delta_T = ((2/3)*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)], where dEnergy=Integral[(df or dh)*energy(m)]+1.5*T0*dne_adiab
-   DG%eScaData(:,:,3,1) = (DG%eScaData(:,:,3,1)+int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne !delta_T = (2/3*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)]
+   DG%eScaData(:,:,3,1) = (DG%eScaData(:,:,3,1)-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne !delta_T = (2/3*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)]
    DG%eScaData(:,:,6,1) = DG%eScaData(:,:,6,1)/DG%eScaData(:,:,5,1)! Te_tot = Energy_tot/Density_tot
 
 
@@ -6134,7 +6134,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    ! Convert temperature to EnergyDensity before smoothing
    tot_ne = DG%n0_2D + DG%eScaData(:,:,1,1) + int(ifelectron/2)*DG%dne_adiab ! using df or dh
    DG%eScaData(:,:,2,1)=DG%eScaData(:,:,2,1)*DG%n0_2D ! dTe which is nonconsistent because of using n0 density
-   DG%eScaData(:,:,3,1)=DG%eScaData(:,:,3,1)*tot_ne -int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D+DG%Te0_2D*DG%eScaData(:,:,1,1) ! dTe_consst using consistent varying electron density
+   DG%eScaData(:,:,3,1)=DG%eScaData(:,:,3,1)*tot_ne+DG%Te0_2D*DG%eScaData(:,:,1,1) ! dTe_consst using consistent varying electron density
    DG%eScaData(:,:,6,1)=DG%eScaData(:,:,6,1)*DG%eScaData(:,:,5,1) ! using full-f, Energy_tot=Te_tot*ne_tot
 
    ! In the case of electrons, dne_adiab should be smoothed as well.
@@ -6167,7 +6167,7 @@ subroutine Smooth_DG_Scalar_Vector_Data(num_smooth)
    ! Convert smoothed energy density to the temperature using smoothed plasma density
    tot_ne = DG%n0_2D + DG%eScaData(:,:,1,1) + int(ifelectron/2)*DG%dne_adiab ! smoothed total density using df or dh
    DG%eScaData(:,:,2,1)=DG%eScaData(:,:,2,1)/DG%n0_2D ! dTe which is nonconsistent because of using n0 density
-   DG%eScaData(:,:,3,1)=(DG%eScaData(:,:,3,1)+int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D-DG%Te0_2D*DG%eScaData(:,:,1,1))/tot_ne !delta_T = (2/3*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)]
+   DG%eScaData(:,:,3,1)=(DG%eScaData(:,:,3,1)-DG%Te0_2D*DG%eScaData(:,:,1,1))/tot_ne !delta_T = (2/3*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)]
    DG%eScaData(:,:,6,1)=DG%eScaData(:,:,6,1)/DG%eScaData(:,:,5,1) ! using full-f, Energy_tot=Te_tot*ne_tot
 
    ! =======================================
