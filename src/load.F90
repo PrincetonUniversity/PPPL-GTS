@@ -1114,22 +1114,17 @@ module Ptl_Src_Loss
          call MPI_ALLREDUCE(e_cum_lost_num_BDY0, global_e_cum_lost_num_BDY0, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
          call MPI_ALLREDUCE(e_cum_lost_num_BDY1, global_e_cum_lost_num_BDY1, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
 
-
-         num_of_new_ptls_per_rank = max(1, global_e_cum_lost_num_BDY1/numberpe)
-         ! We put two times of the required number of the particles,
-         ! because almost a half of new_ptls (outwards to wall) would be disappeared immediately during the loading
-         num_of_new_ptls_per_rank = 2*num_of_new_ptls_per_rank !
-
          if(mype==0) then
-            write(stdout,'(3(A,I7))') "istep=",istep, "; Inject electrons, e_cum_lost_num_BDY1",e_cum_lost_num_BDY1,"; global_e_cum_lost_num_BDY1=",global_e_cum_lost_num_BDY1
-            write(stdout,'((A,I7))') "Inject_electrons_form_Boundaries, num_of_new_ptls_per_rank=",num_of_new_ptls_per_rank
+            write(stdout,'(2(A,I8),A,I8,A)') "istep=",istep, "; Inject electrons, global_e_cum_lost_num (BDY0+BDY1)=(",global_e_cum_lost_num_BDY0," + ", global_e_cum_lost_num_BDY1,")"
             call flush(stdout)
          endif
+
+         ! Create Src from inner boundary (BDY1)
+         num_of_new_ptls_per_rank = max(0, global_e_cum_lost_num_BDY1/numberpe)
          call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,0.0,a1)
 
          ! Create Src from inner boundary (BDY0)
-         num_of_new_ptls_per_rank = max(1, global_e_cum_lost_num_BDY0/numberpe)
-         num_of_new_ptls_per_rank = 2*num_of_new_ptls_per_rank
+         num_of_new_ptls_per_rank = max(0, global_e_cum_lost_num_BDY0/numberpe)
          call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,1.0,a0)
 
          call Clear_e_cum_lost_num
@@ -1161,23 +1156,17 @@ module Ptl_Src_Loss
          call MPI_ALLREDUCE(i_cum_lost_num_BDY0, global_i_cum_lost_num_BDY0, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
          call MPI_ALLREDUCE(i_cum_lost_num_BDY1, global_i_cum_lost_num_BDY1, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
 
-
-         num_of_new_ptls_per_rank = max(1, global_i_cum_lost_num_BDY1/numberpe)
-         ! We put two times of the required number of the particles,
-         ! because almost a half of new_ptls (outwards to wall) would be disappeared immediately during the loading
-         num_of_new_ptls_per_rank = 2*num_of_new_ptls_per_rank !
-
          if(mype==0) then
-            write(stdout,'(3(A,I7))') "istep=",istep, "; Inject ions, i_cum_lost_num_BDY1",i_cum_lost_num_BDY1,"; global_i_cum_lost_num_BDY1=",global_i_cum_lost_num_BDY1
-            write(stdout,'((A,I7))') "Inject_ions_form_Boundaries, num_of_new_ptls_per_rank=",num_of_new_ptls_per_rank
+            write(stdout,'(2(A,I8),A,I8,A)') "istep=",istep, "; Inject ions, global_i_cum_lost_num (BDY0+BDY1)=(",global_i_cum_lost_num_BDY0," + ", global_i_cum_lost_num_BDY1,")"
             call flush(stdout)
          endif
 
+         ! Create Src from inner boundary (BDY1)
+         num_of_new_ptls_per_rank = max(0, global_i_cum_lost_num_BDY1/numberpe)
          call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,0.0,a1)
 
          ! Create Src from inner boundary (BDY0)
-         num_of_new_ptls_per_rank = max(1, global_i_cum_lost_num_BDY0/numberpe)
-         num_of_new_ptls_per_rank = 2*num_of_new_ptls_per_rank !
+         num_of_new_ptls_per_rank = max(0, global_i_cum_lost_num_BDY0/numberpe)
          call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,1.0,a0)
 
          call Clear_i_cum_lost_num
@@ -1210,7 +1199,8 @@ module Ptl_Src_Loss
          real(wp),intent(in) :: FluxFactor_over_f0
          real(wp),intent(in) :: target_a
 
-         integer :: Nm,m0,m
+         integer :: Nm,m0,m,tmp_num
+         real(wp) inv_Nm
          real(wp) integral_f0
          real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
          real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio, Rand !For Flag_Load_and_WeightDef==2 case.
@@ -1232,22 +1222,22 @@ module Ptl_Src_Loss
          integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
 
 
-         ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
-         call MPI_ALLREDUCE(num_of_new_ptls,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
 
          if(num_of_new_ptls<=0) then
             return
          endif
 
          m0 = me+1 ! starting index of newly loaded particles
-         me = me+num_of_new_ptls
 
+         if(target_a>a0+1e-3 .and. target_a<a1-1e-3) then
+            me = me+ num_of_new_ptls
+         else
+            ! From these temporay particlse, only the num_of_new_ptls particles in the simulation domain will be picked
+            me = me+3*num_of_new_ptls
+         endif
 
          allocate(ge_val(m0:me))
 
-         write(stdout,'(5(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; me=",me,"; memax=",memax
-         call flush(stdout)
-         call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
          do m=m0,me
             zeon(1,m)=target_a
@@ -1295,7 +1285,8 @@ module Ptl_Src_Loss
 
                !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
                ! Marker Distribution Funcion for full range: ge = Nm / (Jacobian* (2pi) * (2pi) * (0.5*pi*v_abs_max^2))
-               ge_val(m) = Nm/(Jacobian(zeon(1,m),zeon(2,m))*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)
+               ! NOTE : Since Nm is not determined yet, it will be mulitpled later
+               ge_val(m) = 1.0/(Jacobian(zeon(1,m),zeon(2,m))*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)
 
                ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
                vpara=v_abs*cos(v_theta)
@@ -1329,9 +1320,9 @@ module Ptl_Src_Loss
                v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
 
                if(v_abs<vc) then
-                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
+                  ge_val(m) = 1.0*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
                else
-                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
+                  ge_val(m) = 1.0*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
                endif
 
                ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
@@ -1460,6 +1451,27 @@ module Ptl_Src_Loss
          enddo
 
 
+         if(target_a<a0+1e-3 .or. target_a>a1-1e-3) then ! If target_a is near the boudnaries, check the particles
+            tmp_num=0
+            do m=m0,me
+               if(zeon(1,m)>a0 .and. zeon(1,m)<a1) then
+                  tmp_num = tmp_num+1
+               endif
+               if(tmp_num>=num_of_new_ptls) then
+                  me=m
+                  exit
+               endif
+            enddo
+         endif
+
+         tmp_num=me-m0+1
+         ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
+         call MPI_ALLREDUCE(tmp_num,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
+         inv_Nm=1.0/Nm
+         !Calculate the correct weight values by considering the number of total marker particles
+         zeon0(6,m0:me) = inv_Nm*zeon0(6,m0:me)
+         zeon(5,m0:me)  = inv_Nm*zeon(5,m0:me)
+
          we_init(m0:me)  = zeon(5,m0:me)
          we_vpara(m0:me) = 0
          we_vperp(m0:me) = 0
@@ -1483,6 +1495,9 @@ module Ptl_Src_Loss
          call n_T_u_group_e
 
 
+         write(stdout,'(6(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; me=",me,"; me-m0=",me-m0,"; memax=",memax
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
          deallocate(Te_norm)
          deallocate(B_vec_cov,B_vec_cntv)
@@ -1510,7 +1525,8 @@ module Ptl_Src_Loss
          real(wp),intent(in) :: FluxFactor_over_f0
          real(wp),intent(in) :: target_a
 
-         integer :: Nm,m0,m
+         integer :: Nm,m0,m,tmp_num
+         real(wp) inv_Nm
          real(wp) integral_f0
          real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
          real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio, Rand !For Flag_Load_and_WeightDef==2 case.
@@ -1531,22 +1547,22 @@ module Ptl_Src_Loss
          integer ip,ij,larmor
          integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
 
-         ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
-         call MPI_ALLREDUCE(num_of_new_ptls,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
 
          if(num_of_new_ptls<=0) then
             return
          endif
 
          m0 = mi+1 ! starting index of newly loaded particles
-         mi = mi+num_of_new_ptls
 
+         if(target_a>a0+1e-3 .and. target_a<a1-1e-3) then
+            mi = mi+ num_of_new_ptls
+         else
+            ! From these temporay particlse, only the num_of_new_ptls particles in the simulation domain will be picked
+            mi = mi+3*num_of_new_ptls
+         endif
 
          allocate(gi_val(m0:mi))
 
-         write(stdout,'(5(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; mi=",mi,"; mimax=",mimax
-         call flush(stdout)
-         call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
          do m=m0,mi
             zion(1,m)=target_a
@@ -1587,7 +1603,8 @@ module Ptl_Src_Loss
 
                !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
                ! Marker Distribution Funcion for full range: ge = Nm / (Jacobian* (2pi) * (2pi) * (0.5*pi*v_abs_max^2))
-               gi_val(m) = Nm/(Jacobian(zion(1,m),zion(2,m))*4.0*pi*pi*0.5*pi*umax*umax*backT(m))
+               ! NOTE : Since Nm is not determined yet, it will be mulitpled later
+               gi_val(m) = 1.0/(Jacobian(zion(1,m),zion(2,m))*4.0*pi*pi*0.5*pi*umax*umax*backT(m))
 
                ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
                vpara=v_abs*cos(v_theta)
@@ -1622,9 +1639,9 @@ module Ptl_Src_Loss
                v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
 
                if(v_abs<vc) then
-                  gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/(4.0*pi*pi)
+                  gi_val(m) = 1.0*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/(4.0*pi*pi)
                else
-                  gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/(4.0*pi*pi)
+                  gi_val(m) = 1.0*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/(4.0*pi*pi)
                endif
 
                ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
@@ -1753,6 +1770,28 @@ module Ptl_Src_Loss
          enddo
 
 
+         if(target_a<a0+1e-3 .or. target_a>a1-1e-3) then
+            tmp_num=0
+            do m=m0,mi
+               if(zion(1,m)>a0 .and. zion(1,m)<a1) then
+                  tmp_num = tmp_num+1
+               endif
+               if(tmp_num>=num_of_new_ptls) then
+                  mi=m
+                  exit
+               endif
+            enddo
+         endif
+
+         tmp_num=mi-m0+1
+         ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
+         call MPI_ALLREDUCE(tmp_num,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
+         inv_Nm=1.0/Nm
+         !Calculate the correct weight values by considering the number of total marker particles
+         zion0(6,m0:mi) = inv_Nm*zion0(6,m0:mi)
+         zion(5,m0:mi)  = inv_Nm*zion(5,m0:mi)
+
+
          wi_init(m0:mi)  = zion(5,m0:mi)
          wi_vpara(m0:mi) = 0
          wi_vperp(m0:mi) = 0
@@ -1775,6 +1814,9 @@ module Ptl_Src_Loss
          call n_T_u_group
 
 
+         write(stdout,'(6(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; mi=",mi,"; mi-m0=",mi-m0,"; mimax=",mimax
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
          deallocate(gi_val)
          deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
