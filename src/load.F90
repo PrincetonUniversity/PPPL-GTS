@@ -1055,9 +1055,223 @@ subroutine load_uniform_MGY
 end subroutine load_uniform_MGY
 
 
+
+module Ptl_locators_partial
+
+   implicit none
+
+   contains
+
+      subroutine electron_locator_partial(m_start,m_end)
+         use precision
+         use global_parameters
+         use particle_array
+         use field_array
+         implicit none
+
+         integer, optional, intent(in) :: m_start, m_end
+         integer m0,m1
+
+
+         integer m,im,ii,j01,j00
+         real(wp) rdum,tdum,delr,delt(0:mpsi),delz,wz1,wp1,     &
+            pi2_inv,psitmp,thetatmp,zetatmp,psimax,psimin
+
+         m0=1
+         m1=me
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+
+         delr=1.0_wp/deltar
+         delt=2.0_wp*pi/deltat
+         delz=1.0_wp/deltaz
+         pi2_inv=0.5_wp/pi
+         psimin=s_grid(0)
+         psimax=s_grid(mpsi)
+
+
+         if(acc_newer_H_zeon) then
+            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_H_zeon=.false.
+            acc_newer_D_zeon=.false.
+         endif
+
+         !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
+         do m=m0,m1
+            !     psitmp=zeon(1,m)      ! =a
+            psitmp=zeon(7,m)       ! =s
+            thetatmp=zeon(2,m)
+            zetatmp=zeon(3,m)
+
+            wzeon(m)=(zetatmp-zetamin)*delz
+
+            rdum=psitmp
+            rdum=delr*max(0.0_wp,min(s1-s0,rdum-s0))
+            ii=max(0,min(mpsi-1,floor(rdum)))
+            wp1=rdum-real(ii,wp)
+            wpeon(m)=wp1
+
+            ! inner flux surface
+            im=ii
+            tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
+            tdum=(tdum-floor(tdum))*delt(im)
+            j00=max(0,min(mtheta(im)-1,floor(tdum)))
+            jteon0(m)=igrid(im)+j00  ! pay attention to j00=0 case
+            wteon0(m)=tdum-real(j00,wp)
+
+            ! outer flux surface
+            im=ii+1
+            tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
+            tdum=(tdum-floor(tdum))*delt(im)
+            j01=max(0,min(mtheta(im)-1,floor(tdum)))
+            jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
+            wteon1(m)=tdum-real(j01,wp)
+         enddo
+
+      end subroutine electron_locator_partial
+
+      subroutine ion_locator_at_larmor_points_partial(m_start,m_end)
+
+         use precision
+         use global_parameters
+         use particle_array
+         use field_array
+         implicit none
+
+         integer, optional, intent(in) :: m_start, m_end
+         integer m0,m1
+
+         integer m,i,im,j,k,ip,jt,ii,j11,j10,j01,j00,larmor,ij,ipjt
+
+         real(wp) rdum,tdum,delr,delt(0:mpsi),delz,r,wp1,wp0,wt11,wt10,wt01,wt00,&
+            tflr,pi2_inv,psitmp,thetatmp,zetatmp,rhoi,psimax,psimin,pdum,thedum
+
+
+         integer inner_ip,outter_ip, inner_jt, outter_jt
+         real(wp) gyro_phase, intpl_pgyro(larmor_num), intpl_tgyro(larmor_num)
+
+
+         m0=1
+         m1=mi
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+
+         delr=1.0_wp/deltar
+         delt=2.0_wp*pi/deltat
+         delz=1.0_wp/deltaz
+         pi2_inv=0.5_wp/pi
+         !  psimin=psi_grid(0)
+         !  psimax=psi_grid(mpsi)
+         psimin=s_grid(0)
+         psimax=s_grid(mpsi)
+
+
+         if(acc_newer_H_zion) then
+            !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_H_zion=.false.
+            acc_newer_D_zion=.false.
+         endif
+         !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit) private(intpl_pgyro,intpl_tgyro)
+         do m=m0,m1
+            !psitmp=zion(1,m)   ! =a
+            psitmp=zion(7,m)   ! =s
+            thetatmp=zion(2,m)
+            zetatmp=zion(3,m)
+            rhoi=zion(6,m)
+
+            r=psitmp
+            ip=max(0,min(mpsi,floor((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
+            !   jt=max(0,min(mtheta(ip),floor(thetatmp*pi2_inv*delt(ip)+0.5)))
+            thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane
+            thedum=thedum*pi2_inv+100.0_wp
+            thedum=2.0_wp*pi*(thedum-floor(thedum))       ! bring back to range [0,2pi]
+            jt=max(0,min(mtheta(ip),floor(thedum*pi2_inv*delt(ip)+0.5)))
+            ipjt=igrid(ip)+jt     ! note special case of jt=0
+            wzion(m)=(zetatmp-zetamin)*delz
+
+
+            !==========================================
+            ! MGYOO (10/24/2018) : to store information of GC position.
+            ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
+            inner_ip = max(0,min(mpsi-1,floor((r-s0)*delr)))
+            thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane
+            thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
+            inner_jt = floor(thedum)
+            wtion0(0,m) = thedum - floor(thedum)
+            jtion0(0,m) = igrid(inner_ip) + inner_jt
+            wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
+
+            outter_ip = inner_ip+1
+            thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane
+            thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
+            outter_jt = floor(thedum)
+            wtion1(0,m) = thedum - floor(thedum)
+            jtion1(0,m) = igrid(outter_ip) + outter_jt
+            !==========================================
+
+
+            !==========================================
+            ! MGYOO (10/25/2018) : to get linear-interpolation of pgyro and tgyro
+            wp0 = 1.0_wp - wpion(0,m)
+            wp1 = wpion(0,m)
+
+            wt00 = 1.0_wp - wtion0(0,m)
+            wt10 = wtion0(0,m)
+
+            wt01 = 1.0_wp - wtion1(0,m)
+            wt11 = wtion1(0,m)
+
+            !$acc loop seq
+            do larmor=1, larmor_num
+               intpl_pgyro(larmor) = wp0*(wt00*pgyro(larmor,jtion0(0,m)) + wt10*pgyro(larmor,jtion0(0,m)+1)) + wp1*(wt01*pgyro(larmor,jtion1(0,m)) + wt11*pgyro(larmor,jtion1(0,m)+1))
+               intpl_tgyro(larmor) = wp0*(wt00*tgyro(larmor,jtion0(0,m)) + wt10*tgyro(larmor,jtion0(0,m)+1)) + wp1*(wt01*tgyro(larmor,jtion1(0,m)) + wt11*tgyro(larmor,jtion1(0,m)+1))
+            enddo
+            !==========================================
+
+            !$acc loop seq
+            do larmor=1, larmor_num
+               !  MODIFIED for FINITE GYRORADIUS CASE
+               pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
+               zion_s_on_GyroOrbit(larmor,m)=pdum
+               rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
+               ii=max(0,min(mpsi-1,floor(rdum)))
+               !        wp1=rdum-real(ii)
+               !        wpion(larmor,m)=wp1
+               wp1=(pdum-s_grid(ii))/(s_grid(ii+1)-s_grid(ii))   !wx  finite rho_i case
+               wpion(larmor,m)=wp1                               !wx  finite rho_i case
+
+               ! particle position in theta
+               tflr=thetatmp+rhoi*intpl_tgyro(larmor)
+               zion_gq_on_GyroOrbit(larmor,m)=tflr
+
+               ! inner flux surface
+               im=ii
+               tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
+               tdum=(tdum-floor(tdum))*delt(im)
+               j00=max(0,min(mtheta(im)-1,floor(tdum)))
+               jtion0(larmor,m)=igrid(im)+j00  ! pay attention to j00=0 case
+               wtion0(larmor,m)=tdum-real(j00)
+
+               ! outer flux surface
+               im=ii+1
+               tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
+               tdum=(tdum-floor(tdum))*delt(im)
+               j01=max(0,min(mtheta(im)-1,floor(tdum)))
+               jtion1(larmor,m)=igrid(im)+j01  ! pay attention to j01=0 case
+               wtion1(larmor,m)=tdum-real(j01)
+            enddo
+         enddo
+
+      end subroutine ion_locator_at_larmor_points_partial
+
+
+end module Ptl_locators_partial
+
 module Ptl_Src_Loss
 
-
+   use Ptl_locators_partial
    implicit none
 
    ! Following numbers are local things estimated and controlled by each rank.
@@ -1188,6 +1402,7 @@ module Ptl_Src_Loss
          use field_array
          use esi_interface
          use mpi_defs
+         use function_gg_module
          implicit none
 
 #define SIMPLE_SPRNG
@@ -1212,7 +1427,7 @@ module Ptl_Src_Loss
 
          integer sid
          real(wp) P_s,ff,P_q,inv_ds
-         real(wp), allocatable ::Te_norm(:), B_vec_cov(:,:), B_vec_cntv(:,:), ge_val(:)
+         real(wp), allocatable ::Te_norm(:), ge_val(:)
 
          real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
          !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
@@ -1254,17 +1469,12 @@ module Ptl_Src_Loss
          !$acc update device(zeon(:,m0:me),elabels(m0:me))
 
          ! call n_T_u_group_e(m0)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
-         call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+         call n_T_u_group_e_partial(m0,me)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
          !$acc update self(BB(m0:me))
 
          allocate(Te_norm(m0:me))
          do m=m0,me
             Te_norm(m) = backTe(m)*msm0
-         enddo
-
-         allocate(B_vec_cov(3,m0:me),B_vec_cntv(3,m0:me))
-         do m=m0,me
-            call esiget_Intp_B_vec_cov_and_cntv(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, B_vec_cov(:,m), B_vec_cntv(:,m))
          enddo
 
 
@@ -1336,9 +1546,9 @@ module Ptl_Src_Loss
          !$acc update device(zeon(:,m0:me))
 
          ! call n_T_u_group_e(m0)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
-         call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+         call n_T_u_group_e_partial(m0,me)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
 
-         call electron_locator ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
+         call electron_locator_partial(m0,me) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
 
 
 
@@ -1490,9 +1700,9 @@ module Ptl_Src_Loss
          !$acc update device(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
 
          ! Distribute electrons to appropriate MPI ranks
-         call treat_electrons_out_of_boundary
-         call electron_locator
-         call n_T_u_group_e
+         call treat_electrons_out_of_boundary(m0,me)
+         ! call electron_locator_partial(m0,me)
+         ! call n_T_u_group_e_partial(m0,me)
 
 
          write(stdout,'(6(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; me=",me,"; me-m0=",me-m0,"; memax=",memax
@@ -1500,7 +1710,6 @@ module Ptl_Src_Loss
          call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
          deallocate(Te_norm)
-         deallocate(B_vec_cov,B_vec_cntv)
          deallocate(ge_val)
          deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
 
@@ -1514,6 +1723,7 @@ module Ptl_Src_Loss
          use field_array
          use esi_interface
          use mpi_defs
+         use function_gg_module
          implicit none
 
 #define SIMPLE_SPRNG
@@ -1579,7 +1789,7 @@ module Ptl_Src_Loss
          !$acc update device(zion(:,m0:mi),ilabels(m0:mi))
 
          ! call n_T_u_group(m0)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
-         call n_T_u_group   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         call n_T_u_group_partial(m0,mi)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
          !$acc update self(BB(m0:mi),backu(m0:mi),F(m0:mi))
          backu(m0:mi)=backu(m0:mi)*F(m0:mi)/BB(m0:mi) ! =u_//=I*omega_t/B
          !$acc update device(backu(m0:mi))
@@ -1656,9 +1866,9 @@ module Ptl_Src_Loss
          !$acc update device(zion(:,m0:mi))
 
          ! call n_T_u_group(m0)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
-         call n_T_u_group   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+         call n_T_u_group_partial(m0,mi)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
 
-         call ion_locator_at_larmor_points ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
+         call ion_locator_at_larmor_points_partial(m0,mi) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
 
 
 
@@ -1809,9 +2019,9 @@ module Ptl_Src_Loss
          !$acc update device(UnNorm_theta_i(m0:mi),UnNorm_zeta_i(m0:mi))
 
          ! Distribute electrons to appropriate MPI ranks
-         call treat_ions_out_of_boundary
-         call ion_locator_at_larmor_points
-         call n_T_u_group
+         call treat_ions_out_of_boundary(m0,mi)
+         ! call ion_locator_at_larmor_points_partial(m0,mi)
+         ! call n_T_u_group_partial(m0,mi)
 
 
          write(stdout,'(6(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; mi=",mi,"; mi-m0=",mi-m0,"; mimax=",mimax
@@ -1824,14 +2034,17 @@ module Ptl_Src_Loss
       end subroutine load_ions_In_or_Out_Flux
 
 
-      subroutine treat_electrons_out_of_boundary()
+      subroutine treat_electrons_out_of_boundary(m_start, m_end)
 
          use global_parameters
          use particle_array
          use field_array
-
+         use function_gg_module
+         use Ptl_locators_partial
          implicit none
 
+         integer, optional, intent(in) :: m_start, m_end
+         integer m0,m1
          integer m,i,j
          real(wp) psimax,psimin
          integer lost_mid_arr(memax) ! index of loss particles
@@ -1842,6 +2055,18 @@ module Ptl_Src_Loss
          integer dim_zeon, dim_zeon0, dim_RK_cum_zeon
          real(wp) zeon_a_arr(me)
 
+         m0=1
+         m1=me
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+
+         if(acc_newer_H_zeon) then
+            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_H_zeon=.false.
+            acc_newer_D_zeon=.false.
+         endif
+
          dim_zeon = size(zeon,1)
          dim_zeon0 = size(zeon0,1)
          dim_RK_cum_zeon = size(RK_cum_zeon,1)
@@ -1851,7 +2076,7 @@ module Ptl_Src_Loss
 
          if(Flag_Ptl_BC_type==0) then
             !$acc parallel loop present(zeon,zeon0)
-            do m=1,me
+            do m=m0,m1
                if(zeon(1,m) > psimax)then
                   zeon(1,m)=psimax
                   zeon(2,m)=2.0_wp*pi-zeon0(2,m)
@@ -1879,7 +2104,7 @@ module Ptl_Src_Loss
          elseif(Flag_Ptl_BC_type==1) then ! delete out-of_boundary particles from the list
 
             !$acc parallel loop
-            do m=1,me
+            do m=m0,m1
                zeon_a_arr(m)=zeon(1,m)
             enddo
 
@@ -1887,7 +2112,7 @@ module Ptl_Src_Loss
             e_lost_num_BDY0=0
             e_lost_num_BDY1=0
             ! Find particle indices exiting the boundary
-            do m=1,me
+            do m=m0,m1
                if(zeon_a_arr(m) > psimax)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
@@ -1905,6 +2130,7 @@ module Ptl_Src_Loss
             call flush(stdout)
 
 
+            ! NOTE : mtop always should be mi even if m1!=mi.
             ! fill holes
             mtop = me
             me = me - lost_num ! remained me after loss
@@ -1959,20 +2185,24 @@ module Ptl_Src_Loss
             deallocate(fill_mid_arr)
             acc_newer_D_zeon=.true.
 
-            call electron_locator
-            call n_T_u_group_e
+            call electron_locator_partial(m_start=m0, m_end=min(me,lost_mid_arr(lasth)))
+            call n_T_u_group_e_partial(m_start=m0, m_end=min(me,lost_mid_arr(lasth)))
          endif
 
       end subroutine treat_electrons_out_of_boundary
 
 
-      subroutine treat_ions_out_of_boundary()
+      subroutine treat_ions_out_of_boundary(m_start, m_end)
 
          use global_parameters
          use particle_array
          use field_array
-
+         use function_gg_module
+         use Ptl_locators_partial
          implicit none
+
+         integer, optional, intent(in) :: m_start, m_end
+         integer m0, m1
 
          integer m,i,j
          real(wp) psimax,psimin
@@ -1984,6 +2214,17 @@ module Ptl_Src_Loss
          integer dim_zion, dim_zion0, dim_RK_cum_zion
          real(wp) zion_a_arr(mi)
 
+         m0=1
+         m1=mi
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+         if(acc_newer_H_zion) then
+            !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_H_zion=.false.
+            acc_newer_D_zion=.false.
+         endif
+
          dim_zion = size(zion,1)
          dim_zion0 = size(zion0,1)
          dim_RK_cum_zion = size(RK_cum_zion,1)
@@ -1993,7 +2234,7 @@ module Ptl_Src_Loss
 
          if(Flag_Ptl_BC_type==0) then
             !$acc parallel loop present(zion,zion0)
-            do m=1,mi
+            do m=m0,m1
                if(zion(1,m) > psimax)then
                   zion(1,m)=psimax
                   zion(2,m)=2.0_wp*pi-zion0(2,m)
@@ -2021,7 +2262,7 @@ module Ptl_Src_Loss
          elseif(Flag_Ptl_BC_type==1) then ! delete out-of_boundary particles from the list
 
             !$acc parallel loop
-            do m=1,mi
+            do m=m0,m1
                zion_a_arr(m)=zion(1,m)
             enddo
 
@@ -2029,7 +2270,7 @@ module Ptl_Src_Loss
             i_lost_num_BDY0=0
             i_lost_num_BDY1=0
             ! Find particle indices exiting the boundary
-            do m=1,mi
+            do m=m0,m1
                if(zion_a_arr(m) > psimax)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
@@ -2047,6 +2288,7 @@ module Ptl_Src_Loss
             call flush(stdout)
 
 
+            ! NOTE : mtop always should be mi even if m1!=mi.
             ! fill holes
             mtop = mi
             mi = mi - lost_num ! remained mi after loss
@@ -2100,11 +2342,13 @@ module Ptl_Src_Loss
             deallocate(fill_mid_arr)
             acc_newer_D_zion=.true.
 
-            call ion_locator_at_larmor_points
-            call n_T_u_group
+            call ion_locator_at_larmor_points_partial(m_start=m0, m_end=min(mi,lost_mid_arr(lasth)))
+            call n_T_u_group_partial(m_start=m0, m_end=min(mi,lost_mid_arr(lasth)))
          endif
 
       end subroutine treat_ions_out_of_boundary
+
+
 
 
 end module Ptl_Src_Loss
