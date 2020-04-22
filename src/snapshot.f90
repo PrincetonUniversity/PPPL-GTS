@@ -498,7 +498,7 @@ subroutine snapshot_hdf5
    use Diagnostic_Grid
    use Structured_Grid
    use MGY_PETSc_Interface_Data,only:CT,Metric_T,Polar_T
-
+   use Ptl_Src_Loss
    implicit none
 
    integer, parameter :: gq_jump=3, a_jump=1
@@ -507,7 +507,7 @@ subroutine snapshot_hdf5
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
    integer(HSIZE_T) :: h5dims(5)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_SG, gid_SG_SM, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_SG, gid_SG_SM, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid, gid_FP, gid_FP_cum
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
@@ -815,6 +815,8 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "DG/SM", gid_DG_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/FLA", gid_DG_FLA, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/FLA/SM", gid_DG_FLA_SM, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "FP", gid_FP, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "FP/cum", gid_FP_cum, h5err) ! Diagnostic Grid
 
       !
       h5dims(1) = 1
@@ -1494,6 +1496,51 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
 
 
+      ! Print FP (FootPrint) Data
+      h5dims(1)=FP_BDY1%dim_gq
+      h5dims(2)=FP_BDY1%dim_gf
+
+      call h5ltmake_dataset_f(gid_FP, "R_2D",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%R_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP, "Z_2D",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%Z_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%a_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%gq_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP, "gf_2D",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%gf_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP, "BB_2D",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%BB_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP, "eFlux_dP",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%eScaData(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_FP, "eFlux_dT",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%eScaData(:,:,2),h5err)
+      call h5ltmake_dataset_f(gid_FP, "eFlux_dE",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%eScaData(:,:,3),h5err)
+      call h5ltmake_dataset_f(gid_FP, "eFlux_Marker",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%eScaData(:,:,4),h5err)
+      call h5ltmake_dataset_f(gid_FP, "eFlux_P",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%eScaData(:,:,5),h5err)
+      call h5ltmake_dataset_f(gid_FP, "eFlux_E",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%eScaData(:,:,6),h5err)
+      call h5ltmake_dataset_f(gid_FP, "iFlux_dP",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%iScaData(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_FP, "iFlux_dT",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%iScaData(:,:,2),h5err)
+      call h5ltmake_dataset_f(gid_FP, "iFlux_dE",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%iScaData(:,:,3),h5err)
+      call h5ltmake_dataset_f(gid_FP, "iFlux_Marker",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%iScaData(:,:,4),h5err)
+      call h5ltmake_dataset_f(gid_FP, "iFlux_P",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%iScaData(:,:,5),h5err)
+      call h5ltmake_dataset_f(gid_FP, "iFlux_E",2,h5dims,H5T_NATIVE_DOUBLE, FP_BDY1%iScaData(:,:,6),h5err)
+
+
+
+      call h5ltmake_dataset_f(gid_FP_cum, "R_2D",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%R_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "Z_2D",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%Z_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "a_2D",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%a_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "gq_2D",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%gq_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "gf_2D",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%gf_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "BB_2D",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%BB_2D,h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "eFlux_dP",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%eScaData(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "eFlux_dT",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%eScaData(:,:,2),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "eFlux_dE",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%eScaData(:,:,3),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "eFlux_Marker",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%eScaData(:,:,4),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "eFlux_P",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%eScaData(:,:,5),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "eFlux_E",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%eScaData(:,:,6),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "iFlux_dP",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%iScaData(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "iFlux_dT",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%iScaData(:,:,2),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "iFlux_dE",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%iScaData(:,:,3),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "iFlux_Marker",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%iScaData(:,:,4),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "iFlux_P",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%iScaData(:,:,5),h5err)
+      call h5ltmake_dataset_f(gid_FP_cum, "iFlux_E",2,h5dims,H5T_NATIVE_DOUBLE, cum_FP_BDY1%iScaData(:,:,6),h5err)
+
+
       ! Print DG (Diagnostic Grid) Data
       ! Note that dimension has to use DG%dim_* rather than dim_*
       ! because the dimension of snapshot_hdf5 and DG might not be the same
@@ -1729,6 +1776,8 @@ subroutine snapshot_hdf5
       call h5gclose_f(gid_DG_SM, h5err)
       call h5gclose_f(gid_DG_FLA, h5err)
       call h5gclose_f(gid_DG_FLA_SM, h5err)
+      call h5gclose_f(gid_FP, h5err)
+      call h5gclose_f(gid_FP_cum, h5err)
 
       call h5fclose_f(file_id, h5err)
       call h5close_f(h5err)

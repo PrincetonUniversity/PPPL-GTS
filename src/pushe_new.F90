@@ -1982,7 +1982,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
 
       if(irk_e==4)then
-
+         !$acc update self(wpi(:,:me))
+         call Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
          call treat_electrons_out_of_boundary
          call Cumulate_e_lost_num
 
