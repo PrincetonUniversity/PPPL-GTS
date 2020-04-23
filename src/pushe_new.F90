@@ -629,7 +629,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
       if(Flag_Poisson==1) then
          call charge_eon
          call poisson( solver1, masssolver )
-         call smooth_PHI
+         ! call smooth_PHI
       endif
 
       !$omp parallel do private(m,T_inverse,r,ip,fip,Ea_00,instep,outstep,fdamp, &
@@ -1848,7 +1848,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          call cpu_time(cput0)
          tt0=MPI_WTIME()
-         call smooth_PHI
+         ! call smooth_PHI
          call cpu_time(cput1)
          tt1=MPI_WTIME()
          time_in_Pushe(4) = time_in_Pushe(4) + (cput1-cput0)

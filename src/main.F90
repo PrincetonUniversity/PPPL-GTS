@@ -235,9 +235,9 @@ program GTS
    if(Flag_Poisson==1) call poisson( solver1, masssolver  )
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
-   call smooth(0)
+   ! call smooth(0)
 
-   call smooth(1)
+   ! call smooth(1)
 
    call field(masssolver)
 
@@ -463,7 +463,7 @@ program GTS
          timewc(4)=timewc(4)+dtwc
 
          ! smoothing,field diagnosis and finite difference for e_field
-         call smooth(0)
+         ! call smooth(0)
 
          call timer(t0,dt,t0wc,dtwc)
          time(5)=time(5)+dt
@@ -471,7 +471,7 @@ program GTS
 
          idiag=mod(irk,nrk)+mod(istep+1,ndiag)
 
-         call smooth(1)  ! 1. solve zonal flow for nonlinear run;
+         ! call smooth(1)  ! 1. solve zonal flow for nonlinear run;
          ! 2. smooth the complete phi;
          ! 3. fft and filter
 
