@@ -1433,6 +1433,9 @@ module Ptl_Src_Loss
          !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
          real(wp) fip,r,dela
          real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
+         real(wp) intp_phi, intp_FLA_Te0, intp_phi00
+         real(wp), allocatable, dimension(:) :: AdiabTerm ! q*phi/T , q is negative charge here
+
          integer ip,ij
          integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
 
@@ -1555,6 +1558,7 @@ module Ptl_Src_Loss
 
 
          allocate(wpi(3,me),ga(me),wga(3,me),gat(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
+         allocate(AdiabTerm(me))
 
 
 
@@ -1570,12 +1574,16 @@ module Ptl_Src_Loss
             e1=wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
             e2=wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
             e3=wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+            intp_phi = wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0 = wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
             ij=ij+1
             wt10=1.0_wp-wt00
             e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
             e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
             e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+            intp_phi=intp_phi+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0=intp_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
             ij=jteon1(m)
             wp1=1.0_wp-wp0
@@ -1583,16 +1591,38 @@ module Ptl_Src_Loss
             e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
             e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
             e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+            intp_phi=intp_phi+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0=intp_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
             ij=ij+1
             wt11=1.0_wp-wt01
             e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
             e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
             e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+            intp_phi=intp_phi+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+            intp_FLA_Te0=intp_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
             wpi(1,m)=e1
             wpi(2,m)=e2
             wpi(3,m)=e3
+
+            r=(zeon(7,m)-s0)/deltar       ! in radial coordinator s
+            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            fip=r-real(ip,wp)
+            intp_phi00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+            if ( Flag_Def_dne_adiab==0 ) then
+               AdiabTerm(m)=csc0*(intp_phi-real(1.0-ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (q*dphi_NZ/Te)
+            elseif(Flag_Def_dne_adiab==1) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+               AdiabTerm(m)=csc0*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (q*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==2) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+               AdiabTerm(m)=csc0*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (q*dphi_tot/Te)
+            else
+               AdiabTerm(m)=-1e100
+               write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+               STOP
+            endif
          enddo
 
          ! Get Er_particle
@@ -1647,7 +1677,7 @@ module Ptl_Src_Loss
             ! integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
             integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
             zeon0(6,m) = FluxFactor_over_f0*integral_f0
-            zeon(5,m)  = zeon0(6,m)-integral_f0
+            zeon(5,m)  = zeon0(6,m)-integral_f0 +int(ifelectron/2)*AdiabTerm(m)*integral_f0 ! For dh, dh=f_tot-f0+q*phi/Te0*f0
 
             if(da(m)<0) then
                zeon(1,m)=target_a-1e-5
@@ -1712,6 +1742,7 @@ module Ptl_Src_Loss
          deallocate(Te_norm)
          deallocate(ge_val)
          deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
+         deallocate(AdiabTerm)
 
       end subroutine load_electrons_In_or_Out_Flux
 
