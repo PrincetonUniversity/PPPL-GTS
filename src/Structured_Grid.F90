@@ -588,13 +588,13 @@ contains
       real(wp) tmp_gq, tmp_s, ws0, ws1, wq0, wq1
 
       do i=0,mpsi
+         tmp_s  = s_grid(i)
+         sid = max(1,min(int((tmp_s-s0)*SG%inv_ds)+1,SG%dim_s-1))  ! +1 is due to Fortran's default index starting from 1
+         ws1 = (tmp_s-SG%s_1D(sid))*SG%inv_ds
+         ws0 = 1.0 - ws1
          do j=0,mtheta(i)
             ij = igrid(i)+j
 
-            tmp_s  = s_grid(i)
-            sid = (tmp_s-s0)*SG%inv_ds +1  ! +1 is due to Fortran's default index starting from 1
-            ws1 = (tmp_s-SG%s_1D(sid))*SG%inv_ds
-            ws0 = 1.0 - ws1
 
             tmp_gq = modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi)
             gqid= tmp_gq*SG%inv_dgq +1  !+1 is due to Fortran's default index starting from 1
