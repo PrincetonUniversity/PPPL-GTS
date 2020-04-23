@@ -10,8 +10,8 @@ BUILD_DATE  := $(shell date --iso=seconds)
 BUILD_DIR   := $(shell pwd)
 
 GIT_DIFF_RESULT:= $(shell git add -N -A)
-GIT_DIFF_RESULT:= $(shell echo Followings are \"git diff\" results: > gts_git_diff.out)
-GIT_DIFF_RESULT:= $(shell git diff >> gts_git_diff.out)
+GIT_DIFF_RESULT:= $(shell git diff > gts_git_diff.out)
+GIT_DIFF_RESULT:= $(shell echo Above changes are \"git diff\" results: >> gts_git_diff.out)
 GIT_DIFF_RESULT:= $(shell git reset HEAD)
 GIT_DIFF_XXD 	:= $(shell xxd -i gts_git_diff.out > gts_git_diff.h)
 
