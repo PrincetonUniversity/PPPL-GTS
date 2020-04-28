@@ -2298,6 +2298,278 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
 
 end subroutine Do_FieldLineFollowing_for_Poincare_Plot
 
+subroutine Cal_FootPrint_of_MagneticFieldLine
+   use precision
+   use FieldLineFollowing
+   use global_parameters
+   use mpi_defs
+   use hdf5
+   use h5lt
+   implicit none
+
+   integer(HSIZE_T) :: h5dims(5)
+   integer(HID_T) file_id, gid_PPI, gid_FP
+   integer max_tor_rotation, num_gq, num_gf, i, j, ierr,length, h5err
+   integer Gsize, Lsize, extra! Number of G(Global) or L(Local) Field lines
+   integer PPI_id
+   integer Fid, Fid_start, Fid_end, tor_dir, qq,ff
+   real(wp) dgf,specific_time, intp_weight
+   real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+   real(wp) a_RK(4), gq_RK(4), B_vec_cntv(3)
+   real(wp),dimension(:),allocatable :: ini_a,ini_gq,ini_gf
+   integer, dimension(:),allocatable :: num_of_PPIs, num_of_FPs
+   real(wp) now_a, now_gq, now_gf, prev_a, prev_gq, prev_gf, target_Poincare_zeta
+   type(Poincare_Point_Information), dimension(:,:), allocatable :: PPI, FootPoints ! PPI is for the usual Poincare Plot, FootPoints for FootPrint at the Boudnary
+   logical record_flag
+   real(wp), external :: Cal_FLabel_Function
+   integer recv_counts_Lsize(numberpe), recv_displs_Lsize(numberpe)
+   integer, dimension(:),allocatable :: recv_num_of_PPIs, recv_num_of_FPs
+   type(Poincare_Point_Information), dimension(:,:), allocatable :: recv_PPI, recv_FootPoints
+   integer, dimension(:,:), allocatable :: tmp_Integer_2D
+   real(wp), dimension(:,:), allocatable :: tmp_Real_2D
+   integer MPI_PPIs_Type, MPI_FPs_Type
+   real(wp) t_start, t_end
+
+#ifdef _MGY_TIMER_
+   t_start=MPI_WTIME()
+#endif
+
+   specific_time=0.0
+   max_tor_rotation = 400
+   num_gq = 50
+   num_gf = 50
+
+   Gsize = num_gq*num_gf
+   Lsize = Gsize/numberpe
+   extra = Gsize-Lsize*numberpe
+   Fid_start = Lsize*(mype)   + min(extra,mype) +1 ! Last +1 is due to Fortran's indexing that starts from 1
+   Fid_end   = Lsize*(mype+1) + min(extra,mype+1)
+   Lsize = Fid_end - Fid_start +1
+
+   ! Get counts and displacements of Lsize in MPI_COMM_WORLD
+   call MPI_ALLGATHER(Lsize,1,MPI_INTEGER,recv_counts_Lsize,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+   recv_displs_Lsize(1)=0
+   do i=1,numberpe-1
+      recv_displs_Lsize(i+1)=recv_displs_Lsize(i)+recv_counts_Lsize(i)
+   enddo
+
+
+   allocate(ini_a(Gsize), ini_gq(Gsize), ini_gf(Gsize))
+   allocate(PPI(2*max_tor_rotation, Fid_start:Fid_end))
+   allocate(FootPoints(2,Fid_start:Fid_end)) ! both ends of a field line that touches the boundary
+   allocate(num_of_PPIs(Fid_start:Fid_end))
+   allocate(num_of_FPs(Fid_start:Fid_end))
+
+   allocate(recv_num_of_PPIs(Gsize), recv_num_of_FPs(Gsize))
+   allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
+
+
+   call MPI_Type_contiguous(2*max_tor_rotation*storage_size(PPI)/storage_size(now_a),MPI_Rsize, MPI_PPIs_Type, ierr)
+   call MPI_Type_commit(MPI_PPIs_Type,ierr)
+   call MPI_Type_contiguous(2*storage_size(PPI)/storage_size(now_a),MPI_Rsize, MPI_FPs_Type, ierr)
+   call MPI_Type_commit(MPI_FPs_Type,ierr)
+
+
+   ini_a(:) = a1-1e-5
+
+   Fid=1
+   do qq=1,num_gq
+      do ff=1,num_gf
+         ini_gq(Fid) = (qq-1)*(2*pi)/(num_gq)
+         ini_gf(Fid) = (ff-1)*(2*pi)/(num_gf)
+         Fid=Fid+1
+      enddo
+   enddo
+
+
+   target_Poincare_zeta = 0.0
+
+   do Fid = Fid_start,Fid_end
+
+      PPI(:,Fid)%Fid = Fid
+
+      PPI_id = 0
+      num_of_FPs(Fid) = 0
+
+      do tor_dir=-1,1,2
+         dgf = (tor_dir)*2.0*pi/500.0
+
+         now_a  = ini_a(Fid)
+         now_gq = ini_gq(Fid)
+         now_gf = ini_gf(Fid)
+
+         prev_a  = now_a
+         prev_gq = now_gq
+         prev_gf = now_gf
+
+         do while(.true.)
+            record_flag=.false.
+            if( floor((now_gf-target_Poincare_zeta)/(2.0*pi)) /= floor((prev_gf-target_Poincare_zeta)/(2.0*pi)) ) then
+               record_flag=.true.
+            endif
+
+            if(record_flag) then
+               PPI_id = PPI_id + 1
+
+               !intp_weight = modulo(abs(now_gf), 2.0*pi) / dgf
+               intp_weight = abs(min(modulo((now_gf-target_Poincare_zeta), 2.0*pi), 2.0*pi - modulo((now_gf-target_Poincare_zeta), 2.0*pi))/dgf) ! interpolation weight for previous point
+
+               PPI(PPI_id, Fid)%a  = intp_weight*prev_a + (1.0-intp_weight)*now_a
+               PPI(PPI_id, Fid)%gq = intp_weight*prev_gq + (1.0-intp_weight)*now_gq
+               PPI(PPI_id, Fid)%gf = intp_weight*prev_gf + (1.0-intp_weight)*now_gf
+               PPI(PPI_id, Fid)%target_normalized_gf = zetamax
+               PPI(PPI_id, Fid)%ini_FLabel = Cal_FLabel_Function(PPI(PPI_id,Fid)%a, PPI(PPI_id,Fid)%gq, PPI(PPI_id,Fid)%gf)
+
+               call Convert_a_to_s(PPI(PPI_id, Fid)%a, PPI(PPI_id, Fid)%s)
+
+               !call esigetrzb(PPI(PPI_id, Fid)%R, PPI(PPI_id, Fid)%Z, dummy_real, PPI(PPI_id, Fid)%a, modulo(PPI(PPI_id, Fid)%gq, 2*pi), 1)
+
+               aaa=PPI(PPI_id, Fid)%a
+               the=modulo(PPI(PPI_id, Fid)%gq, 2.0*pi)
+               call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+               PPI(PPI_id, Fid)%inv_B = 1.0/Bj; ! Jacobian at initial position.
+               !PPI(PPI_id, Fid)%inv_B = 1.0;
+               PPI(PPI_id, Fid)%R = rj
+               PPI(PPI_id, Fid)%Z = zj
+
+               call esiget_Intp_B_vec_contravariant(aaa, the, modulo(PPI(PPI_id, Fid)%gf,2.0*pi), specific_time, B_vec_cntv)
+               PPI(PPI_id, Fid)%dl =abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+                  +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
+                  +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
+                  + rj**2  )
+            endif
+
+
+            if(abs(now_gf)>max_tor_rotation*(2*pi) .or.  PPI_id>=2*max_tor_rotation) then
+               exit
+            endif
+
+            prev_a = now_a
+            prev_gq = now_gq
+            prev_gf = now_gf
+
+            ! Runge-Kutta 4th order
+            call esiget_Intp_B_vec_contravariant(now_a, modulo(now_gq,2.0*pi), modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(1)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(1)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), modulo(now_gq+0.5*gq_RK(1),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(2)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(2)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), modulo(now_gq+0.5*gq_RK(2),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(3)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(3)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), modulo(now_gq+gq_RK(3),2.0*pi), modulo(now_gf+dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(4)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(4)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+
+            now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
+            now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
+            now_gf = now_gf + dgf
+
+            if (now_a<=a0 .or. now_a>=a1) then
+               num_of_FPs(Fid) = num_of_FPs(Fid) +1
+               FootPoints(num_of_FPs(Fid),Fid)%a = now_a
+               FootPoints(num_of_FPs(Fid),Fid)%gf = now_gf
+               FootPoints(num_of_FPs(Fid),Fid)%gq = now_gq
+               FootPoints(num_of_FPs(Fid),Fid)%Fid = Fid
+
+               aaa=now_a
+               the=modulo(now_gq,2.0*pi)
+               call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+               FootPoints(num_of_FPs(Fid),Fid)%inv_B = 1.0/Bj; ! Jacobian at initial position.
+               !PPI(PPI_id, gqid, aid)%inv_B = 1.0;
+               FootPoints(num_of_FPs(Fid),Fid)%R = rj
+               FootPoints(num_of_FPs(Fid),Fid)%Z = zj
+               exit
+            endif
+         enddo
+
+         num_of_PPIs(Fid) = PPI_id
+      enddo
+   enddo
+
+   ! MPI_Gathering of every Field Informations to 0 (root)
+   call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
+   call MPI_Gatherv(num_of_FPs, Lsize, MPI_INTEGER, recv_num_of_FPs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
+   call MPI_Gatherv(PPI, Lsize, MPI_PPIs_Type, recv_PPI, recv_counts_Lsize, recv_displs_Lsize, MPI_PPIs_Type, 0,MPI_COMM_WORLD,ierr)
+   call MPI_Gatherv(FootPoints, Lsize, MPI_FPs_Type, recv_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_FPs_Type, 0,MPI_COMM_WORLD,ierr)
+
+
+
+   ! Write Information using HDF5 and HDF5_LT
+   if(mype==0) then
+      call h5open_f(h5err)
+      call h5fcreate_f('FootPrint.h5',H5F_ACC_TRUNC_F, file_id, h5err)
+      call h5gcreate_f(file_id, 'PPI', gid_PPI,h5err)
+      call h5gcreate_f(file_id, 'FP', gid_FP,h5err)
+
+      h5dims(1)=Gsize
+      call h5ltmake_dataset_f(file_id, "num_of_PPIs",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_PPIs, h5err)
+      call h5ltmake_dataset_f(file_id, "num_of_FootPrints",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_FPs, h5err)
+
+      h5dims(1)=2*max_tor_rotation
+      h5dims(2)=Gsize
+      allocate(tmp_Real_2D(h5dims(1),h5dims(2)), tmp_Integer_2D(h5dims(1),h5dims(2)))
+      tmp_Integer_2D = recv_PPI(:,:)%Fid
+      call h5ltmake_dataset_f(file_id, "PPI/Fid",2,h5dims,H5T_NATIVE_INTEGER, tmp_Integer_2D, h5err)
+      tmp_Real_2D = recv_PPI(:,:)%a
+      call h5ltmake_dataset_f(file_id, "PPI/a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,:)%gf
+      call h5ltmake_dataset_f(file_id, "PPI/gf",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,:)%gq
+      call h5ltmake_dataset_f(file_id, "PPI/gq",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,:)%R
+      call h5ltmake_dataset_f(file_id, "PPI/R",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,:)%Z
+      call h5ltmake_dataset_f(file_id, "PPI/Z",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,:)%s
+      call h5ltmake_dataset_f(file_id, "PPI/s",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,:)%ini_FLabel
+      call h5ltmake_dataset_f(file_id, "PPI/ini_FLabel",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      deallocate(tmp_Real_2D,tmp_Integer_2D)
+
+
+      h5dims(1)=2
+      h5dims(2)=Gsize
+      allocate(tmp_Real_2D(h5dims(1),h5dims(2)), tmp_Integer_2D(h5dims(1),h5dims(2)))
+      tmp_Integer_2D = recv_FootPoints(:,:)%Fid
+      call h5ltmake_dataset_f(file_id, "FP/Fid",2,h5dims,H5T_NATIVE_INTEGER, tmp_Integer_2D, h5err)
+      tmp_Real_2D = recv_FootPoints(:,:)%a
+      call h5ltmake_dataset_f(file_id, "FP/a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%gf
+      call h5ltmake_dataset_f(file_id, "FP/gf",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%gq
+      call h5ltmake_dataset_f(file_id, "FP/gq",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%R
+      call h5ltmake_dataset_f(file_id, "FP/R",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%Z
+      call h5ltmake_dataset_f(file_id, "FP/Z",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%s
+      call h5ltmake_dataset_f(file_id, "FP/s",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%ini_FLabel
+      call h5ltmake_dataset_f(file_id, "FP/ini_FLabel",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      deallocate(tmp_Real_2D,tmp_Integer_2D)
+
+      call h5gclose_f(gid_PPI,h5err)
+      call h5gclose_f(gid_FP,h5err)
+      call h5fclose_f(file_id,h5err)
+      call h5close_f(h5err)
+
+   endif
+
+   deallocate(ini_a,ini_gq,ini_gf)
+   deallocate(PPI, num_of_PPIs)
+   deallocate(FootPoints,num_of_FPs)
+   deallocate(recv_num_of_PPIs, recv_num_of_FPs)
+   deallocate(recv_PPI, recv_FootPoints)
+
+#ifdef _MGY_TIMER_
+   t_end=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Cal_FootPrint_of_MagneticFieldLine takes", t_end-t_start, " secs"
+   call flush(stdout)
+#endif
+
+end subroutine Cal_FootPrint_of_MagneticFieldLine
 
 subroutine Construct_gPPI_for_FieldLineAverage
 
