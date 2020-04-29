@@ -2329,6 +2329,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    real(wp), dimension(:,:), allocatable :: tmp_Real_2D
    integer MPI_PPIs_Type, MPI_FPs_Type
    real(wp) t_start, t_end
+   integer num_of_samplePPIs_for_output, PPI_jump
 
 #ifdef _MGY_TIMER_
    t_start=MPI_WTIME()
@@ -2336,8 +2337,8 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
    specific_time=0.0
    max_tor_rotation = 400
-   num_gq = 50
-   num_gf = 50
+   num_gq = 200
+   num_gf = 200
 
    Gsize = num_gq*num_gf
    Lsize = Gsize/numberpe
@@ -2495,6 +2496,12 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    call MPI_Gatherv(FootPoints, Lsize, MPI_FPs_Type, recv_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_FPs_Type, 0,MPI_COMM_WORLD,ierr)
 
 
+#ifdef _MGY_TIMER_
+   t_end=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Cal_FootPrint_of_MagneticFieldLine takes", t_end-t_start, " secs"
+   call flush(stdout)
+#endif
+
 
    ! Write Information using HDF5 and HDF5_LT
    if(mype==0) then
@@ -2503,32 +2510,52 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       call h5gcreate_f(file_id, 'PPI', gid_PPI,h5err)
       call h5gcreate_f(file_id, 'FP', gid_FP,h5err)
 
-      h5dims(1)=Gsize
-      call h5ltmake_dataset_f(file_id, "num_of_PPIs",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_PPIs, h5err)
-      call h5ltmake_dataset_f(file_id, "num_of_FootPrints",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_FPs, h5err)
 
+      ! PPI
+      num_of_samplePPIs_for_output = 1000
+      PPI_jump= (Gsize)/num_of_samplePPIs_for_output
+      h5dims(1)=1
+      call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
+      h5dims(1)=(Gsize+max(0,PPI_jump-1))/PPI_jump
+      call h5ltmake_dataset_f(file_id, "num_of_PPIs_for_each_FieldLine",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_PPIs(1:Gsize:PPI_jump), h5err)
       h5dims(1)=2*max_tor_rotation
-      h5dims(2)=Gsize
+      h5dims(2)=(Gsize+max(0,PPI_jump-1))/PPI_jump
       allocate(tmp_Real_2D(h5dims(1),h5dims(2)), tmp_Integer_2D(h5dims(1),h5dims(2)))
-      tmp_Integer_2D = recv_PPI(:,:)%Fid
+      tmp_Integer_2D = recv_PPI(:,1:Gsize:PPI_jump)%Fid
+      write(stdout,*) 'HI1, ',Gsize, PPI_jump, h5dims(1:2)
+      call flush(stdout)
       call h5ltmake_dataset_f(file_id, "PPI/Fid",2,h5dims,H5T_NATIVE_INTEGER, tmp_Integer_2D, h5err)
-      tmp_Real_2D = recv_PPI(:,:)%a
+      write(stdout,*) 'HI2, ',Gsize, PPI_jump, h5dims(1:2)
+      call flush(stdout)
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%a
       call h5ltmake_dataset_f(file_id, "PPI/a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
-      tmp_Real_2D=recv_PPI(:,:)%gf
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%gf
       call h5ltmake_dataset_f(file_id, "PPI/gf",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
-      tmp_Real_2D=recv_PPI(:,:)%gq
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%gq
       call h5ltmake_dataset_f(file_id, "PPI/gq",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
-      tmp_Real_2D=recv_PPI(:,:)%R
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%R
       call h5ltmake_dataset_f(file_id, "PPI/R",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
-      tmp_Real_2D=recv_PPI(:,:)%Z
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%Z
       call h5ltmake_dataset_f(file_id, "PPI/Z",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
-      tmp_Real_2D=recv_PPI(:,:)%s
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%s
       call h5ltmake_dataset_f(file_id, "PPI/s",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
-      tmp_Real_2D=recv_PPI(:,:)%ini_FLabel
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%ini_FLabel
       call h5ltmake_dataset_f(file_id, "PPI/ini_FLabel",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+
+      ! Calculate varaibles for the PostProcessing
+      h5dims(1)=Gsize
+      call h5ltmake_dataset_f(file_id, "num_of_FootPrints_for_each_FieldLine",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_FPs, h5err)
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%gf
+      tmp_Real_2D = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=h5dims(1))
+      call h5ltmake_dataset_f(file_id, "PPI/Tor_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%gq
+      tmp_Real_2D = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=h5dims(1))
+      call h5ltmake_dataset_f(file_id, "PPI/Pol_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+
       deallocate(tmp_Real_2D,tmp_Integer_2D)
 
 
+      ! FootPoints
       h5dims(1)=2
       h5dims(2)=Gsize
       allocate(tmp_Real_2D(h5dims(1),h5dims(2)), tmp_Integer_2D(h5dims(1),h5dims(2)))
@@ -2548,6 +2575,15 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       call h5ltmake_dataset_f(file_id, "FP/s",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_FootPoints(:,:)%ini_FLabel
       call h5ltmake_dataset_f(file_id, "FP/ini_FLabel",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+
+      ! Calculate varaibles for the PostProcessing
+      tmp_Real_2D=recv_FootPoints(:,:)%gf
+      tmp_Real_2D = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=h5dims(1))
+      call h5ltmake_dataset_f(file_id, "FP/Tor_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%gq
+      tmp_Real_2D = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=h5dims(1))
+      call h5ltmake_dataset_f(file_id, "FP/Pol_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+
       deallocate(tmp_Real_2D,tmp_Integer_2D)
 
       call h5gclose_f(gid_PPI,h5err)
@@ -2563,11 +2599,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    deallocate(recv_num_of_PPIs, recv_num_of_FPs)
    deallocate(recv_PPI, recv_FootPoints)
 
-#ifdef _MGY_TIMER_
-   t_end=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Cal_FootPrint_of_MagneticFieldLine takes", t_end-t_start, " secs"
-   call flush(stdout)
-#endif
+
 
 end subroutine Cal_FootPrint_of_MagneticFieldLine
 
