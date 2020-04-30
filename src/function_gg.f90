@@ -2302,13 +2302,21 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    use precision
    use FieldLineFollowing
    use global_parameters
+   use field_array
    use mpi_defs
    use hdf5
    use h5lt
    implicit none
 
+   type, extends(Poincare_Point_Information) :: FieldPoints
+      real(wp) Max_Tor_Rot ! maximum number of toroidal rotation per each field line
+      real(wp) Max_Pol_Rot ! maximum number of toroidal rotation per each field line
+      real(wp) Min_a ! minimum a of the field line trajectory
+      real(wp) TrackLength
+   end type FieldPoints
+
    integer(HSIZE_T) :: h5dims(5)
-   integer(HID_T) file_id, gid_PPI, gid_FP
+   integer(HID_T) file_id, gid_PPI, gid_FPI, gid_FP
    integer max_tor_rotation, num_gq, num_gf, i, j, ierr,length, h5err
    integer Gsize, Lsize, extra! Number of G(Global) or L(Local) Field lines
    integer PPI_id
@@ -2317,19 +2325,32 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
    real(wp) a_RK(4), gq_RK(4), B_vec_cntv(3)
    real(wp),dimension(:),allocatable :: ini_a,ini_gq,ini_gf
-   integer, dimension(:),allocatable :: num_of_PPIs, num_of_FPs
+   integer, dimension(:),allocatable :: num_of_PPIs, num_of_FootPoints
    real(wp) now_a, now_gq, now_gf, prev_a, prev_gq, prev_gf, target_Poincare_zeta
-   type(Poincare_Point_Information), dimension(:,:), allocatable :: PPI, FootPoints ! PPI is for the usual Poincare Plot, FootPoints for FootPrint at the Boudnary
+   type(FieldPoints), dimension(:,:), allocatable :: PPI, FootPoints ! PPI is for the usual Poincare Plot, FootPoints for FootPrint at the Boudnary
    logical record_flag
    real(wp), external :: Cal_FLabel_Function
    integer recv_counts_Lsize(numberpe), recv_displs_Lsize(numberpe)
-   integer, dimension(:),allocatable :: recv_num_of_PPIs, recv_num_of_FPs
-   type(Poincare_Point_Information), dimension(:,:), allocatable :: recv_PPI, recv_FootPoints
+   integer, dimension(:),allocatable :: recv_num_of_PPIs, recv_num_of_FootPoints
+   type(FieldPoints), dimension(:,:), allocatable :: recv_PPI, recv_FootPoints
    integer, dimension(:,:), allocatable :: tmp_Integer_2D
    real(wp), dimension(:,:), allocatable :: tmp_Real_2D
    integer MPI_PPIs_Type, MPI_FPs_Type
    real(wp) t_start, t_end
    integer num_of_samplePPIs_for_output, PPI_jump
+
+   real(wp) ratio, wgq0,wgq1,wgf0,wgf1
+   real(wp) P_gq, P_gf, P_safety_q
+   real(wp) target_gq, target_gf
+   integer gqid, gfid, Pid, Nf,Nq, vid
+   integer num_of_FCP_variables
+   integer FPC_dim_gq, FPC_dim_gf
+   real(wp) FPC_inv_dgq, FPC_inv_dgf
+   real(wp), allocatable, dimension(:) :: FPC_gq_1D, FPC_gf_1D
+   real(wp), allocatable, dimension(:,:) :: FPC_gq_2D, FPC_gf_2D
+   real(wp), allocatable, dimension(:,:,:) :: FPC_Data, tmp_FPC_Data
+
+
 
 #ifdef _MGY_TIMER_
    t_start=MPI_WTIME()
@@ -2359,15 +2380,15 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    allocate(PPI(2*max_tor_rotation, Fid_start:Fid_end))
    allocate(FootPoints(2,Fid_start:Fid_end)) ! both ends of a field line that touches the boundary
    allocate(num_of_PPIs(Fid_start:Fid_end))
-   allocate(num_of_FPs(Fid_start:Fid_end))
+   allocate(num_of_FootPoints(Fid_start:Fid_end))
 
-   allocate(recv_num_of_PPIs(Gsize), recv_num_of_FPs(Gsize))
-   allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
 
+   write(stdout,'(4(A,I8))') "storage_size(PPI)=",storage_size(PPI), "sotrage_size(FieldPoints)", storage_size(FieldPoints), "storage(PoincarePointInfo)=", storage_size(Poincare_Point_Information), "storage(ini_a)",storage_size(now_a)
+   call flush(stdout)
 
    call MPI_Type_contiguous(2*max_tor_rotation*storage_size(PPI)/storage_size(now_a),MPI_Rsize, MPI_PPIs_Type, ierr)
    call MPI_Type_commit(MPI_PPIs_Type,ierr)
-   call MPI_Type_contiguous(2*storage_size(PPI)/storage_size(now_a),MPI_Rsize, MPI_FPs_Type, ierr)
+   call MPI_Type_contiguous(2*storage_size(FootPoints)/storage_size(now_a),MPI_Rsize, MPI_FPs_Type, ierr)
    call MPI_Type_commit(MPI_FPs_Type,ierr)
 
 
@@ -2388,9 +2409,11 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    do Fid = Fid_start,Fid_end
 
       PPI(:,Fid)%Fid = Fid
+      PPI(1,Fid)%Min_a = 1e5
+      PPI(1,Fid)%TrackLength = 0.0
 
       PPI_id = 0
-      num_of_FPs(Fid) = 0
+      num_of_FootPoints(Fid) = 0
 
       do tor_dir=-1,1,2
          dgf = (tor_dir)*2.0*pi/500.0
@@ -2467,31 +2490,190 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
             now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
             now_gf = now_gf + dgf
 
+
+            aaa=now_a
+            the=modulo(now_gq, 2.0*pi)
+            call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+            call esiget_Intp_B_vec_contravariant(aaa, the, modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+            PPI(1, Fid)%TrackLength = PPI(1, Fid)%TrackLength + abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+                                                               +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
+                                                               +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
+                                                               + rj**2  )
+
+            if(now_a < PPI(1,Fid)%Min_a) then
+               PPI(1,Fid)%Min_a = now_a
+            endif
+
             if (now_a<=a0 .or. now_a>=a1) then
-               num_of_FPs(Fid) = num_of_FPs(Fid) +1
-               FootPoints(num_of_FPs(Fid),Fid)%a = now_a
-               FootPoints(num_of_FPs(Fid),Fid)%gf = now_gf
-               FootPoints(num_of_FPs(Fid),Fid)%gq = now_gq
-               FootPoints(num_of_FPs(Fid),Fid)%Fid = Fid
+               num_of_FootPoints(Fid) = num_of_FootPoints(Fid) +1
+               FootPoints(num_of_FootPoints(Fid),Fid)%a = now_a
+               FootPoints(num_of_FootPoints(Fid),Fid)%gf = now_gf
+               FootPoints(num_of_FootPoints(Fid),Fid)%gq = now_gq
+               FootPoints(num_of_FootPoints(Fid),Fid)%Fid = Fid
 
                aaa=now_a
                the=modulo(now_gq,2.0*pi)
                call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
-               FootPoints(num_of_FPs(Fid),Fid)%inv_B = 1.0/Bj; ! Jacobian at initial position.
+               FootPoints(num_of_FootPoints(Fid),Fid)%inv_B = 1.0/Bj; ! Jacobian at initial position.
                !PPI(PPI_id, gqid, aid)%inv_B = 1.0;
-               FootPoints(num_of_FPs(Fid),Fid)%R = rj
-               FootPoints(num_of_FPs(Fid),Fid)%Z = zj
+               FootPoints(num_of_FootPoints(Fid),Fid)%R = rj
+               FootPoints(num_of_FootPoints(Fid),Fid)%Z = zj
                exit
             endif
          enddo
 
-         num_of_PPIs(Fid) = PPI_id
+      enddo
+      PPI(1:PPI_id,Fid)%Min_a = PPI(1,Fid)%Min_a
+      FootPoints(:,Fid)%Min_a = PPI(1,Fid)%Min_a
+      PPI(1:PPI_id,Fid)%TrackLength = PPI(1,Fid)%TrackLength
+      FootPoints(:,Fid)%TrackLength = PPI(1,Fid)%TrackLength
+      num_of_PPIs(Fid) = PPI_id
+   enddo
+
+   ! allocate(tmp_Real_2D(2*max_tor_rotation,Fid_start:Fid_end))
+   ! tmp_Real_2D = PPI(:,:)%gf
+   ! PPI(:,:)%Max_Tor_Rot = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=size(tmp_Real_2D,1))
+   ! tmp_Real_2D = PPI(:,:)%gq
+   ! PPI(:,:)%Max_Pol_Rot = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=size(tmp_Real_2D,1))
+   ! deallocate(tmp_Real_2D)
+
+
+
+   ! allocate(tmp_Real_2D(2,Fid_start:Fid_end))
+   ! tmp_Real_2D = FootPoints(:,:)%gf
+   ! FootPoints(:,:)%Max_Tor_Rot = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=size(tmp_Real_2D,1))
+   ! tmp_Real_2D = FootPoints(:,:)%gq
+   ! FootPoints(:,:)%Max_Pol_Rot = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=size(tmp_Real_2D,1))
+   ! deallocate(tmp_Real_2D)
+
+
+   ! PostProcessing (to find MaxTorRot and MaxPolRot for each Field Line)
+   PPI(:,:)%Max_Tor_Rot = spread(abs(maxval(PPI(:,:)%gf,dim=1)-minval(PPI(:,:)%gf,dim=1))/(2.0*pi), dim=1, ncopies=size(PPI,1))
+   PPI(:,:)%Max_Pol_Rot = spread(abs(maxval(PPI(:,:)%gq,dim=1)-minval(PPI(:,:)%gq,dim=1))/(2.0*pi), dim=1, ncopies=size(PPI,1))
+   FootPoints(:,:)%Max_Tor_Rot = spread(abs(maxval(FootPoints(:,:)%gf,dim=1)-minval(FootPoints(:,:)%gf,dim=1))/(2.0*pi), dim=1, ncopies=size(FootPoints,1))
+   FootPoints(:,:)%Max_Pol_Rot = spread(abs(maxval(FootPoints(:,:)%gq,dim=1)-minval(FootPoints(:,:)%gq,dim=1))/(2.0*pi), dim=1, ncopies=size(FootPoints,1))
+   do Fid=Fid_start,Fid_end
+      if(num_of_FootPoints(Fid)<2) then ! If FootPoints cannot connected within max_tor_rotation, maximum rotation number should be given like the following
+         FootPoints(:,Fid)%Max_Tor_Rot = 2*max_tor_rotation
+         FootPoints(:,Fid)%Max_Pol_Rot = PPI(1,Fid)%Max_Pol_Rot
+      endif
+   enddo
+   ! FootPoints(:,:)%Min_a = PPI(1:2,:)%Min_a
+   ! FootPoints(:,:)%TrackLength = PPI(1:2,:)%TrackLength
+
+
+   ! Measure FootPrint on FPC (FootPrintCell) from FootPoints Data
+   num_of_FCP_variables = 5
+   FPC_dim_gf = 50
+   FPC_dim_gq = 50
+
+   Nf=FPC_dim_gf
+   Nq=FPC_dim_gq
+
+   FPC_inv_dgq = real(Nq-1)/(2.0*pi)
+   FPC_inv_dgf = real(Nf-1)/(2.0*pi)
+
+   allocate(FPC_gf_1D(Nf), FPC_gq_1D(Nq), FPC_gf_2D(Nq,Nf), FPC_gq_2D(Nq,Nf))
+   allocate(FPC_Data(Nq,Nf,num_of_FCP_variables),tmp_FPC_Data(Nq,Nf,num_of_FCP_variables))
+   FPC_Data=0.0
+
+
+   do qq=1,Nq
+      FPC_gq_1D(qq) = (2.0*pi)/(Nq-1)*(qq-1)
+      FPC_gq_2D(qq,:) = FPC_gq_1D(qq)
+   enddo
+   do ff=1,Nf
+      FPC_gf_1D(ff) = (2.0*pi)/(Nf-1)*(ff-1)
+      FPC_gf_2D(:,ff) = FPC_gf_1D(ff)
+   enddo
+
+
+   write(stdout,*) "mype=",mype,"; HI2"
+   call flush(stdout)
+   call MPI_Barrier(MPI_COMM_WORLD,ierr)
+
+
+   do Fid=Fid_start,Fid_end
+      do Pid=1,num_of_FootPoints(Fid)
+         P_gq = modulo(FootPoints(Pid,Fid)%gq,2.0*pi)
+         P_gf = modulo(FootPoints(Pid,Fid)%gf,2.0*pi)
+
+         P_safety_q = q_grid(mpsi)
+
+         gfid  = (P_gf)*FPC_inv_dgf +1 ! last +1 is because of Fortran-style indexing
+         wgf1  = (P_gf-FPC_gf_1D(gfid))*FPC_inv_dgf
+         wgf0  = 1.0-wgf1
+
+
+         ! (At the plane of gfid): the nearst left plane in toroidal direction
+         target_gf = FPC_gf_1D(gfid)
+         target_gq = modulo(P_gq - (P_gf-target_gf)/P_safety_q, 2.0*pi)
+         gqid  = (target_gq)*FPC_inv_dgq +1
+         wgq1  = (target_gq-FPC_gq_1D(gqid))*FPC_inv_dgq
+         wgq0  = 1.0-wgq1
+
+         ratio = wgf0*wgq0; ff=gfid; qq=gqid
+         vid=1; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio ! Number of FootPoints
+         vid=2; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Max_Tor_Rot)
+         vid=3; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Max_Pol_Rot)
+         vid=4; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Min_a)
+         vid=5; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%TrackLength)
+
+         ratio = wgf0*wgq1; ff=gfid; qq=gqid+1
+         vid=1; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio
+         vid=2; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Max_Tor_Rot)
+         vid=3; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Max_Pol_Rot)
+         vid=4; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Min_a)
+         vid=5; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%TrackLength)
+
+         ! (At the plane of gfid+1): the nearst right plane in toroidal direction
+         target_gf = FPC_gf_1D(gfid+1)
+         target_gq = modulo(P_gq - (P_gf-target_gf)/P_safety_q, 2.0*pi)
+         gqid  = (target_gq)*FPC_inv_dgq +1
+         wgq1  = (target_gq-FPC_gq_1D(gqid))*FPC_inv_dgq
+         wgq0  = 1.0-wgq1
+
+         ratio = wgf1*wgq0; ff=gfid+1; qq=gqid
+         vid=1; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio
+         vid=2; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Max_Tor_Rot)
+         vid=3; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Max_Pol_Rot)
+         vid=4; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Min_a)
+         vid=5; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%TrackLength)
+
+         ratio = wgf1*wgq1; ff=gfid+1; qq=gqid+1
+         vid=1; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio
+         vid=2; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Max_Tor_Rot)
+         vid=3; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Max_Pol_Rot)
+         vid=4; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%Min_a)
+         vid=5; FPC_Data(qq,ff,vid) = FPC_Data(qq,ff,vid) + ratio*(FootPoints(Pid,Fid)%TrackLength)
       enddo
    enddo
 
+   ! MPI_Reduce the FPC_Data to mpi_root (0)
+   tmp_FPC_Data = FPC_Data
+   length = FPC_dim_gq*FPC_dim_gf*num_of_FCP_variables
+   call MPI_Reduce(tmp_FPC_Data, FPC_Data, length, mpi_Rsize, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+   ! Poloidal (gq) periodic condition
+   FPC_Data(1,:,:) = FPC_Data(1,:,:) + FPC_Data(FPC_dim_gq,:,:)
+   FPC_Data(FPC_dim_gq,:,:) = FPC_Data(1,:,:)
+   ! Toroidal (gf) periodic condition
+   FPC_Data(:,1,:) = FPC_Data(:,1,:) + FPC_Data(:,FPC_dim_gf,:)
+   FPC_Data(:,FPC_dim_gf,:) = FPC_Data(:,1,:)
+
+   ! Normalize by the number of FieldLineMarkers
+   FPC_Data(:,:,2)=FPC_Data(:,:,2)/FPC_Data(:,:,1)
+   FPC_Data(:,:,3)=FPC_Data(:,:,3)/FPC_Data(:,:,1)
+   FPC_Data(:,:,4)=FPC_Data(:,:,4)/FPC_Data(:,:,1)
+   FPC_Data(:,:,5)=FPC_Data(:,:,5)/FPC_Data(:,:,1)
+
+
+
    ! MPI_Gathering of every Field Informations to 0 (root)
+   allocate(recv_num_of_PPIs(Gsize), recv_num_of_FootPoints(Gsize))
+   allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
+
    call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
-   call MPI_Gatherv(num_of_FPs, Lsize, MPI_INTEGER, recv_num_of_FPs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
+   call MPI_Gatherv(num_of_FootPoints, Lsize, MPI_INTEGER, recv_num_of_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(PPI, Lsize, MPI_PPIs_Type, recv_PPI, recv_counts_Lsize, recv_displs_Lsize, MPI_PPIs_Type, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(FootPoints, Lsize, MPI_FPs_Type, recv_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_FPs_Type, 0,MPI_COMM_WORLD,ierr)
 
@@ -2508,11 +2690,12 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       call h5open_f(h5err)
       call h5fcreate_f('FootPrint.h5',H5F_ACC_TRUNC_F, file_id, h5err)
       call h5gcreate_f(file_id, 'PPI', gid_PPI,h5err)
+      call h5gcreate_f(file_id, 'FPI', gid_FPI,h5err)
       call h5gcreate_f(file_id, 'FP', gid_FP,h5err)
 
 
       ! PPI
-      num_of_samplePPIs_for_output = 1000
+      num_of_samplePPIs_for_output = 40*40
       PPI_jump= (Gsize)/num_of_samplePPIs_for_output
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
@@ -2543,50 +2726,65 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       call h5ltmake_dataset_f(file_id, "PPI/ini_FLabel",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
 
       ! Calculate varaibles for the PostProcessing
-      h5dims(1)=Gsize
-      call h5ltmake_dataset_f(file_id, "num_of_FootPrints_for_each_FieldLine",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_FPs, h5err)
-      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%gf
-      tmp_Real_2D = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=h5dims(1))
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%Max_Tor_Rot
       call h5ltmake_dataset_f(file_id, "PPI/Tor_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
-      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%gq
-      tmp_Real_2D = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=h5dims(1))
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%Max_Pol_Rot
       call h5ltmake_dataset_f(file_id, "PPI/Pol_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%Min_a
+      call h5ltmake_dataset_f(file_id, "PPI/Min_a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%TrackLength
+      call h5ltmake_dataset_f(file_id, "PPI/TrackLength",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
 
       deallocate(tmp_Real_2D,tmp_Integer_2D)
 
 
       ! FootPoints
+      h5dims(1)=Gsize
+      call h5ltmake_dataset_f(file_id, "num_of_FootPrints_for_each_FieldLine",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_FootPoints, h5err)
       h5dims(1)=2
       h5dims(2)=Gsize
       allocate(tmp_Real_2D(h5dims(1),h5dims(2)), tmp_Integer_2D(h5dims(1),h5dims(2)))
       tmp_Integer_2D = recv_FootPoints(:,:)%Fid
-      call h5ltmake_dataset_f(file_id, "FP/Fid",2,h5dims,H5T_NATIVE_INTEGER, tmp_Integer_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "FPI/Fid",2,h5dims,H5T_NATIVE_INTEGER, tmp_Integer_2D, h5err)
       tmp_Real_2D = recv_FootPoints(:,:)%a
-      call h5ltmake_dataset_f(file_id, "FP/a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "FPI/a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_FootPoints(:,:)%gf
-      call h5ltmake_dataset_f(file_id, "FP/gf",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "FPI/gf",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_FootPoints(:,:)%gq
-      call h5ltmake_dataset_f(file_id, "FP/gq",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "FPI/gq",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_FootPoints(:,:)%R
-      call h5ltmake_dataset_f(file_id, "FP/R",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "FPI/R",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_FootPoints(:,:)%Z
-      call h5ltmake_dataset_f(file_id, "FP/Z",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "FPI/Z",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_FootPoints(:,:)%s
-      call h5ltmake_dataset_f(file_id, "FP/s",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "FPI/s",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_FootPoints(:,:)%ini_FLabel
-      call h5ltmake_dataset_f(file_id, "FP/ini_FLabel",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "FPI/ini_FLabel",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
 
       ! Calculate varaibles for the PostProcessing
-      tmp_Real_2D=recv_FootPoints(:,:)%gf
-      tmp_Real_2D = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=h5dims(1))
-      call h5ltmake_dataset_f(file_id, "FP/Tor_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
-      tmp_Real_2D=recv_FootPoints(:,:)%gq
-      tmp_Real_2D = spread(abs(maxval(tmp_Real_2D,dim=1)-minval(tmp_Real_2D,dim=1))/(2.0*pi), dim=1, ncopies=h5dims(1))
-      call h5ltmake_dataset_f(file_id, "FP/Pol_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%Max_Tor_Rot
+      call h5ltmake_dataset_f(file_id, "FPI/Tor_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%Max_Pol_Rot
+      call h5ltmake_dataset_f(file_id, "FPI/Pol_Rot",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%Min_a
+      call h5ltmake_dataset_f(file_id, "FPI/Min_a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%TrackLength
+      call h5ltmake_dataset_f(file_id, "FPI/TrackLength",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
 
       deallocate(tmp_Real_2D,tmp_Integer_2D)
 
+
+      ! FootPrint Information
+      h5dims(1)=FPC_dim_gq
+      h5dims(2)=FPC_dim_gf
+      call h5ltmake_dataset_f(file_id, "FP/num_of_FMarkers",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,1), h5err)
+      call h5ltmake_dataset_f(file_id, "FP/Tor_Rot",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,2), h5err)
+      call h5ltmake_dataset_f(file_id, "FP/Pol_Rot",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,3), h5err)
+      call h5ltmake_dataset_f(file_id, "FP/Min_a",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,4), h5err)
+      call h5ltmake_dataset_f(file_id, "FP/TrackLength",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,5), h5err)
+
       call h5gclose_f(gid_PPI,h5err)
+      call h5gclose_f(gid_FPI,h5err)
       call h5gclose_f(gid_FP,h5err)
       call h5fclose_f(file_id,h5err)
       call h5close_f(h5err)
@@ -2595,10 +2793,12 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
    deallocate(ini_a,ini_gq,ini_gf)
    deallocate(PPI, num_of_PPIs)
-   deallocate(FootPoints,num_of_FPs)
-   deallocate(recv_num_of_PPIs, recv_num_of_FPs)
+   deallocate(FootPoints,num_of_FootPoints)
+   deallocate(recv_num_of_PPIs, recv_num_of_FootPoints)
    deallocate(recv_PPI, recv_FootPoints)
 
+   deallocate(FPC_gf_1D, FPC_gq_1D, FPC_gf_2D, FPC_gq_2D)
+   deallocate(FPC_Data,tmp_FPC_Data)
 
 
 end subroutine Cal_FootPrint_of_MagneticFieldLine
