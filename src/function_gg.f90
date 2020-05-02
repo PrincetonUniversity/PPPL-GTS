@@ -2358,8 +2358,8 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
    specific_time=0.0
    max_tor_rotation = 400
-   num_gq = 200
-   num_gf = 200
+   num_gq = 300
+   num_gf = 300
 
    Gsize = num_gq*num_gf
    Lsize = Gsize/numberpe
@@ -2564,8 +2564,8 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
    ! Measure FootPrint on FPC (FootPrintCell) from FootPoints Data
    num_of_FCP_variables = 5
-   FPC_dim_gf = 50
-   FPC_dim_gq = 50
+   FPC_dim_gf = 100
+   FPC_dim_gq = 100
 
    Nf=FPC_dim_gf
    Nq=FPC_dim_gq
@@ -2669,9 +2669,10 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
 
    ! MPI_Gathering of every Field Informations to 0 (root)
-   allocate(recv_num_of_PPIs(Gsize), recv_num_of_FootPoints(Gsize))
-   allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
-
+   if(mype==0) then
+      allocate(recv_num_of_PPIs(Gsize), recv_num_of_FootPoints(Gsize))
+      allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
+   endif
    call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(num_of_FootPoints, Lsize, MPI_INTEGER, recv_num_of_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(PPI, Lsize, MPI_PPIs_Type, recv_PPI, recv_counts_Lsize, recv_displs_Lsize, MPI_PPIs_Type, 0,MPI_COMM_WORLD,ierr)
@@ -2695,7 +2696,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
 
       ! PPI
-      num_of_samplePPIs_for_output = 40*40
+      num_of_samplePPIs_for_output = 50*50
       PPI_jump= (Gsize)/num_of_samplePPIs_for_output
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
@@ -2794,8 +2795,8 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    deallocate(ini_a,ini_gq,ini_gf)
    deallocate(PPI, num_of_PPIs)
    deallocate(FootPoints,num_of_FootPoints)
-   deallocate(recv_num_of_PPIs, recv_num_of_FootPoints)
-   deallocate(recv_PPI, recv_FootPoints)
+   if(allocated(recv_num_of_PPIs)) deallocate(recv_num_of_PPIs, recv_num_of_FootPoints)
+   if(allocated(recv_PPI)) deallocate(recv_PPI, recv_FootPoints)
 
    deallocate(FPC_gf_1D, FPC_gq_1D, FPC_gf_2D, FPC_gq_2D)
    deallocate(FPC_Data,tmp_FPC_Data)
