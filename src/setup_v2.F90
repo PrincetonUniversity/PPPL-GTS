@@ -547,8 +547,11 @@ Subroutine setup
    case(4)
       Lc=Lcu
       if(mype==0) write(*,*)'Lcu (flow) chosen'
+   case(5)
+      Lc=vthc/utime ! Lc is set by the length vthc
+      if(mype==0) write(*,*)'Lc=(vthc/utime; ) chosen'
    case default
-      write(*,*)'Wrong flag_Lc input. Only 1,2,3,4'
+      write(*,*)'Wrong flag_Lc=',flag_Lc,' input. Only 1,2,3,4,5'
       stop
    end select
 
@@ -1011,8 +1014,9 @@ Subroutine setup
          eta_grid(i)=dlnT_e    ! for TEM driven by grad(Te), such as D125229
       case(4)
          eta_grid(i)=abs(rdum) ! for KH turbulence driven by toroidal flow shear!added 2011
+      case(5)
       case default
-         write(*,*)'Wrong flag_Lc input. Only 1,2,3,4'
+         write(*,*)'Wrong flag_Lc=',flag_Lc,' input. Only 1,2,3,4,5'
          stop
       end select
 
