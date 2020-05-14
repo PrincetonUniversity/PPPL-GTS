@@ -2172,7 +2172,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
    maximum_tor_rotation= FLF_max_tor_num
    specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
 
-   dgf = 2.0*pi/500.0 ! toroidal step for field-line-following integration
+   dgf = 2.0*pi/100.0 ! toroidal step for field-line-following integration
    num_a = 40
    num_gq = 7
 
@@ -2199,7 +2199,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot
          PPI_id = 0
 
          do tor_dir=-1,1,2
-            dgf = (tor_dir)*2.0*pi/500.0
+            dgf = (tor_dir)*2.0*pi/100.0
 
             now_a = ini_a
             now_gq = ini_gq
@@ -2383,8 +2383,8 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    allocate(num_of_FootPoints(Fid_start:Fid_end))
 
 
-   write(stdout,'(4(A,I8))') "storage_size(PPI)=",storage_size(PPI), "sotrage_size(FieldPoints)", storage_size(FieldPoints), "storage(PoincarePointInfo)=", storage_size(Poincare_Point_Information), "storage(ini_a)",storage_size(now_a)
-   call flush(stdout)
+   ! write(stdout,'(4(A,I8))') "storage_size(PPI)=",storage_size(PPI), "sotrage_size(FieldPoints)", storage_size(FieldPoints), "storage(PoincarePointInfo)=", storage_size(Poincare_Point_Information), "storage(ini_a)",storage_size(now_a)
+   ! call flush(stdout)
 
    call MPI_Type_contiguous(2*max_tor_rotation*storage_size(PPI)/storage_size(now_a),MPI_Rsize, MPI_PPIs_Type, ierr)
    call MPI_Type_commit(MPI_PPIs_Type,ierr)
@@ -2416,7 +2416,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       num_of_FootPoints(Fid) = 0
 
       do tor_dir=-1,1,2
-         dgf = (tor_dir)*2.0*pi/500.0
+         dgf = (tor_dir)*2.0*pi/100.0
 
          now_a  = ini_a(Fid)
          now_gq = ini_gq(Fid)
@@ -2696,7 +2696,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
 
       ! PPI
-      num_of_samplePPIs_for_output = 50*50
+      num_of_samplePPIs_for_output = 70*70
       PPI_jump= (Gsize)/num_of_samplePPIs_for_output
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
@@ -2907,7 +2907,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
    !maximum_tor_rotation = MaxNum_of_gPPI_for_each_FieldLine/2 !  Maximum toroidal roation for each Forward integration & Backward Integration
 
    specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
-   dgf = 2.0*pi/500.0 ! toroidal step for field-line-following integration
+   dgf = 2.0*pi/100.0 ! toroidal step for field-line-following integration
 
    do k=1,num_of_target_zeta
       target_zeta(k) = zetamin + k*(zetamax-zetamin)/num_of_target_zeta
@@ -3054,7 +3054,7 @@ subroutine Construct_gPPI_for_FieldLineAverage
 
       do tor_dir=-1,1,2  ! Forward integration & Backward Integration
 
-         dgf = (tor_dir)*2.0*pi/500.0
+         dgf = (tor_dir)*2.0*pi/100.0
 
          now_a = ini_a
          now_gq = ini_gq
@@ -3291,7 +3291,7 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
    MaxNum_of_gPPI_for_each_FieldLine = 2*maximum_tor_rotation*(num_of_target_zeta/ntoroidal)
 
    specific_time = 0.0 ! time is constant because we want the field Poincare Plot at specific time t=t0
-   dgf = 2.0*pi/500.0 ! toroidal step for field-line-following integration
+   dgf = 2.0*pi/100.0 ! toroidal step for field-line-following integration
 
    k=1
    do target_mode_n = 1,3
@@ -3399,7 +3399,7 @@ subroutine Construct_gPPI_for_FieldLineAverage_Parallelized
 
       do tor_dir=-1,1,2  ! Forward integration & Backward Integration
 
-         dgf = (tor_dir)*2.0*pi/500.0
+         dgf = (tor_dir)*2.0*pi/100.0
 
          now_a = ini_a
          now_gq = ini_gq
