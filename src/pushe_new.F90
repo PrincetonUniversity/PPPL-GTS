@@ -1699,6 +1699,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
          !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         !$acc update self(elabels(:me))
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
             acc_newer_D_zeon=.false.
@@ -2279,6 +2280,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
          !$acc update self(we_vpara(:me), we_vperp(:me), we_accel(:me), we_fdamp(:me))
+         !$acc update self(elabels(:me))
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
             acc_newer_D_zeon=.false.
