@@ -1272,6 +1272,7 @@ end module Ptl_locators_partial
 module Ptl_Src_Loss
 
    use Ptl_locators_partial
+   use precision
    implicit none
 
    ! Following numbers are local things estimated and controlled by each rank.
@@ -1282,7 +1283,387 @@ module Ptl_Src_Loss
    integer :: i_lost_num_BDY0=0, i_lost_num_BDY1=0 ! number of loss particles across boundary at each istep and per each rank
    integer :: i_cum_lost_num_BDY0=0, i_cum_lost_num_BDY1=0 ! Sum of number of loss particles across boundary over all ranks and isteps.
 
+   type FootPrint
+      integer :: dim_gq=50, dim_gf=50 ! Default dimension of gq and gf
+      real(wp) inv_dgq, inv_dgf
+      real(wp) a, s
+      integer :: num_eSD, num_iSD
+      real(wp),allocatable, dimension(:) :: gq_1D, gf_1D
+      real(wp),allocatable, dimension(:,:) :: a_2D, gq_2D, gf_2D, R_2D, Z_2D, BB_2D
+      real(wp),allocatable, dimension(:,:,:) :: eScaData, iScaData ! ScalarData(density, temperautre) of electrons and ions
+   end type
+
+   type(FootPrint) FP_BDY1, cum_FP_BDY1
+
    contains
+
+
+      subroutine Initialize_FootPrint(FP,target_a)
+         use global_parameters
+         implicit none
+
+         type(FootPrint), intent(inout) :: FP
+         real(wp),intent(in) :: target_a
+
+         integer Nq,Nf ! Nq=FP%dim_gq, Nf=FP%dim_gf
+         integer qq,ff
+
+         FP%dim_gq = 200
+         FP%dim_gf = 100
+
+         Nq=FP%dim_gq
+         Nf=FP%dim_gf
+
+         FP%inv_dgq = real(Nq-1)/(2.0*pi)
+         FP%inv_dgf = real(Nf-1)/(2.0*pi)
+
+
+         FP%num_eSD = 6 !Marker, Particle Flux, Heat Flux
+         FP%num_iSD = 6
+
+         allocate(FP%gq_1D(Nq), FP%gf_1D(Nf))
+         allocate(FP%a_2D(Nq,Nf), FP%gq_2D(Nq,Nf), FP%gf_2D(Nq,Nf))
+         allocate(FP%R_2D(Nq,Nf), FP%Z_2D(Nq,Nf), FP%BB_2D(Nq,Nf))
+         allocate(FP%eScaData(Nq,Nf,FP%num_eSD), FP%iScaData(Nq,Nf,FP%num_iSD))
+
+         FP%eScaData=0.0
+         FP%iScaData=0.0
+
+         FP%a_2D = target_a
+
+         do qq=1,Nq
+            FP%gq_1D(qq) = (2.0*pi)/(Nq-1)*(qq-1)
+            FP%gq_2D(qq,:) = FP%gq_1D(qq)
+         enddo
+
+         do ff=1,Nf
+            FP%gf_1D(ff) = (2.0*pi)/(Nf-1)*(ff-1)
+            FP%gf_2D(:,ff) = FP%gf_1D(ff)
+         enddo
+
+         call esigetrzb(FP%R_2D, FP%Z_2D, FP%BB_2D, FP%a_2D, FP%gq_2D, Nq*Nf)
+
+      end subroutine
+
+      subroutine Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP, energy)
+         use global_parameters
+         use particle_array
+         use field_array,only:q_grid
+         use mpi_defs
+         implicit none
+
+         type(FootPrint), intent(inout) :: FP
+         real(wp), intent(in) :: energy(me)
+
+         real(wp) ratio, wgq0,wgq1,wgf0,wgf1
+         real(wp) P_gq, P_gf, P_safety_q
+         real(wp) target_gq, target_gf
+         integer gqid, gfid, qq, ff
+
+         real(wp) zeon_a_arr(me)
+         integer lost_mid_arr
+         real(wp), allocatable,dimension(:,:) :: out_zeon, out_zeon0
+         real(wp), allocatable,dimension(:) :: delta_f, f_tot, out_energy, out_backTe, out_back_f0_e
+         integer m,m_out,vid
+         real(wp) time0,time1
+
+         allocate(out_zeon(size(zeon,1),me),out_zeon0(size(zeon0,1),me))
+         allocate(out_energy(me),out_backTe(me),out_back_f0_e(me))
+
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
+
+         !$acc update self(zeon(:,:me),zeon0(:,:me),backTe(:me),back_f0_e(:me))
+
+         m_out=0
+         do m=1,me
+            if(zeon(1,m)>a1) then
+               m_out=m_out+1
+               out_zeon(:,m_out)  = zeon(:,m)
+               out_zeon0(:,m_out) = zeon0(:,m)
+               out_energy(m_out) = energy(m)
+               out_backTe(m_out) = backTe(m)
+               out_back_f0_e(m_out) = back_f0_e(m)
+            endif
+         enddo
+
+         allocate(delta_f(m_out),f_tot(m_out))
+
+
+         if(Flag_Load_and_WeightDef==0)then
+            delta_f(:) = out_zeon(5,1:m_out)*eNrNm
+            f_tot(:)   = eNrNm
+         else
+            delta_f(:) = out_zeon(5,1:m_out)
+            f_tot(:)   = out_zeon0(6,1:m_out)
+         endif
+
+
+         do m=1,m_out
+
+            P_gq = modulo(out_zeon(2,m),2.0*pi)
+            P_gf = modulo(out_zeon(3,m),2.0*pi)
+
+            P_safety_q = q_grid(mpsi)
+
+            gfid  = (P_gf)*FP%inv_dgf +1 ! last +1 is because of Fortran-style indexing
+            wgf1  = (P_gf-FP%gf_1D(gfid))*FP%inv_dgf
+            wgf0  = 1.0-wgf1
+
+
+            ! (At the plane of gfid): the nearst left plane in toroidal direction
+            target_gf = FP%gf_1D(gfid)
+            target_gq = modulo(P_gq - (P_gf-target_gf)/P_safety_q, 2.0*pi)
+            gqid  = (target_gq)*FP%inv_dgq +1
+            wgq1  = (target_gq-FP%gq_1D(gqid))*FP%inv_dgq
+            wgq0  = 1.0-wgq1
+
+            ratio = wgf0*wgq0; ff=gfid; qq=gqid
+            vid=1; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*delta_f(m) ! Density
+            vid=2; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m)-out_backTe(m)*msm0)*delta_f(m) !Temperature definition 1
+            vid=3; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m))*delta_f(m) !
+            vid=4; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio ! Marker Distribution
+            vid=5; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*f_tot(m)*(2.0/3.0*out_energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+
+            ratio = wgf0*wgq1; ff=gfid; qq=gqid+1
+            vid=1; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*delta_f(m) ! Density
+            vid=2; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m)-out_backTe(m)*msm0)*delta_f(m) !Temperature definition 1
+            vid=3; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m))*delta_f(m) !
+            vid=4; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio ! Marker Distribution
+            vid=5; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*f_tot(m)*(2.0/3.0*out_energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+
+            ! (At the plane of gfid+1): the nearst right plane in toroidal direction
+            target_gf = FP%gf_1D(gfid+1)
+            target_gq = modulo(P_gq - (P_gf-target_gf)/P_safety_q, 2.0*pi)
+            gqid  = (target_gq)*FP%inv_dgq +1
+            wgq1  = (target_gq-FP%gq_1D(gqid))*FP%inv_dgq
+            wgq0  = 1.0-wgq1
+
+            ratio = wgf1*wgq0; ff=gfid+1; qq=gqid
+            vid=1; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*delta_f(m) ! Density
+            vid=2; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m)-out_backTe(m)*msm0)*delta_f(m) !Temperature definition 1
+            vid=3; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m))*delta_f(m) !
+            vid=4; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio ! Marker Distribution
+            vid=5; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*f_tot(m)*(2.0/3.0*out_energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+            ratio = wgf1*wgq1; ff=gfid+1; qq=gqid+1
+            vid=1; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*delta_f(m) ! Density
+            vid=2; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m)-out_backTe(m)*msm0)*delta_f(m) !Temperature definition 1
+            vid=3; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m))*delta_f(m) !
+            vid=4; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio ! Marker Distribution
+            vid=5; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; FP%eScaData(qq,ff,vid) = FP%eScaData(qq,ff,vid) + ratio*f_tot(m)*(2.0/3.0*out_energy(m)) ! Integrating f_tot*energy, so Te_tot
+         enddo
+
+
+
+         deallocate(delta_f,f_tot)
+         deallocate(out_zeon,out_zeon0,out_energy,out_backTe,out_back_f0_e)
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Electron_FootPrint_BDY1 takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
+      end subroutine Measure_and_Cumulate_Electron_FootPrint_at_BDY1
+
+      subroutine Measure_and_Cumulate_Ion_FootPrint_at_BDY1(FP, energy)
+         use global_parameters
+         use particle_array
+         use field_array,only:q_grid
+         use mpi_defs
+         implicit none
+
+         type(FootPrint), intent(inout) :: FP
+         real(wp), intent(in) :: energy(mi)
+
+         real(wp) ratio, wgq0,wgq1,wgf0,wgf1
+         real(wp) P_gq, P_gf, P_safety_q
+         real(wp) target_gq, target_gf
+         integer gqid, gfid, qq, ff
+
+         real(wp) zion_a_arr(mi)
+         integer lost_mid_arr
+         real(wp), allocatable,dimension(:,:) :: out_zion, out_zion0
+         real(wp), allocatable,dimension(:) :: delta_f, f_tot, out_energy, out_backT, out_back_f0_i
+         integer m,m_out,vid
+         real(wp) time0,time1
+
+         allocate(out_zion(size(zion,1),mi),out_zion0(size(zion0,1),mi))
+         allocate(out_energy(mi),out_backT(mi),out_back_f0_i(mi))
+
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
+
+         !$acc update self(zion(:,:mi),zion0(:,:mi),backT(:mi),back_f0_i(:mi))
+
+         m_out=0
+         do m=1,mi
+            if(zion(1,m)>a1) then
+               m_out=m_out+1
+               out_zion(:,m_out)  = zion(:,m)
+               out_zion0(:,m_out) = zion0(:,m)
+               out_energy(m_out) = energy(m)
+               out_backT(m_out) = backT(m)
+               out_back_f0_i(m_out) = back_f0_i(m)
+            endif
+         enddo
+
+         allocate(delta_f(m_out),f_tot(m_out))
+
+
+         if(Flag_Load_and_WeightDef==0)then
+            delta_f(:) = out_zion(5,1:m_out)*iNrNm
+            f_tot(:)   = iNrNm
+         else
+            delta_f(:) = out_zion(5,1:m_out)
+            f_tot(:)   = out_zion0(6,1:m_out)
+         endif
+
+
+         do m=1,m_out
+
+            P_gq = modulo(out_zion(2,m),2.0*pi)
+            P_gf = modulo(out_zion(3,m),2.0*pi)
+
+            P_safety_q = q_grid(mpsi)
+
+            gfid  = (P_gf)*FP%inv_dgf +1 ! last +1 is because of Fortran-style indexing
+            wgf1  = (P_gf-FP%gf_1D(gfid))*FP%inv_dgf
+            wgf0  = 1.0-wgf1
+
+
+            ! (At the plane of gfid): the nearst left plane in toroidal direction
+            target_gf = FP%gf_1D(gfid)
+            target_gq = modulo(P_gq - (P_gf-target_gf)/P_safety_q, 2.0*pi)
+            gqid  = (target_gq)*FP%inv_dgq +1
+            wgq1  = (target_gq-FP%gq_1D(gqid))*FP%inv_dgq
+            wgq0  = 1.0-wgq1
+
+            ratio = wgf0*wgq0; ff=gfid; qq=gqid
+            vid=1; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*delta_f(m) ! Density
+            vid=2; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m)-out_backT(m))*delta_f(m) !Temperature definition 1
+            vid=3; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m))*delta_f(m) !
+            vid=4; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio ! Marker Distribution
+            vid=5; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*f_tot(m)*(2.0/3.0*out_energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+
+            ratio = wgf0*wgq1; ff=gfid; qq=gqid+1
+            vid=1; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*delta_f(m) ! Density
+            vid=2; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m)-out_backT(m))*delta_f(m) !Temperature definition 1
+            vid=3; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m))*delta_f(m) !
+            vid=4; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio ! Marker Distribution
+            vid=5; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*f_tot(m)*(2.0/3.0*out_energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+
+            ! (At the plane of gfid+1): the nearst right plane in toroidal direction
+            target_gf = FP%gf_1D(gfid+1)
+            target_gq = modulo(P_gq - (P_gf-target_gf)/P_safety_q, 2.0*pi)
+            gqid  = (target_gq)*FP%inv_dgq +1
+            wgq1  = (target_gq-FP%gq_1D(gqid))*FP%inv_dgq
+            wgq0  = 1.0-wgq1
+
+            ratio = wgf1*wgq0; ff=gfid+1; qq=gqid
+            vid=1; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*delta_f(m) ! Density
+            vid=2; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m)-out_backT(m))*delta_f(m) !Temperature definition 1
+            vid=3; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m))*delta_f(m) !
+            vid=4; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio ! Marker Distribution
+            vid=5; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*f_tot(m)*(2.0/3.0*out_energy(m)) ! Integrating f_tot*energy, so Te_tot
+
+            ratio = wgf1*wgq1; ff=gfid+1; qq=gqid+1
+            vid=1; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*delta_f(m) ! Density
+            vid=2; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m)-out_backT(m))*delta_f(m) !Temperature definition 1
+            vid=3; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*(2.0/3.0*out_energy(m))*delta_f(m) !
+            vid=4; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio ! Marker Distribution
+            vid=5; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
+            vid=6; FP%iScaData(qq,ff,vid) = FP%iScaData(qq,ff,vid) + ratio*f_tot(m)*(2.0/3.0*out_energy(m)) ! Integrating f_tot*energy, so Te_tot
+         enddo
+
+
+
+         deallocate(delta_f,f_tot)
+         deallocate(out_zion,out_zion0,out_energy,out_backT,out_back_f0_i)
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Ion_FootPrint_BDY1 takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
+      end subroutine Measure_and_Cumulate_Ion_FootPrint_at_BDY1
+
+      subroutine Clear_FootPrints_of_Electrons_and_Ions(FP)
+         implicit none
+         type(FootPrint),intent(inout) :: FP
+
+         FP%eScaData=0
+         FP%iScaData=0
+      end subroutine
+
+      subroutine MPI_Reduce_FootPrints_of_Electrons_and_Ions(FP,reduce_root)
+         use particle_decomp
+         use mpi_defs
+         implicit none
+
+         type(FootPrint),intent(inout) :: FP
+         integer, intent(in) :: reduce_root
+         real(wp) tmp_eScaData(FP%dim_gq,FP%dim_gf,FP%num_eSD), tmp_iScaData(FP%dim_gq,FP%dim_gf,FP%num_iSD)
+         integer length,ierr
+
+         ! ============================
+         ! Electrons
+         ! ============================
+         tmp_eScaData = FP%eScaData
+         length=FP%dim_gq*FP%dim_gf*FP%num_eSD
+         call MPI_Reduce(tmp_eScaData,FP%eScaData,length,mpi_Rsize,MPI_SUM,reduce_root,MPI_COMM_WORLD,ierr)
+
+         ! Poloidal (gq) periodic condition
+         FP%eScaData(1,:,:) = FP%eScaData(1,:,:) + FP%eScaData(FP%dim_gq,:,:)
+         FP%eScaData(FP%dim_gq,:,:) = FP%eScaData(1,:,:)
+         ! Toroidal (gf) periodic condition
+         FP%eScaData(:,1,:) = FP%eScaData(:,1,:) + FP%eScaData(:,FP%dim_gf,:)
+         FP%eScaData(:,FP%dim_gf,:) = FP%eScaData(:,1,:)
+
+
+         ! ============================
+         ! Ions
+         ! ============================
+         tmp_iScaData = FP%iScaData
+         length=FP%dim_gq*FP%dim_gf*FP%num_iSD
+         call MPI_Reduce(tmp_iScaData,FP%iScaData,length,mpi_Rsize,MPI_SUM,reduce_root,MPI_COMM_WORLD,ierr)
+
+         ! Poloidal (gq) periodic condition
+         FP%iScaData(1,:,:) = FP%iScaData(1,:,:) + FP%iScaData(FP%dim_gq,:,:)
+         FP%iScaData(FP%dim_gq,:,:) = FP%iScaData(1,:,:)
+         ! Toroidal (gf) periodic condition
+         FP%iScaData(:,1,:) = FP%iScaData(:,1,:) + FP%iScaData(:,FP%dim_gf,:)
+         FP%iScaData(:,FP%dim_gf,:) = FP%iScaData(:,1,:)
+
+      end subroutine MPI_Reduce_FootPrints_of_Electrons_and_Ions
+
+      subroutine Cumulate_FP_to_cumFP(FP, cum_FP)
+
+         implicit none
+         type(FootPrint),intent(inout) :: FP, cum_FP
+
+         cum_FP%eScaData = cum_FP%eScaData + FP%eScaData
+         cum_FP%iScaData = cum_FP%iScaData + FP%iScaData
+
+      end subroutine Cumulate_FP_to_cumFP
+
 
       subroutine Cumulate_e_lost_num
          implicit none

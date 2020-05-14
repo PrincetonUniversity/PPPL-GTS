@@ -120,6 +120,7 @@ program GTS
    ! input parameters, setup equilibrium, allocate memory
    call setup
 
+   call Cal_FootPrint_of_MagneticFieldLine
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    if(myrank_partd==nproc_partd-1) then
@@ -221,6 +222,9 @@ program GTS
    ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
    call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+
+   call Initialize_FootPrint(FP_BDY1,a1)
+   call Initialize_FootPrint(cum_FP_BDY1,a1)
 
    istep=0
    !  if(mype==0) call view_orbit
@@ -528,9 +532,12 @@ program GTS
          call Measure_Electron_Density_on_SG
          call Measure_Ion_Density_on_SG
 
+         call MPI_Reduce_FootPrints_of_Electrons_and_Ions(FP_BDY1,numberpe-1)
+         call Cumulate_FP_to_cumFP(FP_BDY1,cum_FP_BDY1)
          call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables
+         call Clear_FootPrints_of_Electrons_and_Ions(FP_BDY1)
          call system_mem_usage
          !  phi_tmp=0.0_wp
       end if
