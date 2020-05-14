@@ -77,7 +77,7 @@ module global_parameters
    ! to calculate derived quantities.
    integer Er_from_GTC_Neo,n_node
    real(wp) r0,b0,edensity0,temconst,coll_enlarge
-   character(25) :: Er_data_name,profile_data_name,eq_data_name
+   character(128) :: Er_data_name,profile_data_name,eq_data_name
 
    ! the following vaiables and arrays are used for diagnosis of distribution function
    integer,parameter :: nprobe=3
