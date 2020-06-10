@@ -1221,8 +1221,8 @@ static REAL *F=NULL,*Fa=NULL,*gFa=NULL,*gFaa=NULL,*gYa=NULL,*gYaa=NULL
 static REAL *dvi_gf=NULL, *dve_gf=NULL;
 static REAL *vpara_dvi_a=NULL, *vpara_dvi_gq=NULL, *vpara_dvi_gf=NULL;
 static REAL *vpara_dve_a=NULL, *vpara_dve_gq=NULL, *vpara_dve_gf=NULL;
-static REAL *ee_grad_a=NULL, *ee_grad_gq=NULL, *ee_grad_gf=NULL;
-static REAL *ii_grad_a=NULL, *ii_grad_gq=NULL, *ii_grad_gf=NULL;
+static REAL *ee_inv_grad_a=NULL, *ee_inv_grad_gq=NULL, *ee_inv_grad_gf=NULL;
+static REAL *ii_inv_grad_a=NULL, *ii_inv_grad_gq=NULL, *ii_inv_grad_gf=NULL;
 static REAL *Ne=NULL,*dNe=NULL;
 static REAL aTe=15.,aTi=15.,raT;
 static int *Flag_Streaming=NULL;
@@ -1240,8 +1240,8 @@ void esilink2c(REAL *XaF,REAL *XaFa
 		,REAL *Xdvi_gf, REAL *Xdve_gf
 		,REAL *Xvpara_dvi_a, REAL *Xvpara_dvi_gq, REAL *Xvpara_dvi_gf
 		,REAL *Xvpara_dve_a, REAL *Xvpara_dve_gq, REAL *Xvpara_dve_gf, int* Fortran_Streaming_Flag
-		,REAL *Xee_grad_a, REAL *Xee_grad_gq, REAL *Xee_grad_gf
-		,REAL *Xii_grad_a, REAL *Xii_grad_gq, REAL *Xii_grad_gf)
+		,REAL *Xee_inv_grad_a, REAL *Xee_inv_grad_gq, REAL *Xee_inv_grad_gf
+		,REAL *Xii_inv_grad_a, REAL *Xii_inv_grad_gq, REAL *Xii_inv_grad_gf)
 {
 	F	=XaF;
 	Fa	=XaFa;
@@ -1275,12 +1275,12 @@ void esilink2c(REAL *XaF,REAL *XaFa
 	vpara_dve_gq=Xvpara_dve_gq;
 	vpara_dve_gf=Xvpara_dve_gf;
    Flag_Streaming = Fortran_Streaming_Flag;
-   ee_grad_a=Xee_grad_a;
-   ee_grad_gq=Xee_grad_gq;
-   ee_grad_gf=Xee_grad_gf;
-   ii_grad_a=Xii_grad_a;
-   ii_grad_gq=Xii_grad_gq;
-   ii_grad_gf=Xii_grad_gf;
+   ee_inv_grad_a=Xee_inv_grad_a;
+   ee_inv_grad_gq=Xee_inv_grad_gq;
+   ee_inv_grad_gf=Xee_inv_grad_gf;
+   ii_inv_grad_a=Xii_inv_grad_a;
+   ii_inv_grad_gq=Xii_inv_grad_gq;
+   ii_inv_grad_gf=Xii_inv_grad_gf;
 
    return;
 }
@@ -1969,9 +1969,9 @@ int gcmotion(REAL *dXgr,
 		/*      T[k]  =sqrt(D*D/(za*za+ra*ra));   = 1/|grad(theta)|     */
 		/*  changed to (Oct. 2012):      */
 		gha[k]=sqrt(DD/Dhh);    /*  1/|grad_a|  */
-		ii_grad_a[k]  = sqrt((rq*rq+zq*zq)/DD);
-		ii_grad_gq[k] = sqrt((za*za+ra*ra)/DD);
-		ii_grad_gf[k] = 1.0/r;
+		ii_inv_grad_a[k]  = sqrt(DD/(rq*rq+zq*zq));
+		ii_inv_grad_gq[k] = sqrt(DD/(za*za+ra*ra));
+		ii_inv_grad_gf[k] = r;
 		/*  We calculate v_p at the end instead of  1/|grad(theta)| -- Oct. 2012   */
 		/*     T[k]  =sqrt(DD/(za*za+ra*ra));     = 1/|grad(theta)|    */
 
@@ -2284,9 +2284,9 @@ int gcmotion_em(REAL *dXgr,
 		/*      T[k]  =sqrt(D*D/(za*za+ra*ra));   = 1/|grad(theta)|     */
 		/*  changed to (Oct. 2012):      */
 		gha[k]=sqrt(DD/Dhh);    /*  1/|grad_a|  */
-		ii_grad_a[k]  = sqrt((rq*rq+zq*zq)/DD);
-		ii_grad_gq[k] = sqrt((za*za+ra*ra)/DD);
-		ii_grad_gf[k] = 1.0/r;
+		ii_inv_grad_a[k]  = sqrt(DD/(rq*rq+zq*zq));
+		ii_inv_grad_gq[k] = sqrt(DD/(za*za+ra*ra));
+		ii_inv_grad_gf[k] = r;
 		/*  We calculate v_p at the end instead of  1/|grad(theta)| -- Oct. 2012   */
 		/*     T[k]  =sqrt(DD/(za*za+ra*ra));     = 1/|grad(theta)|    */
 
@@ -2620,9 +2620,9 @@ int gcmotion_em_MGY(REAL *dXgr,
 		/*      T[k]  =sqrt(D*D/(za*za+ra*ra));   = 1/|grad(theta)|     */
 		/*  changed to (Oct. 2012):      */
 		gha[k]=sqrt(DD/Dhh);    /*  1/|grad_a|  */
-		ii_grad_a[k]  = sqrt((rq*rq+zq*zq)/DD);
-		ii_grad_gq[k] = sqrt((za*za+ra*ra)/DD);
-		ii_grad_gf[k] = 1.0/major_R;
+		ii_inv_grad_a[k]  = sqrt(DD/(rq*rq+zq*zq));
+		ii_inv_grad_gq[k] = sqrt(DD/(za*za+ra*ra));
+		ii_inv_grad_gf[k] = major_R;
 		/*  We calculate v_p at the end instead of  1/|grad(theta)| -- Oct. 2012   */
 		/*     T[k]  =sqrt(DD/(za*za+ra*ra));     = 1/|grad(theta)|    */
 
@@ -3028,9 +3028,9 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
          const REAL Gatheta=(ra*rq+za*zq)/DD;    /*  -grad(theta).grad(a) -- added Oct. 2012   */
          const REAL Dhh =rq*rq+zq*zq;
          gha[k]=sqrt(DD/Dhh);    /*  1/|grad_a|  */
-			ii_grad_a[k]  = sqrt((rq*rq+zq*zq)/DD);
-			ii_grad_gq[k] = sqrt((za*za+ra*ra)/DD);
-			ii_grad_gf[k] = 1.0/major_R;
+			ii_inv_grad_a[k]  = sqrt(DD/(rq*rq+zq*zq));
+			ii_inv_grad_gq[k] = sqrt(DD/(za*za+ra*ra));
+			ii_inv_grad_gf[k] = major_R;
          const REAL rD  =r*D;          /* Jacobian = rD = 1/[grad(a).grad(theta)xgrad(phi)] */
          T[k] =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/major_R;      /*  poloidal velocity in general geometry -- see note */
 
@@ -3320,9 +3320,9 @@ int gcmotion_e(REAL *dXgr,
 		D   =za*rq-zq*ra;
 		Dhh =rq*rq+zq*zq;
 		gha[k]=sqrt(D*D/Dhh);    /*  1/|grad_a|  */
-		ee_grad_a[k]  = sqrt((rq*rq+zq*zq)/(D*D));
-		ee_grad_gq[k] = sqrt((za*za+ra*ra)/(D*D));
-		ee_grad_gf[k] = 1.0/r;
+		ee_inv_grad_a[k]  = sqrt((D*D)/(rq*rq+zq*zq));
+		ee_inv_grad_gq[k] = sqrt((D*D)/(za*za+ra*ra));
+		ee_inv_grad_gf[k] = r;
 		a12 =D*((FI+T)/r+Xgr*r*P);
 		D   =-gYa/(r*D);
 		/*    a11       =(rq*rq+zq*zq)*D;   */
@@ -3615,9 +3615,9 @@ int gcmotion_eon(REAL *dXgr,
 		D   =za*rq-zq*ra;
 		Dhh =rq*rq+zq*zq;
 		gha[k]=sqrt(D*D/Dhh);    /*  1/|grad_a|  */
-		ee_grad_a[k]  = sqrt((rq*rq+zq*zq)/(D*D));
-		ee_grad_gq[k] = sqrt((za*za+ra*ra)/(D*D));
-		ee_grad_gf[k] = 1.0/r;
+		ee_inv_grad_a[k]  = sqrt((D*D)/(rq*rq+zq*zq));
+		ee_inv_grad_gq[k] = sqrt((D*D)/(za*za+ra*ra));
+		ee_inv_grad_gf[k] = r;
 		a12 =D*((FI+T)/r+Xgr*r*P);
 		D   =-gYa/(r*D);
 		/*    a11       =(rq*rq+zq*zq)*D;   */
@@ -3917,9 +3917,9 @@ int gcmotion_eon_em(REAL *dXgr,
 		D   =za*rq-zq*ra;
 		Dhh =rq*rq+zq*zq;
 		gha[k]=sqrt(D*D/Dhh);    /*  1/|grad_a|  */
-		ee_grad_a[k]  = sqrt((rq*rq+zq*zq)/(D*D));
-		ee_grad_gq[k] = sqrt((za*za+ra*ra)/(D*D));
-		ee_grad_gf[k] = 1.0/r;
+		ee_inv_grad_a[k]  = sqrt((D*D)/(rq*rq+zq*zq));
+		ee_inv_grad_gq[k] = sqrt((D*D)/(za*za+ra*ra));
+		ee_inv_grad_gf[k] = r;
 		a12 =D*((FI+T)/r+bgr*r*P);
 		D   =-gYa/(r*D);
 		/*    a11       =(rq*rq+zq*zq)*D;   */
@@ -4237,9 +4237,9 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		D   =za*rq-zq*ra;
 		Dhh =rq*rq+zq*zq;
 		gha[k]=sqrt(D*D/Dhh);    /*  1/|grad_a|  */
-		ee_grad_a[k]  = sqrt((rq*rq+zq*zq)/(D*D));
-		ee_grad_gq[k] = sqrt((za*za+ra*ra)/(D*D));
-		ee_grad_gf[k] = 1.0/r;
+		ee_inv_grad_a[k]  = sqrt((D*D)/(rq*rq+zq*zq));
+		ee_inv_grad_gq[k] = sqrt((D*D)/(za*za+ra*ra));
+		ee_inv_grad_gf[k] = r;
 		a12 =D*((FI+T*bgr)/r+bgr*r*P);
 		D   =-gYa/(r*D);
 		/*    a11       =(rq*rq+zq*zq)*D;   */
@@ -4550,9 +4550,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
          const REAL D	=za*rq-zq*ra;
          const REAL Dhh =rq*rq+zq*zq;
          gha[k]=sqrt(D*D/Dhh);    /*  1/|grad_a|  for later diagnostic purpose*/
-			ee_grad_a[k]  = sqrt((rq*rq+zq*zq)/(D*D));
-			ee_grad_gq[k] = sqrt((za*za+ra*ra)/(D*D));
-			ee_grad_gf[k] = 1.0/r;
+			ee_inv_grad_a[k]  = sqrt((D*D)/(rq*rq+zq*zq));
+			ee_inv_grad_gq[k] = sqrt((D*D)/(za*za+ra*ra));
+			ee_inv_grad_gf[k] = r;
 
          const REAL major_R = r;
 
