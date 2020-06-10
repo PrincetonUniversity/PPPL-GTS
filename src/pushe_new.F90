@@ -1652,6 +1652,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(ee_grad_a(:me),ee_grad_gq(:me),ee_grad_gf(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
@@ -1695,6 +1696,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(ee_grad_a(:me),ee_grad_gq(:me),ee_grad_gf(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
@@ -2233,6 +2235,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(ee_grad_a(:me),ee_grad_gq(:me),ee_grad_gf(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
@@ -2276,6 +2279,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(ee_grad_a(:me),ee_grad_gq(:me),ee_grad_gf(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))

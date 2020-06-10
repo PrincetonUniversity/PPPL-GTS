@@ -432,6 +432,13 @@ module esi_interface
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
       rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw
    !$acc declare create(F,Fa,TT,Ta,PP,Pa,BB,Ba,Bq,gh,gha,ghq)
+   
+   ! gradient of (a,gq,gf) at electron and ion particle positino
+   real(wp), dimension(:), allocatable :: ee_grad_a, ee_grad_gq, ee_grad_gf
+   real(wp), dimension(:), allocatable :: ii_grad_a, ii_grad_gq, ii_grad_gf
+   !$acc declare create(ee_grad_a, ee_grad_gq, ee_grad_gf)  
+   !$acc declare create(ii_grad_a, ii_grad_gq, ii_grad_gf)  
+
    real(wp), dimension(:), allocatable :: dve_gf, dvi_gf  ! gf(zeta) component of delta_v (due to plasma potential and magnetic perturbation)
    !$acc declare create(dve_gf,dvi_gf)
    real(wp), dimension(:), allocatable :: vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf  ! delta components (perturbed part) of ion v_para
