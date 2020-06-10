@@ -5820,6 +5820,9 @@ subroutine Init_Diagnostic_Grid
    DG%num_iSD = 8 +6 +6 +1 +4 ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
    DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
+   DG%num_eFD_1D = 4 ! Particle and Energy fluxes and contributions from ExB only
+   DG%num_iFD_1D = 4
+
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
    DG%inv_dgq = 1.0/DG%dgq
    DG%inv_ds  = (real(mpsi)/(s1-s0))/DG%a_jump
@@ -5847,6 +5850,10 @@ subroutine Init_Diagnostic_Grid
 
    allocate(DG%w_dne(Nq,Na), DG%w_dni(Nq,Na))
    allocate(DG%ne_tot_hybrid(Nq,Na), DG%ni_hybrid(Nq,Na), DG%Te_hybrid(Nq,Na), DG%Ti_hybrid(Nq,Na))
+
+   allocate(DG%eFluxData_a1D(Na,DG%num_eFD_1D), DG%iFluxData_a1D(Na,DG%num_iFD_1D)) ! radial Flux Data (particle, Energy, etc)
+   allocate(DG%cum_eFluxData_a1D(Na,DG%num_eFD_1D), DG%cum_iFluxData_a1D(Na,DG%num_iFD_1D)) ! cumulative radial Flux Data (particle, Energy, etc)
+   allocate(DG%Anulus_dV(Na), DG%inv_Anulus_dV(Na))
 
    k=1
    do i=0,mpsi,DG%a_jump
@@ -5963,6 +5970,9 @@ subroutine Init_Diagnostic_Grid
    DG%inv_Cell_dS_a  =1.0/DG%Cell_dS_a
    DG%inv_Cell_dS_gq =1.0/DG%Cell_dS_gq
    DG%inv_Cell_dS_gf =1.0/DG%Cell_dS_gf
+
+   DG%Anulus_dV = sum(DG%Cell_dV(1:DG%dim_gq-1,:), 1)
+   DG%inv_Anulus_dV = 1.0/DG%Anulus_dV
 
    ! Set PVS (ProbeVelocitySpace) parameters
 
@@ -6965,6 +6975,196 @@ subroutine Measure_Ions_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
    enddo
 
 end subroutine Measure_Ions_on_Diagnostic_Grid
+
+subroutine Measure_and_Cumulate_Radial_eFlux_on_DG(in_P_data, Full_dadgqdgf)
+   use precision
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   use mpi_defs
+   use particle_array
+   use particle_decomp
+   use esi_interface
+
+   implicit none
+
+   real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
+   real(wp), intent(in) :: Full_dadgqdgf(3,me)
+   real(wp) energy(me)
+   real(wp) delta_f(me), f_tot(me)
+   real(wp) ws0,ws1,va_eff,P_s
+   real(wp) tmp_FluxData(DG%dim_a,DG%num_eFD_1D)
+   integer :: sid,vid,m,size,ierr
+
+
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   DG%eFluxData_a1D=0
+
+   energy(:) = in_P_data(2,:)
+
+
+   if(Flag_Load_and_WeightDef==0)then
+      delta_f(:) = zeon0(5,1:me)*eNrNm
+      f_tot(:)   = eNrNm
+   else
+      delta_f(:) = zeon0(5,1:me)
+      f_tot(:)   = zeon0(6,1:me)
+   endif
+
+
+   do m=1,me
+      P_s  = zeon0(7,m)
+      sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+      ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
+      ws0 = 1.0-ws1
+
+
+      va_eff=Full_dadgqdgf(1,m)*ee_inv_grad_a(m)
+      vid=1; ! Particle Flux
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff
+      vid=2; ! Energy Flux
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff*energy(m)
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff*energy(m)
+
+
+      va_eff=(ghq(m)-vpara_dve_a(m))*ee_inv_grad_a(m)
+      vid=3; ! Particle Flux by ExB only
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff
+      vid=4; ! Energy Flux by ExB only
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff*energy(m)
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff*energy(m)
+   enddo
+
+
+   ! Cumulate Flux Data
+   DG%cum_eFluxData_a1D = DG%cum_eFluxData_a1D + DG%eFluxData_a1D
+
+
+   ! Communicate between Ranks and Normalize the data, when they are needed
+   ! Not every time step, to reduce computational cost
+   if(mod(istep,msnap)==0) then
+
+      tmp_FluxData = DG%eFluxData_a1D
+      size = DG%dim_a*DG%num_eFD_1D
+      call MPI_ALLREDUCE(tmp_FluxData, DG%eFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+      tmp_FluxData = DG%cum_eFluxData_a1D
+      size = DG%dim_a*DG%num_eFD_1D
+      call MPI_ALLREDUCE(tmp_FluxData, DG%cum_eFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+      ! Normalize Data by dividing Anulus volume
+      do vid=1,DG%num_eFD_1D
+         DG%eFluxData_a1D(:,vid) = DG%eFluxData_a1D(:,vid)*DG%inv_Anulus_dV
+         DG%cum_eFluxData_a1D(:,vid) = DG%cum_eFluxData_a1D(:,vid)*DG%inv_Anulus_dV
+      enddo
+   endif
+
+end subroutine Measure_and_Cumulate_Radial_eFlux_on_DG
+
+subroutine Measure_and_Cumulate_Radial_iFlux_on_DG(in_P_data, Full_dadgqdgf)
+   use precision
+   use Diagnostic_Grid
+   use global_parameters
+   use field_array
+   use mpi_defs
+   use particle_array
+   use particle_decomp
+   use esi_interface
+
+   implicit none
+
+   real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
+   real(wp), intent(in) :: Full_dadgqdgf(3,mi)
+   real(wp) energy(mi)
+   real(wp) delta_f(mi), f_tot(mi)
+   real(wp) ws0,ws1,va_eff,P_s
+   real(wp) tmp_FluxData(DG%dim_a,DG%num_iFD_1D)
+   integer :: sid,vid,m,size,ierr
+
+
+   if(acc_newer_D_zion) then
+      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
+
+   DG%iFluxData_a1D=0
+
+   energy(:) = in_P_data(2,:)
+
+   if(Flag_Load_and_WeightDef==0)then
+      delta_f(:) = zion0(5,1:mi)*iNrNm
+      f_tot(:)   = iNrNm
+   else
+      delta_f(:) = zion0(5,1:mi)
+      f_tot(:)   = zion0(6,1:mi)
+   endif
+
+
+   do m=1,mi
+      P_s  = zion0(7,m)
+      sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+      ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
+      ws0 = 1.0-ws1
+
+      va_eff=Full_dadgqdgf(1,m)*ii_inv_grad_a(m)
+      vid=1; ! Particle Flux
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff
+      vid=2; ! Energy Flux
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff*energy(m)
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff*energy(m)
+
+      va_eff=(ghq(m)-vpara_dvi_a(m))*ii_inv_grad_a(m)
+      vid=3; ! Particle Flux by ExB only
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff
+      vid=4; ! Energy Flux by ExB only
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff*energy(m)
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff*energy(m)
+   enddo
+
+
+   ! Cumulate Flux Data
+   DG%cum_iFluxData_a1D = DG%cum_iFluxData_a1D + DG%iFluxData_a1D
+
+
+   ! Communicate between Ranks and Normalize the data, when they are needed
+   ! Not every time step, to reduce computational cost
+   if(mod(istep,msnap)==0) then
+
+      tmp_FluxData = DG%iFluxData_a1D
+      size = DG%dim_a*DG%num_iFD_1D
+      call MPI_ALLREDUCE(tmp_FluxData, DG%iFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+      tmp_FluxData = DG%cum_iFluxData_a1D
+      size = DG%dim_a*DG%num_iFD_1D
+      call MPI_ALLREDUCE(tmp_FluxData, DG%cum_iFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+      ! Normalize Data by dividing Cell Volume
+      do vid=1,DG%num_iFD_1D
+         DG%iFluxData_a1D(:,vid) = DG%iFluxData_a1D(:,vid)*DG%inv_Anulus_dV
+         DG%cum_iFluxData_a1D(:,vid) = DG%cum_iFluxData_a1D(:,vid)*DG%inv_Anulus_dV
+      enddo
+   endif
+
+end subroutine Measure_and_Cumulate_Radial_iFlux_on_DG
+
+subroutine SetZeros_cum_Radial_FluxData_a1D_on_DG
+   use Diagnostic_Grid
+   implicit none
+
+   DG%cum_eFluxData_a1D = 0.0
+   DG%cum_iFluxData_a1D = 0.0
+
+end subroutine
 
 subroutine Interpolate_OriGridData_into_DG(oriData_1D, out_IntpData_2D)
 

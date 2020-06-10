@@ -340,6 +340,10 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: w_dne, w_dni ! wdne=abs(snap.DG.dne_tot)./(abs(snap.DG.ne_tot)+abs(snap.DG.dne_tot));
       real(wp), allocatable, dimension(:,:) :: ne_tot_hybrid, ni_hybrid, Te_hybrid, Ti_hybrid ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
 
+      integer :: num_eFD_1D, num_iFD_1D ! number of eFluxData_a1D and iFluxData_a1D
+      real(wp), allocatable, dimension(:,:) :: eFluxData_a1D, iFluxData_a1D ! radial Flux Data (particle, Energy, etc)
+      real(wp), allocatable, dimension(:,:) :: cum_eFluxData_a1D, cum_iFluxData_a1D ! cumulative radial Flux Data (particle, Energy, etc)
+      real(wp), allocatable, dimension(:) :: Anulus_dV, inv_Anulus_dV
 
       real(wp), allocatable, dimension(:,:,:) :: mag_grad_FLA_SM_FLabel
       real(wp), allocatable, dimension(:,:,:,:) :: grad_FLA_SM_FLabel, uvec_grad_FL_cov

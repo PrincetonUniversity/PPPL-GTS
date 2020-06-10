@@ -263,7 +263,7 @@ program GTS
       ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
-
+      call SetZeros_cum_Radial_FluxData_a1D_on_DG
       call Measure_Electron_Density_on_SG
       call Measure_Ion_Density_on_SG
       call snapshot_hdf5
@@ -537,6 +537,7 @@ program GTS
          call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables
+         call SetZeros_cum_Radial_FluxData_a1D_on_DG
          call Clear_FootPrints_of_Electrons_and_Ions(FP_BDY1)
          call system_mem_usage
          !  phi_tmp=0.0_wp
