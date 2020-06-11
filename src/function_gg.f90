@@ -5820,8 +5820,8 @@ subroutine Init_Diagnostic_Grid
    DG%num_iSD = 8 +6 +6 +1 +4 ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
    DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
-   DG%num_eFD_1D = 4 ! Particle and Energy fluxes and contributions from ExB only
-   DG%num_iFD_1D = 4
+   DG%num_eFD_1D = 6 ! Particle and Energy fluxes (Total; ExB; streaming)
+   DG%num_iFD_1D = 6 ! Particle and Energy fluxes (Total; ExB; streaming)
 
    DG%dgq   = 2.0*pi/(DG%dim_gq-1)
    DG%inv_dgq = 1.0/DG%dgq
@@ -6992,7 +6992,7 @@ subroutine Measure_and_Cumulate_Radial_eFlux_on_DG(in_P_data, Full_dadgqdgf)
    real(wp), intent(in) :: Full_dadgqdgf(3,me)
    real(wp) energy(me)
    real(wp) delta_f(me), f_tot(me)
-   real(wp) ws0,ws1,va_eff,P_s
+   real(wp) ws0,ws1,tmp,P_s
    real(wp) tmp_FluxData(DG%dim_a,DG%num_eFD_1D)
    integer :: sid,vid,m,size,ierr
 
@@ -7024,22 +7024,31 @@ subroutine Measure_and_Cumulate_Radial_eFlux_on_DG(in_P_data, Full_dadgqdgf)
       ws0 = 1.0-ws1
 
 
-      va_eff=Full_dadgqdgf(1,m)*ee_inv_grad_a(m)
+      tmp=delta_f(m)*Full_dadgqdgf(1,m)*ee_inv_grad_a(m)
       vid=1; ! Particle Flux
-      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff
-      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp
       vid=2; ! Energy Flux
-      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff*energy(m)
-      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff*energy(m)
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
 
 
-      va_eff=(ghq(m)-vpara_dve_a(m))*ee_inv_grad_a(m)
+      tmp=delta_f(m)*(ghq(m)-vpara_dve_a(m))*ee_inv_grad_a(m)
       vid=3; ! Particle Flux by ExB only
-      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff
-      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp
       vid=4; ! Energy Flux by ExB only
-      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff*energy(m)
-      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff*energy(m)
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
+
+      tmp=delta_f(m)*(vpara_dve_a(m))*ee_inv_grad_a(m)
+      vid=5; ! Particle Flux by streaming only
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp
+      vid=6; ! Energy Flux by streaming only
+      DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
+      DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
+
    enddo
 
 
@@ -7084,7 +7093,7 @@ subroutine Measure_and_Cumulate_Radial_iFlux_on_DG(in_P_data, Full_dadgqdgf)
    real(wp), intent(in) :: Full_dadgqdgf(3,mi)
    real(wp) energy(mi)
    real(wp) delta_f(mi), f_tot(mi)
-   real(wp) ws0,ws1,va_eff,P_s
+   real(wp) ws0,ws1,tmp,P_s
    real(wp) tmp_FluxData(DG%dim_a,DG%num_iFD_1D)
    integer :: sid,vid,m,size,ierr
 
@@ -7114,21 +7123,30 @@ subroutine Measure_and_Cumulate_Radial_iFlux_on_DG(in_P_data, Full_dadgqdgf)
       ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
       ws0 = 1.0-ws1
 
-      va_eff=Full_dadgqdgf(1,m)*ii_inv_grad_a(m)
+      tmp=delta_f(m)*Full_dadgqdgf(1,m)*ii_inv_grad_a(m)
       vid=1; ! Particle Flux
-      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff
-      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp
       vid=2; ! Energy Flux
-      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff*energy(m)
-      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff*energy(m)
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
 
-      va_eff=(ghq(m)-vpara_dvi_a(m))*ii_inv_grad_a(m)
+      tmp=delta_f(m)*(ghq(m)-vpara_dvi_a(m))*ii_inv_grad_a(m)
       vid=3; ! Particle Flux by ExB only
-      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff
-      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp
       vid=4; ! Energy Flux by ExB only
-      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*delta_f(m)*va_eff*energy(m)
-      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*delta_f(m)*va_eff*energy(m)
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
+
+      tmp=delta_f(m)*(vpara_dvi_a(m))*ii_inv_grad_a(m)
+      vid=5; ! Particle Flux by streaming only
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp
+      vid=6; ! Energy Flux by streaming only
+      DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
+      DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
+
    enddo
 
 
