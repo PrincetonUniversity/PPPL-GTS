@@ -5971,7 +5971,7 @@ subroutine Init_Diagnostic_Grid
    DG%inv_Cell_dS_gq =1.0/DG%Cell_dS_gq
    DG%inv_Cell_dS_gf =1.0/DG%Cell_dS_gf
 
-   DG%Anulus_dV = sum(DG%Cell_dV(1:DG%dim_gq-1,:), 1)
+   DG%Anulus_dV = mzetamax*sum(DG%Cell_dV(1:DG%dim_gq-1,:), 1)
    DG%inv_Anulus_dV = 1.0/DG%Anulus_dV
 
    ! Set PVS (ProbeVelocitySpace) parameters
