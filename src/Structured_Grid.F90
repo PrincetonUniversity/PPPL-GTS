@@ -83,6 +83,7 @@ contains
          SG%a_1D(k)=psi_grid(i)
          SG%a_2D(:,k)=psi_grid(i)
          SG%s_1D(k)=s_grid(i)
+         SG%n0_1D(k)=den_grid(i)
          SG%Te0_1D(k)=Te_grid(i)
          SG%Ti0_1D(k)=vth_grid(i)**2.0
          SG%safety_q_1D(k)=q_grid(i)
