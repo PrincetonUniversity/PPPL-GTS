@@ -154,14 +154,35 @@ subroutine poisson( solver, masssolver )
          ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
          ! call Solve_Poisson3D_on_SG
          ! call Cal_gradPhi_on_SG
-         call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         call Solve_test_Poisson3D_on_SG
+         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         ! call Solve_test_Poisson3D_on_SG
 
+         ! Calculate ion density and interpolate it into SG%dni
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               dentmp(ij)=densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i))
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dni)
+
+         ! Calculate electron density (df or dh; not including adiabatic density)
+         ! and then interpolate into SG%dne
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               dentmp(ij)=densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i))
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dne)
+
+         ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
+         call Solve_Poisson3D_on_SG
 
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
-         call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
-         ! call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
+         ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
          phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:) ! Convert from V unit to GTS normalized unit
          ! Note that phi(0,:) will be communicated in smooth_phi or field subroutine..
          ! Also, phi00 will be calculated in smooth_phi in the case of ZE_SEPRATION=0
@@ -390,9 +411,31 @@ subroutine poisson( solver, masssolver )
       if(Flag_Poisson3D_on_SG>=1) then
 
 
-         call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
-         call Solve_test_Poisson3D_on_SG
+         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         ! ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
+         ! call Solve_test_Poisson3D_on_SG
+
+         ! Calculate ion density and interpolate it into SG%dni
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               dentmp(ij)=densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i))
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dni)
+
+         ! Calculate electron density (df or dh; not including adiabatic density)
+         ! and then interpolate into SG%dne
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               dentmp(ij)=densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i))
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dne)
+
+         ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
+         call Solve_Poisson3D_on_SG
 
 
          ! call Measure_Electron_Density_on_SG
@@ -403,8 +446,8 @@ subroutine poisson( solver, masssolver )
          ! call Cal_gradPhi_on_SG
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
-         call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
-         ! call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
+         ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
          phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:)
 
          ! Send phi(1,:) to right poloidal plane
