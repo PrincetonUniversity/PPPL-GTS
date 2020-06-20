@@ -176,6 +176,8 @@ subroutine poisson( solver, masssolver )
          enddo
          call Interpolate_OriGridData_into_SG(dentmp,SG%dne)
 
+         ! Update Polarization Shielding Term of Amat coefficients
+         call Update_Amat_Coeffs
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
 
@@ -434,6 +436,8 @@ subroutine poisson( solver, masssolver )
          enddo
          call Interpolate_OriGridData_into_SG(dentmp,SG%dne)
 
+         ! Update Polarization Shielding Term of Amat coefficients
+         call Update_Amat_Coeffs
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
 

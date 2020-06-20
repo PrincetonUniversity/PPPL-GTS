@@ -26,6 +26,9 @@ module MGY_PETSc_Interface_Data
    PetscInt, allocatable, dimension(:,:) :: tarGid
    PetscReal, allocatable, dimension(:,:) :: tarVal
 
+   integer, allocatable :: o_nnz(:), d_nnz(:) !o_nnz and d_nnz are number of off-diagonal or diagonal nonzero terms
+   integer max_nnz ! maximum number of nonzero compoentns per each row
+
    ! Following Tensors will be used to determine Amat components (Poisson equation)
    ! Note that they are composed with the contravariant components
    ! Metric_T:  contravariant Metrics; g^(ij)=e^i*e^j, where e is covariant vector on the PEST coordinate
@@ -184,6 +187,7 @@ subroutine Finalize_MGY_PETSc_Interface_Data
    deallocate(mapG2P,mapP2G,mapP2L,mapL2G)
    deallocate(recv_Lsize_partd,displs_Lsize_partd)
    deallocate(recv_mapL2G_partd)
+   deallocate(d_nnz, o_nnz)
 
    if(allocated(Metric_T)) deallocate(Metric_T, Polar_T, Eps_T)
    if(allocated(CT)) deallocate(CT)
@@ -203,11 +207,10 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    real tt0, tt1
    PetscErrorCode ierr
    real, external:: dsda
-   integer :: max_nnz=7
-   integer, allocatable :: d_nnz(:),o_nnz(:)
 
    call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
 
+   max_nnz=7
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
@@ -321,7 +324,6 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   deallocate(d_nnz, o_nnz)
 
 end subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
 
@@ -764,8 +766,6 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    PetscReal inv_Jacob
    PetscErrorCode ierr
    real, external:: dsda
-   integer :: max_nnz=19 ! maximum number of non-zero values per each row
-   integer, allocatable :: o_nnz(:), d_nnz(:)
    integer :: dim_gq, dim_a
 
 
@@ -780,6 +780,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid()
 
+   max_nnz=19 ! maximum number of non-zero values per each row
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
@@ -917,7 +918,6 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   deallocate(d_nnz, o_nnz)
 
 end subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
@@ -934,8 +934,6 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    PetscReal inv_Jacob
    PetscErrorCode ierr
    real, external:: dsda
-   integer :: max_nnz=19 ! maximum number of non-zero values per each row
-   integer, allocatable :: o_nnz(:), d_nnz(:)
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
@@ -952,6 +950,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid()
 
+   max_nnz=19 ! maximum number of non-zero values per each row
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
@@ -1140,10 +1139,178 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   deallocate(d_nnz, o_nnz)
 
 end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
+
+subroutine Update_Amat_Coeffs
+   use MGY_PETSc_Interface_Data
+   use Structured_Grid
+   use particle_decomp
+   use global_parameters
+   use field_array, only:FLA_Te0
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   real tt0, tt1
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   integer :: dim_gq, dim_a
+   PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
+   real(wp), external :: Te0_eV, Ti0_eV, density
+   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+   call Determine_GK_PoissonTensors_on_Structured_Grid()
+
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   tarVal=0.0
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
+
+      ! 2 (gqid-1) & 3 (gqid+1)
+      AntiSym1 = 0.5*(CT(1,2,qq+1,ss,0)-CT(1,2,qq-1,ss,0))
+      AntiSym2 = 0.5*(CT(3,2,qq+1,ss,0)-CT(3,2,qq-1,ss,0))
+      tarGid(2 ,Lid) = mapP2G(qq-1,ss,ff)
+      tarVal(2 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq-1,ss,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(3 ,Lid) = mapP2G(qq+1,ss,ff)
+      tarVal(3 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq+1,ss,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 4 (sid-1) & 5 (sid+1)
+      AntiSym1 = 0.5*(CT(2,1,qq,ss+1,0)-CT(2,1,qq,ss-1,0))
+      AntiSym2 = 0.5*(CT(3,1,qq,ss+1,0)-CT(3,1,qq,ss-1,0))
+      tarGid(4 ,Lid) = mapP2G(qq,ss-1,ff)
+      tarVal(4 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss-1,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(5 ,Lid) = mapP2G(qq,ss+1,ff)
+      tarVal(5 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss+1,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 6 (gfid-1) & 7 (gfid+1)
+      AntiSym1 = 0.5*(CT(1,3,qq,ss,+1)-CT(1,3,qq,ss,-1))
+      AntiSym2 = 0.5*(CT(2,3,qq,ss,+1)-CT(2,3,qq,ss,-1))
+      tarGid(6 ,Lid) = mapP2G(qq,ss,ff-1)
+      tarVal(6 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,-1)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(7 ,Lid) = mapP2G(qq,ss,ff+1)
+      tarVal(7 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,+1)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+
+      Sym1 = 0.25*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+      ! 8 (sid+1,qid+1) & 9 (sid-1,qid-1)
+      tarGid(8 ,Lid) = mapP2G(qq+1,ss+1,ff)
+      tarVal(8 ,Lid) = +Sym1
+      tarGid(9 ,Lid) = mapP2G(qq-1,ss-1,ff)
+      tarVal(9 ,Lid) = +Sym1
+      ! 10 (sid+1,qid-1) & 11 (sid-1,qid+1)
+      tarGid(10,Lid) = mapP2G(qq-1,ss+1,ff)
+      tarVal(10,Lid) = -Sym1
+      tarGid(11,Lid) = mapP2G(qq+1,ss-1,ff)
+      tarVal(11,Lid) = -Sym1
+
+      Sym1 = 0.25*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+      ! 12 (sid+1,gfid+1) & 13 (sid-1,gfid-1)
+      tarGid(12,Lid) = mapP2G(qq,ss+1,ff+1)
+      tarVal(12,Lid) = +Sym1
+      tarGid(13,Lid) = mapP2G(qq,ss-1,ff-1)
+      tarVal(13,Lid) = +Sym1
+      ! 14 (sid+1,gfid-1) & 15 (sid-1,gfid+1)
+      tarGid(14,Lid) = mapP2G(qq,ss+1,ff-1)
+      tarVal(14,Lid) = -Sym1
+      tarGid(15,Lid) = mapP2G(qq,ss-1,ff+1)
+      tarVal(15,Lid) = -Sym1
+
+
+      Sym1 = 0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+      ! 16 (gqid+1,gfid+1) & 17  (gqid-1, gfid-1)
+      tarGid(16,Lid) = mapP2G(qq+1,ss,ff+1)
+      tarVal(16,Lid) = +Sym1
+      tarGid(17,Lid) = mapP2G(qq-1,ss,ff-1)
+      tarVal(17,Lid) = +Sym1
+      ! 18 (gqid+1,gfid-1) & 18 (gqid-1, gfid+1)
+      tarGid(18,Lid) = mapP2G(qq+1,ss,ff-1)
+      tarVal(18,Lid) = -Sym1
+      tarGid(19,Lid) = mapP2G(qq-1,ss,ff+1)
+      tarVal(19,Lid) = -Sym1
+
+
+      ! 1 (gqid,sid,gfid)
+      tarGid(1,Lid)=mapP2G(qq,ss,ff)
+      tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+
+      ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+      ! so make sure that target coefficient values represent (-nabla*(eps_T*nabla*phi))
+      tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+
+   enddo
+   call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
+
+   !In the case of delta-h electron simulation,
+   !add the adiabatic electron response term in the LHS (Amat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   if(ifelectron==2) then
+      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      elseif(Flag_Def_dne_adiab==2) then
+         ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
+         call Interpolate_OriGridData_into_SG(FLA_Te0(1,:), intpl_FLA_Te0)
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/(1e3*Tem_00*intpl_FLA_Te0(qq,ss))
+         enddo
+      endif
+
+   elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
+      ! To mimic GTS Way
+      if(adiab > 0.0_wp) then
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + adiab*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      else
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + 0.01/(Cs*Cs)/(1e3*Tem_00)*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      endif
+   endif
+
+
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+
+end subroutine Update_Amat_Coeffs
 
 subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    use precision, only:wp
@@ -1154,10 +1321,11 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    implicit none
 
    integer sid,gqid,i,j
-   real(wp) invBsq,n0,tmp ! 1/(B^2)
+   real(wp) invBsq,tmp ! 1/(B^2)
    real(wp), external :: density
    real(wp) inv_du(3)
    integer istatus(MPI_STATUS_SIZE), icount, ierror
+   real(wp) ne_tot(SG%dim_gq,SG%dim_s), ni_tot(SG%dim_gq,SG%dim_s)
 
 
    ! Metric Tensor is based on the static equilibrium magnetic field (PEST coordinate)
@@ -1179,15 +1347,29 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    Metric_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
 
+   if(Flag_Def_dne_adiab==1) then
+      do sid=1,SG%dim_s
+         ! density unit is (#/m^3)
+         ni_tot(gqid,:) = 1e6*(SG%n0_1D(sid) + SG%dni(gqid,:,1))
+         ne_tot(gqid,:) = 1e6*(SG%n0_1D(sid) + SG%dne(gqid,:,1) + int(ifelectron/2)*abs(csc0)*SG%phi(gqid,sid,1)/SG%Te0_1D(sid))
+      enddo
+   else
+      write(stdout,*) "Error! Flag_Def_dne_adiab=", Flag_Def_dne_adiab, " in Determine_GK_PoissonTensor"
+      call flush(stdout)
+      stop
+   endif
+
+
    do sid=1,SG%dim_a
       ! Assuming the static equilibrium density for ions and electrons
-      n0=1e6*density(SG%a_1D(sid),0) ! unit (#/m^(3))
       do gqid=1,SG%dim_gq
          invBsq=1.0/(SG%BB(gqid,sid)**2.0) ! unit (T^2)
          ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",SG%BB(gqid,sid), ", Polar(sid)=", 1e-3*(n0*amasse + n0*amassi)*invBsq
          do j=1,3
             do i=1,3
-               tmp=1e-3*(n0*amasse + n0*amassi)*invBsq  ! Polarization contribution from ions (n0*(1e-3*amassi)) and electrons (n0*1e-3*amasse)
+               ! Note tsince mgy_petsc coefficients are using SI units
+               ! Following (1e-3) is a converting coefficient for mass (g->kg)
+               tmp=1e3*(ni_tot(gqid,sid)*amasse + ne_tot(gqid,sid)*amassi)*invBsq
                Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(SG%B0_cntv3_sqf(i,gqid,sid)*SG%B0_cntv3_sqf(j,gqid,sid)))
             enddo
          enddo
