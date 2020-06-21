@@ -13,7 +13,7 @@ module Structured_Grid
       real(wp) ds,inv_ds   ! ds is constant since this is the structured grid on (s-gq-gf) coordinate.
 
       real(wp),allocatable,dimension(:) :: a_1D,ori_sid,s_1D,dsda_1D,gq_1D
-      real(wp),allocatable,dimension(:) :: safety_q_1D,n0_1D,Te0_1D,Ti0_1D ! some equilibrium 1D profile information
+      real(wp),allocatable,dimension(:) :: safety_q_1D,n0_1D,Te0_1D,Te0_eV_1D,Ti0_1D ! some equilibrium 1D profile information
       real(wp),allocatable,dimension(:,:) :: a_2D,s_2D,dsda_2D,gq_2D
       real(wp),allocatable,dimension(:,:) :: Cell_dV,inv_Cell_dV ! Cell Volume and its inverse
       real(wp),allocatable,dimension(:,:) :: Cell_dS_s,inv_Cell_dS_s,Cell_dS_gq,inv_Cell_dS_gq,Cell_dS_gf,inv_Cell_dS_gf ! Node_Surface in each direction
@@ -73,7 +73,7 @@ contains
       Nq=SG%dim_gq
 
       allocate(SG%gq_1D(Nq))
-      allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Ti0_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
+      allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
       allocate(SG%a_2D(Nq,Ns),SG%dsda_2D(Nq,Ns),SG%gq_2D(Nq,Ns),SG%Cell_dV(Nq,Ns),SG%inv_Cell_dV(Nq,Ns))
       allocate(SG%Cell_dS_s(Nq,Ns),SG%inv_Cell_dS_s(Nq,Ns),SG%Cell_dS_gq(Nq,Ns),SG%inv_Cell_dS_gq(Nq,Ns),SG%Cell_dS_gf(Nq,Ns),SG%inv_Cell_dS_gf(Nq,Ns))
 
@@ -85,6 +85,7 @@ contains
          SG%s_1D(k)=s_grid(i)
          SG%n0_1D(k)=den_grid(i)
          SG%Te0_1D(k)=Te_grid(i)
+         SG%Te0_eV_1D(k)=1e3*Tem_00*Te_grid(i)
          SG%Ti0_1D(k)=vth_grid(i)**2.0
          SG%safety_q_1D(k)=q_grid(i)
          k=k+1

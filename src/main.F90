@@ -221,7 +221,7 @@ program GTS
    call Initialize_Structured_Grid
    ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
-   call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+   ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    call Initialize_FootPrint(FP_BDY1,a1)
    call Initialize_FootPrint(cum_FP_BDY1,a1)
@@ -236,7 +236,11 @@ program GTS
 
    if(ifelectron/=0) call charge_eon
 
-   if(Flag_Poisson==1) call poisson( solver1, masssolver  )
+   if(Flag_Poisson==1) then
+      call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+      call poisson( solver1, masssolver  )
+      call Update_Amat_Coeffs
+   endif
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
    ! call smooth(0)

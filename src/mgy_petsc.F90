@@ -1349,9 +1349,11 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
 
    if(Flag_Def_dne_adiab==1) then
       do sid=1,SG%dim_s
-         ! density unit is (#/m^3)
-         ni_tot(gqid,:) = 1e6*(SG%n0_1D(sid) + SG%dni(gqid,:,1))
-         ne_tot(gqid,:) = 1e6*(SG%n0_1D(sid) + SG%dne(gqid,:,1) + int(ifelectron/2)*abs(csc0)*SG%phi(gqid,sid,1)/SG%Te0_1D(sid))
+         do gqid=1,SG%dim_gq
+            ! density unit is (#/m^3)
+            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni(gqid,sid,1))
+            ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne(gqid,sid,1) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
+         enddo
       enddo
    else
       write(stdout,*) "Error! Flag_Def_dne_adiab=", Flag_Def_dne_adiab, " in Determine_GK_PoissonTensor"
@@ -1369,7 +1371,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
             do i=1,3
                ! Note tsince mgy_petsc coefficients are using SI units
                ! Following (1e-3) is a converting coefficient for mass (g->kg)
-               tmp=1e3*(ni_tot(gqid,sid)*amasse + ne_tot(gqid,sid)*amassi)*invBsq
+               tmp=1e-3*(ne_tot(gqid,sid)*amasse + ni_tot(gqid,sid)*amassi)*invBsq
                Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(SG%B0_cntv3_sqf(i,gqid,sid)*SG%B0_cntv3_sqf(j,gqid,sid)))
             enddo
          enddo
