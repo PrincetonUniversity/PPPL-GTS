@@ -160,24 +160,28 @@ subroutine poisson( solver, masssolver )
          ! Calculate ion density and interpolate it into SG%dni
          do i=0,mpsi
             do j=1,mtheta(i)
-               dentmp(ij)=densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i))
+               ij=igrid(i)+j
+               dentmp(ij)=den_grid(i)*(densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i)))
             enddo
             dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
          enddo
-         call Interpolate_OriGridData_into_SG(dentmp,SG%dni)
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dni(:,:,1))
 
          ! Calculate electron density (df or dh; not including adiabatic density)
          ! and then interpolate into SG%dne
          do i=0,mpsi
             do j=1,mtheta(i)
-               dentmp(ij)=densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i))
+               ij=igrid(i)+j
+               dentmp(ij)=den_grid(i)*(densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i)))
             enddo
             dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
          enddo
-         call Interpolate_OriGridData_into_SG(dentmp,SG%dne)
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
 
-         ! Update Polarization Shielding Term of Amat coefficients
-         call Update_Amat_Coeffs
+         if(Flag_Update_Pol_Shielding==1) then
+            ! Update Polarization Shielding Term of Amat coefficients
+            call Update_Amat_Coeffs
+         endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
 
@@ -420,24 +424,27 @@ subroutine poisson( solver, masssolver )
          ! Calculate ion density and interpolate it into SG%dni
          do i=0,mpsi
             do j=1,mtheta(i)
-               dentmp(ij)=densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i))
+               ij=igrid(i)+j
+               dentmp(ij)=den_grid(i)*(densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i)))
             enddo
             dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
          enddo
-         call Interpolate_OriGridData_into_SG(dentmp,SG%dni)
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dni(:,:,1))
 
          ! Calculate electron density (df or dh; not including adiabatic density)
          ! and then interpolate into SG%dne
          do i=0,mpsi
             do j=1,mtheta(i)
-               dentmp(ij)=densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i))
+               ij=igrid(i)+j
+               dentmp(ij)=den_grid(i)*(densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i)))
             enddo
             dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
          enddo
-         call Interpolate_OriGridData_into_SG(dentmp,SG%dne)
-
-         ! Update Polarization Shielding Term of Amat coefficients
-         call Update_Amat_Coeffs
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
+         if(Flag_Update_Pol_Shielding==1) then
+            ! Update Polarization Shielding Term of Amat coefficients
+            call Update_Amat_Coeffs
+         endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
 

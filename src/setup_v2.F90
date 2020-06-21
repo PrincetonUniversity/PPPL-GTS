@@ -2453,6 +2453,7 @@ Subroutine read_input_params
       Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
       Flag_Quiet_Start,   &   ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
       Flag_Ptl_BC_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+      Flag_Update_Pol_Shielding, & ! Default=0 (Not Update), can be set=1(Update) Polarization Shielding Term in Poisson3D equation over time
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode

@@ -148,6 +148,7 @@ module global_parameters
    integer :: Flag_Load_and_WeightDef=0 ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
    integer :: Flag_Quiet_Start=1 ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
    integer :: Flag_Ptl_BC_type=0 ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+   integer :: Flag_Update_Pol_Shielding=0 ! Default=0 (Not updating Polarization Shielding over time)
 
    logical :: acc_newer_H_zion=.true., acc_newer_D_zion=.true., acc_newer_H_zeon=.true., acc_newer_D_zeon=.true.
 
