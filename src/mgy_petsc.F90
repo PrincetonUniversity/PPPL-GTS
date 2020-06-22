@@ -1355,6 +1355,11 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
             ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne(gqid,sid,1) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
+
+      ! Density must be positive so ignore negative values because of numerical noises
+      ne_tot = max(0.0,ne_tot)
+      ni_tot = max(0.0,ni_tot)
+
    else
       write(stdout,*) "Error! Flag_Def_dne_adiab=", Flag_Def_dne_adiab, " in Determine_GK_PoissonTensor"
       call flush(stdout)
