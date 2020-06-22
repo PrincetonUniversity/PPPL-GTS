@@ -178,10 +178,10 @@ subroutine poisson( solver, masssolver )
          enddo
          call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
 
-         if(Flag_Update_Pol_Shielding==1) then
-            ! Update Polarization Shielding Term of Amat coefficients
-            call Update_Amat_Coeffs
-         endif
+         ! if(Flag_Update_Pol_Shielding==1) then
+         !    ! Update Polarization Shielding Term of Amat coefficients
+         !    call Update_Amat_Coeffs
+         ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
 
@@ -441,10 +441,15 @@ subroutine poisson( solver, masssolver )
             dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
          enddo
          call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
-         if(Flag_Update_Pol_Shielding==1) then
-            ! Update Polarization Shielding Term of Amat coefficients
-            call Update_Amat_Coeffs
-         endif
+         ! if(Flag_Update_Pol_Shielding==1) then
+         !    ! Update Polarization Shielding Term of Amat coefficients
+         !    tt0=MPI_WTIME()
+         !    call Update_Amat_Coeffs
+         !    tt1=MPI_WTIME()
+         !    if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; Update_Amat_Coeffs takes ",tt1-tt0," secs"
+         !    call flush(stdout)
+
+         ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
 
