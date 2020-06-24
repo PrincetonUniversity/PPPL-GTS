@@ -48,7 +48,6 @@ subroutine pusheon(solver1, masssolver, irk_e)
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
 
    real(wp) TRANSF_weight_Z0, TRANSF_weight_Z ! Transformed weigth Z=-ln(1-w) ; w=1-exp(-Z); Z0 and Z corresponds to zeon0 and zeon, respectively
-   real(wp) FullVelocity_da_dgq_dgf(3,me) ! Full velocity (including magnetic drifts) of da= a_dot, dgq=gq_dot, dgf=dgf_dot
 
    delr=1.0_wp/deltar
    delt=1.0_wp/deltat
@@ -541,9 +540,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
             call get_Te_fluctuation(wpi(2,:))
          end if
       endif
-      if(irk_e==1 .and. mod(istep,msnap)==0) then
-         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:))
-      endif
+
 
       call shifte
 
@@ -1095,14 +1092,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
          end if
 
       endif
-      if(irk_e==1 .and. mod(istep,msnap)==0) then
-         do m=1,me
-            FullVelocity_da_dgq_dgf(1,m) = da(m)
-            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
-            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
-         enddo
-         call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
-      endif
+
 
    END IF
 
@@ -1652,6 +1642,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
@@ -1688,6 +1679,37 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       endif
 
+      if(irk_e==1) then
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+         !$acc update self(ee_inv_grad_a(:me), ghq(:me), vpara_dve_a(:me))
+         !$acc update self(da(:me),dgq(:me),dgf(:me))
+         !$acc update self(wpi(:,:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+
+         do m=1,me
+            FullVelocity_da_dgq_dgf(1,m) = da(m)
+            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+         enddo
+         call Measure_and_Cumulate_Radial_eFlux_on_DG(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+         if(mype==0) then
+            write(stdout,*) "Measure_Cumlate_eFlux_a1D takes", tt1-tt0," secs"
+            call flush(stdout)
+         endif
+#endif
+      endif
+
       !Another Diagnostics on DG (Diagnostic Grid)
       if(irk_e==1 .and. mod(istep,msnap)==0) then
          call cpu_time(cput0)
@@ -1695,6 +1717,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
@@ -1707,9 +1730,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          endif
 
          do m=1,me
-         FullVelocity_da_dgq_dgf(1,m) = da(m)
-         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
-         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+            FullVelocity_da_dgq_dgf(1,m) = da(m)
+            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
          enddo
          call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
 
@@ -2233,6 +2256,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
@@ -2269,6 +2293,38 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       endif
 
+      if(irk_e==1) then
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+         !$acc update self(ee_inv_grad_a(:me), ghq(:me), vpara_dve_a(:me))
+         !$acc update self(da(:me),dgq(:me),dgf(:me))
+         !$acc update self(wpi(:,:me))
+         if(acc_newer_D_zeon) then
+            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_D_zeon=.false.
+            acc_newer_H_zeon=.false.
+         endif
+
+         do m=1,me
+            FullVelocity_da_dgq_dgf(1,m) = da(m)
+            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+         enddo
+         call Measure_and_Cumulate_Radial_eFlux_on_DG(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+         if(mype==0) then
+            write(stdout,*) "Measure_Cumlate_eFlux_a1D takes", tt1-tt0," secs"
+            call flush(stdout)
+         endif
+#endif
+      endif
+
+
       !Another Diagnostics on DG (Diagnostic Grid)
       if(irk_e==1 .and. mod(istep,msnap)==0) then
          call cpu_time(cput0)
@@ -2276,6 +2332,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
          !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+         !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
          !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
          !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))

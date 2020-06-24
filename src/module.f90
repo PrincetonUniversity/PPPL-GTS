@@ -341,6 +341,10 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: w_dne, w_dni ! wdne=abs(snap.DG.dne_tot)./(abs(snap.DG.ne_tot)+abs(snap.DG.dne_tot));
       real(wp), allocatable, dimension(:,:) :: ne_tot_hybrid, ni_hybrid, Te_hybrid, Ti_hybrid ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
 
+      integer :: num_eFD_1D, num_iFD_1D ! number of eFluxData_a1D and iFluxData_a1D
+      real(wp), allocatable, dimension(:,:) :: eFluxData_a1D, iFluxData_a1D ! radial Flux Data (particle, Energy, etc)
+      real(wp), allocatable, dimension(:,:) :: cum_eFluxData_a1D, cum_iFluxData_a1D ! cumulative radial Flux Data (particle, Energy, etc)
+      real(wp), allocatable, dimension(:) :: Anulus_dV, inv_Anulus_dV
 
       real(wp), allocatable, dimension(:,:,:) :: mag_grad_FLA_SM_FLabel
       real(wp), allocatable, dimension(:,:,:,:) :: grad_FLA_SM_FLabel, uvec_grad_FL_cov
@@ -433,6 +437,13 @@ module esi_interface
    real(wp), dimension(:), allocatable :: F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
       rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw
    !$acc declare create(F,Fa,TT,Ta,PP,Pa,BB,Ba,Bq,gh,gha,ghq)
+
+   ! gradient of (a,gq,gf) at electron and ion particle positino
+   real(wp), dimension(:), allocatable :: ee_inv_grad_a, ee_inv_grad_gq, ee_inv_grad_gf
+   real(wp), dimension(:), allocatable :: ii_inv_grad_a, ii_inv_grad_gq, ii_inv_grad_gf
+   !$acc declare create(ee_inv_grad_a, ee_inv_grad_gq, ee_inv_grad_gf)
+   !$acc declare create(ii_inv_grad_a, ii_inv_grad_gq, ii_inv_grad_gf)
+
    real(wp), dimension(:), allocatable :: dve_gf, dvi_gf  ! gf(zeta) component of delta_v (due to plasma potential and magnetic perturbation)
    !$acc declare create(dve_gf,dvi_gf)
    real(wp), dimension(:), allocatable :: vpara_dvi_a, vpara_dvi_gq,vpara_dvi_gf  ! delta components (perturbed part) of ion v_para
