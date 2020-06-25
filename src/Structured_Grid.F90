@@ -576,6 +576,9 @@ contains
          enddo
       enddo
 
+      ! Periodic in theta direction (to make sure they are exactly the same)
+      out_IntpData_2D(SG%dim_gq,:) = out_IntpData_2D(1,:)
+
    end subroutine Interpolate_OriGridData_into_SG
 
    subroutine Interpolate_SG_into_GTSmgrid(SG_Data_2D, GTS_mgrid_Data1D)
@@ -605,6 +608,8 @@ contains
 
             GTS_mgrid_Data1D(ij) = ws0*(wq0*SG_Data_2D(gqid,sid)+wq1*SG_Data_2D(gqid+1,sid)) + ws1*(wq0*SG_Data_2D(gqid,sid+1)+wq1*SG_Data_2D(gqid+1,sid+1))
          enddo
+         ! Periodic in theta direction (to make sure they are exactly the same)
+         GTS_mgrid_Data1D(igrid(i)) = GTS_mgrid_Data1D(igrid(i)+mtheta(i))
       enddo
 
    end subroutine Interpolate_SG_into_GTSmgrid

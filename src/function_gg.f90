@@ -7213,6 +7213,9 @@ subroutine Interpolate_OriGridData_into_DG(oriData_1D, out_IntpData_2D)
       enddo
    enddo
 
+   ! Periodic in theta direction (to make sure they are exactly the same)
+   out_IntpData_2D(DG%dim_gq,:) = out_IntpData_2D(1,:)
+
 end subroutine Interpolate_OriGridData_into_DG
 
 
