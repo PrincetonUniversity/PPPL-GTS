@@ -497,8 +497,8 @@ contains
       SM_Data(1:Nq,1:Ns) = target_Data2D
       do smid=1,num_smooth
          ! Set ghost cell periodic in theta direction
-         SM_Data(0,:)    = SM_Data(Nq,:)
-         SM_Data(Nq+1,:) = SM_Data(1,:)
+         SM_Data(0,:)    = SM_Data(Nq-1,:)
+         SM_Data(Nq+1,:) = SM_Data(2,:)
          ! Smooth in theta direction
          SM_Data(1:Nq,:) = SM_gq_Coeff(-1,1:Nq,:)*SM_Data(0:Nq-1,:) + SM_gq_Coeff(0,1:Nq,:)*SM_Data(1:Nq,:) + SM_gq_Coeff(1,1:Nq,:)*SM_Data(2:Nq+1,:)
          ! Smooth in radial direction
@@ -529,8 +529,8 @@ contains
       VV(1:Nq,1:Ns) = in_VOLorAREA
 
       ! Note that theta direction is periodic
-      VV(0,:) = VV(Nq,:)
-      VV(Nq+1,:) = VV(1,:)
+      VV(0,:) = VV(Nq-1,:)
+      VV(Nq+1,:) = VV(2,:)
 
       SM_gq_Coeff(-1,1:Nq,:) = 0.5*VV(0:Nq-1,:)/(VV(0:Nq-1,:) + VV(1:Nq,:)) ! Coeff_L = 0.5*VL/(VL+VC)
       SM_gq_Coeff( 0,1:Nq,:) = 0.5*VV(1:Nq,:)*(VV(0:Nq-1,:)+2.0*VV(1:Nq,:)+VV(2:Nq+1,:))/((VV(0:Nq-1,:)+VV(1:Nq,:))*(VV(1:Nq,:)+VV(2:Nq+1,:))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))

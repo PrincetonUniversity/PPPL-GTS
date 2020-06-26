@@ -419,8 +419,8 @@ module DG_operations
          SM_Data(1:Ngq,1:Na) = target_Data2D
          do smid=1,num_smooth
             ! Set ghost cell periodic in theta direction
-            SM_Data(0,:)     = SM_Data(Ngq,:)
-            SM_Data(Ngq+1,:) = SM_Data(1,:)
+            SM_Data(0,:)     = SM_Data(Ngq-1,:)
+            SM_Data(Ngq+1,:) = SM_Data(2,:)
             ! Smooth in theta direction
             SM_Data(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*SM_Data(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*SM_Data(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*SM_Data(2:Ngq+1,:)
             ! Smooth in radial direction
