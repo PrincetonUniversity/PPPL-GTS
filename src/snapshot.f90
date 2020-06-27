@@ -1442,13 +1442,15 @@ subroutine snapshot_hdf5
 
       call h5ltmake_dataset_f(gid_SG, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dni_SM",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni_SM(:,:),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dne_SM",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne_SM(:,:),h5err)
       call h5ltmake_dataset_f(gid_SG, "ni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "ne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne(:,:,1),h5err)
 
-      call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D(3,SG%ni(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D(3,SG%ne(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%ni(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%ne(:,:,1),SG%Cell_dV)
       call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "ni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni(:,:,1),h5err)
@@ -1481,8 +1483,8 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "test_src_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_3D,h5err)
       call h5ltmake_dataset_f(gid_SG, "test_res_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_res_3D,h5err)
 
-      call Smooth_SG_Data_2D(3,SG%test_phi_2D,SG%Cell_dV)
-      call Smooth_SG_Data_2D(3,SG%test_src_2D,SG%Cell_dV)
+      call Smooth_SG_Data_2D([2],SG%test_phi_2D,SG%Cell_dV)
+      call Smooth_SG_Data_2D([2],SG%test_src_2D,SG%Cell_dV)
       call h5ltmake_dataset_f(gid_SG_SM, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_2D,h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_2D,h5err)
 

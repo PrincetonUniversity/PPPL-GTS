@@ -150,8 +150,8 @@ subroutine poisson( solver, masssolver )
 
          ! call Measure_Electron_Density_on_SG
          ! call Measure_Ion_Density_on_SG
-         ! call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
-         ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+         ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
+         ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)
          ! call Solve_Poisson3D_on_SG
          ! call Cal_gradPhi_on_SG
          ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
@@ -177,6 +177,12 @@ subroutine poisson( solver, masssolver )
             dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
          enddo
          call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
+
+         ! Smooth SG densities
+         SG%dne_SM = SG%dne(:,:,1)
+         SG%dni_SM = SG%dni(:,:,1)
+         call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
+         call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
 
          ! if(Flag_Update_Pol_Shielding==1) then
          !    ! Update Polarization Shielding Term of Amat coefficients
@@ -441,6 +447,13 @@ subroutine poisson( solver, masssolver )
             dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
          enddo
          call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
+
+         ! Smooth SG densities
+         SG%dne_SM = SG%dne(:,:,1)
+         SG%dni_SM = SG%dni(:,:,1)
+         call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
+         call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
+
          ! if(Flag_Update_Pol_Shielding==1) then
          !    ! Update Polarization Shielding Term of Amat coefficients
          !    tt0=MPI_WTIME()
@@ -456,8 +469,8 @@ subroutine poisson( solver, masssolver )
 
          ! call Measure_Electron_Density_on_SG
          ! call Measure_Ion_Density_on_SG
-         ! ! call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
-         ! ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+         ! ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
+         ! ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)
          ! call Solve_Poisson3D_on_SG
          ! call Cal_gradPhi_on_SG
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)

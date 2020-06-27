@@ -357,7 +357,8 @@ subroutine Solve_Poisson3D_on_SG()
       Gid=mapL2G(Lid)
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
-      val=RHS_leading_coeff*1e6*(SG%dni(qq,ss,1)-SG%dne(qq,ss,1))
+      ! val=RHS_leading_coeff*1e6*(SG%dni(qq,ss,1)-SG%dne(qq,ss,1))
+      val=RHS_leading_coeff*1e6*(SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
@@ -371,7 +372,7 @@ subroutine Solve_Poisson3D_on_SG()
    tt0=MPI_WTIME()
    call KSPSolve(ksp,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "KSPSolve takes ",tt1-tt0," secs"
+   if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
    ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
@@ -1351,8 +1352,10 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
             ! density unit is (#/m^3)
-            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni(gqid,sid,1))
-            ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne(gqid,sid,1) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
+            ! ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni(gqid,sid,1))
+            ! ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne(gqid,sid,1) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
+            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
+            ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
 
