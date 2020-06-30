@@ -1796,12 +1796,17 @@ Subroutine setup
    allocate(vpara_dvi_a(mimax), vpara_dvi_gq(mimax),vpara_dvi_gf(mimax))
    allocate(vpara_dve_a(memax), vpara_dve_gq(memax),vpara_dve_gf(memax))
 
+   ! gradient of (a,gq,gf) at electron and ion particle positino
+   allocate(ee_inv_grad_a(memax), ee_inv_grad_gq(memax), ee_inv_grad_gf(memax))
+   allocate(ii_inv_grad_a(mimax), ii_inv_grad_gq(mimax), ii_inv_grad_gf(mimax))
+
    ! c1.     Making link with C-ESI
    !  1. Supplying addresses to C-code (not a, gq)
    !call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
    !             rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw)
    call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw, dvi_gf, dve_gf,&
-      vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf, Flag_Streaming)
+      vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf, Flag_Streaming,&
+      ee_inv_grad_a,ee_inv_grad_gq,ee_inv_grad_gf,ii_inv_grad_a,ii_inv_grad_gq,ii_inv_grad_gf)
 
    call get_table_4_dlnAda    ! get ready for dln<A>/da and make A table;
    ! where A=exp(u^2/2T). NOTE: must be put after
@@ -2453,6 +2458,7 @@ Subroutine read_input_params
       Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
       Flag_Quiet_Start,   &   ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
       Flag_Ptl_BC_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+      Flag_Update_Pol_Shielding, & ! Default=0 (Not Update), can be set=1(Update) Polarization Shielding Term in Poisson3D equation over time
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode

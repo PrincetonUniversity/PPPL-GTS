@@ -221,7 +221,7 @@ program GTS
    call Initialize_Structured_Grid
    ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
-   call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+   ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    call Initialize_FootPrint(FP_BDY1,a1)
    call Initialize_FootPrint(cum_FP_BDY1,a1)
@@ -236,7 +236,15 @@ program GTS
 
    if(ifelectron/=0) call charge_eon
 
-   if(Flag_Poisson==1) call poisson( solver1, masssolver  )
+   if(Flag_Poisson==1) then
+      if(Flag_Poisson3D_on_SG==1) then
+         call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+         call poisson( solver1, masssolver  )
+         call Update_Amat_Coeffs
+      else
+         call poisson( solver1, masssolver  )
+      endif
+   endif
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
    ! call smooth(0)
@@ -263,9 +271,9 @@ program GTS
       ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
-
-      call Measure_Electron_Density_on_SG
-      call Measure_Ion_Density_on_SG
+      call SetZeros_cum_Radial_FluxData_a1D_on_DG
+      ! call Measure_Electron_Density_on_SG
+      ! call Measure_Ion_Density_on_SG
       call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
@@ -311,6 +319,13 @@ program GTS
          call flush(stdout)
       endif
       do irk=1,nrk
+
+         if(Flag_Poisson3D_on_SG==1 .and. Flag_Update_Pol_Shielding==1 ) then
+            if(irk==1) then
+               !Update Polarization Shielding Term in Poisson3D equation
+               call Update_Amat_Coeffs
+            endif
+         endif
 
          ! idiag=0: do time history diagnosis
          idiag=mod(irk-1,nrk)+mod(istep,ndiag)
@@ -529,14 +544,15 @@ program GTS
          endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
 
-         call Measure_Electron_Density_on_SG
-         call Measure_Ion_Density_on_SG
+         ! call Measure_Electron_Density_on_SG
+         ! call Measure_Ion_Density_on_SG
 
          call MPI_Reduce_FootPrints_of_Electrons_and_Ions(FP_BDY1,numberpe-1)
          call Cumulate_FP_to_cumFP(FP_BDY1,cum_FP_BDY1)
          call snapshot_hdf5
          call snapshot ! snapshot must be called after snapshot_hdf5, because snapshot changed densitye values inside
          call SetZeros_Cumulative_Variables
+         call SetZeros_cum_Radial_FluxData_a1D_on_DG
          call Clear_FootPrints_of_Electrons_and_Ions(FP_BDY1)
          call system_mem_usage
          !  phi_tmp=0.0_wp

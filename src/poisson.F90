@@ -150,18 +150,51 @@ subroutine poisson( solver, masssolver )
 
          ! call Measure_Electron_Density_on_SG
          ! call Measure_Ion_Density_on_SG
-         ! call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
-         ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+         ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
+         ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)
          ! call Solve_Poisson3D_on_SG
          ! call Cal_gradPhi_on_SG
-         call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         call Solve_test_Poisson3D_on_SG
+         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         ! call Solve_test_Poisson3D_on_SG
 
+         ! Calculate ion density and interpolate it into SG%dni
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               dentmp(ij)=den_grid(i)*(densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i)))
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dni(:,:,1))
+
+         ! Calculate electron density (df or dh; not including adiabatic density)
+         ! and then interpolate into SG%dne
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               dentmp(ij)=den_grid(i)*(densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i)))
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
+
+         ! Smooth SG densities
+         SG%dne_SM = SG%dne(:,:,1)
+         SG%dni_SM = SG%dni(:,:,1)
+         call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
+         call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
+
+         ! if(Flag_Update_Pol_Shielding==1) then
+         !    ! Update Polarization Shielding Term of Amat coefficients
+         !    call Update_Amat_Coeffs
+         ! endif
+         ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
+         call Solve_Poisson3D_on_SG
 
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
-         call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
-         ! call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
+         ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
          phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:) ! Convert from V unit to GTS normalized unit
          ! Note that phi(0,:) will be communicated in smooth_phi or field subroutine..
          ! Also, phi00 will be calculated in smooth_phi in the case of ZE_SEPRATION=0
@@ -390,21 +423,60 @@ subroutine poisson( solver, masssolver )
       if(Flag_Poisson3D_on_SG>=1) then
 
 
-         call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
-         call Solve_test_Poisson3D_on_SG
+         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
+         ! ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
+         ! call Solve_test_Poisson3D_on_SG
+
+         ! Calculate ion density and interpolate it into SG%dni
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               dentmp(ij)=den_grid(i)*(densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i)))
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dni(:,:,1))
+
+         ! Calculate electron density (df or dh; not including adiabatic density)
+         ! and then interpolate into SG%dne
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               dentmp(ij)=den_grid(i)*(densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i)))
+            enddo
+            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
+         enddo
+         call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
+
+         ! Smooth SG densities
+         SG%dne_SM = SG%dne(:,:,1)
+         SG%dni_SM = SG%dni(:,:,1)
+         call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
+         call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
+
+         ! if(Flag_Update_Pol_Shielding==1) then
+         !    ! Update Polarization Shielding Term of Amat coefficients
+         !    tt0=MPI_WTIME()
+         !    call Update_Amat_Coeffs
+         !    tt1=MPI_WTIME()
+         !    if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; Update_Amat_Coeffs takes ",tt1-tt0," secs"
+         !    call flush(stdout)
+
+         ! endif
+         ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
+         call Solve_Poisson3D_on_SG
 
 
          ! call Measure_Electron_Density_on_SG
          ! call Measure_Ion_Density_on_SG
-         ! ! call Smooth_SG_Data_2D(3,SG%dni(:,:,1),SG%Cell_dV)
-         ! ! call Smooth_SG_Data_2D(3,SG%dne(:,:,1),SG%Cell_dV)
+         ! ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
+         ! ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)
          ! call Solve_Poisson3D_on_SG
          ! call Cal_gradPhi_on_SG
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
-         call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
-         ! call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
+         ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
+         call Interpolate_SG_into_GTSmgrid(SG%phi(:,:,1),phi(1,:))
          phi(1,:) = ((charg0*1e8)/(E_00*c))*phi(1,:)
 
          ! Send phi(1,:) to right poloidal plane

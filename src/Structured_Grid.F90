@@ -13,7 +13,7 @@ module Structured_Grid
       real(wp) ds,inv_ds   ! ds is constant since this is the structured grid on (s-gq-gf) coordinate.
 
       real(wp),allocatable,dimension(:) :: a_1D,ori_sid,s_1D,dsda_1D,gq_1D
-      real(wp),allocatable,dimension(:) :: safety_q_1D,n0_1D,Te0_1D,Ti0_1D ! some equilibrium 1D profile information
+      real(wp),allocatable,dimension(:) :: safety_q_1D,n0_1D,Te0_1D,Te0_eV_1D,Ti0_1D ! some equilibrium 1D profile information
       real(wp),allocatable,dimension(:,:) :: a_2D,s_2D,dsda_2D,gq_2D
       real(wp),allocatable,dimension(:,:) :: Cell_dV,inv_Cell_dV ! Cell Volume and its inverse
       real(wp),allocatable,dimension(:,:) :: Cell_dS_s,inv_Cell_dS_s,Cell_dS_gq,inv_Cell_dS_gq,Cell_dS_gf,inv_Cell_dS_gf ! Node_Surface in each direction
@@ -31,6 +31,7 @@ module Structured_Grid
       ! Plasma information
       real(wp),allocatable, dimension(:,:,:) :: dni,dTi ! dimension: (dim_gq, dim_s, 0:1)
       real(wp),allocatable, dimension(:,:,:) :: dne,dTe
+      real(wp),allocatable, dimension(:,:) :: dni_SM, dne_SM ! Smoothed Densities for Poisson3D equation and updating Polarization Shielding Components
       real(wp),allocatable, dimension(:,:,:) :: ne,ni ! These are total electron density and ion density including equilibrium density (So, f=f0+df)
 
       real(wp), allocatable, dimension(:,:,:) :: phi ! dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
@@ -73,7 +74,7 @@ contains
       Nq=SG%dim_gq
 
       allocate(SG%gq_1D(Nq))
-      allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Ti0_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
+      allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
       allocate(SG%a_2D(Nq,Ns),SG%dsda_2D(Nq,Ns),SG%gq_2D(Nq,Ns),SG%Cell_dV(Nq,Ns),SG%inv_Cell_dV(Nq,Ns))
       allocate(SG%Cell_dS_s(Nq,Ns),SG%inv_Cell_dS_s(Nq,Ns),SG%Cell_dS_gq(Nq,Ns),SG%inv_Cell_dS_gq(Nq,Ns),SG%Cell_dS_gf(Nq,Ns),SG%inv_Cell_dS_gf(Nq,Ns))
 
@@ -83,7 +84,9 @@ contains
          SG%a_1D(k)=psi_grid(i)
          SG%a_2D(:,k)=psi_grid(i)
          SG%s_1D(k)=s_grid(i)
+         SG%n0_1D(k)=den_grid(i)
          SG%Te0_1D(k)=Te_grid(i)
+         SG%Te0_eV_1D(k)=1e3*Tem_00*Te_grid(i)
          SG%Ti0_1D(k)=vth_grid(i)**2.0
          SG%safety_q_1D(k)=q_grid(i)
          k=k+1
@@ -109,6 +112,7 @@ contains
       allocate(SG%B0_cntv3_sqf(3,Nq,Ns))
 
       allocate(SG%dne(Nq,Ns,0:1),SG%dni(Nq,Ns,0:1))
+      allocate(SG%dne_SM(Nq,Ns),SG%dni_SM(Nq,Ns))
       allocate(SG%dTe(Nq,Ns,0:1),SG%dTi(Nq,Ns,0:1))
       allocate(SG%ne(Nq,Ns,0:1),SG%ni(Nq,Ns,0:1))
 
@@ -468,13 +472,13 @@ contains
 #endif
    end subroutine Measure_Ion_Density_on_SG
 
-   subroutine Smooth_SG_Data_2D(num_smooth, target_Data2D, Reference_Data2D)
+   subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Reference_Data2D)
 
       use precision
       use global_parameters
       implicit none
 
-      integer, intent(in) :: num_smooth
+      integer, intent(in) :: num_smooth_gq_s(:)
       real(wp),intent(inout) :: target_Data2D(SG%dim_gq, SG%dim_s)
       real(wp),optional:: Reference_Data2D(SG%dim_gq, SG%dim_s)
       real(wp) :: VV(SG%dim_gq, SG%dim_s)
@@ -491,18 +495,39 @@ contains
       ! Get Smooth Coeffs which conserves Volume Weighted Integration
       call Get_Conserving_Smooth_Coeffs_on_SG(VV, SM_s_Coeff, SM_gq_Coeff)
 
-      SM_Data = 0.0
-      SM_Data(1:Nq,1:Ns) = target_Data2D
-      do smid=1,num_smooth
-         ! Set ghost cell periodic in theta direction
-         SM_Data(0,:)    = SM_Data(Nq-1,:)
-         SM_Data(Nq+1,:) = SM_Data(2,:)
-         ! Smooth in theta direction
-         SM_Data(1:Nq,:) = SM_gq_Coeff(-1,1:Nq,:)*SM_Data(0:Nq-1,:) + SM_gq_Coeff(0,1:Nq,:)*SM_Data(1:Nq,:) + SM_gq_Coeff(1,1:Nq,:)*SM_Data(2:Nq+1,:)
-         ! Smooth in radial direction
-         SM_Data(:,1:Ns) = SM_s_Coeff(-1,:,1:Ns)*SM_Data(:,0:Ns-1) + SM_s_Coeff(0,:,1:Ns)*SM_Data(:,1:Ns) + SM_s_Coeff(1,:,1:Ns)*SM_Data(:,2:Ns+1)
-      enddo
-      target_Data2D = SM_Data(1:Nq,1:Ns)
+
+      if(size(num_smooth_gq_s)==1) then
+         SM_Data = 0.0
+         SM_Data(1:Nq,1:Ns) = target_Data2D
+         do smid=1,num_smooth_gq_s(1)
+            ! Set ghost cell periodic in theta direction
+            SM_Data(0,:)    = SM_Data(Nq-1,:)
+            SM_Data(Nq+1,:) = SM_Data(2,:)
+            ! Smooth in theta direction
+            SM_Data(1:Nq,:) = SM_gq_Coeff(-1,1:Nq,:)*SM_Data(0:Nq-1,:) + SM_gq_Coeff(0,1:Nq,:)*SM_Data(1:Nq,:) + SM_gq_Coeff(1,1:Nq,:)*SM_Data(2:Nq+1,:)
+            ! Smooth in radial direction
+            SM_Data(:,1:Ns) = SM_s_Coeff(-1,:,1:Ns)*SM_Data(:,0:Ns-1) + SM_s_Coeff(0,:,1:Ns)*SM_Data(:,1:Ns) + SM_s_Coeff(1,:,1:Ns)*SM_Data(:,2:Ns+1)
+         enddo
+         target_Data2D = SM_Data(1:Nq,1:Ns)
+      elseif(size(num_smooth_gq_s)==2) then
+         SM_Data = 0.0
+         SM_Data(1:Nq,1:Ns) = target_Data2D
+         do smid=1,num_smooth_gq_s(1)
+            ! Set ghost cell periodic in theta direction
+            SM_Data(0,:)    = SM_Data(Nq-1,:)
+            SM_Data(Nq+1,:) = SM_Data(2,:)
+            ! Smooth in theta direction
+            SM_Data(1:Nq,:) = SM_gq_Coeff(-1,1:Nq,:)*SM_Data(0:Nq-1,:) + SM_gq_Coeff(0,1:Nq,:)*SM_Data(1:Nq,:) + SM_gq_Coeff(1,1:Nq,:)*SM_Data(2:Nq+1,:)
+         enddo
+         do smid=1,num_smooth_gq_s(2)
+            ! Smooth in radial direction
+            SM_Data(:,1:Ns) = SM_s_Coeff(-1,:,1:Ns)*SM_Data(:,0:Ns-1) + SM_s_Coeff(0,:,1:Ns)*SM_Data(:,1:Ns) + SM_s_Coeff(1,:,1:Ns)*SM_Data(:,2:Ns+1)
+         enddo
+         target_Data2D = SM_Data(1:Nq,1:Ns)
+      else
+         write(stdout,*) "Error! Check num_smooth_gq_s = ",num_smooth_gq_s(:)
+         stop
+      endif
 
    end subroutine Smooth_SG_Data_2D
 
@@ -574,6 +599,9 @@ contains
          enddo
       enddo
 
+      ! Periodic in theta direction (to make sure they are exactly the same)
+      out_IntpData_2D(SG%dim_gq,:) = out_IntpData_2D(1,:)
+
    end subroutine Interpolate_OriGridData_into_SG
 
    subroutine Interpolate_SG_into_GTSmgrid(SG_Data_2D, GTS_mgrid_Data1D)
@@ -603,6 +631,8 @@ contains
 
             GTS_mgrid_Data1D(ij) = ws0*(wq0*SG_Data_2D(gqid,sid)+wq1*SG_Data_2D(gqid+1,sid)) + ws1*(wq0*SG_Data_2D(gqid,sid+1)+wq1*SG_Data_2D(gqid+1,sid+1))
          enddo
+         ! Periodic in theta direction (to make sure they are exactly the same)
+         GTS_mgrid_Data1D(igrid(i)) = GTS_mgrid_Data1D(igrid(i)+mtheta(i))
       enddo
 
    end subroutine Interpolate_SG_into_GTSmgrid
