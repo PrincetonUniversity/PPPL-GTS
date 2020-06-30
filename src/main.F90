@@ -237,9 +237,13 @@ program GTS
    if(ifelectron/=0) call charge_eon
 
    if(Flag_Poisson==1) then
-      call Construct_GK_Poisson3D_Solver_with_Extremal_Method
-      call poisson( solver1, masssolver  )
-      call Update_Amat_Coeffs
+      if(Flag_Poisson3D_on_SG==1) then
+         call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+         call poisson( solver1, masssolver  )
+         call Update_Amat_Coeffs
+      else
+         call poisson( solver1, masssolver  )
+      endif
    endif
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
@@ -268,8 +272,8 @@ program GTS
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
       call SetZeros_cum_Radial_FluxData_a1D_on_DG
-      call Measure_Electron_Density_on_SG
-      call Measure_Ion_Density_on_SG
+      ! call Measure_Electron_Density_on_SG
+      ! call Measure_Ion_Density_on_SG
       call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
@@ -540,8 +544,8 @@ program GTS
          endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
 
-         call Measure_Electron_Density_on_SG
-         call Measure_Ion_Density_on_SG
+         ! call Measure_Electron_Density_on_SG
+         ! call Measure_Ion_Density_on_SG
 
          call MPI_Reduce_FootPrints_of_Electrons_and_Ions(FP_BDY1,numberpe-1)
          call Cumulate_FP_to_cumFP(FP_BDY1,cum_FP_BDY1)
