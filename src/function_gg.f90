@@ -26,6 +26,77 @@ module function_gg_module
          RETURN
       end function SMOOTHSTEP_M
 
+      function SmootherStep(in_x,x0,y0,x1,y1) result(out_y)
+         !This function give a point from a smoothly increasing curve between two points (x0,y0) and (x1,y1)
+         !$acc routine seq
+         use precision
+         implicit none
+
+         real(wp), intent(in) :: in_x
+         real(wp), intent(in), optional :: x0,y0,x1,y1
+         real(wp) :: out_y
+         real(wp) :: x, xx0,xx1,yy0,yy1
+
+         xx0=0.0
+         yy0=0.0
+         xx1=1.0
+         yy1=1.0
+
+         if(present(x0)) xx0=x0
+         if(present(y0)) yy0=y0
+         if(present(x1)) xx1=x1
+         if(present(y1)) yy1=y1
+
+         if(in_x<xx0) then
+            out_y=yy0
+            return
+         elseif(in_x>xx1) then
+            out_y=yy1
+            return
+         endif
+
+         x = (in_x-xx0)/(xx1-xx0)
+         out_y = (yy1-yy0)*(x*x*x*(x*(x*6-15)+10)) + yy0
+
+      end function SmootherStep
+
+      subroutine SmootherStep2(in_x,out_y,out_dydx,x0,y0,x1,y1)
+         !This function give a point from a smoothly increasing curve between two points (x0,y0) and (x1,y1)
+         !$acc routine seq
+         use precision
+         implicit none
+
+         real(wp), intent(in) :: in_x
+         real(wp), intent(in), optional :: x0,y0,x1,y1
+         real(wp), intent(out), optional :: out_y, out_dydx
+         real(wp) :: x, xx0,xx1,yy0,yy1
+
+         xx0=0.0
+         yy0=0.0
+         xx1=1.0
+         yy1=1.0
+
+         if(present(x0)) xx0=x0
+         if(present(y0)) yy0=y0
+         if(present(x1)) xx1=x1
+         if(present(y1)) yy1=y1
+
+         if(in_x<xx0) then
+            if(present(out_y)) out_y=yy0
+            if(present(out_dydx)) out_dydx=0.0
+            return
+         elseif(in_x>xx1) then
+            if(present(out_y)) out_y=yy1
+            if(present(out_dydx)) out_dydx=0.0
+            return
+         endif
+
+         x = (in_x-xx0)/(xx1-xx0)
+
+         if(present(out_y)) out_y = (yy1-yy0)*(x*x*x*(x*(x*6-15)+10)) + yy0
+         if(present(out_dydx)) out_dydx = (yy1-yy0)*(30*x**2.0*(x-1)**2.0)/(xx1-xx0)
+
+      end subroutine SmootherStep2
 
       subroutine n_T_u_group_partial(m_start,m_end)
          !
