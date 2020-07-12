@@ -320,7 +320,7 @@ program GTS
       endif
       do irk=1,nrk
 
-         if(Flag_Poisson3D_on_SG==1 .and. Flag_Update_Pol_Shielding==1 ) then
+         if(Flag_Poisson==1 .and. Flag_Poisson3D_on_SG==1 .and. Flag_Update_Pol_Shielding==1 ) then
             if(irk==1) then
                !Update Polarization Shielding Term in Poisson3D equation
                call Update_Amat_Coeffs
