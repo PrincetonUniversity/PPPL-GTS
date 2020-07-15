@@ -79,9 +79,9 @@ ifeq ($(F90),mpif90)
 endif
 
    ifeq ($(DEBUG),y)
-     OPT:=-g  $(FFLAGS)   -dynamic -debug inline-debug-info -parallel-source-info=2 -O3
-     COPT:= -g  $(CFLAGS) -dynamic -debug inline-debug-info -parallel-source-info=2 -O3
-     GOPT:= -g  $(CFLAGS) -dynamic -debug inline-debug-info -parallel-source-info=2 -O3
+     OPT:=-g -O0  $(FFLAGS)
+     COPT:= -g -O0 $(CFLAGS)
+     GOPT:= -g -O0 $(CFLAGS)
    else
      OPT:=$(OPT) $(FFLAGS)
      COPT:=$(COPT) $(CFLAGS)
