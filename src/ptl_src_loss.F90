@@ -1539,8 +1539,8 @@ module Ptl_Src_Loss
             deallocate(fill_mid_arr)
             acc_newer_D_zeon=.true.
 
-            call electron_locator_partial(m_start=m0, m_end=min(me,lost_mid_arr(lasth)))
-            call n_T_u_group_e_partial(m_start=m0, m_end=min(me,lost_mid_arr(lasth)))
+            call electron_locator_partial(m_start=m0, m_end=me)
+            call n_T_u_group_e_partial(m_start=m0, m_end=me)
          endif
 
       end subroutine treat_electrons_out_of_boundary
@@ -1696,8 +1696,8 @@ module Ptl_Src_Loss
             deallocate(fill_mid_arr)
             acc_newer_D_zion=.true.
 
-            call ion_locator_at_larmor_points_partial(m_start=m0, m_end=min(mi,lost_mid_arr(lasth)))
-            call n_T_u_group_partial(m_start=m0, m_end=min(mi,lost_mid_arr(lasth)))
+            call ion_locator_at_larmor_points_partial(m_start=m0, m_end=mi)
+            call n_T_u_group_partial(m_start=m0, m_end=mi)
          endif
 
       end subroutine treat_ions_out_of_boundary
