@@ -348,6 +348,7 @@ subroutine Solve_Poisson3D_on_SG()
    PetscReal source(SG%dim_gq,SG%dim_a)
    PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
    real(wp) tt0,tt1
+   real(wp) AD ! Adiabatic Factor = e*phi/Te0
    integer :: i,j,ij
 
    RHS_leading_coeff=1.602176634e-19 ! element_chargey (e)
@@ -359,6 +360,10 @@ subroutine Solve_Poisson3D_on_SG()
       ss=mapG2P(Gid)%aid
       ! val=RHS_leading_coeff*1e6*(SG%dni(qq,ss,1)-SG%dne(qq,ss,1))
       val=RHS_leading_coeff*1e6*(SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
+      if(Flag_Def_dne_adiab==3) then
+         AD  = SG%phi(qq,ss,1)/SG%Te0_eV_1D(ss)
+         val = val + RHS_leading_coeff*1e6*SG%n0_1D(ss)*(1.0-(exp(AD)-AD)) ! ni0-ne0*(exp(AD)-AD)
+      endif
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
@@ -400,7 +405,7 @@ subroutine Solve_Poisson3D_on_SG()
    deallocate(xVec_mype, xVec_partd)
 
 
-   ! Copy bVec (source) to the SG%test_phi vector
+   ! Copy bVec (source) to the SG%test_src vector
    allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
    call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
    bVec_mype(:)=ptr_bVec(1:Lsize)
@@ -413,7 +418,7 @@ subroutine Solve_Poisson3D_on_SG()
    SG%test_src_2D(SG%dim_gq,:)=SG%test_src_2D(1,:)
    deallocate(bVec_mype, bVec_partd)
 
-   ! Copy ResVec (residual=A*x-b) to the SG%test_phi vector
+   ! Copy ResVec (residual=A*x-b) to the SG%test_res vector
    allocate(ResVec_mype(Lsize), ResVec_partd(sum_Lsize_partd))
    call VecGetArrayReadF90(ResVec,ptr_ResVec,ierr)
    ResVec_mype(:)=ptr_ResVec(1:Lsize)
@@ -1045,7 +1050,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    !add the adiabatic electron response term in the LHS (Amat)
    ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
    if(ifelectron==2) then
-      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
+      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1 .or. Flag_Def_dne_adiab==3) then
          do Lid=1,Lsize
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
@@ -1256,7 +1261,7 @@ subroutine Update_Amat_Coeffs
    !add the adiabatic electron response term in the LHS (Amat)
    ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
    if(ifelectron==2) then
-      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
+      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1 .or. Flag_Def_dne_adiab==3) then
          do Lid=1,Lsize
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
@@ -1358,10 +1363,15 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
             ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
-
-      ! Density must be positive so ignore negative values because of numerical noises
-      ne_tot = max(0.0,ne_tot)
-      ni_tot = max(0.0,ni_tot)
+   elseif(Flag_Def_dne_adiab==3) then
+      ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
+      do sid=1,SG%dim_s
+         do gqid=1,SG%dim_gq
+            ! density unit is (#/m^3)
+            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
+            ne_tot(gqid,sid) = 1e6*(SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))))
+         enddo
+      enddo
 
    else
       write(stdout,*) "Error! Flag_Def_dne_adiab=", Flag_Def_dne_adiab, " in Determine_GK_PoissonTensor"
@@ -1369,6 +1379,9 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
       stop
    endif
 
+   ! Density must be positive so ignore negative values because of numerical noises
+   ne_tot = max(0.0,ne_tot)
+   ni_tot = max(0.0,ni_tot)
 
    do sid=1,SG%dim_a
       ! Assuming the static equilibrium density for ions and electrons

@@ -14,7 +14,7 @@ subroutine poisson( solver, masssolver )
    !
    type(solver_data) :: solver, masssolver
    ! local vars
-   integer i,ii,jt,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2
+   integer i,ii,jt,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2,loop
    integer istatus(MPI_STATUS_SIZE)
    !  integer,dimension(:,:),allocatable :: nindex
    !  integer,dimension(:,:,:),allocatable :: indexp
@@ -22,6 +22,8 @@ subroutine poisson( solver, masssolver )
 
    real(wp) tmp,rms ! gamma0,
 
+   real(wp), allocatable :: ori_SG_phi(:,:)
+   real(wp) RMS_deviations, RMS_old_phi
    real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi),adum_11(0:mpsi)
    real(wp) old_phip00(0:mpsi), phip00_convergency
    !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
@@ -464,8 +466,27 @@ subroutine poisson( solver, masssolver )
 
          ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
-         call Solve_Poisson3D_on_SG
-
+         allocate(ori_SG_phi(SG%dim_gq,SG%dim_s))
+         do loop=1,10
+            ori_SG_phi=SG%phi(:,:,1)
+            RMS_old_phi=0.0
+            do i=1,SG%dim_s
+               do j=1,SG%dim_gq-1
+                  RMS_old_phi = RMS_old_phi + SG%phi(j,i,1)**2.0
+               enddo
+            enddo
+            RMS_old_phi = sqrt(RMS_old_phi)
+            call Solve_Poisson3D_on_SG
+            RMS_deviations=0.0
+            do i=1,SG%dim_s
+               do j=1,SG%dim_gq-1
+                  RMS_deviations = RMS_deviations + (SG%phi(j,i,1)-ori_SG_phi(j,i))**2.0
+               enddo
+            enddo
+            RMS_deviations = sqrt(RMS_deviations)
+            if(mype==0) write(stdout,'(2(A,I4),A,ES16.8)') "loop=",loop,", mype=",mype,", phi evolving ratio=", RMS_deviations/RMS_old_phi
+         enddo
+         deallocate(ori_SG_phi)
 
          ! call Measure_Electron_Density_on_SG
          ! call Measure_Ion_Density_on_SG

@@ -941,6 +941,9 @@ module Ptl_Src_Loss
             elseif(Flag_Def_dne_adiab==2) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
                AdiabTerm(m)=csc0*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (q*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==3) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+               AdiabTerm(m)=-1.0+exp(csc0*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (q*dphi_tot/Te)
             else
                AdiabTerm(m)=-1e100
                write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"

@@ -191,6 +191,7 @@ contains
 
       ! allocate phi
       allocate(SG%phi(Nq,Ns,0:2)) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
+      SG%phi=0.0
       allocate(SG%grad_phi_cov(3,Nq,Ns,0:1))
 
       allocate(SG%test_phi_2D(Nq,Ns),SG%test_src_2D(Nq,Ns),SG%test_res_2D(Nq,Ns))
