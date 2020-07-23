@@ -23,6 +23,13 @@ module MGY_PETSc_Interface_Data
    Vec bVec, xVec, ResVec
    KSP ksp
 
+   ! Follolwing (Jmat, yVec) are for solving nonlinear Poisson equation in the case of Flag_dne_adiab==3
+   !Jacobian Matrix (Amat + (ne0*e^2/Te0)*exp(e*phi/Te0)), in the case of Flag_dne_adiab==3 (nonlinear adiabatic response)
+   Mat Jmat
+   ! F vector (a system of equations) for Newton-Raphson method
+   Vec yVec ! yVec = (Jmat)^(-1)*(FVec)
+   Vec srcVec ! source (RHS) of the nonlinear Poisson equation (e*(ni0+dni-dneh)) to calculate residual
+
    PetscInt, allocatable, dimension(:,:) :: tarGid
    PetscReal, allocatable, dimension(:,:) :: tarVal
 
@@ -360,10 +367,6 @@ subroutine Solve_Poisson3D_on_SG()
       ss=mapG2P(Gid)%aid
       ! val=RHS_leading_coeff*1e6*(SG%dni(qq,ss,1)-SG%dne(qq,ss,1))
       val=RHS_leading_coeff*1e6*(SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
-      if(Flag_Def_dne_adiab==3) then
-         AD  = SG%phi(qq,ss,1)/SG%Te0_eV_1D(ss)
-         val = val + RHS_leading_coeff*1e6*SG%n0_1D(ss)*(1.0-(exp(AD)-AD)) ! ni0-ne0*(exp(AD)-AD)
-      endif
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
@@ -445,6 +448,182 @@ subroutine Solve_Poisson3D_on_SG()
    endif
 
 end subroutine Solve_Poisson3D_on_SG
+
+subroutine Solve_Nonlinear_Poisson3D_on_SG
+   use precision, only:wp
+   ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
+   use global_parameters
+   use field_array
+   use MGY_PETSc_Interface_Data
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   PetscScalar, pointer :: ptr_xVec(:), ptr_srcVec(:), ptr_ResVec(:)
+   PetscInt Lid,Gid,num_its, gqid,gfid,aid
+   PetscInt ss,qq,ff
+   PetscReal val,src0, res_norm2, src_norm2, ELEMENT_CHARGE
+   PetscReal delta_Phi_norm2, ori_Phi_norm2
+   PetscErrorCode ierr
+   integer istatus(MPI_STATUS_SIZE)
+   PetscReal source(SG%dim_gq,SG%dim_a)
+   PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),srcVec_mype(:),srcVec_partd(:), ResVec_mype(:),ResVec_partd(:)
+   real(wp) tt0,tt1
+   real(wp) AD ! Adiabatic Factor = e*phi/Te0
+   integer :: i,j,ij,loop
+
+   ELEMENT_CHARGE=1.602176634e-19 ! element_chargey (e)
+
+
+   do loop=1,10
+      !ptr_xVec is pointing xVec which is Phi
+      call VecGetArrayReadF90(xVec,ptr_xVec,ierr) !xVec is Phi
+      ! Assign and Assemble bVec (source term)
+      do Lid=1,Lsize
+         Gid=mapL2G(Lid)
+         qq=mapG2P(Gid)%gqid
+         ss=mapG2P(Gid)%aid
+
+         ! RHS of the Poisson Equation (src term): e(ni0+dni-dne)
+         src0 = ELEMENT_CHARGE*1e6*(SG%n0_1D(ss)+SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
+         call VecSetValues(srcVec,1,Gid,src0,INSERT_VALUES,ierr); CHKERRQ(ierr)
+
+         ! Second term of Fvec: e*ne0*exp(e*phi/Te0)
+         val = ELEMENT_CHARGE*1e6*SG%n0_1D(ss)*exp(ptr_xVec(Lid)/SG%Te0_eV_1D(ss))
+
+         ! Add third term (which is -src0)
+         val = val -src0
+         call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      enddo
+      call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+      call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+      ! Calculate bVec = Amat*xVec+bVec
+      ! So, bVec = A*phi-e(n0*(1-exp(AD)+dni-dne)
+      call MatMultAdd(Amat,xVec,bVec,bVec,ierr); CHKERRQ(ierr)
+      call Apply_BC_to_bVec_Coeffs
+      call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+      call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+      call VecAssemblyBegin(srcVec,ierr); CHKERRQ(ierr)
+      call VecAssemblyEnd(srcVec,ierr); CHKERRQ(ierr)
+
+
+      ! Calculate |Residual|/|Src| = norm2(bVec)/norm2(srcVec)
+      call VecNorm(bVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
+      call VecNorm(srcVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
+      call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+      if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", loop=",loop
+      call flush(stdout)
+
+
+      ! Update Jmat
+      ! Set Amat value as the first term
+      call MatCopy(Amat,Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
+      ! Add another term from the nonlinear adiabatic response
+      do Lid=1,Lsize
+         Gid=mapL2G(Lid)
+         ss = mapG2P(Gid)%aid
+         val = 1e6*SG%n0_1D(ss)*ELEMENT_CHARGE/SG%Te0_eV_1D(ss)*exp(ptr_xVec(Lid)/SG%Te0_eV_1D(ss))
+         call MatSetValues(Jmat,1,Gid,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
+      enddo
+      ! Assembly Jacobian Matrix
+      tt0=MPI_WTIME()
+      call MatAssemblyBegin(Jmat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+      call MatAssemblyEnd(Jmat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "JMat Assembly takes ",tt1-tt0," secs"
+      call flush(stdout)
+
+      ! Restore pointer
+      call VecRestoreArrayReadF90(xVec,ptr_xVec,ierr)
+
+
+      ! Solve the linear system (J*y=b; so y=J^(-1)*b)
+      tt0=MPI_WTIME()
+      call KSPSolve(ksp,bVec,yVec,ierr); CHKERRQ(ierr)
+      tt1=MPI_WTIME()
+      if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+      call flush(stdout)
+
+      ! Check the residual error and number of the iterations
+      call MatMult(Jmat,yVec,ResVec,ierr); CHKERRQ(ierr)
+      call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
+      call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
+      call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
+      call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+      if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Solving y=J^(-1)*F; Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+      call flush(stdout)
+
+
+      call VecNorm(yVec,NORM_2,delta_Phi_norm2,ierr); CHKERRQ(ierr)
+      call VecNorm(xVec,NORM_2,ori_Phi_norm2,ierr); CHKERRQ(ierr)
+      if(mype==0) write(stdout,"(A,ES16.8)") "evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2, ", loop=",loop
+      call flush(stdout)
+      ! Calculate new potential of (k+1)-th step: xVec(k+1)=xVec(k)-yVec
+      call VecAXPY(xVec,-1.0,yVec,ierr); CHKERRQ(ierr)
+
+
+   enddo
+
+   ! Copy xVec (solution) to the SG%test_phi vector
+   allocate(xVec_mype(Lsize), xVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(xVec,ptr_xVec,ierr)
+   xVec_mype(:)=ptr_xVec(1:Lsize)
+   call VecRestoreArrayReadF90(xVec,ptr_xVec,ierr)
+   call MPI_ALLGATHERV(xVec_mype,Lsize,mpi_Rsize,xVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%phi(mapG2P(Gid)%gqid,mapG2P(Gid)%aid,1) = xVec_partd(Lid)
+   enddo
+   SG%phi(SG%dim_gq,:,1)=SG%phi(1,:,1)
+   deallocate(xVec_mype, xVec_partd)
+
+   ! Communicate phi in toroidal direction
+   call MPI_SENDRECV(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,&
+                     SG%phi(:,:,0),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+   call MPI_SENDRECV(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,&
+                     SG%phi(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
+
+
+
+   if(mod(istep,msnap)==0) then
+      ! Copy srcVec (source) to the SG%test_src vector
+      allocate(srcVec_mype(Lsize), srcVec_partd(sum_Lsize_partd))
+      call VecGetArrayReadF90(srcVec,ptr_srcVec,ierr)
+      srcVec_mype(:)=ptr_srcVec(1:Lsize)
+      call VecRestoreArrayReadF90(srcVec,ptr_srcVec,ierr)
+      call MPI_ALLGATHERV(srcVec_mype,Lsize,mpi_Rsize,srcVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+      do Lid=1,sum_Lsize_partd
+         Gid=recv_mapL2G_partd(Lid)
+         SG%test_src_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = srcVec_partd(Lid)
+      enddo
+      SG%test_src_2D(SG%dim_gq,:)=SG%test_src_2D(1,:)
+      deallocate(srcVec_mype, srcVec_partd)
+
+
+      call VecCopy(bVec,ResVec,ierr); CHKERRQ(ierr)
+      ! Copy ResVec (residual=A*x-b) to the SG%test_res vector
+      allocate(ResVec_mype(Lsize), ResVec_partd(sum_Lsize_partd))
+      call VecGetArrayReadF90(ResVec,ptr_ResVec,ierr)
+      ResVec_mype(:)=ptr_ResVec(1:Lsize)
+      call VecRestoreArrayReadF90(ResVec,ptr_ResVec,ierr)
+      call MPI_ALLGATHERV(ResVec_mype,Lsize,mpi_Rsize,ResVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+      do Lid=1,sum_Lsize_partd
+         Gid=recv_mapL2G_partd(Lid)
+         SG%test_res_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = ResVec_partd(Lid)
+      enddo
+      SG%test_res_2D(SG%dim_gq,:)=SG%test_res_2D(1,:)
+      deallocate(ResVec_mype, ResVec_partd)
+
+
+      ! To get full 3D data for diagnostic purpose
+      call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+      call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+      call MPI_ALLGATHER(SG%test_res_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_res_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   endif
+
+end subroutine Solve_Nonlinear_Poisson3D_on_SG
+
 
 subroutine Solve_test_Poisson3D_on_SG()
    use precision, only:wp
@@ -944,6 +1123,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
    real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
+   real(wp) tmp
 
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
@@ -1049,8 +1229,9 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    !In the case of delta-h electron simulation,
    !add the adiabatic electron response term in the LHS (Amat)
    ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
    if(ifelectron==2) then
-      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1 .or. Flag_Def_dne_adiab==3) then
+      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
          do Lid=1,Lsize
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
@@ -1123,7 +1304,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,*) "Amat Assembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
    ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
@@ -1135,16 +1316,57 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
    call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
 
-   ! Construct KSP
-   tt0=MPI_WTIME()
-   call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-   call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
-   tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
-   call flush(stdout)
+   if(Flag_Def_dne_adiab==3) then
 
+      ! Set Amat value as the first term
+      call MatDuplicate(Amat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
+
+      ! Add another term from the nonlinear adiabatic response
+      do Lid=1,Lsize
+         Gid=mapL2G(Lid)
+         qq = mapG2P(Gid)%gqid
+         ss = mapG2P(Gid)%aid
+         tmp = 1e6*SG%n0_1D(ss)*(1.602176634e-19)/SG%Te0_eV_1D(ss)*exp(SG%phi(qq,ss,1)/SG%Te0_eV_1D(ss))
+         call MatSetValues(Jmat,1,Gid,1,Gid,tmp,ADD_VALUES,ierr); CHKERRQ(ierr)
+      enddo
+
+      ! Assembly Jacobian Matrix
+      tt0=MPI_WTIME()
+      call MatAssemblyBegin(Jmat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+      call MatAssemblyEnd(Jmat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "JMat Assembly takes ",tt1-tt0," secs"
+      call flush(stdout)
+
+      ! call MatView(Jmat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+      call VecDuplicate(bVec,srcVec,ierr); CHKERRQ(ierr)
+      call VecDuplicate(bVec,yVec,ierr); CHKERRQ(ierr)
+   endif
+
+
+   if(Flag_Def_dne_adiab==3) then
+      ! Construct KSP
+      tt0=MPI_WTIME()
+      call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp,Jmat,Jmat,ierr); CHKERRQ(ierr)
+      ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+      call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+      call flush(stdout)
+   else
+      ! Construct KSP
+      tt0=MPI_WTIME()
+      call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
+      ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+      call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+      call flush(stdout)
+
+   endif
 
 end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
@@ -1260,8 +1482,9 @@ subroutine Update_Amat_Coeffs
    !In the case of delta-h electron simulation,
    !add the adiabatic electron response term in the LHS (Amat)
    ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
    if(ifelectron==2) then
-      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1 .or. Flag_Def_dne_adiab==3) then
+      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
          do Lid=1,Lsize
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
@@ -1686,6 +1909,10 @@ subroutine Apply_BC_to_bVec_Coeffs
       enddo
    endif
 
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+
    if(BC1_type==0) then ! Dirichlet condition (phi at outer boundary)
       ss=dim_a
       do ff=1,mzetamax
@@ -1718,6 +1945,9 @@ subroutine Apply_BC_to_bVec_Coeffs
       enddo
    endif
 
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
 
    if(BC0_type==1 .and. BC1_type==1) then
       ! This is purely Neumann conditions.. so the solution is not unique
@@ -1729,5 +1959,9 @@ subroutine Apply_BC_to_bVec_Coeffs
          call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       endif
    endif
+
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
 
 end subroutine Apply_BC_to_bVec_Coeffs

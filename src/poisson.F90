@@ -466,27 +466,13 @@ subroutine poisson( solver, masssolver )
 
          ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
-         allocate(ori_SG_phi(SG%dim_gq,SG%dim_s))
-         do loop=1,10
-            ori_SG_phi=SG%phi(:,:,1)
-            RMS_old_phi=0.0
-            do i=1,SG%dim_s
-               do j=1,SG%dim_gq-1
-                  RMS_old_phi = RMS_old_phi + SG%phi(j,i,1)**2.0
-               enddo
-            enddo
-            RMS_old_phi = sqrt(RMS_old_phi)
+
+         if(Flag_Def_dne_adiab==3) then
+            call Solve_Nonlinear_Poisson3D_on_SG()
+         else
             call Solve_Poisson3D_on_SG
-            RMS_deviations=0.0
-            do i=1,SG%dim_s
-               do j=1,SG%dim_gq-1
-                  RMS_deviations = RMS_deviations + (SG%phi(j,i,1)-ori_SG_phi(j,i))**2.0
-               enddo
-            enddo
-            RMS_deviations = sqrt(RMS_deviations)
-            if(mype==0) write(stdout,'(2(A,I4),A,ES16.8)') "loop=",loop,", mype=",mype,", phi evolving ratio=", RMS_deviations/RMS_old_phi
-         enddo
-         deallocate(ori_SG_phi)
+         endif
+
 
          ! call Measure_Electron_Density_on_SG
          ! call Measure_Ion_Density_on_SG
