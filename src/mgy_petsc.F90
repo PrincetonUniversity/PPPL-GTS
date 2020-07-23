@@ -463,7 +463,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
    PetscReal val,src0, res_norm2, src_norm2, ELEMENT_CHARGE
-   PetscReal delta_Phi_norm2, ori_Phi_norm2
+   PetscReal delta_Phi_norm2, ori_Phi_norm2, RelErr
    PetscErrorCode ierr
    integer istatus(MPI_STATUS_SIZE)
    PetscReal source(SG%dim_gq,SG%dim_a)
@@ -508,14 +508,6 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       call VecAssemblyEnd(srcVec,ierr); CHKERRQ(ierr)
 
 
-      ! Calculate |Residual|/|Src| = norm2(bVec)/norm2(srcVec)
-      call VecNorm(bVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
-      call VecNorm(srcVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-      call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
-      if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", loop=",loop
-      call flush(stdout)
-
-
       ! Update Jmat
       ! Set Amat value as the first term
       call MatCopy(Amat,Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
@@ -557,12 +549,28 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
 
       call VecNorm(yVec,NORM_2,delta_Phi_norm2,ierr); CHKERRQ(ierr)
       call VecNorm(xVec,NORM_2,ori_Phi_norm2,ierr); CHKERRQ(ierr)
-      if(mype==0) write(stdout,"(A,ES16.8)") "evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2, ", loop=",loop
-      call flush(stdout)
       ! Calculate new potential of (k+1)-th step: xVec(k+1)=xVec(k)-yVec
       call VecAXPY(xVec,-1.0,yVec,ierr); CHKERRQ(ierr)
 
 
+      ! Calculate |Residual|/|Src| = norm2(bVec)/norm2(srcVec)
+      call VecNorm(bVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
+      call VecNorm(srcVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
+      RelErr=res_norm2/src_norm2
+      if(mype==0) then
+         write(stdout,"(A,I4,A,ES16.8)") "loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
+         write(stdout,"(A,I4,A,ES16.8)") "loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
+         call flush(stdout)
+      endif
+
+      if(RelErr<1e-9 .or. delta_Phi_norm2/ori_Phi_norm2<1e-7) then
+         if(mype==0) then
+            write(stdout,"(A,I4,A,ES16.8)") "last_loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
+            write(stdout,"(A,I4,A,ES16.8)") "last_loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
+            call flush(stdout)
+         endif
+         exit
+      endif
    enddo
 
    ! Copy xVec (solution) to the SG%test_phi vector
