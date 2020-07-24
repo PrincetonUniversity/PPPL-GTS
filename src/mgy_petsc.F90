@@ -25,7 +25,7 @@ module MGY_PETSc_Interface_Data
 
    ! Follolwing (Jmat, yVec) are for solving nonlinear Poisson equation in the case of Flag_dne_adiab==3
    !Jacobian Matrix (Amat + (ne0*e^2/Te0)*exp(e*phi/Te0)), in the case of Flag_dne_adiab==3 (nonlinear adiabatic response)
-   Mat Jmat
+   Mat Jmat, pre_Jmat !pre_Jamt is a preconditioner of Jmat which will be updated occasionaly to reduce the computational time
    ! F vector (a system of equations) for Newton-Raphson method
    Vec yVec ! yVec = (Jmat)^(-1)*(FVec)
    Vec srcVec ! source (RHS) of the nonlinear Poisson equation (e*(ni0+dni-dneh)) to calculate residual
@@ -525,6 +525,10 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,*) "JMat Assembly takes ",tt1-tt0," secs"
       call flush(stdout)
+
+      ! Update pre_Jmat
+      if(loop==1) call MatCopy(Jmat,pre_Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
+
 
       ! Restore pointer
       call VecRestoreArrayReadF90(xVec,ptr_xVec,ierr)
@@ -1346,6 +1350,9 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
       if(mype==0) write(stdout,*) "JMat Assembly takes ",tt1-tt0," secs"
       call flush(stdout)
 
+      !pre_Jmat
+      call MatDuplicate(Jmat,MAT_COPY_VALUES,pre_Jmat,ierr); CHKERRQ(ierr)
+
       ! call MatView(Jmat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
       call VecDuplicate(bVec,srcVec,ierr); CHKERRQ(ierr)
@@ -1357,7 +1364,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
       ! Construct KSP
       tt0=MPI_WTIME()
       call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-      call KSPSetOperators(ksp,Jmat,Jmat,ierr); CHKERRQ(ierr)
+      ! call KSPSetOperators(ksp,Jmat,Jmat,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp,Jmat,pre_Jmat,ierr); CHKERRQ(ierr)
       ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
       call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
