@@ -6304,7 +6304,7 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
    elseif(Flag_Def_dne_adiab==3) then
       do aid=1,DG%dim_a
          i = DG%ori_aid(aid)
-         DG%dne_adiab(:,aid)=den_grid(i)*exp(abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i))
+         DG%dne_adiab(:,aid)=den_grid(i)*(-1.0+exp(abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)))
       enddo
    endif
 
