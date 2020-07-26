@@ -527,7 +527,11 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       call flush(stdout)
 
       ! Update pre_Jmat
-      if(loop==1) call MatCopy(Jmat,pre_Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
+      if(loop==1 .and. irk==1) then
+         call MatCopy(Jmat,pre_Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
+         if(mype==0) write(stdout,*) "Updated pre_Jmat!"
+         call flush(stdout)
+      endif
 
 
       ! Restore pointer
