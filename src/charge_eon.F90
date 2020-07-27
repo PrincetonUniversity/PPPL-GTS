@@ -17,7 +17,7 @@ subroutine charge_eon
    real(wp) sendl(mgrid),recvr(mgrid)
    real(wp) dnitmp(0:1,mgrid)
 
-   real(wp) dphi_NZ(0:1), dn_adiabatic(0:1)
+   real(wp) full_dphi(0:1), dphi_NZ(0:1), dn_adiabatic(0:1)
    real(wp), external :: SMOOTHSTEP
 
    call electron_locator
@@ -315,8 +315,21 @@ subroutine charge_eon
             do i=0,mpsi
                do j=0,mtheta(i)
                   ij = igrid(i)+j
-                  dphi_NZ = phi(:,ij) -real(1.0-ZF_SEPARATION)*phi00(i)
-                  dn_adiabatic = den_grid(i)*abs(csc0)*dphi_NZ/Te_grid(i)
+
+                  full_dphi = phi(:,ij)+(ZF_SEPARATION)*phi00(i)
+                  if (Flag_Def_dne_adiab==0) then
+                     ! Adiabatic electron is defined using nonzonal component of phi
+                     dn_adiabatic = den_grid(i)*(abs(csc0)*(full_dphi-phi00(i))/Te_grid(i))
+                  elseif(Flag_Def_dne_adiab==1) then!Flag_Def_dne_adiab==1
+                     ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
+                     dn_adiabatic = den_grid(i)*(abs(csc0)*(full_dphi)/Te_grid(i))
+                  elseif(Flag_Def_dne_adiab==2) then
+                     dn_adiabatic = den_grid(i)*(abs(csc0)*(full_dphi)/FLA_Te0(:,ij))
+                  elseif(Flag_Def_dne_adiab==3) then!Flag_Def_dne_adiab==1
+                     ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
+                     dn_adiabatic = den_grid(i)*(-1.0+exp(abs(csc0)*(full_dphi)/Te_grid(i)))
+                  end if
+
                   tot_dne(:,ij) = (dn_adiabatic+densitye(:,ij)*den_grid(i)) ! Here, (delta-h) = (densitye*den_grid), because densitye=(delta-h)/n0
                enddo
             enddo
