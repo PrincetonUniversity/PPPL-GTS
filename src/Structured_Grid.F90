@@ -28,6 +28,9 @@ module Structured_Grid
       real(wp),allocatable,dimension(:,:) :: g_ss_cntv,g_sq_cntv,g_ss_cov,g_sq_cov,Jacob_sqf
       real(wp),allocatable,dimension(:,:,:) :: B0_cntv3_sqf
 
+      ! Gyro-Orbit positioning information
+      real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
+
       ! Plasma information
       real(wp),allocatable, dimension(:,:,:) :: dni,dTi ! dimension: (dim_gq, dim_s, 0:1)
       real(wp),allocatable, dimension(:,:,:) :: dne,dTe
@@ -54,6 +57,8 @@ contains
       integer i,j,k,sid,gqid,ij,Ns,Nq
       real(wp), external :: dsda
       real(wp) tmp, this_ds
+      integer larmor,ss,qq
+      real(wp) gyro_phase,coeff,dR_du(3,2)
 
       SG%dim_s=(mpsi+1)/SG%s_jump
       SG%dim_a=SG%dim_s
@@ -164,6 +169,33 @@ contains
       SG%j0_cov3(1,:,:)=SG%g_aa_cov*SG%j0_cntv3(1,:,:)+SG%g_aq_cov*SG%j0_cntv3(2,:,:)
       SG%j0_cov3(2,:,:)=SG%g_aq_cov*SG%j0_cntv3(1,:,:)+SG%g_qq_cov*SG%j0_cntv3(2,:,:)
       SG%j0_cov3(3,:,:)=SG%g_ff_cov*SG%j0_cntv3(3,:,:)
+
+
+
+      ! Calculate gyro-radius information
+      ! gyro-orbit position = GC_position + (SG%gyro_over_sqrt_mu)*sqrt(mu)
+      allocate(SG%gyro_over_sqrt_mu(3,larmor_num,SG%dim_gq,SG%dim_s))
+      do ss=1,SG%dim_s
+         do qq=1,SG%dim_gq
+            gyro_phase = (larmor-1)*2.0*pi*inv_larmor_num
+
+            ! Note that dgq_du2 does not need (1/cos_alpha^2) correction unlike the original GTS.
+            ! This is because, in the case of Structured Grid (SG),
+            ! we first calculate the exact GyroOrbit positions at the Gyro-Plane using SG%gyro_over_sqrt_mu
+            ! and then project them to the nearby poloidal planes along the magnetic field, which is done at Measure_Ions_on_SG
+            dR_du(1,1) = sqrt(SG%g_ss_cntv(qq,ss)) !ds_du1
+            dR_du(1,2) = 0.0 ! ds_du2
+            dR_du(2,1) = SG%g_sq_cntv(qq,ss)/sqrt(SG%g_ss_cntv(qq,ss)) ! dgq_du1
+            dR_du(2,2) = SG%B0_cov3(3,qq,ss)/(SG%Jacob_sqf(qq,ss)*SG%BB(qq,ss)*sqrt(SG%g_ss_cntv(qq,ss))) ! dgq_du2
+            dR_du(3,1) = 0.0 ! dgf_du1
+            dR_du(3,2) = -SG%B0_cov3(2,qq,ss)/(SG%Jacob_sqf(qq,ss)*SG%BB(qq,ss)*sqrt(SG%g_ss_cntv(qq,ss))) ! dgf_du2
+
+                        coeff = sqrt(2.0/SG%BB(qq,ss))
+            do i=1,3
+               SG%gyro_over_sqrt_mu(i,larmor,qq,ss) = coeff*(cos(gyro_phase)*dR_du(i,1) + sin(gyro_phase)*dR_du(i,2))
+            enddo
+         enddo
+      enddo
 
       ! NOTE : Get Cell volume like dV=(Jacobian_sqf)*ds*dtheta*dgf (Calculate on (s,gq,gf) grid)
       !        Following Cell_dV is an approximation
