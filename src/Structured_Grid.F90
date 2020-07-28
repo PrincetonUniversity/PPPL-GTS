@@ -216,29 +216,42 @@ contains
       integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror
 
       real(wp) df_or_dh(me), f_tot(me)
+      real(wp), allocatable, dimension(:,:,:,:) :: eData
       real(wp) tt0,tt1
+
+      !$acc declare create(df_or_dh,f_tot)
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
-      if(acc_newer_D_zeon) then
-         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      if(acc_newer_H_zeon) then
+         !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
          acc_newer_H_zeon=.false.
          acc_newer_D_zeon=.false.
       endif
+
+
+      allocate(eData(2,SG%dim_gq,SG%dim_s,0:1))
+      eData = 0.0
 
       SG%dne = 0.0
       SG%ne  = 0.0
 
       if(Flag_Load_and_WeightDef==0)then
-         df_or_dh(:) = zeon(5,1:me)*eNrNm
-         f_tot(:)    = eNrNm
+         !$acc parallel loop present(zeon,zeon0)
+         do m=1,me
+            df_or_dh(m) = zeon(5,m)*eNrNm
+            f_tot(m)    = eNrNm
+         enddo
       else
-         df_or_dh(:) = zeon(5,1:me)
-         f_tot(:)    = zeon0(6,1:me)
+         !$acc parallel loop present(zeon,zeon0)
+         do m=1,me
+            df_or_dh(m) = zeon(5,m)
+            f_tot(m)    = zeon0(6,m)
+         enddo
       endif
 
-
+      !$acc parallel loop gang vector present(zeon,zeon0)
       do m=1,me
          P_s = zeon(7,m)
          P_gq = modulo(zeon(2,m),2*pi)
@@ -261,17 +274,28 @@ contains
          wgq0 = 1.0-wgq1
 
          ratio=wgf0*ws0*wgq0
-         SG%dne(gqid  ,sid  ,0)  =  SG%dne(gqid  ,sid  ,0) + ratio*df_or_dh(m)
-         SG%ne(gqid   ,sid  ,0)  =  SG%ne(gqid   ,sid  ,0) + ratio*f_tot(m)
+         !$acc atomic update
+         eData(1,gqid,sid,0) = eData(1,gqid,sid,0) + ratio*df_or_dh(m)
+         !$acc atomic update
+         eData(2,gqid,sid,0) = eData(2,gqid,sid,0) + ratio*f_tot(m)
+
          ratio=wgf0*ws0*wgq1
-         SG%dne(gqid+1,sid  ,0)  =  SG%dne(gqid+1,sid  ,0) + ratio*df_or_dh(m)
-         SG%ne(gqid+1,sid  ,0)   =  SG%ne(gqid+1 ,sid  ,0) + ratio*f_tot(m)
+         !$acc atomic update
+         eData(1,gqid+1,sid,0) = eData(1,gqid+1,sid,0) + ratio*df_or_dh(m)
+         !$acc atomic update
+         eData(2,gqid+1,sid,0) = eData(2,gqid+1,sid,0) + ratio*f_tot(m)
+
          ratio=wgf0*ws1*wgq0
-         SG%dne(gqid  ,sid+1,0)  =  SG%dne(gqid  ,sid+1,0) + ratio*df_or_dh(m)
-         SG%ne(gqid   ,sid+1,0)  =  SG%ne(gqid   ,sid+1,0) + ratio*f_tot(m)
+         !$acc atomic update
+         eData(1,gqid,sid+1,0) = eData(1,gqid,sid+1,0) + ratio*df_or_dh(m)
+         !$acc atomic update
+         eData(2,gqid,sid+1,0) = eData(2,gqid,sid+1,0) + ratio*f_tot(m)
+
          ratio=wgf0*ws1*wgq1
-         SG%dne(gqid+1,sid+1,0)  =  SG%dne(gqid+1,sid+1,0) + ratio*df_or_dh(m)
-         SG%ne(gqid+1 ,sid+1,0)  =  SG%ne(gqid+1 ,sid+1,0) + ratio*f_tot(m)
+         !$acc atomic update
+         eData(1,gqid+1,sid+1,0) = eData(1,gqid+1,sid+1,0) + ratio*df_or_dh(m)
+         !$acc atomic update
+         eData(2,gqid+1,sid+1,0) = eData(2,gqid+1,sid+1,0) + ratio*f_tot(m)
 
          ! Scatter particle to zetamax plane
          target_gf = zetamax
@@ -281,19 +305,35 @@ contains
          wgq0 = 1.0-wgq1
 
          ratio=wgf1*ws0*wgq0
-         SG%dne(gqid  ,sid  ,1)  =  SG%dne(gqid  ,sid  ,1) + ratio*df_or_dh(m)
-         SG%ne(gqid   ,sid  ,1)  =  SG%ne(gqid   ,sid  ,1) + ratio*f_tot(m)
+         !$acc atomic update
+         eData(1,gqid,sid,1) = eData(1,gqid,sid,1) + ratio*df_or_dh(m)
+         !$acc atomic update
+         eData(2,gqid,sid,1) = eData(2,gqid,sid,1) + ratio*f_tot(m)
+
          ratio=wgf1*ws0*wgq1
-         SG%dne(gqid+1,sid  ,1)  =  SG%dne(gqid+1,sid  ,1) + ratio*df_or_dh(m)
-         SG%ne(gqid+1 ,sid  ,1)  =  SG%ne(gqid+1 ,sid  ,1) + ratio*f_tot(m)
+         !$acc atomic update
+         eData(1,gqid+1,sid,1) = eData(1,gqid+1,sid,1) + ratio*df_or_dh(m)
+         !$acc atomic update
+         eData(2,gqid+1,sid,1) = eData(2,gqid+1,sid,1) + ratio*f_tot(m)
+
          ratio=wgf1*ws1*wgq0
-         SG%dne(gqid  ,sid+1,1)  =  SG%dne(gqid  ,sid+1,1) + ratio*df_or_dh(m)
-         SG%ne(gqid   ,sid+1,1)  =  SG%ne(gqid   ,sid+1,1) + ratio*f_tot(m)
+         !$acc atomic update
+         eData(1,gqid,sid+1,1) = eData(1,gqid,sid+1,1) + ratio*df_or_dh(m)
+         !$acc atomic update
+         eData(2,gqid,sid+1,1) = eData(2,gqid,sid+1,1) + ratio*f_tot(m)
+
          ratio=wgf1*ws1*wgq1
-         SG%dne(gqid+1,sid+1,1)  =  SG%dne(gqid+1,sid+1,1) + ratio*df_or_dh(m)
-         SG%ne(gqid+1 ,sid+1,1)  =  SG%ne(gqid+1 ,sid+1,1) + ratio*f_tot(m)
+         !$acc atomic update
+         eData(1,gqid+1,sid+1,1) = eData(1,gqid+1,sid+1,1) + ratio*df_or_dh(m)
+         !$acc atomic update
+         eData(2,gqid+1,sid+1,1) = eData(2,gqid+1,sid+1,1) + ratio*f_tot(m)
 
       enddo
+
+      SG%dne = eData(1,:,:,:)
+      SG%ne  = eData(2,:,:,:)
+
+
 
       if(npartdom>1) then
          tmp_var = SG%dne
@@ -329,6 +369,9 @@ contains
       SG%ne(:,:,0) = SG%ne(:,:,0)*SG%inv_Cell_dV
       SG%ne(:,:,1) = SG%ne(:,:,1)*SG%inv_Cell_dV
 
+
+      deallocate(eData)
+
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,*) "Measure_Electron_Density_on_SG takes", tt1-tt0, " secs"
@@ -353,29 +396,42 @@ contains
       integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror
       real(wp) tt0, tt1
       real(wp) df(mi), f_tot(mi)
+      real(wp), allocatable, dimension(:,:,:,:) :: iData
 
+      !$acc declare create(df,f_tot)
 
-#ifdef _MGY_TIMER_
+      #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
-#endif
+      #endif
 
-      if(acc_newer_D_zion) then
-         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      if(acc_newer_H_zion) then
+         !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
          acc_newer_D_zion=.false.
          acc_newer_H_zion=.false.
       endif
+
+      allocate(iData(2,SG%dim_gq,SG%dim_s,0:1))
+      iData=0.0
 
       SG%dni = 0.0
       SG%ni  = 0.0
 
       if(Flag_Load_and_WeightDef==0)then
-         df(:)       = zion(5,1:mi)*iNrNm
-         f_tot(:)    = iNrNm
+         !$acc parallel loop present(zion,zion0)
+         do m=1,mi
+            df(m)       = zion(5,m)*iNrNm
+            f_tot(m)    = iNrNm
+         enddo
       else
-         df(:)       = zion(5,1:mi)
-         f_tot(:)    = zion0(6,1:mi)
+         !$acc parallel loop present(zion,zion0)
+         do m=1,mi
+            df(m)       = zion(5,m)
+            f_tot(m)    = zion0(6,m)
+         enddo
       endif
 
+
+      !$acc parallel loop gang vector present(zion,zion0)
       do m=1,mi
          P_s = zion(7,m)
          P_gq = modulo(zion(2,m),2*pi)
@@ -398,17 +454,28 @@ contains
          wgq0 = 1.0-wgq1
 
          ratio=wgf0*ws0*wgq0
-         SG%dni(gqid  ,sid  ,0)   =  SG%dni(gqid  ,sid  ,0) + ratio*df(m)
-         SG%ni(gqid   ,sid  ,0)   =  SG%ni(gqid   ,sid  ,0) + ratio*f_tot(m)
+         !$acc atomic update
+         iData(1,gqid,sid,0) = iData(1,gqid,sid,0) + ratio*df(m)
+         !$acc atomic update
+         iData(2,gqid,sid,0) = iData(2,gqid,sid,0) + ratio*f_tot(m)
+
          ratio=wgf0*ws0*wgq1
-         SG%dni(gqid+1,sid  ,0)   =  SG%dni(gqid+1,sid  ,0) + ratio*df(m)
-         SG%ni(gqid+1 ,sid  ,0)   =  SG%ni(gqid+1 ,sid  ,0) + ratio*f_tot(m)
+         !$acc atomic update
+         iData(1,gqid+1,sid,0)   =  iData(1,gqid+1,sid,0) + ratio*df(m)
+         !$acc atomic update
+         iData(2,gqid+1,sid,0)   =  iData(2,gqid+1,sid,0) + ratio*f_tot(m)
+
          ratio=wgf0*ws1*wgq0
-         SG%dni(gqid  ,sid+1,0)   =  SG%dni(gqid  ,sid+1,0) + ratio*df(m)
-         SG%ni(gqid   ,sid+1,0)   =  SG%ni(gqid   ,sid+1,0) + ratio*f_tot(m)
+         !$acc atomic update
+         iData(1,gqid,sid+1,0)   =  iData(1,gqid,sid+1,0) + ratio*df(m)
+         !$acc atomic update
+         iData(2,gqid,sid+1,0)   =  iData(2,gqid,sid+1,0) + ratio*f_tot(m)
+
          ratio=wgf0*ws1*wgq1
-         SG%dni(gqid+1,sid+1,0)   =  SG%dni(gqid+1,sid+1,0) + ratio*df(m)
-         SG%ni(gqid+1 ,sid+1,0)   =  SG%ni(gqid+1 ,sid+1,0) + ratio*f_tot(m)
+         !$acc atomic update
+         iData(1,gqid+1,sid+1,0)   =  iData(1,gqid+1,sid+1,0) + ratio*df(m)
+         !$acc atomic update
+         iData(2,gqid+1,sid+1,0)   =  iData(2,gqid+1,sid+1,0) + ratio*f_tot(m)
 
          ! Scatter particle to zetamax plane
          target_gf = zetamax
@@ -418,19 +485,40 @@ contains
          wgq0 = 1.0-wgq1
 
          ratio=wgf1*ws0*wgq0
-         SG%dni(gqid  ,sid  ,1)   =  SG%dni(gqid  ,sid  ,1) + ratio*df(m)
-         SG%ni(gqid   ,sid  ,1)   =  SG%ni(gqid   ,sid  ,1) + ratio*f_tot(m)
-         ratio=wgf1*ws0*wgq1
-         SG%dni(gqid+1,sid  ,1)   =  SG%dni(gqid+1,sid  ,1) + ratio*df(m)
-         SG%ni(gqid+1 ,sid  ,1)   =  SG%ni(gqid+1 ,sid  ,1) + ratio*f_tot(m)
-         ratio=wgf1*ws1*wgq0
-         SG%dni(gqid  ,sid+1,1)   =  SG%dni(gqid  ,sid+1,1) + ratio*df(m)
-         SG%ni(gqid   ,sid+1,1)   =  SG%ni(gqid   ,sid+1,1) + ratio*f_tot(m)
-         ratio=wgf1*ws1*wgq1
-         SG%dni(gqid+1,sid+1,1)   =  SG%dni(gqid+1,sid+1,1) + ratio*df(m)
-         SG%ni(gqid+1 ,sid+1,1)   =  SG%ni(gqid+1 ,sid+1,1) + ratio*f_tot(m)
+         !$acc atomic update
+         iData(1,gqid,sid,1)   =  iData(1,gqid,sid,1) + ratio*df(m)
+         !$acc atomic update
+         iData(2,gqid,sid,1)   =  iData(2,gqid,sid,1) + ratio*f_tot(m)
 
+         ratio=wgf1*ws0*wgq1
+         !$acc atomic update
+         iData(1,gqid+1,sid,1)   =  iData(1,gqid+1,sid,1) + ratio*df(m)
+         !$acc atomic update
+         iData(2,gqid+1,sid,1)   =  iData(2,gqid+1,sid,1) + ratio*f_tot(m)
+
+         ratio=wgf1*ws1*wgq0
+         !$acc atomic update
+         iData(1,gqid,sid+1,1)   =  iData(1,gqid,sid+1,1) + ratio*df(m)
+         !$acc atomic update
+         iData(2,gqid,sid+1,1)   =  iData(2,gqid,sid+1,1) + ratio*f_tot(m)
+
+         ratio=wgf1*ws1*wgq1
+         !$acc atomic update
+         iData(1,gqid+1,sid+1,1)   =  iData(1,gqid+1,sid+1,1) + ratio*df(m)
+         !$acc atomic update
+         iData(2,gqid+1,sid+1,1)   =  iData(2,gqid+1,sid+1,1) + ratio*f_tot(m)
       enddo
+
+      SG%dni = iData(1,:,:,:)
+      SG%ni  = iData(2,:,:,:)
+
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "Measure_Ion_Density_on_SG just measuring takes", tt1-tt0, " secs"
+      call flush(stdout)
+#endif
+
 
       if(npartdom>1) then
          tmp_var = SG%dni
@@ -465,6 +553,8 @@ contains
       SG%dni(:,:,1) = SG%dni(:,:,1)*SG%inv_Cell_dV
       SG%ni(:,:,0)  = SG%ni(:,:,0)*SG%inv_Cell_dV
       SG%ni(:,:,1)  = SG%ni(:,:,1)*SG%inv_Cell_dV
+
+      deallocate(iData)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
