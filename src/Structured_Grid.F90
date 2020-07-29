@@ -433,10 +433,11 @@ contains
       real(wp) P_s, P_gq, P_gf, P_safety_q
       real(wp) target_gq, target_gf
       real(wp) tmp_var(SG%dim_gq,SG%dim_s,0:1)
-      integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror
+      integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror, larmor
       real(wp) tt0, tt1
       real(wp) df(mi), f_tot(mi)
       real(wp), allocatable, dimension(:,:,:,:) :: iData
+      real(wp) :: intpl_gyro(3,larmor_num)
 
       !$acc declare create(df,f_tot)
 
@@ -470,95 +471,114 @@ contains
          enddo
       endif
 
-
-      !$acc parallel loop gang vector present(zion,zion0)
+      !$acc parallel loop gang vector present(zion,zion0,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit,gyro_over_sqrt_mu) private(intpl_gyro)
       do m=1,mi
+
+         ! Measure the intpl_gyro at the Guiding Center position
          P_s = zion(7,m)
          P_gq = modulo(zion(2,m),2*pi)
          P_gf = modulo(zion(3,m),2*pi)
 
-         wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
-         wgf0 = (1.0-wgf1)
-
          sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
          ws0 = (1.0-ws1)
-
-         P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
-
-         ! Scatter particle to zetamin plane first
-         target_gf = zetamin
-         target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG%inv_dgq+1
-         wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+         gqid = P_gq*SG%inv_dgq+1
+         wgq1 = (P_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
+         !$acc loop seq
+         do larmor=1,larmor_num
+            intpl_gyro(:,larmor) = ws0*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid)) &
+                                  +ws1*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid+1) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid+1))
+         enddo
 
-         ratio=wgf0*ws0*wgq0
-         !$acc atomic update
-         iData(1,gqid,sid,0) = iData(1,gqid,sid,0) + ratio*df(m)
-         !$acc atomic update
-         iData(2,gqid,sid,0) = iData(2,gqid,sid,0) + ratio*f_tot(m)
 
-         ratio=wgf0*ws0*wgq1
-         !$acc atomic update
-         iData(1,gqid+1,sid,0)   =  iData(1,gqid+1,sid,0) + ratio*df(m)
-         !$acc atomic update
-         iData(2,gqid+1,sid,0)   =  iData(2,gqid+1,sid,0) + ratio*f_tot(m)
+         ! Using the intpl_gyro, calculate Larmor orbit positions and project them to the nearby poloidal planes
+         !$acc loop seq
+         do larmor=1,larmor_num
 
-         ratio=wgf0*ws1*wgq0
-         !$acc atomic update
-         iData(1,gqid,sid+1,0)   =  iData(1,gqid,sid+1,0) + ratio*df(m)
-         !$acc atomic update
-         iData(2,gqid,sid+1,0)   =  iData(2,gqid,sid+1,0) + ratio*f_tot(m)
+            zion_s_on_GyroOrbit(larmor,m) = zion(7,m) + zion(6,m)*intpl_gyro(1,larmor)
+            zion_gq_on_GyroOrbit(larmor,m) =  modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
 
-         ratio=wgf0*ws1*wgq1
-         !$acc atomic update
-         iData(1,gqid+1,sid+1,0)   =  iData(1,gqid+1,sid+1,0) + ratio*df(m)
-         !$acc atomic update
-         iData(2,gqid+1,sid+1,0)   =  iData(2,gqid+1,sid+1,0) + ratio*f_tot(m)
+            P_s = max(s0,min(s1,zion_s_on_GyroOrbit(larmor,m)))
+            P_gq = zion_gq_on_GyroOrbit(larmor,m)
+            P_gf = modulo(zion(3,m) + zion(6,m)*intpl_gyro(3,larmor), 2.0*pi)
+            P_gf = max(zetamin,min(zetamax,P_gf))
 
-         ! Scatter particle to zetamax plane
-         target_gf = zetamax
-         target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG%inv_dgq+1
-         wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
-         wgq0 = 1.0-wgq1
+            wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
+            wgf0 = (1.0-wgf1)
 
-         ratio=wgf1*ws0*wgq0
-         !$acc atomic update
-         iData(1,gqid,sid,1)   =  iData(1,gqid,sid,1) + ratio*df(m)
-         !$acc atomic update
-         iData(2,gqid,sid,1)   =  iData(2,gqid,sid,1) + ratio*f_tot(m)
+            sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
+            ws0 = (1.0-ws1)
 
-         ratio=wgf1*ws0*wgq1
-         !$acc atomic update
-         iData(1,gqid+1,sid,1)   =  iData(1,gqid+1,sid,1) + ratio*df(m)
-         !$acc atomic update
-         iData(2,gqid+1,sid,1)   =  iData(2,gqid+1,sid,1) + ratio*f_tot(m)
+            P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
 
-         ratio=wgf1*ws1*wgq0
-         !$acc atomic update
-         iData(1,gqid,sid+1,1)   =  iData(1,gqid,sid+1,1) + ratio*df(m)
-         !$acc atomic update
-         iData(2,gqid,sid+1,1)   =  iData(2,gqid,sid+1,1) + ratio*f_tot(m)
+            ! Scatter particle to zetamin plane first
+            target_gf = zetamin
+            target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
+            gqid  = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
 
-         ratio=wgf1*ws1*wgq1
-         !$acc atomic update
-         iData(1,gqid+1,sid+1,1)   =  iData(1,gqid+1,sid+1,1) + ratio*df(m)
-         !$acc atomic update
-         iData(2,gqid+1,sid+1,1)   =  iData(2,gqid+1,sid+1,1) + ratio*f_tot(m)
+            ratio=inv_larmor_num*wgf0*ws0*wgq0
+            !$acc atomic update
+            iData(1,gqid,sid,0) = iData(1,gqid,sid,0) + ratio*df(m)
+            !$acc atomic update
+            iData(2,gqid,sid,0) = iData(2,gqid,sid,0) + ratio*f_tot(m)
+
+            ratio=inv_larmor_num*wgf0*ws0*wgq1
+            !$acc atomic update
+            iData(1,gqid+1,sid,0)   =  iData(1,gqid+1,sid,0) + ratio*df(m)
+            !$acc atomic update
+            iData(2,gqid+1,sid,0)   =  iData(2,gqid+1,sid,0) + ratio*f_tot(m)
+
+            ratio=inv_larmor_num*wgf0*ws1*wgq0
+            !$acc atomic update
+            iData(1,gqid,sid+1,0)   =  iData(1,gqid,sid+1,0) + ratio*df(m)
+            !$acc atomic update
+            iData(2,gqid,sid+1,0)   =  iData(2,gqid,sid+1,0) + ratio*f_tot(m)
+
+            ratio=inv_larmor_num*wgf0*ws1*wgq1
+            !$acc atomic update
+            iData(1,gqid+1,sid+1,0)   =  iData(1,gqid+1,sid+1,0) + ratio*df(m)
+            !$acc atomic update
+            iData(2,gqid+1,sid+1,0)   =  iData(2,gqid+1,sid+1,0) + ratio*f_tot(m)
+
+            ! Scatter particle to zetamax plane
+            target_gf = zetamax
+            target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
+            gqid  = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+
+            ratio=inv_larmor_num*wgf1*ws0*wgq0
+            !$acc atomic update
+            iData(1,gqid,sid,1)   =  iData(1,gqid,sid,1) + ratio*df(m)
+            !$acc atomic update
+            iData(2,gqid,sid,1)   =  iData(2,gqid,sid,1) + ratio*f_tot(m)
+
+            ratio=inv_larmor_num*wgf1*ws0*wgq1
+            !$acc atomic update
+            iData(1,gqid+1,sid,1)   =  iData(1,gqid+1,sid,1) + ratio*df(m)
+            !$acc atomic update
+            iData(2,gqid+1,sid,1)   =  iData(2,gqid+1,sid,1) + ratio*f_tot(m)
+
+            ratio=inv_larmor_num*wgf1*ws1*wgq0
+            !$acc atomic update
+            iData(1,gqid,sid+1,1)   =  iData(1,gqid,sid+1,1) + ratio*df(m)
+            !$acc atomic update
+            iData(2,gqid,sid+1,1)   =  iData(2,gqid,sid+1,1) + ratio*f_tot(m)
+
+            ratio=inv_larmor_num*wgf1*ws1*wgq1
+            !$acc atomic update
+            iData(1,gqid+1,sid+1,1)   =  iData(1,gqid+1,sid+1,1) + ratio*df(m)
+            !$acc atomic update
+            iData(2,gqid+1,sid+1,1)   =  iData(2,gqid+1,sid+1,1) + ratio*f_tot(m)
+         enddo
       enddo
 
       SG%dni = iData(1,:,:,:)
       SG%ni  = iData(2,:,:,:)
-
-
-#ifdef _MGY_TIMER_
-      tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Ion_Density_on_SG just measuring takes", tt1-tt0, " secs"
-      call flush(stdout)
-#endif
-
 
       if(npartdom>1) then
          tmp_var = SG%dni
