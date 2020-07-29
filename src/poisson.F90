@@ -14,7 +14,7 @@ subroutine poisson( solver, masssolver )
    !
    type(solver_data) :: solver, masssolver
    ! local vars
-   integer i,ii,jt,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2
+   integer i,ii,jt,it,ij,j,jj,k,iteration,mring,mindex,ierr,it2,loop
    integer istatus(MPI_STATUS_SIZE)
    !  integer,dimension(:,:),allocatable :: nindex
    !  integer,dimension(:,:,:),allocatable :: indexp
@@ -22,6 +22,8 @@ subroutine poisson( solver, masssolver )
 
    real(wp) tmp,rms ! gamma0,
 
+   real(wp), allocatable :: ori_SG_phi(:,:)
+   real(wp) RMS_deviations, RMS_old_phi
    real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi),adum_11(0:mpsi)
    real(wp) old_phip00(0:mpsi), phip00_convergency
    !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
@@ -464,7 +466,12 @@ subroutine poisson( solver, masssolver )
 
          ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
-         call Solve_Poisson3D_on_SG
+
+         if(Flag_Def_dne_adiab==3) then
+            call Solve_Nonlinear_Poisson3D_on_SG()
+         else
+            call Solve_Poisson3D_on_SG
+         endif
 
 
          ! call Measure_Electron_Density_on_SG

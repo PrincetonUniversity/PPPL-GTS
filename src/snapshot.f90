@@ -617,6 +617,8 @@ subroutine snapshot_hdf5
             dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
          elseif(Flag_Def_dne_adiab==2) then
             dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/FLA_Te0(:,ij)
+         elseif(Flag_Def_dne_adiab==3) then
+            dne_adiabatic(:,ij) = den_grid(i)*(-1.0+exp(abs(csc0)*full_dphi(:,ij)/Te_grid(i)))
          end if
 
          full_dne(:,ij) =  den_grid(i)*(densitye(:,ij)+real(ZF_SEPARATION)*zonale(i)) + int(ifelectron/2)*dne_adiabatic(:,ij)

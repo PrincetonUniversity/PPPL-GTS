@@ -2494,6 +2494,9 @@ subroutine Cumulate_Some_Variables_for_Measure
             adiab_dne_n0  = abs(csc0)*(full_dphi)/Te_grid(i)
          elseif(Flag_Def_dne_adiab==2) then
             adiab_dne_n0  = abs(csc0)*(full_dphi)/FLA_Te0(:,ij)
+         elseif(Flag_Def_dne_adiab==3) then!Flag_Def_dne_adiab==1
+            ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
+            adiab_dne_n0  = -1.0+exp(abs(csc0)*(full_dphi)/Te_grid(i))
          end if
          full_dne      = den_grid(i)*(densitye(:,ij) +(ZF_SEPARATION)*zonale(i) +int(ifelectron/2)*adiab_dne_n0)
 
@@ -6297,6 +6300,11 @@ subroutine Measure_Electrons_on_Diagnostic_Grid(in_P_data, Full_dadgqdgf)
             i = DG%ori_aid(aid)
             DG%dne_adiab(gqid,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(gqid,aid)+real(ZF_SEPARATION)*phi00(i))/intpl_FLA_Te0(gqid,aid)
          enddo
+      enddo
+   elseif(Flag_Def_dne_adiab==3) then
+      do aid=1,DG%dim_a
+         i = DG%ori_aid(aid)
+         DG%dne_adiab(:,aid)=den_grid(i)*(-1.0+exp(abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)))
       enddo
    endif
 
