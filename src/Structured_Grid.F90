@@ -249,17 +249,19 @@ contains
 
       implicit none
 
-      real(wp) ratio, ws0,ws1,wgq0,wgq1,wgf0,wgf1
+      real(wp) ratio(4), ws0,ws1,wgq0,wgq1,wgf0,wgf1
       real(wp) P_s, P_gq, P_gf, P_safety_q
       real(wp) target_gq, target_gf
       real(wp) tmp_var(SG%dim_gq,SG%dim_s,0:1)
-      integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror
+      integer m, vid, sid, gqid, ss(4), qq(4), k, length, istatus(MPI_STATUS_SIZE),ierror
 
-      real(wp) df_or_dh(me), f_tot(me)
-      real(wp), allocatable, dimension(:,:,:,:) :: eData
+      real(wp), allocatable, dimension(:,:,:,:) :: eData, tmp_eData
+      real(wp), allocatable, dimension(:,:) :: ptl_data
+      integer num_eD ! num of eData (First Dimension)
       real(wp) tt0,tt1
 
-      !$acc declare create(df_or_dh,f_tot)
+
+      !$acc declare create(ptl_data)
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
@@ -270,28 +272,29 @@ contains
          acc_newer_D_zeon=.false.
       endif
 
-
-      allocate(eData(2,SG%dim_gq,SG%dim_s,0:1))
+      num_eD = 2
+      allocate(eData(num_eD,SG%dim_gq,SG%dim_s,0:1),tmp_eData(num_eD,SG%dim_gq,SG%dim_s,0:1))
+      allocate(ptl_data(num_eD,me))
       eData = 0.0
 
       SG%dne = 0.0
       SG%ne  = 0.0
 
       if(Flag_Load_and_WeightDef==0)then
-         !$acc parallel loop present(zeon,zeon0)
+         !$acc parallel loop present(zeon,zeon0,ptl_data)
          do m=1,me
-            df_or_dh(m) = zeon(5,m)*eNrNm
-            f_tot(m)    = eNrNm
+            ptl_data(1,m) = zeon(5,m)*eNrNm
+            ptl_data(2,m) = eNrNm
          enddo
       else
          !$acc parallel loop present(zeon,zeon0)
          do m=1,me
-            df_or_dh(m) = zeon(5,m)
-            f_tot(m)    = zeon0(6,m)
+            ptl_data(1,m) = zeon(5,m)
+            ptl_data(2,m) = zeon0(6,m)
          enddo
       endif
 
-      !$acc parallel loop gang vector present(zeon,zeon0)
+      !$acc parallel loop gang vector present(zeon,zeon0,ptl_data) private(ratio,qq,ss)
       do m=1,me
          P_s = zeon(7,m)
          P_gq = modulo(zeon(2,m),2*pi)
@@ -313,29 +316,18 @@ contains
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
-         ratio=wgf0*ws0*wgq0
-         !$acc atomic update
-         eData(1,gqid,sid,0) = eData(1,gqid,sid,0) + ratio*df_or_dh(m)
-         !$acc atomic update
-         eData(2,gqid,sid,0) = eData(2,gqid,sid,0) + ratio*f_tot(m)
+         ratio(1)=wgf0*ws0*wgq0; qq(1)=gqid;    ss(1)=sid;
+         ratio(2)=wgf0*ws0*wgq1; qq(2)=gqid+1;  ss(2)=sid;
+         ratio(3)=wgf0*ws1*wgq0; qq(3)=gqid;    ss(3)=sid+1;
+         ratio(4)=wgf0*ws1*wgq1; qq(4)=gqid+1;  ss(4)=sid+1;
+         !$acc loop seq
+         do k=1,4
+            do vid=1,num_eD
+               !$acc atomic update
+               eData(vid,qq(k),ss(k),0) = eData(vid,qq(k),ss(k),0) + ratio(k)*ptl_data(vid,m)
+            enddo
+         enddo
 
-         ratio=wgf0*ws0*wgq1
-         !$acc atomic update
-         eData(1,gqid+1,sid,0) = eData(1,gqid+1,sid,0) + ratio*df_or_dh(m)
-         !$acc atomic update
-         eData(2,gqid+1,sid,0) = eData(2,gqid+1,sid,0) + ratio*f_tot(m)
-
-         ratio=wgf0*ws1*wgq0
-         !$acc atomic update
-         eData(1,gqid,sid+1,0) = eData(1,gqid,sid+1,0) + ratio*df_or_dh(m)
-         !$acc atomic update
-         eData(2,gqid,sid+1,0) = eData(2,gqid,sid+1,0) + ratio*f_tot(m)
-
-         ratio=wgf0*ws1*wgq1
-         !$acc atomic update
-         eData(1,gqid+1,sid+1,0) = eData(1,gqid+1,sid+1,0) + ratio*df_or_dh(m)
-         !$acc atomic update
-         eData(2,gqid+1,sid+1,0) = eData(2,gqid+1,sid+1,0) + ratio*f_tot(m)
 
          ! Scatter particle to zetamax plane
          target_gf = zetamax
@@ -344,73 +336,54 @@ contains
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
-         ratio=wgf1*ws0*wgq0
-         !$acc atomic update
-         eData(1,gqid,sid,1) = eData(1,gqid,sid,1) + ratio*df_or_dh(m)
-         !$acc atomic update
-         eData(2,gqid,sid,1) = eData(2,gqid,sid,1) + ratio*f_tot(m)
 
-         ratio=wgf1*ws0*wgq1
-         !$acc atomic update
-         eData(1,gqid+1,sid,1) = eData(1,gqid+1,sid,1) + ratio*df_or_dh(m)
-         !$acc atomic update
-         eData(2,gqid+1,sid,1) = eData(2,gqid+1,sid,1) + ratio*f_tot(m)
-
-         ratio=wgf1*ws1*wgq0
-         !$acc atomic update
-         eData(1,gqid,sid+1,1) = eData(1,gqid,sid+1,1) + ratio*df_or_dh(m)
-         !$acc atomic update
-         eData(2,gqid,sid+1,1) = eData(2,gqid,sid+1,1) + ratio*f_tot(m)
-
-         ratio=wgf1*ws1*wgq1
-         !$acc atomic update
-         eData(1,gqid+1,sid+1,1) = eData(1,gqid+1,sid+1,1) + ratio*df_or_dh(m)
-         !$acc atomic update
-         eData(2,gqid+1,sid+1,1) = eData(2,gqid+1,sid+1,1) + ratio*f_tot(m)
+         ratio(1)=wgf1*ws0*wgq0; qq(1)=gqid;    ss(1)=sid;
+         ratio(2)=wgf1*ws0*wgq1; qq(2)=gqid+1;  ss(2)=sid;
+         ratio(3)=wgf1*ws1*wgq0; qq(3)=gqid;    ss(3)=sid+1;
+         ratio(4)=wgf1*ws1*wgq1; qq(4)=gqid+1;  ss(4)=sid+1;
+         !$acc loop seq
+         do k=1,4
+            do vid=1,num_eD
+               !$acc atomic update
+               eData(vid,qq(k),ss(k),1) = eData(vid,qq(k),ss(k),1) + ratio(k)*ptl_data(vid,m)
+            enddo
+         enddo
 
       enddo
 
-      SG%dne = eData(1,:,:,:)
-      SG%ne  = eData(2,:,:,:)
-
-
 
       if(npartdom>1) then
-         tmp_var = SG%dne
-         length  = SG%dim_gq*SG%dim_s*2
-         call MPI_ALLREDUCE(tmp_var, SG%dne, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
-         tmp_var = SG%ne
-         length  = SG%dim_gq*SG%dim_s*2
-         call MPI_ALLREDUCE(tmp_var, SG%ne, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         tmp_eData = eData
+         length  = num_eD*SG%dim_gq*SG%dim_s*2
+         call MPI_ALLREDUCE(tmp_eData, eData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
       endif
 
       ! Match poloidal end cell
       ! (gq=0 and gq=2pi is the same position physically
       ! although they have different gqid)
       do sid=1,SG%dim_s
-         SG%dne(1,sid,:) = SG%dne(1,sid,:) + SG%dne(SG%dim_gq,sid,:)
-         SG%dne(SG%dim_gq,sid,:) = SG%dne(1,sid,:)
-         SG%ne(1,sid,:)  = SG%ne(1,sid,:) + SG%ne(SG%dim_gq,sid,:)
-         SG%ne(SG%dim_gq,sid,:) = SG%ne(1,sid,:)
+         eData(:,1,sid,:) = eData(:,1,sid,:) + eData(:,SG%dim_gq,sid,:)
+         eData(:,SG%dim_gq,sid,:) = eData(:,1,sid,:)
       enddo
 
       ! toroidal communication
-      length = SG%dim_gq*SG%dim_s
-      call MPI_SENDRECV(SG%dne(:,:,0),length,mpi_Rsize,left_pe,1, tmp_var(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
-      SG%dne(:,:,1) = SG%dne(:,:,1) + tmp_var(:,:,1)
-      call MPI_SENDRECV(SG%dne(:,:,1),length,mpi_Rsize,right_pe,1, SG%dne(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
-      length = SG%dim_gq*SG%dim_s
-      call MPI_SENDRECV(SG%ne(:,:,0),length,mpi_Rsize,left_pe,1, tmp_var(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
-      SG%ne(:,:,1) = SG%ne(:,:,1) + tmp_var(:,:,1)
-      call MPI_SENDRECV(SG%ne(:,:,1),length,mpi_Rsize,right_pe,1, SG%ne(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+      length = num_eD*SG%dim_gq*SG%dim_s
+      call MPI_SENDRECV(eData(:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_eData(:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+      eData(:,:,:,1) = eData(:,:,:,1) + tmp_eData(:,:,:,1)
+      call MPI_SENDRECV(eData(:,:,:,1),length,mpi_Rsize,right_pe,1, eData(:,:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
-      SG%dne(:,:,0) = SG%dne(:,:,0)*SG%inv_Cell_dV
-      SG%dne(:,:,1) = SG%dne(:,:,1)*SG%inv_Cell_dV
-      SG%ne(:,:,0) = SG%ne(:,:,0)*SG%inv_Cell_dV
-      SG%ne(:,:,1) = SG%ne(:,:,1)*SG%inv_Cell_dV
+      ! Normalize the results
+      do vid=1,num_eD
+         eData(vid,:,:,0) = eData(vid,:,:,0)*SG%inv_Cell_dV
+         eData(vid,:,:,1) = eData(vid,:,:,1)*SG%inv_Cell_dV
+      enddo
 
+      !
+      SG%dne = eData(1,:,:,:)
+      SG%ne  = eData(2,:,:,:)
 
-      deallocate(eData)
+      deallocate(eData,tmp_eData)
+      deallocate(ptl_data)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
@@ -429,17 +402,18 @@ contains
 
       implicit none
 
-      real(wp) ratio, ws0,ws1,wgq0,wgq1,wgf0,wgf1
+      real(wp) ratio(4), ws0,ws1,wgq0,wgq1,wgf0,wgf1
       real(wp) P_s, P_gq, P_gf, P_safety_q
       real(wp) target_gq, target_gf
       real(wp) tmp_var(SG%dim_gq,SG%dim_s,0:1)
-      integer m, sid, gqid, length, istatus(MPI_STATUS_SIZE),ierror, larmor
+      integer m, k, sid, gqid, vid, ss(4), qq(4), length, istatus(MPI_STATUS_SIZE),ierror, larmor
       real(wp) tt0, tt1
-      real(wp) df(mi), f_tot(mi)
-      real(wp), allocatable, dimension(:,:,:,:) :: iData
+      real(wp), allocatable, dimension(:,:,:,:) :: iData, tmp_iData
+      real(wp), allocatable, dimension(:,:) :: ptl_data
+      integer num_iD ! num_of iData (First dimension)
       real(wp) :: intpl_gyro(3,larmor_num)
 
-      !$acc declare create(df,f_tot)
+      !$acc declare create(ptl_data)
 
       #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
@@ -451,27 +425,29 @@ contains
          acc_newer_H_zion=.false.
       endif
 
-      allocate(iData(2,SG%dim_gq,SG%dim_s,0:1))
+      num_iD = 2
+      allocate(iData(num_iD,SG%dim_gq,SG%dim_s,0:1), tmp_iData(num_iD,SG%dim_gq,SG%dim_s,0:1))
+      allocate(ptl_data(num_iD,mi))
       iData=0.0
 
       SG%dni = 0.0
       SG%ni  = 0.0
 
       if(Flag_Load_and_WeightDef==0)then
-         !$acc parallel loop present(zion,zion0)
+         !$acc parallel loop present(zion,zion0,ptl_data)
          do m=1,mi
-            df(m)       = zion(5,m)*iNrNm
-            f_tot(m)    = iNrNm
+            ptl_data(1,m) = zion(5,m)*iNrNm
+            ptl_data(2,m) = iNrNm
          enddo
       else
-         !$acc parallel loop present(zion,zion0)
+         !$acc parallel loop present(zion,zion0,ptl_data)
          do m=1,mi
-            df(m)       = zion(5,m)
-            f_tot(m)    = zion0(6,m)
+            ptl_data(1,m) = zion(5,m)
+            ptl_data(2,m) = zion0(6,m)
          enddo
       endif
 
-      !$acc parallel loop gang vector present(zion,zion0,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit,gyro_over_sqrt_mu) private(intpl_gyro)
+      !$acc parallel loop gang vector present(zion,zion0,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit,gyro_over_sqrt_mu,ptl_data) private(intpl_gyro,ratio,qq,ss)
       do m=1,mi
 
          ! Measure the intpl_gyro at the Guiding Center position
@@ -520,29 +496,19 @@ contains
             wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
 
-            ratio=inv_larmor_num*wgf0*ws0*wgq0
-            !$acc atomic update
-            iData(1,gqid,sid,0) = iData(1,gqid,sid,0) + ratio*df(m)
-            !$acc atomic update
-            iData(2,gqid,sid,0) = iData(2,gqid,sid,0) + ratio*f_tot(m)
 
-            ratio=inv_larmor_num*wgf0*ws0*wgq1
-            !$acc atomic update
-            iData(1,gqid+1,sid,0)   =  iData(1,gqid+1,sid,0) + ratio*df(m)
-            !$acc atomic update
-            iData(2,gqid+1,sid,0)   =  iData(2,gqid+1,sid,0) + ratio*f_tot(m)
+            ratio(1)=inv_larmor_num*wgf0*ws0*wgq0; qq(1)=gqid;    ss(1)=sid;
+            ratio(2)=inv_larmor_num*wgf0*ws0*wgq1; qq(2)=gqid+1;  ss(2)=sid;
+            ratio(3)=inv_larmor_num*wgf0*ws1*wgq0; qq(3)=gqid;    ss(3)=sid+1;
+            ratio(4)=inv_larmor_num*wgf0*ws1*wgq1; qq(4)=gqid+1;  ss(4)=sid+1;
+            !$acc loop seq
+            do k=1,4
+               do vid=1,num_iD
+                  !$acc atomic update
+                  iData(vid,qq(k),ss(k),0) = iData(vid,qq(k),ss(k),0) + ratio(k)*ptl_data(vid,m)
+               enddo
+            enddo
 
-            ratio=inv_larmor_num*wgf0*ws1*wgq0
-            !$acc atomic update
-            iData(1,gqid,sid+1,0)   =  iData(1,gqid,sid+1,0) + ratio*df(m)
-            !$acc atomic update
-            iData(2,gqid,sid+1,0)   =  iData(2,gqid,sid+1,0) + ratio*f_tot(m)
-
-            ratio=inv_larmor_num*wgf0*ws1*wgq1
-            !$acc atomic update
-            iData(1,gqid+1,sid+1,0)   =  iData(1,gqid+1,sid+1,0) + ratio*df(m)
-            !$acc atomic update
-            iData(2,gqid+1,sid+1,0)   =  iData(2,gqid+1,sid+1,0) + ratio*f_tot(m)
 
             ! Scatter particle to zetamax plane
             target_gf = zetamax
@@ -551,70 +517,52 @@ contains
             wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
 
-            ratio=inv_larmor_num*wgf1*ws0*wgq0
-            !$acc atomic update
-            iData(1,gqid,sid,1)   =  iData(1,gqid,sid,1) + ratio*df(m)
-            !$acc atomic update
-            iData(2,gqid,sid,1)   =  iData(2,gqid,sid,1) + ratio*f_tot(m)
-
-            ratio=inv_larmor_num*wgf1*ws0*wgq1
-            !$acc atomic update
-            iData(1,gqid+1,sid,1)   =  iData(1,gqid+1,sid,1) + ratio*df(m)
-            !$acc atomic update
-            iData(2,gqid+1,sid,1)   =  iData(2,gqid+1,sid,1) + ratio*f_tot(m)
-
-            ratio=inv_larmor_num*wgf1*ws1*wgq0
-            !$acc atomic update
-            iData(1,gqid,sid+1,1)   =  iData(1,gqid,sid+1,1) + ratio*df(m)
-            !$acc atomic update
-            iData(2,gqid,sid+1,1)   =  iData(2,gqid,sid+1,1) + ratio*f_tot(m)
-
-            ratio=inv_larmor_num*wgf1*ws1*wgq1
-            !$acc atomic update
-            iData(1,gqid+1,sid+1,1)   =  iData(1,gqid+1,sid+1,1) + ratio*df(m)
-            !$acc atomic update
-            iData(2,gqid+1,sid+1,1)   =  iData(2,gqid+1,sid+1,1) + ratio*f_tot(m)
+            ratio(1)=inv_larmor_num*wgf1*ws0*wgq0; qq(1)=gqid;    ss(1)=sid;
+            ratio(2)=inv_larmor_num*wgf1*ws0*wgq1; qq(2)=gqid+1;  ss(2)=sid;
+            ratio(3)=inv_larmor_num*wgf1*ws1*wgq0; qq(3)=gqid;    ss(3)=sid+1;
+            ratio(4)=inv_larmor_num*wgf1*ws1*wgq1; qq(4)=gqid+1;  ss(4)=sid+1;
+            !$acc loop seq
+            do k=1,4
+               do vid=1,num_iD
+                  !$acc atomic update
+                  iData(vid,qq(k),ss(k),1) = iData(vid,qq(k),ss(k),1) + ratio(k)*ptl_data(vid,m)
+               enddo
+            enddo
          enddo
       enddo
 
-      SG%dni = iData(1,:,:,:)
-      SG%ni  = iData(2,:,:,:)
-
       if(npartdom>1) then
-         tmp_var = SG%dni
-         length  = SG%dim_gq*SG%dim_s*2
-         call MPI_ALLREDUCE(tmp_var, SG%dni, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
-         tmp_var = SG%ni
-         length  = SG%dim_gq*SG%dim_s*2
-         call MPI_ALLREDUCE(tmp_var, SG%ni, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         tmp_iData = iData
+         length = num_iD*SG%dim_gq*SG%dim_s*2
+         call MPI_ALLREDUCE(tmp_iData, iData, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
       endif
 
       ! Match poloidal end cell
       ! (gq=0 and gq=2pi is the same position physically
       ! although they have different gqid)
       do sid=1,SG%dim_s
-         SG%dni(1,sid,:) = SG%dni(1,sid,:) + SG%dni(SG%dim_gq,sid,:)
-         SG%dni(SG%dim_gq,sid,:) = SG%dni(1,sid,:)
-         SG%ni(1,sid,:) = SG%ni(1,sid,:) + SG%ni(SG%dim_gq,sid,:)
-         SG%ni(SG%dim_gq,sid,:) = SG%ni(1,sid,:)
+         iData(:,1,sid,:) = iData(:,1,sid,:) + iData(:,SG%dim_gq,sid,:)
+         iData(:,SG%dim_gq,sid,:) = iData(:,1,sid,:)
       enddo
 
       ! toroidal communication
-      length = SG%dim_gq*SG%dim_s
-      call MPI_SENDRECV(SG%dni(:,:,0),length,mpi_Rsize,left_pe,1, tmp_var(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
-      SG%dni(:,:,1) = SG%dni(:,:,1) + tmp_var(:,:,1)
-      call MPI_SENDRECV(SG%dni(:,:,1),length,mpi_Rsize,right_pe,1, SG%dni(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
-      length = SG%dim_gq*SG%dim_s
-      call MPI_SENDRECV(SG%ni(:,:,0),length,mpi_Rsize,left_pe,1, tmp_var(:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
-      SG%ni(:,:,1) = SG%ni(:,:,1) + tmp_var(:,:,1)
-      call MPI_SENDRECV(SG%ni(:,:,1),length,mpi_Rsize,right_pe,1, SG%ni(:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+      length = num_iD*SG%dim_gq*SG%dim_s
+      call MPI_SENDRECV(iData(:,:,:,0),length,mpi_Rsize,left_pe,1, tmp_iData(:,:,:,1),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+      iData(:,:,:,1) = iData(:,:,:,1) + tmp_iData(:,:,:,1)
+      call MPI_SENDRECV(iData(:,:,:,1),length,mpi_Rsize,right_pe,1, iData(:,:,:,0),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
-      SG%dni(:,:,0) = SG%dni(:,:,0)*SG%inv_Cell_dV
-      SG%dni(:,:,1) = SG%dni(:,:,1)*SG%inv_Cell_dV
-      SG%ni(:,:,0)  = SG%ni(:,:,0)*SG%inv_Cell_dV
-      SG%ni(:,:,1)  = SG%ni(:,:,1)*SG%inv_Cell_dV
+      ! Normalize the results
+      do vid=1,num_iD
+         iData(vid,:,:,0) = iData(vid,:,:,0)*SG%inv_Cell_dV
+         iData(vid,:,:,1) = iData(vid,:,:,1)*SG%inv_Cell_dV
+      enddo
 
-      deallocate(iData)
+
+      SG%dni = iData(1,:,:,:)
+      SG%ni  = iData(2,:,:,:)
+
+      deallocate(iData,tmp_iData)
+      deallocate(ptl_data)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
