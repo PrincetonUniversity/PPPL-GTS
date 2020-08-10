@@ -109,7 +109,7 @@ endif
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
-LIB:=-L$HDF5DIR/lib64 -lhdf5 -lhdf5_fortran -lhdf5hl_fortran $(CUDA_LIB) $(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
+LIB:=-L$(HDF5DIR)/lib64 -lhdf5 -lhdf5_fortran -lhdf5hl_fortran $(CUDA_LIB) $(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
 
 %.o : %.cpp
 	$(CPP)  $(COPT) -c $< -o $@
