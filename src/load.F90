@@ -1004,11 +1004,11 @@ subroutine load_uniform_MGY
 
       ! For diagnostic purpose
       if(mype==0) then
-         m = 0.5*ini_mi
+         m = 0.5*mi
          write(stdout,*) m,"-th ion's each_ptl_d6z=", inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*backT(m)), ", back_f0_i(m)=",back_f0_i(m)
          call flush(stdout)
 
-         m = 0.5*ini_me
+         m = 0.5*me
          write(stdout,*) m,"-th electron's each_ptl_d6z=", inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms),  ", back_f0_e(m)=",back_f0_e(m)
          call flush(stdout)
       endif
@@ -1037,7 +1037,7 @@ subroutine load_uniform_MGY
    ini_mi=mi
    ini_me=me
 
-   write(stdout,*) "In load_uniform_MGY, I'm=",mype, "mi=", mi, ", me=",me
+   write(stdout,'((A,I4,A,I8,A,I8))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_me=",ini_me
    call flush(stdout)
 
    ntracer=0
