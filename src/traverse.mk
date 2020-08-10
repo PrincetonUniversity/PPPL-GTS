@@ -24,20 +24,27 @@ ifeq ($(F90),mpif90)
           PSPLINE_DIR=/home/jinchen/LIB/PGI195
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline
-          PETSC_DIR=/home/jinchen/LIB/petsc-3.12.0
-          ifeq ($(CUDA),y)
-				PETSC_DIR=/home/jinchen/LIB/petsc
-				PETSC_ARCH=traverse-pgi-openmpi-gts-cuda-2019-2-32bit
-				#PETSC_ARCH=traverse-pgi-openmpi-gts-cuda-2019
-				CUDA_LIB:=-L/usr/local/cuda-10.1/lib64 -lcudart -lcusparse -lcusolver -lstdc++ -lcublas
-				# CUDA_LIB:=-L/usr/local/cuda-10.1/lib64 -lcusparse
-				PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lz -Wl,--start-group /opt/pgi/19.5/linuxpower/19.5/lib/liblapack.a /opt/pgi/19.5/linuxpower/19.5/lib/libblas.a -Wl,--end-group -lpthread -lm -ldl  -lparmetis -lmetis
-			 else
-				PETSC_ARCH=traverse-pgi-openmpi-gts-2019
-			 	CUDA_LIB:=
-				PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lz -Wl,--start-group /opt/pgi/19.5/linuxpower/19.5/lib/liblapack.a /opt/pgi/19.5/linuxpower/19.5/lib/libblas.a -Wl,--end-group -lpthread -lm -ldl
-			 endif
-          HDF5_LIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lhdf5_hl -lhdf5
+          PETSC_DIR=/home/jinchen/LIB/petsc
+          PETSC_ARCH=traverse-pgi-openmpi-gts-cuda-2019-2-32bit
+          CUDA_LIB:=-L/usr/local/cuda-10.1/lib64 -lcudart -lcusparse -lcusolver -lstdc++ -lcublas
+          PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lz -Wl,--start-group /opt/pgi/19.5/linuxpower/19.5/lib/liblapack.a /opt/pgi/19.5/linuxpower/19.5/lib/libblas.a -Wl,--end-group -lpthread -lm -ldl  -lparmetis -lmetis
+
+          ifeq ($(RH_VER),RH8)
+             SPRNG_DIR=/home/jinchen/LIB/PGI199
+             SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
+             SPRNG_INC:=-I${SPRNG_DIR}/include
+             PSPLINE_DIR=/home/jinchen/LIB/PGI199
+             PSPLINE_INC:=-I${PSPLINE_DIR}/mod
+             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline
+             PETSC_DIR=/home/jinchen/LIB/master
+             PETSC_ARCH=traverse-pgi-openmpi-gts-cuda-2019-2-32bit-rh8
+             CUDA_LIB:=-L/usr/local/cuda-10.2/lib64 -lcudart -lcusparse -lcusolver -lstdc++ -L/usr/local/cuda-10.0/lib64 -lcublas
+             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lparmetis -lmetis -lz -Wl,--start-group /opt/pgi/19.9/linuxpower/19.9/lib/liblapack.a /opt/pgi/19.9/linuxpower/19.9/lib/libblas.a -Wl,--end-group -lpthread -lm -ldl
+          endif
+
+
+          HDF5_INC:=-I$(HDF5DIR)/include
+          HDF5_LIB:=-L$(HDF5DIR)/lib64 -lhdf5_hl -lhdf5 -lhdf5_fortran -lhdf5hl_fortran
           NETCDF_LIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lnetcdf
           PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/${PETSC_ARCH}/include
 #-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
@@ -92,11 +99,11 @@ endif
      OPT:=$(ACCFLAG) $(OPT)
      COPT:=$(ACCFLAG) $(COPT)
      GOPT:= $(ACCFLAG) $(GOPT)
-	 endif
+    endif
 
-	OPT:=$(OPT) $(DFLAGS)
-	COPT:=$(COPT) $(DFLAGS)
-	GOPT:= -g  $(DFLAGS)
+   OPT:=$(OPT) $(DFLAGS)
+   COPT:=$(COPT) $(DFLAGS)
+   GOPT:= -g  $(DFLAGS)
 
 
    ifeq ($(OPENMP),y)
@@ -109,7 +116,7 @@ endif
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
 
-LIB:=-L$(HDF5DIR)/lib64 -lhdf5 -lhdf5_fortran -lhdf5hl_fortran $(CUDA_LIB) $(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
+LIB:=$(CUDA_LIB) $(NAG) $(FEM) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5_LIB) $(FFTLIB) $(PETSC_FLIB)
 
 %.o : %.cpp
 	$(CPP)  $(COPT) -c $< -o $@

@@ -33,13 +33,10 @@ OPENMP:=n
 DEBUG:=n
 ESSL:=n
 ACC:=n
+RH_VER:=RH7
 CUDA:=n
 ifeq ($(ACC), y)
-  ifeq ($(CUDA), y)
-    BIN_POSTFIX := $(BIN_POSTFIX)-ACC-CUDA
-  else
-	 BIN_POSTFIX := $(BIN_POSTFIX)-ACC
-  endif
+  BIN_POSTFIX := $(BIN_POSTFIX)-ACC
 else
 endif
 
@@ -51,6 +48,10 @@ endif
 ifeq ($(DEBUG), y)
   BIN_POSTFIX := $(BIN_POSTFIX)-G
 else
+endif
+
+ifeq ($(RH_VER),RH8)
+  BIN_POSTFIX := $(BIN_POSTFIX)-RH8
 endif
 
 include target.mk
