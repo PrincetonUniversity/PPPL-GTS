@@ -240,15 +240,17 @@ contains
 
    end subroutine Initialize_Structured_Grid
 
-   subroutine Measure_Electron_Density_on_SG
+   subroutine Measure_Electron_Density_on_SG(flag_which_target)
       use precision
       use global_parameters,only:me
-      use particle_array
+      use particle_array,only:zeon,zeon0
       use particle_decomp
       use mpi_defs
 
       implicit none
 
+      integer, intent(in), optional :: flag_which_target
+      integer :: flagT ! flag which target will be measured
       real(wp) ratio(4), ws0,ws1,wgq0,wgq1,wgf0,wgf1
       real(wp) P_s, P_gq, P_gf, P_safety_q
       real(wp) target_gq, target_gf
@@ -263,6 +265,14 @@ contains
 
       !$acc declare create(ptl_data)
 
+
+      ! Determine Flag target data
+      ! flagT=0 (Default; only measures a term from particle weight zeon(5,m))
+      ! flagT=1 (Diagnostic puprpose; measures various physical quantities)
+      flagT=0 ! Default value
+      if(present(flag_which_target)) flagT = flag_which_target
+
+
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
@@ -272,25 +282,44 @@ contains
          acc_newer_D_zeon=.false.
       endif
 
-      num_eD = 2
+      select case(flagT)
+         case(0) ! Default; only zeon(5,m)
+            num_eD=1
+         case(1) ! Diagnostic purpose
+            num_eD=2
+         case default
+            write(stdout,*) "Error!! flagT=",flagT," in Measure_Electron_Density_on_SG"
+            call flush(stdout)
+            STOP
+      end select
+
+
       allocate(eData(num_eD,SG%dim_gq,SG%dim_s,0:1),tmp_eData(num_eD,SG%dim_gq,SG%dim_s,0:1))
       allocate(ptl_data(num_eD,me))
       eData = 0.0
 
-      SG%dne = 0.0
-      SG%ne  = 0.0
 
-      if(Flag_Load_and_WeightDef==0)then
-         !$acc parallel loop present(zeon,zeon0,ptl_data)
+
+      select case(flagT)
+         case(0)
+            !$acc parallel loop present(zeon)
+            do m=1,me
+               ptl_data(1,m) = zeon(5,m)
+            enddo
+         case(1)
+            !$acc parallel loop present(zeon,zeon0,ptl_data,backTe)
+            do m=1,me
+               ptl_data(1,m) = zeon(5,m)
+               ptl_data(2,m) = zeon0(6,m)
+            enddo
+      end select
+
+
+      ! Mulitplying coeff in the case of Flag_Load_and_WeightDef==0
+      if(Flag_Load_and_WeightDef==0) then
+         !$acc parallel loop present(ptl_data)
          do m=1,me
-            ptl_data(1,m) = zeon(5,m)*eNrNm
-            ptl_data(2,m) = eNrNm
-         enddo
-      else
-         !$acc parallel loop present(zeon,zeon0)
-         do m=1,me
-            ptl_data(1,m) = zeon(5,m)
-            ptl_data(2,m) = zeon0(6,m)
+            ptl_data(:,m) = eNrNm*ptl_data(:,m)
          enddo
       endif
 
@@ -378,9 +407,13 @@ contains
          eData(vid,:,:,1) = eData(vid,:,:,1)*SG%inv_Cell_dV
       enddo
 
-      !
-      SG%dne = eData(1,:,:,:)
-      SG%ne  = eData(2,:,:,:)
+      select case(flagT)
+         case(0) ! Default; only zeon(5,m)
+            SG%dne = eData(1,:,:,:)
+         case(1) ! Diagnostic purpose
+            SG%dne = eData(1,:,:,:)
+            SG%ne  = eData(2,:,:,:)
+      end select
 
       deallocate(eData,tmp_eData)
       deallocate(ptl_data)
@@ -393,15 +426,17 @@ contains
 
    end subroutine Measure_Electron_Density_on_SG
 
-   subroutine Measure_Ion_Density_on_SG
+   subroutine Measure_Ion_Density_on_SG(flag_which_target)
       use precision
       use global_parameters,only:mi
-      use particle_array
+      use particle_array,only:zion,zion0
       use particle_decomp
       use mpi_defs
 
       implicit none
 
+      integer, intent(in), optional :: flag_which_target
+      integer :: flagT ! flag which target will be measured
       real(wp) ratio(4), ws0,ws1,wgq0,wgq1,wgf0,wgf1
       real(wp) P_s, P_gq, P_gf, P_safety_q
       real(wp) target_gq, target_gf
@@ -415,9 +450,16 @@ contains
 
       !$acc declare create(ptl_data)
 
-      #ifdef _MGY_TIMER_
+      ! Determine Flag target data
+      ! flagT=0 (Default; only measures a term from particle weight zeon(5,m))
+      ! flagT=1 (Diagnostic puprpose; measures various physical quantities)
+      flagT=0 ! Default value
+      if(present(flag_which_target)) flagT = flag_which_target
+
+
+#ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
-      #endif
+#endif
 
       if(acc_newer_H_zion) then
          !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -425,25 +467,44 @@ contains
          acc_newer_H_zion=.false.
       endif
 
-      num_iD = 2
+
+     select case(flagT)
+         case(0) ! Default; only zion(5,m)
+            num_iD=1
+         case(1) ! Diagnostic purpose
+            num_iD=2
+         case default
+            write(stdout,*) "Error!! flagT=",flagT," in Measure_Ion_Density_on_SG"
+            call flush(stdout)
+            STOP
+      end select
+
+
       allocate(iData(num_iD,SG%dim_gq,SG%dim_s,0:1), tmp_iData(num_iD,SG%dim_gq,SG%dim_s,0:1))
       allocate(ptl_data(num_iD,mi))
       iData=0.0
 
-      SG%dni = 0.0
-      SG%ni  = 0.0
 
-      if(Flag_Load_and_WeightDef==0)then
-         !$acc parallel loop present(zion,zion0,ptl_data)
+      select case(flagT)
+         case(0)
+            !$acc parallel loop present(zion)
+            do m=1,mi
+               ptl_data(1,m) = zion(5,m)
+            enddo
+         case(1)
+            !$acc parallel loop present(zion,zion0,ptl_data)
+            do m=1,mi
+               ptl_data(1,m) = zion(5,m)
+               ptl_data(2,m) = zion0(6,m)
+            enddo
+      end select
+
+
+      ! Mulitplying coeff in the case of Flag_Load_and_WeightDef==0
+      if(Flag_Load_and_WeightDef==0) then
+         !$acc parallel loop present(ptl_data)
          do m=1,mi
-            ptl_data(1,m) = zion(5,m)*iNrNm
-            ptl_data(2,m) = iNrNm
-         enddo
-      else
-         !$acc parallel loop present(zion,zion0,ptl_data)
-         do m=1,mi
-            ptl_data(1,m) = zion(5,m)
-            ptl_data(2,m) = zion0(6,m)
+            ptl_data(:,m) = iNrNm*ptl_data(:,m)
          enddo
       endif
 
@@ -557,9 +618,13 @@ contains
          iData(vid,:,:,1) = iData(vid,:,:,1)*SG%inv_Cell_dV
       enddo
 
-
-      SG%dni = iData(1,:,:,:)
-      SG%ni  = iData(2,:,:,:)
+      select case(flagT)
+         case(0) ! Default; only zion(5,m)
+            SG%dni = iData(1,:,:,:)
+         case(1) ! Diagnostic purpose
+            SG%dni = iData(1,:,:,:)
+            SG%ni  = iData(2,:,:,:)
+      end select
 
       deallocate(iData,tmp_iData)
       deallocate(ptl_data)
