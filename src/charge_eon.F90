@@ -176,13 +176,6 @@ subroutine charge_eon
       densitye(1,:)=densitye(1,:)+recvr(:)
    endif
 
-   ! zero out charge in boundary cell
-   !  do i=0,nbound-1
-   !     densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
-   !        densitye(:,igrid(i):igrid(i)+mtheta(i))*real(i,wp)/real(nbound,wp)
-   !     densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-   !        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*real(i,wp)/real(nbound,wp)
-   !  enddo
 
    if(ZF_SEPARATION==0) then  !  solve total potential
 
@@ -347,36 +340,18 @@ subroutine charge_eon
       !===================================================================
 
 
-      ! zero out charge in boundary cell
-      !  do i=0,nbound-1
-      !     densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
-      !        densitye(:,igrid(i):igrid(i)+mtheta(i))*real(i,wp)/real(nbound,wp)
-      !     densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-      !        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*real(i,wp)/real(nbound,wp)
-      !  enddo
-      do i=0,nbound
-         rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
-
-         ! pdum=abs(dni_grid(nbound)/dni_grid(i))
-         ! zdum=abs(dni_grid(mpsi-nbound)/dni_grid(mpsi-i))
-         pdum=1.0_wp
-         zdum=1.0_wp
-
-         densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
-            densitye(:,igrid(i):igrid(i)+mtheta(i))*rdum*pdum
-         densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-            densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum*zdum
+      ! Artificial damping density near both boundaries
+      do i=0,nbound_inner
+         rdum=smoothstep(0.0_wp, real(nbound_inner,wp),real(i,wp))
+         densitye(:,igrid(i):igrid(i)+mtheta(i))=  rdum*densitye(:,igrid(i):igrid(i)+mtheta(i))
+      enddo
+      do i=0,nbound_outer
+         rdum=smoothstep(0.0_wp, real(nbound_outer,wp),real(i,wp))
+         densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=  rdum*densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))
       enddo
 
    else  ! solve zonal flows separately when ZF_SEPARATION==1
 
-      ! zero out charge in boundary cell
-      !  do i=0,nbound-1
-      !     densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
-      !        densitye(:,igrid(i):igrid(i)+mtheta(i))*real(i,wp)/real(nbound,wp)
-      !     densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-      !        densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*real(i,wp)/real(nbound,wp)
-      !  enddo
 
       ! flux surface average and normalization
       wdum=0.0_wp
@@ -440,18 +415,17 @@ subroutine charge_eon
 
       if(its_jacobi==0) then
 
-         do i=0,nbound
-            rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
-
-            densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
-               densitye(:,igrid(i):igrid(i)+mtheta(i))*rdum
-            densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-               densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
-
-            zonale(i)=zonale(i)*rdum
-            zonale(mpsi-i)=zonale(mpsi-i)*rdum
+         ! Artificial damping density near both boundaries
+         do i=0,nbound_inner
+            rdum=smoothstep(0.0_wp, real(nbound_inner,wp),real(i,wp))
+            densitye(:,igrid(i):igrid(i)+mtheta(i))=  rdum*densitye(:,igrid(i):igrid(i)+mtheta(i))
+            zonale(i) = rdum*zonale(i)
          enddo
-
+         do i=0,nbound_outer
+            rdum=smoothstep(0.0_wp, real(nbound_outer,wp),real(i,wp))
+            densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=  rdum*densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))
+            zonale(mpsi-i) = rdum*zonale(mpsi-i)
+         enddo
       else     !  its_jacobi=1 --> enforcing enforce charge conservation for zonal flow mode
 
          ! enforce charge conservation for zonal flow mode
@@ -494,12 +468,15 @@ subroutine charge_eon
 
          !  wdum=eta_grid  ! check ZF driving turbulence
 
-         do i=0,nbound
-            rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
+         ! Artificial damping density near both boundaries
+         do i=0,nbound_inner
+            rdum=smoothstep(0.0_wp, real(nbound_inner,wp),real(i,wp))
             wdum(i)=wdum(i)*rdum
+         enddo
+         do i=0,nbound_outer
+            rdum=smoothstep(0.0_wp, real(nbound_outer,wp),real(i,wp))
             wdum(mpsi-i)=wdum(mpsi-i)*rdum
          enddo
-
 
          ! calculate int[dVda*I(a)*da]
          wf=0.0
@@ -554,15 +531,16 @@ subroutine charge_eon
 
          zonale(1:mpsi-1)=zonale(1:mpsi-1)-wdum(1:mpsi-1)
 
-         do i=0,nbound
-            rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
 
-            densitye(:,igrid(i):igrid(i)+mtheta(i))=   &
-               densitye(:,igrid(i):igrid(i)+mtheta(i))*rdum
-            densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=   &
-               densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))*rdum
-
+         ! Artificial damping density near both boundaries
+         do i=0,nbound_inner
+            rdum=smoothstep(0.0_wp, real(nbound_inner,wp),real(i,wp))
+            densitye(:,igrid(i):igrid(i)+mtheta(i))=  rdum*densitye(:,igrid(i):igrid(i)+mtheta(i))
             zonale(i)=zonale(i)*rdum
+         enddo
+         do i=0,nbound_outer
+            rdum=smoothstep(0.0_wp, real(nbound_outer,wp),real(i,wp))
+            densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))=  rdum*densitye(:,igrid(mpsi-i):igrid(mpsi-i)+mtheta(mpsi-i))
             zonale(mpsi-i)=zonale(mpsi-i)*rdum
          enddo
 
