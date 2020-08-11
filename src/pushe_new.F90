@@ -2042,9 +2042,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
    ELSE    !IF(ifelectron==1) delta-f scheme
 
-      #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
-      #endif
+#endif
 
       acc_newer_D_zeon=.true.
       !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
@@ -2210,11 +2210,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
       enddo
 
-      #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
       call flush(stdout)
-      #endif
+#endif
 
 
 

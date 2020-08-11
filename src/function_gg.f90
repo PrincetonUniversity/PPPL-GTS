@@ -59,9 +59,9 @@ module function_gg_module
          integer m0,m1
          integer ierr
 
-      #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
          time0 = MPI_WTIME()
-      #endif
+#endif
 
          m0=1
          m1=mi
@@ -222,11 +222,11 @@ module function_gg_module
 
 
 
-      #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
          time1=MPI_WTIME()
          if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_partial takes", time1-time0, " secs"
          call flush(stdout)
-      #endif
+#endif
 
 
       end subroutine n_T_u_group_partial
@@ -262,9 +262,9 @@ module function_gg_module
          integer, optional,intent(in) :: m_start, m_end
          integer m0,m1
 
-      #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
          time0= MPI_WTIME()
-      #endif
+#endif
 
          m0=1
          m1=me
@@ -428,11 +428,11 @@ module function_gg_module
          enddo
          !$acc update self(back_f0_e(m0:m1))
 
-      #ifdef _MGY_TIMER_
+#ifdef _MGY_TIMER_
          time1=MPI_WTIME()
          if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_e_partial takes", time1-time0, " secs"
          call flush(stdout)
-      #endif
+#endif
 
       end subroutine n_T_u_group_e_partial
 
