@@ -245,6 +245,7 @@ contains
       use global_parameters,only:me
       use particle_array,only:zeon,zeon0
       use particle_decomp
+      use function_gg_module
       use mpi_defs
 
       implicit none
@@ -260,7 +261,7 @@ contains
       real(wp), allocatable, dimension(:,:,:,:) :: eData, tmp_eData
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_eD ! num of eData (First Dimension)
-      real(wp) tt0,tt1
+      real(wp) tt0,tt1,tmp
 
 
       !$acc declare create(ptl_data)
@@ -407,6 +408,16 @@ contains
          eData(vid,:,:,1) = eData(vid,:,:,1)*SG%inv_Cell_dV
       enddo
 
+      ! Artificial damping near the both inner and outer boundary
+      do sid=1,1+nbound_inner
+         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(1),0.0,SG%s_1D(1+nbound_inner),1.0)
+         eData(:,:,sid,:) = tmp*eData(:,:,sid,:)
+      enddo
+      do sid=SG%dim_s-nbound_outer,SG%dim_s
+         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(SG%dim_s-nbound_outer),1.0,SG%s_1D(SG%dim_s),0.0)
+         eData(:,:,sid,:) = tmp*eData(:,:,sid,:)
+      enddo
+
       select case(flagT)
          case(0) ! Default; only zeon(5,m)
             SG%dne = eData(1,:,:,:)
@@ -431,6 +442,7 @@ contains
       use global_parameters,only:mi
       use particle_array,only:zion,zion0
       use particle_decomp
+      use function_gg_module
       use mpi_defs
 
       implicit none
@@ -442,7 +454,7 @@ contains
       real(wp) target_gq, target_gf
       real(wp) tmp_var(SG%dim_gq,SG%dim_s,0:1)
       integer m, k, sid, gqid, vid, ss(4), qq(4), length, istatus(MPI_STATUS_SIZE),ierror, larmor
-      real(wp) tt0, tt1
+      real(wp) tt0, tt1, tmp
       real(wp), allocatable, dimension(:,:,:,:) :: iData, tmp_iData
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_iD ! num_of iData (First dimension)
@@ -617,6 +629,19 @@ contains
          iData(vid,:,:,0) = iData(vid,:,:,0)*SG%inv_Cell_dV
          iData(vid,:,:,1) = iData(vid,:,:,1)*SG%inv_Cell_dV
       enddo
+
+
+      ! Artificial damping near the both inner and outer boundary
+      do sid=1,1+nbound_inner
+         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(1),0.0,SG%s_1D(1+nbound_inner),1.0)
+         iData(:,:,sid,:) = tmp*iData(:,:,sid,:)
+      enddo
+      do sid=SG%dim_s-nbound_outer,SG%dim_s
+         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(SG%dim_s-nbound_outer),1.0,SG%s_1D(SG%dim_s),0.0)
+         iData(:,:,sid,:) = tmp*iData(:,:,sid,:)
+      enddo
+
+
 
       select case(flagT)
          case(0) ! Default; only zion(5,m)
