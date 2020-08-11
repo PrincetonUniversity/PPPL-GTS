@@ -2516,6 +2516,8 @@ Subroutine read_input_params
       Bu,                 &
       stdout,             &
       nbound,             &
+      nbound_inner,       &
+      nbound_outer,       &
       umax,               &
       iload,              &   ! not really useful
       icollision,         &   ! =0: no collision; =i>0: calculate collision every i steps
@@ -2567,6 +2569,12 @@ Subroutine read_input_params
    read(unit=5,nml=read2)
    close(5)
 
+
+   ! If nbound_inner and nbound_outer are not in INPUT.d/read1
+   ! set nbound value into them
+   if(nbound_inner==-100) nbound_inner=nbound
+   if(nbound_outer==-100) nbound_outer=nbound
+
    if (mype==0) then
       write(0,*) 'equillibrium=', eq_data_name
       write(0,*) 'irun=', irun
@@ -2609,6 +2617,8 @@ Subroutine read_input_params
       write(0,*) 'its_phip00_tolerance=', its_phip00_tolerance
       write(0,*) 'finite element order=', order
       write(0,*) 'larmor_num=', larmor_num
+
+      write(0,'(3(A,I4))') 'nbound=',nbound, '; nbound_inner=', nbound_inner, '; nbound_outer=',nbound_outer
 
       write(0,*) 'electromagnetic=', electromagnetic
       write(0,*) 'Flag_Streaming=', Flag_Streaming
