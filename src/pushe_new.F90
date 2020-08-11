@@ -6,6 +6,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
    use diagnosis_array
    use esi_interface
    use solver_data_class
+   use Structured_Grid
 
    implicit none
 
@@ -624,7 +625,11 @@ subroutine pusheon(solver1, masssolver, irk_e)
       end do
 
       if(Flag_Poisson==1) then
-         call charge_eon
+         if(Flag_Poisson3D_on_SG==1) then
+            call Measure_Electron_Density_on_SG(0)
+         else
+            call charge_eon
+         endif
          call poisson( solver1, masssolver )
          ! call smooth_PHI
       endif
@@ -1109,6 +1114,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    use solver_data_class
    use function_gg_module
    use Ptl_Src_Loss
+   use Structured_Grid
 
    implicit none
 
@@ -1862,7 +1868,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       if(Flag_Poisson==1) then
          call cpu_time(cput0)
          tt0=MPI_WTIME()
-         call charge_eon
+         if(Flag_Poisson3D_on_SG==1) then
+            call Measure_Electron_Density_on_SG(0)
+         else
+            call charge_eon
+         endif
          call cpu_time(cput1)
          tt1=MPI_WTIME()
          time_in_Pushe(2) = time_in_Pushe(2) + (cput1-cput0)

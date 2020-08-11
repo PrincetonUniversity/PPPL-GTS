@@ -146,39 +146,6 @@ subroutine poisson( solver, masssolver )
       endif
 
       if(Flag_Poisson3D_on_SG>=1) then
-         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         ! ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
-         ! call Solve_test_Poisson3D_on_SG
-
-         ! call Measure_Electron_Density_on_SG
-         ! call Measure_Ion_Density_on_SG
-         ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
-         ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)
-         ! call Solve_Poisson3D_on_SG
-         ! call Cal_gradPhi_on_SG
-         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         ! call Solve_test_Poisson3D_on_SG
-
-         ! Calculate ion density and interpolate it into SG%dni
-         do i=0,mpsi
-            do j=1,mtheta(i)
-               ij=igrid(i)+j
-               dentmp(ij)=den_grid(i)*(densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i)))
-            enddo
-            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
-         enddo
-         call Interpolate_OriGridData_into_SG(dentmp,SG%dni(:,:,1))
-
-         ! Calculate electron density (df or dh; not including adiabatic density)
-         ! and then interpolate into SG%dne
-         do i=0,mpsi
-            do j=1,mtheta(i)
-               ij=igrid(i)+j
-               dentmp(ij)=den_grid(i)*(densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i)))
-            enddo
-            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
-         enddo
-         call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
 
          ! Smooth SG densities
          SG%dne_SM = SG%dne(:,:,1)
@@ -424,31 +391,6 @@ subroutine poisson( solver, masssolver )
 
       if(Flag_Poisson3D_on_SG>=1) then
 
-
-         ! call Interpolate_OriGridData_into_SG(dentmp,SG%test_src_2D)
-         ! ! call Interpolate_OriGridData_into_SG(phi(1,:)*(E_00*c)/(charg0*1e8),SG%test_phi_2D)
-         ! call Solve_test_Poisson3D_on_SG
-
-         ! Calculate ion density and interpolate it into SG%dni
-         do i=0,mpsi
-            do j=1,mtheta(i)
-               ij=igrid(i)+j
-               dentmp(ij)=den_grid(i)*(densityi(1,ij)+real(ZF_SEPARATION)*(zonali(i)))
-            enddo
-            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
-         enddo
-         call Interpolate_OriGridData_into_SG(dentmp,SG%dni(:,:,1))
-
-         ! Calculate electron density (df or dh; not including adiabatic density)
-         ! and then interpolate into SG%dne
-         do i=0,mpsi
-            do j=1,mtheta(i)
-               ij=igrid(i)+j
-               dentmp(ij)=den_grid(i)*(densitye(1,ij)+real(ZF_SEPARATION)*(zonale(i)))
-            enddo
-            dentmp(igrid(i))=dentmp(igrid(i)+mtheta(i))  ! which is missing in last do-loop
-         enddo
-         call Interpolate_OriGridData_into_SG(dentmp,SG%dne(:,:,1))
 
          ! Smooth SG densities
          SG%dne_SM = SG%dne(:,:,1)

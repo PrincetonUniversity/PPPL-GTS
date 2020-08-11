@@ -232,9 +232,17 @@ program GTS
    ! initial field
    irk=2
    idiag=1
-   call charge_ion
+   if(Flag_Poisson3D_on_SG==1) then
+      call Measure_Ion_Density_on_SG(0)
+   else
+      call charge_ion
+   endif
 
-   if(ifelectron/=0) call charge_eon
+   if(Flag_Poisson3D_on_SG==1) then
+      if(ifelectron/=0) call Measure_Electron_Density_on_SG(0)
+   else
+      if(ifelectron/=0) call charge_eon
+   endif
 
    if(Flag_Poisson==1) then
       if(Flag_Poisson3D_on_SG==1) then
@@ -272,8 +280,8 @@ program GTS
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
       call SetZeros_cum_Radial_FluxData_a1D_on_DG
-      ! call Measure_Electron_Density_on_SG
-      ! call Measure_Ion_Density_on_SG
+      call Measure_Electron_Density_on_SG(1)
+      call Measure_Ion_Density_on_SG(1)
       call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
@@ -368,7 +376,11 @@ program GTS
          ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
          ! in PUSHI for calculating electric force on ions
-         call charge_ion
+         if(Flag_Poisson3D_on_SG==1) then
+            call Measure_Ion_Density_on_SG(0)
+         else
+            call charge_ion
+         endif
          call timer(t0,dt,t0wc,dtwc)
          time(3)=time(3)+dt
          timewc(3)=timewc(3)+dtwc
@@ -466,7 +478,11 @@ program GTS
             ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
             ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
             ! for calculating gamma_e
-            call charge_eon
+            if(Flag_Poisson3D_on_SG==1) then
+               call Measure_Electron_Density_on_SG(0)
+            else
+               call charge_eon
+            endif
             call timer(t0,dt,t0wc,dtwc)
             time(12)=time(12)+dt
             timewc(12)=timewc(12)+dtwc
@@ -544,8 +560,8 @@ program GTS
          endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
 
-         ! call Measure_Electron_Density_on_SG
-         ! call Measure_Ion_Density_on_SG
+         call Measure_Electron_Density_on_SG(1) !Input flag=1 for diagnostic purpose
+         call Measure_Ion_Density_on_SG(1) !Input flag=1 for diagnostic purpose
 
          call MPI_Reduce_FootPrints_of_Electrons_and_Ions(FP_BDY1,numberpe-1)
          call Cumulate_FP_to_cumFP(FP_BDY1,cum_FP_BDY1)
