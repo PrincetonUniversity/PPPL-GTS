@@ -35,7 +35,7 @@ module function_gg_module
          real(wp), intent(in) :: in_x
          real(wp), intent(in), optional :: x0,y0,x1,y1
          real(wp) :: out_y
-         real(wp) :: x, xx0,xx1,yy0,yy1
+         real(wp) :: x, xx0,xx1,yy0,yy1, tmp
 
          xx0=0.0
          yy0=0.0
@@ -47,10 +47,24 @@ module function_gg_module
          if(present(x1)) xx1=x1
          if(present(y1)) yy1=y1
 
-         if(in_x<xx0) then
+         if(xx1<xx0) then
+            ! swap (xx0,yy0) and (xx1,yy1) to make sure xx0<xx1
+            tmp=xx0
+            xx0=xx1
+            xx1=tmp
+
+            tmp=yy0
+            yy0=yy1
+            yy1=tmp
+         elseif (xx0==xx1) then
+            out_y=0.5*(yy0+yy1)
+            write(*,*) "Caution! SmootherStep's behavior is not defined when xx0=xx1=",xx0
+         endif
+
+         if(in_x<=xx0) then
             out_y=yy0
             return
-         elseif(in_x>xx1) then
+         elseif(in_x>=xx1) then
             out_y=yy1
             return
          endif
@@ -69,7 +83,7 @@ module function_gg_module
          real(wp), intent(in) :: in_x
          real(wp), intent(in), optional :: x0,y0,x1,y1
          real(wp), intent(out), optional :: out_y, out_dydx
-         real(wp) :: x, xx0,xx1,yy0,yy1
+         real(wp) :: x, xx0,xx1,yy0,yy1,tmp
 
          xx0=0.0
          yy0=0.0
@@ -81,11 +95,26 @@ module function_gg_module
          if(present(x1)) xx1=x1
          if(present(y1)) yy1=y1
 
-         if(in_x<xx0) then
+         if(xx1<xx0) then
+            ! swap (xx0,yy0) and (xx1,yy1) to make sure xx0<xx1
+            tmp=xx0
+            xx0=xx1
+            xx1=tmp
+
+            tmp=yy0
+            yy0=yy1
+            yy1=tmp
+         elseif (xx0==xx1) then
+            if(present(out_y)) out_y=0.5*(yy0+yy1)
+            if(present(out_dydx)) out_dydx=0.0 ! not defined..
+            write(*,*) "Caution! SmootherStep2's behavior is not defined when xx0=xx1",xx0
+         endif
+
+         if(in_x<=xx0) then
             if(present(out_y)) out_y=yy0
             if(present(out_dydx)) out_dydx=0.0
             return
-         elseif(in_x>xx1) then
+         elseif(in_x>=xx1) then
             if(present(out_y)) out_y=yy1
             if(present(out_dydx)) out_dydx=0.0
             return
