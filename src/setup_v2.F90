@@ -1703,6 +1703,11 @@ Subroutine setup
       pgyro(:,igrid(i))=pgyro(:,igrid(i)+mtheta(i)) !(:,igrid(i)) is missing in last do-loop
       tgyro(:,igrid(i))=tgyro(:,igrid(i)+mtheta(i)) !(:,igrid(i)) is missing in last do-loop
 
+      if(Flag_DK_Ion==1) then
+         pgyro=0.0
+         tgyro=0.0
+      endif
+
       dRda(igrid(i)+mtheta(i))=dRda(igrid(i))  !(:,igrid(i)) is missing in last do-loop
       dRdt(igrid(i)+mtheta(i))=dRdt(igrid(i))  !(:,igrid(i)) is missing in last do-loop
       dZda(igrid(i)+mtheta(i))=dZda(igrid(i))  !(:,igrid(i)) is missing in last do-loop
@@ -2579,6 +2584,8 @@ Subroutine read_input_params
    ! set nbound value into them
    if(nbound_inner==-100) nbound_inner=nbound
    if(nbound_outer==-100) nbound_outer=nbound
+
+   if(Flag_DK_Ion==1) larmor_num=1
 
    if (mype==0) then
       write(0,*) 'equillibrium=', eq_data_name

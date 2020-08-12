@@ -203,6 +203,10 @@ contains
          enddo
       enddo
 
+      if(Flag_DK_Ion==1) then
+         gyro_over_sqrt_mu=0.0
+      endif
+
       !$acc update device(gyro_over_sqrt_mu)
 
       ! NOTE : Get Cell volume like dV=(Jacobian_sqf)*ds*dtheta*dgf (Calculate on (s,gq,gf) grid)
