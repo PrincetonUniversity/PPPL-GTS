@@ -632,6 +632,7 @@ Subroutine setup
       allnodes(0:mpsi),gaa(0:mpsi),B2_s(0:mpsi),dVda(0:mpsi),En_00(0:mpsi),&
       En_tur(0:mpsi),En_tot(0:mpsi),sn0_g(0:mpsi),dnty_on_bin_g(0:mpsi),&
       dphidt00(0:mpsi),gsgaa(0:mpsi))
+   phi00=0.0
 
    allocate(zonal_dTi(0:mpsi), zonal_dTe(0:mpsi))
    ! grid spacing
@@ -1212,6 +1213,9 @@ Subroutine setup
       phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),&
       pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),   &
       dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
+
+   phi=0.0
+   !$acc update device(phi)
 
    allocate(test_src(mgrid))
    test_src=0.0
