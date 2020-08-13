@@ -1278,7 +1278,7 @@ subroutine pushion_RK4(irk_i)
       !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
       !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
       !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-      !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+      !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
 
       if(acc_newer_D_zion) then
          !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -1472,7 +1472,7 @@ subroutine pushion_RK4(irk_i)
       !$acc update self(ii_inv_grad_a(:mi),ii_inv_grad_gq(:mi),ii_inv_grad_gf(:mi))
       !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
       !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-      !$acc update self(wi_vpara(:mi), wi_vperp(:mi), wi_accel(:mi), wi_fdamp(:mi))
+      !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
       !$acc update self(ilabels(:mi))
       if(acc_newer_D_zion) then
          !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
