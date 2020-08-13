@@ -1215,7 +1215,6 @@ Subroutine setup
       dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid) )
 
    phi=0.0
-   !$acc update device(phi)
 
    allocate(test_src(mgrid))
    test_src=0.0

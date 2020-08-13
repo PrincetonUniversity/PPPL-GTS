@@ -497,7 +497,6 @@ subroutine smooth(iflag)
    1000 continue
 #endif
 
-   !$acc update device (phi)
 
 end subroutine smooth
 
@@ -805,6 +804,5 @@ subroutine smooth_phi
    end if  ! end ZF_SEPARATION==0
 
 
-   !$acc update device(phi)
 
 end subroutine smooth_phi
