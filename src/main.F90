@@ -560,6 +560,9 @@ program GTS
          endif
          !  phi_tmp=phi_tmp/real(msnap,wp)
 
+         call ion_locator_at_larmor_points
+         call electron_locator
+
          call Measure_Electron_Density_on_SG(1) !Input flag=1 for diagnostic purpose
          call Measure_Ion_Density_on_SG(1) !Input flag=1 for diagnostic purpose
 
