@@ -790,7 +790,7 @@ subroutine pushion_RK4(irk_i)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
-   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
 
    if(acc_newer_H_zion) then
       !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))

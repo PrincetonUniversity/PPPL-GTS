@@ -1159,7 +1159,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
-   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
    real(wp) tmp_zeon5(memax)
    !$acc declare create (tmp_zeon5)
 

@@ -2805,7 +2805,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
    #pragma acc data copyin(gq[:Np1],sa[:Na1],aF[:Na1],daF[:Na1],dgF[:Na1],d2gF[:Na1],dgY[:Na1],d2gY[:Na1],aT[:Na1],daT[:Na1],aP[:Na1],daP[:Na1],\
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,Er_particle) private(gradPhi)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,ga_array,wga_array,gat_array,Er_particle) private(gradPhi)
       for(k=0; k < n; k++){
          Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
          Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
@@ -4414,7 +4414,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
 
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,Er_particle) private(gradPhi)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,ga_array,wga_array,gat_array,Er_particle) private(gradPhi)
       for(k=0; k < n; k++){
          Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
