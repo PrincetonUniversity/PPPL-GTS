@@ -2933,7 +2933,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             gYa       *=a;
          }
          else{       /* a == 0. -- the case must be avoided */
-            printf("Error! particle input_r=0 in gcmotion_em_MGY_vec_form!!");
+            printf("Error! particle input_r=0 in gcmotion_em_MGY_vec_form!!\n");
             //exit(1);
          }
          B[k]=BB;    /* output of B field */
@@ -4541,7 +4541,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             gYa       *=a;
          }
          else{       /* a == 0. -- the case must be avoided */
-            printf("Error! particle input r=0 in gcmotion_eon_em_MGY_vec_form!!");
+            printf("Error! particle input r=0 in gcmotion_eon_em_MGY_vec_form!!\n");
             // exit(1);
          }
          B[k]=BB;    /* output of B field */
