@@ -50,23 +50,23 @@ module Ptl_locators_partial
 
             rdum=psitmp
             rdum=delr*max(0.0_wp,min(s1-s0,rdum-s0))
-            ii=max(0,min(mpsi-1,floor(rdum)))
+            ii=max(0,min(mpsi-1,int(rdum)))
             wp1=rdum-real(ii,wp)
             wpeon(m)=wp1
 
             ! inner flux surface
             im=ii
             tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
-            tdum=(tdum-floor(tdum))*delt(im)
-            j00=max(0,min(mtheta(im)-1,floor(tdum)))
+            tdum=(tdum-int(tdum))*delt(im)
+            j00=max(0,min(mtheta(im)-1,int(tdum)))
             jteon0(m)=igrid(im)+j00  ! pay attention to j00=0 case
             wteon0(m)=tdum-real(j00,wp)
 
             ! outer flux surface
             im=ii+1
             tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
-            tdum=(tdum-floor(tdum))*delt(im)
-            j01=max(0,min(mtheta(im)-1,floor(tdum)))
+            tdum=(tdum-int(tdum))*delt(im)
+            j01=max(0,min(mtheta(im)-1,int(tdum)))
             jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
             wteon1(m)=tdum-real(j01,wp)
          enddo
@@ -124,12 +124,12 @@ module Ptl_locators_partial
             rhoi=zion(6,m)
 
             r=psitmp
-            ip=max(0,min(mpsi,floor((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
-            !   jt=max(0,min(mtheta(ip),floor(thetatmp*pi2_inv*delt(ip)+0.5)))
+            ip=max(0,min(mpsi,int((r-s0)*delr+0.5)))  ! grid size is uniform in s but not a
+            !   jt=max(0,min(mtheta(ip),int(thetatmp*pi2_inv*delt(ip)+0.5)))
             thedum=thetatmp-zetatmp*qtinv(ip)    ! corresponding theta on zeta=0 plane
             thedum=thedum*pi2_inv+100.0_wp
-            thedum=2.0_wp*pi*(thedum-floor(thedum))       ! bring back to range [0,2pi]
-            jt=max(0,min(mtheta(ip),floor(thedum*pi2_inv*delt(ip)+0.5)))
+            thedum=2.0_wp*pi*(thedum-int(thedum))       ! bring back to range [0,2pi]
+            jt=max(0,min(mtheta(ip),int(thedum*pi2_inv*delt(ip)+0.5)))
             ipjt=igrid(ip)+jt     ! note special case of jt=0
             wzion(m)=(zetatmp-zetamin)*delz
 
@@ -137,19 +137,19 @@ module Ptl_locators_partial
             !==========================================
             ! MGYOO (10/24/2018) : to store information of GC position.
             ! GC's lower-left cell-index(jtion) and linear-interpolation-weights (wpion, wtion0, wtion1)
-            inner_ip = max(0,min(mpsi-1,floor((r-s0)*delr)))
+            inner_ip = max(0,min(mpsi-1,int((r-s0)*delr)))
             thedum=zion(2,m)-zetatmp*qtinv(inner_ip)              ! corresponding theta on zeta=0 plane
             thedum=modulo(thedum,2.0_wp*pi)/deltat(inner_ip)  ! bring back to range [0,2pi] and divde by delta_theta
-            inner_jt = floor(thedum)
-            wtion0(0,m) = thedum - floor(thedum)
+            inner_jt = int(thedum)
+            wtion0(0,m) = thedum - int(thedum)
             jtion0(0,m) = igrid(inner_ip) + inner_jt
             wpion(0,m) =  (zion(7,m) - s_grid(inner_ip))/(s_grid(inner_ip+1)-s_grid(inner_ip))
 
             outter_ip = inner_ip+1
             thedum=zion(2,m)-zetatmp*qtinv(outter_ip)     ! corresponding theta on zeta=0 plane
             thedum=modulo(thedum,2.0_wp*pi)/deltat(outter_ip)  ! bring back to range [0,2pi] and divde by delta_theta
-            outter_jt = floor(thedum)
-            wtion1(0,m) = thedum - floor(thedum)
+            outter_jt = int(thedum)
+            wtion1(0,m) = thedum - int(thedum)
             jtion1(0,m) = igrid(outter_ip) + outter_jt
             !==========================================
 
@@ -178,7 +178,7 @@ module Ptl_locators_partial
                pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
                zion_s_on_GyroOrbit(larmor,m)=psitmp+rhoi*intpl_pgyro(larmor)
                rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
-               ii=max(0,min(mpsi-1,floor(rdum)))
+               ii=max(0,min(mpsi-1,int(rdum)))
                !        wp1=rdum-real(ii)
                !        wpion(larmor,m)=wp1
                wp1=(pdum-s_grid(ii))/(s_grid(ii+1)-s_grid(ii))   !wx  finite rho_i case
@@ -191,16 +191,16 @@ module Ptl_locators_partial
                ! inner flux surface
                im=ii
                tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
-               tdum=(tdum-floor(tdum))*delt(im)
-               j00=max(0,min(mtheta(im)-1,floor(tdum)))
+               tdum=(tdum-int(tdum))*delt(im)
+               j00=max(0,min(mtheta(im)-1,int(tdum)))
                jtion0(larmor,m)=igrid(im)+j00  ! pay attention to j00=0 case
                wtion0(larmor,m)=tdum-real(j00)
 
                ! outer flux surface
                im=ii+1
                tdum=pi2_inv*(tflr-zetatmp*qtinv(im))+10.0_wp
-               tdum=(tdum-floor(tdum))*delt(im)
-               j01=max(0,min(mtheta(im)-1,floor(tdum)))
+               tdum=(tdum-int(tdum))*delt(im)
+               j01=max(0,min(mtheta(im)-1,int(tdum)))
                jtion1(larmor,m)=igrid(im)+j01  ! pay attention to j01=0 case
                wtion1(larmor,m)=tdum-real(j01)
             enddo

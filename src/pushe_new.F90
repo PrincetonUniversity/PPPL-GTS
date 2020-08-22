@@ -3010,23 +3010,23 @@ subroutine electron_locator
 
       rdum=psitmp
       rdum=delr*max(0.0_wp,min(s1-s0,rdum-s0))
-      ii=max(0,min(mpsi-1,floor(rdum)))
+      ii=max(0,min(mpsi-1,int(rdum)))
       wp1=rdum-real(ii,wp)
       wpeon(m)=wp1
 
       ! inner flux surface
       im=ii
       tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
-      tdum=(tdum-floor(tdum))*delt(im)
-      j00=max(0,min(mtheta(im)-1,floor(tdum)))
+      tdum=(tdum-int(tdum))*delt(im)
+      j00=max(0,min(mtheta(im)-1,int(tdum)))
       jteon0(m)=igrid(im)+j00  ! pay attention to j00=0 case
       wteon0(m)=tdum-real(j00,wp)
 
       ! outer flux surface
       im=ii+1
       tdum=pi2_inv*(thetatmp-zetatmp*qtinv(im))+100.0_wp
-      tdum=(tdum-floor(tdum))*delt(im)
-      j01=max(0,min(mtheta(im)-1,floor(tdum)))
+      tdum=(tdum-int(tdum))*delt(im)
+      j01=max(0,min(mtheta(im)-1,int(tdum)))
       jteon1(m)=igrid(im)+j01  ! pay attention to j01=0 case
       wteon1(m)=tdum-real(j01,wp)
    enddo
