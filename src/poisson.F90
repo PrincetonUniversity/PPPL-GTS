@@ -199,7 +199,7 @@ subroutine poisson( solver, masssolver )
             do i=0,mpsi
                do j=0,mtheta(i)
                   ij=igrid(i)+j
-                  phi(1,ij) = phi(1,ij) - phi00(i)
+                  phi(:,ij) = phi(:,ij) - phi00(i)
                enddo
             enddo
 
@@ -459,7 +459,7 @@ subroutine poisson( solver, masssolver )
             do i=0,mpsi
                do j=0,mtheta(i)
                   ij=igrid(i)+j
-                  phi(1,ij) = phi(1,ij) - phi00(i)
+                  phi(:,ij) = phi(:,ij) - phi00(i)
                enddo
             enddo
 
