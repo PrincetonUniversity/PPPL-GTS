@@ -753,7 +753,7 @@ module Ptl_Src_Loss
          real(wp), allocatable ::Te_norm(:), ge_val(:)
 
          real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
-         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
          real(wp) fip,r,dela
          real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
          real(wp) intp_phi, intp_FLA_Te0, intp_phi00
@@ -965,7 +965,7 @@ module Ptl_Src_Loss
          enddo
 
          if(electromagnetic == 1)then
-            call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga(1:me), wga(1:3,1:me), gat(1:me))
+            call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga, wga, gat)
 
             !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
             if(Flag_GC_Solver==0) then
@@ -1108,7 +1108,7 @@ module Ptl_Src_Loss
          real(wp), allocatable :: gi_val(:)
 
          real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
-         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle)
+         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
          real(wp) fip,r,dela
          real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
          integer ip,ij,larmor
@@ -1290,7 +1290,7 @@ module Ptl_Src_Loss
          enddo
 
          if(electromagnetic == 1)then
-            call Get_MP_alpha_amplitude_arr_at_zion(istep*tstep, ga(1:mi), wga(1:3,1:mi), gat(1:mi))
+            call Get_MP_alpha_amplitude_arr_at_zion(istep*tstep, ga, wga, gat)
 
             !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim)
             if(Flag_GC_Solver==0) then
