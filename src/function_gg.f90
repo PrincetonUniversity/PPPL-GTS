@@ -295,7 +295,7 @@ module function_gg_module
             end if
          end if
 
-         !$acc update self(backn(m0:m1),backT(m0:m1),backu(m0:m1),dlnnda(m0:m1),dlnTda(m0:m1),duda(m0:m1),gh(m0:m1))
+         !$acc update self(backT(m0:m1),backu(m0:m1))
 
 
          !     neglect rotation
@@ -501,7 +501,7 @@ module function_gg_module
 
          end if
 
-         !$acc update self(backTe(m0:m1), dlnTdae(m0:m1), backne(m0:m1), dlnndae(m0:m1))
+         !$acc update self(backTe(m0:m1))
 
 
          backue=0._wp    ! neglect rotation
@@ -2196,6 +2196,8 @@ subroutine n_T_u_group
    real(wp) vpara, vperp
    real(wp) time0, time1
 
+   !$acc declare create(back_flux_A)
+
 #ifdef _MGY_TIMER_
    time0 = MPI_WTIME()
 #endif
@@ -2213,7 +2215,7 @@ subroutine n_T_u_group
       if(linterp_from_nodes==1) then
 
          !$omp parallel do private(i,r,ip,fip)
-         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
          do i=1,mi
             r=zion(1,i)-a0
             r=r*dela
@@ -2263,7 +2265,7 @@ subroutine n_T_u_group
 
       if(q2.gt.0.0) then  ! first analytic profile
          !$omp parallel do private(i,r,ip,fip)
-         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
          do i=1,mi
             backn(i)=n_0*Bn*exp(-dn*zion(1,i)**xn)
             backT(i)=T_0*Bt*exp(-dTemi*zion(1,i)**xt)
@@ -2295,7 +2297,7 @@ subroutine n_T_u_group
          end do
       else      ! second analytic profile
          !$omp parallel do private(i,r,ip,fip,tempi)
-         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
+         !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
          do i=1,mi
             r=zion(1,i)-a0
             r=r*dela
@@ -2327,7 +2329,7 @@ subroutine n_T_u_group
       end if
    end if
 
-   !$acc update self(backn(:mi),backT(:mi),backu(:mi),dlnnda(:mi),dlnTda(:mi),duda(:mi),gh(:mi))
+   !$acc update self(backT(:mi),backu(:mi))
 
 
    !     neglect rotation
@@ -2337,7 +2339,7 @@ subroutine n_T_u_group
    ! Calculate Shifted Maxwellian f0 for ions.
    call esigetbf(zion, mi, size(zion,1))
 
-   !$acc parallel loop present(zion,backu,backT,back_f0_i,backn)
+   !$acc parallel loop present(zion,backu,backT,back_f0_i,backn,back_flux_A)
    do i=1, mi
       vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
       vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
@@ -2388,6 +2390,7 @@ subroutine n_T_u_group_e
    real(wp) back_flux_A(me), omega_ui(me),backTi(me), back_Ui_para, A_over_meanA ! This is about given ion's rotation which determines theta dependency of density
    real(wp) time0, time1
 
+   !$acc declare create(back_flux_A,omega_ui,backTi)
 
 #ifdef _MGY_TIMER_
    time0= MPI_WTIME()
@@ -2405,7 +2408,7 @@ subroutine n_T_u_group_e
          dela=1.0_wp/dela
 
          !$omp parallel do private(i,r,ip,fip)
-         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -2453,7 +2456,7 @@ subroutine n_T_u_group_e
 
       if(q2.gt.0.0) then  ! first analytic profile
          !$omp parallel do private(i)
-         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
          do i=1,me
             backne(i)=n_0*Bn*exp(-dn*zeon(1,i)**xn)
             backTe(i)=T_e0*Bt_e*exp(-dTeme*zeon(1,i)**xt_e)
@@ -2489,7 +2492,7 @@ subroutine n_T_u_group_e
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
          !$omp parallel do private(i,r,ip,fip,tempe)
-         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
+         !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
          do i=1,me
             r=zeon(1,i)-a0
             r=r*dela
@@ -2523,7 +2526,7 @@ subroutine n_T_u_group_e
 
    end if
 
-   !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
+   !$acc update self(backTe(:me))
 
 
    backue=0._wp    ! neglect rotation
@@ -2532,7 +2535,7 @@ subroutine n_T_u_group_e
    ! Calculate Maxwellian f0 for electrons.
    call esigetbf(zeon, me, size(zeon,1))
 
-   !$acc parallel loop present(zeon,backne,backTe,back_f0_e)
+   !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
    do i=1, me
       ! Following part is to calculate theta dependency of density which needs ion rotation information
       back_Ui_para = F(i)/BB(i)*omega_ui(i)

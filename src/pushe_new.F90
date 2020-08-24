@@ -2353,6 +2353,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
          !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
          !$acc update self(elabels(:me))
+         !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
+         !$acc update self(back_f0_e(:me))
+
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
             acc_newer_D_zeon=.false.

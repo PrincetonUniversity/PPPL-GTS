@@ -19,6 +19,10 @@ subroutine collision_eon
       i=mod(istep,ecollision) 
       if(i==0) then           ! calculate collisions every ecollision-step
          if(irk==1) then      ! calculate collisions at irk=1
+
+            ! Update needed particle information from DEVICE to HOST
+            !$acc update self(backne(:me))
+
             call esigetb(zeon,me,zeondim)   ! get B-->BB
 
             !           call esigetbf(zion,mi)   ! get B-->BB, I-->F  12/07
