@@ -618,6 +618,23 @@ subroutine load
    ! write(stdout,*) "I'm=", mype,"etracers_labels(1:10)=", etracers_labels(1:10), "itracers_labels(1:10)=", itracers_labels(1:10)
    ! call flush(stdout)
 
+   if(acc_newer_H_zeon) then
+      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:),we_fdamp(:))
+      !$acc update device(zeon(:,:),zeon0(:,:),elabels(:))
+      !$acc update device(UnNorm_theta_e(:),UnNorm_zeta_e(:))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   if(acc_newer_H_zion) then
+      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:),wi_fdamp(:))
+      !$acc update device(zion(:,:),zion0(:,:),ilabels(:))
+      !$acc update device(UnNorm_theta_i(:),UnNorm_zeta_i(:))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
+
+   call Print_Reference_ntracer_Information
 
 end subroutine load
 
@@ -1030,16 +1047,6 @@ subroutine load_uniform_MGY
    call MPI_BCAST(itracers_labels,num_of_itracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
 
 
-   ! Distribute ions and electrons to appropriate MPI ranks
-   call shifti
-   call shifte
-
-   ini_mi=mi
-   ini_me=me
-
-   write(stdout,'((A,I4,A,I8,A,I8))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_me=",ini_me
-   call flush(stdout)
-
    ntracer=0
    ntracer_e=0
    if(mype==0) then
@@ -1051,5 +1058,37 @@ subroutine load_uniform_MGY
    call MPI_BCAST(ilabel_of_ntracer,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
    call MPI_BCAST(elabel_of_ntracer_e,1,mpi_Rsize,0,MPI_COMM_WORLD,ierror)
 
+
+   if(acc_newer_H_zeon) then
+      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:),we_fdamp(:))
+      !$acc update device(zeon(:,:),zeon0(:,:),elabels(:))
+      !$acc update device(UnNorm_theta_e(:),UnNorm_zeta_e(:))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   if(acc_newer_H_zion) then
+      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:),wi_fdamp(:))
+      !$acc update device(zion(:,:),zion0(:,:),ilabels(:))
+      !$acc update device(UnNorm_theta_i(:),UnNorm_zeta_i(:))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
+
+
+   ! Distribute ions and electrons to appropriate MPI ranks
+   ! NOTE: (08/23/2020)
+   ! If using OpenACC, these shift routines must be at the last part
+   ! because particles got scattered to different PEs in the DEVICE side and not synced with the HOST side.
+   call shifti
+   call shifte
+
+   ini_mi=mi
+   ini_me=me
+
+   write(stdout,'((A,I4,A,I8,A,I8))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_me=",ini_me
+   call flush(stdout)
+
+   call Print_Reference_ntracer_Information
 
 end subroutine load_uniform_MGY

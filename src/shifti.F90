@@ -92,7 +92,7 @@ subroutine shifti
             acc_newer_H_zion=.false.
 
             ntracer=0
-            !$acc parallel loop copy(ntracer)
+            !$acc parallel loop present(ilabels) copy(ntracer) reduction(max:ntracer)
             do m=1,mi
                if(ilabels(m)==ilabel_of_ntracer) then
                   ntracer=m
