@@ -796,7 +796,7 @@ module Ptl_Src_Loss
 
          ! call n_T_u_group_e(m0)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
          call n_T_u_group_e(m0,me)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
-         !$acc update self(BB(m0:me))
+         call esigetbf_partial(zeon,m0,me,zeondim)
 
          allocate(Te_norm(m0:me))
          do m=m0,me
@@ -872,7 +872,8 @@ module Ptl_Src_Loss
          !$acc update device(zeon(:,m0:me))
 
          ! call n_T_u_group_e(m0)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
-         call n_T_u_group_e(m0,me)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+         call n_T_u_group_e(m0,me,flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+         !$acc update self(back_f0_e(m0:me))
 
          call electron_locator_partial(m0,me) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
 
@@ -1148,9 +1149,8 @@ module Ptl_Src_Loss
 
          ! call n_T_u_group(m0)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
          call n_T_u_group(m0,mi)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
-         !$acc update self(BB(m0:mi),backu(m0:mi),F(m0:mi))
+         call esigetbf_partial(zion,m0,mi,ziondim)
          backu(m0:mi)=backu(m0:mi)*F(m0:mi)/BB(m0:mi) ! =u_//=I*omega_t/B
-         !$acc update device(backu(m0:mi))
 
 
 
@@ -1224,7 +1224,9 @@ module Ptl_Src_Loss
          !$acc update device(zion(:,m0:mi))
 
          ! call n_T_u_group(m0)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
-         call n_T_u_group(m0,mi)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+         call n_T_u_group(m0,mi,flag_backf0=.true.)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+         !$acc update self(back_f0_i(m0:mi))
+
 
          call ion_locator_at_larmor_points_partial(m0,mi) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
 

@@ -127,7 +127,7 @@ module function_gg_module
 
       end subroutine SmootherStep2
 
-      subroutine n_T_u_group(m_start,m_end)
+      subroutine n_T_u_group(m_start,m_end,flag_backf0)
          !
          !      Note: output includes backu=omega_t and duda=d(omega_t)/da;
          !            then u_//=I*backu/B
@@ -158,9 +158,15 @@ module function_gg_module
 
          integer, optional,intent(in) :: m_start, m_end
          integer m0,m1
+         logical, optional,intent(in) :: flag_backf0
+         logical Flag_back_f0_i
          integer ierr
 
          !$acc declare create(back_flux_A)
+
+         Flag_back_f0_i=.false.
+         if(present(flag_backf0)) Flag_back_f0_i = flag_backf0
+
 
 #ifdef _MGY_TIMER_
          time0 = MPI_WTIME()
@@ -308,23 +314,24 @@ module function_gg_module
          !       backu=0.0
          !       duda=0.0
 
-         ! Calculate Shifted Maxwellian f0 for ions.
-         ! call esigetbf(zion, mi, size(zion,1))
-         call esigetbf_partial(zion,m0,m1,size(zion,1))
+         if(Flag_back_f0_i) then
+            ! Calculate Shifted Maxwellian f0 for ions.
+            ! call esigetbf(zion, mi, size(zion,1))
+            call esigetbf_partial(zion,m0,m1,size(zion,1))
 
 
-         !$acc parallel loop present(zion,backu,backT,back_f0_i,backn,back_flux_A)
-         do i=m0,m1
-            vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
-            vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
+            !$acc parallel loop present(zion,backu,backT,back_f0_i,backn,back_flux_A)
+            do i=m0,m1
+               vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
+               vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
 
-            back_U_para = F(i)/BB(i)*backu(i)
-            A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
-            E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
+               back_U_para = F(i)/BB(i)*backu(i)
+               A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
+               E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
 
-            back_f0_i(i) = backn(i)*A_over_meanA*sqrt(inv_twopi)*((1.0/backT(i))**1.5)*vperp*exp(-E_over_T)
-         enddo
-         !$acc update self(back_f0_i(m0:m1))
+               back_f0_i(i) = backn(i)*A_over_meanA*sqrt(inv_twopi)*((1.0/backT(i))**1.5)*vperp*exp(-E_over_T)
+            enddo
+         endif
 
 
          deallocate(back_flux_A)
@@ -333,10 +340,14 @@ module function_gg_module
          time1=MPI_WTIME()
          if(mype==0) then
             if(present(m_start) .or. present(m_end)) then
-               write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group takes", time1-time0, " secs"
+               write(stdout,'(a,I5,a,ES11.3,a)',advance="no") "I'm=",mype, ", n_T_u_group_partial takes", time1-time0, " secs"
             else
-               write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_partial takes", time1-time0, " secs"
+               write(stdout,'(a,I5,a,ES11.3,a)',advance="no") "I'm=",mype, ", n_T_u_group takes", time1-time0, " secs"
             endif
+            if(Flag_back_f0_i) then
+               write(stdout,'(a)',advance="no") "  with back_f0_i calculation"
+            endif
+            write(stdout,*) ''
          endif
          call flush(stdout)
 #endif
@@ -344,7 +355,7 @@ module function_gg_module
 
       end subroutine n_T_u_group
 
-      subroutine n_T_u_group_e(m_start,m_end)
+      subroutine n_T_u_group_e(m_start,m_end,flag_backf0)
          !
          ! get n,Te,ue for electrons
          !
@@ -374,8 +385,13 @@ module function_gg_module
          real(wp) time0, time1
          integer, optional,intent(in) :: m_start, m_end
          integer m0,m1
+         logical, optional,intent(in) :: flag_backf0
+         logical Flag_backf0_e
 
          !$acc declare create(back_flux_A,omega_ui,backTi)
+
+         Flag_backf0_e = .false.
+         if(present(flag_backf0)) Flag_backf0_e = flag_backf0
 
 #ifdef _MGY_TIMER_
          time0= MPI_WTIME()
@@ -525,26 +541,26 @@ module function_gg_module
          backue=0._wp    ! neglect rotation
 
 
-         ! Calculate Maxwellian f0 for electrons.
-         ! call esigetbf(zeon, me, size(zeon,1))
-         call esigetbf_partial(zeon, m0, m1, size(zeon,1))
+         if(Flag_backf0_e) then
+            ! Calculate Maxwellian f0 for electrons.
+            ! call esigetbf(zeon, me, size(zeon,1))
+            call esigetbf_partial(zeon, m0, m1, size(zeon,1))
 
+            !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
+            do i=m0,m1
+               ! Following part is to calculate theta dependency of density which needs ion rotation information
+               back_Ui_para = F(i)/BB(i)*omega_ui(i)
+               A_over_meanA = exp(0.5*(back_Ui_para**2.0)/backTi(i))/(back_flux_A(i))
 
-         !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
-         do i=m0,m1
-            ! Following part is to calculate theta dependency of density which needs ion rotation information
-            back_Ui_para = F(i)/BB(i)*omega_ui(i)
-            A_over_meanA = exp(0.5*(back_Ui_para**2.0)/backTi(i))/(back_flux_A(i))
+               inv_Te_norm = 1.0/(backTe(i)*msm0)  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+               vpara = m0ms*csc0*BB(i)*zeon(4,i)  ! vpara = (eB/m)*rho_para
+               vperp = sqrt(2.0*BB(i)*m0ms)*zeon(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
 
-            inv_Te_norm = 1.0/(backTe(i)*msm0)  ! normalized-Te=Te/E_0, the same unit as normalized Ti
-            vpara = m0ms*csc0*BB(i)*zeon(4,i)  ! vpara = (eB/m)*rho_para
-            vperp = sqrt(2.0*BB(i)*m0ms)*zeon(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
+               E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
 
-            E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
-
-            back_f0_e(i) = backne(i)*A_over_meanA*sqrt(inv_twopi)*((msm0*inv_Te_norm)**1.5)*vperp*exp(-E_over_T)
-         enddo
-         !$acc update self(back_f0_e(m0:m1))
+               back_f0_e(i) = backne(i)*A_over_meanA*sqrt(inv_twopi)*((msm0*inv_Te_norm)**1.5)*vperp*exp(-E_over_T)
+            enddo
+         endif
 
 
          deallocate(back_flux_A,omega_ui,backTi)
@@ -554,10 +570,14 @@ module function_gg_module
          time1=MPI_WTIME()
          if(mype==0) then
             if(present(m_start) .or. present(m_end)) then
-               write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_groupt_ek takes", time1-time0, " secs"
+               write(stdout,'(a,I5,a,ES11.3,a)',advance="no") "I'm=",mype, ", n_T_u_group_e_partial takes", time1-time0, " secs"
             else
-               write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_groupt_e_partial takes", time1-time0, " secs"
+               write(stdout,'(a,I5,a,ES11.3,a)',advance="no") "I'm=",mype, ", n_T_u_group_e takes", time1-time0, " secs"
             endif
+            if(Flag_backf0_e) then
+               write(stdout,'(a)',advance="no") "  with back_f0_e calculation"
+            endif
+            write(stdout,*) ''
          endif
          call flush(stdout)
 #endif

@@ -761,8 +761,8 @@ subroutine load_uniform_MGY
    enddo
    acc_newer_H_zion=.true.
 
-   call esigetbf(zion,mi,size(zion,1))
    call n_T_u_group  ! get T, n and omega_t, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+   call esigetbf(zion,mi,size(zion,1))
    backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
 
    do m=1,mi
@@ -826,7 +826,8 @@ subroutine load_uniform_MGY
    !$acc update device(ilabels(:mi))
 
 
-   call n_T_u_group  ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+   call n_T_u_group(flag_backf0=.true.)  ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+   !$acc update self(back_f0_i(:mi))
 
    ! Set initial weights of ions
    do m=1,mi
@@ -906,6 +907,7 @@ subroutine load_uniform_MGY
       acc_newer_H_zeon=.true.
 
       call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+      call esigetb(zeon,me,zeondim)
 
       do m=1,me
          Te_norm(m) = backTe(m)*msm0
@@ -969,7 +971,9 @@ subroutine load_uniform_MGY
       endif
       acc_newer_H_zeon=.true.
 
-      call n_T_u_group_e   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+      call n_T_u_group_e(flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+      !$acc update self(back_f0_e(:me))
+
 
       if(Flag_Quiet_Start==1) then
          zeon(5,1:me) = zion(5,1:me)
