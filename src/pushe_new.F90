@@ -7,6 +7,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
    use esi_interface
    use solver_data_class
    use Structured_Grid
+   use function_gg_module
 
    implicit none
 

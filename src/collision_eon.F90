@@ -4,6 +4,7 @@ subroutine collision_eon
    use particle_array
    use field_array
    use esi_interface
+   use function_gg_module
 
    implicit none
 

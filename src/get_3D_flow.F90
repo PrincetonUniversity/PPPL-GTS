@@ -322,6 +322,7 @@ subroutine get_Ti_fluctuation_DirectlyFromParticles
    !ZHIXIN contro output of FLOW
    use control_parameters
    use esi_interface
+   use function_gg_module
    implicit none
 
    integer m,i,j,k,jt,ii,ierror,ij,&

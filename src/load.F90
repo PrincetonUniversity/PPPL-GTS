@@ -9,6 +9,7 @@ subroutine load
    use esi_interface
    !ZHIXIN use w_initial_in
    use control_parameters
+   use function_gg_module
    implicit none
 
 #define SIMPLE_SPRNG
@@ -650,6 +651,7 @@ subroutine load_uniform_MGY
    use diagnosis_array
    use esi_interface
    use control_parameters
+   use function_gg_module
    implicit none
 
 #define SIMPLE_SPRNG

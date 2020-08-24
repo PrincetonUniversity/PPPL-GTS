@@ -222,6 +222,7 @@ subroutine get_Te_fluctuation_DirectlyFromParticles
    use field_array
    use diagnosis_array
    use esi_interface
+   use function_gg_module
 
    implicit none
 
