@@ -22,7 +22,7 @@ subroutine collision_eon
          if(irk==1) then      ! calculate collisions at irk=1
 
             ! Update needed particle information from DEVICE to HOST
-            !$acc update self(backne(:me))
+            !$acc update self(backne(:me),backTe(:me))
 
             call esigetb(zeon,me,zeondim)   ! get B-->BB
 

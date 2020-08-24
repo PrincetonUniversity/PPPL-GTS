@@ -249,8 +249,9 @@ subroutine load
    cmratio=qion/aion
    !  call esigetb(zion(1,:),zion(2,:),mi)   ! get B
    !  call esigetb(zion,mi)   ! get B-->BB
-   call esigetbf(zion,mi,7)   ! get B-->BB, I-->F  12/07
    call n_T_u_group                       ! get T, n and omega_t
+   !$acc update self(backu(:mi),backT(:mi))
+   call esigetbf(zion,mi,7)   ! get B-->BB, I-->F  12/07
    !  output backu from call n_T_u_group is omega_t
    backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
 
@@ -415,6 +416,7 @@ subroutine load
 
 
       call n_T_u_group_e               ! get Te
+      !$acc update self(backTe(:me))
       !$omp parallel do private(m)
       do m=1,me
          zeon(4,m)=zeon(4,m)*msm0*c0cs*sqrt(backTe(m)/backT(m))  !checked; neglect electron rotation
@@ -665,7 +667,7 @@ subroutine load_uniform_MGY
    real(wp) dela, r, fip, ave0
    real(wp) inv_Nm,Nm ! inverse of total number of Marker particles for each speceis (actually, they are the same)
    real(wp) each_ptl_d6z ! d6z(=da*dgq*dgf*dvpara*dvperp) is the micro phase space volume which each particle occupies
-   real(wp) Te_norm(1:mi) !  normalized-Te=Te/E_0, the same unit as normalized Ti
+   real(wp) Te_norm(memax) !  normalized-Te=Te/E_0, the same unit as normalized Ti
    integer m,ip,i,j,ij
    real(wp) jacobian,density
    real(wp) dpsi,zdum,tdum,pdum
@@ -762,6 +764,7 @@ subroutine load_uniform_MGY
    acc_newer_H_zion=.true.
 
    call n_T_u_group  ! get T, n and omega_t, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+   !$acc update self(backu(:mi),backT(:mi))
    call esigetbf(zion,mi,size(zion,1))
    backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
 
@@ -907,6 +910,7 @@ subroutine load_uniform_MGY
       acc_newer_H_zeon=.true.
 
       call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+      !$acc update self(backTe(:me))
       call esigetb(zeon,me,zeondim)
 
       do m=1,me

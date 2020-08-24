@@ -22,7 +22,7 @@ subroutine collision
          if(irk==1) then      ! calculate collisions at irk=1
 
             ! Update needed particle information from DEVICE to HOST
-            !$acc update self(backn(:mi))
+            !$acc update self(backn(:mi),backu(:mi),backT(:mi))
 
             !           call esigetb(zion(1,:),zion(2,:),mi)   ! get B
             !           call esigetb(zion,mi)   ! get B-->BB

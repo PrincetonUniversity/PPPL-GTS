@@ -307,7 +307,6 @@ module function_gg_module
             end if
          end if
 
-         !$acc update self(backT(m0:m1),backu(m0:m1))
 
 
          !     neglect rotation
@@ -534,8 +533,6 @@ module function_gg_module
             end if
 
          end if
-
-         !$acc update self(backTe(m0:m1))
 
 
          backue=0._wp    ! neglect rotation

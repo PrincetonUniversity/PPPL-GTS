@@ -796,6 +796,7 @@ module Ptl_Src_Loss
 
          ! call n_T_u_group_e(m0)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
          call n_T_u_group_e(m0,me)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backTe(m0:me))
          call esigetbf_partial(zeon,m0,me,zeondim)
 
          allocate(Te_norm(m0:me))
@@ -1149,6 +1150,7 @@ module Ptl_Src_Loss
 
          ! call n_T_u_group(m0)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
          call n_T_u_group(m0,mi)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backu(m0:mi),backT(m0:mi))
          call esigetbf_partial(zion,m0,mi,ziondim)
          backu(m0:mi)=backu(m0:mi)*F(m0:mi)/BB(m0:mi) ! =u_//=I*omega_t/B
 
