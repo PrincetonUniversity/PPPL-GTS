@@ -2468,6 +2468,7 @@ Subroutine read_input_params
       Flag_Ptl_BC_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
       Flag_Update_Pol_Shielding, & ! Default=0 (Not Update), can be set=1(Update) Polarization Shielding Term in Poisson3D equation over time
       Flag_DK_Ion,        &   ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
+      Flag_Measure_Ptl_FootPrint, & ! Default=0(Not Meausre), can be set =1 (Do Measure)
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
@@ -2608,6 +2609,7 @@ Subroutine read_input_params
       write(0,*) 'Flag_Ptl_BC_type=', Flag_Ptl_BC_type
       write(0,*) 'Flag_Update_Pol_Shielding=', Flag_Update_Pol_Shielding
       write(0,*) 'Flag_DK_Ion=', Flag_DK_Ion
+      write(0,*) 'Flag_Measure_Ptl_FootPrint=', Flag_Measure_Ptl_FootPrint
       write(0,*) 'w_Thold_min=', w_Thold_min
       write(0,*) 'w_Thold_max=', w_Thold_max
       write(0,*) 'tstep=', tstep

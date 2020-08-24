@@ -151,6 +151,7 @@ module global_parameters
    integer :: Flag_Ptl_BC_type=0 ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
    integer :: Flag_Update_Pol_Shielding=0 ! Default=0 (Not updating Polarization Shielding over time)
    integer :: Flag_DK_Ion=0 ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
+   integer :: Flag_Measure_Ptl_FootPrint=0 ! Default=0(Not Meausre), can be set =1 (Do Measure)
 
    logical :: acc_newer_H_zion=.true., acc_newer_D_zion=.true., acc_newer_H_zeon=.true., acc_newer_D_zeon=.true.
 

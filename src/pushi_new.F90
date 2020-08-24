@@ -1255,8 +1255,10 @@ subroutine pushion_RK4(irk_i)
 
 
    if(irk_i==4)then
+      if(Flag_Measure_Ptl_FootPrint==1) then
       !$acc update self(wpi(:,:mi))
       call Measure_and_Cumulate_Ion_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
+      endif
       call treat_ions_out_of_boundary
       call Cumulate_i_lost_num
    endif
