@@ -127,7 +127,7 @@ module function_gg_module
 
       end subroutine SmootherStep2
 
-      subroutine n_T_u_group
+      subroutine n_T_u_group(m_start,m_end)
          !
          !      Note: output includes backu=omega_t and duda=d(omega_t)/da;
          !            then u_//=I*backu/B
@@ -151,407 +151,16 @@ module function_gg_module
          implicit  none
          integer i, ip
          real(wp)  r, fip, dela, tempi
-         real(wp) back_flux_A(mi), back_U_para, A_over_meanA, E_over_T
-         real(wp) vpara, vperp
-         real(wp) time0, time1
-
-         !$acc declare create(back_flux_A)
-
-#ifdef _MGY_TIMER_
-         time0 = MPI_WTIME()
-#endif
-
-
-         dela=(a1-a0)/real(jr,wp)
-         dela=1.0_wp/dela
-
-         if(acc_newer_H_zion) then
-            !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
-            acc_newer_H_zion=.false.
-            acc_newer_D_zion=.false.
-         endif
-         if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
-            if(linterp_from_nodes==1) then
-
-               !$omp parallel do private(i,r,ip,fip)
-               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
-               do i=1,mi
-                  r=zion(1,i)-a0
-                  r=r*dela
-                  ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
-                  fip=r-real(ip,wp)
-
-                  backn(i)=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)     ! density at particles
-                  backT(i)=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)     ! Ti at particles
-                  backu(i)=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip) ! omega_t at particles
-
-                  dlnnda(i)=fip*dne_node(ip+1)+(1.0_wp-fip)*dne_node(ip)   ! dn/da  at particles
-                  dlnTda(i)=fip*dTi_node(ip+1)+(1.0_wp-fip)*dTi_node(ip)   ! dTi/da at particles
-                  duda(i)=fip*dIomg_node(ip+1)+(1.0_wp-fip)*dIomg_node(ip) ! d(omega_t)/da at particles
-                  gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
-                  ! A=exp(u^2/2T)
-                  back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
-               enddo
-
-            else              ! use spline
-               call ezspline_interp(spn,mi,zion(1,:),backn,ier)
-               call ezspline_interp(spTi,mi,zion(1,:),backT,ier)
-               call ezspline_interp(spO,mi,zion(1,:),backu,ier)
-               call ezspline_derivative(spn,1,mi,zion(1,:),dlnnda,ier)
-               call ezspline_derivative(spTi,1,mi,zion(1,:),dlnTda,ier)
-               call ezspline_derivative(spO,1,mi,zion(1,:),duda,ier)
-               !$omp parallel do private(i,r,ip,fip)
-               do i=1,mi
-                  r=zion(1,i)-a0
-                  r=r*dela
-                  ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
-                  fip=r-real(ip,wp)
-                  gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
-                  back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
-                  ! A=exp(u^2/2T)
-               enddo
-
-            end if
-
-            !$omp parallel do private(i)
-            !$acc parallel loop present(dlnnda,backn,dlnTda,backT)
-            do i=1,mi
-               dlnnda(i)=dlnnda(i)/backn(i)      ! =dlnn/da
-               dlnTda(i)=dlnTda(i)/backT(i)      ! =dlnT/da
-            end do
-
-         else                  ! use model profiles
-
-            if(q2.gt.0.0) then  ! first analytic profile
-               !$omp parallel do private(i,r,ip,fip)
-               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
-               do i=1,mi
-                  backn(i)=n_0*Bn*exp(-dn*zion(1,i)**xn)
-                  backT(i)=T_0*Bt*exp(-dTemi*zion(1,i)**xt)
-                  backu(i)=u_0*Bu*exp(-du*zion(1,i)**xu)
-
-                  dlnnda(i)=backn(i)*(-dn*xn*zion(1,i)**(xn-1.0_wp))       !=dn/da
-                  dlnTda(i)=backT(i)*(-dTemi*xt*zion(1,i)**(xt-1.0_wp))    !=dT/da
-                  duda(i)  =backu(i)*(-du*xu*zion(1,i)**(xu-1.0_wp))       !=d[omega_t(a)]/da
-
-                  backn(i)=n_0*An+backn(i)
-                  backT(i)=T_0*At+backT(i)
-                  backu(i)=u_0*Au+backu(i)        ! then u_//=I*backu/B
-                  ! backu=u_0*(Au+Bu*exp(-du*aa**xu))
-
-                  dlnnda(i)=dlnnda(i)/backn(i)      !=dlnn/da
-                  dlnTda(i)=dlnTda(i)/backT(i)      !=dlnT/da
-
-                  backT(i)=Tc*(backT(i)/Tc)**r0     ! for new model Ti profile
-                  dlnTda(i)=dlnTda(i)*r0            ! for new model Ti profile
-
-                  r=zion(1,i)-a0
-                  r=r*dela
-                  ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
-                  fip=r-real(ip,wp)
-                  gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
-                  ! A=exp(u^2/2T)
-
-                  back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
-               end do
-            else      ! second analytic profile
-               !$omp parallel do private(i,r,ip,fip,tempi)
-               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
-               do i=1,mi
-                  r=zion(1,i)-a0
-                  r=r*dela
-                  ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
-                  fip=r-real(ip,wp)
-                  gh(i)=fip*dlnA_da(ip+1)+(1.0_wp-fip)*dlnA_da(ip)         ! dln<A>/da at particles with
-
-                  tempi=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)
-                  backT(i)=T_0*exp(q1*tempi)                              ! Ti at particles
-
-                  tempi=rw*(zion(1,i)-rc)
-                  dlnTda(i)=q1*exp(-ABS(tempi)**q0)                            ! =dlnT/da
-
-                  tempi=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
-                  backn(i)=n_0*exp(kappan*tempi)                              ! ne at particles
-
-                  tempi=temconst*(zion(1,i)-rc)
-                  dlnnda(i)=kappan*exp(-ABS(tempi)**edensity0)                     ! =dlnn/da
-
-                  tempi=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)
-                  backu(i)=u_0+Au*tempi                                   ! this is omega_t; then u_//=I*backu/B
-
-                  tempi=Bu*(zion(1,i)-rc)
-                  duda(i)  =Au*exp(-ABS(tempi)**xu)       ! =d[omega_t(a)]/da
-
-                  back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
-
-               end do
-            end if
-         end if
-
-         !$acc update self(backT(:mi),backu(:mi))
-
-
-         !     neglect rotation
-         !       backu=0.0
-         !       duda=0.0
-
-         ! Calculate Shifted Maxwellian f0 for ions.
-         call esigetbf(zion, mi, size(zion,1))
-
-         !$acc parallel loop present(zion,backu,backT,back_f0_i,backn,back_flux_A)
-         do i=1, mi
-            vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
-            vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
-
-            back_U_para = F(i)/BB(i)*backu(i)
-            A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
-            E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
-
-            back_f0_i(i) = backn(i)*A_over_meanA*sqrt(inv_twopi)*((1.0/backT(i))**1.5)*vperp*exp(-E_over_T)
-         enddo
-         !$acc update self(back_f0_i(:mi))
-
-#ifdef _MGY_TIMER_
-         time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group takes", time1-time0, " secs"
-         call flush(stdout)
-#endif
-
-
-      end subroutine n_T_u_group
-
-
-      subroutine n_T_u_group_e
-         !
-         ! get n,Te,ue for electrons
-         !
-         !      esiget2dfunctions or others should be called first to get B for this subroutine,
-         !      which is needed to calculate u_// ~ 1/B
-         !   model profiles
-         !      ne=n_0*(An+Bn*exp(-dn*(a)**xn))  !flux surface averaged ni profile
-         !      Te=T_0*(At+Bt*exp(-dTem*(a)**xt))
-         !      u_//=u_0*(Au+Bu*exp(-du*(a)**xu))*(B_0/B) with 1/B dependence
-         !
-         use precision
-         use global_parameters
-         use particle_array
-         use esi_interface
-         use spl_profiles
-         use profile_array
-         use mpi_defs
-
-         implicit  none
-         integer i, ip
-         real(wp)  r, fip, dela, tempe
-         real(wp) inv_Te_norm ! inverse of normalized Te which has same unit of Ti (Te_norm = Te_real/(mo*v0^2))
-         real(wp) E_over_T
-         real(wp) vpara, vperp
-         real(wp) back_flux_A(me), omega_ui(me),backTi(me), back_Ui_para, A_over_meanA ! This is about given ion's rotation which determines theta dependency of density
-         real(wp) time0, time1
-
-         !$acc declare create(back_flux_A,omega_ui,backTi)
-
-#ifdef _MGY_TIMER_
-         time0= MPI_WTIME()
-#endif
-
-         if(acc_newer_H_zeon) then
-            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-            acc_newer_H_zeon=.false.
-            acc_newer_D_zeon=.false.
-         endif
-
-         if(plasma==1) then    ! use experimental ni(r), T(r) and omega(r) profiles
-            if(linterp_from_nodes==1) then
-               dela=(a1-a0)/real(jr,wp)
-               dela=1.0_wp/dela
-
-               !$omp parallel do private(i,r,ip,fip)
-               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
-               do i=1,me
-                  r=zeon(1,i)-a0
-                  r=r*dela
-                  ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
-                  fip=r-real(ip,wp)
-
-                  backne(i)=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip) ! density at particles
-                  backTe(i)=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip) ! Te at particles
-                  backTi(i)=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip) ! Ti at particles
-
-                  dlnndae(i)=fip*dne_node(ip+1)+(1.0_wp-fip)*dne_node(ip) ! dn/da  at particles
-                  dlnTdae(i)=fip*dTe_node(ip+1)+(1.0_wp-fip)*dTe_node(ip) ! dTe/da at particles
-
-                  omega_ui(i)=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip) ! omega_t at particles
-                  back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
-               enddo
-
-            else              ! use spline
-               call ezspline_interp(spn,me,zeon(1,:),backne,ier)
-               call ezspline_interp(spTe,me,zeon(1,:),backTe,ier)
-               call ezspline_interp(spTi,me,zeon(1,:),backTi,ier)
-               call ezspline_interp(spO,me,zeon(1,:),omega_ui,ier)
-               !            backu=backu*F/B
-               call ezspline_derivative(spn,1,me,zeon(1,:),dlnndae,ier)
-               call ezspline_derivative(spTe,1,me,zeon(1,:),dlnTdae,ier)
-
-               !$acc parallel loop present(zeon)
-               do i=1,me
-                  r=zeon(1,i)-a0
-                  r=r*dela
-                  ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
-                  fip=r-real(ip,wp)
-                  back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip)) ! A=exp(u^2/2T)
-               enddo
-            end if
-
-            !$omp parallel do private(i)
-            !$acc parallel loop present(backne,backTe,dlnndae,dlnTdae)
-            do i=1,me
-               dlnndae(i)=dlnndae(i)/backne(i)      !=dlnn/da
-               dlnTdae(i)=dlnTdae(i)/backTe(i)      !=dlnT/da
-            end do
-
-         else                  ! use model profiles
-
-            if(q2.gt.0.0) then  ! first analytic profile
-               !$omp parallel do private(i)
-               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
-               do i=1,me
-                  backne(i)=n_0*Bn*exp(-dn*zeon(1,i)**xn)
-                  backTe(i)=T_e0*Bt_e*exp(-dTeme*zeon(1,i)**xt_e)
-                  backTi(i)=T_0*Bt*exp(-dTemi*zeon(1,i)**xt)
-
-                  omega_ui(i)=u_0*Bu*exp(-du*zeon(1,i)**xu)
-
-                  dlnndae(i)=backne(i)*(-dn*xn*zeon(1,i)**(xn-1.0_wp))       !=dn/da
-                  dlnTdae(i)=backTe(i)*(-dTeme*xt_e*zeon(1,i)**(xt_e-1.0_wp))    !=dT/da
-
-                  backne(i)=n_0*An+backne(i)
-                  backTe(i)=T_e0*At_e+backTe(i)
-                  backTi(i)=T_0*At+backTi(i)
-                  omega_ui(i)=u_0*Au+omega_ui(i)        ! then u_//=I*omega_ui/B
-
-
-                  dlnndae(i)=dlnndae(i)/backne(i)      !=dlnn/da
-                  dlnTdae(i)=dlnTdae(i)/backTe(i)      !=dlnT/da
-
-                  backTe(i)=Tc_e*(backTe(i)/Tc_e)**b0     ! for new model Ti profile
-                  backTi(i)=Tc*(backTi(i)/Tc)**r0     ! for new model Ti profile
-
-                  dlnTdae(i)=dlnTdae(i)*b0                ! for new model Ti profile
-
-                  r=zeon(1,i)-a0
-                  r=r*dela
-                  ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
-                  fip=r-real(ip,wp)
-                  back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
-                  !               backu=u_0*(Au+Bu*exp(-du*aa**xu))*(B_0/B)
-               end do
-            else      ! second analytic profile
-               dela=(a1-a0)/real(jr,wp)
-               dela=1.0_wp/dela
-               !$omp parallel do private(i,r,ip,fip,tempe)
-               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
-               do i=1,me
-                  r=zeon(1,i)-a0
-                  r=r*dela
-                  ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
-                  fip=r-real(ip,wp)
-
-                  tempe=fip*Te_node(ip+1)+(1.0_wp-fip)*Te_node(ip)
-                  backTe(i)=T_e0*exp(flow1*tempe)                              ! Te at particles
-
-                  tempe=fip*Ti_node(ip+1)+(1.0_wp-fip)*Ti_node(ip)
-                  backTi(i)=T_0*exp(q1*tempe)                              ! Ti at particles
-
-
-                  tempe=flow2*(zeon(1,i)-rc)
-                  dlnTdae(i)=flow1*exp(-ABS(tempe)**flow0)                            ! =dlnT/da
-
-                  tempe=fip*ne_node(ip+1)+(1.0_wp-fip)*ne_node(ip)
-                  backne(i)=n_0*exp(kappan*tempe)                              ! ne at particles
-
-                  tempe=temconst*(zeon(1,i)-rc)
-                  dlnndae(i)=kappan*exp(-ABS(tempe)**edensity0)                     ! =dlnn/da
-
-
-                  tempe=fip*Iomg_node(ip+1)+(1.0_wp-fip)*Iomg_node(ip)
-                  omega_ui(i)=u_0+Au*tempe                                   ! this is omega_t; then u_//=I*backu/B
-
-                  back_flux_A(i)  =(fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip))
-                  !               backu=u_0*(Au+Bu*exp(-du*aa**xu))*(B_0/B)
-               end do
-            end if
-
-         end if
-
-         !$acc update self(backTe(:me))
-
-
-         backue=0._wp    ! neglect rotation
-
-
-         ! Calculate Maxwellian f0 for electrons.
-         call esigetbf(zeon, me, size(zeon,1))
-
-         !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
-         do i=1, me
-            ! Following part is to calculate theta dependency of density which needs ion rotation information
-            back_Ui_para = F(i)/BB(i)*omega_ui(i)
-            A_over_meanA = exp(0.5*(back_Ui_para**2.0)/backTi(i))/(back_flux_A(i))
-
-            inv_Te_norm = 1.0/(backTe(i)*msm0)  ! normalized-Te=Te/E_0, the same unit as normalized Ti
-            vpara = m0ms*csc0*BB(i)*zeon(4,i)  ! vpara = (eB/m)*rho_para
-            vperp = sqrt(2.0*BB(i)*m0ms)*zeon(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
-
-            E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
-
-            back_f0_e(i) = backne(i)*A_over_meanA*sqrt(inv_twopi)*((msm0*inv_Te_norm)**1.5)*vperp*exp(-E_over_T)
-         enddo
-         !$acc update self(back_f0_e(:me))
-
-#ifdef _MGY_TIMER_
-         time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_e takes", time1-time0, " secs"
-         call flush(stdout)
-#endif
-
-      end subroutine n_T_u_group_e
-
-
-
-
-      subroutine n_T_u_group_partial(m_start,m_end)
-         !
-         !      Note: output includes backu=omega_t and duda=d(omega_t)/da;
-         !            then u_//=I*backu/B
-         !      To calculate u_// ~ 1/B and so on, esiget2dfunctions or others should be called to get B, I
-         !
-         !   model profiles
-         !      ni=n_0*(An+Bn*exp(-dn*(a)**xn))  !flux surface averaged ni profile
-         !      Ti=T_0*(At+Bt*exp(-dTem*(a)**xt))
-         !      omega_t=u_0*(Au+Bu*exp(-du*(a)**xu))
-         !      borrow array gh(:) which is defined in esilink2c
-         !      gh(:)=dln<A>/da at particles with A=exp(u^2/2T)
-         !
-         use precision
-         use global_parameters
-         use particle_array
-         use esi_interface
-         use spl_profiles
-         use profile_array
-         use mpi_defs
-
-         implicit  none
-         integer i, ip
-         real(wp)  r, fip, dela, tempi
-         real(wp) back_flux_A(mi), back_U_para, A_over_meanA, E_over_T
+         real(wp) back_U_para, A_over_meanA, E_over_T
+         real(wp),allocatable,dimension(:) :: back_flux_A
          real(wp) vpara, vperp
          real(wp) time0, time1
 
          integer, optional,intent(in) :: m_start, m_end
          integer m0,m1
          integer ierr
+
+         !$acc declare create(back_flux_A)
 
 #ifdef _MGY_TIMER_
          time0 = MPI_WTIME()
@@ -561,6 +170,9 @@ module function_gg_module
          m1=mi
          if(present(m_start)) m0=m_start
          if(present(m_end))   m1=m_end
+
+
+         allocate(back_flux_A(m0:m1))
 
 
          dela=(a1-a0)/real(jr,wp)
@@ -575,7 +187,7 @@ module function_gg_module
             if(linterp_from_nodes==1) then
 
                !$omp parallel do private(i,r,ip,fip)
-               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
+               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
                do i=m0,m1
                   r=zion(1,i)-a0
                   r=r*dela
@@ -615,7 +227,7 @@ module function_gg_module
             end if
 
             !$omp parallel do private(i)
-            !$acc parallel loop present(dlnnda,backn,dlnTda,backT)
+            !$acc parallel loop present(dlnnda,backn,dlnTda,backT,back_flux_A)
             do i=m0,m1
                dlnnda(i)=dlnnda(i)/backn(i)      ! =dlnn/da
                dlnTda(i)=dlnTda(i)/backT(i)      ! =dlnT/da
@@ -625,7 +237,7 @@ module function_gg_module
 
             if(q2.gt.0.0) then  ! first analytic profile
                !$omp parallel do private(i,r,ip,fip)
-               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
+               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
                do i=m0,m1
                   backn(i)=n_0*Bn*exp(-dn*zion(1,i)**xn)
                   backT(i)=T_0*Bt*exp(-dTemi*zion(1,i)**xt)
@@ -657,7 +269,7 @@ module function_gg_module
                end do
             else      ! second analytic profile
                !$omp parallel do private(i,r,ip,fip,tempi)
-               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh)
+               !$acc parallel loop present(zion,backn,backT,backu,dlnnda,dlnTda,duda,gh,back_flux_A)
                do i=m0,m1
                   r=zion(1,i)-a0
                   r=r*dela
@@ -701,7 +313,7 @@ module function_gg_module
          call esigetbf_partial(zion,m0,m1,size(zion,1))
 
 
-         !$acc parallel loop present(zion,backu,backT,back_f0_i,backn)
+         !$acc parallel loop present(zion,backu,backT,back_f0_i,backn,back_flux_A)
          do i=m0,m1
             vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
             vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
@@ -715,17 +327,24 @@ module function_gg_module
          !$acc update self(back_f0_i(m0:m1))
 
 
+         deallocate(back_flux_A)
 
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_partial takes", time1-time0, " secs"
+         if(mype==0) then
+            if(present(m_start) .or. present(m_end)) then
+               write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group takes", time1-time0, " secs"
+            else
+               write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_partial takes", time1-time0, " secs"
+            endif
+         endif
          call flush(stdout)
 #endif
 
 
-      end subroutine n_T_u_group_partial
+      end subroutine n_T_u_group
 
-      subroutine n_T_u_group_e_partial(m_start,m_end)
+      subroutine n_T_u_group_e(m_start,m_end)
          !
          ! get n,Te,ue for electrons
          !
@@ -750,11 +369,13 @@ module function_gg_module
          real(wp) inv_Te_norm ! inverse of normalized Te which has same unit of Ti (Te_norm = Te_real/(mo*v0^2))
          real(wp) E_over_T
          real(wp) vpara, vperp
-         real(wp) back_flux_A(me), omega_ui(me),backTi(me), back_Ui_para, A_over_meanA ! This is about given ion's rotation which determines theta dependency of density
+         real(wp) back_Ui_para, A_over_meanA ! This is about given ion's rotation which determines theta dependency of density
+         real(wp), allocatable, dimension(:) :: back_flux_A, omega_ui,backTi
          real(wp) time0, time1
-
          integer, optional,intent(in) :: m_start, m_end
          integer m0,m1
+
+         !$acc declare create(back_flux_A,omega_ui,backTi)
 
 #ifdef _MGY_TIMER_
          time0= MPI_WTIME()
@@ -764,6 +385,9 @@ module function_gg_module
          m1=me
          if(present(m_start)) m0=m_start
          if(present(m_end))   m1=m_end
+
+         allocate(back_flux_A(m0:m1),omega_ui(m0:m1),backTi(m0:m1))
+
 
          if(acc_newer_H_zeon) then
             !$acc update device(zeon(:,m0:m1),zeon0(:,m0:m1),RK_cum_zeon(:,m0:m1))
@@ -777,7 +401,7 @@ module function_gg_module
                dela=1.0_wp/dela
 
                !$omp parallel do private(i,r,ip,fip)
-               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
+               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
                do i=m0,m1
                   r=zeon(1,i)-a0
                   r=r*dela
@@ -815,7 +439,7 @@ module function_gg_module
             end if
 
             !$omp parallel do private(i)
-            !$acc parallel loop present(backne,backTe,dlnndae,dlnTdae)
+            !$acc parallel loop present(backne,backTe,dlnndae,dlnTdae,back_flux_A,omega_ui,backTi)
             do i=m0,m1
                dlnndae(i)=dlnndae(i)/backne(i)      !=dlnn/da
                dlnTdae(i)=dlnTdae(i)/backTe(i)      !=dlnT/da
@@ -825,7 +449,7 @@ module function_gg_module
 
             if(q2.gt.0.0) then  ! first analytic profile
                !$omp parallel do private(i)
-               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
+               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
                do i=m0,m1
                   backne(i)=n_0*Bn*exp(-dn*zeon(1,i)**xn)
                   backTe(i)=T_e0*Bt_e*exp(-dTeme*zeon(1,i)**xt_e)
@@ -861,7 +485,7 @@ module function_gg_module
                dela=(a1-a0)/real(jr,wp)
                dela=1.0_wp/dela
                !$omp parallel do private(i,r,ip,fip,tempe)
-               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae)
+               !$acc parallel loop present(zeon,backTe,dlnTdae,backne,dlnndae,back_flux_A,omega_ui,backTi)
                do i=m0,m1
                   r=zeon(1,i)-a0
                   r=r*dela
@@ -906,7 +530,7 @@ module function_gg_module
          call esigetbf_partial(zeon, m0, m1, size(zeon,1))
 
 
-         !$acc parallel loop present(zeon,backne,backTe,back_f0_e)
+         !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
          do i=m0,m1
             ! Following part is to calculate theta dependency of density which needs ion rotation information
             back_Ui_para = F(i)/BB(i)*omega_ui(i)
@@ -922,13 +546,23 @@ module function_gg_module
          enddo
          !$acc update self(back_f0_e(m0:m1))
 
+
+         deallocate(back_flux_A,omega_ui,backTi)
+
+
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_group_e_partial takes", time1-time0, " secs"
+         if(mype==0) then
+            if(present(m_start) .or. present(m_end)) then
+               write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_groupt_ek takes", time1-time0, " secs"
+            else
+               write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", n_T_u_groupt_e_partial takes", time1-time0, " secs"
+            endif
+         endif
          call flush(stdout)
 #endif
 
-      end subroutine n_T_u_group_e_partial
+      end subroutine n_T_u_group_e
 
 end module function_gg_module
 

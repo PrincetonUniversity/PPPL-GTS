@@ -795,7 +795,7 @@ module Ptl_Src_Loss
          !$acc update device(zeon(:,m0:me),elabels(m0:me))
 
          ! call n_T_u_group_e(m0)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
-         call n_T_u_group_e_partial(m0,me)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+         call n_T_u_group_e(m0,me)   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
          !$acc update self(BB(m0:me))
 
          allocate(Te_norm(m0:me))
@@ -872,7 +872,7 @@ module Ptl_Src_Loss
          !$acc update device(zeon(:,m0:me))
 
          ! call n_T_u_group_e(m0)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
-         call n_T_u_group_e_partial(m0,me)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+         call n_T_u_group_e(m0,me)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
 
          call electron_locator_partial(m0,me) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
 
@@ -1058,7 +1058,8 @@ module Ptl_Src_Loss
          ! Distribute electrons to appropriate MPI ranks
          call treat_electrons_out_of_boundary(m0,me)
          ! call electron_locator_partial(m0,me)
-         ! call n_T_u_group_e_partial(m0,me)
+         ! call n_T_u_group_e(m0,me)
+
 
 
          write(stdout,'(6(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; me=",me,"; me-m0=",me-m0,"; memax=",memax
@@ -1146,7 +1147,7 @@ module Ptl_Src_Loss
          !$acc update device(zion(:,m0:mi),ilabels(m0:mi))
 
          ! call n_T_u_group(m0)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
-         call n_T_u_group_partial(m0,mi)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         call n_T_u_group(m0,mi)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
          !$acc update self(BB(m0:mi),backu(m0:mi),F(m0:mi))
          backu(m0:mi)=backu(m0:mi)*F(m0:mi)/BB(m0:mi) ! =u_//=I*omega_t/B
          !$acc update device(backu(m0:mi))
@@ -1223,7 +1224,7 @@ module Ptl_Src_Loss
          !$acc update device(zion(:,m0:mi))
 
          ! call n_T_u_group(m0)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
-         call n_T_u_group_partial(m0,mi)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+         call n_T_u_group(m0,mi)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
 
          call ion_locator_at_larmor_points_partial(m0,mi) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
 
@@ -1378,7 +1379,7 @@ module Ptl_Src_Loss
          ! Distribute electrons to appropriate MPI ranks
          call treat_ions_out_of_boundary(m0,mi)
          ! call ion_locator_at_larmor_points_partial(m0,mi)
-         ! call n_T_u_group_partial(m0,mi)
+         ! call n_T_u_group(m0,mi)
 
 
          write(stdout,'(6(A,I8))') "istep=",istep, "; mype=",mype,"; m0=",m0,"; mi=",mi,"; mi-m0=",mi-m0,"; mimax=",mimax
@@ -1543,7 +1544,7 @@ module Ptl_Src_Loss
             acc_newer_D_zeon=.true.
 
             call electron_locator_partial(m_start=m0, m_end=me)
-            call n_T_u_group_e_partial(m_start=m0, m_end=me)
+            call n_T_u_group_e(m_start=m0, m_end=me)
          endif
 
       end subroutine treat_electrons_out_of_boundary
@@ -1700,7 +1701,7 @@ module Ptl_Src_Loss
             acc_newer_D_zion=.true.
 
             call ion_locator_at_larmor_points_partial(m_start=m0, m_end=mi)
-            call n_T_u_group_partial(m_start=m0, m_end=mi)
+            call n_T_u_group(m_start=m0, m_end=mi)
          endif
 
       end subroutine treat_ions_out_of_boundary
