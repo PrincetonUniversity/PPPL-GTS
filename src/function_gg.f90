@@ -5411,7 +5411,6 @@ subroutine Ti_at_electrons
 
    end if
 
-   !$acc update self(backT(:me))
 
 end subroutine Ti_at_electrons
 
