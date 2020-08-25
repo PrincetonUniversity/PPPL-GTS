@@ -730,7 +730,6 @@ contains
       use precision
       use global_parameters
       use field_array
-      use Diagnostic_Grid
       implicit none
 
       integer :: Ns,Nq

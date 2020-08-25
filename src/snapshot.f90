@@ -1906,6 +1906,7 @@ subroutine snapshot_Magnetic_Information
    use hdf5
    use h5lt
    use Structured_Grid
+   use Diagnostic_Grid
    implicit none
 
    integer, parameter :: gq_jump=3, a_jump=1

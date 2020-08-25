@@ -1116,6 +1116,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    use function_gg_module
    use Ptl_Src_Loss
    use Structured_Grid
+   use Diagnostic_Grid
 
    implicit none
 
@@ -2395,6 +2396,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
    use diagnosis_array
    use esi_interface
    use solver_data_class
+   use Diagnostic_Grid
 
    implicit none
 

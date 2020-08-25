@@ -748,6 +748,7 @@ subroutine pushion_RK4(irk_i)
    use esi_interface
    use function_gg_module
    use Ptl_Src_Loss
+   use Diagnostic_Grid
 
    implicit none
    integer, intent(in):: irk_i

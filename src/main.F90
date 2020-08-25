@@ -24,6 +24,7 @@ program GTS
    use Ptl_Src_Loss
    use Structured_Grid
    use particle_decomp
+   use Diagnostic_Grid
 #ifdef _ACCEL
    use accel_lib
 #endif _ACCEL
