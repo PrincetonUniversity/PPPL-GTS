@@ -131,8 +131,8 @@ module Diagnostic_Grid
          allocate(DG%w_dne(Nq,Na), DG%w_dni(Nq,Na))
          allocate(DG%ne_tot_hybrid(Nq,Na), DG%ni_hybrid(Nq,Na), DG%Te_hybrid(Nq,Na), DG%Ti_hybrid(Nq,Na))
 
-         allocate(DG%eFluxData_a1D(Na,DG%num_eFD_1D), DG%iFluxData_a1D(Na,DG%num_iFD_1D)) ! radial Flux Data (particle, Energy, etc)
-         allocate(DG%cum_eFluxData_a1D(Na,DG%num_eFD_1D), DG%cum_iFluxData_a1D(Na,DG%num_iFD_1D)) ! cumulative radial Flux Data (particle, Energy, etc)
+         allocate(DG%eFluxData_a1D(DG%num_eFD_1D,Na), DG%iFluxData_a1D(DG%num_iFD_1D,Na)) ! radial Flux Data (particle, Energy, etc)
+         allocate(DG%cum_eFluxData_a1D(DG%num_eFD_1D,Na), DG%cum_iFluxData_a1D(DG%num_iFD_1D,Na)) ! cumulative radial Flux Data (particle, Energy, etc)
          allocate(DG%Anulus_dV(Na), DG%inv_Anulus_dV(Na))
 
          k=1
@@ -1316,8 +1316,10 @@ module Diagnostic_Grid
             ws0 = 1.0-ws1
 
             do vid=1,DG%num_eFD_1D
-               DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*ptl_data(vid,m)
-               DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*ptl_data(vid,m)
+               DG%eFluxData_a1D(vid,sid  ) = DG%eFluxData_a1D(vid,sid  ) + ws0*ptl_data(vid,m)
+            enddo
+            do vid=1,DG%num_eFD_1D
+               DG%eFluxData_a1D(vid,sid+1) = DG%eFluxData_a1D(vid,sid+1) + ws1*ptl_data(vid,m)
             enddo
          enddo
 
@@ -1340,8 +1342,8 @@ module Diagnostic_Grid
 
             ! Normalize Data by dividing Anulus volume
             do vid=1,DG%num_eFD_1D
-               DG%eFluxData_a1D(:,vid) = DG%eFluxData_a1D(:,vid)*DG%inv_Anulus_dV
-               DG%cum_eFluxData_a1D(:,vid) = DG%cum_eFluxData_a1D(:,vid)*DG%inv_Anulus_dV
+               DG%eFluxData_a1D(vid,:) = DG%eFluxData_a1D(vid,:)*DG%inv_Anulus_dV
+               DG%cum_eFluxData_a1D(vid,:) = DG%cum_eFluxData_a1D(vid,:)*DG%inv_Anulus_dV
             enddo
          endif
 
@@ -1407,8 +1409,10 @@ module Diagnostic_Grid
             ws0 = 1.0-ws1
 
             do vid=1,DG%num_iFD_1D
-               DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*ptl_data(vid,m)
-               DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*ptl_data(vid,m)
+               DG%iFluxData_a1D(vid,sid  ) = DG%iFluxData_a1D(vid,sid  ) + ws0*ptl_data(vid,m)
+            enddo
+            do vid=1,DG%num_iFD_1D
+               DG%iFluxData_a1D(vid,sid+1) = DG%iFluxData_a1D(vid,sid+1) + ws1*ptl_data(vid,m)
             enddo
          enddo
 
@@ -1431,8 +1435,8 @@ module Diagnostic_Grid
 
             ! Normalize Data by dividing Cell Volume
             do vid=1,DG%num_iFD_1D
-               DG%iFluxData_a1D(:,vid) = DG%iFluxData_a1D(:,vid)*DG%inv_Anulus_dV
-               DG%cum_iFluxData_a1D(:,vid) = DG%cum_iFluxData_a1D(:,vid)*DG%inv_Anulus_dV
+               DG%iFluxData_a1D(vid,:) = DG%iFluxData_a1D(vid,:)*DG%inv_Anulus_dV
+               DG%cum_iFluxData_a1D(vid,:) = DG%cum_iFluxData_a1D(vid,:)*DG%inv_Anulus_dV
             enddo
          endif
 
