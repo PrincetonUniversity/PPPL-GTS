@@ -71,6 +71,7 @@ program GTS
    endif
 
 #ifdef _ACCEL
+   if(mype==0) write(stdout,*) "_OPENACC=", _OPENACC
    device_type=acc_get_device_type()
    ngpus_per_node=acc_get_num_devices(device_type)
    my_gpu_device_num = acc_get_device_num(device_type)
