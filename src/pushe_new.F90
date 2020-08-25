@@ -1692,21 +1692,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       if(irk_e==1) then
          call cpu_time(cput0)
          tt0=MPI_WTIME()
-         !$acc update self(ee_inv_grad_a(:me), ghq(:me), vpara_dve_a(:me))
-         !$acc update self(da(:me),dgq(:me),dgf(:me))
-         !$acc update self(wpi(:,:me))
-         if(acc_newer_D_zeon) then
-            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-            acc_newer_D_zeon=.false.
-            acc_newer_H_zeon=.false.
-         endif
 
-         do m=1,me
-            FullVelocity_da_dgq_dgf(1,m) = da(m)
-            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
-            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
-         enddo
-         call Measure_and_Cumulate_Radial_eFlux_on_DG(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+         call Measure_and_Cumulate_Radial_eFlux_on_DG(wpi,da)
 
          call cpu_time(cput1)
          tt1=MPI_WTIME()
@@ -1714,7 +1701,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
 #ifdef _MGY_TIMER_
          if(mype==0) then
-            write(stdout,*) "Measure_Cumlate_eFlux_a1D takes", tt1-tt0," secs"
+            write(stdout,*) "Measure_Cumulate_eFlux_a1D takes", tt1-tt0," secs"
             call flush(stdout)
          endif
 #endif
@@ -2315,21 +2302,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       if(irk_e==1) then
          call cpu_time(cput0)
          tt0=MPI_WTIME()
-         !$acc update self(ee_inv_grad_a(:me), ghq(:me), vpara_dve_a(:me))
-         !$acc update self(da(:me),dgq(:me),dgf(:me))
-         !$acc update self(wpi(:,:me))
-         if(acc_newer_D_zeon) then
-            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-            acc_newer_D_zeon=.false.
-            acc_newer_H_zeon=.false.
-         endif
 
-         do m=1,me
-            FullVelocity_da_dgq_dgf(1,m) = da(m)
-            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
-            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
-         enddo
-         call Measure_and_Cumulate_Radial_eFlux_on_DG(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+         call Measure_and_Cumulate_Radial_eFlux_on_DG(wpi,da)
 
          call cpu_time(cput1)
          tt1=MPI_WTIME()
@@ -2337,7 +2311,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
 #ifdef _MGY_TIMER_
          if(mype==0) then
-            write(stdout,*) "Measure_Cumlate_eFlux_a1D takes", tt1-tt0," secs"
+            write(stdout,*) "Measure_Cumulate_eFlux_a1D takes", tt1-tt0," secs"
             call flush(stdout)
          endif
 #endif

@@ -1438,20 +1438,7 @@ subroutine pushion_RK4(irk_i)
       call cpu_time(cput0)
       tt0=MPI_WTIME()
 
-      !$acc update self(ii_inv_grad_a(:mi),ghq(:mi),vpara_dvi_a(:mi))
-      !$acc update self(da(:mi),dgq(:mi),dgf(:mi))
-      !$acc update self(wpi(:,:mi))
-      if(acc_newer_D_zion) then
-         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
-         acc_newer_D_zion=.false.
-         acc_newer_H_zion=.false.
-      endif
-      do m=1,mi
-         FullVelocity_da_dgq_dgf(1,m) = da(m)
-         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
-         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
-      enddo
-      call Measure_and_Cumulate_Radial_iFlux_on_DG(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+      call Measure_and_Cumulate_Radial_iFlux_on_DG(wpi,da)
 
       call cpu_time(cput1)
       tt1=MPI_WTIME()
@@ -1460,7 +1447,7 @@ subroutine pushion_RK4(irk_i)
 
 #ifdef _MGY_TIMER_
       if(mype==0) then
-         write(stdout,*) "Measure_Cumlate_iFlux_a1D takes", tt1-tt0," secs"
+         write(stdout,*) "Measure_Cumulate_iFlux_a1D takes", tt1-tt0," secs"
          call flush(stdout)
       endif
 #endif

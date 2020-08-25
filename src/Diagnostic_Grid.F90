@@ -1258,7 +1258,7 @@ module Diagnostic_Grid
 
       end subroutine Measure_Ions_on_Diagnostic_Grid
 
-      subroutine Measure_and_Cumulate_Radial_eFlux_on_DG(in_P_data, Full_dadgqdgf)
+      subroutine Measure_and_Cumulate_Radial_eFlux_on_DG(in_P_data, Full_da)
          use precision
          use global_parameters
          use field_array
@@ -1270,75 +1270,80 @@ module Diagnostic_Grid
          implicit none
 
          real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
-         real(wp), intent(in) :: Full_dadgqdgf(3,me)
-         real(wp) energy(me)
-         real(wp) delta_f(me), f_tot(me)
+         real(wp), intent(in) :: Full_da(me)
          real(wp) ws0,ws1,tmp,P_s
-         real(wp) tmp_FluxData(DG%dim_a,DG%num_eFD_1D)
+         real(wp) eData1D(DG%num_eFD_1D,DG%dim_a)
          real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
 
+         !$acc declare create(ptl_data)
 
-         if(acc_newer_D_zeon) then
-            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         if(acc_newer_H_zeon) then
+            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
             acc_newer_H_zeon=.false.
             acc_newer_D_zeon=.false.
          endif
 
-         DG%eFluxData_a1D=0
 
          allocate(ptl_data(DG%num_eFD_1D,me))
+         eData1D=0.0
+         ! in_P_data(2,:)= energy(:)
 
-         energy(:) = in_P_data(2,:)
-
+         !$acc parallel loop present(zeon0,ptl_data,in_P_data,Full_da,ee_inv_grad_a,ghq,vpara_dve_a)
          do m=1,me
             !Full Velocity
-            ptl_data(1,m) = zeon0(5,m)*Full_dadgqdgf(1,m)*ee_inv_grad_a(m)  ! Particle Flux
-            ptl_data(2,m) = ptl_data(1,m)*energy(m) ! Energy Flux
+            ptl_data(1,m) = zeon0(5,m)*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
+            ptl_data(2,m) = ptl_data(1,m)*in_P_data(2,m) ! Energy Flux
 
             ! ExB contribution
             ptl_data(3,m) = zeon0(5,m)*(ghq(m)-vpara_dve_a(m))*ee_inv_grad_a(m) ! Particle Flux by ExB only
-            ptl_data(4,m) = ptl_data(3,m)*energy(m) ! Energy Flux by ExB only
+            ptl_data(4,m) = ptl_data(3,m)*in_P_data(2,m) ! Energy Flux by ExB only
 
             ! Streaming contribution
             ptl_data(5,m) = zeon0(5,m)*(vpara_dve_a(m))*ee_inv_grad_a(m) ! Particle Flux by streaming only
-            ptl_data(6,m) = ptl_data(5,m)*energy(m) ! Energy Flux by streaming onlyy
+            ptl_data(6,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming onlyy
          enddo
          if(Flag_Load_and_WeightDef==0)then
-            ptl_data = ptl_data*eNrNm
+            !$acc parallel loop present(ptl_data)
+            do m=1,me
+               ptl_data(:,m) = eNrNm*ptl_data(:,m)
+            enddo
          endif
 
 
+         !$acc parallel loop gang vector present(zeon,zeon0,ptl_data)
          do m=1,me
             P_s  = zeon0(7,m)
             sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
+            !$acc loop seq
             do vid=1,DG%num_eFD_1D
-               DG%eFluxData_a1D(vid,sid  ) = DG%eFluxData_a1D(vid,sid  ) + ws0*ptl_data(vid,m)
-            enddo
-            do vid=1,DG%num_eFD_1D
-               DG%eFluxData_a1D(vid,sid+1) = DG%eFluxData_a1D(vid,sid+1) + ws1*ptl_data(vid,m)
+               !$acc atomic update
+               eData1D(vid,sid  ) = eData1D(vid,sid  ) + ws0*ptl_data(vid,m)
+               !$acc atomic update
+               eData1D(vid,sid+1) = eData1D(vid,sid+1) + ws1*ptl_data(vid,m)
             enddo
          enddo
 
 
          ! Cumulate Flux Data
-         DG%cum_eFluxData_a1D = DG%cum_eFluxData_a1D + DG%eFluxData_a1D
+         DG%eFluxData_a1D = eData1D
+         DG%cum_eFluxData_a1D = DG%cum_eFluxData_a1D + eData1D
 
 
          ! Communicate between Ranks and Normalize the data, when they are needed
          ! Not every time step, to reduce computational cost
          if(mod(istep,msnap)==0) then
 
-            tmp_FluxData = DG%eFluxData_a1D
+            eData1D = DG%eFluxData_a1D
             size = DG%dim_a*DG%num_eFD_1D
-            call MPI_ALLREDUCE(tmp_FluxData, DG%eFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call MPI_ALLREDUCE(eData1D, DG%eFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-            tmp_FluxData = DG%cum_eFluxData_a1D
+            eData1D = DG%cum_eFluxData_a1D
             size = DG%dim_a*DG%num_eFD_1D
-            call MPI_ALLREDUCE(tmp_FluxData, DG%cum_eFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call MPI_ALLREDUCE(eData1D, DG%cum_eFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
 
             ! Normalize Data by dividing Anulus volume
             do vid=1,DG%num_eFD_1D
@@ -1351,7 +1356,7 @@ module Diagnostic_Grid
 
       end subroutine Measure_and_Cumulate_Radial_eFlux_on_DG
 
-      subroutine Measure_and_Cumulate_Radial_iFlux_on_DG(in_P_data, Full_dadgqdgf)
+      subroutine Measure_and_Cumulate_Radial_iFlux_on_DG(in_P_data, Full_da)
          use precision
          use global_parameters
          use field_array
@@ -1363,75 +1368,80 @@ module Diagnostic_Grid
          implicit none
 
          real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
-         real(wp), intent(in) :: Full_dadgqdgf(3,mi)
-         real(wp) energy(mi)
-         real(wp) delta_f(mi), f_tot(mi)
+         real(wp), intent(in) :: Full_da(mi)
          real(wp) ws0,ws1,tmp,P_s
-         real(wp) tmp_FluxData(DG%dim_a,DG%num_iFD_1D)
+         real(wp) iData1D(DG%num_iFD_1D,DG%dim_a)
          real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
 
+         !$acc declare create(ptl_data)
 
-         if(acc_newer_D_zion) then
-            !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         if(acc_newer_H_zion) then
+            !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
             acc_newer_H_zion=.false.
             acc_newer_D_zion=.false.
          endif
 
-         DG%iFluxData_a1D=0
 
          allocate(ptl_data(DG%num_iFD_1D,mi))
+         iData1D=0.0
 
-         energy(:) = in_P_data(2,:)
+         ! in_P_data(2,:)= energy(:)
 
+         !$acc parallel loop present(zion0,ptl_data,in_P_data,Full_da,ii_inv_grad_a,ghq,vpara_dvi_a)
          do m=1,mi
             !Full Velocity
-            ptl_data(1,m) = zion0(5,m)*Full_dadgqdgf(1,m)*ii_inv_grad_a(m)  ! Particle Flux
-            ptl_data(2,m) = ptl_data(1,m)*energy(m) ! Energy Flux
+            ptl_data(1,m) = zion0(5,m)*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
+            ptl_data(2,m) = ptl_data(1,m)*in_P_data(2,m) ! Energy Flux
 
             ! ExB contribution
             ptl_data(3,m) = zion0(5,m)*(ghq(m)-vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by ExB only
-            ptl_data(4,m) = ptl_data(3,m)*energy(m) ! Energy Flux by ExB only
+            ptl_data(4,m) = ptl_data(3,m)*in_P_data(2,m) ! Energy Flux by ExB only
 
             ! Streaming contribution
             ptl_data(5,m) = zion0(5,m)*(vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by streaming only
-            ptl_data(6,m) = ptl_data(5,m)*energy(m) ! Energy Flux by streaming onlyy
+            ptl_data(6,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming onlyy
          enddo
          if(Flag_Load_and_WeightDef==0)then
-            ptl_data = ptl_data*iNrNm
+            !$acc parallel loop present(ptl_data)
+            do m=1,me
+               ptl_data(:,m) = iNrNm*ptl_data(:,m)
+            enddo
          endif
 
-
+         !$acc parallel loop gang vector present(zion0,ptl_data)
          do m=1,mi
             P_s  = zion0(7,m)
             sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
+            !$acc loop seq
             do vid=1,DG%num_iFD_1D
-               DG%iFluxData_a1D(vid,sid  ) = DG%iFluxData_a1D(vid,sid  ) + ws0*ptl_data(vid,m)
-            enddo
-            do vid=1,DG%num_iFD_1D
-               DG%iFluxData_a1D(vid,sid+1) = DG%iFluxData_a1D(vid,sid+1) + ws1*ptl_data(vid,m)
+               !$acc atomic update
+               iData1D(vid,sid  ) = iData1D(vid,sid  ) + ws0*ptl_data(vid,m)
+               !$acc atomic update
+               iData1D(vid,sid+1) = iData1D(vid,sid+1) + ws1*ptl_data(vid,m)
             enddo
          enddo
 
 
          ! Cumulate Flux Data
-         DG%cum_iFluxData_a1D = DG%cum_iFluxData_a1D + DG%iFluxData_a1D
+         DG%iFluxData_a1D = iData1D
+         DG%cum_iFluxData_a1D = DG%cum_iFluxData_a1D + iData1D
 
 
          ! Communicate between Ranks and Normalize the data, when they are needed
          ! Not every time step, to reduce computational cost
          if(mod(istep,msnap)==0) then
 
-            tmp_FluxData = DG%iFluxData_a1D
+            iData1D = DG%iFluxData_a1D
             size = DG%dim_a*DG%num_iFD_1D
-            call MPI_ALLREDUCE(tmp_FluxData, DG%iFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call MPI_ALLREDUCE(iData1D, DG%iFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-            tmp_FluxData = DG%cum_iFluxData_a1D
+            iData1D = DG%cum_iFluxData_a1D
             size = DG%dim_a*DG%num_iFD_1D
-            call MPI_ALLREDUCE(tmp_FluxData, DG%cum_iFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call MPI_ALLREDUCE(iData1D, DG%cum_iFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
 
             ! Normalize Data by dividing Cell Volume
             do vid=1,DG%num_iFD_1D
