@@ -1275,6 +1275,7 @@ module Diagnostic_Grid
          real(wp) delta_f(me), f_tot(me)
          real(wp) ws0,ws1,tmp,P_s
          real(wp) tmp_FluxData(DG%dim_a,DG%num_eFD_1D)
+         real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
 
 
@@ -1286,15 +1287,25 @@ module Diagnostic_Grid
 
          DG%eFluxData_a1D=0
 
+         allocate(ptl_data(DG%num_eFD_1D,me))
+
          energy(:) = in_P_data(2,:)
 
+         do m=1,me
+            !Full Velocity
+            ptl_data(1,m) = zeon0(5,m)*Full_dadgqdgf(1,m)*ee_inv_grad_a(m)  ! Particle Flux
+            ptl_data(2,m) = ptl_data(1,m)*energy(m) ! Energy Flux
 
+            ! ExB contribution
+            ptl_data(3,m) = zeon0(5,m)*(ghq(m)-vpara_dve_a(m))*ee_inv_grad_a(m) ! Particle Flux by ExB only
+            ptl_data(4,m) = ptl_data(3,m)*energy(m) ! Energy Flux by ExB only
+
+            ! Streaming contribution
+            ptl_data(5,m) = zeon0(5,m)*(vpara_dve_a(m))*ee_inv_grad_a(m) ! Particle Flux by streaming only
+            ptl_data(6,m) = ptl_data(5,m)*energy(m) ! Energy Flux by streaming onlyy
+         enddo
          if(Flag_Load_and_WeightDef==0)then
-            delta_f(:) = zeon0(5,1:me)*eNrNm
-            f_tot(:)   = eNrNm
-         else
-            delta_f(:) = zeon0(5,1:me)
-            f_tot(:)   = zeon0(6,1:me)
+            ptl_data = ptl_data*eNrNm
          endif
 
 
@@ -1304,32 +1315,10 @@ module Diagnostic_Grid
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
-
-            tmp=delta_f(m)*Full_dadgqdgf(1,m)*ee_inv_grad_a(m)
-            vid=1; ! Particle Flux
-            DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp
-            DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp
-            vid=2; ! Energy Flux
-            DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
-            DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
-
-
-            tmp=delta_f(m)*(ghq(m)-vpara_dve_a(m))*ee_inv_grad_a(m)
-            vid=3; ! Particle Flux by ExB only
-            DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp
-            DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp
-            vid=4; ! Energy Flux by ExB only
-            DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
-            DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
-
-            tmp=delta_f(m)*(vpara_dve_a(m))*ee_inv_grad_a(m)
-            vid=5; ! Particle Flux by streaming only
-            DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp
-            DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp
-            vid=6; ! Energy Flux by streaming only
-            DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
-            DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
-
+            do vid=1,DG%num_eFD_1D
+               DG%eFluxData_a1D(sid  ,vid) = DG%eFluxData_a1D(sid  ,vid) + ws0*ptl_data(vid,m)
+               DG%eFluxData_a1D(sid+1,vid) = DG%eFluxData_a1D(sid+1,vid) + ws1*ptl_data(vid,m)
+            enddo
          enddo
 
 
@@ -1356,6 +1345,8 @@ module Diagnostic_Grid
             enddo
          endif
 
+         deallocate(ptl_data)
+
       end subroutine Measure_and_Cumulate_Radial_eFlux_on_DG
 
       subroutine Measure_and_Cumulate_Radial_iFlux_on_DG(in_P_data, Full_dadgqdgf)
@@ -1375,6 +1366,7 @@ module Diagnostic_Grid
          real(wp) delta_f(mi), f_tot(mi)
          real(wp) ws0,ws1,tmp,P_s
          real(wp) tmp_FluxData(DG%dim_a,DG%num_iFD_1D)
+         real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
 
 
@@ -1386,14 +1378,25 @@ module Diagnostic_Grid
 
          DG%iFluxData_a1D=0
 
+         allocate(ptl_data(DG%num_iFD_1D,mi))
+
          energy(:) = in_P_data(2,:)
 
+         do m=1,mi
+            !Full Velocity
+            ptl_data(1,m) = zion0(5,m)*Full_dadgqdgf(1,m)*ii_inv_grad_a(m)  ! Particle Flux
+            ptl_data(2,m) = ptl_data(1,m)*energy(m) ! Energy Flux
+
+            ! ExB contribution
+            ptl_data(3,m) = zion0(5,m)*(ghq(m)-vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by ExB only
+            ptl_data(4,m) = ptl_data(3,m)*energy(m) ! Energy Flux by ExB only
+
+            ! Streaming contribution
+            ptl_data(5,m) = zion0(5,m)*(vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by streaming only
+            ptl_data(6,m) = ptl_data(5,m)*energy(m) ! Energy Flux by streaming onlyy
+         enddo
          if(Flag_Load_and_WeightDef==0)then
-            delta_f(:) = zion0(5,1:mi)*iNrNm
-            f_tot(:)   = iNrNm
-         else
-            delta_f(:) = zion0(5,1:mi)
-            f_tot(:)   = zion0(6,1:mi)
+            ptl_data = ptl_data*iNrNm
          endif
 
 
@@ -1403,30 +1406,10 @@ module Diagnostic_Grid
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
-            tmp=delta_f(m)*Full_dadgqdgf(1,m)*ii_inv_grad_a(m)
-            vid=1; ! Particle Flux
-            DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp
-            DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp
-            vid=2; ! Energy Flux
-            DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
-            DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
-
-            tmp=delta_f(m)*(ghq(m)-vpara_dvi_a(m))*ii_inv_grad_a(m)
-            vid=3; ! Particle Flux by ExB only
-            DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp
-            DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp
-            vid=4; ! Energy Flux by ExB only
-            DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
-            DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
-
-            tmp=delta_f(m)*(vpara_dvi_a(m))*ii_inv_grad_a(m)
-            vid=5; ! Particle Flux by streaming only
-            DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp
-            DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp
-            vid=6; ! Energy Flux by streaming only
-            DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*tmp*energy(m)
-            DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*tmp*energy(m)
-
+            do vid=1,DG%num_iFD_1D
+               DG%iFluxData_a1D(sid  ,vid) = DG%iFluxData_a1D(sid  ,vid) + ws0*ptl_data(vid,m)
+               DG%iFluxData_a1D(sid+1,vid) = DG%iFluxData_a1D(sid+1,vid) + ws1*ptl_data(vid,m)
+            enddo
          enddo
 
 
@@ -1452,6 +1435,8 @@ module Diagnostic_Grid
                DG%cum_iFluxData_a1D(:,vid) = DG%cum_iFluxData_a1D(:,vid)*DG%inv_Anulus_dV
             enddo
          endif
+
+         deallocate(ptl_data)
 
       end subroutine Measure_and_Cumulate_Radial_iFlux_on_DG
 
