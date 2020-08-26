@@ -1693,7 +1693,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          call cpu_time(cput0)
          tt0=MPI_WTIME()
 
-         call Measure_and_Cumulate_Radial_eFlux_on_DG(wpi,da)
+         call Measure_and_Cumulate_eZonData_on_DG(wpi,da)
 
          call cpu_time(cput1)
          tt1=MPI_WTIME()
@@ -2303,7 +2303,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          call cpu_time(cput0)
          tt0=MPI_WTIME()
 
-         call Measure_and_Cumulate_Radial_eFlux_on_DG(wpi,da)
+         call Measure_and_Cumulate_eZonData_on_DG(wpi,da)
 
          call cpu_time(cput1)
          tt1=MPI_WTIME()

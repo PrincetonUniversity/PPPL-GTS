@@ -26,9 +26,9 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: w_dne, w_dni ! wdne=abs(snap.DG.dne_tot)./(abs(snap.DG.ne_tot)+abs(snap.DG.dne_tot));
       real(wp), allocatable, dimension(:,:) :: ne_tot_hybrid, ni_hybrid, Te_hybrid, Ti_hybrid ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
 
-      integer :: num_eFD_1D, num_iFD_1D ! number of eFluxData_a1D and iFluxData_a1D
-      real(wp), allocatable, dimension(:,:) :: eFluxData_a1D, iFluxData_a1D ! radial Flux Data (particle, Energy, etc)
-      real(wp), allocatable, dimension(:,:) :: cum_eFluxData_a1D, cum_iFluxData_a1D ! cumulative radial Flux Data (particle, Energy, etc)
+      integer :: num_eZD_1D, num_iZD_1D ! number of eZonData_1D and iZonData_1D
+      real(wp), allocatable, dimension(:,:) :: eZonData_1D, iZonData_1D !  Zonal Data (particle, Energy, etc)
+      real(wp), allocatable, dimension(:,:) :: cum_eZonData_1D, cum_iZonData_1D ! cumulative Zonal Data (particle, Energy, etc)
       real(wp), allocatable, dimension(:) :: Anulus_dV, inv_Anulus_dV
 
       real(wp), allocatable, dimension(:,:,:) :: mag_grad_FLA_SM_FLabel
@@ -100,8 +100,8 @@ module Diagnostic_Grid
          DG%num_iSD = 8 +6 +6 +1 +4 ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
          DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
-         DG%num_eFD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
-         DG%num_iFD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_eZD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_iZD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
 
          DG%dgq   = 2.0*pi/(DG%dim_gq-1)
          DG%inv_dgq = 1.0/DG%dgq
@@ -131,8 +131,8 @@ module Diagnostic_Grid
          allocate(DG%w_dne(Nq,Na), DG%w_dni(Nq,Na))
          allocate(DG%ne_tot_hybrid(Nq,Na), DG%ni_hybrid(Nq,Na), DG%Te_hybrid(Nq,Na), DG%Ti_hybrid(Nq,Na))
 
-         allocate(DG%eFluxData_a1D(DG%num_eFD_1D,Na), DG%iFluxData_a1D(DG%num_iFD_1D,Na)) ! radial Flux Data (particle, Energy, etc)
-         allocate(DG%cum_eFluxData_a1D(DG%num_eFD_1D,Na), DG%cum_iFluxData_a1D(DG%num_iFD_1D,Na)) ! cumulative radial Flux Data (particle, Energy, etc)
+         allocate(DG%eZonData_1D(DG%num_eZD_1D,Na), DG%iZonData_1D(DG%num_iZD_1D,Na)) ! Zonal Data (particle, Energy, etc)
+         allocate(DG%cum_eZonData_1D(DG%num_eZD_1D,Na), DG%cum_iZonData_1D(DG%num_iZD_1D,Na)) ! cumulative Zonal Data (particle, Energy, etc)
          allocate(DG%Anulus_dV(Na), DG%inv_Anulus_dV(Na))
 
          k=1
@@ -1258,7 +1258,7 @@ module Diagnostic_Grid
 
       end subroutine Measure_Ions_on_Diagnostic_Grid
 
-      subroutine Measure_and_Cumulate_Radial_eFlux_on_DG(in_P_data, Full_da)
+      subroutine Measure_and_Cumulate_eZonData_on_DG(in_P_data, Full_da)
          use precision
          use global_parameters
          use field_array
@@ -1272,7 +1272,7 @@ module Diagnostic_Grid
          real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
          real(wp), intent(in) :: Full_da(me)
          real(wp) ws0,ws1,tmp,P_s
-         real(wp) eData1D(DG%num_eFD_1D,DG%dim_a)
+         real(wp) eData1D(DG%num_eZD_1D,DG%dim_a)
          real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
 
@@ -1285,7 +1285,7 @@ module Diagnostic_Grid
          endif
 
 
-         allocate(ptl_data(DG%num_eFD_1D,me))
+         allocate(ptl_data(DG%num_eZD_1D,me))
          eData1D=0.0
          ! in_P_data(2,:)= energy(:)
 
@@ -1323,7 +1323,7 @@ module Diagnostic_Grid
             ws0 = 1.0-ws1
 
             !$acc loop seq
-            do vid=1,DG%num_eFD_1D
+            do vid=1,DG%num_eZD_1D
                !$acc atomic update
                eData1D(vid,sid  ) = eData1D(vid,sid  ) + ws0*ptl_data(vid,m)
                !$acc atomic update
@@ -1332,35 +1332,35 @@ module Diagnostic_Grid
          enddo
 
 
-         ! Cumulate Flux Data
-         DG%eFluxData_a1D = eData1D
-         DG%cum_eFluxData_a1D = DG%cum_eFluxData_a1D + eData1D
+         ! Cumulate Zonal Data
+         DG%eZonData_1D = eData1D
+         DG%cum_eZonData_1D = DG%cum_eZonData_1D + eData1D
 
 
          ! Communicate between Ranks and Normalize the data, when they are needed
          ! Not every time step, to reduce computational cost
          if(mod(istep,msnap)==0) then
 
-            eData1D = DG%eFluxData_a1D
-            size = DG%dim_a*DG%num_eFD_1D
-            call MPI_ALLREDUCE(eData1D, DG%eFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+            eData1D = DG%eZonData_1D
+            size = DG%dim_a*DG%num_eZD_1D
+            call MPI_ALLREDUCE(eData1D, DG%eZonData_1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-            eData1D = DG%cum_eFluxData_a1D
-            size = DG%dim_a*DG%num_eFD_1D
-            call MPI_ALLREDUCE(eData1D, DG%cum_eFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+            eData1D = DG%cum_eZonData_1D
+            size = DG%dim_a*DG%num_eZD_1D
+            call MPI_ALLREDUCE(eData1D, DG%cum_eZonData_1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
 
             ! Normalize Data by dividing Anulus volume
-            do vid=1,DG%num_eFD_1D
-               DG%eFluxData_a1D(vid,:) = DG%eFluxData_a1D(vid,:)*DG%inv_Anulus_dV
-               DG%cum_eFluxData_a1D(vid,:) = DG%cum_eFluxData_a1D(vid,:)*DG%inv_Anulus_dV
+            do vid=1,DG%num_eZD_1D
+               DG%eZonData_1D(vid,:) = DG%eZonData_1D(vid,:)*DG%inv_Anulus_dV
+               DG%cum_eZonData_1D(vid,:) = DG%cum_eZonData_1D(vid,:)*DG%inv_Anulus_dV
             enddo
          endif
 
          deallocate(ptl_data)
 
-      end subroutine Measure_and_Cumulate_Radial_eFlux_on_DG
+      end subroutine Measure_and_Cumulate_eZonData_on_DG
 
-      subroutine Measure_and_Cumulate_Radial_iFlux_on_DG(in_P_data, Full_da)
+      subroutine Measure_and_Cumulate_iZonData_on_DG(in_P_data, Full_da)
          use precision
          use global_parameters
          use field_array
@@ -1374,7 +1374,7 @@ module Diagnostic_Grid
          real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
          real(wp), intent(in) :: Full_da(mi)
          real(wp) ws0,ws1,tmp,P_s
-         real(wp) iData1D(DG%num_iFD_1D,DG%dim_a)
+         real(wp) iData1D(DG%num_iZD_1D,DG%dim_a)
          real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
 
@@ -1387,7 +1387,7 @@ module Diagnostic_Grid
          endif
 
 
-         allocate(ptl_data(DG%num_iFD_1D,mi))
+         allocate(ptl_data(DG%num_iZD_1D,mi))
          iData1D=0.0
 
          ! in_P_data(2,:)= energy(:)
@@ -1425,7 +1425,7 @@ module Diagnostic_Grid
             ws0 = 1.0-ws1
 
             !$acc loop seq
-            do vid=1,DG%num_iFD_1D
+            do vid=1,DG%num_iZD_1D
                !$acc atomic update
                iData1D(vid,sid  ) = iData1D(vid,sid  ) + ws0*ptl_data(vid,m)
                !$acc atomic update
@@ -1434,39 +1434,39 @@ module Diagnostic_Grid
          enddo
 
 
-         ! Cumulate Flux Data
-         DG%iFluxData_a1D = iData1D
-         DG%cum_iFluxData_a1D = DG%cum_iFluxData_a1D + iData1D
+         ! Cumulate Zonal Data
+         DG%iZonData_1D = iData1D
+         DG%cum_iZonData_1D = DG%cum_iZonData_1D + iData1D
 
 
          ! Communicate between Ranks and Normalize the data, when they are needed
          ! Not every time step, to reduce computational cost
          if(mod(istep,msnap)==0) then
 
-            iData1D = DG%iFluxData_a1D
-            size = DG%dim_a*DG%num_iFD_1D
-            call MPI_ALLREDUCE(iData1D, DG%iFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+            iData1D = DG%iZonData_1D
+            size = DG%dim_a*DG%num_iZD_1D
+            call MPI_ALLREDUCE(iData1D, DG%iZonData_1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-            iData1D = DG%cum_iFluxData_a1D
-            size = DG%dim_a*DG%num_iFD_1D
-            call MPI_ALLREDUCE(iData1D, DG%cum_iFluxData_a1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
+            iData1D = DG%cum_iZonData_1D
+            size = DG%dim_a*DG%num_iZD_1D
+            call MPI_ALLREDUCE(iData1D, DG%cum_iZonData_1D, size, mpi_Rsize, MPI_SUM, MPI_COMM_WORLD, ierr)
 
             ! Normalize Data by dividing Cell Volume
-            do vid=1,DG%num_iFD_1D
-               DG%iFluxData_a1D(vid,:) = DG%iFluxData_a1D(vid,:)*DG%inv_Anulus_dV
-               DG%cum_iFluxData_a1D(vid,:) = DG%cum_iFluxData_a1D(vid,:)*DG%inv_Anulus_dV
+            do vid=1,DG%num_iZD_1D
+               DG%iZonData_1D(vid,:) = DG%iZonData_1D(vid,:)*DG%inv_Anulus_dV
+               DG%cum_iZonData_1D(vid,:) = DG%cum_iZonData_1D(vid,:)*DG%inv_Anulus_dV
             enddo
          endif
 
          deallocate(ptl_data)
 
-      end subroutine Measure_and_Cumulate_Radial_iFlux_on_DG
+      end subroutine Measure_and_Cumulate_iZonData_on_DG
 
       subroutine SetZeros_cum_Radial_FluxData_a1D_on_DG
          implicit none
 
-         DG%cum_eFluxData_a1D = 0.0
-         DG%cum_iFluxData_a1D = 0.0
+         DG%cum_eZonData_1D = 0.0
+         DG%cum_iZonData_1D = 0.0
 
       end subroutine
 

@@ -1438,7 +1438,7 @@ subroutine pushion_RK4(irk_i)
       call cpu_time(cput0)
       tt0=MPI_WTIME()
 
-      call Measure_and_Cumulate_Radial_iFlux_on_DG(wpi,da)
+      call Measure_and_Cumulate_iZonData_on_DG(wpi,da)
 
       call cpu_time(cput1)
       tt1=MPI_WTIME()
