@@ -507,7 +507,7 @@ subroutine snapshot_hdf5
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
    integer(HSIZE_T) :: h5dims(5)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_SG, gid_SG_SM, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid, gid_FP, gid_FP_cum
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_SG, gid_SG_SM, gid_DG_ZON, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid, gid_FP, gid_FP_cum
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
@@ -814,6 +814,7 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "SG", gid_SG, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "SG/SM", gid_SG_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG", gid_DG, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "DG/ZON", gid_DG_ZON, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/SM", gid_DG_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/FLA", gid_DG_FLA, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "DG/FLA/SM", gid_DG_FLA_SM, h5err) ! Diagnostic Grid
@@ -1553,46 +1554,46 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%s_1D,h5err)
       call h5ltmake_dataset_f(gid_DG, "Anulus_dV",1,h5dims,H5T_NATIVE_DOUBLE, DG%Anulus_dV,h5err)
 
-      call h5ltmake_dataset_f(gid_DG, "eFlux1D_P",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(1,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "eFlux1D_E",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "eFlux1D_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(3,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "eFlux1D_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "eFlux1D_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(5,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "eFlux1D_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "dne_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(7,:)*1e6,h5err)
-      call h5ltmake_dataset_f(gid_DG, "dErg_e_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
-      call h5ltset_attribute_string_f(gid_DG, "dErg_e_1D", "unit", "eV/m^3", h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_P",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(1,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_E",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(3,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(5,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "dne",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(7,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "dErg_e",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
+      call h5ltset_attribute_string_f(gid_DG_ZON, "dErg_e", "unit", "eV/m^3", h5err)
 
-      call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_P",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(1,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_E",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(3,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(5,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_dne_1D",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(7,:)*1e6,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_dErg_e_1D",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
-      call h5ltset_attribute_string_f(gid_DG, "mean_dErg_e_1D", "unit", "eV/m^3", h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_P",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(1,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_E",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(3,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(5,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_dne",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(7,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_dErg_e",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
+      call h5ltset_attribute_string_f(gid_DG_ZON, "mean_dErg_e", "unit", "eV/m^3", h5err)
 
 
-      call h5ltmake_dataset_f(gid_DG, "iFlux1D_P",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(1,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "iFlux1D_E",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "iFlux1D_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(3,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "iFlux1D_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "iFlux1D_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(5,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "iFlux1D_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "dni_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(7,:)*1e6,h5err)
-      call h5ltmake_dataset_f(gid_DG, "dErg_i_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
-      call h5ltset_attribute_string_f(gid_DG, "dErg_i_1D", "unit", "eV/m^3", h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_P",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(1,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_E",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(3,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(5,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "dni",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(7,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "dErg_i",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
+      call h5ltset_attribute_string_f(gid_DG_ZON, "dErg_i", "unit", "eV/m^3", h5err)
 
-      call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_P",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(1,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_E",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(3,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(5,:)*uveloci*1e4,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_dni_1D",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(7,:)*1e6,h5err)
-      call h5ltmake_dataset_f(gid_DG, "mean_dErg_i_1D",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
-      call h5ltset_attribute_string_f(gid_DG, "mean_dErg_i_1D", "unit", "eV/m^3", h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_P",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(1,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_E",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(3,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(5,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_dni",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(7,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_dErg_i",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
+      call h5ltset_attribute_string_f(gid_DG_ZON, "mean_dErg_i", "unit", "eV/m^3", h5err)
 
 
       h5dims(1)=DG%dim_gq
@@ -1828,6 +1829,7 @@ subroutine snapshot_hdf5
       call h5gclose_f(gid_SG, h5err)
       call h5gclose_f(gid_SG_SM, h5err)
       call h5gclose_f(gid_DG, h5err)
+      call h5gclose_f(gid_DG_ZON, h5err)
       call h5gclose_f(gid_DG_SM, h5err)
       call h5gclose_f(gid_DG_FLA, h5err)
       call h5gclose_f(gid_DG_FLA_SM, h5err)
