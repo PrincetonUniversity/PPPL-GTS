@@ -100,8 +100,8 @@ module Diagnostic_Grid
          DG%num_iSD = 8 +6 +6 +1 +4 ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
          DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
-         DG%num_eFD_1D = 6 ! Particle and Energy fluxes (Total; ExB; streaming)
-         DG%num_iFD_1D = 6 ! Particle and Energy fluxes (Total; ExB; streaming)
+         DG%num_eFD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_iFD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
 
          DG%dgq   = 2.0*pi/(DG%dim_gq-1)
          DG%inv_dgq = 1.0/DG%dgq
@@ -1291,17 +1291,21 @@ module Diagnostic_Grid
 
          !$acc parallel loop present(zeon0,ptl_data,in_P_data,Full_da,ee_inv_grad_a,ghq,vpara_dve_a)
          do m=1,me
-            !Full Velocity
+            ! Fluxes by Full Velocity
             ptl_data(1,m) = zeon0(5,m)*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
             ptl_data(2,m) = ptl_data(1,m)*in_P_data(2,m) ! Energy Flux
 
-            ! ExB contribution
+            ! Fluxes by ExB contribution
             ptl_data(3,m) = zeon0(5,m)*(ghq(m)-vpara_dve_a(m))*ee_inv_grad_a(m) ! Particle Flux by ExB only
             ptl_data(4,m) = ptl_data(3,m)*in_P_data(2,m) ! Energy Flux by ExB only
 
-            ! Streaming contribution
+            ! Fluxes by Streaming contribution
             ptl_data(5,m) = zeon0(5,m)*(vpara_dve_a(m))*ee_inv_grad_a(m) ! Particle Flux by streaming only
-            ptl_data(6,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming onlyy
+            ptl_data(6,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming only
+
+            ! Particle Density and Energy Density
+            ptl_data(7,m) = zeon0(5,m) ! Particle Density
+            ptl_data(8,m) = zeon0(5,m)*in_P_data(2,m) ! Energy Density
          enddo
          if(Flag_Load_and_WeightDef==0)then
             !$acc parallel loop present(ptl_data)
@@ -1390,17 +1394,21 @@ module Diagnostic_Grid
 
          !$acc parallel loop present(zion0,ptl_data,in_P_data,Full_da,ii_inv_grad_a,ghq,vpara_dvi_a)
          do m=1,mi
-            !Full Velocity
+            ! Fluxes by Full Velocity
             ptl_data(1,m) = zion0(5,m)*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
             ptl_data(2,m) = ptl_data(1,m)*in_P_data(2,m) ! Energy Flux
 
-            ! ExB contribution
+            ! Fluxes by ExB contribution
             ptl_data(3,m) = zion0(5,m)*(ghq(m)-vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by ExB only
             ptl_data(4,m) = ptl_data(3,m)*in_P_data(2,m) ! Energy Flux by ExB only
 
-            ! Streaming contribution
+            ! Fluxes by Streaming contribution
             ptl_data(5,m) = zion0(5,m)*(vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by streaming only
-            ptl_data(6,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming onlyy
+            ptl_data(6,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming only
+
+            ! Particle Density and Energy Density
+            ptl_data(7,m) = zion0(5,m) ! Particle Density
+            ptl_data(8,m) = zion0(5,m)*in_P_data(2,m) ! Energy Density
          enddo
          if(Flag_Load_and_WeightDef==0)then
             !$acc parallel loop present(ptl_data)

@@ -1559,12 +1559,20 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "eFlux1D_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
       call h5ltmake_dataset_f(gid_DG, "eFlux1D_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(5,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "eFlux1D_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG, "dne_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(7,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG, "dErg_e_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%eFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
+      call h5ltset_attribute_string_f(gid_DG, "dErg_e_1D", "unit", "eV/m^3", h5err)
+
       call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_P",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(1,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_E",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(3,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(5,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_eFlux1D_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG, "mean_dne_1D",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(7,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG, "mean_dErg_e_1D",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
+      call h5ltset_attribute_string_f(gid_DG, "mean_dErg_e_1D", "unit", "eV/m^3", h5err)
+
 
       call h5ltmake_dataset_f(gid_DG, "iFlux1D_P",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(1,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "iFlux1D_E",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
@@ -1572,12 +1580,19 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "iFlux1D_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
       call h5ltmake_dataset_f(gid_DG, "iFlux1D_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(5,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "iFlux1D_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG, "dni_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(7,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG, "dErg_i_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%iFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
+      call h5ltset_attribute_string_f(gid_DG, "dErg_i_1D", "unit", "eV/m^3", h5err)
+
       call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_P",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(1,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_E",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(2,:)*uveloci*E_00*1e-3,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(3,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_E_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(4,:)*uveloci*E_00*1e-3,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_P_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(5,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG, "mean_iFlux1D_E_streaming",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(6,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG, "mean_dni_1D",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(7,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG, "mean_dErg_i_1D",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iFluxData_a1D(8,:)*1e6*1e3*Tem_00,h5err)
+      call h5ltset_attribute_string_f(gid_DG, "mean_dErg_i_1D", "unit", "eV/m^3", h5err)
 
 
       h5dims(1)=DG%dim_gq
