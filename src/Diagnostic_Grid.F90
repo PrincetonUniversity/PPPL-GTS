@@ -10,7 +10,8 @@ module Diagnostic_Grid
       real(wp) zetamin, zetamax ! zeta value of this plane
       real(wp) dgq, inv_dgq ! dgq is constant since it is uniform along theta direction
       real(wp) inv_ds
-      real(wp), allocatable, dimension(:) :: a_1D, ori_aid, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D
+      integer, allocatable, dimension(:) :: ori_aid
+      real(wp), allocatable, dimension(:) :: a_1D, s_1D, gq_1D, n0_1D, Te0_1D, Ti0_1D
       real(wp), allocatable, dimension(:,:) :: a_2D, gq_2D, n0_2D, Te0_2D, Ti0_2D
       real(wp), allocatable, dimension(:,:) :: Cell_dV, inv_Cell_dV ! Cell Volume and its inverse(Weighted Volume, but now it is approximated)
       real(wp), allocatable, dimension(:,:) :: Cell_dS_a, inv_Cell_dS_a, Cell_dS_gq, inv_Cell_dS_gq, Cell_dS_gf, inv_Cell_dS_gf ! Node_Surface in each direction
