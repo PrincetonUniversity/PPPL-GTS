@@ -1742,7 +1742,8 @@ int gcmotion(REAL *dXgr,
 		REAL *wpi_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
-		int *nval)
+		int *nval,
+      int *ziondim)
 	/*
 		Xgr = particle_array[k][3] = zion(4,k+1) (Fortran side)
 		Xa  = particle_array[k][0] = zion(1,k+1) (Fortran side)
@@ -1752,7 +1753,7 @@ int gcmotion(REAL *dXgr,
 		zion is dimensioned zion(7,mimax) on the Fortran side. Since we view this
 		array as a 1-dimensional vector on the C side through the pointer
 		"particle_array", we need to use pointer arithmetic:
-		particle_array[k][3] = *(particle_array + k*7 + 3)
+		particle_array[k][3] = *(particle_array + k*(*ziondim) + 3)
 
 		Same trick with the wpi array which is dimensioned wpi(3,mi) on Fortran side
 		wpi1 = wpi_array[k][0] = *(wpi_array+3*k)   = wpi(1,k+1)
@@ -1792,10 +1793,10 @@ int gcmotion(REAL *dXgr,
 	/*                    T[k]=poloidal velocity          changed Oct. 2012   */
 #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,wpi1,wpi2,wpi3,rD,Gatheta,DD)
 	for(k=0; k < n; k++){
-		Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
-		Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
-		Xgr = *(particle_array+k*7+3);  /* particle_array[k][3] */
-		Xgm = *(particle_array+k*7+5);  /* particle_array[k][5] */
+		Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
+		Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
+		Xgr = *(particle_array+k*(*ziondim)+3);  /* particle_array[k][3] */
+		Xgm = *(particle_array+k*(*ziondim)+5);  /* particle_array[k][5] */
 		Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
@@ -2051,7 +2052,8 @@ int gcmotion_em(REAL *dXgr,
 		REAL *gat_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
-		int *nval)
+		int *nval,
+      int *ziondim)
 	/*
 		Xgr = particle_array[k][3] = zion(4,k+1) (Fortran side)
 		Xa  = particle_array[k][0] = zion(1,k+1) (Fortran side)
@@ -2061,7 +2063,7 @@ int gcmotion_em(REAL *dXgr,
 		zion is dimensioned zion(7,mimax) on the Fortran side. Since we view this
 		array as a 1-dimensional vector on the C side through the pointer
 		"particle_array", we need to use pointer arithmetic:
-		particle_array[k][3] = *(particle_array + k*7 + 3)
+		particle_array[k][3] = *(particle_array + k*(*ziondim) + 3)
 
 		Same trick with the wpi array which is dimensioned wpi(3,mi) on Fortran side
 		wpi1 = wpi_array[k][0] = *(wpi_array+3*k)   = wpi(1,k+1)
@@ -2102,10 +2104,10 @@ int gcmotion_em(REAL *dXgr,
 	/*                    T[k]=poloidal velocity          changed Oct. 2012   */
 #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,rD,Gatheta,DD,dXgf1)
 	for(k=0; k < n; k++){
-		Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
-		Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
-		Xgr = *(particle_array+k*7+3);  /* particle_array[k][3] */
-		Xgm = *(particle_array+k*7+5);  /* particle_array[k][5] */
+		Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
+		Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
+		Xgr = *(particle_array+k*(*ziondim)+3);  /* particle_array[k][3] */
+		Xgm = *(particle_array+k*(*ziondim)+5);  /* particle_array[k][5] */
 		Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
@@ -2381,7 +2383,8 @@ int gcmotion_em_MGY(REAL *dXgr,
 		REAL *gat_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
-		int *nval)
+		int *nval,
+      int *ziondim)
 	/*
 		Xgr = particle_array[k][3] = zion(4,k+1) (Fortran side)
 		Xa  = particle_array[k][0] = zion(1,k+1) (Fortran side)
@@ -2391,7 +2394,7 @@ int gcmotion_em_MGY(REAL *dXgr,
 		zion is dimensioned zion(7,mimax) on the Fortran side. Since we view this
 		array as a 1-dimensional vector on the C side through the pointer
 		"particle_array", we need to use pointer arithmetic:
-		particle_array[k][3] = *(particle_array + k*7 + 3)
+		particle_array[k][3] = *(particle_array + k*(*ziondim) + 3)
 
 		Same trick with the wpi array which is dimensioned wpi(3,mi) on Fortran side
 		wpi1 = wpi_array[k][0] = *(wpi_array+3*k)   = wpi(1,k+1)
@@ -2434,10 +2437,10 @@ int gcmotion_em_MGY(REAL *dXgr,
 	/*                    T[k]=poloidal velocity          changed Oct. 2012   */
 #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,rD,Gatheta,DD,dXgf1)
 	for(k=0; k < n; k++){
-		Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
-		Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
-		Xgr = *(particle_array+k*7+3);  /* particle_array[k][3] */
-		Xgm = *(particle_array+k*7+5);  /* particle_array[k][5] */
+		Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
+		Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
+		Xgr = *(particle_array+k*(*ziondim)+3);  /* particle_array[k][3] */
+		Xgm = *(particle_array+k*(*ziondim)+5);  /* particle_array[k][5] */
 		Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
@@ -2756,7 +2759,8 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		REAL *gat_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
-		int  *nval)
+		int  *nval,
+      int  *ziondim)
 	/*
 		Xgr = particle_array[k][3] = zelectron(4,k+1) (Fortran side)
 		Xa  = particle_array[k][0] = zelectron(1,k+1) (Fortran side)
@@ -2766,7 +2770,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		zion is dimensioned zion(7,mimax) on the Fortran side. Since we view this
 		array as a 1-dimensional vector on the C side through the pointer
 		"particle_array", we need to use pointer arithmetic:
-		particle_array[k][3] = *(particle_array + k*7 + 3)
+		particle_array[k][3] = *(particle_array + k*(*ziondim) + 3)
 
 		Same trick with the wpi array which is dimensioned wpi(3,mi) on Fortran side
 		gradPhi[0] = wpi_array[k][0] = *(wpi_array+3*k)   = wpi(1,k+1)
@@ -2807,10 +2811,10 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
    {
       #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,ga_array,wga_array,gat_array,Er_particle) private(gradPhi)
       for(k=0; k < n; k++){
-         Xa  = *(particle_array+k*7);    /* particle_array[k][0] */
-         Xgq = *(particle_array+k*7+1);  /* particle_array[k][1] */
-         Xgr = *(particle_array+k*7+3);  /* particle_array[k][3] */
-         Xgm = *(particle_array+k*7+5);  /* particle_array[k][5] */
+         Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
+         Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
+         Xgr = *(particle_array+k*(*ziondim)+3);  /* particle_array[k][3] */
+         Xgm = *(particle_array+k*(*ziondim)+5);  /* particle_array[k][5] */
          Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
          gradPhi[0] = *(wpi_array+3*k);      /* wpi[k][0] */
          gradPhi[1] = *(wpi_array+3*k+1);    /* wpi[k][1] */
