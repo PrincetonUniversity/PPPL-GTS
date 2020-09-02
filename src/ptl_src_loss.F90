@@ -969,11 +969,10 @@ module Ptl_Src_Loss
          if(electromagnetic == 1)then
             call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga, wga, gat)
 
-            !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
             if(Flag_GC_Solver==0) then
                m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
             elseif(Flag_GC_Solver==1) then
-               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,1,me,zeondim)
             else
                write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
                call flush(stdout)
@@ -1297,11 +1296,10 @@ module Ptl_Src_Loss
          if(electromagnetic == 1)then
             call Get_MP_alpha_amplitude_arr_at_zion(istep*tstep, ga, wga, gat)
 
-            !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim)
             if(Flag_GC_Solver==0) then
                m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim)
             elseif(Flag_GC_Solver==1) then
-               m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim)
+               m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim)
             else
                write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
                call flush(stdout)

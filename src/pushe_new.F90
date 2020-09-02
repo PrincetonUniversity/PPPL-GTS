@@ -176,7 +176,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,1,me,zeondim)
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
@@ -1320,7 +1320,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,1,me,zeondim)
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
@@ -2544,7 +2544,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,1,me,zeondim)
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)

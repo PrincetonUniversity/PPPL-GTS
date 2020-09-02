@@ -207,7 +207,7 @@ subroutine pushion
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
+         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim);
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
@@ -956,7 +956,7 @@ subroutine pushion_RK4(irk_i)
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
+         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim);
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)

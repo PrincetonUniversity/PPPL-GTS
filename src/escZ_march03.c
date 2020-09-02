@@ -2759,7 +2759,8 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		REAL *gat_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
-		int  *nval,
+      int  *m_start,
+      int  *m_end,
       int  *ziondim)
 	/*
 		Xgr = particle_array[k][3] = zelectron(4,k+1) (Fortran side)
@@ -2778,7 +2779,8 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		gradPhi[2] = wpi_array[k][2] = *(wpi_array+3*k+2) = wpi(3,k+1)
 		*/
 {
-	int n = *nval;
+	const int m0 = (*m_start); // First index of particle array on Fortran side. (Default:1)
+   const int m1 = (*m_end);   // Last index of particle array on Fortran side. (Default: me)
 	int i,j0,j1,k;
 	REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,TT,PP;
 	REAL a,q;
@@ -2810,7 +2812,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
    {
       #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,ga_array,wga_array,gat_array,Er_particle) private(gradPhi)
-      for(k=0; k < n; k++){
+      for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
          Xgr = *(particle_array+k*(*ziondim)+3);  /* particle_array[k][3] */
@@ -4368,7 +4370,8 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 		REAL *gat_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
-		int  *nval,
+      int  *m_start,
+		int  *m_end,
 		int  *zeondim)
 	/*
 		Xgr = particle_array[k][3] = zelectron(4,k+1) (Fortran side)
@@ -4387,7 +4390,8 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 		gradPhi[2] = wpi_array[k][2] = *(wpi_array+3*k+2) = wpi(3,k+1)
 		*/
 {
-	int n = *nval;
+	const int m0 = (*m_start); // First index of particle array on Fortran side. (Default:1)
+   const int m1 = (*m_end);   // Last index of particle array on Fortran side. (Default: me)
 	int i,j0,j1,k;
 	REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,T,P;
 	REAL a,q;
@@ -4419,7 +4423,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 
    {
       #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,ga_array,wga_array,gat_array,Er_particle) private(gradPhi)
-      for(k=0; k < n; k++){
+      for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
          Xgr = *(particle_array+k*(*zeondim)+3);  /* particle_array[k][3] */
