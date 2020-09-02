@@ -1276,10 +1276,13 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga, wga, gat)
+   !$acc parallel loop present(zeon,ga,wga,gat)
+   do m=1,me
+      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+   enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude_arr_at_zeon", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude", tt1-tt0," secs"
    call flush(stdout)
 #endif
 

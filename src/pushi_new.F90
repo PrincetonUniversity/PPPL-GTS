@@ -911,10 +911,13 @@ subroutine pushion_RK4(irk_i)
    tt0=MPI_WTIME()
 #endif
    !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-   call Get_MP_alpha_amplitude_arr_at_zion(istep*tstep, ga, wga, gat)
+   !$acc parallel loop present(zion,ga,wga,gat)
+   do m=1,mi
+      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+   enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude_arr_at_zion", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude", tt1-tt0," secs"
    call flush(stdout)
 #endif
 

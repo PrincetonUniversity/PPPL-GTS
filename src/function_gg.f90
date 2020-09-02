@@ -581,6 +581,42 @@ module function_gg_module
 
       end subroutine n_T_u_group_e
 
+
+      subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt) bind (C, name="get_mp_alpha_amplitude_")
+         !$acc routine seq
+         use iso_c_binding, only : c_double
+         use global_parameters
+         use precision
+         implicit  none
+         integer k
+         real(wp) MP_phase, ga_amplitude
+         real(wp),intent(in) :: in_a, in_theta, in_zeta, in_time
+         real(wp),intent(out) :: out_ga, out_grad_ga(3), out_partial_dga0dt
+
+         if(electromagnetic==0) then ! when electromagnetic is turned off.
+            out_ga = 0
+            out_grad_ga(1:3) = 0
+            out_partial_dga0dt = 0
+         else
+            out_ga = 0
+            out_grad_ga = 0
+            out_partial_dga0dt = 0
+            do k=1,num_of_EMP
+               MP_phase = EMP(k)%gan*in_zeta- EMP(k)%gam*in_theta - EMP(k)%gagw*in_time + EMP(k)%gagf0
+               ga_amplitude = (in_a/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
+
+               out_ga = out_ga + ga_amplitude* cos(MP_phase);
+
+               out_grad_ga(1) = out_grad_ga(1) + ga_amplitude* cos(MP_phase)*(1.0/in_a  + (-sign(EMP(k)%ga_pp/EMP(k)%ga_rw, in_a-EMP(k)%ga_rc)*abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**(EMP(k)%ga_pp-1)))
+               out_grad_ga(2) = out_grad_ga(2) + EMP(k)%gam*ga_amplitude*sin(MP_phase)
+               out_grad_ga(3) = out_grad_ga(3) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
+               out_partial_dga0dt = out_partial_dga0dt + EMP(k)%dga0dt*(in_a/EMP(k)%ga_rc)*exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
+            enddo
+         endif
+
+      end subroutine Get_MP_alpha_amplitude
+
+
 end module function_gg_module
 
 function metric_elements(pdum,tdum,zdum)
@@ -1653,38 +1689,6 @@ FUNCTION temperature_e(adum,thedum)
 end function temperature_e
 
 
-subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt) bind (C, name="get_mp_alpha_amplitude_")
-
-   use iso_c_binding, only : c_double
-   use global_parameters
-   implicit  none
-   integer k
-   real(wp) MP_phase, ga_amplitude
-   real(wp) in_a, in_theta, in_zeta, in_time
-   real(wp) out_ga, out_grad_ga(3), out_partial_dga0dt
-
-   if(electromagnetic==0) then ! when electromagnetic is turned off.
-      out_ga = 0
-      out_grad_ga(1:3) = 0
-      out_partial_dga0dt = 0
-   else
-      out_ga = 0
-      out_grad_ga = 0
-      out_partial_dga0dt = 0
-      do k=1,num_of_EMP
-         MP_phase = EMP(k)%gan*in_zeta- EMP(k)%gam*in_theta - EMP(k)%gagw*in_time + EMP(k)%gagf0
-         ga_amplitude = (in_a/EMP(k)%ga_rc)*(EMP(k)%ga0 + EMP(k)%dga0dt*in_time) * exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)
-
-         out_ga = out_ga + ga_amplitude* cos(MP_phase);
-
-         out_grad_ga(1) = out_grad_ga(1) + ga_amplitude* cos(MP_phase)*(1.0/in_a  + (-sign(EMP(k)%ga_pp/EMP(k)%ga_rw, in_a-EMP(k)%ga_rc)*abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**(EMP(k)%ga_pp-1)))
-         out_grad_ga(2) = out_grad_ga(2) + EMP(k)%gam*ga_amplitude*sin(MP_phase)
-         out_grad_ga(3) = out_grad_ga(3) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
-         out_partial_dga0dt = out_partial_dga0dt + EMP(k)%dga0dt*(in_a/EMP(k)%ga_rc)*exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
-      enddo
-   endif
-
-end subroutine Get_MP_alpha_amplitude
 
 
 subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_partial_dga0dt)

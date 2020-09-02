@@ -2661,6 +2661,8 @@ Subroutine read_input_params
       EMP(k)%gagf0 = gagf0(k)
       EMP(k)%dga0dt = dga0dt(k)
    enddo
+   !$acc update device(electromagnetic,num_of_EMP,EMP(:))
+
 
    nmode=n
    mmode=m

@@ -127,6 +127,8 @@ module global_parameters
       real(wp) :: ga0, ga_rc, ga_rw, ga_pp, gagw, gagf0, dga0dt
    end type
    type(External_Magnetic_Perturbation), dimension(:), allocatable :: EMP
+   !$acc declare create(electromagnetic, num_of_EMP)
+   !$acc declare create(EMP)
 
    integer :: num_of_FLabel_pcws
    real(wp),dimension(:),allocatable :: FLabel_pcws_a, FLabel_pcws_y ! piecewise_radial_base_function for FLabel
