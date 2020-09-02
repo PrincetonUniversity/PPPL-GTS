@@ -883,13 +883,13 @@ module Ptl_Src_Loss
 
 
          allocate(wpi(3,me),ga(me),wga(3,me),gat(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
-         allocate(AdiabTerm(me))
+         allocate(AdiabTerm(m0:me))
 
 
 
          ! Calculate evector (wpi) first
          !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1,wpi)
-         do m=1,me
+         do m=m0,me
             wz1=wzeon(m)
             wz0=1.0_wp-wz1
 
@@ -958,7 +958,7 @@ module Ptl_Src_Loss
          Er_grid=Er_grid0
          dela=1.0_wp/Ydr
          !$acc parallel loop present(zeon,zeon0,Er_particle)
-         do m=1,me
+         do m=m0,me
             r=zeon(1,m)-a0
             r=r*dela
             ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
@@ -967,12 +967,15 @@ module Ptl_Src_Loss
          enddo
 
          if(electromagnetic == 1)then
-            call Get_MP_alpha_amplitude_arr_at_zeon(istep*tstep, ga, wga, gat)
+            !$acc parallel loop present(zeon,ga,wga,gat)
+            do m=m0,me
+               call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+            enddo
 
             if(Flag_GC_Solver==0) then
                m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
             elseif(Flag_GC_Solver==1) then
-               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,1,me,zeondim)
+               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,m0,me,zeondim)
             else
                write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
                call flush(stdout)
@@ -1035,26 +1038,27 @@ module Ptl_Src_Loss
          ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
          call MPI_ALLREDUCE(tmp_num,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
          inv_Nm=1.0/Nm
-         !Calculate the correct weight values by considering the number of total marker particles
-         zeon0(6,m0:me) = inv_Nm*zeon0(6,m0:me)
-         zeon(5,m0:me)  = inv_Nm*zeon(5,m0:me)
 
-         we_init(m0:me)  = zeon(5,m0:me)
-         we_vpara(m0:me) = 0
-         we_vperp(m0:me) = 0
-         we_accel(m0:me) = 0
-         we_adiab(m0:me) = 0
-         we_fdamp(m0:me) = 0
+         !$acc update device(zeon(:,m0:me),zeon0(:,m0:me))
 
-         zeon0(1:5,m0:me)     = zeon(1:5,m0:me)
-         zeon0(7,m0:me)       = zeon(7,m0:me)
-         UnNorm_theta_e(m0:me)= zeon(2,m0:me)
-         UnNorm_zeta_e(m0:me) = zeon(3,m0:me)
+         !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         do m=m0,me
+            !Calculate the correct weight values by considering the number of total marker particles
+            zeon0(6,m) = inv_Nm*zeon0(6,m)
+            zeon(5,m)  = inv_Nm*zeon(5,m)
 
+            we_init(m)  = zeon(5,m)
+            we_vpara(m) = 0
+            we_vperp(m) = 0
+            we_accel(m) = 0
+            we_adiab(m) = 0
+            we_fdamp(m) = 0
 
-         !$acc update device(we_init(m0:me),we_vpara(m0:me),we_vperp(m0:me),we_accel(m0:me),we_adiab(m0:me),we_fdamp(m0:me))
-         !$acc update device(zeon(:,m0:me),zeon0(:,m0:me),elabels(m0:me))
-         !$acc update device(UnNorm_theta_e(m0:me),UnNorm_zeta_e(m0:me))
+            zeon0(1:5,m)     = zeon(1:5,m)
+            zeon0(7,m)       = zeon(7,m)
+            UnNorm_theta_e(m)= zeon(2,m)
+            UnNorm_zeta_e(m) = zeon(3,m)
+         enddo
 
          ! Distribute electrons to appropriate MPI ranks
          call treat_electrons_out_of_boundary(m0,me)
@@ -1239,7 +1243,7 @@ module Ptl_Src_Loss
 
          ! Calculate evector (wpi) first
          !$acc parallel loop present(zion,zion0)
-         do m=1,mi
+         do m=m0,mi
             e1=0.0_wp
             e2=0.0_wp
             e3=0.0_wp
@@ -1285,7 +1289,7 @@ module Ptl_Src_Loss
          Er_grid=Er_grid0
          dela=1.0_wp/Ydr
          !$acc parallel loop present(zion,zion0,Er_particle)
-         do m=1,mi
+         do m=m0,mi
             r=zion(1,m)-a0
             r=r*dela
             ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
@@ -1294,12 +1298,15 @@ module Ptl_Src_Loss
          enddo
 
          if(electromagnetic == 1)then
-            call Get_MP_alpha_amplitude_arr_at_zion(istep*tstep, ga, wga, gat)
+            !$acc parallel loop present(zion,ga,wga,gat)
+            do m=m0,mi
+               call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+            enddo
 
             if(Flag_GC_Solver==0) then
                m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim)
             elseif(Flag_GC_Solver==1) then
-               m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim)
+               m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,m0,mi,ziondim)
             else
                write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
                call flush(stdout)
@@ -1357,26 +1364,30 @@ module Ptl_Src_Loss
          ! Nm is total number of new particles regarding whole cpu ranks (MPI_COMM_WORLD)
          call MPI_ALLREDUCE(tmp_num,Nm,1,MPI_INTEGER, MPI_SUM,MPI_COMM_WORLD,ierror)
          inv_Nm=1.0/Nm
-         !Calculate the correct weight values by considering the number of total marker particles
-         zion0(6,m0:mi) = inv_Nm*zion0(6,m0:mi)
-         zion(5,m0:mi)  = inv_Nm*zion(5,m0:mi)
+
+         !$acc update device (zion(:,m0:mi),zion0(:,m0:mi))
+
+         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         do m=m0,mi
+            !Calculate the correct weight values by considering the number of total marker particles
+            zion0(6,m) = inv_Nm*zion0(6,m)
+            zion(5,m)  = inv_Nm*zion(5,m)
 
 
-         wi_init(m0:mi)  = zion(5,m0:mi)
-         wi_vpara(m0:mi) = 0
-         wi_vperp(m0:mi) = 0
-         wi_accel(m0:mi) = 0
-         wi_fdamp(m0:mi) = 0
+            wi_init(m)  = zion(5,m)
+            wi_vpara(m) = 0
+            wi_vperp(m) = 0
+            wi_accel(m) = 0
+            wi_fdamp(m) = 0
 
-         zion0(1:5,m0:mi)     = zion(1:5,m0:mi)
-         zion0(7,m0:mi)       = zion(7,m0:mi)
-         UnNorm_theta_i(m0:mi)= zion(2,m0:mi)
-         UnNorm_zeta_i(m0:mi) = zion(3,m0:mi)
+            zion0(1:5,m)     = zion(1:5,m)
+            zion0(7,m)       = zion(7,m)
+            UnNorm_theta_i(m)= zion(2,m)
+            UnNorm_zeta_i(m) = zion(3,m)
+         enddo
 
 
-         !$acc update device(wi_init(m0:mi),wi_vpara(m0:mi),wi_vperp(m0:mi),wi_accel(m0:mi),wi_fdamp(m0:mi))
-         !$acc update device(zion(:,m0:mi),zion0(:,m0:mi),ilabels(m0:mi))
-         !$acc update device(UnNorm_theta_i(m0:mi),UnNorm_zeta_i(m0:mi))
+
 
          ! Distribute electrons to appropriate MPI ranks
          call treat_ions_out_of_boundary(m0,mi)
