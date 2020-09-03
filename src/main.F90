@@ -538,9 +538,9 @@ program GTS
       call Cumulate_Some_Variables_for_Measure
 
       if(Flag_Ptl_BC_type==1) then
-         if(mod(istep,5)==0) then
-            call Inject_electrons_from_Boundaries(5*tstep*utime)
-            call Inject_ions_from_Boundaries(5*tstep*utime)
+         if(mod(istep,2)==0) then
+            call Inject_electrons_from_Boundaries(2*tstep*utime)
+            call Inject_ions_from_Boundaries(2*tstep*utime)
          endif
       endif
       ! call load_electrons_In_or_Out_Flux(100,tstep*utime)
