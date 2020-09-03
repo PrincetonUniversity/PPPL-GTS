@@ -1576,6 +1576,32 @@ subroutine snapshot_hdf5
 
       ! Calculate zonal dTe and dTi
       allocate(intp_val_Arr(DG%dim_a))
+      ! zonal adiabatic
+      intp_val_Arr=0.0
+      if(Flag_Def_dne_adiab==1) then
+         do i=1,DG%dim_a
+            intp_val_Arr(i) = 1e6*abs(csc0)*(int(ifelectron/2)*phi00(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
+         enddo
+      elseif(Flag_Def_dne_adiab==3) then
+         do i=1,DG%dim_a
+            intp_val_Arr(i) =1e6*den_grid(i)*(-1.0+exp(abs(csc0)*(phi00(DG%ori_aid(i)))/DG%Te0_1D(i)))
+         enddo
+      endif
+      call h5ltmake_dataset_f(gid_DG_ZON, "dne_adiab",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+      ! mean_zonal adiabatic
+      intp_val_Arr=0.0
+      if(Flag_Def_dne_adiab==1) then
+         do i=1,DG%dim_a
+            intp_val_Arr(i) = 1e6*abs(csc0)*(int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
+         enddo
+      elseif(Flag_Def_dne_adiab==3) then
+         do i=1,DG%dim_a
+            intp_val_Arr(i) =1e6*den_grid(i)*(-1.0+exp(abs(csc0)*(mean_zonal_dphi(DG%ori_aid(i)))/DG%Te0_1D(i)))
+         enddo
+      endif
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_dne_adiab",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+
+
       do i=1,DG%dim_a
          intp_val_Arr(i) = ((2.0/3.0)*DG%eZonData_1D(8,i)-DG%Te0_1D(i)*DG%eZonData_1D(7,i))/(DG%n0_1D(i)+DG%eZonData_1D(7,i)+int(ifelectron/2)*phi00(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
       enddo
