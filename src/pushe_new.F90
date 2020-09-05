@@ -1164,7 +1164,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
    real(wp) tmp_zeon5(memax)
    !$acc declare create (tmp_zeon5)
-   integer :: LoopNum_Adiab_Update
+   integer :: loop
 
    if(acc_newer_H_zeon) then
       !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
@@ -1866,7 +1866,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       enddo
 
       if(Flag_Poisson==1) then
-         do LoopNum_Adiab_Update=1,10
+         do loop=1,MaxLoopNum_Adiab_Weight_Update
             call cpu_time(cput0)
             tt0=MPI_WTIME()
             if(Flag_Poisson3D_on_SG==1) then
@@ -2018,7 +2018,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                !MGYOO(05/10/2019)
                ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
                if(irk_e==4)then
-                  if(LoopNum_Adiab_Update==10) then
+                  if(loop==MaxLoopNum_Adiab_Weight_Update) then
                      we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*tmp_zeon5(m))*wdphidt
                   endif
                endif

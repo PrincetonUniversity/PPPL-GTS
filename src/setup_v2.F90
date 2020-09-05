@@ -2558,7 +2558,8 @@ Subroutine read_input_params
       BC0_type,           &    ! type of BC0 (inner boundary; s=s0) (type=0: Dirichelt, type=1: Neumann)
       BC0_value,          &    ! value of BC0 (inner boundary; s=s0)
       BC1_type,           &    ! type of BC1 (outer boundary; s=s1) (type=0: Dirichelt, type=1: Neumann)
-      BC1_value                ! value of BC1 (outer boundary; s=s1)
+      BC1_value,          &    ! value of BC1 (outer boundary; s=s1)
+      MaxLoopNum_Adiab_Weight_Update ! Default=1 (number of loop for updating adiabatic weight evolution)
 
    namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
       its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2632,7 +2633,7 @@ Subroutine read_input_params
       write(0,*) 'its_phip00_tolerance=', its_phip00_tolerance
       write(0,*) 'finite element order=', order
       write(0,*) 'larmor_num=', larmor_num
-
+      write(0,*) 'MaxLoopNum_Adiab_Weight_Update=', MaxLoopNum_Adiab_Weight_Update
       write(0,'(3(A,I4))') 'nbound=',nbound, '; nbound_inner=', nbound_inner, '; nbound_outer=',nbound_outer
 
       write(0,*) 'electromagnetic=', electromagnetic
