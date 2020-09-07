@@ -173,20 +173,8 @@ subroutine restart_read
       enddo
    endif
 
-   !$acc update device(elabels(:me))
-   !$acc update device(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-   !$acc update device(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
-   !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-   acc_newer_H_zeon=.false.
-   acc_newer_D_zeon=.false.
 
-
-   !$acc update device(ilabels(:mi))
-   !$acc update device(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-   !$acc update device(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
-   !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
-   acc_newer_H_zion=.false.
-   acc_newer_D_zion=.false.
+   call Update_Most_Particle_Information_to_DEVICE()
 
 
 

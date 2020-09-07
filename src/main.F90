@@ -547,20 +547,9 @@ program GTS
       ! call load_electrons_In_or_Out_Flux(10,tstep)
 
       if(mod(istep,msnap) .eq. 0) then
-         !$acc update self(elabels(:me))
-         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-         !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
-         !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
-         if(acc_newer_D_zeon) then
-            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-            acc_newer_D_zeon=.false.
-            acc_newer_H_zeon=.false.
-         endif
-         if(acc_newer_D_zion) then
-            !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
-            acc_newer_D_zion=.false.
-            acc_newer_H_zion=.false.
-         endif
+
+         call Update_Most_Particle_Information_to_HOST()
+
          !  phi_tmp=phi_tmp/real(msnap,wp)
 
          call ion_locator_at_larmor_points
@@ -584,21 +573,9 @@ program GTS
       timewc(14)=timewc(14)+dtwc
 
       if(mod(istep,nstep_for_tracer_record)==0) then
-         !$acc update self(elabels(:me))
-         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-         !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
-         if(acc_newer_D_zeon) then
-            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-            acc_newer_D_zeon=.false.
-            acc_newer_H_zeon=.false.
-         endif
-         !$acc update self(ilabels(:mi))
-         !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-         !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
-         if(acc_newer_D_zion) then
-            !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
-            acc_newer_D_zion=.false.
-            acc_newer_H_zion=.false.
+
+         if(mod(istep,msnap)/=0) then
+            call Update_Most_Particle_Information_to_HOST()
          endif
 
          call check_tracer_e
