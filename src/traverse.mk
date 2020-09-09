@@ -18,30 +18,17 @@ ifeq ($(F90),mpif90)
           CFLAGS:=
           OMPFLAG:=-mp=nonuma
           NOOMPFLAG:=
-          SPRNG_DIR=/home/jinchen/LIB/PGI195
+
+          SPRNG_DIR=/home/jinchen/LIB/PGI199
           SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
           SPRNG_INC:=-I${SPRNG_DIR}/include
-          PSPLINE_DIR=/home/jinchen/LIB/PGI195
+          PSPLINE_DIR=/home/jinchen/LIB/PGI199
           PSPLINE_INC:=-I${PSPLINE_DIR}/mod
           PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline
-          PETSC_DIR=/home/jinchen/LIB/petsc
-          PETSC_ARCH=traverse-pgi-openmpi-gts-cuda-2019-2-32bit
-          CUDA_LIB:=-L/usr/local/cuda-10.1/lib64 -lcudart -lcusparse -lcusolver -lstdc++ -lcublas
-          PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lz -Wl,--start-group /opt/pgi/19.5/linuxpower/19.5/lib/liblapack.a /opt/pgi/19.5/linuxpower/19.5/lib/libblas.a -Wl,--end-group -lpthread -lm -ldl  -lparmetis -lmetis
-
-          ifeq ($(RH_VER),RH8)
-             SPRNG_DIR=/home/jinchen/LIB/PGI199
-             SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng
-             SPRNG_INC:=-I${SPRNG_DIR}/include
-             PSPLINE_DIR=/home/jinchen/LIB/PGI199
-             PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline
-             PETSC_DIR=/home/jinchen/LIB/master
-             PETSC_ARCH=traverse-pgi-openmpi-gts-cuda-2019-2-32bit-rh8
-             CUDA_LIB:=-L/usr/local/cuda-10.2/lib64 -lcudart -lcusparse -lcusolver -lstdc++ -L/usr/local/cuda-10.0/lib64 -lcublas
-             PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lparmetis -lmetis -lz -Wl,--start-group /opt/pgi/19.9/linuxpower/19.9/lib/liblapack.a /opt/pgi/19.9/linuxpower/19.9/lib/libblas.a -Wl,--end-group -lpthread -lm -ldl
-          endif
-
+          PETSC_DIR=/home/jinchen/LIB/master
+          PETSC_ARCH=traverse-pgi-openmpi-gts-cuda-2019-2-32bit-rh8
+          CUDA_LIB:=-L/usr/local/cuda-10.2/lib64 -lcudart -lcusparse -lcusolver -lstdc++ -L/usr/local/cuda-10.0/lib64 -lcublas
+          PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lhdf5 -lparmetis -lmetis -lz -Wl,--start-group /opt/pgi/19.9/linuxpower/19.9/lib/liblapack.a /opt/pgi/19.9/linuxpower/19.9/lib/libblas.a -Wl,--end-group -lpthread -lm -ldl
 
           HDF5_INC:=-I$(HDF5DIR)/include
           HDF5_LIB:=-L$(HDF5DIR)/lib64 -lhdf5_hl -lhdf5 -lhdf5_fortran -lhdf5hl_fortran
