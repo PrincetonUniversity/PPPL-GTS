@@ -64,6 +64,7 @@ module Diagnostic_Grid
 
       integer :: num_of_fi, num_of_fe
       real(wp), allocatable, dimension(:,:,:) :: fe, fi
+      real(wp), allocatable, dimension(:,:) :: fe0, fi0 ! background distribution function
    end type
 
 
@@ -81,6 +82,9 @@ module Diagnostic_Grid
          use precision
          use particle_decomp
          use mpi_defs
+         use particle_array
+         use function_gg_module
+         use esi_interface
          implicit none
 
          integer i,j,k,aid,gqid,ij,Na,Nq
@@ -92,6 +96,7 @@ module Diagnostic_Grid
          real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data1, tmp_DG_Data2
          integer ierror, istatus(MPI_STATUS_SIZE)
          real(wp) uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
+         integer :: mi0,mi1,me0,me1
 
          DG%dim_a  = (mpsi+1)/DG%a_jump
          DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
@@ -302,6 +307,8 @@ module Diagnostic_Grid
             allocate(PVS(pbid)%vperp_1D(0:PVS(pbid)%nv))
             allocate(PVS(pbid)%fi(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv, PVS(pbid)%num_of_fi))
             allocate(PVS(pbid)%fe(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv, PVS(pbid)%num_of_fe))
+            allocate(PVS(pbid)%fi0(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv))
+            allocate(PVS(pbid)%fe0(-PVS(pbid)%nv:PVS(pbid)%nv, 0:PVS(pbid)%nv))
 
             do i=0,PVS(pbid)%nv
                PVS(pbid)%vperp_1D(i) = i*PVS(pbid)%dv
@@ -310,6 +317,63 @@ module Diagnostic_Grid
                PVS(pbid)%vpara_1D(i) = i*PVS(pbid)%dv
             enddo
          enddo
+
+
+         ! Calculate fe0 and fi0 using temporary particles and n_T_u_group subroutines
+         do pbid=0,nPVS
+
+            ! Get back_f0_i first
+            mi0=mi+1
+            mi1=mi+(2*PVS(pbid)%nv+1)*(PVS(pbid)%nv+1)
+            zion(1,mi0:mi1) = PVS(pbid)%a
+            zion(2,mi0:mi1) = PVS(pbid)%gq
+            zion(3,mi0:mi1) = PVS(pbid)%gf
+            !$acc update device(zion(:,mi0:mi1))
+            call n_T_u_group(mi0,mi1)
+            !$acc update self(backT(mi0:mi1))
+            call esigetbf_partial(zion,mi0,mi1,size(zion,1))
+            k=0
+            do j=0,PVS(pbid)%nv
+               do i=-PVS(pbid)%nv,PVS(pbid)%nv
+                  ! Note that PVS%v_para, %v_perp are the normalized velocities
+                  zion(4,mi0+k) = PVS(pbid)%vpara_1D(i)*sqrt(backT(mi0+k))/BB(mi0+k)
+                  zion(6,mi0+k) = PVS(pbid)%vperp_1D(j)*sqrt(backT(mi0+k))*sqrt(1.0/(2.0*BB(mi0+k)))
+                  k=k+1
+               enddo
+            enddo
+            !$acc update device(zion(:,mi0:mi1))
+            call n_T_u_group(mi0,mi1,flag_backf0=.true.) ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+            !$acc update self(back_f0_i(mi0:mi1))
+
+
+            ! Calculate electron background distribution function
+            me0=me+1
+            me1=me+(2*PVS(pbid)%nv+1)*(PVS(pbid)%nv+1)
+            zeon(1,me0:me1) = PVS(pbid)%a
+            zeon(2,me0:me1) = PVS(pbid)%gq
+            zeon(3,me0:me1) = PVS(pbid)%gf
+            !$acc update device(zeon(:,me0:me1))
+            call n_T_u_group_e(me0,me1)
+            !$acc update self(backTe(me0:me1))
+            zeon(4,me0:me1) = zion(4,mi0:mi1)*sqrt(msm0)*c0cs*sqrt(msm0*backTe(me0:me1)/backT(mi0:mi1))
+            zeon(6,me0:me1) = zion(6,mi0:mi1)*sqrt(msm0*backTe(me0:me1)/backT(mi0:mi1))
+            !$acc update device(zeon(:,me0:me1))
+            call n_T_u_group_e(me0,me1,flag_backf0=.true.) ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+            !$acc update self(back_f0_e(me0:me1))
+
+
+            ! Substitute particle's back_f0 to PVS f0 grid value
+            k=0
+            do j=0,PVS(pbid)%nv
+               do i=-PVS(pbid)%nv,PVS(pbid)%nv
+                  PVS(pbid)%fi0(i,j) = back_f0_i(mi0+k)
+                  PVS(pbid)%fe0(i,j) = back_f0_e(me0+k)
+                  k=k+1
+               enddo
+            enddo
+         enddo
+
+
 
          if(myrank_partd==nproc_partd-1) then
 
@@ -726,6 +790,16 @@ module Diagnostic_Grid
                   rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
                   rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
 
+                  ! Do not calculate any contribution from "too" outside of our probe boudnary
+                  ! "too" outside means that even over the ghost cells around the probe boundary
+                  if(vxid< -PVS(pbid)%nv-1) then
+                     continue
+                  elseif(vxid>=PVS(pbid)%nv+1) then
+                     continue
+                  elseif(vyid>=PVS(pbid)%nv+1) then
+                     continue
+                  endif
+
                   if(vxid< -PVS(pbid)%nv) then
                      vxid= -PVS(pbid)%nv
                      rvx=0.0
@@ -1053,6 +1127,16 @@ module Diagnostic_Grid
                   vyid = floor(norm_vperp*PVS(pbid)%inv_dv)
                   rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
                   rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
+
+                  ! Do not calculate any contribution from "too" outside of our probe boudnary
+                  ! "too" outside means that even over the ghost cells around the probe boundary
+                  if(vxid< -PVS(pbid)%nv-1) then
+                     continue
+                  elseif(vxid>=PVS(pbid)%nv+1) then
+                     continue
+                  elseif(vyid>=PVS(pbid)%nv+1) then
+                     continue
+                  endif
 
                   if(vxid< -PVS(pbid)%nv) then
                      vxid= -PVS(pbid)%nv
