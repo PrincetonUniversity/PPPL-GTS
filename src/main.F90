@@ -495,6 +495,13 @@ program GTS
          if(Flag_Poisson==1) call poisson( solver1, masssolver )
          !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
+         if (mype == 0) then
+            open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
+            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, 0, 0.0, (E_00*c)/(charg0*1e8)*phi00(:)
+            call flush(200903)
+            close(200903)
+         endif
+
          call timer(t0,dt,t0wc,dtwc)
          time(4)=time(4)+dt
          timewc(4)=timewc(4)+dtwc

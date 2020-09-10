@@ -1165,6 +1165,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) tmp_zeon5(memax)
    !$acc declare create (tmp_zeon5)
    integer :: loop
+   real(wp) prev_phi00(0:mpsi), phi00_convergency
 
    if(acc_newer_H_zeon) then
       !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
@@ -1879,6 +1880,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             time_in_Pushe(2) = time_in_Pushe(2) + (cput1-cput0)
             timewc_in_Pushe(2) = timewc_in_Pushe(2) + (tt1-tt0)
 
+            prev_phi00=phi00
 
             call cpu_time(cput0)
             tt0=MPI_WTIME()
@@ -1887,6 +1889,15 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             tt1=MPI_WTIME()
             time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
             timewc_in_Pushe(3) = timewc_in_Pushe(3) + (tt1-tt0)
+
+            phi00_convergency = sum(sqrt((phi00 - prev_phi00)**2.0))/sum(sqrt(prev_phi00**2.0))
+
+            if (mype == 0) then
+               open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
+               write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, (E_00*c)/(charg0*1e8)*phi00(:)
+               call flush(200903)
+               close(200903)
+            endif
 
             call cpu_time(cput0)
             tt0=MPI_WTIME()

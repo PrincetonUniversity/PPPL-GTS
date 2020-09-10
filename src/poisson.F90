@@ -180,21 +180,28 @@ subroutine poisson( solver, masssolver )
             phi(0,:)=recvl
          endif
 
+         ! flux surface average and normalization
+         adum=0.0_wp
+         do i=0,mpsi
+            do j=1,mtheta(i)  !j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
+               ij=igrid(i)+j
+               adum(i)=adum(i)+dtemper(ij)*phi(1,ij)   ! surface averaging
+            enddo
+         enddo
+         phi00=0.0_wp
+         call MPI_ALLREDUCE(adum,phi00,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+         phi00=phi00/jaco_sum     !phi00=flux-surface avarage
 
+         ! direct numerical derivative to get d<phi>/da
+         inv_ds = real(mpsi)/(s1-s0)
+         do i=1,mpsi-1
+            phip00(i) = dsda(psi_grid(i))*0.5*inv_ds*(phi00(i+1)-phi00(i-1))
+         enddo
+         ! 3-point forward (or backward) difference at the boundaries
+         phip00(0) = dsda(psi_grid(0))*0.5*inv_ds*(-3.0*phi00(0)+4.0*phi00(1)-phi00(2))
+         phip00(mpsi) = dsda(psi_grid(mpsi))*0.5*(-inv_ds)*(-3.0*phi00(mpsi)+4.0*phi00(mpsi-1)-phi00(mpsi-2))
 
          if(ZF_SEPARATION==1) then
-            ! flux surface average and normalization
-            adum=0.0_wp
-            do i=0,mpsi
-               do j=1,mtheta(i)  !j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
-                  ij=igrid(i)+j
-                  adum(i)=adum(i)+dtemper(ij)*phi(1,ij)   ! surface averaging
-               enddo
-            enddo
-            phi00=0.0_wp
-            call MPI_ALLREDUCE(adum,phi00,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
-            phi00=phi00/jaco_sum     !phi00=flux-surface avarage
-
             ! Subtract zonal_phi so get nonzonal phi
             do i=0,mpsi
                do j=0,mtheta(i)
@@ -202,15 +209,6 @@ subroutine poisson( solver, masssolver )
                   phi(:,ij) = phi(:,ij) - phi00(i)
                enddo
             enddo
-
-            ! direct numerical derivative to get d<phi>/da
-            inv_ds = real(mpsi)/(s1-s0)
-            do i=1,mpsi-1
-               phip00(i) = dsda(psi_grid(i))*0.5*inv_ds*(phi00(i+1)-phi00(i-1))
-            enddo
-            ! 3-point forward (or backward) difference at the boundaries
-            phip00(0) = dsda(psi_grid(0))*0.5*inv_ds*(-3.0*phi00(0)+4.0*phi00(1)-phi00(2))
-            phip00(mpsi) = dsda(psi_grid(mpsi))*0.5*(-inv_ds)*(-3.0*phi00(mpsi)+4.0*phi00(mpsi-1)-phi00(mpsi-2))
          endif
 
          return
@@ -440,21 +438,28 @@ subroutine poisson( solver, masssolver )
             phi(0,:)=recvl
          endif
 
+         ! flux surface average and normalization
+         adum=0.0_wp
+         do i=0,mpsi
+            do j=1,mtheta(i)  !j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
+               ij=igrid(i)+j
+               adum(i)=adum(i)+dtemper(ij)*phi(1,ij)   ! surface averaging
+            enddo
+         enddo
+         phi00=0.0_wp
+         call MPI_ALLREDUCE(adum,phi00,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+         phi00=phi00/jaco_sum     !phi00=flux-surface avarage
 
+         ! direct numerical derivative to get d<phi>/da
+         inv_ds = real(mpsi)/(s1-s0)
+         do i=1,mpsi-1
+            phip00(i) = dsda(psi_grid(i))*0.5*inv_ds*(phi00(i+1)-phi00(i-1))
+         enddo
+         ! 3-point forward (or backward) difference at the boundaries
+         phip00(0) = dsda(psi_grid(0))*0.5*inv_ds*(-3.0*phi00(0)+4.0*phi00(1)-phi00(2))
+         phip00(mpsi) = dsda(psi_grid(mpsi))*0.5*(-inv_ds)*(-3.0*phi00(mpsi)+4.0*phi00(mpsi-1)-phi00(mpsi-2))
 
          if(ZF_SEPARATION==1) then
-            ! flux surface average and normalization
-            adum=0.0_wp
-            do i=0,mpsi
-               do j=1,mtheta(i)  !j=0 is ignored to avoid over-estimation at j=0 or j=mtheta(i) which is theta=0 or 2*pi
-                  ij=igrid(i)+j
-                  adum(i)=adum(i)+dtemper(ij)*phi(1,ij)   ! surface averaging
-               enddo
-            enddo
-            phi00=0.0_wp
-            call MPI_ALLREDUCE(adum,phi00,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
-            phi00=phi00/jaco_sum     !phi00=flux-surface avarage
-
             ! Subtract zonal_phi so get nonzonal phi
             do i=0,mpsi
                do j=0,mtheta(i)
@@ -462,15 +467,6 @@ subroutine poisson( solver, masssolver )
                   phi(:,ij) = phi(:,ij) - phi00(i)
                enddo
             enddo
-
-            ! direct numerical derivative to get d<phi>/da
-            inv_ds = real(mpsi)/(s1-s0)
-            do i=1,mpsi-1
-               phip00(i) = dsda(psi_grid(i))*0.5*inv_ds*(phi00(i+1)-phi00(i-1))
-            enddo
-            ! 3-point forward (or backward) difference at the boundaries
-            phip00(0) = dsda(psi_grid(0))*0.5*inv_ds*(-3.0*phi00(0)+4.0*phi00(1)-phi00(2))
-            phip00(mpsi) = dsda(psi_grid(mpsi))*0.5*(-inv_ds)*(-3.0*phi00(mpsi)+4.0*phi00(mpsi-1)-phi00(mpsi-2))
          endif
 
          return
