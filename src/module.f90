@@ -154,6 +154,7 @@ module global_parameters
    integer :: Flag_Update_Pol_Shielding=0 ! Default=0 (Not updating Polarization Shielding over time)
    integer :: Flag_DK_Ion=0 ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
    integer :: Flag_Measure_Ptl_FootPrint=0 ! Default=0(Not Meausre), can be set =1 (Do Measure)
+   integer :: Flag_noExB=0 ! Default=0 (ExB is considered), can be set =1 (noExB)
 
    integer :: MaxLoopNum_Adiab_Weight_Update=1 ! Default=1 (number of loop for updating adiabatic weight evolution)
 

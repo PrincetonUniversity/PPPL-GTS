@@ -1813,7 +1813,7 @@ Subroutine setup
    !call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, &
    !             rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw)
    call esilink2c(F,Fa,gFa,gFaa,gYa,gYaa,TT,Ta,PP,Pa, rr,ra,rq,z,za,zq,BB,Ba,Bq,gh,gha,ghq,sw, dvi_gf, dve_gf,&
-      vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf, Flag_Streaming,&
+      vpara_dvi_a,vpara_dvi_gq,vpara_dvi_gf,vpara_dve_a,vpara_dve_gq,vpara_dve_gf, Flag_Streaming, Flag_noExB,&
       ee_inv_grad_a,ee_inv_grad_gq,ee_inv_grad_gf,ii_inv_grad_a,ii_inv_grad_gq,ii_inv_grad_gf)
 
    call get_table_4_dlnAda    ! get ready for dln<A>/da and make A table;
@@ -2548,6 +2548,7 @@ Subroutine read_input_params
       order,              &   ! =0, original solver; =1, linear finite elements; =2 higher order elements
       electromagnetic,    &   ! =0, original electrostatic code; =1 electromagnetic code
       Flag_Streaming,     &   ! (include=1) or (exclude=0) perturbed streaming term and mirror force
+      Flag_noExB,         &   ! Default=0 (ExB is considered), can be set =1 (noExB)
       num_of_EMP,         &   ! number of EMP (External Magnetic Perturbation) : how many mode number (m,n) are considered?
       ga0, gam, gan, gagw, gagf0, dga0dt,&
       ga_rc, ga_rw, ga_pp, &   ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
@@ -2638,6 +2639,7 @@ Subroutine read_input_params
 
       write(0,*) 'electromagnetic=', electromagnetic
       write(0,*) 'Flag_Streaming=', Flag_Streaming
+      write(0,*) 'Flag_noExB=', Flag_noExB
       write(0,*) 'num_of_EMP =',num_of_EMP
       write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
       write(0,*) 'num_of_etracers=', num_of_etracers,', num_of_itracers=',num_of_itracers, ', nstep_for_tracer_record=', nstep_for_tracer_record

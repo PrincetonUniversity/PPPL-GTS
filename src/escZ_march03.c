@@ -1226,6 +1226,7 @@ static REAL *ii_inv_grad_a=NULL, *ii_inv_grad_gq=NULL, *ii_inv_grad_gf=NULL;
 static REAL *Ne=NULL,*dNe=NULL;
 static REAL aTe=15.,aTi=15.,raT;
 static int *Flag_Streaming=NULL;
+static int *Flag_noExB=NULL;
 
 void esilink2c(REAL *XaF,REAL *XaFa
 		,REAL *XgFa,REAL *XgFaa
@@ -1239,7 +1240,7 @@ void esilink2c(REAL *XaF,REAL *XaFa
 		,int *Xsw
 		,REAL *Xdvi_gf, REAL *Xdve_gf
 		,REAL *Xvpara_dvi_a, REAL *Xvpara_dvi_gq, REAL *Xvpara_dvi_gf
-		,REAL *Xvpara_dve_a, REAL *Xvpara_dve_gq, REAL *Xvpara_dve_gf, int* Fortran_Streaming_Flag
+		,REAL *Xvpara_dve_a, REAL *Xvpara_dve_gq, REAL *Xvpara_dve_gf, int* Fortran_Streaming_Flag, int* Fortran_Flag_noExB
 		,REAL *Xee_inv_grad_a, REAL *Xee_inv_grad_gq, REAL *Xee_inv_grad_gf
 		,REAL *Xii_inv_grad_a, REAL *Xii_inv_grad_gq, REAL *Xii_inv_grad_gf)
 {
@@ -1275,6 +1276,7 @@ void esilink2c(REAL *XaF,REAL *XaFa
 	vpara_dve_gq=Xvpara_dve_gq;
 	vpara_dve_gf=Xvpara_dve_gf;
    Flag_Streaming = Fortran_Streaming_Flag;
+   Flag_noExB= Fortran_Flag_noExB;
    ee_inv_grad_a=Xee_inv_grad_a;
    ee_inv_grad_gq=Xee_inv_grad_gq;
    ee_inv_grad_gf=Xee_inv_grad_gf;
@@ -3007,10 +3009,15 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
          }
          Coeff = 1.0/Coeff;
 
-         const REAL B0_cross_gradH0_cntv[3] = {(B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
+         REAL B0_cross_gradH0_cntv[3] = {(B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
             (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian,
             (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
+         if((*Flag_noExB)==1){
+            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-gradPhi[1]))/Jacobian;
+            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]) -B0_cov3[0]*(gradH0_cov3[2]-gradPhi[2]))/Jacobian;
+            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]))/Jacobian;
+         }
 
 
          // Calculate Full Velocity and acceleration of Guiding Center
@@ -3054,6 +3061,11 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
             dvi_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + (B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+            if((*Flag_noExB)==1){
+               ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]));
+               Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]));
+               dvi_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]));
+            }
 
             //Components of delta_v due to the parallel streaming
             vpara_dvi_a[k]  = Coeff*(dH0dgr*(dB_cntv3[0]));
@@ -3071,6 +3083,12 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             ghq[k]      = Coeff*((B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*((B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
             dvi_gf[k]   = Coeff*((B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+
+            if((*Flag_noExB)==1){
+               ghq[k]      = 0.0;
+               Ta[k]       = 0.0;
+               dvi_gf[k]   = 0.0;
+            }
 
             //Components of delta_v due to the parallel streaming
             vpara_dvi_a[k]  = 0.0;
@@ -4622,10 +4640,15 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
          }
          Coeff = c0cs/Coeff;
 
-         const REAL B0_cross_gradH0_cntv[3] = {(B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
+         REAL B0_cross_gradH0_cntv[3] = {(B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
             (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian,
             (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
+         if((*Flag_noExB)==1){
+            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-gradPhi[1]))/Jacobian;
+            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]) -B0_cov3[0]*(gradH0_cov3[2]-gradPhi[2]))/Jacobian;
+            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]))/Jacobian;
+         }
 
          // Calculate Full Velocity and acceleration of Guiding Center
          dXgr[k] = 0.0;
@@ -4653,6 +4676,12 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
             dve_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]) + csc0*(B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
 
+            if((*Flag_noExB)==1){
+               ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]));
+               Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]));
+               dve_gf[k]   = Coeff*(dH0dgr*(dB_cntv3[2]));
+            }
+
             // Components of delta_v due to the parallel streaming
             vpara_dve_a[k]  = Coeff*(dH0dgr*(dB_cntv3[0]));
             vpara_dve_gq[k] = Coeff*(dH0dgr*(dB_cntv3[1]));
@@ -4669,6 +4698,12 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             ghq[k]      = Coeff*( csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*( csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
             dve_gf[k]   = Coeff*( csc0*(B0_cov3[0]*gradPhi[1]-B0_cov3[1]*gradPhi[0])/Jacobian);
+
+            if((*Flag_noExB)==1){
+               ghq[k]      = 0.0;
+               Ta[k]       = 0.0;
+               dve_gf[k]   = 0.0;
+            }
 
             // Components of delta_v due to the parallel streaming
             vpara_dve_a[k]  = 0.0;
