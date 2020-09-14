@@ -237,8 +237,33 @@ module Ptl_Src_Loss
 
    type(FootPrint) FP_BDY1, cum_FP_BDY1
 
+
+   type Out_Particles
+      integer :: mout ! number of out particles
+      integer :: mout_max ! maximum number of out particles
+      real(wp), allocatable, dimension(:,:) :: P, P0
+      real(wp), allocatable, dimension(:) :: energy, backT, backf0, labels
+   end type
+
+
+   type(Out_Particles) outION
+
    contains
 
+      subroutine Initialize_Ptl_Src_Loss
+         use global_parameters
+         implicit none
+
+         if(Flag_Recycling==1) then
+            outION%mout_max = mimax/20
+            allocate(outION%P(ziondim,outION%mout_max),outION%P0(ziondim,outION%mout_max))
+            allocate(outION%energy(outION%mout_max),outION%backT(outION%mout_max),outION%backf0(outION%mout_max),outION%labels(outION%mout_max))
+         endif
+
+         call Initialize_FootPrint(FP_BDY1,a1)
+         call Initialize_FootPrint(cum_FP_BDY1,a1)
+
+      end subroutine Initialize_Ptl_Src_Loss
 
       subroutine Initialize_FootPrint(FP,target_a)
          use global_parameters
@@ -631,6 +656,16 @@ module Ptl_Src_Loss
          i_cum_lost_num_BDY1 = 0
       end subroutine Clear_i_cum_lost_num
 
+      subroutine Clear_Out_Particles
+         implicit none
+         outION%mout = 0
+         outION%P = 0.0
+         outION%P0 = 0.0
+         outION%backT = 0.0
+         outION%backf0 = 0.0
+         outION%energy = 0.0
+         outION%labels = 0.0
+      end subroutine
 
       subroutine Inject_electrons_from_Boundaries(delta_t_seconds)
          use global_parameters
@@ -1578,12 +1613,14 @@ module Ptl_Src_Loss
          integer m,i,j
          real(wp) psimax,psimin
          integer lost_mid_arr(mimax) ! index of loss particles
+         integer lost_mid_arr_BDY1(mimax)
          integer lost_num ! number of loss particles across boundary
          integer, allocatable :: fill_mid_arr(:)
          integer fill_num
          integer mtop, lasth
          integer dim_zion, dim_zion0, dim_RK_cum_zion
          real(wp) zion_a_arr(mi)
+         real(wp), allocatable :: out_zion_BDY1(:,:), out_zion0_BDY1(:,:), out_ilabels_BDY1(:)
 
          m0=1
          m1=mi
@@ -1646,12 +1683,31 @@ module Ptl_Src_Loss
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
                   i_lost_num_BDY1 = i_lost_num_BDY1 +1
+                  lost_mid_arr_BDY1(i_lost_num_BDY1) = m
                elseif(zion_a_arr(m) < psimin)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
                   i_lost_num_BDY0 = i_lost_num_BDY0 +1
                endif
             enddo
+
+            if(Flag_Recycling==1) then
+               if(i_lost_num_BDY1>0) then
+                  allocate(out_zion_BDY1(ziondim,i_lost_num_BDY1),out_zion0_BDY1(ziondim,i_lost_num_BDY1),out_ilabels_BDY1(i_lost_num_BDY1))
+
+                  !$acc parallel loop copyout(out_zion_BDY1(:,:i_lost_num_BDY1),out_zion0_BDY1(:,:i_lost_num_BDY1),out_ilabels_BDY1(:i_lost_num_BDY1))
+                  do m=1,i_lost_num_BDY1
+                     out_zion_BDY1(:,m) = zion(:,lost_mid_arr_BDY1(m))
+                     out_zion0_BDY1(:,m) = zion0(:,lost_mid_arr_BDY1(m))
+                     out_ilabels_BDY1(m) = ilabels(lost_mid_arr_BDY1(m))
+                  enddo
+                  outION%P(:,outION%mout:outION%mout+i_lost_num_BDY1) = out_zion_BDY1(:,1:i_lost_num_BDY1)
+                  outION%P0(:,outION%mout:outION%mout+i_lost_num_BDY1) = out_zion0_BDY1(:,1:i_lost_num_BDY1)
+                  outION%labels(outION%mout:outION%mout+i_lost_num_BDY1) = out_ilabels_BDY1(1:i_lost_num_BDY1)
+                  outION%mout = outION%mout +i_lost_num_BDY1
+                  deallocate(out_zion_BDY1,out_zion0_BDY1,out_ilabels_BDY1)
+               endif
+            endif
 
 
             write(stdout,'(5(A,I8))') "istep=",istep,"; mype=",mype,"; i_lost_num=",lost_num, "=",i_lost_num_BDY0, "+",i_lost_num_BDY1

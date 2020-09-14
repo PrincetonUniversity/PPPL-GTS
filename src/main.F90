@@ -226,8 +226,7 @@ program GTS
    ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
    ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
-   call Initialize_FootPrint(FP_BDY1,a1)
-   call Initialize_FootPrint(cum_FP_BDY1,a1)
+   call Initialize_Ptl_Src_Loss
 
    istep=0
    !  if(mype==0) call view_orbit
