@@ -1839,8 +1839,8 @@ module Ptl_Src_Loss
 
          !$acc parallel loop present(zeon,zion,backTe,backT)
          do k=1,num_of_new_ptls
-            ke=me0+k
-            ki=mi0+k
+            ke=me0+(k-1)
+            ki=mi0+(k-1)
 
             zeon(:,ke) = zion(:,ki)
             zeon0(:,ke) = zion0(:,ki)
@@ -1852,8 +1852,8 @@ module Ptl_Src_Loss
 
          !$acc parallel loop present(zeon,zion,backTe,backT)
          do k=1,num_of_new_ptls
-            ke=me0+k
-            ki=mi0+k
+            ke=me0+(k-1)
+            ki=mi0+(k-1)
 
             zeon(4,ke)=zion(4,ki)*sqrt(msm0)*c0cs*sqrt(msm0*backTe(ke)/backT(ki))  !checked; neglect electron rotation
             zeon(6,ke)=zion(6,ki)*sqrt(msm0*backTe(ke)/backT(ki))     ! =sqrt(mu_e)
