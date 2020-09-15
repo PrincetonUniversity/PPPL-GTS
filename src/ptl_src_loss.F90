@@ -1701,9 +1701,9 @@ module Ptl_Src_Loss
                      out_zion0_BDY1(:,m) = zion0(:,lost_mid_arr_BDY1(m))
                      out_ilabels_BDY1(m) = ilabels(lost_mid_arr_BDY1(m))
                   enddo
-                  outION%P(:,outION%mout:outION%mout+i_lost_num_BDY1) = out_zion_BDY1(:,1:i_lost_num_BDY1)
-                  outION%P0(:,outION%mout:outION%mout+i_lost_num_BDY1) = out_zion0_BDY1(:,1:i_lost_num_BDY1)
-                  outION%labels(outION%mout:outION%mout+i_lost_num_BDY1) = out_ilabels_BDY1(1:i_lost_num_BDY1)
+                  outION%P(:,outION%mout+1:outION%mout+i_lost_num_BDY1) = out_zion_BDY1(:,1:i_lost_num_BDY1)
+                  outION%P0(:,outION%mout+1:outION%mout+i_lost_num_BDY1) = out_zion0_BDY1(:,1:i_lost_num_BDY1)
+                  outION%labels(outION%mout+1:outION%mout+i_lost_num_BDY1) = out_ilabels_BDY1(1:i_lost_num_BDY1)
                   outION%mout = outION%mout +i_lost_num_BDY1
                   deallocate(out_zion_BDY1,out_zion0_BDY1,out_ilabels_BDY1)
                endif
