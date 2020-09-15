@@ -238,7 +238,7 @@ module Ptl_Src_Loss
    type(FootPrint) FP_BDY1, cum_FP_BDY1
 
 
-   type Out_Particles
+   type OutParticles
       integer :: mout ! number of out particles
       integer :: mout_max ! maximum number of out particles
       real(wp), allocatable, dimension(:,:) :: P, P0
@@ -246,7 +246,7 @@ module Ptl_Src_Loss
    end type
 
 
-   type(Out_Particles) outION
+   type(OutParticles) outION
 
    contains
 
@@ -656,7 +656,7 @@ module Ptl_Src_Loss
          i_cum_lost_num_BDY1 = 0
       end subroutine Clear_i_cum_lost_num
 
-      subroutine Clear_Out_Particles
+      subroutine Clear_OutParticles
          implicit none
          outION%mout = 0
          outION%P = 0.0
@@ -1776,6 +1776,107 @@ module Ptl_Src_Loss
       end subroutine treat_ions_out_of_boundary
 
 
+
+
+
+      subroutine Produce_Recycling_Ion_and_Electrons_using_OutParticles
+         use global_parameters
+         use particle_array
+         use function_gg_module
+         implicit none
+         integer m,k,ke,ki
+         integer me0,mi0,num_of_new_ptls
+         real(wp) :: ErgDampRatio=0.1
+
+         mi0=mi+1 ! starting index of newly produced particles
+
+         ! Produce Ion particles first
+         do m=1,outION%mout
+            ! Ignore the particles injected from the wall that has negative labels (-1 for now)
+            if(outION%labels(m)>=0) then
+
+               ! Extend the particle array size by 1 and then put the new particles at the end of the array
+               mi = mi +1
+
+               zion(:,mi)  = outION%P(:,m)
+               zion0(:,mi) = outION%P0(:,m)
+               ilabels(mi) = 1.0
+
+               ! Reverse the parallel velocity and damp the magnitude
+               zion(4,mi) = -sqrt(ErgDampRatio)*zion(4,mi)
+               zion(6,mi) = ErgDampRatio*zion(6,mi)
+               ! Reset the particle position to be the previous one
+               zion(1:3,mi) = zion0(1:3,mi)
+               zion(7,mi) = zion0(7,mi)
+            endif
+         enddo
+         !$acc update device(zion(:,mi0:mi),zion0(:,mi0:mi),ilabels(mi0:mi))
+
+         call n_T_u_group(mi0,mi,flag_backf0=.true.)
+         call ion_locator_at_larmor_points_partial(mi0,mi)
+
+         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         do m=mi0,mi
+            wi_init(m)  = zion(5,m)
+            wi_vpara(m) = 0
+            wi_vperp(m) = 0
+            wi_accel(m) = 0
+            wi_fdamp(m) = 0
+
+            zion0(1:5,m)     = zion(1:5,m)
+            zion0(7,m)       = zion(7,m)
+            UnNorm_theta_i(m)= zion(2,m)
+            UnNorm_zeta_i(m) = zion(3,m)
+         enddo
+
+
+         num_of_new_ptls = mi-mi0+1
+
+         ! Produce electrons using the new ion particles
+         me0=me+1
+         me =me+num_of_new_ptls
+
+
+         !$acc parallel loop present(zeon,zion,backTe,backT)
+         do k=1,num_of_new_ptls
+            ke=me0+k
+            ki=mi0+k
+
+            zeon(:,ke) = zion(:,ki)
+            zeon0(:,ke) = zion0(:,ki)
+            ! elabels(ke) = ilabels(ki) ! NOTE: This is not correct.. just for test now
+            elabels(ke) = 1.0
+         enddo
+
+         call n_T_u_group_e(me0,me,flag_backf0=.true.)  ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+
+         !$acc parallel loop present(zeon,zion,backTe,backT)
+         do k=1,num_of_new_ptls
+            ke=me0+k
+            ki=mi0+k
+
+            zeon(4,ke)=zion(4,ki)*sqrt(msm0)*c0cs*sqrt(msm0*backTe(ke)/backT(ki))  !checked; neglect electron rotation
+            zeon(6,ke)=zion(6,ki)*sqrt(msm0*backTe(ke)/backT(ki))     ! =sqrt(mu_e)
+         enddo
+
+         call electron_locator_partial(me0,me) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
+
+         !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         do m=me0,me
+            we_init(m)  = zeon(5,m)
+            we_vpara(m) = 0
+            we_vperp(m) = 0
+            we_accel(m) = 0
+            we_adiab(m) = 0
+            we_fdamp(m) = 0
+
+            zeon0(1:5,m)     = zeon(1:5,m)
+            zeon0(7,m)       = zeon(7,m)
+            UnNorm_theta_e(m)= zeon(2,m)
+            UnNorm_zeta_e(m) = zeon(3,m)
+         enddo
+
+      end subroutine Produce_Recycling_Ion_and_Electrons_using_OutParticles
 
 
 end module Ptl_Src_Loss
