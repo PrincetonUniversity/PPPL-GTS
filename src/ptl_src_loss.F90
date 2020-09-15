@@ -1876,6 +1876,9 @@ module Ptl_Src_Loss
             UnNorm_zeta_e(m) = zeon(3,m)
          enddo
 
+
+         call Clear_OutParticles
+
       end subroutine Produce_Recycling_Ion_and_Electrons_using_OutParticles
 
 
