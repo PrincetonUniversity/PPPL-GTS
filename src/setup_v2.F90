@@ -111,6 +111,7 @@ Subroutine setup
    zeondim=7
    if(ifdphi>=2) zeondim=8
    ziondim=7
+   if(Flag_Recycling==1) ziondim=8 ! 8-th value is for the phase space volume of the particle
    !  r0=rmajor    !wx  normalized
    !  b0=b_axis    !wx  normalized
 
@@ -1902,12 +1903,12 @@ Subroutine setup
    ! Larmor orbit points will be determined using uniformly distribued gyro-phase angle.
    !==================================
 
-   allocate (zion(7,mimax),zion0(7,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
+   allocate (zion(ziondim,mimax),zion0(ziondim,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
       wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers),&
       zion_s_on_GyroOrbit(larmor_num,mimax),zion_gq_on_GyroOrbit(larmor_num,mimax))
 
    if(Flag_RK4==1) then
-      allocate(RK_cum_zion(7,mimax))
+      allocate(RK_cum_zion(ziondim,mimax))
       RK_cum_zion=0.0
    endif
    if(ifelectron/=0) then
