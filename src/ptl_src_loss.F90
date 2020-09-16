@@ -1815,6 +1815,13 @@ module Ptl_Src_Loss
          call n_T_u_group(mi0,mi,flag_backf0=.true.)
          call ion_locator_at_larmor_points_partial(mi0,mi)
 
+         ! Determine the weight of the new particle
+         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         do m=mi0,mi
+            zion(5,m) = zion0(6,m) !
+            zion0(6,m) = zion(5,m) + back_f0_i(m)*zion(8,m)
+         enddo
+
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
          do m=mi0,mi
             wi_init(m)  = zion(5,m)
