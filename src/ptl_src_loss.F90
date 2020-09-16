@@ -1804,7 +1804,7 @@ module Ptl_Src_Loss
 
                ! Reverse the parallel velocity and damp the magnitude
                zion(4,mi) = -sqrt(ErgDampRatio)*zion(4,mi)
-               zion(6,mi) = ErgDampRatio*zion(6,mi)
+               zion(6,mi) = sqrt(ErgDampRatio)*zion(6,mi)
                ! Reset the particle position to be the previous one
                zion(1:3,mi) = zion0(1:3,mi)
                zion(7,mi) = zion0(7,mi)
