@@ -547,7 +547,9 @@ program GTS
       if(Flag_Ptl_BC_type==1) then
          if(mod(istep,2)==0) then
 
-            call Produce_Recycling_Ion_and_Electrons_using_OutParticles
+            if(Flag_Recycling==1) then
+               call Produce_Recycling_Ion_and_Electrons_using_OutParticles
+            endif
 
             call Inject_electrons_from_Boundaries(2*tstep*utime)
             call Inject_ions_from_Boundaries(2*tstep*utime)
