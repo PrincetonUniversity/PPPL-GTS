@@ -1786,7 +1786,7 @@ module Ptl_Src_Loss
          implicit none
          integer m,k,ke,ki
          integer me0,mi0,num_of_new_ptls
-         real(wp) :: ErgDampRatio=0.1
+         real(wp) :: ErgDampRatio=1e-2
 
          mi0=mi+1 ! starting index of newly produced particles
 
