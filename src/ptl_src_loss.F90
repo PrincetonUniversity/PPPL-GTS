@@ -1701,10 +1701,17 @@ module Ptl_Src_Loss
                      out_zion0_BDY1(:,m) = zion0(:,lost_mid_arr_BDY1(m))
                      out_ilabels_BDY1(m) = ilabels(lost_mid_arr_BDY1(m))
                   enddo
-                  outION%P(:,outION%mout+1:outION%mout+i_lost_num_BDY1) = out_zion_BDY1(:,1:i_lost_num_BDY1)
-                  outION%P0(:,outION%mout+1:outION%mout+i_lost_num_BDY1) = out_zion0_BDY1(:,1:i_lost_num_BDY1)
-                  outION%labels(outION%mout+1:outION%mout+i_lost_num_BDY1) = out_ilabels_BDY1(1:i_lost_num_BDY1)
-                  outION%mout = outION%mout +i_lost_num_BDY1
+
+                  do m=1,i_lost_num_BDY1
+                     if(out_zion0_BDY1(6,m)>0) then ! Ignore zero ftot particles
+                        outION%mout = outION%mout +1
+
+                        outION%P(:,outION%mout) = out_zion_BDY1(:,m)
+                        outION%P0(:,outION%mout) = out_zion0_BDY1(:,m)
+                        outION%labels(outION%mout) = out_ilabels_BDY1(m)
+                     endif
+                  enddo
+
                   deallocate(out_zion_BDY1,out_zion0_BDY1,out_ilabels_BDY1)
                endif
             endif
@@ -1804,36 +1811,38 @@ module Ptl_Src_Loss
 
 
 
-      subroutine Produce_Recycling_Ion_and_Electrons_using_OutParticles
+      subroutine Produce_Recycling_Ion_and_Electrons_using_OutParticles(num_of_new_recycling_ptls)
          use global_parameters
          use particle_array
          use function_gg_module
          implicit none
+         integer,optional :: num_of_new_recycling_ptls
          integer m,k,ke,ki
          integer me0,mi0,num_of_new_ptls
          real(wp) :: ErgDampRatio=1e-2
 
+         num_of_new_ptls = outION%mout ! Default value
+         if(present(num_of_new_recycling_ptls)) num_of_new_ptls = num_of_new_recycling_ptls
+
          mi0=mi+1 ! starting index of newly produced particles
+         mi =mi+num_of_new_ptls
 
-         ! Produce Ion particles first
-         do m=1,outION%mout
-            ! Ignore the particles injected from the wall that has negative labels (-1 for now)
-            if(outION%labels(m)>=0) then
+         do k=1,num_of_new_ptls
+            m = mi0 + (k-1)
 
-               ! Extend the particle array size by 1 and then put the new particles at the end of the array
-               mi = mi +1
+            ! Copy to zion
+            zion(:,m)  = outION%P(:,k)
+            zion0(:,m) = outION%P0(:,k)
+            ilabels(m) = 1.0
 
-               zion(:,mi)  = outION%P(:,m)
-               zion0(:,mi) = outION%P0(:,m)
-               ilabels(mi) = 1.0
+            ! Reverse the parallel velocity and damp the magnitude
+            zion(4,m) = -sqrt(ErgDampRatio)*zion(4,m)
+            zion(6,m) = sqrt(ErgDampRatio)*zion(6,m)
+            ! Reset the particle position to be the previous one
+            zion(1:3,m) = zion0(1:3,m)
+            zion(7,m) = zion0(7,m)
 
-               ! Reverse the parallel velocity and damp the magnitude
-               zion(4,mi) = -sqrt(ErgDampRatio)*zion(4,mi)
-               zion(6,mi) = sqrt(ErgDampRatio)*zion(6,mi)
-               ! Reset the particle position to be the previous one
-               zion(1:3,mi) = zion0(1:3,mi)
-               zion(7,mi) = zion0(7,mi)
-            endif
+
          enddo
          !$acc update device(zion(:,mi0:mi),zion0(:,mi0:mi),ilabels(mi0:mi))
 
@@ -1863,7 +1872,6 @@ module Ptl_Src_Loss
          enddo
 
 
-         num_of_new_ptls = mi-mi0+1
 
          ! Produce electrons using the new ion particles
          me0=me+1
