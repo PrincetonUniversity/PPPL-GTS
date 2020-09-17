@@ -667,6 +667,101 @@ module Ptl_Src_Loss
          outION%labels = 0.0
       end subroutine
 
+      subroutine Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing(delta_t_seconds)
+         use global_parameters
+         use mpi_defs
+         implicit none
+
+         real(wp), intent(in) :: delta_t_seconds
+         integer ierror
+         integer G_e_cum_lost_num_BDY0, G_e_cum_lost_num_BDY1 ! 'G_' stands for the "global" variables
+         integer G_i_cum_lost_num_BDY0, G_i_cum_lost_num_BDY1
+         integer G_outIon_mout
+         integer :: num_of_new_ptls_per_rank=0
+         integer :: dNe_BDY0, dNe_BDY1, dNi_BDY0, dNi_BDY1, dN_recycling ! Local (per mpi rank) number of new particles w.r.t ions, electrons, recycling particles
+         real(wp) time0, time1
+         real(wp) ratio
+
+         call MPI_ALLREDUCE(e_cum_lost_num_BDY0, G_e_cum_lost_num_BDY0, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(e_cum_lost_num_BDY1, G_e_cum_lost_num_BDY1, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(i_cum_lost_num_BDY0, G_i_cum_lost_num_BDY0, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(i_cum_lost_num_BDY1, G_i_cum_lost_num_BDY1, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(outION%mout, G_outIon_mout, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         dNe_BDY0 = G_e_cum_lost_num_BDY0/numberpe
+         dNe_BDY1 = G_e_cum_lost_num_BDY1/numberpe
+         dNi_BDY0 = G_i_cum_lost_num_BDY0/numberpe
+         dNi_BDY1 = G_i_cum_lost_num_BDY1/numberpe
+         if(mype==0) then
+            write(stdout,'(A,I8,2(A,I8,A,I8,A)),A,I8') "istep=",istep,  "; G_cum_lost_num  ION(BDY0+BDY1)=(",G_i_cum_lost_num_BDY0," + ", G_i_cum_lost_num_BDY1,")",&
+                                                      "; ELECTRON(BDY0+BDY1)=(",G_e_cum_lost_num_BDY0," + ", G_e_cum_lost_num_BDY1,")", "; G_outIon_mout=",G_outIon_mout
+            call flush(stdout)
+         endif
+
+         if(Flag_Recycling==1) then
+
+
+            call flush(stdout)
+            ! dN_recycling = min(floor(0.7*dNi_BDY1), outION%mout)
+
+            ratio = real(min(floor(0.7*G_i_cum_lost_num_BDY1),G_outIon_mout))/real(G_outIon_mout)
+            dN_recycling = floor(ratio*outION%mout)
+            dNi_BDY1 =
+
+            write(stdout,'(6(A,I8))') "istep=",istep, "; mype=", mype, "; ini_dNi_BDY1 =", dNi_BDY1, "; outION%mout=", outION%mout, &
+                                                                        "; mod.dNi_BDY1 =", dNi_BDY1-dN_recycling, "; dN_recycling=", dN_recycling
+
+            dNi_BDY1 = dNi_BDY1 - dN_recycling
+            dNe_BDY1 = dNe_BDY1 - dN_recycling
+
+
+
+#ifdef _MGY_TIMER_
+         time0 = MPI_WTIME()
+#endif
+            call Produce_Recycling_Ion_and_Electrons_using_OutParticles(dN_recycling)
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Produce_Recycling_Ptls  takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+         endif
+
+
+
+#ifdef _MGY_TIMER_
+         time0 = MPI_WTIME()
+#endif
+         ! Create Src from inner boundary (BDY0)
+         call load_electrons_In_or_Out_Flux(dNe_BDY0, delta_t_seconds,1.0,a0)
+         ! Create Src from inner boundary (BDY1)
+         call load_electrons_In_or_Out_Flux(dNe_BDY1, delta_t_seconds,0.0,a1)
+         ! Clear accumulated electron lost number
+         call Clear_e_cum_lost_num
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Inject_electrons_from_Boundaries takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
+
+#ifdef _MGY_TIMER_
+         time0 = MPI_WTIME()
+#endif
+         ! Create Src from inner boundary (BDY0)
+         call load_ions_In_or_Out_Flux(dNi_BDY0, delta_t_seconds,1.0,a0)
+         ! Create Src from inner boundary (BDY1)
+         call load_ions_In_or_Out_Flux(dNi_BDY1, delta_t_seconds,0.0,a1)
+         ! Clear accumulated ion lost number
+         call Clear_i_cum_lost_num
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Inject_ions_from_Boundaries takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
+      end subroutine Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing
+
+
       subroutine Inject_electrons_from_Boundaries(delta_t_seconds)
          use global_parameters
          use mpi_defs
@@ -1820,12 +1915,15 @@ module Ptl_Src_Loss
          integer m,k,ke,ki
          integer me0,mi0,num_of_new_ptls
          real(wp) :: ErgDampRatio=1e-2
+         real(wp) weight_correction_factor ! weight correction factor due to the particle load balancing
 
          num_of_new_ptls = outION%mout ! Default value
          if(present(num_of_new_recycling_ptls)) num_of_new_ptls = num_of_new_recycling_ptls
 
          mi0=mi+1 ! starting index of newly produced particles
          mi =mi+num_of_new_ptls
+
+         weight_correction_factor = (real(outION%mout)/real(num_of_new_ptls))
 
          do k=1,num_of_new_ptls
             m = mi0 + (k-1)
@@ -1852,6 +1950,9 @@ module Ptl_Src_Loss
          ! Determine the weight of the new particle
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
          do m=mi0,mi
+
+            zion0(6,m) = weight_correction_factor*zion0(6,m) ! Increase the particle weights due to the particle load balancing
+
             zion(5,m) = zion0(6,m) !
             zion(8,m) = 1e-6*zion(8,m) ! Reduce the phase volume to reduce the particle noise
             zion0(6,m) = zion(5,m) + back_f0_i(m)*zion(8,m)
