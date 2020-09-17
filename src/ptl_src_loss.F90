@@ -1776,6 +1776,31 @@ module Ptl_Src_Loss
       end subroutine treat_ions_out_of_boundary
 
 
+      subroutine Pick_Random_Between_Numbers_NoDuplicates(a,b,Npick,out_arr)
+         implicit none
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+         integer, intent(in) :: a,b,Npick ! Pick N random numbers between a and b without duplicates
+         integer, intent(out) :: out_arr(:)
+         integer i, r, len
+         integer, allocatable :: nums_in_bin(:)
+
+         len=b-a+1
+         allocate(nums_in_bin(len))
+         do i=1,len
+            nums_in_bin(i)=a+(i-1) ! target numbers [a,b] in ascending order
+         enddo
+
+         do i=1,Npick
+            r = floor(sprng()*len)+1 ! pick random number between [1,len]
+            out_arr(i)=nums_in_bin(r)
+            nums_in_bin(r) = nums_in_bin(len)
+            len=len-1
+         enddo
+
+         deallocate(nums_in_bin)
+      end subroutine Pick_Random_Between_Numbers_NoDuplicates
 
 
 
