@@ -1911,17 +1911,26 @@ module Ptl_Src_Loss
          use particle_array
          use function_gg_module
          implicit none
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
          integer,optional :: num_of_new_recycling_ptls
          integer m,k,ke,ki
          integer me0,mi0,num_of_new_ptls
          real(wp) :: ErgDampRatio=1e-2
          real(wp) weight_correction_factor ! weight correction factor due to the particle load balancing
+         integer, allocatable :: rand_arr(:)
 
          num_of_new_ptls = outION%mout ! Default value
          if(present(num_of_new_recycling_ptls)) num_of_new_ptls = num_of_new_recycling_ptls
 
          mi0=mi+1 ! starting index of newly produced particles
          mi =mi+num_of_new_ptls
+
+         allocate(rand_arr(num_of_new_ptls))
+         do k=1,num_of_new_ptls
+            rand_arr(k) = sprng()
+         enddo
 
          weight_correction_factor = (real(outION%mout)/real(num_of_new_ptls))
 
@@ -1999,6 +2008,9 @@ module Ptl_Src_Loss
 
             zeon(4,ke)=zion(4,ki)*sqrt(msm0)*c0cs*sqrt(msm0*backTe(ke)/backT(ki))  !checked; neglect electron rotation
             zeon(6,ke)=zion(6,ki)*sqrt(msm0*backTe(ke)/backT(ki))     ! =sqrt(mu_e)
+
+            ! Electron's vpara direction is random because of the ionization process
+            zeon(4,ke)=sign(1.0,rand_arr(k)-0.5)*zeon(4,ke)
          enddo
 
          call electron_locator_partial(me0,me) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
@@ -2021,6 +2033,7 @@ module Ptl_Src_Loss
 
          call Clear_OutParticles
 
+         deallocate(rand_arr)
       end subroutine Produce_Recycling_Ion_and_Electrons_using_OutParticles
 
 
