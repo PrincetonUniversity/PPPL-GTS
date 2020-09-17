@@ -1819,6 +1819,7 @@ module Ptl_Src_Loss
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
          do m=mi0,mi
             zion(5,m) = zion0(6,m) !
+            zion(8,m) = 1e-6*zion(8,m) ! Reduce the phase volume to reduce the particle noise
             zion0(6,m) = zion(5,m) + back_f0_i(m)*zion(8,m)
          enddo
 
