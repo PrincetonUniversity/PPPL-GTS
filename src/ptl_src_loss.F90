@@ -241,6 +241,7 @@ module Ptl_Src_Loss
    type OutParticles
       integer :: mout ! number of out particles
       integer :: mout_max ! maximum number of out particles
+      real(wp) :: Recycling_Ratio=0.7
       real(wp), allocatable, dimension(:,:) :: P, P0
       real(wp), allocatable, dimension(:) :: energy, backT, backf0, labels
    end type
@@ -676,11 +677,10 @@ module Ptl_Src_Loss
          integer ierror
          integer G_e_cum_lost_num_BDY0, G_e_cum_lost_num_BDY1 ! 'G_' stands for the "global" variables
          integer G_i_cum_lost_num_BDY0, G_i_cum_lost_num_BDY1
-         integer G_outIon_mout
+         integer G_outIon_mout, G_dN_recycling
          integer :: num_of_new_ptls_per_rank=0
          integer :: dNe_BDY0, dNe_BDY1, dNi_BDY0, dNi_BDY1, dN_recycling ! Local (per mpi rank) number of new particles w.r.t ions, electrons, recycling particles
          real(wp) time0, time1
-         real(wp) ratio
 
          call MPI_ALLREDUCE(e_cum_lost_num_BDY0, G_e_cum_lost_num_BDY0, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
          call MPI_ALLREDUCE(e_cum_lost_num_BDY1, G_e_cum_lost_num_BDY1, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
@@ -692,38 +692,30 @@ module Ptl_Src_Loss
          dNi_BDY0 = G_i_cum_lost_num_BDY0/numberpe
          dNi_BDY1 = G_i_cum_lost_num_BDY1/numberpe
          if(mype==0) then
-            write(stdout,'(A,I8,2(A,I8,A,I8,A)),A,I8') "istep=",istep,  "; G_cum_lost_num  ION(BDY0+BDY1)=(",G_i_cum_lost_num_BDY0," + ", G_i_cum_lost_num_BDY1,")",&
+            write(stdout,'(A,I8,2(A,I8,A,I8,A),A,I8)') "istep=",istep,  "; G_cum_lost_num  ION(BDY0+BDY1)=(",G_i_cum_lost_num_BDY0," + ", G_i_cum_lost_num_BDY1,")",&
                                                       "; ELECTRON(BDY0+BDY1)=(",G_e_cum_lost_num_BDY0," + ", G_e_cum_lost_num_BDY1,")", "; G_outIon_mout=",G_outIon_mout
             call flush(stdout)
          endif
 
          if(Flag_Recycling==1) then
 
-
+#ifdef _MGY_TIMER_
+            time0 = MPI_WTIME()
+#endif
+            dN_recycling =  Produce_Recycling_Ion_and_Electrons_using_OutParticles
+#ifdef _MGY_TIMER_
+            time1=MPI_WTIME()
+            if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Produce_Recycling_Ptls  takes", time1-time0, " secs"
             call flush(stdout)
-            ! dN_recycling = min(floor(0.7*dNi_BDY1), outION%mout)
-
-            ratio = real(min(floor(0.7*G_i_cum_lost_num_BDY1),G_outIon_mout))/real(G_outIon_mout)
-            dN_recycling = floor(ratio*outION%mout)
-            dNi_BDY1 =
-
-            write(stdout,'(6(A,I8))') "istep=",istep, "; mype=", mype, "; ini_dNi_BDY1 =", dNi_BDY1, "; outION%mout=", outION%mout, &
-                                                                        "; mod.dNi_BDY1 =", dNi_BDY1-dN_recycling, "; dN_recycling=", dN_recycling
-
-            dNi_BDY1 = dNi_BDY1 - dN_recycling
-            dNe_BDY1 = dNe_BDY1 - dN_recycling
-
-
-
-#ifdef _MGY_TIMER_
-         time0 = MPI_WTIME()
 #endif
-            call Produce_Recycling_Ion_and_Electrons_using_OutParticles(dN_recycling)
-#ifdef _MGY_TIMER_
-         time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Produce_Recycling_Ptls  takes", time1-time0, " secs"
-         call flush(stdout)
-#endif
+
+            call MPI_ALLREDUCE(dN_recycling, G_dN_recycling, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+
+            dNi_BDY1 = (G_i_cum_lost_num_BDY1-G_dN_recycling)/numberpe
+            dNe_BDY1 = (G_e_cum_lost_num_BDY1-G_dN_recycling)/numberpe
+
+            write(stdout,'(6(A,I8))') "istep=",istep, "; mype=", mype, "; dNi_BDY1 =", dNi_BDY1,"; dNe_BDY1 =", dNe_BDY1 ,"; dN_recycling=", dN_recycling
+            call flush(stdout)
          endif
 
 
@@ -1906,7 +1898,7 @@ module Ptl_Src_Loss
 
 
 
-      subroutine Produce_Recycling_Ion_and_Electrons_using_OutParticles(num_of_new_recycling_ptls)
+      function Produce_Recycling_Ion_and_Electrons_using_OutParticles() result(num_of_recycling_ptls)
          use global_parameters
          use particle_array
          use function_gg_module
@@ -1914,43 +1906,39 @@ module Ptl_Src_Loss
 #define SIMPLE_SPRNG
 #define USE_MPI
 #include "sprng_f.h"
-         integer,optional :: num_of_new_recycling_ptls
+         integer, intent(out) :: num_of_recycling_ptls
          integer m,k,ke,ki
-         integer me0,mi0,num_of_new_ptls
+         integer me0,mi0
          real(wp) :: ErgDampRatio=1e-2
-         real(wp) weight_correction_factor ! weight correction factor due to the particle load balancing
          integer, allocatable :: rand_arr(:)
 
-         num_of_new_ptls = outION%mout ! Default value
-         if(present(num_of_new_recycling_ptls)) num_of_new_ptls = num_of_new_recycling_ptls
 
          mi0=mi+1 ! starting index of newly produced particles
-         mi =mi+num_of_new_ptls
 
-         allocate(rand_arr(num_of_new_ptls))
-         do k=1,num_of_new_ptls
-            rand_arr(k) = sprng()
+         do k=1,outION%mout
+            if(sprng()<outION%Recycling_Ratio) then
+               mi=mi+1
+
+               ! Copy to zion
+               zion(:,mi)  = outION%P(:,k)
+               zion0(:,mi) = outION%P0(:,k)
+               ilabels(mi) = 1.0
+
+               ! Reverse the parallel velocity and damp the magnitude
+               zion(4,mi) = -sqrt(ErgDampRatio)*zion(4,mi)
+               zion(6,mi) = sqrt(ErgDampRatio)*zion(6,mi)
+               ! Reset the particle position to be the previous one
+               zion(1:3,mi) = zion0(1:3,mi)
+               zion(7,mi) = zion0(7,mi)
+
+               ! For test
+               ! zion(1,mi) = 0.5
+               ! zion0(1,mi) = 0.5
+               ! zion(7,mi) = 0.5
+               ! zion0(7,mi) = 0.5
+            endif
          enddo
-
-         weight_correction_factor = (real(outION%mout)/real(num_of_new_ptls))
-
-         do k=1,num_of_new_ptls
-            m = mi0 + (k-1)
-
-            ! Copy to zion
-            zion(:,m)  = outION%P(:,k)
-            zion0(:,m) = outION%P0(:,k)
-            ilabels(m) = 1.0
-
-            ! Reverse the parallel velocity and damp the magnitude
-            zion(4,m) = -sqrt(ErgDampRatio)*zion(4,m)
-            zion(6,m) = sqrt(ErgDampRatio)*zion(6,m)
-            ! Reset the particle position to be the previous one
-            zion(1:3,m) = zion0(1:3,m)
-            zion(7,m) = zion0(7,m)
-
-
-         enddo
+         num_of_recycling_ptls = mi-mi0+1
          !$acc update device(zion(:,mi0:mi),zion0(:,mi0:mi),ilabels(mi0:mi))
 
          call n_T_u_group(mi0,mi,flag_backf0=.true.)
@@ -1959,10 +1947,7 @@ module Ptl_Src_Loss
          ! Determine the weight of the new particle
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
          do m=mi0,mi
-
-            zion0(6,m) = weight_correction_factor*zion0(6,m) ! Increase the particle weights due to the particle load balancing
-
-            zion(5,m) = zion0(6,m) !
+            zion(5,m) = zion0(6,m)
             zion(8,m) = 1e-6*zion(8,m) ! Reduce the phase volume to reduce the particle noise
             zion0(6,m) = zion(5,m) + back_f0_i(m)*zion(8,m)
          enddo
@@ -1985,11 +1970,11 @@ module Ptl_Src_Loss
 
          ! Produce electrons using the new ion particles
          me0=me+1
-         me =me+num_of_new_ptls
+         me =me+num_of_recycling_ptls
 
 
          !$acc parallel loop present(zeon,zion,backTe,backT)
-         do k=1,num_of_new_ptls
+         do k=1,num_of_recycling_ptls
             ke=me0+(k-1)
             ki=mi0+(k-1)
 
@@ -2001,8 +1986,14 @@ module Ptl_Src_Loss
 
          call n_T_u_group_e(me0,me,flag_backf0=.true.)  ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
 
+
+         allocate(rand_arr(num_of_recycling_ptls))
+         do k=1,num_of_recycling_ptls
+            rand_arr(k) = sprng()
+         enddo
+
          !$acc parallel loop present(zeon,zion,backTe,backT)
-         do k=1,num_of_new_ptls
+         do k=1,num_of_recycling_ptls
             ke=me0+(k-1)
             ki=mi0+(k-1)
 
@@ -2034,7 +2025,8 @@ module Ptl_Src_Loss
          call Clear_OutParticles
 
          deallocate(rand_arr)
-      end subroutine Produce_Recycling_Ion_and_Electrons_using_OutParticles
+
+      end function Produce_Recycling_Ion_and_Electrons_using_OutParticles
 
 
 end module Ptl_Src_Loss
