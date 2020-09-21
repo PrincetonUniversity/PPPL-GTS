@@ -1613,12 +1613,12 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_ZON, "dTi_consst",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "dTi_consst", "note", "This is density-weighted averaged on Original Flux Surface", h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = ((2.0/3.0)*inv_msnap*DG%eZonData_1D(8,i)-DG%Te0_1D(i)*inv_msnap*DG%eZonData_1D(7,i))/(DG%n0_1D(i)+inv_msnap*DG%eZonData_1D(7,i)+int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
+         intp_val_Arr(i) = ((2.0/3.0)*inv_msnap*DG%cum_eZonData_1D(8,i)-DG%Te0_1D(i)*inv_msnap*DG%cum_eZonData_1D(7,i))/(DG%n0_1D(i)+inv_msnap*DG%cum_eZonData_1D(7,i)+int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_dTe_consst",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "mean_dTe_consst", "note", "This is density-weighted averaged on Original Flux Surface", h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = ((2.0/3.0)*inv_msnap*DG%iZonData_1D(8,i)-DG%Ti0_1D(i)*inv_msnap*DG%iZonData_1D(7,i))/(DG%n0_1D(i)+inv_msnap*DG%iZonData_1D(7,i))
+         intp_val_Arr(i) = ((2.0/3.0)*inv_msnap*DG%cum_iZonData_1D(8,i)-DG%Ti0_1D(i)*inv_msnap*DG%cum_iZonData_1D(7,i))/(DG%n0_1D(i)+inv_msnap*DG%cum_iZonData_1D(7,i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_dTi_consst",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "mean_dTi_consst", "note", "This is density-weighted averaged on Original Flux Surface", h5err)
