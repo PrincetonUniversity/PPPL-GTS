@@ -226,8 +226,7 @@ program GTS
    ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
    ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
-   call Initialize_FootPrint(FP_BDY1,a1)
-   call Initialize_FootPrint(cum_FP_BDY1,a1)
+   call Initialize_Ptl_Src_Loss
 
    istep=0
    !  if(mype==0) call view_orbit
@@ -547,8 +546,7 @@ program GTS
 
       if(Flag_Ptl_BC_type==1) then
          if(mod(istep,2)==0) then
-            call Inject_electrons_from_Boundaries(2*tstep*utime)
-            call Inject_ions_from_Boundaries(2*tstep*utime)
+            call Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing(2*tstep*utime)
          endif
       endif
       ! call load_electrons_In_or_Out_Flux(100,tstep*utime)

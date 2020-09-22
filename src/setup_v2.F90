@@ -111,6 +111,7 @@ Subroutine setup
    zeondim=7
    if(ifdphi>=2) zeondim=8
    ziondim=7
+   if(Flag_Recycling==1) ziondim=8 ! 8-th value is for the phase space volume of the particle
    !  r0=rmajor    !wx  normalized
    !  b0=b_axis    !wx  normalized
 
@@ -1902,12 +1903,12 @@ Subroutine setup
    ! Larmor orbit points will be determined using uniformly distribued gyro-phase angle.
    !==================================
 
-   allocate (zion(7,mimax),zion0(7,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
+   allocate (zion(ziondim,mimax),zion0(ziondim,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
       wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers),&
       zion_s_on_GyroOrbit(larmor_num,mimax),zion_gq_on_GyroOrbit(larmor_num,mimax))
 
    if(Flag_RK4==1) then
-      allocate(RK_cum_zion(7,mimax))
+      allocate(RK_cum_zion(ziondim,mimax))
       RK_cum_zion=0.0
    endif
    if(ifelectron/=0) then
@@ -2549,6 +2550,7 @@ Subroutine read_input_params
       electromagnetic,    &   ! =0, original electrostatic code; =1 electromagnetic code
       Flag_Streaming,     &   ! (include=1) or (exclude=0) perturbed streaming term and mirror force
       Flag_noExB,         &   ! Default=0 (ExB is considered), can be set =1 (noExB)
+      Flag_Recycling,     &   ! Default=0 (no Recycling), can be set = 1 (Recycling of Ion at outer wall)
       num_of_EMP,         &   ! number of EMP (External Magnetic Perturbation) : how many mode number (m,n) are considered?
       ga0, gam, gan, gagw, gagf0, dga0dt,&
       ga_rc, ga_rw, ga_pp, &   ! parameters of analytic radial profile of alpha; alpha_amplitude(r) = r*ga0*exp(-abs((r-ga_rc)/ga_rw)^ga_pp)
@@ -2640,6 +2642,7 @@ Subroutine read_input_params
       write(0,*) 'electromagnetic=', electromagnetic
       write(0,*) 'Flag_Streaming=', Flag_Streaming
       write(0,*) 'Flag_noExB=', Flag_noExB
+      write(0,*) 'Flag_Recycling=', Flag_Recycling
       write(0,*) 'num_of_EMP =',num_of_EMP
       write(0,*) 'ga0 =', ga0, 'gam =', gam, 'gan =', gan, 'gagw =', gagw, 'gagf0 =', gagf0, 'dga0dt =', dga0dt;
       write(0,*) 'num_of_etracers=', num_of_etracers,', num_of_itracers=',num_of_itracers, ', nstep_for_tracer_record=', nstep_for_tracer_record

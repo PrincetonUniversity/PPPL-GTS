@@ -237,8 +237,34 @@ module Ptl_Src_Loss
 
    type(FootPrint) FP_BDY1, cum_FP_BDY1
 
+
+   type OutParticles
+      integer :: mout ! number of out particles
+      integer :: mout_max ! maximum number of out particles
+      real(wp) :: Recycling_Ratio=0.7
+      real(wp), allocatable, dimension(:,:) :: P, P0
+      real(wp), allocatable, dimension(:) :: energy, backT, backf0, labels
+   end type
+
+
+   type(OutParticles) outION
+
    contains
 
+      subroutine Initialize_Ptl_Src_Loss
+         use global_parameters
+         implicit none
+
+         if(Flag_Recycling==1) then
+            outION%mout_max = mimax/20
+            allocate(outION%P(ziondim,outION%mout_max),outION%P0(ziondim,outION%mout_max))
+            allocate(outION%energy(outION%mout_max),outION%backT(outION%mout_max),outION%backf0(outION%mout_max),outION%labels(outION%mout_max))
+         endif
+
+         call Initialize_FootPrint(FP_BDY1,a1)
+         call Initialize_FootPrint(cum_FP_BDY1,a1)
+
+      end subroutine Initialize_Ptl_Src_Loss
 
       subroutine Initialize_FootPrint(FP,target_a)
          use global_parameters
@@ -630,6 +656,102 @@ module Ptl_Src_Loss
          i_cum_lost_num_BDY0 = 0
          i_cum_lost_num_BDY1 = 0
       end subroutine Clear_i_cum_lost_num
+
+      subroutine Clear_OutParticles
+         implicit none
+         outION%mout = 0
+         outION%P = 0.0
+         outION%P0 = 0.0
+         outION%backT = 0.0
+         outION%backf0 = 0.0
+         outION%energy = 0.0
+         outION%labels = 0.0
+      end subroutine
+
+      subroutine Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing(delta_t_seconds)
+         use global_parameters
+         use mpi_defs
+         implicit none
+
+         real(wp), intent(in) :: delta_t_seconds
+         integer ierror
+         integer G_e_cum_lost_num_BDY0, G_e_cum_lost_num_BDY1 ! 'G_' stands for the "global" variables
+         integer G_i_cum_lost_num_BDY0, G_i_cum_lost_num_BDY1
+         integer G_outIon_mout, G_dN_recycling
+         integer :: num_of_new_ptls_per_rank=0
+         integer :: dNe_BDY0, dNe_BDY1, dNi_BDY0, dNi_BDY1, dN_recycling ! Local (per mpi rank) number of new particles w.r.t ions, electrons, recycling particles
+         real(wp) time0, time1
+
+         call MPI_ALLREDUCE(e_cum_lost_num_BDY0, G_e_cum_lost_num_BDY0, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(e_cum_lost_num_BDY1, G_e_cum_lost_num_BDY1, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(i_cum_lost_num_BDY0, G_i_cum_lost_num_BDY0, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(i_cum_lost_num_BDY1, G_i_cum_lost_num_BDY1, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         call MPI_ALLREDUCE(outION%mout, G_outIon_mout, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+         dNe_BDY0 = G_e_cum_lost_num_BDY0/numberpe
+         dNe_BDY1 = G_e_cum_lost_num_BDY1/numberpe
+         dNi_BDY0 = G_i_cum_lost_num_BDY0/numberpe
+         dNi_BDY1 = G_i_cum_lost_num_BDY1/numberpe
+         if(mype==0) then
+            write(stdout,'(A,I8,2(A,I8,A,I8,A),A,I8)') "istep=",istep,  "; G_cum_lost_num  ION(BDY0+BDY1)=(",G_i_cum_lost_num_BDY0," + ", G_i_cum_lost_num_BDY1,")",&
+                                                      "; ELECTRON(BDY0+BDY1)=(",G_e_cum_lost_num_BDY0," + ", G_e_cum_lost_num_BDY1,")", "; G_outIon_mout=",G_outIon_mout
+            call flush(stdout)
+         endif
+
+         if(Flag_Recycling==1) then
+
+#ifdef _MGY_TIMER_
+            time0 = MPI_WTIME()
+#endif
+            dN_recycling =  Produce_Recycling_Ion_and_Electrons_using_OutParticles
+#ifdef _MGY_TIMER_
+            time1=MPI_WTIME()
+            if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Produce_Recycling_Ptls  takes", time1-time0, " secs"
+            call flush(stdout)
+#endif
+
+            call MPI_ALLREDUCE(dN_recycling, G_dN_recycling, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD,ierror)
+
+            dNi_BDY1 = (G_i_cum_lost_num_BDY1-G_dN_recycling)/numberpe
+            dNe_BDY1 = (G_e_cum_lost_num_BDY1-G_dN_recycling)/numberpe
+
+            write(stdout,'(6(A,I8))') "istep=",istep, "; mype=", mype, "; dNi_BDY1 =", dNi_BDY1,"; dNe_BDY1 =", dNe_BDY1 ,"; dN_recycling=", dN_recycling
+            call flush(stdout)
+         endif
+
+
+
+#ifdef _MGY_TIMER_
+         time0 = MPI_WTIME()
+#endif
+         ! Create Src from inner boundary (BDY0)
+         call load_electrons_In_or_Out_Flux(dNe_BDY0, delta_t_seconds,1.0,a0)
+         ! Create Src from inner boundary (BDY1)
+         call load_electrons_In_or_Out_Flux(dNe_BDY1, delta_t_seconds,0.0,a1)
+         ! Clear accumulated electron lost number
+         call Clear_e_cum_lost_num
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Inject_electrons_from_Boundaries takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
+
+#ifdef _MGY_TIMER_
+         time0 = MPI_WTIME()
+#endif
+         ! Create Src from inner boundary (BDY0)
+         call load_ions_In_or_Out_Flux(dNi_BDY0, delta_t_seconds,1.0,a0)
+         ! Create Src from inner boundary (BDY1)
+         call load_ions_In_or_Out_Flux(dNi_BDY1, delta_t_seconds,0.0,a1)
+         ! Clear accumulated ion lost number
+         call Clear_i_cum_lost_num
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Inject_ions_from_Boundaries takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
+      end subroutine Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing
 
 
       subroutine Inject_electrons_from_Boundaries(delta_t_seconds)
@@ -1578,12 +1700,14 @@ module Ptl_Src_Loss
          integer m,i,j
          real(wp) psimax,psimin
          integer lost_mid_arr(mimax) ! index of loss particles
+         integer lost_mid_arr_BDY1(mimax)
          integer lost_num ! number of loss particles across boundary
          integer, allocatable :: fill_mid_arr(:)
          integer fill_num
          integer mtop, lasth
          integer dim_zion, dim_zion0, dim_RK_cum_zion
          real(wp) zion_a_arr(mi)
+         real(wp), allocatable :: out_zion_BDY1(:,:), out_zion0_BDY1(:,:), out_ilabels_BDY1(:)
 
          m0=1
          m1=mi
@@ -1646,12 +1770,38 @@ module Ptl_Src_Loss
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
                   i_lost_num_BDY1 = i_lost_num_BDY1 +1
+                  lost_mid_arr_BDY1(i_lost_num_BDY1) = m
                elseif(zion_a_arr(m) < psimin)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
                   i_lost_num_BDY0 = i_lost_num_BDY0 +1
                endif
             enddo
+
+            if(Flag_Recycling==1) then
+               if(i_lost_num_BDY1>0) then
+                  allocate(out_zion_BDY1(ziondim,i_lost_num_BDY1),out_zion0_BDY1(ziondim,i_lost_num_BDY1),out_ilabels_BDY1(i_lost_num_BDY1))
+
+                  !$acc parallel loop copyout(out_zion_BDY1(:,:i_lost_num_BDY1),out_zion0_BDY1(:,:i_lost_num_BDY1),out_ilabels_BDY1(:i_lost_num_BDY1))
+                  do m=1,i_lost_num_BDY1
+                     out_zion_BDY1(:,m) = zion(:,lost_mid_arr_BDY1(m))
+                     out_zion0_BDY1(:,m) = zion0(:,lost_mid_arr_BDY1(m))
+                     out_ilabels_BDY1(m) = ilabels(lost_mid_arr_BDY1(m))
+                  enddo
+
+                  do m=1,i_lost_num_BDY1
+                     if(out_zion0_BDY1(6,m)>0) then ! Ignore zero ftot particles
+                        outION%mout = outION%mout +1
+
+                        outION%P(:,outION%mout) = out_zion_BDY1(:,m)
+                        outION%P0(:,outION%mout) = out_zion0_BDY1(:,m)
+                        outION%labels(outION%mout) = out_ilabels_BDY1(m)
+                     endif
+                  enddo
+
+                  deallocate(out_zion_BDY1,out_zion0_BDY1,out_ilabels_BDY1)
+               endif
+            endif
 
 
             write(stdout,'(5(A,I8))') "istep=",istep,"; mype=",mype,"; i_lost_num=",lost_num, "=",i_lost_num_BDY0, "+",i_lost_num_BDY1
@@ -1720,6 +1870,163 @@ module Ptl_Src_Loss
       end subroutine treat_ions_out_of_boundary
 
 
+      subroutine Pick_Random_Between_Numbers_NoDuplicates(a,b,Npick,out_arr)
+         implicit none
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+         integer, intent(in) :: a,b,Npick ! Pick N random numbers between a and b without duplicates
+         integer, intent(out) :: out_arr(:)
+         integer i, r, len
+         integer, allocatable :: nums_in_bin(:)
+
+         len=b-a+1
+         allocate(nums_in_bin(len))
+         do i=1,len
+            nums_in_bin(i)=a+(i-1) ! target numbers [a,b] in ascending order
+         enddo
+
+         do i=1,Npick
+            r = floor(sprng()*len)+1 ! pick random number between [1,len]
+            out_arr(i)=nums_in_bin(r)
+            nums_in_bin(r) = nums_in_bin(len)
+            len=len-1
+         enddo
+
+         deallocate(nums_in_bin)
+      end subroutine Pick_Random_Between_Numbers_NoDuplicates
+
+
+
+      function Produce_Recycling_Ion_and_Electrons_using_OutParticles() result(num_of_recycling_ptls)
+         use global_parameters
+         use particle_array
+         use function_gg_module
+         implicit none
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+         integer, intent(out) :: num_of_recycling_ptls
+         integer m,k,ke,ki
+         integer me0,mi0
+         real(wp) :: ErgDampRatio=1e-2
+         integer, allocatable :: rand_arr(:)
+
+
+         mi0=mi+1 ! starting index of newly produced particles
+
+         do k=1,outION%mout
+            if(sprng()<outION%Recycling_Ratio) then
+               mi=mi+1
+
+               ! Copy to zion
+               zion(:,mi)  = outION%P(:,k)
+               zion0(:,mi) = outION%P0(:,k)
+               ilabels(mi) = 1.0
+
+               ! Reverse the parallel velocity and damp the magnitude
+               zion(4,mi) = -sqrt(ErgDampRatio)*zion(4,mi)
+               zion(6,mi) = sqrt(ErgDampRatio)*zion(6,mi)
+               ! Reset the particle position to be the previous one
+               zion(1:3,mi) = zion0(1:3,mi)
+               zion(7,mi) = zion0(7,mi)
+
+               ! For test
+               ! zion(1,mi) = 0.5
+               ! zion0(1,mi) = 0.5
+               ! zion(7,mi) = 0.5
+               ! zion0(7,mi) = 0.5
+            endif
+         enddo
+         num_of_recycling_ptls = mi-mi0+1
+         !$acc update device(zion(:,mi0:mi),zion0(:,mi0:mi),ilabels(mi0:mi))
+
+         call n_T_u_group(mi0,mi,flag_backf0=.true.)
+         call ion_locator_at_larmor_points_partial(mi0,mi)
+
+         ! Determine the weight of the new particle
+         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         do m=mi0,mi
+            zion(5,m) = zion0(6,m)
+            zion0(8,m) = 1e-6*zion0(8,m) ! Reduce the phase volume to reduce the particle noise
+            zion0(6,m) = zion(5,m) + back_f0_i(m)*zion0(8,m)
+         enddo
+
+         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         do m=mi0,mi
+            wi_init(m)  = zion(5,m)
+            wi_vpara(m) = 0
+            wi_vperp(m) = 0
+            wi_accel(m) = 0
+            wi_fdamp(m) = 0
+
+            zion0(1:5,m)     = zion(1:5,m)
+            zion0(7,m)       = zion(7,m)
+            UnNorm_theta_i(m)= zion(2,m)
+            UnNorm_zeta_i(m) = zion(3,m)
+         enddo
+
+
+
+         ! Produce electrons using the new ion particles
+         me0=me+1
+         me =me+num_of_recycling_ptls
+
+
+         !$acc parallel loop present(zeon,zion,backTe,backT)
+         do k=1,num_of_recycling_ptls
+            ke=me0+(k-1)
+            ki=mi0+(k-1)
+
+            zeon(:,ke) = zion(:,ki)
+            zeon0(:,ke) = zion0(:,ki)
+            ! elabels(ke) = ilabels(ki) ! NOTE: This is not correct.. just for test now
+            elabels(ke) = 1.0
+         enddo
+
+         call n_T_u_group_e(me0,me,flag_backf0=.true.)  ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+
+
+         allocate(rand_arr(num_of_recycling_ptls))
+         do k=1,num_of_recycling_ptls
+            rand_arr(k) = sprng()
+         enddo
+
+         !$acc parallel loop present(zeon,zion,backTe,backT)
+         do k=1,num_of_recycling_ptls
+            ke=me0+(k-1)
+            ki=mi0+(k-1)
+
+            zeon(4,ke)=zion(4,ki)*sqrt(msm0)*c0cs*sqrt(msm0*backTe(ke)/backT(ki))  !checked; neglect electron rotation
+            zeon(6,ke)=zion(6,ki)*sqrt(msm0*backTe(ke)/backT(ki))     ! =sqrt(mu_e)
+
+            ! Electron's vpara direction is random because of the ionization process
+            zeon(4,ke)=sign(1.0,rand_arr(k)-0.5)*zeon(4,ke)
+         enddo
+
+         call electron_locator_partial(me0,me) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
+
+         !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         do m=me0,me
+            we_init(m)  = zeon(5,m)
+            we_vpara(m) = 0
+            we_vperp(m) = 0
+            we_accel(m) = 0
+            we_adiab(m) = 0
+            we_fdamp(m) = 0
+
+            zeon0(1:5,m)     = zeon(1:5,m)
+            zeon0(7,m)       = zeon(7,m)
+            UnNorm_theta_e(m)= zeon(2,m)
+            UnNorm_zeta_e(m) = zeon(3,m)
+         enddo
+
+
+         call Clear_OutParticles
+
+         deallocate(rand_arr)
+
+      end function Produce_Recycling_Ion_and_Electrons_using_OutParticles
 
 
 end module Ptl_Src_Loss

@@ -100,10 +100,10 @@ module Diagnostic_Grid
 
          DG%dim_a  = (mpsi+1)/DG%a_jump
          DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
-         DG%num_eSD = 6 +6 +6 +1 +4 !23
+         DG%num_eSD = 6 +6 +6 +1 +4 +1 !23
          DG%num_eVD = 5
 
-         DG%num_iSD = 8 +6 +6 +1 +4 ! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
+         DG%num_iSD = 8 +6 +6 +1 +4 +1! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
          DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
          DG%num_eZD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
@@ -718,6 +718,8 @@ module Diagnostic_Grid
 
                   if(elabels(m)==-1) then
                      vid=19; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Negative df Markers from Walls
+                  elseif(elabels(m)==1) then
+                     vid=24;DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Negative df Markers from Walls
                   endif
 
                   ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
@@ -1056,6 +1058,8 @@ module Diagnostic_Grid
 
                   if(ilabels(m)==-1) then
                      vid=21; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Negative df Markers from Walls
+                  elseif(ilabels(m)==1) then
+                     vid=26; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Negative df Markers from Walls
                   endif
 
                   ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
