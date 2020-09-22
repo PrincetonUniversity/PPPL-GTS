@@ -843,10 +843,10 @@ subroutine load_uniform_MGY
          ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
          each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m)
          integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
-         zion(8,m) = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z
+         zion0(8,m) = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z
       elseif(Flag_Load_and_WeightDef==2)then
          integral_f0 = back_f0_i(m)/gi_val(m)
-         zion(8,m)  = 1.0/gi_val(m) ! Phase space volume occupied by each particle
+         zion0(8,m)  = 1.0/gi_val(m) ! Phase space volume occupied by each particle
       endif
 
       zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
