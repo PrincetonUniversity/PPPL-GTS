@@ -108,10 +108,9 @@ Subroutine setup
    if(ifneoclassical==1) Er_from_GTC_Neo=0   ! no need to import any equilibrium Er
 
    if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases
-   zeondim=7
-   if(ifdphi>=2) zeondim=8
-   ziondim=7
-   if(Flag_Recycling==1) ziondim=8 ! 8-th value is for the phase space volume of the particle
+   zeondim=8
+   if(ifdphi>=2) zeondim=9
+   ziondim=8
    !  r0=rmajor    !wx  normalized
    !  b0=b_axis    !wx  normalized
 
@@ -1913,21 +1912,9 @@ Subroutine setup
    endif
    if(ifelectron/=0) then
 
-      if(Flag_RK4==1) then
-         if(ifdphi==3) then
-            ! 8th element stores cumulative weight increase due to partial derivative of dphidt
-            allocate(RK_cum_zeon(8,memax))
-         else
-            allocate(RK_cum_zeon(7,memax))
-         endif
-         RK_cum_zeon=0.0
-      endif
+      allocate(RK_cum_zeon(zeondim,memax))
 
-      if(ifdphi>=2) then   ! use direct dphi/dt when ifelectron==2
-         allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))
-      else
-         allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))
-      end if
+      allocate (zeon(zeondim,memax),zeon0(zeondim,memax),zeon00(zeondim,memax))
 
       allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
          wteon0(memax),wteon1(memax),markere(mgrid),&

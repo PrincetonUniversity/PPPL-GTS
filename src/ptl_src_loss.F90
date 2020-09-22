@@ -365,7 +365,7 @@ module Ptl_Src_Loss
             f_tot(:)   = eNrNm
          else
             delta_f(:) = out_zeon(5,1:m_out)
-            f_tot(:)   = out_zeon0(6,1:m_out)
+            f_tot(:)   = out_zeon0(8,1:m_out)
          endif
 
 
@@ -495,7 +495,7 @@ module Ptl_Src_Loss
             f_tot(:)   = iNrNm
          else
             delta_f(:) = out_zion(5,1:m_out)
-            f_tot(:)   = out_zion0(6,1:m_out)
+            f_tot(:)   = out_zion0(8,1:m_out)
          endif
 
 
@@ -1118,7 +1118,7 @@ module Ptl_Src_Loss
 
          ! Set initial weights of electrons
          ! zeon(5,m) is "df" or "dh"
-         ! zeon0(6,m) is "f_tot"
+         ! zeon0(8,m) is "f_tot"
 
          do m=m0,me
             vpara = m0ms*csc0*BB(m)*zeon(4,m)  ! vpara = (eB/m)*rho_para
@@ -1128,8 +1128,8 @@ module Ptl_Src_Loss
             ! integral_f0 = vpara*delta_t_seconds*back_f0_e(m)/ge_val(m)
             ! integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
             integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-            zeon0(6,m) = FluxFactor_over_f0*integral_f0
-            zeon(5,m)  = zeon0(6,m)-integral_f0 +int(ifelectron/2)*AdiabTerm(m)*integral_f0 ! For dh, dh=f_tot-f0+q*phi/Te0*f0
+            zeon0(8,m) = FluxFactor_over_f0*integral_f0
+            zeon(5,m)  = zeon0(8,m)-integral_f0 +int(ifelectron/2)*AdiabTerm(m)*integral_f0 ! For dh, dh=f_tot-f0+q*phi/Te0*f0
 
             if(da(m)<0) then
                zeon(1,m)=target_a-1e-5
@@ -1166,7 +1166,7 @@ module Ptl_Src_Loss
          !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
          do m=m0,me
             !Calculate the correct weight values by considering the number of total marker particles
-            zeon0(6,m) = inv_Nm*zeon0(6,m)
+            zeon0(8,m) = inv_Nm*zeon0(8,m)
             zeon(5,m)  = inv_Nm*zeon(5,m)
 
             we_init(m)  = zeon(5,m)
@@ -1449,13 +1449,13 @@ module Ptl_Src_Loss
 
          ! Set initial weights of electrons
          ! zion(5,m) is "df" or "dh"
-         ! zion0(6,m) is "f_tot"
+         ! zion0(8,m) is "f_tot"
 
          do m=m0,mi
             vpara = BB(m)*zion(4,m)  ! vpara = (eB/m)*rho_para
             integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_i(m)/gi_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-            zion0(6,m) = FluxFactor_over_f0*integral_f0
-            zion(5,m)  = zion0(6,m)-integral_f0
+            zion0(8,m) = FluxFactor_over_f0*integral_f0
+            zion(5,m)  = zion0(8,m)-integral_f0
 
             if(da(m)<0) then
                zion(1,m)=target_a-1e-5
@@ -1492,7 +1492,7 @@ module Ptl_Src_Loss
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
          do m=m0,mi
             !Calculate the correct weight values by considering the number of total marker particles
-            zion0(6,m) = inv_Nm*zion0(6,m)
+            zion0(8,m) = inv_Nm*zion0(8,m)
             zion(5,m)  = inv_Nm*zion(5,m)
 
 
@@ -1947,9 +1947,9 @@ module Ptl_Src_Loss
          ! Determine the weight of the new particle
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
          do m=mi0,mi
-            zion(5,m) = zion0(6,m)
-            zion0(8,m) = 1e-6*zion0(8,m) ! Reduce the phase volume to reduce the particle noise
-            zion0(6,m) = zion(5,m) + back_f0_i(m)*zion0(8,m)
+            zion(5,m) = zion0(8,m)
+            zion0(6,m) = 1e-6*zion0(6,m) ! Reduce the phase volume to reduce the particle noise
+            zion0(8,m) = zion(5,m) + back_f0_i(m)*zion0(6,m)
          enddo
 
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)

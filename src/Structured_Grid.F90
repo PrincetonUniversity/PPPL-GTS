@@ -315,7 +315,7 @@ contains
             !$acc parallel loop present(zeon,zeon0,ptl_data,backTe)
             do m=1,me
                ptl_data(1,m) = zeon(5,m)
-               ptl_data(2,m) = zeon0(6,m)
+               ptl_data(2,m) = zeon0(8,m)
             enddo
       end select
 
@@ -511,7 +511,7 @@ contains
             !$acc parallel loop present(zion,zion0,ptl_data)
             do m=1,mi
                ptl_data(1,m) = zion(5,m)
-               ptl_data(2,m) = zion0(6,m)
+               ptl_data(2,m) = zion0(8,m)
             enddo
       end select
 

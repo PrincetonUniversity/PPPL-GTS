@@ -653,7 +653,7 @@ module Diagnostic_Grid
             f_tot(:)   = eNrNm
          else
             delta_f(:) = zeon0(5,1:me)
-            f_tot(:)   = zeon0(6,1:me)
+            f_tot(:)   = zeon0(8,1:me)
          endif
 
          do m=1,me
@@ -993,7 +993,7 @@ module Diagnostic_Grid
             f_tot(:)   = iNrNm
          else
             delta_f(:) = zion0(5,1:mi)
-            f_tot(:)   = zion0(6,1:mi)
+            f_tot(:)   = zion0(8,1:mi)
          endif
 
          do m=1,mi

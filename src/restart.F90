@@ -27,7 +27,7 @@ subroutine restart_write
 
    write(222) istep,mi,ntracer,ntracer_energy_ion0,misum
    write(222) zion(1:7,1:mi)
-   write(222) zion0(6,1:mi)
+   write(222) zion0(8,1:mi)
    write(222) isize,buffer1
    write(222) sn_box,sn0,sn0_g,sw,rdtem0,rtden,pmarki,markeri,cloud_i    ! these are calculated in load.f90 and should be saved for check point
    write(222) phi  ! --> initial <phi> for poisson solving total phi  (ZF_SEPARATION=0 case)
@@ -42,7 +42,7 @@ subroutine restart_write
          write(222) zeon(1:8,1:me)
       endif
 
-      write(222) zeon0(6,1:me)
+      write(222) zeon0(8,1:me)
 
       write(222) UnNorm_zeta_i(1:mi), UnNorm_theta_i(1:mi)
       write(222) UnNorm_zeta_e(1:mi), UnNorm_theta_e(1:mi)
@@ -101,7 +101,7 @@ subroutine restart_read
    ! read particle information to restart previous run
    read(333) istart,mi,ntracer,ntracer_energy_ion0,misum
    read(333) zion(1:7,1:mi)
-   read(333) zion0(6,1:mi)
+   read(333) zion0(8,1:mi)
    read(333) isize,buffer1
    read(333) sn_box,sn0,sn0_g,sw,rdtem0,rtden,pmarki,markeri,cloud_i
    read(333) phi  ! --> initial <phi> for poisson solving total phi (ZF_SEPARATION=0 case)
@@ -118,7 +118,7 @@ subroutine restart_read
       elseif(ifdphi>=2) then
          read(333) zeon(1:8,1:me)
       endif
-      read(333) zeon0(6,1:me)
+      read(333) zeon0(8,1:me)
 
       read(333) UnNorm_zeta_i(1:mi), UnNorm_theta_i(1:mi)
       read(333) UnNorm_zeta_e(1:mi), UnNorm_theta_e(1:mi)

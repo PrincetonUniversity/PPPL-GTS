@@ -73,7 +73,7 @@ subroutine snapshot
       call esigetb(zion,mi,7)   ! get B-->BB
 
       do m=1,mi
-         weight=zion0(6,m)
+         weight=zion0(8,m)
          r=zion(1,m)
          ibin=max(1,min(mbin_psi,1+int((r-a0)*dela)))
          ip=max(0,min(mpsi,int((zion(7,m)-s0)*delr+0.5)))
@@ -122,7 +122,7 @@ subroutine snapshot
       call esigetb(zeon,me,zeondim)   ! get B
 
       do m=1,me
-         weight=zeon0(6,m)
+         weight=zeon0(8,m)
 
          r=zeon(1,m)       ! r=sqrt(2.0*zeon(1,m))
          ibin=max(1,min(mbin_psi,1+int((r-a0)*dela)))

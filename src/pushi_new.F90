@@ -392,13 +392,13 @@ subroutine pushion
       !     if(mype==0.and.m==mi/4) print*, 'AVW=', avw, zion(5,m), mype
       !     if(mype==200.and.m==mi/8) print*, 'AVW=', avw, zion(5,m), mype
 
-      !     wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB+w_anti_relax)
+      !     wdot=(zion0(8,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB+w_anti_relax)
 
       ! if(wimcompressibility==1) then     ! for weight imcompressibility
-      !    !  wdot=(zion0(6,m)-nonlinear*avw)*(wdrive*fip+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
-      !    wdot=(zion0(6,m)-nonlinear*avw)*(wdrive+wdrift+wKH+wgradB)*fip   ! Correct statement for weight_damping
+      !    !  wdot=(zion0(8,m)-nonlinear*avw)*(wdrive*fip+wdrift+wKH+wgradB)   ! Correct statement for weight_damping
+      !    wdot=(zion0(8,m)-nonlinear*avw)*(wdrive+wdrift+wKH+wgradB)*fip   ! Correct statement for weight_damping
       ! else
-      !    wdot=(zion0(6,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)*fip
+      !    wdot=(zion0(8,m)-nonlinear*zion(5,m))*(wdrive+wdrift+wKH+wgradB)*fip
       ! end if
 
       wdot = (wdrive+wdrift+wKH+wgradB)
@@ -447,9 +447,9 @@ subroutine pushion
             now_w = zion(5,m)
          endif
 
-         wi_vpara(m) = wi_vpara(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_vpara*fip)
-         wi_vperp(m) = wi_vperp(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_vperp*fip)
-         wi_accel(m) = wi_accel(m) + dtime*( (zion0(6,m)-nonlinear*now_w)*wdot_accel*fip)
+         wi_vpara(m) = wi_vpara(m) + dtime*( (zion0(8,m)-nonlinear*now_w)*wdot_vpara*fip)
+         wi_vperp(m) = wi_vperp(m) + dtime*( (zion0(8,m)-nonlinear*now_w)*wdot_vperp*fip)
+         wi_accel(m) = wi_accel(m) + dtime*( (zion0(8,m)-nonlinear*now_w)*wdot_accel*fip)
          wi_fdamp(m) = wi_fdamp(m) + dtime*(-fdamp*zion(5,m) )
 
       endif
@@ -479,16 +479,16 @@ subroutine pushion
       !  endif
 
       if(Flag_w_Evol==1) then
-         ! From the definition of the transformed weight z=-ln(ga-w), where ga=zion0(6,m)
+         ! From the definition of the transformed weight z=-ln(ga-w), where ga=zion0(8,m)
          ! the weight increase becomes delta_w = (ga-w0)*[1-exp(-F*dt)], where F is the driving force
          ! NOTE This scheme is beneficial for nonlinear case only (dw/dt=(ga-w)*F).
          ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
-         zion(5,m) = zion0(5,m)+(zion0(6,m)-zion0(5,m))*(1.0-exp(-wdot*dtime))
+         zion(5,m) = zion0(5,m)+(zion0(8,m)-zion0(5,m))*(1.0-exp(-wdot*dtime))
       else
          if(wimcompressibility==1) then     ! for weight imcompressibility
-            zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*avw)*wdot*fip-fdamp*zion(5,m))
+            zion(5,m) = zion0(5,m)+dtime*((zion0(8,m)-nonlinear*avw)*wdot*fip-fdamp*zion(5,m))
          else
-            zion(5,m) = zion0(5,m)+dtime*((zion0(6,m)-nonlinear*zion(5,m))*wdot*fip-fdamp*zion(5,m))
+            zion(5,m) = zion0(5,m)+dtime*((zion0(8,m)-nonlinear*zion(5,m))*wdot*fip-fdamp*zion(5,m))
          end if
       endif
 
@@ -499,7 +499,7 @@ subroutine pushion
 
       !  if (mype ==0 .AND. MOD(m,(mi/10))==0) then
       !   write(stdout,*) 'I''m= ',mype, ' zion(5,m=',m,')= ',zion(5,m), ' zion0(5,m=',m,')= ',zion0(5,m), ' avw= ',avw
-      !   write(stdout,*) 'zion(6,m=',m,')= ',zion(6,m), ' zion0(6,m=',m,')= ',zion0(6,m) , ' wdot= ', wdot
+      !   write(stdout,*) 'zion(6,m=',m,')= ',zion(6,m), ' zion0(8,m=',m,')= ',zion0(8,m) , ' wdot= ', wdot
       ! end if
 
 
@@ -619,7 +619,7 @@ subroutine pushion
          i=max(1,min(mflux,1+int((r-s0)*real(mflux)/(s1-s0))))
 
          ! marker,energy,particle,momentum fluxes,parallel flows,entropy and kinetic energy
-         rmarker(i)=rmarker(i)+zion0(6,m)
+         rmarker(i)=rmarker(i)+zion0(8,m)
          eflux(i)=eflux(i)+vdrenergy
          pfluxi=pfluxi+wpi(1,m)*zion0(5,m)
          dflowi=dflowi+BB(m)*zion0(4,m)*zion0(5,m)
@@ -821,7 +821,7 @@ subroutine pushion_RK4(irk_i)
       acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
       !$acc parallel loop present(zion,zion0,RK_cum_zion)
       do m=1,mi
-         ! Note that zion0(6,m) does not mean "mu", this is reserved for the other quantity
+         ! Note that zion0(8,m) does not mean "mu", this is reserved for the other quantity
          !$acc loop seq
          do i=1,5
             zion0(i,m)=zion(i,m)
@@ -1171,9 +1171,9 @@ subroutine pushion_RK4(irk_i)
          wdot_accel  = wdrift + wgradB
          !=================================================================
 
-         wi_vpara(m) = wi_vpara(m) + tstep*( (zion0(6,m)-nonlinear*now_w)*wdot_vpara*fip)
-         wi_vperp(m) = wi_vperp(m) + tstep*( (zion0(6,m)-nonlinear*now_w)*wdot_vperp*fip)
-         wi_accel(m) = wi_accel(m) + tstep*( (zion0(6,m)-nonlinear*now_w)*wdot_accel*fip)
+         wi_vpara(m) = wi_vpara(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_vpara*fip)
+         wi_vperp(m) = wi_vperp(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_vperp*fip)
+         wi_accel(m) = wi_accel(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_accel*fip)
          wi_fdamp(m) = wi_fdamp(m) + tstep*(-fdamp*zion(5,m) )
 
       endif
@@ -1191,7 +1191,7 @@ subroutine pushion_RK4(irk_i)
       if(Flag_w_Evol==1) then
          RK_cum_zion(5,m) = RK_cum_zion(5,m) +(wdot)*(RK_cum_coeff*tstep)
       else
-         RK_cum_zion(5,m) = RK_cum_zion(5,m) +RK_cum_coeff*tstep*((zion0(6,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
+         RK_cum_zion(5,m) = RK_cum_zion(5,m) +RK_cum_coeff*tstep*((zion0(8,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
       endif
 
       ! Advance particle information for the next RK step
@@ -1204,9 +1204,9 @@ subroutine pushion_RK4(irk_i)
          zion(7,m) = zion0(7,m)+RK_adv_coeff*tstep*(Tc*T_inverse)**dsda_power*da(m)
 
          if(Flag_w_Evol==1) then
-            zion(5,m) = zion0(5,m)+(zion0(6,m)-zion0(5,m))*(1.0-exp(-wdot*RK_adv_coeff*tstep))
+            zion(5,m) = zion0(5,m)+(zion0(8,m)-zion0(5,m))*(1.0-exp(-wdot*RK_adv_coeff*tstep))
          else
-            zion(5,m) = zion0(5,m)+RK_adv_coeff*tstep*((zion0(6,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
+            zion(5,m) = zion0(5,m)+RK_adv_coeff*tstep*((zion0(8,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
          endif
 
       else if(irk_i==4) then !irk_i==4
@@ -1219,7 +1219,7 @@ subroutine pushion_RK4(irk_i)
 
          if(Flag_w_Evol==1) then
             ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
-            zion(5,m) = zion0(5,m)+(zion0(6,m)-zion0(5,m))*(1.0-exp(-RK_cum_zion(5,m)))
+            zion(5,m) = zion0(5,m)+(zion0(8,m)-zion0(5,m))*(1.0-exp(-RK_cum_zion(5,m)))
          else
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
             zion(5,m) = zion0(5,m) +RK_cum_zion(5,m)
@@ -1232,7 +1232,7 @@ subroutine pushion_RK4(irk_i)
       !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion=',zion(:,m)
       !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0=',zion0(:,m)
       !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', RK_cum_zion=',RK_cum_zion(:,m)
-      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0(6,m)=',zion0(6,m),', now_w=', now_w, ', wdot=',wdot
+      !    write(stdout,*) 'In pushiRK4, irk=',irk,', m=',m,', zion0(8,m)=',zion0(8,m),', now_w=', now_w, ', wdot=',wdot
       !    call flush(stdout)
       ! endif
 
@@ -1322,7 +1322,7 @@ subroutine pushion_RK4(irk_i)
          i=max(1,min(mflux,1+int((r-s0)*real(mflux)/(s1-s0))))
 
          ! marker,energy,particle,momentum fluxes,parallel flows,entropy and kinetic energy
-         rmarker(i)=rmarker(i)+zion0(6,m)
+         rmarker(i)=rmarker(i)+zion0(8,m)
          eflux(i)=eflux(i)+vdrenergy
          pfluxi=pfluxi+wpi(1,m)*zion0(5,m)
          dflowi=dflowi+BB(m)*zion0(4,m)*zion0(5,m)

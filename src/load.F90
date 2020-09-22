@@ -302,7 +302,7 @@ subroutine load
    !$acc update device(ilabels(:mi))
 
    if(iload==0)then
-      ! for arbitrary loading according to a distribution function g_0(x,v), then zion0(6,*)=f_0/g_0
+      ! for arbitrary loading according to a distribution function g_0(x,v), then zion0(8,*)=f_0/g_0
       !         where f_0 is equilibrium distribution with delta_f=f-f_0.
       !         Here g_0 contains density <n(r,theta)> rather than n(r,theta), so
       !         f_0/g_0=exp(u^2/2T)/<exp(u^2/2T)>.
@@ -317,15 +317,15 @@ subroutine load
          ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
          fip=r-real(ip,wp)
          ave0=fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip)       ! ave0=<exp(u^2/2T)> at particles
-         zion0(6,m)=exp(backu(m)**2/(2.0*backT(m)))/ave0     ! =1 if u_//=0 (no rotation)
+         zion0(8,m)=exp(backu(m)**2/(2.0*backT(m)))/ave0     ! =1 if u_//=0 (no rotation)
       end do
       acc_newer_H_zion=.true.
 
       !!! the following print may hang forever when using large number of processors Jan, 2011
-      ! print*, 'f_0/g_0=', zion0(6,mi/2), mype
+      ! print*, 'f_0/g_0=', zion0(8,mi/2), mype
 
       ! realistic nonuniform loading
-      !     zion0(6,1:mi)=1.0
+      !     zion0(8,1:mi)=1.0
 
    else
       !    what else artificial loading, for example uniform loading -- to be added when needed
@@ -399,8 +399,8 @@ subroutine load
          zeon(3,m)=zion(3,m)
          zeon(5,m)=zion(5,m)
          zeon(7,m)=zion(7,m)
-         !        zeon0(6,m)=zion0(6,m)
-         zeon0(6,m)=1.0_wp
+         !        zeon0(8,m)=zion0(8,m)
+         zeon0(8,m)=1.0_wp
       enddo
       acc_newer_H_zeon=.true.
 
@@ -446,16 +446,16 @@ subroutine load
          !        zeon(5,ntracer_e)=0.0_wp
          zeon(5,ntracer_e)=zeon(5,ntracer)
          zeon(6,ntracer_e)=sqrt(msm0*pdum/(2.0_wp*B_0)) ! using v_per=v_th for tracer electron
-         if(ifdphi==2) zeon(8,ntracer_e)=0.0_wp
+         if(ifdphi==2) zeon(9,ntracer_e)=0.0_wp
 
          !!!!!!!!!TEST electron tracer using me/mi=1!!!!!!!!!!!!!!!!!!
          !        zeon(:,ntracer_e)=zion(:,ntracer)
 
          zeon0(1:5,ntracer_e)=zeon(1:5,ntracer_e)
          zeon0(7,ntracer_e)=zeon(7,ntracer_e)
-         !        zeon0(6,ntracer_e)=zion0(6,ntracer)
-         zeon0(6,ntracer_e)=1.0_wp
-         if(ifdphi==2) zeon0(8,ntracer_e)=0.0_wp
+         !        zeon0(8,ntracer_e)=zion0(8,ntracer)
+         zeon0(8,ntracer_e)=1.0_wp
+         if(ifdphi==2) zeon0(9,ntracer_e)=0.0_wp
 
          print*,'ntracer_e=',ntracer_e,zeon(1,ntracer_e),zeon(2,ntracer_e),zeon(3,ntracer_e),&
             zeon(4,ntracer_e),zeon(5,ntracer_e),zeon(6,ntracer_e),zeon(7,ntracer_e)
@@ -835,7 +835,7 @@ subroutine load_uniform_MGY
    ! Set initial weights of ions
    do m=1,mi
       ! zion(5,m) is "df"
-      ! zion0(6,m) is "f_tot"
+      ! zion0(8,m) is "f_tot"
 
 
       if(Flag_Load_and_WeightDef==1) then
@@ -843,14 +843,14 @@ subroutine load_uniform_MGY
          ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
          each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m)
          integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
-         zion0(8,m) = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z
+         zion0(6,m) = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z
       elseif(Flag_Load_and_WeightDef==2)then
          integral_f0 = back_f0_i(m)/gi_val(m)
-         zion0(8,m)  = 1.0/gi_val(m) ! Phase space volume occupied by each particle
+         zion0(6,m)  = 1.0/gi_val(m) ! Phase space volume occupied by each particle
       endif
 
       zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
-      zion0(6,m) = integral_f0 + zion(5,m)
+      zion0(8,m) = integral_f0 + zion(5,m)
    enddo
    acc_newer_H_zion=.true.
 
@@ -983,12 +983,12 @@ subroutine load_uniform_MGY
 
       if(Flag_Quiet_Start==1) then
          zeon(5,1:me) = zion(5,1:me)
-         zeon0(6,1:me) = zion0(6,1:me)
+         zeon0(8,1:me) = zion0(8,1:me)
       else
          ! Set initial weights of electrons
          do m=1,me
             ! zeon(5,m) is "df"
-            ! zeon0(6,m) is "f_tot"
+            ! zeon0(8,m) is "f_tot"
 
             if(Flag_Load_and_WeightDef==1) then
                !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
@@ -999,7 +999,7 @@ subroutine load_uniform_MGY
                integral_f0 = back_f0_e(m)/ge_val(m)
             endif
             zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
-            zeon0(6,m) = integral_f0 + zeon(5,m)
+            zeon0(8,m) = integral_f0 + zeon(5,m)
          enddo
       endif
       acc_newer_H_zeon=.true.
