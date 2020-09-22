@@ -730,22 +730,22 @@ subroutine load_uniform_MGY
    ! Ion Part
    ! =================================================
 
-   ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
-   ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
-   ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
-   sobol_seed = 1 + mype*mi
-   do m=1,mi
-      call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
-   enddo
+   ! ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
+   ! ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
+   ! ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
+   ! sobol_seed = 1 + mype*mi
+   ! do m=1,mi
+   !    call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
+   ! enddo
 
    ! Follwoing part is to prepare random numbers using sprng
-   ! do m=1,mi
-   !    rand_5d(1,m)=sprng()
-   !    rand_5d(2,m)=sprng()
-   !    rand_5d(3,m)=sprng()
-   !    rand_5d(4,m)=sprng()
-   !    rand_5d(5,m)=sprng()
-   ! enddo
+   do m=1,mi
+      rand_5d(1,m)=sprng()
+      rand_5d(2,m)=sprng()
+      rand_5d(3,m)=sprng()
+      rand_5d(4,m)=sprng()
+      rand_5d(5,m)=sprng()
+   enddo
 
    do m=1,mi
       zion(1,m) = a0+ rand_5d(1,m)*(a1-a0)
@@ -865,22 +865,22 @@ subroutine load_uniform_MGY
    ! Electron Part
    ! =================================================
 
-   ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
-   ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
-   ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
-   sobol_seed = 1 + mype*me
-   do m=1,me
-      call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
-   enddo
+   ! ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
+   ! ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
+   ! ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
+   ! sobol_seed = 1 + mype*me
+   ! do m=1,me
+   !    call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
+   ! enddo
 
    ! Follwoing part is to prepare random numbers using sprng
-   ! do m=1,me
-   !    rand_5d(1,m)=sprng()
-   !    rand_5d(2,m)=sprng()
-   !    rand_5d(3,m)=sprng()
-   !    rand_5d(4,m)=sprng()
-   !    rand_5d(5,m)=sprng()
-   ! enddo
+   do m=1,me
+      rand_5d(1,m)=sprng()
+      rand_5d(2,m)=sprng()
+      rand_5d(3,m)=sprng()
+      rand_5d(4,m)=sprng()
+      rand_5d(5,m)=sprng()
+   enddo
 
    if(ifelectron/=0) then
       if(Flag_Quiet_Start==1) then
