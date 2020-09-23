@@ -38,7 +38,7 @@ subroutine check_tracer_e
    endif
 
 
-   each_TRI_length = 21 ! including we_adiab + we_fdamp + 2 Unnormalized Angles
+   each_TRI_length = 26 ! including we_adiab + we_fdamp + 2 Unnormalized Angles
 
    allocate( send_buf_TRI(each_TRI_length, num_of_etracers), recv_buf_TRI(each_TRI_length, num_of_etracers), send_buf_TRI_Poincare(each_TRI_length, num_of_etracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_etracers))
 
@@ -111,6 +111,11 @@ subroutine check_tracer_e
          send_buf_TRI(19,m) = we_fdamp(my_tracer_indices(m))
          send_buf_TRI(20,m) = UnNorm_theta_e(my_tracer_indices(m))
          send_buf_TRI(21,m) = UnNorm_zeta_e(my_tracer_indices(m))
+         send_buf_TRI(22,m) = zeon0(6,my_tracer_indices(m)) ! Phase volume
+         send_buf_TRI(23,m) = zeon0(8,my_tracer_indices(m)) ! full-f or full-h @ previous step
+         send_buf_TRI(24,m) = zeon0(9,my_tracer_indices(m)) ! f0 @ previous step
+         send_buf_TRI(25,m) = zeon0(5,my_tracer_indices(m)) ! df or dh @ previous step
+         send_buf_TRI(26,m) = zeon(9,my_tracer_indices(m))  ! f_AD @ previous step
       enddo
 
       ! Gather tracers_information to Root Rank.
@@ -259,7 +264,7 @@ subroutine check_tracer_i
       call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
    endif
 
-   each_TRI_length = 20 ! + 2 Unnormalized Angles
+   each_TRI_length = 24 ! + 2 Unnormalized Angles
    allocate( send_buf_TRI(each_TRI_length, num_of_itracers), recv_buf_TRI(each_TRI_length, num_of_itracers), send_buf_TRI_Poincare(each_TRI_length, num_of_itracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_itracers))
 
 
@@ -307,6 +312,9 @@ subroutine check_tracer_i
          enddo
       endif
 
+
+      !$acc update self(back_f0_i(:))
+
       ! Save TRacers Information to send_buf_TRI
       do m=1, num_of_MY_tracers
          tracer(:) = zion(:,my_tracer_indices(m))
@@ -329,6 +337,10 @@ subroutine check_tracer_i
          send_buf_TRI(18,m) = wi_fdamp(my_tracer_indices(m))
          send_buf_TRI(19,m) = UnNorm_theta_i(my_tracer_indices(m))
          send_buf_TRI(20,m) = UnNorm_zeta_i(my_tracer_indices(m))
+         send_buf_TRI(21,m) = zion0(6,my_tracer_indices(m)) ! Phase volume
+         send_buf_TRI(22,m) = zion0(8,my_tracer_indices(m)) ! full-f @ previous step
+         send_buf_TRI(23,m) = zion0(6,my_tracer_indices(m))*back_f0_i(m)! f0 @ current step
+         send_buf_TRI(24,m) = zion0(5,my_tracer_indices(m)) ! df @ current step
       enddo
 
       ! Gather tracers_information to Root Rank.
@@ -782,7 +794,7 @@ subroutine Print_Reference_ntracer_Information
       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
       tracer_energy=0.5_wp*(zion(4,m)*Bj(1))**2+zion(6,m)**2*Bj(1)  ! Ion energy
       write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,", size(zion,1), "(ES11.3),a,ES11.3)"
-      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer =', zion(:,m), "; ini_f_tot=",zion0(8,m)
+      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer =', zion(:,m), "; ini_f_tot=",zion0(6,m)
       call flush(stdout)
    endif
 
@@ -796,7 +808,7 @@ subroutine Print_Reference_ntracer_Information
       call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
       tracer_energy=0.5_wp*(zeon(4,m)*Bj(1))**2*m0ms*csc0**2+zeon(6,m)**2*Bj(1)
       write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,", size(zeon,1), "(ES11.3),a,ES11.3)"
-      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer =', zeon(:,m),"; ini_f_tot=",zeon0(8,m)
+      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer =', zeon(:,m),"; ini_f_tot=",zeon0(6,m)
       call flush(stdout)
    endif
 

@@ -164,7 +164,7 @@ module function_gg_module
 
          !$acc declare create(back_flux_A)
 
-         Flag_back_f0_i=.false.
+         Flag_back_f0_i=.true.
          if(present(flag_backf0)) Flag_back_f0_i = flag_backf0
 
 
@@ -389,7 +389,7 @@ module function_gg_module
 
          !$acc declare create(back_flux_A,omega_ui,backTi)
 
-         Flag_backf0_e = .false.
+         Flag_backf0_e = .true.
          if(present(flag_backf0)) Flag_backf0_e = flag_backf0
 
 #ifdef _MGY_TIMER_

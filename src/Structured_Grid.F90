@@ -511,7 +511,7 @@ contains
             !$acc parallel loop present(zion,zion0,ptl_data)
             do m=1,mi
                ptl_data(1,m) = zion(5,m)
-               ptl_data(2,m) = zion0(8,m)
+               ptl_data(2,m) = zion(8,m)
             enddo
       end select
 

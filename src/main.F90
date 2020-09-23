@@ -25,6 +25,7 @@ program GTS
    use Structured_Grid
    use particle_decomp
    use Diagnostic_Grid
+   use function_gg_module
 #ifdef _ACCEL
    use accel_lib
 #endif _ACCEL
@@ -277,6 +278,11 @@ program GTS
    call Init_Diagnostic_Grid
    if(irun==0) then
       istep=0
+
+      call n_T_u_group(flag_backf0=.true.)
+      call n_T_u_group_e(flag_backf0=.true.)
+      call Update_Most_Particle_Information_to_HOST()
+
       ! call get_Te_fluctuation_DirectlyFromParticles
       ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
@@ -406,11 +412,12 @@ program GTS
                timewc(9)=timewc(9)+dtwc
 
                !     CALL PUSHE(irk)
-               if(Flag_RK4==1) then
-                  call pusheon_RK4(solver1, masssolver, irk)
-               else
-                  call pusheon(solver1, masssolver, irk)
-               endif
+               ! if(Flag_RK4==1) then
+               !    ! call pusheon_RK4(solver1, masssolver, irk)
+               ! else
+               !    call pusheon(solver1, masssolver, irk)
+               ! endif
+               call pusheon_wEvol3(solver1, masssolver, irk, nrk)
                call timer(t0,dt,t0wc,dtwc)
                time(10)=time(10)+dt
                timewc(10)=timewc(10)+dtwc
@@ -579,6 +586,9 @@ program GTS
       timewc(14)=timewc(14)+dtwc
 
       if(mod(istep,nstep_for_tracer_record)==0) then
+
+         call n_T_u_group(flag_backf0=.true.)
+         call n_T_u_group_e(flag_backf0=.true.)
 
          if(mod(istep,msnap)/=0) then
             call Update_Most_Particle_Information_to_HOST()

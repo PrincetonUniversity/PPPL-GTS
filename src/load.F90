@@ -835,7 +835,7 @@ subroutine load_uniform_MGY
    ! Set initial weights of ions
    do m=1,mi
       ! zion(5,m) is "df"
-      ! zion0(8,m) is "f_tot"
+      ! zion(8,m) is "f_tot"
 
 
       if(Flag_Load_and_WeightDef==1) then
@@ -850,7 +850,7 @@ subroutine load_uniform_MGY
       endif
 
       zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
-      zion0(8,m) = integral_f0 + zion(5,m)
+      zion(8,m) = integral_f0 + zion(5,m)
    enddo
    acc_newer_H_zion=.true.
 
@@ -923,6 +923,7 @@ subroutine load_uniform_MGY
          do m=1,me
             zeon(4,m)=zion(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
             zeon(6,m)=zion(6,m)*sqrt(Te_norm(m)/backT(m))     ! =sqrt(mu_e)
+            zeon0(6,m)=zion0(6,m)*(Te_norm(m)*m0ms/backT(m)) ! Phase space volume
          enddo
       else
          do m=1,me
@@ -983,23 +984,25 @@ subroutine load_uniform_MGY
 
       if(Flag_Quiet_Start==1) then
          zeon(5,1:me) = zion(5,1:me)
-         zeon0(8,1:me) = zion0(8,1:me)
+         zeon(8,1:me) = zion(8,1:me)
       else
          ! Set initial weights of electrons
          do m=1,me
             ! zeon(5,m) is "df"
-            ! zeon0(8,m) is "f_tot"
+            ! zeon(8,m) is "f_tot"
 
             if(Flag_Load_and_WeightDef==1) then
                !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
                ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
                each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms
                integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
+               zeon0(6,m) = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z
             elseif(Flag_Load_and_WeightDef==2)then
                integral_f0 = back_f0_e(m)/ge_val(m)
+               zeon0(6,m)  = 1.0/ge_val(m)
             endif
             zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
-            zeon0(8,m) = integral_f0 + zeon(5,m)
+            zeon(8,m)  = integral_f0 + zeon(5,m)
          enddo
       endif
       acc_newer_H_zeon=.true.

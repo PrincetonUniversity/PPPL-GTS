@@ -1913,7 +1913,7 @@ Subroutine setup
    if(ifelectron/=0) then
 
       allocate(RK_cum_zeon(zeondim,memax))
-
+      RK_cum_zeon=0.0
       allocate (zeon(zeondim,memax),zeon0(zeondim,memax),zeon00(zeondim,memax))
 
       allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
