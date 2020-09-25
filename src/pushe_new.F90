@@ -2412,8 +2412,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
    real(wp) mu,Te_inverse,vpara,energy
    real(wp) AD ! Adiabatic term: AD=e*phi/Te0  ! Note that e here is the elementary charge which is the same as abs(qe)
    real(wp) e1,e2,e3,Ea_00
-   real(wp) inv_ds
-   real(wp) wz0,wz1,wp0,wt00,wt10,wp1,wt01,wt11
+   real(wp) wz0,wz1,wp0,wt00,wt10,wp1,wt01,wt11,inv_ds
    real(wp) new_f0, new_f_AD
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
    real(wp) prev_phi00(0:mpsi),phi00_convergency
@@ -2428,6 +2427,8 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
    !    stop
    ! endif
 
+
+   inv_ds = real(mpsi)/(s1-s0)
 
 
    if(acc_newer_H_zeon) then
@@ -2679,7 +2680,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
          zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
       else if(irk_e==nrk) then
          !$acc loop seq
-         do i=1,5
+         do i=1,4
             zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
          enddo
          zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
@@ -2694,7 +2695,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
       wpi(3,m)=mu*BB(m)       ! normalizd electron perpendicular energy
 
 
-      if(irk_e==4) then
+      if(irk_e==nrk) then
          UnNorm_theta_e(m) = UnNorm_theta_e(m) +RK_cum_zeon(2,m)
          UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +RK_cum_zeon(3,m)
       endif
@@ -2914,14 +2915,14 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
             new_f0 = zeon0(6,m)*back_f0_e(m)
 
             zeon(5,m) = zeon0(5,m) - ((new_f0-zeon0(9,m)) + (new_f_AD-zeon(9,m))) ! df or dh
-            zeon(8,m) = zeon0(8,m) - (new_f0-zeon0(9,m)) ! full-f or full-h
+            zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
          enddo
          acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
       enddo
    endif
 
 
-   if(irk_e==4)then
+   if(irk_e==nrk)then
       if(Flag_Measure_Ptl_FootPrint==1) then
          !$acc update self(wpi(:,:me))
          call Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
