@@ -942,14 +942,16 @@ module Ptl_Src_Loss
                v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
                v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
 
-               !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-               ! Marker Distribution Funcion for full range: ge = Nm / (Jacobian* (2pi) * (2pi) * (0.5*pi*v_abs_max^2))
-               ! NOTE : Since Nm is not determined yet, it will be mulitpled later
-               ge_val(m) = 1.0/(Jacobian(zeon(1,m),zeon(2,m))*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)
-
                ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
                vpara=v_abs*cos(v_theta)
                vperp=v_abs*sin(v_theta)
+
+               !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+               ! Marker Distribution Funcion for full range: ge = Nm / ((2pi) * (2pi) * (0.5*pi*v_abs_max^2)) / (Jacobian(x)*2*pi*vperp)
+               ! Note that the length in radial direction will be determined later by the each particle's radial velocity
+               ! Therefore, this Marker Distribution Function will be actually 3D in space.
+               ! NOTE : Since Nm is not determined yet, it will be mulitplied later
+               ge_val(m) = 1.0/(4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
 
                zeon(4,m) = msm0*vpara/(csc0*BB(m))
                zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
@@ -978,15 +980,18 @@ module Ptl_Src_Loss
                Rand = sprng()
                v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
 
-               if(v_abs<vc) then
-                  ge_val(m) = 1.0*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
-               else
-                  ge_val(m) = 1.0*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/(4.0*pi*pi)
-               endif
-
                ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
                vpara=v_abs*cos(v_theta)
                vperp=v_abs*sin(v_theta)
+
+               ! Marker Distribution Funcion + Normalization with the phase space Jacobians (Jacobian(x)*2*pi*vperp)
+               ! Note that the length in radial direction will be determined later by the each particle's radial velocity
+               ! Therefore, this Marker Distribution Function will be actually 3D in space.
+               if(v_abs<vc) then
+                  ge_val(m) = 1.0*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/(4.0*pi*pi)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+               else
+                  ge_val(m) = 1.0*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/(4.0*pi*pi)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+               endif
 
                zeon(4,m) = msm0*vpara/(csc0*BB(m))
                zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
@@ -1058,16 +1063,16 @@ module Ptl_Src_Loss
             fip=r-real(ip,wp)
             intp_phi00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
             if ( Flag_Def_dne_adiab==0 ) then
-               AdiabTerm(m)=csc0*(intp_phi-real(1.0-ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (q*dphi_NZ/Te)
+               AdiabTerm(m)=abs(csc0)*(intp_phi-real(1.0-ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_NZ/Te)
             elseif(Flag_Def_dne_adiab==1) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-               AdiabTerm(m)=csc0*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (q*dphi_tot/Te)
+               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
             elseif(Flag_Def_dne_adiab==2) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-               AdiabTerm(m)=csc0*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (q*dphi_tot/Te)
+               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (e*dphi_tot/Te)
             elseif(Flag_Def_dne_adiab==3) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-               AdiabTerm(m)=-1.0+exp(csc0*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (q*dphi_tot/Te)
+               AdiabTerm(m)=-1.0+exp(abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (e*dphi_tot/Te)
             else
                AdiabTerm(m)=-1e100
                write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
@@ -1116,21 +1121,8 @@ module Ptl_Src_Loss
             call flush(stdout)
          endif
 
-         ! Set initial weights of electrons
-         ! zeon(5,m) is "df" or "dh"
-         ! zeon(8,m) is "f_tot"
 
          do m=m0,me
-            vpara = m0ms*csc0*BB(m)*zeon(4,m)  ! vpara = (eB/m)*rho_para
-            mean_vabs = sqrt(8.0*Te_norm(m)/(pi*msm0))
-            ! integral_f0 = 0.25*mean_vabs*delta_t_seconds*vpara*back_f0_e(m)/ge_val(m)
-            ! integral_f0 = vpara*back_f0_e(m)/ge_val(m)
-            ! integral_f0 = vpara*delta_t_seconds*back_f0_e(m)/ge_val(m)
-            ! integral_f0 = abs(vpara)*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-            integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_e(m)/ge_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-            zeon(8,m) = FluxFactor_over_f0*integral_f0
-            zeon(5,m)  = zeon(8,m)-integral_f0 +int(ifelectron/2)*AdiabTerm(m)*integral_f0 ! For dh, dh=f_tot-f0+q*phi/Te0*f0
-
             if(da(m)<0) then
                zeon(1,m)=target_a-1e-5
                zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)
@@ -1165,9 +1157,31 @@ module Ptl_Src_Loss
 
          !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
          do m=m0,me
-            !Calculate the correct weight values by considering the number of total marker particles
-            zeon(8,m)  = inv_Nm*zeon(8,m) ! full-f or full-h
-            zeon(5,m)  = inv_Nm*zeon(5,m) ! df or dh
+
+            ! Set initial weights of electrons
+            ! zeon(5,m) is "df" or "dh"
+            ! zeon(8,m) is "f_tot"
+            ! zeon(9,m) is "f_AD"
+            ! zeon0(9,m) is "f_0"
+            ! zeon0(6,m) is "phase volume"
+
+            ! Correction of Marker distribution regarding number of sample particles (Nm)
+            ! and the radial length of the sampling space determined by each particle's radial speed
+            ge_val(m) = Nm*ge_val(m)/(abs(da(m))*uveloci*1e-2*delta_t_seconds) ! uveloci*1e-2 = unit velocity in (m/s)
+
+            zeon0(6,m) = 1.0/ge_val(m) ! Phase space volume
+            integral_f0 = zeon0(6,m)*back_f0_e(m) ! f_0
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            ! zeon0(9,m) is f_0 (@ irk=1)
+            zeon(9,m)  = integral_f0*AdiabTerm(m) ! f_AD
+            zeon0(9,m) = integral_f0 ! f_0
+
+            ! Note that zeon(8,m)=full_f or full_h
+            ! zeon(5,m)=df or dh
+            zeon(8,m) = (FluxFactor_over_f0*integral_f0) - int(ifelectron/2)*zeon(9,m) ! full_f or full_h (full_h=f_tot-f_AD)
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df=full_f-f0; dh=full_h-f0; so the same form
+
 
             we_init(m)  = zeon(5,m)
             we_vpara(m) = 0
@@ -1296,14 +1310,17 @@ module Ptl_Src_Loss
                v_abs = umax*sqrt(backT(m))*sqrt(sprng()) ! v_r = amax*sqrt(Rand)
                v_theta = pi*sprng() ! For half-circle, theta should be 0<theta<2pi
 
-               !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-               ! Marker Distribution Funcion for full range: ge = Nm / (Jacobian* (2pi) * (2pi) * (0.5*pi*v_abs_max^2))
-               ! NOTE : Since Nm is not determined yet, it will be mulitpled later
-               gi_val(m) = 1.0/(Jacobian(zion(1,m),zion(2,m))*4.0*pi*pi*0.5*pi*umax*umax*backT(m))
-
                ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
                vpara=v_abs*cos(v_theta)
                vperp=v_abs*sin(v_theta)
+
+               !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
+               ! Marker Distribution Funcion for full range: ge = Nm / ((2pi) * (2pi) * (0.5*pi*v_abs_max^2)) / (Jacobian(x)*2*pi*vperp)
+               ! Note that the length in radial direction will be determined later by the each particle's radial velocity
+               ! Therefore, this Marker Distribution Function will be actually 3D in space.
+               ! NOTE : Since Nm is not determined yet, it will be mulitplied later
+               gi_val(m) = 1.0/(4.0*pi*pi*0.5*pi*umax*umax*backT(m))/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
+
 
                zion(4,m) = vpara/(BB(m))
                zion(4,m) = zion(4,m) + backu(m)/BB(m)
@@ -1333,15 +1350,20 @@ module Ptl_Src_Loss
                Rand = sprng()
                v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
 
-               if(v_abs<vc) then
-                  gi_val(m) = 1.0*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/(4.0*pi*pi)
-               else
-                  gi_val(m) = 1.0*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/(4.0*pi*pi)
-               endif
-
                ! NOTE : Direction of vpara is determined by the sign of wall_norm_vec*B_cov_a
                vpara=v_abs*cos(v_theta)
                vperp=v_abs*sin(v_theta)
+
+
+               ! Marker Distribution Funcion + Normalization with the phase space Jacobians (Jacobian(x)*2*pi*vperp)
+               ! Note that the length in radial direction will be determined later by the each particle's radial velocity
+               ! Therefore, this Marker Distribution Function will be actually 3D in space.
+               if(v_abs<vc) then
+                  gi_val(m) = 1.0*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/(4.0*pi*pi)/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
+               else
+                  gi_val(m) = 1.0*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/(4.0*pi*pi)/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
+               endif
+
 
                zion(4,m) = vpara/(BB(m))
                zion(4,m) = zion(4,m) + backu(m)/BB(m)
@@ -1449,14 +1471,9 @@ module Ptl_Src_Loss
 
          ! Set initial weights of electrons
          ! zion(5,m) is "df" or "dh"
-         ! zion(8,m) is "f_tot"
+         ! zion0(8,m) is "f_tot"
 
          do m=m0,mi
-            vpara = BB(m)*zion(4,m)  ! vpara = (eB/m)*rho_para
-            integral_f0 = abs(da(m))*uveloci*1e-2*delta_t_seconds*back_f0_i(m)/gi_val(m) ! uveloci*1e-2 = unit velocity in (m/s)
-            zion(8,m) = FluxFactor_over_f0*integral_f0
-            zion(5,m)  = zion(8,m)-integral_f0
-
             if(da(m)<0) then
                zion(1,m)=target_a-1e-5
                zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)
@@ -1491,9 +1508,22 @@ module Ptl_Src_Loss
 
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
          do m=m0,mi
-            !Calculate the correct weight values by considering the number of total marker particles
-            zion(8,m) = inv_Nm*zion(8,m) ! full-f or full-h
-            zion(5,m)  = inv_Nm*zion(5,m) ! df or dh
+
+            ! Set initial weights of ions
+            ! zion(5,m) is "df"
+            ! zion0(8,m) is "f_tot"
+            ! zion0(6,m) is "phase volume"
+
+            ! Correction of Marker distribution regarding number of sample particles (Nm)
+            ! and the radial length of the sampling space determined by each particle's radial speed
+            gi_val(m) = Nm*gi_val(m)/(abs(da(m))*uveloci*1e-2*delta_t_seconds) ! uveloci*1e-2 = unit velocity in (m/s)
+
+
+            zion0(6,m) = 1.0/gi_val(m) ! Phase space volume
+            integral_f0 = zion0(6,m)*back_f0_i(m) !f_0
+
+            zion0(8,m) = FluxFactor_over_f0*integral_f0 ! full_f
+            zion(5,m)  = zion0(8,m)-integral_f0 ! df
 
 
             wi_init(m)  = zion(5,m)
@@ -1947,9 +1977,9 @@ module Ptl_Src_Loss
          ! Determine the weight of the new particle
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
          do m=mi0,mi
-            zion(5,m) = zion(8,m)
+            zion(5,m) = zion0(8,m)
             zion0(6,m) = 1e-6*zion0(6,m) ! Reduce the phase volume to reduce the particle noise
-            zion(8,m) = zion(5,m) + back_f0_i(m)*zion0(6,m)
+            zion0(8,m) = zion(5,m) + back_f0_i(m)*zion0(6,m)
          enddo
 
          !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)

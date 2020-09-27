@@ -784,6 +784,11 @@ subroutine load_uniform_MGY
          ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
          v_abs = umax*sqrt(backT(m))*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
          v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+         vpara=v_abs*cos(v_theta)
+         vperp=v_abs*sin(v_theta)
+         ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
+         gi_val(m) = Nm/((a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m))/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
+
       elseif(Flag_Load_and_WeightDef==2) then
          ! First, get v_abs using rand_5d(4,m)
          vmax=umax*sqrt(backT(m))
@@ -807,16 +812,16 @@ subroutine load_uniform_MGY
          c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
          Rand = rand_5d(5,m)
          v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
+         vpara=v_abs*cos(v_theta)
+         vperp=v_abs*sin(v_theta)
 
+         ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
          if(v_abs<vc) then
-            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
+            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
          else
-            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
+            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
          endif
       endif
-
-      vpara=v_abs*cos(v_theta)
-      vperp=v_abs*sin(v_theta)
 
       zion(4,m) = vpara/BB(m)
       if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This is for the quiet start..
@@ -835,22 +840,13 @@ subroutine load_uniform_MGY
    ! Set initial weights of ions
    do m=1,mi
       ! zion(5,m) is "df"
-      ! zion(8,m) is "f_tot"
+      ! zion0(8,m) is "f_tot"
 
-
-      if(Flag_Load_and_WeightDef==1) then
-         !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-         ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
-         each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m)
-         integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
-         zion0(6,m) = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z
-      elseif(Flag_Load_and_WeightDef==2)then
-         integral_f0 = back_f0_i(m)/gi_val(m)
-         zion0(6,m)  = 1.0/gi_val(m) ! Phase space volume occupied by each particle
-      endif
-
+      ! zion0(6,m) represents the phase volume (J(x,v)d5z) that preserves in the Hamiltonian system
+      zion0(6,m) = 1.0/gi_val(m)
+      integral_f0 = zion0(6,m)*back_f0_i(m)
       zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
-      zion(8,m) = integral_f0 + zion(5,m)
+      zion0(8,m) = integral_f0 + zion(5,m)
    enddo
    acc_newer_H_zion=.true.
 
@@ -860,6 +856,14 @@ subroutine load_uniform_MGY
    wi_accel = 0
    wi_fdamp = 0
 
+   if(mype==0) then
+      open(unit=1212,file='test_zion_load.dat',action='write')
+      do m=1,mi,100
+         write(1212,'(I10,4(ES20.12,1x))') m, zion0(6,m), zion0(8,m), zion0(6,m)*back_f0_i(m), zion(5,m)
+      enddo
+      call flush(1212)
+      close(1212)
+   endif
 
    ! =================================================
    ! Electron Part
@@ -923,7 +927,10 @@ subroutine load_uniform_MGY
          do m=1,me
             zeon(4,m)=zion(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
             zeon(6,m)=zion(6,m)*sqrt(Te_norm(m)/backT(m))     ! =sqrt(mu_e)
-            zeon0(6,m)=zion0(6,m)*(Te_norm(m)*m0ms/backT(m)) ! Phase space volume
+
+            ! Phase space volume
+            ! The power 1.5 is because of (v_abs^2) in area of velocity domain and (v_perp) of velocity Jacobian
+            zeon0(6,m)=zion0(6,m)*(Te_norm(m)*m0ms/backT(m))**1.5
          enddo
       else
          do m=1,me
@@ -939,6 +946,11 @@ subroutine load_uniform_MGY
                ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
                v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
                v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+               vpara=v_abs*cos(v_theta)
+               vperp=v_abs*sin(v_theta)
+               ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
+               ge_val(m) = Nm/((a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+
             elseif(Flag_Load_and_WeightDef==2) then
                ! First, get v_abs using rand_5d(4,m)
                vmax=umax*sqrt(Te_norm(m)*m0ms)
@@ -961,16 +973,16 @@ subroutine load_uniform_MGY
                c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
                Rand = rand_5d(5,m)
                v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
+               vpara=v_abs*cos(v_theta)
+               vperp=v_abs*sin(v_theta)
 
+               ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
                if(v_abs<vc) then
-                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
+                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
                else
-                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
+                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
                endif
             endif
-
-            vpara=v_abs*cos(v_theta)
-            vperp=v_abs*sin(v_theta)
 
             zeon(4,m) = msm0*vpara/(csc0*BB(m))
             zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
@@ -984,28 +996,31 @@ subroutine load_uniform_MGY
 
       if(Flag_Quiet_Start==1) then
          zeon(5,1:me) = zion(5,1:me)
-         zeon(8,1:me) = zion(8,1:me)
+         zeon(8,1:me) = zion0(8,1:me)
       else
          ! Set initial weights of electrons
          do m=1,me
             ! zeon(5,m) is "df"
             ! zeon(8,m) is "f_tot"
 
-            if(Flag_Load_and_WeightDef==1) then
-               !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-               ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
-               each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms
-               integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
-               zeon0(6,m) = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z
-            elseif(Flag_Load_and_WeightDef==2)then
-               integral_f0 = back_f0_e(m)/ge_val(m)
-               zeon0(6,m)  = 1.0/ge_val(m)
-            endif
+            ! zeon0(6,m) represents the phase volume (J(x,v)d5z) that preserves in the Hamiltonian system
+            zeon0(6,m) = 1.0/ge_val(m)
+            integral_f0 = zeon0(6,m)*back_f0_e(m)
             zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
-            zeon(8,m)  = integral_f0 + zeon(5,m)
+            zeon(8,m) = integral_f0 + zeon(5,m)
          enddo
       endif
       acc_newer_H_zeon=.true.
+
+      if(mype==0) then
+
+         open(unit=1213,file='test_zeon_load.dat',action='write')
+         do m=1,me,100
+            write(1213,'(I10,4(ES20.12,1x))') m, zeon0(6,m), zeon(8,m), zeon0(6,m)*back_f0_e(m), zeon(5,m)
+         enddo
+         call flush(1213)
+         close(1213)
+      endif
 
       we_init(:)  = zeon(5,:)
       we_vpara = 0
