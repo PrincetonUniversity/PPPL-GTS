@@ -1497,6 +1497,524 @@ end subroutine pushion_RK4
 
 
 
+subroutine pushion_wEvol3(irk_i,nrk)
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use particle_array
+   use field_array
+   use diagnosis_array
+   use esi_interface
+   use function_gg_module
+   use Ptl_Src_Loss
+   use Diagnostic_Grid
+   implicit none
+   integer, intent(in):: irk_i,nrk
+   integer i,ip,m,ij,ierr,ierror,j
+   real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
+   real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),wpi(3,mi),Er_particle(mi)
+   real(wp) ga(mi),wga(3,mi), gat(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
+   real(wp) adum(0:mpsi),adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
+   real(wp) tt0,tt1,cput0,cput1 ! For timer
+   real(wp) timef,dela,r,fip
+   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
+   real(wp) mu,vpara,energy
+   real(wp) e1,e2,e3,Ea_00
+   real(wp) wz0,wz1,wp0,wt00,wt10,wp1,wt01,wt11
+   real(wp) E_a,E_t,E_f,delr
+   real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
+   real(wp) vdrenergy,new_f0
+   integer larmor, loop
+
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,ga,wga,gat)
+
+   if(acc_newer_H_zion) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zion=.false.
+      acc_newer_D_zion=.false.
+   endif
+
+   if(istep==istart .and. irk_i==1) then
+      time_in_Pushi =0
+      timewc_in_Pushi =0
+   endif
+
+
+   delr=1.0_wp/deltar
+
+
+   ! Set RK_cum_coeff and RK_adv_coeff
+   if(nrk==4) then
+      select case (irk_i)
+         case(1)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = (1.0/6.0)
+         case(2)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = (1.0/3.0)
+         case(3)
+            RK_adv_coeff = 1.0
+            RK_cum_coeff = (1.0/3.0)
+         case(4)
+            RK_adv_coeff = 1.0
+            RK_cum_coeff = (1.0/6.0)
+         case default
+            write(stdout,'((A,I3,A,I3))') "Error!! irk_i=",irk_i,"!! irk_i must be between 1 and nrk=",nrk
+            call flush(stdout)
+            STOP
+      end select
+   elseif(nrk==2) then
+      select case (irk_i)
+         case(1)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = 0.0
+         case(2)
+            RK_cum_coeff = 1.0
+            RK_adv_coeff = 1.0
+         case default
+            write(stdout,'((A,I3,A,I3))') "Error!! irk_i=",irk_i,"!! irk_i must be between 1 and nrk=",nrk
+            call flush(stdout)
+            STOP
+      end select
+   endif
+
+
+   if(irk_i==1)then ! 1st step of Runge-Kutta method
+      !$acc parallel loop present(zion,zion0,RK_cum_zion)
+      do m=1,mi
+         !$acc loop seq
+         do i=1,5
+            zion0(i,m)=zion(i,m)
+         enddo
+         zion0(7,m)=zion(7,m)
+
+         !$acc loop seq
+         do i=1,size(RK_cum_zion,1)
+            RK_cum_zion(i,m)=0.0
+         enddo
+      enddo
+      acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
+   endif
+
+   ! Followings are not required here, so commented out. (MGYOO: 11/13/2019)
+   call ion_locator_at_larmor_points ! This is required to get correct wpi values which would use ion location info. such as jtion, wpion, wtion.
+
+
+   !$acc parallel loop present(zion,back_f0_i)
+   do m=1,mi
+      zion(8,m) = zion0(6,m)*back_f0_i(m) ! zion(8,m) is temporary old_f0
+   enddo
+
+   ! gather e_field using multi-point gyro-averaging, sorting in poloidal angle
+   ! The following line is an OpenMP directive for loop-level parallelism
+   ! on shared memory machines (see http://www.openmp.org).
+
+   !$acc parallel loop present(zion,zion0)
+   do m=1,mi
+      e1=0.0_wp
+      e2=0.0_wp
+      e3=0.0_wp
+      wz1=wzion(m)
+      wz0=1.0_wp-wz1
+
+      !$acc loop seq
+      do larmor=1, larmor_num
+         ij=jtion0(larmor,m)
+         wp0=1.0_wp-wpion(larmor,m)
+         wt00=1.0_wp-wtion0(larmor,m)
+         e1=e1+wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+         e2=e2+wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+         e3=e3+wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+         ij=ij+1
+         wt10=1.0_wp-wt00
+         e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+         e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+         e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+         ij=jtion1(larmor,m)
+         wp1=1.0_wp-wp0
+         wt01=1.0_wp-wtion1(larmor,m)
+         e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+         e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+         e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+         ij=ij+1
+         wt11=1.0_wp-wt01
+         e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+         e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+         e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+      enddo
+
+      gradPhi(1,m)=e1*inv_larmor_num
+      gradPhi(2,m)=e2*inv_larmor_num
+      gradPhi(3,m)=e3*inv_larmor_num
+
+   enddo
+
+
+#ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+#endif
+   !MGYOO (10/30/2018; to use analytic profile of ga0(a))
+   !$acc parallel loop present(zion,ga,wga,gat)
+   do m=1,mi
+      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+   enddo
+#ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude", tt1-tt0," secs"
+   call flush(stdout)
+#endif
+
+
+   timef=1.0_wp
+   Er401_bp=Er401_bp0*timef
+   Er_grid=Er_grid0*timef
+   dela=1.0_wp/Ydr
+   !$acc parallel loop present(zion,zion0)
+   do m=1,mi
+      r=zion(1,m)-a0
+      r=r*dela
+      ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
+      fip=r-real(ip,wp)
+      Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
+   enddo
+   !  ------------------------------------------------------------
+
+#ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+#endif
+   if(electromagnetic == 1) then
+      if(Flag_GC_Solver==0) then
+         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
+      elseif(Flag_GC_Solver==1) then
+         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,gradPhi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim);
+      else
+         write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
+         call flush(stdout)
+         stop
+      endif
+   else
+      m=gcmotion(dgr,da,dgq,dgf,zion,gradPhi,Er_particle,nonlinear,mi,ziondim)
+   end if
+#ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, ion gc motion takes", tt1-tt0," secs"
+   call flush(stdout)
+#endif
+
+
+   !     OUTPUT: dgr=drho/dt;       da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;
+   !             dgf=dzeta/dt;      ghq(:)=da/dt|_EXB;     Ta(:)=dtheta/dt|_EXB;       PP(:)=drho/dt|_EXB;
+   !             BB(:)=B;           Ba(:)=dB/da;           Bq(:)=dB/dtheta;
+   !             F(:) =F;           Fa(:)=dF/da;           gha(:)=1/|grad a|
+   !             no change for zion(1,2,4,:), wpi(1,2,:) and mu;
+   !             wpi(3,:)=dphi/dzeta (no change);          Pa(:)=R (major radius)
+   !             TT(:)=1/|grad{theta)|; added Aug. 2012 for poloidal momentum flux diagnosis; changed to:
+   !             TT(:)=poloidal velocity =vec(v).vec(B_p)/B_p; Oct. 2012
+
+
+
+
+#ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+#endif
+
+   !$acc parallel loop present(zion,zion0,RK_cum_zion)
+   do m=1,mi
+      mu=zion(6,m)**2.0 ! normalized mu of electrons
+      vpara = BB(m)*zion(4,m)
+      energy = 0.5*vpara**2.0+mu*BB(m)
+
+      ! Accumulate k-th RK terms (k1,k2,k3,k4) for the future value: f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4)
+      RK_cum_zion(1,m) = RK_cum_zion(1,m) +RK_cum_coeff*tstep*da(m)
+      RK_cum_zion(2,m) = RK_cum_zion(2,m) +RK_cum_coeff*tstep*dgq(m)
+      RK_cum_zion(3,m) = RK_cum_zion(3,m) +RK_cum_coeff*tstep*dgf(m)
+      RK_cum_zion(4,m) = RK_cum_zion(4,m) +RK_cum_coeff*tstep*dgr(m)
+      RK_cum_zion(7,m) = RK_cum_zion(7,m) +RK_cum_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+
+      ! Advance particle information for the next RK step
+      if(irk_i<nrk) then
+         zion(1,m) = zion0(1,m)+RK_adv_coeff*tstep*da(m)
+         zion(2,m) = zion0(2,m)+RK_adv_coeff*tstep*dgq(m)
+         zion(3,m) = zion0(3,m)+RK_adv_coeff*tstep*dgf(m)
+         zion(4,m) = zion0(4,m)+RK_adv_coeff*tstep*dgr(m)
+         zion(7,m) = zion0(7,m)+RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+      else if(irk_i==nrk) then !irk_i==4
+         !$acc loop seq
+         do i=1,4
+            zion(i,m) = zion0(i,m) +RK_cum_zion(i,m)
+         enddo
+         zion(7,m) = zion0(7,m) +RK_cum_zion(7,m)
+      endif
+
+      zion(2,m)=modulo(zion(2,m),twopi)
+      zion(3,m)=modulo(zion(3,m),twopi)
+
+      ! store GC information for flux measurements
+      wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
+      wpi(2,m)=energy    ! =(v_para-u//)^2/2+v_perp^2/2
+      wpi(3,m)=mu*BB(m)  ! =v_perp^2/2, need for calculate distribution function in get_fluxes
+
+      if(irk_i==nrk) then
+         UnNorm_theta_i(m) = UnNorm_theta_i(m) +RK_cum_zion(2,m)
+         UnNorm_zeta_i(m)  = UnNorm_zeta_i(m)  +RK_cum_zion(3,m)
+      endif
+   enddo ! do m=1,mi
+   acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
+
+
+   if(irk_i==nrk)then
+      if(Flag_Measure_Ptl_FootPrint==1) then
+      !$acc update self(wpi(:,:mi))
+      call Measure_and_Cumulate_Ion_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
+      endif
+      call treat_ions_out_of_boundary
+      call Cumulate_i_lost_num
+   endif
+
+#ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_RK4' takes", tt1-tt0," secs"
+   call flush(stdout)
+#endif
+
+   if(idiag==0)then
+
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
+      !$acc update self(ii_inv_grad_a(:mi),ii_inv_grad_gq(:mi),ii_inv_grad_gf(:mi))
+      !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
+      !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
+      !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+      !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
+      !$acc update self(backn(:mi),backT(:mi),backu(:mi),dlnnda(:mi),dlnTda(:mi),duda(:mi),gh(:mi))
+      !$acc update self(back_f0_i(:mi))
+
+      if(acc_newer_D_zion) then
+         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         acc_newer_D_zion=.false.
+         acc_newer_H_zion=.false.
+      endif
+
+      ! fluxes diagnose
+      !    wpi(1,1:mi)=wpi(1,1:mi)*gha(1:mi)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
+      !$omp parallel do private(m)
+      do m=1,mi
+         wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
+      end do
+
+      rmarker=0.0_wp
+      eflux=0.0_wp
+      pfluxi=0.0_wp
+      dflowi=0.0_wp
+      entropyi=0.0_wp
+      fluxpsi=0.0_wp
+      heatflux=0.0_wp
+      En_00=0.0_wp
+      En_tur=0.0_wp
+      En_tot=0.0_wp
+      !$acc parallel loop present(zion,zion0)
+      do m=1,mi
+         r=zion0(7,m)         ! old radial location
+         ip=max(0,min(mpsi,int((r-s0)*delr+0.5_wp)))    ! ip [0,mpsi]
+         vdrenergy=wpi(1,m)*(wpi(2,m)-2.5*vth_grid(ip)**2)*zion0(5,m)
+         ! note: wpi(1,m)=dr/dt (EXB part)
+
+         ! radial location in diagnostic bin
+         i=max(1,min(mflux,1+int((r-s0)*real(mflux)/(s1-s0))))
+
+         ! marker,energy,particle,momentum fluxes,parallel flows,entropy and kinetic energy
+         rmarker(i)=rmarker(i)+zion0(8,m)
+         eflux(i)=eflux(i)+vdrenergy
+         pfluxi=pfluxi+wpi(1,m)*zion0(5,m)
+         dflowi=dflowi+BB(m)*zion0(4,m)*zion0(5,m)
+         entropyi=entropyi+zion0(5,m)*zion0(5,m)
+      enddo
+
+
+      if(ZF_SEPARATION==0) then
+         !     note: zonal flow component <phi> and phip00=d<phi>/da are calculated in field.f90
+         adum=0.0_wp
+         adum_00=0.0_wp
+         adum_tur=0.0_wp
+         adum_tot=0.0_wp
+
+         !$omp parallel private(i,j,ij,E_a,E_t,E_f) reduction(+:adum,adum_00,adum_tur,adum_tot)
+         ! Note from OMP compiler: A variable in the REDUCTION clause or any component or element thereof must not have the POINTER
+         ! attribute; nor be a pointee, an allocatable object, an assumed-size array, or a THREADLOCAL common block variable.
+         !$omp do
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               adum(i)=adum(i)+dtemper(ij)*(phi(1,ij)-phi00(i))**2  ! surface averaging for delta-phi
+
+               adum_00(i)=adum_00(i)+dtemper(ij)*phip00(i)**2*gij(1,ij)  ! surface average
+
+               E_a=evector(1,1,ij)+Er_grid(i)           ! total radial component   ! d\phi/da
+               E_t=evector(2,1,ij)                      ! d\delta\phi/d\theta
+               E_f=evector(3,1,ij)                      ! d\delta\phi/d\zeta
+               adum_tot(i)=adum_tot(i)+dtemper(ij)*(E_a**2*gij(1,ij)  &  ! surface average
+                  +E_t**2*gij(2,ij)  &
+                  +E_f**2*gij(3,ij)  &
+                  +2.0_wp*E_a*E_t*gij(4,ij))
+
+               E_a=E_a-phip00(i)-Er_grid(i) ! turbulence component only    ! d\delta\phi/da
+               adum_tur(i)=adum_tur(i)+dtemper(ij)*(E_a**2*gij(1,ij)  &  ! surface average
+                  +E_t**2*gij(2,ij)  &
+                  +E_f**2*gij(3,ij)  &
+                  +2.0_wp*E_a*E_t*gij(4,ij))
+            enddo
+         enddo
+         !$omp end parallel
+
+      else  ! ZF_SEPARATION=1
+
+         adum=0.0_wp
+         adum_00=0.0_wp
+         adum_tur=0.0_wp
+         adum_tot=0.0_wp
+         adum_11=0.0_wp
+
+         ! DEBUG
+         !        if(mype==100) print*, 'Dirichlet2', phi(1,igrid(0)), phi(1,igrid(0)+mtheta(0)/2),phi(1,igrid(0)+mtheta(0)-1), &
+         !                               phi(1,igrid(mpsi)), phi(1,igrid(mpsi)+mtheta(mpsi)/2),phi(1,igrid(mpsi)+mtheta(mpsi)-1)
+
+         !$omp parallel private(i,j,ij,E_a,E_t,E_f) reduction(+:adum,adum_00,adum_tur,adum_tot,adum_11)
+         !$omp do
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               !          fluxpsi(i)=fluxpsi(i)+phi(1,ij)*phi(1,ij)               ! what average?
+               adum(i)=adum(i)+dtemper(ij)*phi(1,ij)*phi(1,ij)  ! surface averaging for <delta-phi^2>
+
+               adum_11(i)=adum_11(i)+dtemper(ij)*phi(1,ij)      ! to check surface averaged <delta-phi> which should be zero by defination
+
+               adum_00(i)=adum_00(i)+dtemper(ij)*phip00(i)**2*gij(1,ij)  ! surface average
+
+               E_a=evector(1,1,ij)+Er_grid(i)           ! total radial component   ! d\phi/da
+               E_t=evector(2,1,ij)                      ! d\delta\phi/d\theta
+               E_f=evector(3,1,ij)                      ! d\delta\phi/d\zeta
+               adum_tot(i)=adum_tot(i)+dtemper(ij)*(E_a**2*gij(1,ij)  &  ! surface average
+                  +E_t**2*gij(2,ij)  &
+                  +E_f**2*gij(3,ij)  &
+                  +2.0*E_a*E_t*gij(4,ij))
+
+               E_a=E_a-phip00(i)-Er_grid(i) ! turbulence component only    ! d\delta\phi/da
+               adum_tur(i)=adum_tur(i)+dtemper(ij)*(E_a**2*gij(1,ij)  &  ! surface average
+                  +E_t**2*gij(2,ij)  &
+                  +E_f**2*gij(3,ij)  &
+                  +2.0_wp*E_a*E_t*gij(4,ij))
+            enddo
+         enddo
+         !$omp end parallel
+      end if   !  end if(ZF_SEPARATION==0)
+
+      call MPI_ALLREDUCE(adum_11,flux_11,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+      flux_11=flux_11/jaco_sum/Tc   ! =<phi>/Tc -- added in March 2013 to check whether <phi>=0 is obtained
+
+      call MPI_ALLREDUCE(adum,fluxpsi,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+      fluxpsi=fluxpsi/jaco_sum/(Tc*Tc)  ! =<(phi/Tc)^2> -- turbulence field intensity
+      sumfluxpsi=sumfluxpsi+fluxpsi     ! =int[I(a)dt]
+
+      call MPI_ALLREDUCE(adum_00,En_00,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+      En_00=En_00/jaco_sum      ! =<E_00^2>    -- zonal flow energy
+
+      call MPI_ALLREDUCE(adum_tur,En_tur,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+      En_tur=En_tur/jaco_sum     ! =<\deltaE^2> -- turbulence energy
+
+      call MPI_ALLREDUCE(adum_tot,En_tot,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+      En_tot=En_tot/jaco_sum     ! =<E^2> -- total field energy
+
+      call get_fluxes(wpi,dgf,dgq)
+
+      if(mod(istep,ndiag)==0) then
+         call get_3D_flow(da,dgq,dgf,wpi(2,:))
+      end if
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
+      timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
+   endif
+
+   if(irk_i==1) then
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      call Measure_and_Cumulate_iZonData_on_DG(wpi,da)
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
+      timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
+
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Cumulate_iFlux_a1D takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
+  endif
+
+   !Another Diagnostics on DG (Diagnostic Grid)
+   if(irk_i==1 .and. mod(istep,msnap)==0) then
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      !!!!$acc update self(Fa(:mi),PP(:mi),Bq(:mi),Ba(:mi)) ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:mi),TT(:mi),Ta(:mi),ghq(:mi),gha(:mi),Pa(:mi),F(:mi))
+      !$acc update self(dgr(:mi),da(:mi),dgq(:mi),dgf(:mi),wpi(:,:mi))
+      !$acc update self(ii_inv_grad_a(:mi),ii_inv_grad_gq(:mi),ii_inv_grad_gf(:mi))
+      !$acc update self (dvi_gf(:mi),vpara_dvi_a(:mi),vpara_dvi_gq(:mi),vpara_dvi_gf(:mi))
+      !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
+      !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
+      !$acc update self(ilabels(:mi))
+      !$acc update self(backn(:mi),backT(:mi),backu(:mi),dlnnda(:mi),dlnTda(:mi),duda(:mi),gh(:mi))
+      !$acc update self(back_f0_i(:mi))
+
+      if(acc_newer_D_zion) then
+         !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         acc_newer_D_zion=.false.
+         acc_newer_H_zion=.false.
+      endif
+
+      do m=1,mi
+         FullVelocity_da_dgq_dgf(1,m) = da(m)
+         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+      enddo
+      call Measure_Ions_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
+      timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
+   endif
+
+
+
+   ! Update ion particle weight
+   call shifti
+   call n_T_u_group(flag_backf0=.true.)
+
+   !$acc parallel loop present(zion,zion0,back_f0_i)
+   do m=1,mi
+      new_f0 = zion0(6,m)*back_f0_i(m)
+      zion(5,m) = zion0(5,m) - (new_f0-zion(8,m))
+      ! zion0(8,m) is conserved
+   enddo
+
+
+end subroutine pushion_wEvol3
+
+
+
 !========================================
 ! MGYOO (03/29/2018) :
 !========================================

@@ -354,11 +354,12 @@ program GTS
          timewc(8)=timewc(8)+dtwc
 
          ! push ion
-         if(Flag_RK4==1) then
-            call pushion_RK4(irk)
-         else
-            call pushion
-         endif
+         ! if(Flag_RK4==1) then
+         !    call pushion_RK4(irk)
+         ! else
+         !    call pushion
+         ! endif
+         call pushion_wEvol3(irk,nrk)
          call timer(t0,dt,t0wc,dtwc)
          time(1)=time(1)+dt
          timewc(1)=timewc(1)+dtwc
