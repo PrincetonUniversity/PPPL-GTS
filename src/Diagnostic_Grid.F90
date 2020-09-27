@@ -908,9 +908,15 @@ module Diagnostic_Grid
          DG%eScaData(:,:,3,1) = (DG%eScaData(:,:,3,1)-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne !delta_T = (2/3*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)]
          DG%eScaData(:,:,20,1) = (DG%eScaData(:,:,20,1)-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne ! delta_T_para
          DG%eScaData(:,:,21,1) = (DG%eScaData(:,:,21,1)-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne ! delta_T_perp
-         DG%eScaData(:,:,6,1) = DG%eScaData(:,:,6,1)/DG%eScaData(:,:,5,1)! Te_tot = Energy_tot/Density_tot
-         DG%eScaData(:,:,22,1) = DG%eScaData(:,:,22,1)/DG%eScaData(:,:,5,1)! Te_tot_para
-         DG%eScaData(:,:,23,1) = DG%eScaData(:,:,23,1)/DG%eScaData(:,:,5,1)! Te_tot_perp
+
+         ! Following 6,22,23 variables are Temperatures estimated by full-h particles and adiabatic density addition
+         ! Calculate inverse of tot density (n_tot = n(full-h) + n_AD)
+         inv_tot_ne = 1.0/(DG%eScaData(:,:,5,1) + int(ifelectron/2)*DG%dne_adiab) ! smoothed total density using full-h + adiabatic density
+
+         DG%eScaData(:,:,6,1)  = (DG%eScaData(:,:,6,1) +int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D)*inv_tot_ne ! Te = ((2/3)*Erg_fullh + n_AD*Te0)/(n_fullh + n_AD)
+         DG%eScaData(:,:,22,1) = (DG%eScaData(:,:,22,1)+int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D)*inv_tot_ne ! Te_para = (2*Erg_para_fullh + n_AD*Te0)/(n_fullh + n_AD)
+         DG%eScaData(:,:,23,1) = (DG%eScaData(:,:,23,1)+int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D)*inv_tot_ne ! Te_perp = (Erg_perp_fullh + n_AD*Te0)/(n_fullh + n_AD)
+
 
 
          ! Get Flux Density by dividing Area in each direction
