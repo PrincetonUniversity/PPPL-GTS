@@ -328,7 +328,7 @@ module function_gg_module
                A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
                E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
 
-               back_f0_i(i) = backn(i)*A_over_meanA*sqrt(inv_twopi)*((1.0/backT(i))**1.5)*vperp*exp(-E_over_T)
+               back_f0_i(i) = backn(i)*A_over_meanA*((inv_twopi/backT(i))**1.5)*exp(-E_over_T)
             enddo
          endif
 
@@ -555,7 +555,7 @@ module function_gg_module
 
                E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
 
-               back_f0_e(i) = backne(i)*A_over_meanA*sqrt(inv_twopi)*((msm0*inv_Te_norm)**1.5)*vperp*exp(-E_over_T)
+               back_f0_e(i) = backne(i)*A_over_meanA*((msm0*inv_Te_norm*inv_twopi)**1.5)*exp(-E_over_T)
             enddo
          endif
 
