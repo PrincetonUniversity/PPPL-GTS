@@ -495,7 +495,7 @@ module Ptl_Src_Loss
             f_tot(:)   = iNrNm
          else
             delta_f(:) = out_zion(5,1:m_out)
-            f_tot(:)   = out_zion(8,1:m_out)
+            f_tot(:)   = out_zion0(8,1:m_out)
          endif
 
 
@@ -1820,7 +1820,7 @@ module Ptl_Src_Loss
                   enddo
 
                   do m=1,i_lost_num_BDY1
-                     if(out_zion0_BDY1(6,m)>0) then ! Ignore zero ftot particles
+                     if(out_zion0_BDY1(8,m)>0) then ! Ignore zero ftot particles
                         outION%mout = outION%mout +1
 
                         outION%P(:,outION%mout) = out_zion_BDY1(:,m)
@@ -2010,6 +2010,12 @@ module Ptl_Src_Loss
 
             zeon(:,ke) = zion(:,ki)
             zeon0(:,ke) = zion0(:,ki)
+
+            ! Note that zion0(8,m) is the full-f value, but zion(8,m) is just a temporary old_backf0 value
+            ! whereas zeon(8,m) and zeon0(8,m) are the full-h (or full-f) marker values at different time step
+            ! Therefore, we must set zeon(8,m) to be the same as the zeon0(8,m) (not as the same as zion(8,m) which is trash value here)
+            ! since zeon0(8,m) will be overwritten by zeon(8,m) at the push routines
+            zeon(8,ke) = zeon0(8,ke)
             ! elabels(ke) = ilabels(ki) ! NOTE: This is not correct.. just for test now
             elabels(ke) = 1.0
          enddo

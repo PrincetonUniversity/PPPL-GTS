@@ -2825,9 +2825,10 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
          new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
          new_f0 = zeon0(6,m)*back_f0_e(m)
 
-         zeon(5,m) = zeon0(5,m) - ((new_f0-zeon0(9,m)) + (new_f_AD-zeon(9,m))) ! df or dh
-         zeon(8,m) = zeon0(8,m) - (new_f0-zeon0(9,m)) ! full-f or full-h
+         zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(9,m)) - (new_f_AD-zeon(9,m)) ! df or dh
+         zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
       enddo
+      acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
    elseif(Flag_Poisson==1) then
       do loop=1,MaxLoopNum_Adiab_Weight_Update
          call cpu_time(cput0)
@@ -2914,7 +2915,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
             new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
             new_f0 = zeon0(6,m)*back_f0_e(m)
 
-            zeon(5,m) = zeon0(5,m) - ((new_f0-zeon0(9,m)) + (new_f_AD-zeon(9,m))) ! df or dh
+            zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(9,m)) - (new_f_AD-zeon(9,m)) ! df or dh
             zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
          enddo
          acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine

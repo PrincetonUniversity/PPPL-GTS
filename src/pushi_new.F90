@@ -1600,11 +1600,12 @@ subroutine pushion_wEvol3(irk_i,nrk)
    ! Followings are not required here, so commented out. (MGYOO: 11/13/2019)
    call ion_locator_at_larmor_points ! This is required to get correct wpi values which would use ion location info. such as jtion, wpion, wtion.
 
-
-   !$acc parallel loop present(zion,back_f0_i)
-   do m=1,mi
-      zion(8,m) = zion0(6,m)*back_f0_i(m) ! zion(8,m) is temporary old_f0
-   enddo
+   if(irk_i==1) then
+      !$acc parallel loop present(zion,back_f0_i)
+      do m=1,mi
+         zion(8,m) = zion0(6,m)*back_f0_i(m) ! zion(8,m) is temporary old_f0 @ irk=1 step
+      enddo
+   endif
 
    ! gather e_field using multi-point gyro-averaging, sorting in poloidal angle
    ! The following line is an OpenMP directive for loop-level parallelism
