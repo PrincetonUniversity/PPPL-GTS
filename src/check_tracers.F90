@@ -339,8 +339,8 @@ subroutine check_tracer_i
          send_buf_TRI(20,m) = UnNorm_zeta_i(my_tracer_indices(m))
          send_buf_TRI(21,m) = zion0(6,my_tracer_indices(m)) ! Phase volume
          send_buf_TRI(22,m) = zion0(8,my_tracer_indices(m)) ! full-f @ previous step
-         send_buf_TRI(23,m) = zion0(6,my_tracer_indices(m))*back_f0_i(m)! f0 @ current step
-         send_buf_TRI(24,m) = zion0(5,my_tracer_indices(m)) ! df @ current step
+         send_buf_TRI(23,m) = zion0(6,my_tracer_indices(m))*back_f0_i(my_tracer_indices(m))! f0 @ current step
+         send_buf_TRI(24,m) = zion(5,my_tracer_indices(m)) ! df @ current step
       enddo
 
       ! Gather tracers_information to Root Rank.
