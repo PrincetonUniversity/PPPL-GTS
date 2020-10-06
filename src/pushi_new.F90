@@ -2001,7 +2001,14 @@ subroutine pushion_wEvol3(irk_i,nrk)
 
 
    ! Update ion particle weight
+   call cpu_time(cput0)
+   tt0=MPI_WTIME()
    call shifti
+   call cpu_time(cput1)
+   tt1=MPI_WTIME()
+   time_in_Pushi(2) = time_in_Pushi(2) + (cput1-cput0)
+   timewc_in_Pushi(2) = timewc_in_Pushi(2) + (tt1-tt0)
+
    call n_T_u_group(flag_backf0=.true.)
 
    !$acc parallel loop present(zion,zion0,back_f0_i)

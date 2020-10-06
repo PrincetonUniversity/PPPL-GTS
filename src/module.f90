@@ -165,8 +165,9 @@ module global_parameters
    ! (1) shifte, (2) charge_eon, (3) poisson, (4) Smooth_Phi (5) Diagnostics
    real(wp) time_in_Pushe(5), timewc_in_Pushe(5)
    ! To measure the elapsed times of the following routines in the Pushion
-   ! (1) Diagnostics
-   real(wp) time_in_Pushi(1), timewc_in_Pushi(1)
+   ! (1) Diagnostics, (2) shifti (in the case of pushion_wEvol3)
+   real(wp) time_in_Pushi(2), timewc_in_Pushi(2)
+
 
 end module global_parameters
 

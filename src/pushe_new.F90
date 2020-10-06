@@ -2808,8 +2808,8 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
    call shifte
    call cpu_time(cput1)
    tt1=MPI_WTIME()
-   time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
-   timewc_in_Pushe(3) = timewc_in_Pushe(3) + (tt1-tt0)
+   time_in_Pushe(1) = time_in_Pushe(1) + (cput1-cput0)
+   timewc_in_Pushe(1) = timewc_in_Pushe(1) + (tt1-tt0)
 
    call electron_locator
    call n_T_u_group_e

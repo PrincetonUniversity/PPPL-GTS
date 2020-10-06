@@ -621,6 +621,7 @@ program GTS
          tmp_timewc  = timewc
 
          tmp_time(1)  = tmp_time(1)  - sum(time_in_Pushi) ! pushion
+         tmp_time(2)  = tmp_time(2)  + time_in_Pushi(2)   ! shifti
          tmp_time(4)  = tmp_time(4)  + time_in_Pushe(3)   ! Poisson
          tmp_time(5)  = tmp_time(5)  + time_in_Pushe(4)   ! smooth
          tmp_time(10) = tmp_time(10) - sum(time_in_Pushe) ! pusheon
@@ -629,6 +630,7 @@ program GTS
          tmp_time(15) = tmp_time(15) + time_in_Pushe(5) +time_in_Pushi(1) ! diagnostics in push routines
 
          tmp_timewc(1)  = tmp_timewc(1)  - sum(timewc_in_Pushi) ! pushion
+         tmp_timewc(2)  = tmp_timewc(2)  + timewc_in_Pushi(2)   ! shifti
          tmp_timewc(4)  = tmp_timewc(4)  + timewc_in_Pushe(3)   ! Poisson
          tmp_timewc(5)  = tmp_timewc(5)  + timewc_in_Pushe(4)   ! smooth
          tmp_timewc(10) = tmp_timewc(10) - sum(timewc_in_Pushe) ! pusheon
@@ -674,6 +676,7 @@ program GTS
       tmp_timewc  = timewc
 
       tmp_time(1)  = tmp_time(1)  - sum(time_in_Pushi) ! pushion
+      tmp_time(2)  = tmp_time(2)  + time_in_Pushi(2)   ! shifti
       tmp_time(4)  = tmp_time(4)  + time_in_Pushe(3)   ! Poisson
       tmp_time(5)  = tmp_time(5)  + time_in_Pushe(4)   ! smooth
       tmp_time(10) = tmp_time(10) - sum(time_in_Pushe) ! pusheon
