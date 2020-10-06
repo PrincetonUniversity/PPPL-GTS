@@ -251,7 +251,7 @@ subroutine load
    !  call esigetb(zion,mi)   ! get B-->BB
    call n_T_u_group                       ! get T, n and omega_t
    !$acc update self(backu(:mi),backT(:mi))
-   call esigetbf(zion,mi,7)   ! get B-->BB, I-->F  12/07
+   call esigetbf(zion,mi,ziondim)   ! get B-->BB, I-->F  12/07
    !  output backu from call n_T_u_group is omega_t
    backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
 

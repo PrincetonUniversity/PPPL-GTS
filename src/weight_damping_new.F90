@@ -18,7 +18,7 @@ subroutine weight_damping_ion
    !  eta_w=2.0d-7/tstep
    eta_w=weight_damping_rate/tstep
 
-   call esigetb(zion,mi,7)   ! get B-->BB
+   call esigetb(zion,mi,ziondim)   ! get B-->BB
    call weight_field(wfield)
 
 
