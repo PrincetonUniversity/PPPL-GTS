@@ -107,8 +107,8 @@ module Diagnostic_Grid
          DG%num_iSD = 8 +6 +6 +1 +4 +1! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
          DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
-         DG%num_eZD_1D = 8+4 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
-         DG%num_iZD_1D = 8+4 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_eZD_1D = 8+4+4 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_iZD_1D = 8+4+4 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
 
          DG%dgq   = 2.0*pi/(DG%dim_gq-1)
          DG%inv_dgq = 1.0/DG%dgq
@@ -1372,6 +1372,7 @@ module Diagnostic_Grid
          real(wp) eData1D(DG%num_eZD_1D,DG%dim_a)
          real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
+         real(wp) KE_para, KE_perp
 
          !$acc declare create(ptl_data)
 
@@ -1388,6 +1389,10 @@ module Diagnostic_Grid
 
          !$acc parallel loop present(zeon0,ptl_data,in_P_data,Full_da,ee_inv_grad_a,ghq,vpara_dve_a)
          do m=1,me
+
+            KE_para = 0.5*for_E*(zeon(4,m)*BB(m))**2.0
+            KE_perp = zeon(6,m)*zeon(6,m)*BB(m)
+
             ! Fluxes by Full Velocity
             ptl_data(1,m) = zeon0(5,m)*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
             ptl_data(2,m) = ptl_data(1,m)*in_P_data(2,m) ! Energy Flux
@@ -1412,6 +1417,14 @@ module Diagnostic_Grid
             ptl_data(11,m) = zeon0(8,m)*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
             ptl_data(12,m) = ptl_data(11,m)*in_P_data(2,m) ! Energy Flux
 
+
+            ! KE_para and KE_perp by delta-f
+            ptl_data(13,m) = zeon0(5,m)*KE_para
+            ptl_data(14,m) = zeon0(5,m)*KE_perp
+
+            ! KE_para and KE_perp by full-h
+            ptl_data(15,m) = zeon0(8,m)*KE_para
+            ptl_data(16,m) = zeon0(8,m)*KE_perp
          enddo
          if(Flag_Load_and_WeightDef==0)then
             !$acc parallel loop present(ptl_data)
@@ -1483,6 +1496,7 @@ module Diagnostic_Grid
          real(wp) iData1D(DG%num_iZD_1D,DG%dim_a)
          real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
+         real(wp) KE_para, KE_perp
 
          !$acc declare create(ptl_data)
 
@@ -1500,6 +1514,10 @@ module Diagnostic_Grid
 
          !$acc parallel loop present(zion0,ptl_data,in_P_data,Full_da,ii_inv_grad_a,ghq,vpara_dvi_a)
          do m=1,mi
+
+            KE_para = 0.5*(zion(4,m)*BB(m)-backu(m))**2.0
+            KE_perp = zion(6,m)*zion(6,m)*BB(m)
+
             ! Fluxes by Full Velocity
             ptl_data(1,m) = zion0(5,m)*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
             ptl_data(2,m) = ptl_data(1,m)*in_P_data(2,m) ! Energy Flux
@@ -1523,6 +1541,14 @@ module Diagnostic_Grid
             ! Fluxes by Full Velocity
             ptl_data(11,m) = zion0(8,m)*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
             ptl_data(12,m) = ptl_data(11,m)*in_P_data(2,m) ! Energy Flux
+
+            ! KE_para and KE_perp by delta-f
+            ptl_data(13,m) = zion0(5,m)*KE_para
+            ptl_data(14,m) = zion0(5,m)*KE_perp
+
+            ! KE_para and KE_perp by full-f
+            ptl_data(15,m) = zion0(8,m)*KE_para
+            ptl_data(16,m) = zion0(8,m)*KE_perp
          enddo
          if(Flag_Load_and_WeightDef==0)then
             !$acc parallel loop present(ptl_data)
