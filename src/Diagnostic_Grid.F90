@@ -18,6 +18,7 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
       real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
       real(wp), allocatable, dimension(:,:) :: dne_adiab ! Electron adiabatic density for diagnostic purpose
+      real(wp), allocatable, dimension(:) :: ZON_dne_adiab,mean_ZON_dne_adiab ! Zonal adiabatic density (surface averaged)
       real(wp), allocatable, dimension(:,:,:) :: FLabel_Function
       real(wp), allocatable, dimension(:,:,:) :: FLA_Denominator, FLA_FLabel, FLA_psi0
       real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_psi0
@@ -106,8 +107,8 @@ module Diagnostic_Grid
          DG%num_iSD = 8 +6 +6 +1 +4 +1! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
          DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
-         DG%num_eZD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
-         DG%num_iZD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_eZD_1D = 8+4 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_iZD_1D = 8+4 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
 
          DG%dgq   = 2.0*pi/(DG%dim_gq-1)
          DG%inv_dgq = 1.0/DG%dgq
@@ -124,6 +125,7 @@ module Diagnostic_Grid
          allocate(DG%a_2D(Nq,Na))
          allocate(DG%n0_2D(Nq,Na),DG%Te0_2D(Nq,Na),DG%Ti0_2D(Nq,Na))
          allocate(DG%gq_2D(Nq,Na), DG%Cell_dV(Nq,Na), DG%inv_Cell_dV(Nq,Na), DG%dne_adiab(Nq,Na))
+         allocate(DG%ZON_dne_adiab(Na),DG%mean_ZON_dne_adiab(Na))
          allocate(DG%Cell_dS_a(Nq,Na), DG%inv_Cell_dS_a(Nq,Na), DG%Cell_dS_gq(Nq,Na), DG%inv_Cell_dS_gq(Nq,Na), DG%Cell_dS_gf(Nq,Na), DG%inv_Cell_dS_gf(Nq,Na))
          allocate(DG%FLabel_Function(Nq,Na,0:1))
          allocate(DG%FLA_Denominator(Nq,Na,0:1), DG%FLA_FLabel(Nq,Na,0:1), DG%FLA_psi0(Nq,Na,0:1))
@@ -1401,6 +1403,15 @@ module Diagnostic_Grid
             ! Particle Density and Energy Density
             ptl_data(7,m) = zeon0(5,m) ! Particle Density
             ptl_data(8,m) = zeon0(5,m)*in_P_data(2,m) ! Energy Density
+
+            ! Belows are using full-h electron information
+            ! Particle Density and Energy Density
+            ptl_data(9,m) = zeon0(8,m) ! Particle Density
+            ptl_data(10,m) = zeon0(8,m)*in_P_data(2,m) ! Energy Density
+            ! Fluxes by Full Velocity
+            ptl_data(11,m) = zeon0(8,m)*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
+            ptl_data(12,m) = ptl_data(11,m)*in_P_data(2,m) ! Energy Flux
+
          enddo
          if(Flag_Load_and_WeightDef==0)then
             !$acc parallel loop present(ptl_data)
@@ -1504,6 +1515,14 @@ module Diagnostic_Grid
             ! Particle Density and Energy Density
             ptl_data(7,m) = zion0(5,m) ! Particle Density
             ptl_data(8,m) = zion0(5,m)*in_P_data(2,m) ! Energy Density
+
+            ! Belows are using full-f markers(zion(8,m))
+            ! Particle Density and Energy Density
+            ptl_data(9,m) = zion0(8,m) ! Particle Density
+            ptl_data(10,m) = zion0(8,m)*in_P_data(2,m) ! Energy Density
+            ! Fluxes by Full Velocity
+            ptl_data(11,m) = zion0(8,m)*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
+            ptl_data(12,m) = ptl_data(11,m)*in_P_data(2,m) ! Energy Flux
          enddo
          if(Flag_Load_and_WeightDef==0)then
             !$acc parallel loop present(ptl_data)

@@ -1554,6 +1554,30 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, DG%s_1D,h5err)
       call h5ltmake_dataset_f(gid_DG, "Anulus_dV",1,h5dims,H5T_NATIVE_DOUBLE, DG%Anulus_dV,h5err)
 
+
+      ! Adiabatic electron density
+      if(Flag_Def_dne_adiab==1) then
+         do i=1,DG%dim_a
+            DG%ZON_dne_adiab(i) = abs(csc0)*(int(ifelectron/2)*phi00(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
+         enddo
+      elseif(Flag_Def_dne_adiab==3) then
+         do i=1,DG%dim_a
+            DG%ZON_dne_adiab(i) = den_grid(i)*(-1.0+exp(abs(csc0)*(phi00(DG%ori_aid(i)))/DG%Te0_1D(i)))
+         enddo
+      endif
+      call h5ltmake_dataset_f(gid_DG_ZON, "dne_adiab",1,h5dims,H5T_NATIVE_DOUBLE, DG%ZON_dne_adiab*1e6,h5err)
+      ! mean_zonal adiabatic
+      if(Flag_Def_dne_adiab==1) then
+         do i=1,DG%dim_a
+            DG%mean_ZON_dne_adiab(i) = abs(csc0)*(int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
+         enddo
+      elseif(Flag_Def_dne_adiab==3) then
+         do i=1,DG%dim_a
+            DG%mean_ZON_dne_adiab(i) = den_grid(i)*(-1.0+exp(abs(csc0)*(mean_zonal_dphi(DG%ori_aid(i)))/DG%Te0_1D(i)))
+         enddo
+      endif
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_dne_adiab",1,h5dims,H5T_NATIVE_DOUBLE, DG%mean_ZON_dne_adiab*1e6,h5err)
+
       call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_P",1,h5dims,H5T_NATIVE_DOUBLE, DG%eZonData_1D(1,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_E",1,h5dims,H5T_NATIVE_DOUBLE, DG%eZonData_1D(2,:)*uveloci*E_00*1e-3,h5err)
       call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, DG%eZonData_1D(3,:)*uveloci*1e4,h5err)
@@ -1563,6 +1587,13 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_ZON, "dne",1,h5dims,H5T_NATIVE_DOUBLE, DG%eZonData_1D(7,:)*1e6,h5err)
       call h5ltmake_dataset_f(gid_DG_ZON, "dErg_e",1,h5dims,H5T_NATIVE_DOUBLE, DG%eZonData_1D(8,:)*1e6*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "dErg_e", "unit", "eV/m^3", h5err)
+
+      call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_P_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, DG%eZonData_1D(11,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "eFlux_E_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, DG%eZonData_1D(12,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "ne_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, DG%eZonData_1D(9,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "ne_tot_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, (DG%eZonData_1D(9,:)+int(ifelectron/2)*DG%ZON_dne_adiab)*1e6,h5err)
+
+
 
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_P",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eZonData_1D(1,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_E",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eZonData_1D(2,:)*uveloci*E_00*1e-3,h5err)
@@ -1574,36 +1605,21 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_dErg_e",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eZonData_1D(8,:)*1e6*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "mean_dErg_e", "unit", "eV/m^3", h5err)
 
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_P_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eZonData_1D(11,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_eFlux_E_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eZonData_1D(12,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_ne_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_eZonData_1D(9,:)*1e6,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_ne_tot_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, (inv_msnap*DG%cum_eZonData_1D(9,:)+int(ifelectron/2)*DG%mean_ZON_dne_adiab)*1e6,h5err)
+
+
       ! Calculate zonal dTe and dTi
       allocate(intp_val_Arr(DG%dim_a))
       ! zonal adiabatic
       intp_val_Arr=0.0
-      if(Flag_Def_dne_adiab==1) then
-         do i=1,DG%dim_a
-            intp_val_Arr(i) = 1e6*abs(csc0)*(int(ifelectron/2)*phi00(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
-         enddo
-      elseif(Flag_Def_dne_adiab==3) then
-         do i=1,DG%dim_a
-            intp_val_Arr(i) =1e6*den_grid(i)*(-1.0+exp(abs(csc0)*(phi00(DG%ori_aid(i)))/DG%Te0_1D(i)))
-         enddo
-      endif
-      call h5ltmake_dataset_f(gid_DG_ZON, "dne_adiab",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
-      ! mean_zonal adiabatic
-      intp_val_Arr=0.0
-      if(Flag_Def_dne_adiab==1) then
-         do i=1,DG%dim_a
-            intp_val_Arr(i) = 1e6*abs(csc0)*(int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
-         enddo
-      elseif(Flag_Def_dne_adiab==3) then
-         do i=1,DG%dim_a
-            intp_val_Arr(i) =1e6*den_grid(i)*(-1.0+exp(abs(csc0)*(mean_zonal_dphi(DG%ori_aid(i)))/DG%Te0_1D(i)))
-         enddo
-      endif
-      call h5ltmake_dataset_f(gid_DG_ZON, "mean_dne_adiab",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr,h5err)
+
 
 
       do i=1,DG%dim_a
-         intp_val_Arr(i) = ((2.0/3.0)*DG%eZonData_1D(8,i)-DG%Te0_1D(i)*DG%eZonData_1D(7,i))/(DG%n0_1D(i)+DG%eZonData_1D(7,i)+int(ifelectron/2)*phi00(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
+         intp_val_Arr(i) = ((2.0/3.0)*DG%eZonData_1D(8,i)-DG%Te0_1D(i)*DG%eZonData_1D(7,i))/(DG%n0_1D(i)+DG%eZonData_1D(7,i)+int(ifelectron/2)*DG%ZON_dne_adiab(i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "dTe_consst",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "dTe_consst", "note", "This is density-weighted averaged on Original Flux Surface", h5err)
@@ -1613,7 +1629,7 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_ZON, "dTi_consst",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "dTi_consst", "note", "This is density-weighted averaged on Original Flux Surface", h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = ((2.0/3.0)*inv_msnap*DG%cum_eZonData_1D(8,i)-DG%Te0_1D(i)*inv_msnap*DG%cum_eZonData_1D(7,i))/(DG%n0_1D(i)+inv_msnap*DG%cum_eZonData_1D(7,i)+int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
+         intp_val_Arr(i) = ((2.0/3.0)*inv_msnap*DG%cum_eZonData_1D(8,i)-DG%Te0_1D(i)*inv_msnap*DG%cum_eZonData_1D(7,i))/(DG%n0_1D(i)+inv_msnap*DG%cum_eZonData_1D(7,i)+int(ifelectron/2)*DG%mean_ZON_dne_adiab(i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_dTe_consst",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "mean_dTe_consst", "note", "This is density-weighted averaged on Original Flux Surface", h5err)
@@ -1622,9 +1638,27 @@ subroutine snapshot_hdf5
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_dTi_consst",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "mean_dTi_consst", "note", "This is density-weighted averaged on Original Flux Surface", h5err)
+
+      ! Followings are from full-h or full-f markers
+      do i=1,DG%dim_a
+         intp_val_Arr(i) = ((2.0/3.0)*DG%eZonData_1D(10,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%ZON_dne_adiab(i))/(DG%eZonData_1D(9,i)+int(ifelectron/2)*DG%ZON_dne_adiab(i))
+      enddo
+      call h5ltmake_dataset_f(gid_DG_ZON, "Te_consst_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
+      do i=1,DG%dim_a
+         intp_val_Arr(i) = ((2.0/3.0)*DG%iZonData_1D(10,i))/(DG%iZonData_1D(9,i))
+      enddo
+      call h5ltmake_dataset_f(gid_DG_ZON, "Ti_consst_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
+      do i=1,DG%dim_a
+         intp_val_Arr(i) = ((2.0/3.0)*inv_msnap*DG%cum_eZonData_1D(10,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%mean_ZON_dne_adiab(i))/(inv_msnap*DG%cum_eZonData_1D(9,i)+int(ifelectron/2)*DG%mean_ZON_dne_adiab(i))
+      enddo
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_Te_consst_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
+      do i=1,DG%dim_a
+         intp_val_Arr(i) = ((2.0/3.0)*inv_msnap*DG%cum_iZonData_1D(10,i))/(inv_msnap*DG%cum_iZonData_1D(9,i))
+      enddo
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_Ti_consst_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
+
+
       deallocate(intp_val_ARr)
-
-
 
       call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_P",1,h5dims,H5T_NATIVE_DOUBLE, DG%iZonData_1D(1,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_E",1,h5dims,H5T_NATIVE_DOUBLE, DG%iZonData_1D(2,:)*uveloci*E_00*1e-3,h5err)
@@ -1636,6 +1670,11 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_ZON, "dErg_i",1,h5dims,H5T_NATIVE_DOUBLE, DG%iZonData_1D(8,:)*1e6*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "dErg_i", "unit", "eV/m^3", h5err)
 
+      call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_P_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, DG%iZonData_1D(11,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "iFlux_E_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, DG%iZonData_1D(12,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "ni_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, DG%iZonData_1D(9,:)*1e6,h5err)
+
+
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_P",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iZonData_1D(1,:)*uveloci*1e4,h5err)
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_E",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iZonData_1D(2,:)*uveloci*E_00*1e-3,h5err)
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_P_ExB",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iZonData_1D(3,:)*uveloci*1e4,h5err)
@@ -1645,6 +1684,10 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_dni",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iZonData_1D(7,:)*1e6,h5err)
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_dErg_i",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iZonData_1D(8,:)*1e6*1e3*Tem_00,h5err)
       call h5ltset_attribute_string_f(gid_DG_ZON, "mean_dErg_i", "unit", "eV/m^3", h5err)
+
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_P_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iZonData_1D(11,:)*uveloci*1e4,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_iFlux_E_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iZonData_1D(12,:)*uveloci*E_00*1e-3,h5err)
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_ni_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, inv_msnap*DG%cum_iZonData_1D(9,:)*1e6,h5err)
 
 
       h5dims(1)=DG%dim_gq
