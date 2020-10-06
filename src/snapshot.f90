@@ -1682,11 +1682,11 @@ subroutine snapshot_hdf5
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "Te_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = ((2.0)*DG%eZonData_1D(13,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%ZON_dne_adiab(i))/(DG%eZonData_1D(9,i)+int(ifelectron/2)*DG%ZON_dne_adiab(i))
+         intp_val_Arr(i) = ((2.0)*DG%eZonData_1D(15,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%ZON_dne_adiab(i))/(DG%eZonData_1D(9,i)+int(ifelectron/2)*DG%ZON_dne_adiab(i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "Te_para_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = (DG%eZonData_1D(14,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%ZON_dne_adiab(i))/(DG%eZonData_1D(9,i)+int(ifelectron/2)*DG%ZON_dne_adiab(i))
+         intp_val_Arr(i) = (DG%eZonData_1D(16,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%ZON_dne_adiab(i))/(DG%eZonData_1D(9,i)+int(ifelectron/2)*DG%ZON_dne_adiab(i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "Te_perp_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
@@ -1694,13 +1694,13 @@ subroutine snapshot_hdf5
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_Te_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = ((2.0)*inv_msnap*DG%cum_eZonData_1D(13,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%mean_ZON_dne_adiab(i))/(inv_msnap*DG%cum_eZonData_1D(9,i)+int(ifelectron/2)*DG%mean_ZON_dne_adiab(i))
-      enddo
-      call h5ltmake_dataset_f(gid_DG_ZON, "mean_Te_perp_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
-      do i=1,DG%dim_a
-         intp_val_Arr(i) = (inv_msnap*DG%cum_eZonData_1D(14,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%mean_ZON_dne_adiab(i))/(inv_msnap*DG%cum_eZonData_1D(9,i)+int(ifelectron/2)*DG%mean_ZON_dne_adiab(i))
+         intp_val_Arr(i) = ((2.0)*inv_msnap*DG%cum_eZonData_1D(15,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%mean_ZON_dne_adiab(i))/(inv_msnap*DG%cum_eZonData_1D(9,i)+int(ifelectron/2)*DG%mean_ZON_dne_adiab(i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_Te_para_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
+      do i=1,DG%dim_a
+         intp_val_Arr(i) = (inv_msnap*DG%cum_eZonData_1D(16,i)+int(ifelectron/2)*DG%Te0_1D(i)*DG%mean_ZON_dne_adiab(i))/(inv_msnap*DG%cum_eZonData_1D(9,i)+int(ifelectron/2)*DG%mean_ZON_dne_adiab(i))
+      enddo
+      call h5ltmake_dataset_f(gid_DG_ZON, "mean_Te_perp_by_fh",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
 
 
       do i=1,DG%dim_a
@@ -1708,11 +1708,11 @@ subroutine snapshot_hdf5
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "Ti_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = ((2.0)*DG%iZonData_1D(13,i))/(DG%iZonData_1D(9,i))
+         intp_val_Arr(i) = ((2.0)*DG%iZonData_1D(15,i))/(DG%iZonData_1D(9,i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "Ti_para_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = (DG%iZonData_1D(14,i))/(DG%iZonData_1D(9,i))
+         intp_val_Arr(i) = (DG%iZonData_1D(16,i))/(DG%iZonData_1D(9,i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "Ti_perp_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
@@ -1720,11 +1720,11 @@ subroutine snapshot_hdf5
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_Ti_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = ((2.0)*inv_msnap*DG%cum_iZonData_1D(13,i))/(inv_msnap*DG%cum_iZonData_1D(9,i))
+         intp_val_Arr(i) = ((2.0)*inv_msnap*DG%cum_iZonData_1D(15,i))/(inv_msnap*DG%cum_iZonData_1D(9,i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_Ti_para_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
       do i=1,DG%dim_a
-         intp_val_Arr(i) = (inv_msnap*DG%cum_iZonData_1D(14,i))/(inv_msnap*DG%cum_iZonData_1D(9,i))
+         intp_val_Arr(i) = (inv_msnap*DG%cum_iZonData_1D(16,i))/(inv_msnap*DG%cum_iZonData_1D(9,i))
       enddo
       call h5ltmake_dataset_f(gid_DG_ZON, "mean_Ti_perp_by_ff",1,h5dims,H5T_NATIVE_DOUBLE, intp_val_Arr*1e3*Tem_00,h5err)
 
