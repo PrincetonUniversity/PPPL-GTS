@@ -354,16 +354,29 @@ program GTS
          timewc(8)=timewc(8)+dtwc
 
          ! push ion
-         ! if(Flag_RK4==1) then
-         !    call pushion_RK4(irk)
-         ! else
-         !    call pushion
-         ! endif
-         call pushion_wEvol3(irk,nrk)
-         call timer(t0,dt,t0wc,dtwc)
-         time(1)=time(1)+dt
-         timewc(1)=timewc(1)+dtwc
+         if(Flag_w_Evol/=3) then
+            if(Flag_RK4==1) then
+               call pushion_RK4(irk)
+            else
+               call pushion
+            endif
+            call timer(t0,dt,t0wc,dtwc)
+            time(1)=time(1)+dt
+            timewc(1)=timewc(1)+dtwc
 
+            ! redistribute ion across PEs
+            call shifti
+            call timer(t0,dt,t0wc,dtwc)
+            time(2)=time(2)+dt
+            timewc(2)=timewc(2)+dtwc
+         else
+            call pushion_wEvol3(irk,nrk)
+            call timer(t0,dt,t0wc,dtwc)
+            time(1)=time(1)+dt
+            timewc(1)=timewc(1)+dtwc
+            ! Note that pushion_wEvol3 does not need shifti in the main.F90
+            ! because it calls the shifti inside of the push routine
+         endif
 
          if(istep==mstep) then
             if(mype==0) then
@@ -373,11 +386,6 @@ program GTS
          call timer(t0,dt,t0wc,dtwc)
          time(17)=time(17)+dt
          timewc(17)=timewc(17)+dtwc
-         ! redistribute ion across PEs
-         call shifti
-         call timer(t0,dt,t0wc,dtwc)
-         time(2)=time(2)+dt
-         timewc(2)=timewc(2)+dtwc
 
          ! Calculate ion weight damping
          if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
@@ -412,21 +420,30 @@ program GTS
                time(9)=time(9)+dt
                timewc(9)=timewc(9)+dtwc
 
-               !     CALL PUSHE(irk)
-               ! if(Flag_RK4==1) then
-               !    ! call pusheon_RK4(solver1, masssolver, irk)
-               ! else
-               !    call pusheon(solver1, masssolver, irk)
-               ! endif
-               call pusheon_wEvol3(solver1, masssolver, irk, nrk)
-               call timer(t0,dt,t0wc,dtwc)
-               time(10)=time(10)+dt
-               timewc(10)=timewc(10)+dtwc
+                  !  CALL PUSHE(irk)
+               if(Flag_w_Evol/=3) then
+                  if(Flag_RK4==1) then
+                     call pusheon_RK4(solver1, masssolver, irk)
+                  else
+                     call pusheon(solver1, masssolver, irk)
+                  endif
+                  call timer(t0,dt,t0wc,dtwc)
+                  time(10)=time(10)+dt
+                  timewc(10)=timewc(10)+dtwc
 
-               call shifte
-               call timer(t0,dt,t0wc,dtwc)
-               time(11)=time(11)+dt
-               timewc(11)=timewc(11)+dtwc
+                  call shifte
+                  call timer(t0,dt,t0wc,dtwc)
+                  time(11)=time(11)+dt
+                  timewc(11)=timewc(11)+dtwc
+               else
+                  call pusheon_wEvol3(solver1, masssolver, irk, nrk)
+                  call timer(t0,dt,t0wc,dtwc)
+                  time(10)=time(10)+dt
+                  timewc(10)=timewc(10)+dtwc
+                  ! Note that pusheon_wEvol3 does not need shifte in the main.F90
+                  ! because it calls the shifte inside of the push routine
+               endif
+
 
             else
                ! Note that Following Subelectron routines are only valid for RK2 scheme
