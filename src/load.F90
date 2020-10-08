@@ -792,9 +792,9 @@ subroutine load_uniform_MGY
       elseif(Flag_Load_and_WeightDef==2) then
          ! First, get v_abs using rand_5d(4,m)
          vmax=umax*sqrt(backT(m))
-         vc=2.0*sqrt(backT(m))
+         vc=sqrt(2.0)*sqrt(backT(m))
          c2=0.01
-         f2val=0.2
+         f2val=0.05
          c1 = -((-2+c2*vmax+f2val*vmax+ c2*vc-f2val*vc)/( vmax*vc))
          c3 = -((2-2*f2val*vmax-c2*vc+ f2val*vc)/( vmax*(vmax-vc)))
          c4 = -((-2+f2val*vmax+c2*vc)/(vmax-vc))
@@ -807,7 +807,7 @@ subroutine load_uniform_MGY
          endif
 
          ! Second, get v_theta using rand_5d(5,m)
-         ratio=0.2 ! ratio of (max/min)
+         ratio=0.15 ! ratio of (max/min)
          c5=1.0/((1.0+ratio)*0.5*pi)
          c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
          Rand = rand_5d(5,m)
@@ -954,9 +954,9 @@ subroutine load_uniform_MGY
             elseif(Flag_Load_and_WeightDef==2) then
                ! First, get v_abs using rand_5d(4,m)
                vmax=umax*sqrt(Te_norm(m)*m0ms)
-               vc=2.0*sqrt(Te_norm(m)*m0ms)
+               vc=sqrt(2.0)*sqrt(Te_norm(m)*m0ms)
                c2=0.01
-               f2val=0.2
+               f2val=0.05
                c1 = -((-2+c2*vmax+f2val*vmax+ c2*vc-f2val*vc)/( vmax*vc))
                c3 = -((2-2*f2val*vmax-c2*vc+ f2val*vc)/( vmax*(vmax-vc)))
                c4 = -((-2+f2val*vmax+c2*vc)/(vmax-vc))
@@ -968,7 +968,7 @@ subroutine load_uniform_MGY
                   v_abs = (-c4 + sqrt(2*c3*Rand+(c4+c3*vc)**2))/c3
                endif
                ! Second, get v_theta using rand_5d(5,m)
-               ratio=0.2 ! ratio of (max/min)
+               ratio=0.15 ! ratio of (max/min)
                c5=1.0/((1.0+ratio)*0.5*pi)
                c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
                Rand = rand_5d(5,m)
