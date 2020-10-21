@@ -678,6 +678,7 @@ subroutine load_uniform_MGY
    real(kind=8) rand_5d(5,mi) ! can be sobol quasi random numbers, or can be sprng() numbers
    real(wp) inv_ds, ff, P_s, P_q  !inv_ds is uniform by definition of s_grids
    integer:: sid ! index for s_grid
+   integer:: Flag_tracers_at_specific_position=0
 
    real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio,gi_val(mi),ge_val(me), Rand !For Flag_Load_and_WeightDef==2 case.
 
@@ -1058,6 +1059,130 @@ subroutine load_uniform_MGY
          m = 0.5*me
          write(stdout,*) m,"-th electron's each_ptl_d6z=", inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms),  ", back_f0_e(m)=",back_f0_e(m)
          call flush(stdout)
+      endif
+
+
+      Flag_tracers_at_specific_position=1
+      if(Flag_tracers_at_specific_position==1) then
+
+         ! Set test etracers
+         ! Set positions of trapped particles
+         do i=1, int(num_of_etracers/2)
+            m = (real(i)/(num_of_etracers+1.0)) * me
+            zeon(1,m) = 0.64 + 0.02*(i-1)/real(int(num_of_etracers/2)-1)
+            zeon(2,m) = 0.0
+            zeon(3,m) = 0.0
+
+            zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+         enddo
+         ! Set positions of passing particles
+         do i=int(num_of_etracers/2)+1, num_of_etracers
+            m = (real(i)/(num_of_etracers+1.0)) * me
+            zeon(1,m) = 0.64 + 0.02*(i-(int(num_of_etracers/2)+1))/real(int(num_of_etracers/2)-1)
+            zeon(2,m) = 0.0
+            zeon(3,m) = 0.0
+
+            zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+         enddo
+
+         acc_newer_H_zeon=.true.
+
+         call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backTe(:me))
+         call esigetb(zeon,me,zeondim)
+
+         ! Marginally trapped particles (theta in (vpara,vperp) plane is 60 degree (pi/3))
+         do i=1, int(num_of_etracers/2)
+            m = (real(i)/(num_of_etracers+1.0)) * me
+
+            Te_norm(m)= backTe(m)*msm0
+            vpara = sqrt(2*Te_norm(m)*m0ms)*cos(pi/3.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
+            vperp = sqrt(2*Te_norm(m)*m0ms)*sin(pi/3.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
+            zeon(4,m) = msm0*vpara/(csc0*BB(m))
+            zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+
+            zeon0(6,m) = 0.0
+            zeon(8,m)  = 0.0
+            zeon(5,m)  = 0.0
+         enddo
+
+         ! Passing particles (theta in (vpara,vperp) plane is 30 degree (pi/6))
+         do i=int(num_of_etracers/2)+1, num_of_etracers
+            m = (real(i)/(num_of_etracers+1.0)) * me
+
+            Te_norm(m)= backTe(m)*msm0
+            vpara = sqrt(2*Te_norm(m)*m0ms)*cos(pi/6.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
+            vperp = sqrt(2*Te_norm(m)*m0ms)*sin(pi/6.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
+            zeon(4,m) = msm0*vpara/(csc0*BB(m))
+            zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+
+            zeon0(6,m) = 0.0
+            zeon(8,m)  = 0.0
+            zeon(5,m)  = 0.0
+         enddo
+         acc_newer_H_zeon=.true.
+
+         call n_T_u_group_e(flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+         !$acc update self(back_f0_e(:me))
+
+
+
+         ! Set test itracers
+         ! Set positions of trapped particles
+         do i=1, int(num_of_itracers/2)
+            m = (real(i)/(num_of_itracers+1.0)) * mi
+            zion(1,m) = 0.64 + 0.02*(i-1)/real(int(num_of_itracers/2)-1)
+            zion(2,m) = 0.0
+            zion(3,m) = 0.0
+
+            zion(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+         enddo
+         ! Set positions of passing particles
+         do i=int(num_of_itracers/2)+1, num_of_itracers
+            m = (real(i)/(num_of_itracers+1.0)) * mi
+            zion(1,m) = 0.64 + 0.02*(i-(int(num_of_itracers/2)+1))/real(int(num_of_itracers/2)-1)
+            zion(2,m) = 0.0
+            zion(3,m) = 0.0
+
+            zion(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+         enddo
+         acc_newer_H_zion=.true.
+
+         call n_T_u_group   ! get Ti, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backT(:mi))
+         call esigetb(zion,mi,ziondim)
+
+         ! Marginally trapped particles (theta in (vpara,vperp) plane is 60 degree (pi/3))
+         do i=1, int(num_of_itracers/2)
+            m = (real(i)/(num_of_itracers+1.0)) * mi
+
+            vpara = sqrt(2*backT(m))*cos(pi/3.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
+            vperp = sqrt(2*backT(m))*sin(pi/3.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
+            zion(4,m) = vpara/(BB(m))
+            zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
+
+            zion0(6,m) = 0.0
+            zion(8,m)  = 0.0
+            zion(5,m)  = 0.0
+         enddo
+
+         ! Passing particles (theta in (vpara,vperp) plane is 30 degree (pi/6))
+         do i=int(num_of_itracers/2)+1, num_of_itracers
+            m = (real(i)/(num_of_itracers+1.0)) * mi
+
+            vpara = sqrt(2*backT(m))*cos(pi/6.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
+            vperp = sqrt(2*backT(m))*sin(pi/6.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
+            zion(4,m) = vpara/(BB(m))
+            zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
+
+            zion0(6,m) = 0.0
+            zion(8,m)  = 0.0
+            zion(5,m)  = 0.0
+         enddo
+         acc_newer_H_zion=.true.
+
+         call n_T_u_group(flag_backf0=.true.)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+         !$acc update self(back_f0_i(:mi))
       endif
    endif
 
