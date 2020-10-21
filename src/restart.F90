@@ -25,9 +25,9 @@ subroutine restart_write
 
    ! record particle information for future restart run
 
-   write(222) istep,mi,ntracer,ntracer_energy_ion0,misum
-   write(222) zion(1:7,1:mi)
-   write(222) zion0(8,1:mi)
+   write(222) istep,ziondim,mi,ntracer,ntracer_energy_ion0,misum
+   write(222) zion(1:ziondim,1:mi)
+   write(222) zion0(6:ziondim,1:mi)
    write(222) isize,buffer1
    write(222) sn_box,sn0,sn0_g,sw,rdtem0,rtden,pmarki,markeri,cloud_i    ! these are calculated in load.f90 and should be saved for check point
    write(222) phi  ! --> initial <phi> for poisson solving total phi  (ZF_SEPARATION=0 case)
@@ -35,14 +35,10 @@ subroutine restart_write
    write(222) phip00, phi00  ! need for restart when using FEM solver with ZF_SEPARATION=1
    write(222) sumfluxpsi     ! need for restart when using int[I(a)dt] as weighting for enforcing conservation
    if(ifelectron/=0) then
-      write(222) me,ntracer_e,ntracer_energy_electron0,mesum
-      if(ifdphi/=2) then
-         write(222) zeon(1:7,1:me)
-      elseif(ifdphi>=2) then
-         write(222) zeon(1:8,1:me)
-      endif
+      write(222) zeondim,me,ntracer_e,ntracer_energy_electron0,mesum
 
-      write(222) zeon0(8,1:me)
+      write(222) zeon(1:zeondim,1:me)
+      write(222) zeon0(6:zeondim,1:me)
 
       write(222) UnNorm_zeta_i(1:mi), UnNorm_theta_i(1:mi)
       write(222) UnNorm_zeta_e(1:mi), UnNorm_theta_e(1:mi)
@@ -99,9 +95,9 @@ subroutine restart_read
    open(333,file=cdum,status='old',form='unformatted',access='stream')
 
    ! read particle information to restart previous run
-   read(333) istart,mi,ntracer,ntracer_energy_ion0,misum
-   read(333) zion(1:7,1:mi)
-   read(333) zion0(8,1:mi)
+   read(333) istart,ziondim,mi,ntracer,ntracer_energy_ion0,misum
+   read(333) zion(1:ziondim,1:mi)
+   read(333) zion0(6:ziondim,1:mi)
    read(333) isize,buffer1
    read(333) sn_box,sn0,sn0_g,sw,rdtem0,rtden,pmarki,markeri,cloud_i
    read(333) phi  ! --> initial <phi> for poisson solving total phi (ZF_SEPARATION=0 case)
@@ -112,13 +108,10 @@ subroutine restart_read
    istart=istart+1         ! starting step number
 
    if(ifelectron/=0) then
-      read(333) me,ntracer_e,ntracer_energy_electron0,mesum
-      if(ifdphi/=2) then
-         read(333) zeon(1:7,1:me)
-      elseif(ifdphi>=2) then
-         read(333) zeon(1:8,1:me)
-      endif
-      read(333) zeon0(8,1:me)
+      read(333) zeondim,me,ntracer_e,ntracer_energy_electron0,mesum
+      read(333) zeon(1:zeondim,1:me)
+      read(333) zeon0(6:zeondim,1:me)
+
 
       read(333) UnNorm_zeta_i(1:mi), UnNorm_theta_i(1:mi)
       read(333) UnNorm_zeta_e(1:mi), UnNorm_theta_e(1:mi)
