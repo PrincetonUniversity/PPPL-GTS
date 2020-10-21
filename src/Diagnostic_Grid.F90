@@ -302,8 +302,8 @@ module Diagnostic_Grid
             PVS(pbid)%dim_vpara = 2*PVS(pbid)%nv+1
             PVS(pbid)%dim_vperp = PVS(pbid)%nv+1
 
-            PVS(pbid)%num_of_fi  = 5
-            PVS(pbid)%num_of_fe  = 5
+            PVS(pbid)%num_of_fi  = 6
+            PVS(pbid)%num_of_fe  = 7
 
             allocate(PVS(pbid)%vpara_1D(-PVS(pbid)%nv:PVS(pbid)%nv))
             allocate(PVS(pbid)%vperp_1D(0:PVS(pbid)%nv))
@@ -601,6 +601,8 @@ module Diagnostic_Grid
          real(wp) :: intpl_FLA_Te0(DG%dim_gq,DG%dim_a)
          real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
+         integer :: ij,ip
+         real(wp) :: Te_inverse, r,fip,wz0,wz1,wp0,wp1,wt00,wt10,wt01,wt11,e1,Ea_00,AD,fe0(me),fe_AD(me)
 
 
          if(acc_newer_D_zeon) then
@@ -649,6 +651,54 @@ module Diagnostic_Grid
             enddo
          endif
 
+         do m=1,me
+            Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+            ! Cal new phi at new position (i.e. phi @ (t_(n+1), x_(n+1)))
+            wz1=wzeon(m)
+            wz0=1.0_wp-wz1
+
+            ij=jteon0(m)
+            wp0=1.0_wp-wpeon(m)
+            wt00=1.0_wp-wteon0(m)
+            e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=ij+1
+            wt10=1.0_wp-wt00
+            e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=jteon1(m)
+            wp1=1.0_wp-wp0
+            wt01=1.0_wp-wteon1(m)
+            e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=ij+1
+            wt11=1.0_wp-wt01
+            e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+            ! calculate <phi> at electrons (no FLR effect -- x=R)
+            r=zeon(7,m)-s0       ! in radial coordinator s
+            r=r*ori_inv_ds
+            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            fip=r-real(ip,wp)
+            Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+
+            if ( Flag_Def_dne_adiab==0 ) then
+               AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
+            elseif(Flag_Def_dne_adiab==1) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+               AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==3) then
+               AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
+            else
+               AD=-1e100
+               write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in Measure Electrons_on_DG!!"
+               STOP
+            endif
+
+            fe0(m)    = zeon0(6,m)*back_f0_e(m)
+            fe_AD(m)  = zeon0(6,m)*back_f0_e(m)*AD
+         enddo
 
          if(Flag_Load_and_WeightDef==0)then
             delta_f(:) = zeon0(5,1:me)*eNrNm
@@ -838,6 +888,9 @@ module Diagnostic_Grid
                      fid=3; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio ! Marker Density
                      fid=4; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*f_tot(m) ! f_tot
                      fid=5; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+
+                     fid=6; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*fe0(m) ! f0 sampled by markers
+                     fid=7; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*fe_AD(m) ! by adiabatic response
                   enddo
                endif
             enddo
@@ -864,6 +917,10 @@ module Diagnostic_Grid
             deallocate(tmp_PVS_fe)
          endif
 
+         ! Normalize PVS
+         do pbid=0,nPVS
+            PVS(pbid)%fe=PVS(pbid)%fe/(PVS(pbid)%dv**2.0)
+         enddo
 
          ! Match poloidal end cell
          ! (gq=0 and gq=2pi is the same position physically
@@ -1184,6 +1241,8 @@ module Diagnostic_Grid
                      fid=3; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio ! Marker Density
                      fid=4; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*f_tot(m) ! f_tot
                      fid=5; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+
+                     fid=6; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*back_f0_i(m)*zion0(6,m) ! f0 sampled by markers
                   enddo
                endif
             enddo
@@ -1283,6 +1342,11 @@ module Diagnostic_Grid
             enddo
             deallocate(tmp_PVS_fi)
          endif
+
+        ! Normalize PVS
+         do pbid=0,nPVS
+            PVS(pbid)%fi=PVS(pbid)%fi/(PVS(pbid)%dv**2.0)
+         enddo
 
 
          ! Match poloidal end cell

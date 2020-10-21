@@ -1960,6 +1960,8 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_PVS, "L_a",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%L_a,h5err)
          call h5ltmake_dataset_f(gid_PVS, "L_gq",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%L_gq,h5err)
          call h5ltmake_dataset_f(gid_PVS, "L_gf",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%L_gf,h5err)
+         call h5ltmake_dataset_f(gid_PVS, "dv",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%dv,h5err)
+         call h5ltmake_dataset_f(gid_PVS, "nv",1,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%nv,h5err)
 
          call h5ltmake_dataset_f(gid_PVS, "n0",1,h5dims,H5T_NATIVE_DOUBLE, 1e6*PVS(pbid)%n0,h5err)
          call h5ltset_attribute_string_f(gid_PVS, "n0", "unit", "#/m^3", h5err)
@@ -1981,6 +1983,7 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_PVS, "fi_marker",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,3),h5err)
          call h5ltmake_dataset_f(gid_PVS, "fi",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,4),h5err)
          call h5ltmake_dataset_f(gid_PVS, "fi_Ti",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,5),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fi0_by_markers",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi(:,:,6),h5err)
          call h5ltmake_dataset_f(gid_PVS, "fi0",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fi0,h5err)
 
          call h5ltmake_dataset_f(gid_PVS, "dfe",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,1),h5err)
@@ -1988,6 +1991,8 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_PVS, "fe_marker",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,3),h5err)
          call h5ltmake_dataset_f(gid_PVS, "fe",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,4),h5err)
          call h5ltmake_dataset_f(gid_PVS, "fe_Te",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,5),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fe0_by_markers",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,6),h5err)
+         call h5ltmake_dataset_f(gid_PVS, "fe_adiab",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe(:,:,7),h5err)
          call h5ltmake_dataset_f(gid_PVS, "fe0",2,h5dims,H5T_NATIVE_DOUBLE, PVS(pbid)%fe0,h5err)
 
          call h5gclose_f(gid_PVS, h5err)

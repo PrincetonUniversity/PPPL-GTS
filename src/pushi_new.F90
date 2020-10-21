@@ -1489,6 +1489,12 @@ subroutine pushion_RK4(irk_i)
       tt1=MPI_WTIME()
       time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
       timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Ions_on_Diagnostic_Grid takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
    endif
 
 
@@ -1996,6 +2002,12 @@ subroutine pushion_wEvol3(irk_i,nrk)
       tt1=MPI_WTIME()
       time_in_Pushi(1) = time_in_Pushi(1) + (cput1-cput0)
       timewc_in_Pushi(1) = timewc_in_Pushi(1) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Ions_on_Diagnostic_Grid takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
    endif
 
 

@@ -1725,6 +1725,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
          !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
          !$acc update self(elabels(:me))
+         !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
+         !$acc update self(back_f0_e(:me))
+         !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
             acc_newer_D_zeon=.false.
@@ -2358,7 +2361,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self(elabels(:me))
          !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
          !$acc update self(back_f0_e(:me))
-
+         !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
             acc_newer_D_zeon=.false.
@@ -2376,6 +2379,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          tt1=MPI_WTIME()
          time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
          timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Electrons_on_Diagnostic_Grid takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
       endif
 
 
@@ -2783,6 +2792,10 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
       !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
       !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
       !$acc update self(elabels(:me))
+      !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
+      !$acc update self(back_f0_e(:me))
+      !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
+
       if(acc_newer_D_zeon) then
          !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
          acc_newer_D_zeon=.false.
@@ -2800,6 +2813,12 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
       tt1=MPI_WTIME()
       time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
       timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Electrons_on_Diagnostic_Grid takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
    endif
 
 
