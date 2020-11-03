@@ -2517,6 +2517,8 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       real(wp) Max_Pol_Rot ! maximum number of toroidal rotation per each field line
       real(wp) Min_a ! minimum a of the field line trajectory
       real(wp) TrackLength
+      real(wp) TrackLength_CW_from_StartingPoint ! ClockWise direction (negative toroidal direction)
+      real(wp) TrackLength_CCW_from_StartingPoint ! CounterClockWise direction (positive toroidal direction)
    end type FieldPoints
 
    integer(HSIZE_T) :: h5dims(5)
@@ -2728,12 +2730,16 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
                exit
             endif
          enddo
+         if(tor_dir==-1) PPI(:,Fid)%TrackLength_CW_from_StartingPoint = PPI(1,Fid)%TrackLength
+         if(tor_dir==+1) PPI(:,Fid)%TrackLength_CCW_from_StartingPoint  = PPI(1,Fid)%TrackLength-PPI(1,Fid)%TrackLength_CW_from_StartingPoint
 
       enddo
       PPI(1:PPI_id,Fid)%Min_a = PPI(1,Fid)%Min_a
       FootPoints(:,Fid)%Min_a = PPI(1,Fid)%Min_a
       PPI(1:PPI_id,Fid)%TrackLength = PPI(1,Fid)%TrackLength
       FootPoints(:,Fid)%TrackLength = PPI(1,Fid)%TrackLength
+      FootPoints(:,Fid)%TrackLength_CW_from_StartingPoint = PPI(1,Fid)%TrackLength_CW_from_StartingPoint
+      FootPoints(:,Fid)%TrackLength_CCW_from_StartingPoint = PPI(1,Fid)%TrackLength_CCW_from_StartingPoint
       num_of_PPIs(Fid) = PPI_id
    enddo
 
@@ -2918,6 +2924,10 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       call h5ltmake_dataset_f(file_id, "PPI/Min_a",4,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_PPI(:,:)%TrackLength
       call h5ltmake_dataset_f(file_id, "PPI/TrackLength",4,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,:)%TrackLength_CW_from_StartingPoint
+      call h5ltmake_dataset_f(file_id, "PPI/TrackLength_CW",4,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_PPI(:,:)%TrackLength_CCW_from_StartingPoint
+      call h5ltmake_dataset_f(file_id, "PPI/TrackLength_CCW",4,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
 
       deallocate(tmp_Real_2D,tmp_Integer_2D)
 
@@ -2954,6 +2964,10 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       call h5ltmake_dataset_f(file_id, "FPI/Min_a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_FootPoints(:,:)%TrackLength
       call h5ltmake_dataset_f(file_id, "FPI/TrackLength",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%TrackLength_CCW_from_StartingPoint
+      call h5ltmake_dataset_f(file_id, "FPI/TrackLength_CCW",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
+      tmp_Real_2D=recv_FootPoints(:,:)%TrackLength_CW_from_StartingPoint
+      call h5ltmake_dataset_f(file_id, "FPI/TrackLength_CW",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
 
       deallocate(tmp_Real_2D,tmp_Integer_2D)
 
