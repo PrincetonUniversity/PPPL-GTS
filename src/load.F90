@@ -668,7 +668,9 @@ subroutine load_uniform_MGY
    real(wp) inv_Nm,Nm ! inverse of total number of Marker particles for each speceis (actually, they are the same)
    real(wp) each_ptl_d6z ! d6z(=da*dgq*dgf*dvpara*dvperp) is the micro phase space volume which each particle occupies
    real(wp) Te_norm(memax) !  normalized-Te=Te/E_0, the same unit as normalized Ti
-   integer m,ip,i,j,ij
+   integer m,ip,i,j,ij,mstart,mend
+   integer gid, Ngroup
+   real(wp), allocatable :: vangle_list(:),vabs_list(:)
    real(wp) jacobian,density
    real(wp) dpsi,zdum,tdum,pdum
    real(wp) integral_f0
@@ -1067,58 +1069,43 @@ subroutine load_uniform_MGY
 
          ! Set test etracers
          ! Set positions of trapped particles
-         do i=1, int(num_of_etracers/2)
-            m = (real(i)/(num_of_etracers+1.0)) * me
-            zeon(1,m) = 0.64 + 0.02*(i-1)/real(int(num_of_etracers/2)-1)
-            zeon(2,m) = 0.0
-            zeon(3,m) = 0.0
 
-            zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+         Ngroup=6
+         allocate(vangle_list(Ngroup),vabs_list(Ngroup))
+         vangle_list=[pi/6,pi/3,80*pi/180,pi/6,pi/3,80*pi/180] ! 30, 60, 80, degrees of angle
+         vabs_list=[1,1,1,2.5,2.5,2.5]
+         do gid=1,Ngroup
+            mstart=(gid-1)*int(num_of_etracers/ngroup)+1
+            mend  =(gid)*int(num_of_etracers/ngroup)
+            do i=mstart,mend
+               m = (real(i)/(num_of_etracers+1.0)) * me
+               zeon(1,m) = 0.64 + 0.02*(i-mstart)/real(mend-mstart)
+               zeon(2,m) = 0.0
+               zeon(3,m) = 0.0
+               zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+            enddo
          enddo
-         ! Set positions of passing particles
-         do i=int(num_of_etracers/2)+1, num_of_etracers
-            m = (real(i)/(num_of_etracers+1.0)) * me
-            zeon(1,m) = 0.64 + 0.02*(i-(int(num_of_etracers/2)+1))/real(int(num_of_etracers/2)-1)
-            zeon(2,m) = 0.0
-            zeon(3,m) = 0.0
-
-            zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
-         enddo
-
          acc_newer_H_zeon=.true.
 
          call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
          !$acc update self(backTe(:me))
          call esigetb(zeon,me,zeondim)
 
-         ! Marginally trapped particles (theta in (vpara,vperp) plane is 60 degree (pi/3))
-         do i=1, int(num_of_etracers/2)
-            m = (real(i)/(num_of_etracers+1.0)) * me
+         do gid=1,Ngroup
+            mstart=(gid-1)*int(num_of_etracers/Ngroup)+1
+            mend  =(gid)*int(num_of_etracers/Ngroup)
+            do i=mstart,mend
+               m = (real(i)/(num_of_etracers+1.0)) * me
+               Te_norm(m)= backTe(m)*msm0
+               vpara = vabs_list(gid)*sqrt(2*Te_norm(m)*m0ms)*cos(vangle_list(gid)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               vperp = vabs_list(gid)*sqrt(2*Te_norm(m)*m0ms)*sin(vangle_list(gid)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               zeon(4,m) = msm0*vpara/(csc0*BB(m))
+               zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
 
-            Te_norm(m)= backTe(m)*msm0
-            vpara = sqrt(2*Te_norm(m)*m0ms)*cos(pi/3.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
-            vperp = sqrt(2*Te_norm(m)*m0ms)*sin(pi/3.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
-            zeon(4,m) = msm0*vpara/(csc0*BB(m))
-            zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
-
-            zeon0(6,m) = 0.0
-            zeon(8,m)  = 0.0
-            zeon(5,m)  = 0.0
-         enddo
-
-         ! Passing particles (theta in (vpara,vperp) plane is 30 degree (pi/6))
-         do i=int(num_of_etracers/2)+1, num_of_etracers
-            m = (real(i)/(num_of_etracers+1.0)) * me
-
-            Te_norm(m)= backTe(m)*msm0
-            vpara = sqrt(2*Te_norm(m)*m0ms)*cos(pi/6.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
-            vperp = sqrt(2*Te_norm(m)*m0ms)*sin(pi/6.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
-            zeon(4,m) = msm0*vpara/(csc0*BB(m))
-            zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
-
-            zeon0(6,m) = 0.0
-            zeon(8,m)  = 0.0
-            zeon(5,m)  = 0.0
+               zeon0(6,m) = 0.0
+               zeon(8,m)  = 0.0
+               zeon(5,m)  = 0.0
+            enddo
          enddo
          acc_newer_H_zeon=.true.
 
@@ -1127,62 +1114,50 @@ subroutine load_uniform_MGY
 
 
 
-         ! Set test itracers
-         ! Set positions of trapped particles
-         do i=1, int(num_of_itracers/2)
-            m = (real(i)/(num_of_itracers+1.0)) * mi
-            zion(1,m) = 0.64 + 0.02*(i-1)/real(int(num_of_itracers/2)-1)
-            zion(2,m) = 0.0
-            zion(3,m) = 0.0
 
-            zion(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)))
-         enddo
-         ! Set positions of passing particles
-         do i=int(num_of_itracers/2)+1, num_of_itracers
-            m = (real(i)/(num_of_itracers+1.0)) * mi
-            zion(1,m) = 0.64 + 0.02*(i-(int(num_of_itracers/2)+1))/real(int(num_of_itracers/2)-1)
-            zion(2,m) = 0.0
-            zion(3,m) = 0.0
-
-            zion(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+         ! Set itracers
+         do gid=1,Ngroup
+            mstart=(gid-1)*int(num_of_itracers/Ngroup)+1
+            mend  =(gid)*int(num_of_itracers/Ngroup)
+            do i=mstart,mend
+               m = (real(i)/(num_of_itracers+1.0)) * mi
+               zion(1,m) = 0.64 + 0.02*(i-mstart)/real(mend-mstart)
+               zion(2,m) = 0.0
+               zion(3,m) = 0.0
+               zion(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+            enddo
          enddo
          acc_newer_H_zion=.true.
+
 
          call n_T_u_group   ! get Ti, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
          !$acc update self(backT(:mi))
          call esigetb(zion,mi,ziondim)
 
-         ! Marginally trapped particles (theta in (vpara,vperp) plane is 60 degree (pi/3))
-         do i=1, int(num_of_itracers/2)
-            m = (real(i)/(num_of_itracers+1.0)) * mi
 
-            vpara = sqrt(2*backT(m))*cos(pi/3.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
-            vperp = sqrt(2*backT(m))*sin(pi/3.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
-            zion(4,m) = vpara/(BB(m))
-            zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
 
-            zion0(6,m) = 0.0
-            zion(8,m)  = 0.0
-            zion(5,m)  = 0.0
-         enddo
+         do gid=1,Ngroup
+            mstart=(gid-1)*int(num_of_itracers/Ngroup)+1
+            mend  =(gid)*int(num_of_itracers/Ngroup)
+            do i=mstart,mend
+               m = (real(i)/(num_of_itracers+1.0)) * mi
+               vpara = vabs_list(gid)*sqrt(2*backT(m))*cos(vangle_list(gid)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               vperp = vabs_list(gid)*sqrt(2*backT(m))*sin(vangle_list(gid)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               zion(4,m) = vpara/(BB(m))
+               zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
 
-         ! Passing particles (theta in (vpara,vperp) plane is 30 degree (pi/6))
-         do i=int(num_of_itracers/2)+1, num_of_itracers
-            m = (real(i)/(num_of_itracers+1.0)) * mi
-
-            vpara = sqrt(2*backT(m))*cos(pi/6.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
-            vperp = sqrt(2*backT(m))*sin(pi/6.0) ! Most Probable Veclotiy vp = sqrt(2T/m)
-            zion(4,m) = vpara/(BB(m))
-            zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
-
-            zion0(6,m) = 0.0
-            zion(8,m)  = 0.0
-            zion(5,m)  = 0.0
+               zion0(6,m) = 0.0
+               zion(8,m)  = 0.0
+               zion(5,m)  = 0.0
+            enddo
          enddo
          acc_newer_H_zion=.true.
 
          call n_T_u_group(flag_backf0=.true.)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
          !$acc update self(back_f0_i(:mi))
+
+         deallocate(vangle_list,vabs_list)
+
       endif
    endif
 
