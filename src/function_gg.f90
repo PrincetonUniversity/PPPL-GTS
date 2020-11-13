@@ -2522,7 +2522,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
    end type FieldPoints
 
    integer(HSIZE_T) :: h5dims(5)
-   integer(HID_T) file_id, gid_PPI, gid_FPI, gid_FP
+   integer(HID_T) file_id, gid_PPI, gid_FPI, gid_FP, gid_FMap3D
    integer max_tor_rotation, num_a, num_gq, num_gf, i, j, ierr,length, h5err
    integer Gsize, Lsize, extra! Number of G(Global) or L(Local) Field lines
    integer PPI_id
@@ -2545,17 +2545,21 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
    real(wp) t_start, t_end
    integer num_of_samplePPIs_for_output, PPI_jump
 
-   real(wp) ratio, wgq0,wgq1,wgf0,wgf1
-   real(wp) P_gq, P_gf, P_safety_q
+   real(wp) ratio,wa0,wa1,wgq0,wgq1,wgf,wgf0,wgf1,ori_inv_ds
+   real(wp) P_gq, P_gf, P_safety_q, P_s, P_a
    real(wp) target_gq, target_gf
-   integer gqid, gfid, Pid, Nf,Nq, vid
+   integer aid, gqid, gfid, Pid, Na,Nf,Nq, vid, ori_sid
    integer num_of_FCP_variables
    integer FPC_dim_gq, FPC_dim_gf
    real(wp) FPC_inv_dgq, FPC_inv_dgf
    real(wp), allocatable, dimension(:) :: FPC_gq_1D, FPC_gf_1D
    real(wp), allocatable, dimension(:,:) :: FPC_gq_2D, FPC_gf_2D
    real(wp), allocatable, dimension(:,:,:) :: FPC_Data, tmp_FPC_Data
-
+   integer num_of_FMap3D_variables, FMap3D_dim_a,FMap3D_dim_gq,FMap3D_dim_gf
+   real(wp), FMap3D_inv_a,FMap3D_inv_gq, FMap3D_inv_gf
+   real(wp), allocatable, dimension(:) :: FMap3D_a_1D, FMap3D_gq_1D, FMap3D_gf_1D, FMap3D_safety_q_1D
+   real(wp), allocatable, dimension(:,:,:,:) :: FMap3D_Data, tmp_FMap3D_Data
+   real(wp) target_zeta
 
 
 #ifdef _MGY_TIMER_
@@ -2870,6 +2874,148 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
    call MPI_Gatherv(FootPoints, Lsize, MPI_FPs_Type, recv_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_FPs_Type, 0,MPI_COMM_WORLD,ierr)
 
 
+
+   ! Measure FieldFollowingData on FMap3D
+   num_of_FMap3D_variables = 3
+   FMap3D_dim_a  = 200
+   FMap3D_dim_gq = 300
+   FMap3D_dim_gf = 50
+
+   Na=FMap3D_dim_a
+   Nq=FMap3D_dim_gq
+   Nf=FMap3D_dim_gf
+
+   FMap3D_inv_a  = real(Na-1)/(a1-a0)
+   FMap3D_inv_gq = real(Nq-1)/(2.0*pi)
+   FMap3D_inv_gf = real(Nf-1)/(2.0*pi)
+
+   allocate(FMap3D_a_1D(Na), FMap3D_safety_q_1D(Na),FMap3D_gq_1D(Nq),FMap3D_gf_1D(Nf))
+   allocate(FMap3D_Data(Nq,Na,Nf,num_of_FMap3D_variables),tmp_FMap3D_Data(Nq,Na,Nf,num_of_FMap3D_variables))
+   FMap3D_Data=0.0
+   tmp_FMap3D_Data=0.0
+
+
+   ori_inv_ds = real(mpsi)/(s1-s0)
+   do aa=1,Na
+      FMap3D_a_1D(aa) = a0 + (a1-a0)/(Na-1)*(aa-1)
+
+      ! Cal FMap3D_safety_q_1D by interpolation
+      P_a = FMap3D_a_1D(aa)
+      call Convert_a_to_s(P_a,P_s)
+      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ratio=(P_s-s_grid(ori_sid))*ori_inv_ds
+      FMap3D_safety_q_1D(aa) = ratio*q_grid(ori_sid+1) + (1.0-ratio)*q_grid(ori_sid)
+   enddo
+
+   do qq=1,Nq
+      FMap3D_gq_1D(qq) = (2.0*pi)/(Nq-1)*(qq-1)
+   enddo
+   do ff=1,Nf
+      FMap3D_gf_1D(ff) = (2.0*pi)/(Nf-1)*(ff-1)
+   enddo
+
+
+   do Fid = Fid_start,Fid_end
+      do tor_dir=-1,1,2
+         dgf = (tor_dir)*2.0*pi/100.0
+
+         now_a  = ini_a(Fid)
+         now_gq = ini_gq(Fid)
+         now_gf = ini_gf(Fid)
+
+         do while(.true.)
+
+            ! Runge-Kutta 4th order
+            call esiget_Intp_B_vec_contravariant(now_a, modulo(now_gq,2.0*pi), modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(1)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(1)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), modulo(now_gq+0.5*gq_RK(1),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(2)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(2)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), modulo(now_gq+0.5*gq_RK(2),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(3)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(3)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), modulo(now_gq+gq_RK(3),2.0*pi), modulo(now_gf+dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(4)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(4)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+
+            now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
+            now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
+            now_gf = now_gf + dgf
+
+            if(abs(now_gf)>max_tor_rotation*(2*pi)) then
+               exit
+            endif
+            if (now_a<=a0 .or. now_a>=a1) then
+               exit
+            endif
+
+            P_a = now_a
+            P_gq = modulo(now_gq,2.0*pi)
+            P_gf = modulo(now_gf,2.0*pi)
+
+            aid = min(int((P_a-a0)*FMap3D_inv_a +1),Na-1)
+
+            wa1 = (P_a-FMap3D_a_1D(aid))*FMap3D_inv_a
+            wa0 = 1.0-wa1
+
+            P_safety_q = wa0*FMap3D_safety_q_1D(aid) + wa1*FMap3D_safety_q_1D(aid+1)
+
+            gfid = min(int(P_gf*FMap3D_inv_gf+1),Nf-1)
+
+            do ff=gfid,gfid+1
+               target_zeta = FMap3D_gf_1D(ff)
+
+               wgf = (1.0-abs(P_gf-target_zeta)*FMap3D_inv_gf)
+
+               target_gq = modulo(P_gq + (target_zeta-P_gf)/P_safety_q, 2.0*pi)
+               gqid = min(int((target_gq)*FMap3D_inv_gq +1), Nq-1)
+
+               wgq1 = (target_gq-FMap3D_gq_1D(gqid))*FMap3D_inv_gq
+               wgq0 = 1.0-wgq1
+
+               do j=1,4
+                  select case(j)
+                     case(1)
+                        qq=gqid; aa=aid
+                        ratio=wa0*wgq0*wgf
+                     case(2)
+                        qq=gqid+1; aa=aid
+                        ratio=wa0*wgq1*wgf
+                     case(3)
+                        qq=gqid; aa=aid+1
+                        ratio=wa1*wgq0*wgf
+                     case(4)
+                        qq=gqid+1; aa=aid+1
+                        ratio=wa1*wgq1*wgf
+                  end select
+                  vid=1; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio ! number of field lines
+                  vid=2; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*PPI(1,Fid)%TrackLength ! TrackLength
+                  vid=3; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*PPI(1,Fid)%Min_a ! TrackLength
+               enddo
+            enddo
+         enddo
+      enddo
+   enddo
+
+
+
+   tmp_FMap3D_Data=FMap3D_Data
+   length = FMap3D_dim_a*FMap3D_dim_gq*FMap3D_dim_gf*num_of_FMap3D_variables
+   call MPI_Reduce(tmp_FMap3D_Data, FMap3D_Data, length, mpi_Rsize, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+   ! Poloidal (gq) periodic condition
+   FMap3D_Data(1,:,:,:) = FMap3D_Data(1,:,:,:) + FMap3D_Data(FMap3D_dim_gq,:,:,:)
+   FMap3D_Data(FMap3D_dim_gq,:,:,:) = FMap3D_Data(1,:,:,:)
+   ! Toroidal (gf) periodic condition
+   FMap3D_Data(:,:,1,:) = FMap3D_Data(:,:,1,:) + FMap3D_Data(:,:,FMap3D_dim_gf,:)
+   FMap3D_Data(:,:,FMap3D_dim_gf,:) = FMap3D_Data(:,:,1,:)
+   ! Normalize by the number of FieldLineMarkers
+   do vid=2,num_of_FMap3D_variables
+      FMap3D_Data(:,:,:,vid)=FMap3D_Data(:,:,:,vid)/FMap3D_Data(:,:,:,1)
+   enddo
+
+
+
 #ifdef _MGY_TIMER_
    t_end=MPI_WTIME()
    if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Do_FieldLineFollowing_for_Poincare_Plot_parallelized takes", t_end-t_start, " secs"
@@ -2884,6 +3030,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       call h5gcreate_f(file_id, 'PPI', gid_PPI,h5err)
       call h5gcreate_f(file_id, 'FPI', gid_FPI,h5err)
       call h5gcreate_f(file_id, 'FP', gid_FP,h5err)
+      call h5gcreate_f(file_id, 'FMap3D', gid_FMap3D,h5err)
 
       ! PPI
       PPI_jump= 1
@@ -2891,6 +3038,9 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
       h5dims(1)=Gsize
       call h5ltmake_dataset_f(file_id, "num_of_PPIs_for_each_FieldLine",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_PPIs(:), h5err)
+      call h5ltmake_dataset_f(file_id, "ini_a",1,h5dims,H5T_NATIVE_DOUBLE, ini_a, h5err)
+      call h5ltmake_dataset_f(file_id, "ini_gq",1,h5dims,H5T_NATIVE_DOUBLE, ini_gq, h5err)
+      call h5ltmake_dataset_f(file_id, "ini_gf",1,h5dims,H5T_NATIVE_DOUBLE, ini_gf, h5err)
 
       allocate(tmp_Real_2D(2*max_tor_rotation,Gsize), tmp_Integer_2D(2*max_tor_rotation,Gsize))
 
@@ -2981,9 +3131,20 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       call h5ltmake_dataset_f(file_id, "FP/Min_a",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,4), h5err)
       call h5ltmake_dataset_f(file_id, "FP/TrackLength",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,5), h5err)
 
+      !FMap3D Information
+      h5dims(1)=FMap3D_dim_gq
+      h5dims(2)=FMap3D_dim_a
+      h5dims(3)=FMap3D_dim_gf
+      call h5ltmake_dataset_f(file_id, "FMap3D/num_of_FMarkers",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,1), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/TrackLength",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,2), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/Min_a",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,3), h5err)
+
+
+
       call h5gclose_f(gid_PPI,h5err)
       call h5gclose_f(gid_FPI,h5err)
       call h5gclose_f(gid_FP,h5err)
+      call h5gclose_f(gid_FMap3D,h5err)
       call h5fclose_f(file_id,h5err)
       call h5close_f(h5err)
 
@@ -2997,6 +3158,8 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
 
    deallocate(FPC_gf_1D, FPC_gq_1D, FPC_gf_2D, FPC_gq_2D)
    deallocate(FPC_Data,tmp_FPC_Data)
+   deallocate(FMap3D_a_1D,FMap3D_gq_1D,FMap3D_gf_1D,FMap3D_safety_q_1D)
+   deallocate(FMap3D_Data, tmp_FMap3D_Data)
 
 
 end subroutine
@@ -3017,14 +3180,15 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       real(wp) Max_Pol_Rot ! maximum number of toroidal rotation per each field line
       real(wp) Min_a ! minimum a of the field line trajectory
       real(wp) TrackLength
+      real(wp) Max_BB0, Min_BB0 ! max and min of B0 magnitudes (equilibrium B) along the field line trajectory
    end type FieldPoints
 
    integer(HSIZE_T) :: h5dims(5)
-   integer(HID_T) file_id, gid_PPI, gid_FPI, gid_FP
+   integer(HID_T) file_id, gid_PPI, gid_FPI, gid_FP, gid_FMap3D
    integer max_tor_rotation, num_gq, num_gf, i, j, ierr,length, h5err
    integer Gsize, Lsize, extra! Number of G(Global) or L(Local) Field lines
    integer PPI_id
-   integer Fid, Fid_start, Fid_end, tor_dir, qq,ff
+   integer Fid, Fid_start, Fid_end, tor_dir, aa,qq,ff
    real(wp) dgf,specific_time, intp_weight
    real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
    real(wp) a_RK(4), gq_RK(4), B_vec_cntv(3)
@@ -3043,16 +3207,21 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    real(wp) t_start, t_end
    integer num_of_samplePPIs_for_output, PPI_jump
 
-   real(wp) ratio, wgq0,wgq1,wgf0,wgf1
-   real(wp) P_gq, P_gf, P_safety_q
+   real(wp) ratio,wa0,wa1,wgq0,wgq1,wgf,wgf0,wgf1,ori_inv_ds
+   real(wp) P_gq, P_gf, P_safety_q, P_s, P_a
    real(wp) target_gq, target_gf
-   integer gqid, gfid, Pid, Nf,Nq, vid
+   integer aid, gqid, gfid, Pid, Na,Nf,Nq, vid, ori_sid
    integer num_of_FCP_variables
    integer FPC_dim_gq, FPC_dim_gf
    real(wp) FPC_inv_dgq, FPC_inv_dgf
    real(wp), allocatable, dimension(:) :: FPC_gq_1D, FPC_gf_1D
    real(wp), allocatable, dimension(:,:) :: FPC_gq_2D, FPC_gf_2D
    real(wp), allocatable, dimension(:,:,:) :: FPC_Data, tmp_FPC_Data
+   integer num_of_FMap3D_variables, FMap3D_dim_a,FMap3D_dim_gq,FMap3D_dim_gf
+   real(wp), FMap3D_inv_a,FMap3D_inv_gq, FMap3D_inv_gf
+   real(wp), allocatable, dimension(:) :: FMap3D_a_1D, FMap3D_gq_1D, FMap3D_gf_1D, FMap3D_safety_q_1D
+   real(wp), allocatable, dimension(:,:,:,:) :: FMap3D_Data, tmp_FMap3D_Data
+   real(wp) target_zeta, this_TrackLength, this_MaxBB0, this_MinBB0
 
 
 
@@ -3061,9 +3230,9 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 #endif
 
    specific_time=0.0
-   max_tor_rotation = 400
-   num_gq = 300
-   num_gf = 300
+   max_tor_rotation = FLF_max_tor_num
+   num_gq = 500
+   num_gf = 500
 
    Gsize = num_gq*num_gf
    Lsize = Gsize/numberpe
@@ -3115,6 +3284,8 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       PPI(:,Fid)%Fid = Fid
       PPI(1,Fid)%Min_a = 1e5
       PPI(1,Fid)%TrackLength = 0.0
+      PPI(1,Fid)%Max_BB0 = -100
+      PPI(1,Fid)%Min_BB0 = 1e100
 
       PPI_id = 0
       num_of_FootPoints(Fid) = 0
@@ -3207,6 +3378,9 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
             if(now_a < PPI(1,Fid)%Min_a) then
                PPI(1,Fid)%Min_a = now_a
             endif
+            if(Bj < PPI(1,Fid)%Min_BB0) PPI(1,Fid)%Min_BB0 = Bj
+            if(Bj > PPI(1,Fid)%Max_BB0) PPI(1,Fid)%Max_BB0 = Bj
+
 
             if (now_a<=a0 .or. now_a>=a1) then
                num_of_FootPoints(Fid) = num_of_FootPoints(Fid) +1
@@ -3231,6 +3405,8 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       FootPoints(:,Fid)%Min_a = PPI(1,Fid)%Min_a
       PPI(1:PPI_id,Fid)%TrackLength = PPI(1,Fid)%TrackLength
       FootPoints(:,Fid)%TrackLength = PPI(1,Fid)%TrackLength
+      PPI(1:PPI_id,Fid)%Min_BB0 = PPI(1,Fid)%Min_BB0
+      PPI(1:PPI_id,Fid)%Max_BB0 = PPI(1,Fid)%Max_BB0
       num_of_PPIs(Fid) = PPI_id
    enddo
 
@@ -3292,9 +3468,6 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    enddo
 
 
-   write(stdout,*) "mype=",mype,"; HI2"
-   call flush(stdout)
-   call MPI_Barrier(MPI_COMM_WORLD,ierr)
 
 
    do Fid=Fid_start,Fid_end
@@ -3383,6 +3556,187 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    call MPI_Gatherv(FootPoints, Lsize, MPI_FPs_Type, recv_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_FPs_Type, 0,MPI_COMM_WORLD,ierr)
 
 
+
+
+   ! Measure FieldFollowingData on FMap3D
+   num_of_FMap3D_variables = 14
+   FMap3D_dim_a  = 200
+   FMap3D_dim_gq = 300
+   FMap3D_dim_gf = 100
+
+   Na=FMap3D_dim_a
+   Nq=FMap3D_dim_gq
+   Nf=FMap3D_dim_gf
+
+   FMap3D_inv_a  = real(Na-1)/(a1-a0)
+   FMap3D_inv_gq = real(Nq-1)/(2.0*pi)
+   FMap3D_inv_gf = real(Nf-1)/(2.0*pi)
+
+   allocate(FMap3D_a_1D(Na), FMap3D_safety_q_1D(Na),FMap3D_gq_1D(Nq),FMap3D_gf_1D(Nf))
+   allocate(FMap3D_Data(Nq,Na,Nf,num_of_FMap3D_variables),tmp_FMap3D_Data(Nq,Na,Nf,num_of_FMap3D_variables))
+   FMap3D_Data=0.0
+   tmp_FMap3D_Data=0.0
+
+
+   ori_inv_ds = real(mpsi)/(s1-s0)
+   do aa=1,Na
+      FMap3D_a_1D(aa) = a0 + (a1-a0)/(Na-1)*(aa-1)
+
+      ! Cal FMap3D_safety_q_1D by interpolation
+      P_a = FMap3D_a_1D(aa)
+      call Convert_a_to_s(P_a,P_s)
+      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ratio=(P_s-s_grid(ori_sid))*ori_inv_ds
+      FMap3D_safety_q_1D(aa) = ratio*q_grid(ori_sid+1) + (1.0-ratio)*q_grid(ori_sid)
+   enddo
+
+   do qq=1,Nq
+      FMap3D_gq_1D(qq) = (2.0*pi)/(Nq-1)*(qq-1)
+   enddo
+   do ff=1,Nf
+      FMap3D_gf_1D(ff) = (2.0*pi)/(Nf-1)*(ff-1)
+   enddo
+
+
+   do Fid = Fid_start,Fid_end
+      do tor_dir=-1,1,2
+         dgf = (tor_dir)*2.0*pi/100.0
+
+         now_a  = ini_a(Fid)
+         now_gq = ini_gq(Fid)
+         now_gf = ini_gf(Fid)
+
+         this_TrackLength = 0.0
+         this_MaxBB0 = -1e100
+         this_MinBB0 = 1e100
+
+         do while(.true.)
+
+
+            ! Runge-Kutta 4th order
+            call esiget_Intp_B_vec_contravariant(now_a, modulo(now_gq,2.0*pi), modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(1)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(1)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), modulo(now_gq+0.5*gq_RK(1),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(2)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(2)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), modulo(now_gq+0.5*gq_RK(2),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(3)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(3)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+            call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), modulo(now_gq+gq_RK(3),2.0*pi), modulo(now_gf+dgf,2.0*pi), specific_time, B_vec_cntv)
+            a_RK(4)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+            gq_RK(4)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+
+            now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
+            now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
+            now_gf = now_gf + dgf
+
+            call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,now_a,modulo(now_gq, 2.0*pi),1)
+
+            if(abs(now_gf)>max_tor_rotation*(2*pi)) then
+               exit
+            endif
+            if (now_a<=a0 .or. now_a>=a1) then
+               exit
+            endif
+
+
+            call esiget_Intp_B_vec_contravariant(now_a, modulo(now_gq, 2.0*pi), modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+            this_TrackLength = this_TrackLength + abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+                                                               +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
+                                                               +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
+                                                               + rj**2  )
+            if(Bj<this_MinBB0) this_MinBB0=Bj
+            if(Bj>this_MaxBB0) this_MaxBB0=Bj
+
+
+            P_a = now_a
+            P_gq = modulo(now_gq,2.0*pi)
+            P_gf = modulo(now_gf,2.0*pi)
+
+            aid = min(int((P_a-a0)*FMap3D_inv_a +1),Na-1)
+
+            wa1 = (P_a-FMap3D_a_1D(aid))*FMap3D_inv_a
+            wa0 = 1.0-wa1
+
+            P_safety_q = wa0*FMap3D_safety_q_1D(aid) + wa1*FMap3D_safety_q_1D(aid+1)
+
+            gfid = min(int(P_gf*FMap3D_inv_gf+1),Nf-1)
+
+            do ff=gfid,gfid+1
+               target_zeta = FMap3D_gf_1D(ff)
+
+               wgf = (1.0-abs(P_gf-target_zeta)*FMap3D_inv_gf)
+
+               target_gq = modulo(P_gq + (target_zeta-P_gf)/P_safety_q, 2.0*pi)
+               gqid = min(int((target_gq)*FMap3D_inv_gq +1), Nq-1)
+
+               wgq1 = (target_gq-FMap3D_gq_1D(gqid))*FMap3D_inv_gq
+               wgq0 = 1.0-wgq1
+
+               do j=1,4
+                  select case(j)
+                     case(1)
+                        qq=gqid; aa=aid
+                        ratio=wa0*wgq0*wgf
+                     case(2)
+                        qq=gqid+1; aa=aid
+                        ratio=wa0*wgq1*wgf
+                     case(3)
+                        qq=gqid; aa=aid+1
+                        ratio=wa1*wgq0*wgf
+                     case(4)
+                        qq=gqid+1; aa=aid+1
+                        ratio=wa1*wgq1*wgf
+                  end select
+                  vid=1; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio ! number of field lines
+                  vid=2; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*PPI(1,Fid)%TrackLength ! TrackLength
+                  vid=3; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*PPI(1,Fid)%Min_a
+                  vid=4; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*PPI(1,Fid)%Min_BB0
+                  vid=5; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*PPI(1,Fid)%Max_BB0
+                  vid=6; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*Bj
+
+                  if(tor_dir==-1) then
+                     vid=7; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio ! number of filed lines for CounterClockWise Calculation
+                     vid=8; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*(this_TrackLength) ! CounterClockWise TrackLength from this point
+                     vid=9; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*(this_MaxBB0) ! MaxBB0 from this point to the wall for CounterClockWise direction
+                     vid=10;FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*(this_MinBB0) ! MinBB0 from this point to the wall for CounterClockWise direction
+                  elseif(tor_dir==+1) then
+                     vid=11; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio ! number of filed lines for ClockWise Calculation
+                     vid=12; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*(this_TrackLength) ! ClockWise TrackLength from this point
+                     vid=13; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*(this_MaxBB0) ! MaxBB0 from this point to the wall for ClockWise direction
+                     vid=14; FMap3D_Data(qq,aa,ff,vid) = FMap3D_Data(qq,aa,ff,vid) + ratio*(this_MinBB0) ! MinBB0 from this point to the wall for ClockWise direction
+                  endif
+               enddo
+            enddo
+         enddo
+      enddo
+   enddo
+
+
+
+   tmp_FMap3D_Data=FMap3D_Data
+   length = FMap3D_dim_a*FMap3D_dim_gq*FMap3D_dim_gf*num_of_FMap3D_variables
+   call MPI_Reduce(tmp_FMap3D_Data, FMap3D_Data, length, mpi_Rsize, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+   ! Poloidal (gq) periodic condition
+   FMap3D_Data(1,:,:,:) = FMap3D_Data(1,:,:,:) + FMap3D_Data(FMap3D_dim_gq,:,:,:)
+   FMap3D_Data(FMap3D_dim_gq,:,:,:) = FMap3D_Data(1,:,:,:)
+   ! Toroidal (gf) periodic condition
+   FMap3D_Data(:,:,1,:) = FMap3D_Data(:,:,1,:) + FMap3D_Data(:,:,FMap3D_dim_gf,:)
+   FMap3D_Data(:,:,FMap3D_dim_gf,:) = FMap3D_Data(:,:,1,:)
+   ! Normalize by the number of FieldLineMarkers
+   do vid=2,6
+      FMap3D_Data(:,:,:,vid)=FMap3D_Data(:,:,:,vid)/FMap3D_Data(:,:,:,1)
+   enddo
+   do vid=8,10
+      FMap3D_Data(:,:,:,vid)=FMap3D_Data(:,:,:,vid)/FMap3D_Data(:,:,:,7)
+   enddo
+   do vid=12,14
+      FMap3D_Data(:,:,:,vid)=FMap3D_Data(:,:,:,vid)/FMap3D_Data(:,:,:,11)
+   enddo
+
+
+
 #ifdef _MGY_TIMER_
    t_end=MPI_WTIME()
    if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Cal_FootPrint_of_MagneticFieldLine takes", t_end-t_start, " secs"
@@ -3397,6 +3751,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       call h5gcreate_f(file_id, 'PPI', gid_PPI,h5err)
       call h5gcreate_f(file_id, 'FPI', gid_FPI,h5err)
       call h5gcreate_f(file_id, 'FP', gid_FP,h5err)
+      call h5gcreate_f(file_id, 'FMap3D', gid_FMap3D,h5err)
 
 
       ! PPI
@@ -3406,15 +3761,16 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
       h5dims(1)=(Gsize+max(0,PPI_jump-1))/PPI_jump
       call h5ltmake_dataset_f(file_id, "num_of_PPIs_for_each_FieldLine",1,h5dims,H5T_NATIVE_INTEGER, recv_num_of_PPIs(1:Gsize:PPI_jump), h5err)
+      call h5ltmake_dataset_f(file_id, "ini_a",1,h5dims,H5T_NATIVE_DOUBLE, ini_a(1:Gsize:PPI_jump), h5err)
+      call h5ltmake_dataset_f(file_id, "ini_gq",1,h5dims,H5T_NATIVE_DOUBLE, ini_gq(1:Gsize:PPI_jump), h5err)
+      call h5ltmake_dataset_f(file_id, "ini_gf",1,h5dims,H5T_NATIVE_DOUBLE, ini_gf(1:Gsize:PPI_jump), h5err)
+
+
       h5dims(1)=2*max_tor_rotation
       h5dims(2)=(Gsize+max(0,PPI_jump-1))/PPI_jump
       allocate(tmp_Real_2D(h5dims(1),h5dims(2)), tmp_Integer_2D(h5dims(1),h5dims(2)))
       tmp_Integer_2D = recv_PPI(:,1:Gsize:PPI_jump)%Fid
-      write(stdout,*) 'HI1, ',Gsize, PPI_jump, h5dims(1:2)
-      call flush(stdout)
       call h5ltmake_dataset_f(file_id, "PPI/Fid",2,h5dims,H5T_NATIVE_INTEGER, tmp_Integer_2D, h5err)
-      write(stdout,*) 'HI2, ',Gsize, PPI_jump, h5dims(1:2)
-      call flush(stdout)
       tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%a
       call h5ltmake_dataset_f(file_id, "PPI/a",2,h5dims,H5T_NATIVE_DOUBLE, tmp_Real_2D, h5err)
       tmp_Real_2D=recv_PPI(:,1:Gsize:PPI_jump)%gf
@@ -3488,9 +3844,35 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       call h5ltmake_dataset_f(file_id, "FP/Min_a",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,4), h5err)
       call h5ltmake_dataset_f(file_id, "FP/TrackLength",2,h5dims,H5T_NATIVE_DOUBLE, FPC_Data(:,:,5), h5err)
 
+      !FMap3D Information
+      h5dims(1)=FMap3D_dim_gq
+      h5dims(2)=FMap3D_dim_a
+      h5dims(3)=FMap3D_dim_gf
+      call h5ltmake_dataset_f(file_id, "FMap3D/FMarkers",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,1), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/TrackLength",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,2), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/Min_a",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,3), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/Min_BB0",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,4), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/Max_BB0",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,5), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/BB0",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,6), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/FMarkers_CCW",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,7), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/TrackLength_CCW",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,8), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/Max_BB0_CCW",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,9), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/Min_BB0_CCW",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,10), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/FMarkers_CW",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,11), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/TrackLength_CW",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,12), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/Max_BB0_CW",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,13), h5err)
+      call h5ltmake_dataset_f(file_id, "FMap3D/Min_BB0_CW",3,h5dims,H5T_NATIVE_DOUBLE, FMap3D_Data(:,:,:,14), h5err)
+      h5dims(1)=FMap3D_dim_a
+      call h5ltmake_dataset_f(file_id, "FMap3D/a_1D",1,h5dims,H5T_NATIVE_DOUBLE, FMap3D_a_1D, h5err)
+      h5dims(1)=FMap3D_dim_gq
+      call h5ltmake_dataset_f(file_id, "FMap3D/gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, FMap3D_gq_1D, h5err)
+      h5dims(1)=FMap3D_dim_gf
+      call h5ltmake_dataset_f(file_id, "FMap3D/gf_1D",1,h5dims,H5T_NATIVE_DOUBLE, FMap3D_gf_1D, h5err)
+
       call h5gclose_f(gid_PPI,h5err)
       call h5gclose_f(gid_FPI,h5err)
       call h5gclose_f(gid_FP,h5err)
+      call h5gclose_f(gid_FMap3D,h5err)
       call h5fclose_f(file_id,h5err)
       call h5close_f(h5err)
 
