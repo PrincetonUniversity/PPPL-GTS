@@ -839,6 +839,8 @@ contains
       implicit none
 
       integer sid,gqid,istatus(MPI_STATUS_SIZE),ierr
+      integer target_gqid
+      real(wp) phi_left, phi_right, target_gq,wgq0,wgq1,delta_gq
 
       ! Calculate grad_phi_cov at zetamax (so, the last index is 1)
       ! radial direction
@@ -855,8 +857,32 @@ contains
       enddo
       SG%grad_phi_cov(2,SG%dim_gq,:,1) = SG%grad_phi_cov(2,1,:,1)
 
-      ! toroidal direction
-      SG%grad_phi_cov(3,:,:,1) = 0.5*SG%inv_dgf*(SG%phi(:,:,2)-SG%phi(:,:,0))
+      ! ! toroidal direction
+      ! SG%grad_phi_cov(3,:,:,1) = 0.5*SG%inv_dgf*(SG%phi(:,:,2)-SG%phi(:,:,0))
+
+      ! Get phi along a field line at a given r surface
+      do sid=1,SG%dim_s
+         delta_gq = deltaz/SG%safety_q_1D(sid)
+         do gqid=1,SG%dim_gq
+
+            ! get phi from the right plane
+            target_gq = modulo(SG%gq_1D(gqid) + delta_gq, 2.0*pi)
+            target_gqid = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+            phi_right = wgq0*SG%phi(target_gqid,sid,2) + wgq1*SG%phi(target_gqid+1,sid,2)
+
+            ! get phi from the left plane
+            target_gq = modulo(SG%gq_1D(gqid) - delta_gq, 2.0*pi)
+            target_gqid = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+            phi_left = wgq0*SG%phi(target_gqid,sid,0) + wgq1*SG%phi(target_gqid+1,sid,0)
+
+            ! d(phi)/dzeta = d(phi)/dl - 1/q*d(phi)/dtheta
+            SG%grad_phi_cov(3,gqid,sid,1) =  (phi_right-phi_left)/(2.0*deltaz) - SG%grad_phi_cov(2,gqid,sid,1)/SG%safety_q_1D(sid)
+         enddo
+      enddo
 
 
       ! Communicate in toroidal direction so that get grad_phi_cov at zetamin (grad_phi_cov(:,:,:,0)) at from the left poloidal plane

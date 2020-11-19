@@ -159,6 +159,7 @@ subroutine poisson( solver, masssolver )
          ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
+         call Cal_gradPhi_on_SG
 
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
@@ -419,7 +420,7 @@ subroutine poisson( solver, masssolver )
          ! ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
          ! ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)
          ! call Solve_Poisson3D_on_SG
-         ! call Cal_gradPhi_on_SG
+         call Cal_gradPhi_on_SG
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
          ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
