@@ -954,8 +954,8 @@ module Diagnostic_Grid
 
          ! Calculate hybrid particle and energy density
          DG%w_dne(:,:) = abs(DG%eScaData(:,:,1,1))/(abs(DG%eScaData(:,:,1,1))+abs(DG%eScaData(:,:,5,1))) ! wdne=abs(snap.DG.dne_tot)./(abs(snap.DG.ne_tot)+abs(snap.DG.dne_tot));
-         DG%ne_tot_hybrid = DG%w_dne*DG%eScaData(:,:,5,1) + (1.0-DG%w_dne)*(DG%eScaData(:,:,1,1)+DG%n0_2D + int(ifelectron/2)*DG%dne_adiab) ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
-         DG%Te_hybrid  = DG%w_dne*DG%eScaData(:,:,6,1) + (1.0-DG%w_dne)*(DG%eScaData(:,:,3,1) +DG%Te0_2D*(DG%n0_2D+int(ifelectron/2)*DG%dne_adiab)) ! (hybrid (2/3)*energy_density, then will be divded by n_hybrid to get T_hybrid)
+         DG%ne_tot_hybrid = DG%w_dne*DG%eScaData(:,:,5,1) + (1.0-DG%w_dne)*(DG%n0_2D+DG%eScaData(:,:,1,1)) + int(ifelectron/2)*DG%dne_adiab ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
+         DG%Te_hybrid  = DG%w_dne*DG%eScaData(:,:,6,1) + (1.0-DG%w_dne)*(DG%eScaData(:,:,3,1) +DG%Te0_2D*DG%n0_2D) +DG%Te0_2D*int(ifelectron/2)*DG%dne_adiab ! (hybrid (2/3)*energy_density, then will be divded by n_hybrid to get T_hybrid)
          DG%Te_hybrid  = DG%Te_hybrid / DG%ne_tot_hybrid
 
          ! Calculate inverse of tot density (including dne_adiabatic in the case of delta-h electron (ifelectron==2))
