@@ -1597,10 +1597,10 @@ module Ptl_Src_Loss
          psimax=psi_grid(mpsi)
          psimin=psi_grid(0)
 
-         if(Flag_Ptl_BC_type==0) then
+         if(Flag_Ptl_BC0_type==0 .or. Flag_Ptl_BC1_type==0) then
             !$acc parallel loop present(zeon,zeon0)
             do m=m0,m1
-               if(zeon(1,m) > psimax)then
+               if(Flag_Ptl_BC1_type==0 .and. zeon(1,m) > psimax)then
                   zeon(1,m)=psimax
                   zeon(2,m)=2.0_wp*pi-zeon0(2,m)
                   zeon(3,m)=zeon0(3,m)
@@ -1609,7 +1609,9 @@ module Ptl_Src_Loss
                   !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
                   !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
                   zeon(7,m)=zeon0(7,m)
-               elseif(zeon(1,m) < psimin)then
+
+                  if(Flag_w_Evol==3) zeon(8,m)=zeon0(8,m)
+               elseif(Flag_Ptl_BC0_type==0 .and. zeon(1,m) < psimin)then
                   zeon(1,m)=psimin
                   zeon(2,m)=2.0_wp*pi-zeon0(2,m)
                   zeon(3,m)=zeon0(3,m)
@@ -1622,9 +1624,9 @@ module Ptl_Src_Loss
             enddo
             acc_newer_D_zeon=.true.
 
-            return
+         endif
 
-         elseif(Flag_Ptl_BC_type==1) then ! delete out-of_boundary particles from the list
+         if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then ! delete out-of_boundary particles from the list
 
             !$acc parallel loop
             do m=m0,m1
@@ -1636,11 +1638,11 @@ module Ptl_Src_Loss
             e_lost_num_BDY1=0
             ! Find particle indices exiting the boundary
             do m=m0,m1
-               if(zeon_a_arr(m) > psimax)then
+               if(Flag_Ptl_BC1_type==1 .and. zeon_a_arr(m) > psimax)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
                   e_lost_num_BDY1 = e_lost_num_BDY1 +1
-               elseif(zeon_a_arr(m) < psimin)then
+               elseif(Flag_Ptl_BC0_type==1 .and. zeon_a_arr(m) < psimin)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
                   e_lost_num_BDY0 = e_lost_num_BDY0 +1
@@ -1652,6 +1654,10 @@ module Ptl_Src_Loss
             ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
             call flush(stdout)
 
+
+            if(lost_num>0) then
+               call quicksort_integer(lost_mid_arr,1,lost_num)
+            endif
 
             ! NOTE : mtop always should be mi even if m1!=mi.
             ! fill holes
@@ -1757,10 +1763,10 @@ module Ptl_Src_Loss
          psimax=psi_grid(mpsi)
          psimin=psi_grid(0)
 
-         if(Flag_Ptl_BC_type==0) then
+         if(Flag_Ptl_BC0_type==0 .or. Flag_Ptl_BC1_type==0) then
             !$acc parallel loop present(zion,zion0)
             do m=m0,m1
-               if(zion(1,m) > psimax)then
+               if(Flag_Ptl_BC1_type==0 .and. zion(1,m) > psimax)then
                   zion(1,m)=psimax
                   zion(2,m)=2.0_wp*pi-zion0(2,m)
                   zion(3,m)=zion0(3,m)
@@ -1769,7 +1775,7 @@ module Ptl_Src_Loss
                   !   zion(5,m)=-zion0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
                   !   zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
                   zion(7,m)=zion0(7,m)
-               elseif(zion(1,m) < psimin)then
+               elseif(Flag_Ptl_BC0_type==0 .and. zion(1,m) < psimin)then
                   zion(1,m)=psimin
                   zion(2,m)=2.0_wp*pi-zion0(2,m)
                   zion(3,m)=zion0(3,m)
@@ -1782,9 +1788,9 @@ module Ptl_Src_Loss
             enddo
             acc_newer_D_zion=.true.
 
-            return
+         endif
 
-         elseif(Flag_Ptl_BC_type==1) then ! delete out-of_boundary particles from the list
+         if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then ! delete out-of_boundary particles from the list
 
             !$acc parallel loop
             do m=m0,m1
@@ -1796,12 +1802,12 @@ module Ptl_Src_Loss
             i_lost_num_BDY1=0
             ! Find particle indices exiting the boundary
             do m=m0,m1
-               if(zion_a_arr(m) > psimax)then
+               if(Flag_Ptl_BC1_type==1 .and. zion_a_arr(m) > psimax)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
                   i_lost_num_BDY1 = i_lost_num_BDY1 +1
                   lost_mid_arr_BDY1(i_lost_num_BDY1) = m
-               elseif(zion_a_arr(m) < psimin)then
+               elseif(Flag_Ptl_BC0_type==1 .and. zion_a_arr(m) < psimin)then
                   lost_num = lost_num +1
                   lost_mid_arr(lost_num) = m
                   i_lost_num_BDY0 = i_lost_num_BDY0 +1
@@ -1838,6 +1844,9 @@ module Ptl_Src_Loss
             ! write(stdout,*) "istep=",istep,"; mype=",mype,"electron lost_mid_arr=",lost_mid_arr(1:lost_num)
             call flush(stdout)
 
+            if(lost_num>0) then
+               call quicksort_integer(lost_mid_arr,1,lost_num)
+            endif
 
             ! NOTE : mtop always should be mi even if m1!=mi.
             ! fill holes

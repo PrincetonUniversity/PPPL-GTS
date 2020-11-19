@@ -569,7 +569,7 @@ program GTS
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
 
-      if(Flag_Ptl_BC_type==1) then
+      if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
          if(mod(istep,2)==0) then
             call Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing(2*tstep*utime)
          endif
