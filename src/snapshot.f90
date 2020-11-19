@@ -1447,17 +1447,21 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dni_SM",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni_SM(:,:),h5err)
       call h5ltmake_dataset_f(gid_SG, "dne_SM",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne_SM(:,:),h5err)
-      call h5ltmake_dataset_f(gid_SG, "ni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG, "ne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
+
+      call h5ltmake_dataset_f(gid_SG, "hyb_ratio_e",2,h5dims,H5T_NATIVE_DOUBLE, SG%hyb_ratio_e,h5err)
+      call h5ltmake_dataset_f(gid_SG, "hyb_ratio_i",2,h5dims,H5T_NATIVE_DOUBLE, SG%hyb_ratio_i,h5err)
+
 
       call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%ni(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%ne(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%ni_by_ff(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%ne_by_fh(:,:,1),SG%Cell_dV)
       call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "ni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "ne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
 
       call h5ltmake_dataset_f(gid_SG, "phi",2,h5dims,H5T_NATIVE_DOUBLE, SG%phi(:,:,1),h5err)
       h5dims(1:3)=(/3,SG%dim_gq,SG%dim_s/)

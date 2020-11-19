@@ -157,6 +157,7 @@ module global_parameters
    integer :: Flag_Measure_Ptl_FootPrint=0 ! Default=0(Not Meausre), can be set =1 (Do Measure)
    integer :: Flag_noExB=0 ! Default=0 (ExB is considered), can be set =1 (noExB)
    integer :: Flag_Recycling=0 ! Default=0 (no Recycling), can be set = 1 (Recycling of Ion at outer wall)
+   integer :: Flag_Weight_dfh=0 ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight)
 
    integer :: MaxLoopNum_Adiab_Weight_Update=1 ! Default=1 (number of loop for updating adiabatic weight evolution)
 

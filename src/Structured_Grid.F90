@@ -35,7 +35,8 @@ module Structured_Grid
       real(wp),allocatable, dimension(:,:,:) :: dni,dTi ! dimension: (dim_gq, dim_s, 0:1)
       real(wp),allocatable, dimension(:,:,:) :: dne,dTe
       real(wp),allocatable, dimension(:,:) :: dni_SM, dne_SM ! Smoothed Densities for Poisson3D equation and updating Polarization Shielding Components
-      real(wp),allocatable, dimension(:,:,:) :: ne,ni ! These are total electron density and ion density including equilibrium density (So, f=f0+df)
+      real(wp),allocatable, dimension(:,:,:) :: ne_by_fh,ni_by_ff ! These are total electron density and ion density including equilibrium density (So, f=f0+df)
+      real(wp),allocatable, dimension(:,:) :: hyb_ratio_e, hyb_ratio_i ! hybrid_ratio_e (=abs(dne)/(abs(dne)+abs(ne_by_fh))) and hybrid_ratio_i (=abs(dni)/(abs(dni)+abs(ni)))
 
       real(wp), allocatable, dimension(:,:,:) :: phi ! dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
       real(wp), allocatable, dimension(:,:,:,:) :: grad_phi_cov
@@ -123,7 +124,10 @@ contains
       allocate(SG%dne(Nq,Ns,0:1),SG%dni(Nq,Ns,0:1))
       allocate(SG%dne_SM(Nq,Ns),SG%dni_SM(Nq,Ns))
       allocate(SG%dTe(Nq,Ns,0:1),SG%dTi(Nq,Ns,0:1))
-      allocate(SG%ne(Nq,Ns,0:1),SG%ni(Nq,Ns,0:1))
+      allocate(SG%ne_by_fh(Nq,Ns,0:1),SG%ni_by_ff(Nq,Ns,0:1))
+      allocate(SG%hyb_ratio_e(Nq,Ns),SG%hyb_ratio_i(Nq,Ns))
+      SG%hyb_ratio_e=0.0 ! Default vale that means use delta-fh rather than full-fh
+      SG%hyb_ratio_i=0.0 !
 
       call esiget2dthese_more(SG%F,SG%dFda,SG%dgFda,SG%dgYda,SG%R,SG%dRda,SG%dRdgq,SG%Z,SG%dZda,SG%dZdgq,SG%BB,SG%dBBda,SG%dBBdgq,SG%P,SG%T,SG%a_2D,SG%gq_2D,Nq*Ns)
 
@@ -289,7 +293,11 @@ contains
 
       select case(flagT)
          case(0) ! Default; only zeon(5,m)
-            num_eD=1
+            if(Flag_Weight_dfh==2) then ! When hybrid
+               num_eD=2
+            else
+               num_eD=1
+            endif
          case(1) ! Diagnostic purpose
             num_eD=2
          case default
@@ -307,15 +315,28 @@ contains
 
       select case(flagT)
          case(0)
+            if(Flag_Weight_dfh==0) then ! Using delta weight
             !$acc parallel loop present(zeon)
             do m=1,me
                ptl_data(1,m) = zeon(5,m)
             enddo
+            elseif(Flag_Weight_dfh==1) then ! Using full weight
+               !$acc parallel loop present(zeon)
+               do m=1,me
+                  ptl_data(1,m) = zeon(8,m)
+               enddo
+            elseif(Flag_Weight_dfh==2) then ! Using hybrid weight
+               !$acc parallel loop present(zeon,ptl_data)
+               do m=1,me
+                  ptl_data(1,m) = zeon(5,m)
+                  ptl_data(2,m) = zeon(8,m)
+               enddo
+            endif
          case(1)
-            !$acc parallel loop present(zeon,zeon0,ptl_data,backTe)
+            !$acc parallel loop present(zeon,ptl_data)
             do m=1,me
                ptl_data(1,m) = zeon(5,m)
-               ptl_data(2,m) = zeon0(8,m)
+               ptl_data(2,m) = zeon(8,m)
             enddo
       end select
 
@@ -424,11 +445,30 @@ contains
 
       select case(flagT)
          case(0) ! Default; only zeon(5,m)
+            if(Flag_Weight_dfh==0) then
             SG%dne = eData(1,:,:,:)
+            elseif(Flag_Weight_dfh==1) then
+               SG%ne_by_fh = eData(1,:,:,:)
+            elseif(Flag_Weight_dfh==2) then
+               SG%dne = eData(1,:,:,:)
+               SG%ne_by_fh  = eData(2,:,:,:)
+            endif
          case(1) ! Diagnostic purpose
             SG%dne = eData(1,:,:,:)
-            SG%ne  = eData(2,:,:,:)
+            SG%ne_by_fh  = eData(2,:,:,:)
       end select
+
+      if(Flag_Weight_dfh==2) then
+         SG%hyb_ratio_e = min(1.0,abs(SG%dne(:,:,1))/(abs(SG%dne(:,:,1))+abs(SG%ne_by_fh(:,:,1))))
+         ! If using nbound, the dne and ne_by_fh are both zero, so hyb_ratio_e is NaN
+         ! To avoid problem set the default value at the boundary
+         if(nbound_inner>=0) then
+            SG%hyb_ratio_e(:,1) =0.0
+         endif
+         if(nbound_outer>=0) then
+            SG%hyb_ratio_e(:,SG%dim_s) =0.0
+         endif
+      endif
 
       deallocate(eData,tmp_eData)
       deallocate(ptl_data)
@@ -486,7 +526,11 @@ contains
 
      select case(flagT)
          case(0) ! Default; only zion(5,m)
+            if(Flag_Weight_dfh==2) then ! When hybrid
+               num_iD=2
+            else
             num_iD=1
+            endif
          case(1) ! Diagnostic purpose
             num_iD=2
          case default
@@ -503,10 +547,23 @@ contains
 
       select case(flagT)
          case(0)
+            if(Flag_Weight_dfh==0) then ! Using delta weight
             !$acc parallel loop present(zion)
             do m=1,mi
                ptl_data(1,m) = zion(5,m)
             enddo
+            elseif(Flag_Weight_dfh==1) then ! Using full weight
+            !$acc parallel loop present(zion)
+            do m=1,mi
+                  ptl_data(1,m) = zion0(8,m)
+               enddo
+            elseif(Flag_Weight_dfh==2) then ! Using hybrid weight
+               !$acc parallel loop present(zion,zion0,ptl_data)
+               do m=1,mi
+               ptl_data(1,m) = zion(5,m)
+                  ptl_data(2,m) = zion0(8,m)
+            enddo
+            endif
          case(1)
             !$acc parallel loop present(zion,zion0,ptl_data)
             do m=1,mi
@@ -649,11 +706,30 @@ contains
 
       select case(flagT)
          case(0) ! Default; only zion(5,m)
+            if(Flag_Weight_dfh==0) then
             SG%dni = iData(1,:,:,:)
+            elseif(Flag_Weight_dfh==1) then
+               SG%ni_by_ff = iData(1,:,:,:)
+            elseif(Flag_Weight_dfh==2) then
+            SG%dni = iData(1,:,:,:)
+               SG%ni_by_ff = iData(2,:,:,:)
+            endif
          case(1) ! Diagnostic purpose
             SG%dni = iData(1,:,:,:)
-            SG%ni  = iData(2,:,:,:)
+            SG%ni_by_ff  = iData(2,:,:,:)
       end select
+
+      if(Flag_Weight_dfh==2) then
+         SG%hyb_ratio_i = abs(SG%dni(:,:,1))/(abs(SG%dni(:,:,1))+abs(SG%ni_by_ff(:,:,1)))
+         ! If using nbound, the dne and ne_by_fh are both zero, so hyb_ratio_e is NaN
+         ! To avoid problem set the default value at the boundary
+         if(nbound_inner>=0) then
+            SG%hyb_ratio_i(:,1) =0.0
+         endif
+         if(nbound_outer>=0) then
+            SG%hyb_ratio_i(:,SG%dim_s) =0.0
+         endif
+      endif
 
       deallocate(iData,tmp_iData)
       deallocate(ptl_data)
