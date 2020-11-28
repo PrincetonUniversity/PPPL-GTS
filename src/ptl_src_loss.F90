@@ -1179,8 +1179,8 @@ module Ptl_Src_Loss
 
             ! Note that zeon(8,m)=full_f or full_h
             ! zeon(5,m)=df or dh
-            zeon(8,m) = (FluxFactor_over_f0*integral_f0) - int(ifelectron/2)*zeon(9,m) ! full_f or full_h (full_h=f_tot-f_AD)
-            zeon(5,m)  = zeon(8,m)-integral_f0 ! df=full_f-f0; dh=full_h-f0; so the same form
+            zeon(5,m) = (FluxFactor_over_f0-1.0)*(integral_f0 + int(ifelectron/2)*zeon(9,m)) ! delta_h = (alpha-1)*(f0+f_AD)
+            zeon(8,m) = zeon(5,m) + integral_f0 ! full_h = delta_h+f0
 
 
             we_init(m)  = zeon(5,m)
