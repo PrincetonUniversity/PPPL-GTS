@@ -724,9 +724,9 @@ module Ptl_Src_Loss
          time0 = MPI_WTIME()
 #endif
          ! Create Src from inner boundary (BDY0)
-         call load_electrons_In_or_Out_Flux(dNe_BDY0, delta_t_seconds,1.0,a0)
+         call load_electrons_In_or_Out_Flux(dNe_BDY0, delta_t_seconds,Ptl_BC0_val,a0)
          ! Create Src from inner boundary (BDY1)
-         call load_electrons_In_or_Out_Flux(dNe_BDY1, delta_t_seconds,0.0,a1)
+         call load_electrons_In_or_Out_Flux(dNe_BDY1, delta_t_seconds,Ptl_BC1_val,a1)
          ! Clear accumulated electron lost number
          call Clear_e_cum_lost_num
 #ifdef _MGY_TIMER_
@@ -740,9 +740,9 @@ module Ptl_Src_Loss
          time0 = MPI_WTIME()
 #endif
          ! Create Src from inner boundary (BDY0)
-         call load_ions_In_or_Out_Flux(dNi_BDY0, delta_t_seconds,1.0,a0)
+         call load_ions_In_or_Out_Flux(dNi_BDY0, delta_t_seconds,Ptl_BC0_val,a0)
          ! Create Src from inner boundary (BDY1)
-         call load_ions_In_or_Out_Flux(dNi_BDY1, delta_t_seconds,0.0,a1)
+         call load_ions_In_or_Out_Flux(dNi_BDY1, delta_t_seconds,Ptl_BC1_val,a1)
          ! Clear accumulated ion lost number
          call Clear_i_cum_lost_num
 #ifdef _MGY_TIMER_
@@ -780,11 +780,11 @@ module Ptl_Src_Loss
 
          ! Create Src from inner boundary (BDY1)
          num_of_new_ptls_per_rank = max(0, global_e_cum_lost_num_BDY1/numberpe)
-         call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,0.0,a1)
+         call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,Ptl_BC1_val,a1)
 
          ! Create Src from inner boundary (BDY0)
          num_of_new_ptls_per_rank = max(0, global_e_cum_lost_num_BDY0/numberpe)
-         call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,1.0,a0)
+         call load_electrons_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,Ptl_BC0_val,a0)
 
          call Clear_e_cum_lost_num
 
@@ -822,11 +822,11 @@ module Ptl_Src_Loss
 
          ! Create Src from inner boundary (BDY1)
          num_of_new_ptls_per_rank = max(0, global_i_cum_lost_num_BDY1/numberpe)
-         call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,0.0,a1)
+         call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,Ptl_BC1_val,a1)
 
          ! Create Src from inner boundary (BDY0)
          num_of_new_ptls_per_rank = max(0, global_i_cum_lost_num_BDY0/numberpe)
-         call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,1.0,a0)
+         call load_ions_In_or_Out_Flux(num_of_new_ptls_per_rank, delta_t_seconds,Ptl_BC0_val,a0)
 
          call Clear_i_cum_lost_num
 

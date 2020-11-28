@@ -2454,7 +2454,9 @@ Subroutine read_input_params
       Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
       Flag_Quiet_Start,   &   ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
       Flag_Ptl_BC0_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+      Ptl_BC0_val,        &   ! Default value of Particle Flux Generating at both edge (0.0=loss boundary at outer edge; 1.0=flux from original n0+dne_adiab at inner edge)
       Flag_Ptl_BC1_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+      Ptl_BC1_val,        &   ! Default value of Particle Flux Generating at both edge (0.0=loss boundary at outer edge; 1.0=flux from original n0+dne_adiab at inner edge)
       Flag_Update_Pol_Shielding, & ! Default=0 (Not Update), can be set=1(Update) Polarization Shielding Term in Poisson3D equation over time
       Flag_DK_Ion,        &   ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
       Flag_Measure_Ptl_FootPrint, & ! Default=0(Not Meausre), can be set =1 (Do Measure)
@@ -2600,7 +2602,9 @@ Subroutine read_input_params
       write(0,*) 'Flag_Load_and_WeightDef=', Flag_Load_and_WeightDef
       write(0,*) 'Flag_Quiet_Start=', Flag_Quiet_Start
       write(0,*) 'Flag_Ptl_BC0_type=', Flag_Ptl_BC0_type
+      write(0,*) 'Ptl_BC0_val=', Ptl_BC0_val
       write(0,*) 'Flag_Ptl_BC1_type=', Flag_Ptl_BC1_type
+      write(0,*) 'Ptl_BC1_val=', Ptl_BC1_val
       write(0,*) 'Flag_Update_Pol_Shielding=', Flag_Update_Pol_Shielding
       write(0,*) 'Flag_DK_Ion=', Flag_DK_Ion
       write(0,*) 'Flag_Measure_Ptl_FootPrint=', Flag_Measure_Ptl_FootPrint

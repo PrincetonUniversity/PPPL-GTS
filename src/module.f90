@@ -152,6 +152,7 @@ module global_parameters
    integer :: Flag_Quiet_Start=1 ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
    integer :: Flag_Ptl_BC0_type=0 ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
    integer :: Flag_Ptl_BC1_type=0 ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+   real(wp) :: Ptl_BC0_val=1.0, Ptl_BC1_val=0.0 ! Default value of Particle Flux Generating at both edge (0.0=loss boundary; 1.0=flux from original n0+dne_adiab)
    integer :: Flag_Update_Pol_Shielding=0 ! Default=0 (Not updating Polarization Shielding over time)
    integer :: Flag_DK_Ion=0 ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
    integer :: Flag_Measure_Ptl_FootPrint=0 ! Default=0(Not Meausre), can be set =1 (Do Measure)
