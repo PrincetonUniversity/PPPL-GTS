@@ -1241,49 +1241,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    enddo
    call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
-
-   !In the case of delta-h electron simulation,
-   !add the adiabatic electron response term in the LHS (Amat)
-   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
-   ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
-   if(ifelectron==2) then
-      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
-         enddo
-      elseif(Flag_Def_dne_adiab==2) then
-         ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
-         call Interpolate_OriGridData_into_SG(FLA_Te0(1,:), intpl_FLA_Te0)
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/(1e3*Tem_00*intpl_FLA_Te0(qq,ss))
-         enddo
-      endif
-
-   elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
-      ! To mimic GTS Way
-      if(adiab > 0.0_wp) then
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + adiab*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
-         enddo
-      else
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + 0.01/(Cs*Cs)/(1e3*Tem_00)*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))
-         enddo
-      endif
-   endif
-
+   call Determine_Adiabatic_Contribution_to_Amat
 
 
 
@@ -1498,48 +1456,7 @@ subroutine Update_Amat_Coeffs
 
    enddo
    call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
-
-   !In the case of delta-h electron simulation,
-   !add the adiabatic electron response term in the LHS (Amat)
-   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
-   ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
-   if(ifelectron==2) then
-      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
-         enddo
-      elseif(Flag_Def_dne_adiab==2) then
-         ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
-         call Interpolate_OriGridData_into_SG(FLA_Te0(1,:), intpl_FLA_Te0)
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/(1e3*Tem_00*intpl_FLA_Te0(qq,ss))
-         enddo
-      endif
-
-   elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
-      ! To mimic GTS Way
-      if(adiab > 0.0_wp) then
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + adiab*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
-         enddo
-      else
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + 0.01/(Cs*Cs)/(1e3*Tem_00)*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))
-         enddo
-      endif
-   endif
+   call Determine_Adiabatic_Contribution_to_Amat
 
 
    ! Set Mat Values using the non-zero information calculated from above
@@ -1680,6 +1597,65 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
 
 end subroutine Determine_GK_PoissonTensors_on_Structured_Grid
 
+
+subroutine Determine_Adiabatic_Contribution_to_Amat
+
+   use precision
+   use Structured_Grid
+   use MGY_PETSc_Interface_Data
+   use field_array
+
+   implicit none
+
+   integer Lid,Gid,qq,ss
+   real(wp), external :: density, Te0_eV
+   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
+
+
+   !In the case of delta-h electron simulation,
+   !add the adiabatic electron response term in the LHS (Amat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
+   if(ifelectron==2) then
+      if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      elseif(Flag_Def_dne_adiab==2) then
+         ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
+         call Interpolate_OriGridData_into_SG(FLA_Te0(1,:), intpl_FLA_Te0)
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/(1e3*Tem_00*intpl_FLA_Te0(qq,ss))
+         enddo
+      endif
+
+   elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
+      ! To mimic GTS Way
+      if(adiab > 0.0_wp) then
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + adiab*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      else
+         do Lid=1,Lsize
+            Gid= mapL2G(Lid)
+            qq = mapG2P(Gid)%gqid
+            ss = mapG2P(Gid)%aid
+            tarVal(1,Lid)=tarVal(1,Lid) + 0.01/(Cs*Cs)/(1e3*Tem_00)*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))
+         enddo
+      endif
+   endif
+
+
+end subroutine Determine_Adiabatic_Contribution_to_Amat
 
 
 subroutine Apply_BC_to_Amat_Coeffs
