@@ -668,7 +668,7 @@ module Ptl_Src_Loss
          outION%labels = 0.0
       end subroutine
 
-      subroutine Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing(delta_t_seconds)
+      subroutine Generate_Particles_from_Boundaries_with_LoadBalancing(delta_t_seconds)
          use global_parameters
          use mpi_defs
          implicit none
@@ -702,7 +702,7 @@ module Ptl_Src_Loss
 #ifdef _MGY_TIMER_
             time0 = MPI_WTIME()
 #endif
-            dN_recycling =  Produce_Recycling_Ion_and_Electrons_using_OutParticles
+            dN_recycling =  Produce_Recycling_Ion_and_Electrons_using_OutParticles()
 #ifdef _MGY_TIMER_
             time1=MPI_WTIME()
             if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Produce_Recycling_Ptls  takes", time1-time0, " secs"
@@ -751,7 +751,7 @@ module Ptl_Src_Loss
          call flush(stdout)
 #endif
 
-      end subroutine Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing
+      end subroutine Generate_Particles_from_Boundaries_with_LoadBalancing
 
 
       subroutine Inject_electrons_from_Boundaries(delta_t_seconds)

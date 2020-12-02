@@ -1073,7 +1073,7 @@ subroutine load_uniform_MGY
          Ngroup=6
          allocate(vangle_list(Ngroup),vabs_list(Ngroup))
          vangle_list=[pi/6,pi/3,80*pi/180,pi/6,pi/3,80*pi/180] ! 30, 60, 80, degrees of angle
-         vabs_list=[1,1,1,2.5,2.5,2.5]
+         vabs_list=[1.0,1.0,1.0,2.5,2.5,2.5]
          do gid=1,Ngroup
             mstart=(gid-1)*int(num_of_etracers/ngroup)+1
             mend  =(gid)*int(num_of_etracers/ngroup)

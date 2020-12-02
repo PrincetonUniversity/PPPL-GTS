@@ -571,7 +571,7 @@ program GTS
 
       if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
          if(mod(istep,2)==0) then
-            call Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing(2*tstep*utime)
+            call Generate_Particles_from_Boundaries_with_LoadBalancing(2*tstep*utime)
          endif
       endif
       ! call load_electrons_In_or_Out_Flux(100,tstep*utime)
