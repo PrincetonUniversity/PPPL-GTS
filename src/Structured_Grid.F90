@@ -927,7 +927,7 @@ contains
       SG%grad_phi_cov(1,:,SG%dim_s,1) = SG%inv_ds*(SG%phi(:,SG%dim_s,1)-SG%phi(:,SG%dim_s-1,1))
 
       ! theta direction with the periodic condition
-      SG%grad_phi_cov(2,1,:,1) = SG%inv_dgq*(SG%phi(2,:,1)-SG%phi(SG%dim_gq-1,:,1))
+      SG%grad_phi_cov(2,1,:,1) = 0.5*SG%inv_dgq*(SG%phi(2,:,1)-SG%phi(SG%dim_gq-1,:,1))
       do gqid=2,SG%dim_gq-1
          SG%grad_phi_cov(2,gqid,:,1) = 0.5*SG%inv_dgq*(SG%phi(gqid+1,:,1)-SG%phi(gqid-1,:,1))
       enddo
@@ -964,6 +964,11 @@ contains
       ! Communicate in toroidal direction so that get grad_phi_cov at zetamin (grad_phi_cov(:,:,:,0)) at from the left poloidal plane
       call MPI_SENDRECV(SG%grad_phi_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,right_pe,0, &
                         SG%grad_phi_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+
+      if(mod(istep,msnap)==0) then
+         ! To get full 3D data for diagnostic purpose
+         call MPI_ALLGATHER(SG%grad_phi_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,SG%test_grad_phi_cov_3D,3*SG%dim_gq*SG%dim_s,mpi_Rsize,toroidal_comm,ierr)
+      endif
 
    end subroutine Cal_gradPhi_on_SG
 
