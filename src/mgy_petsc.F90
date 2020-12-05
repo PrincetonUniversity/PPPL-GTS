@@ -48,10 +48,9 @@ module MGY_PETSc_Interface_Data
 
 
 
-end module MGY_PETSc_Interface_Data
+contains
 
 subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
-   use MGY_PETSc_Interface_Data
    use precision
    use global_parameters,only:stdout,mype,numberpe
    use particle_decomp
@@ -188,7 +187,6 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
 end subroutine Initialize_MGY_PETSc_Interface_Data
 
 subroutine Finalize_MGY_PETSc_Interface_Data
-   use MGY_PETSc_Interface_Data
    implicit none
 
    deallocate(mapG2P,mapP2G,mapP2L,mapL2G)
@@ -203,7 +201,6 @@ end subroutine Finalize_MGY_PETSc_Interface_Data
 
 
 subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
-   use MGY_PETSc_Interface_Data
    use Structured_Grid
    use particle_decomp
    use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
@@ -341,7 +338,7 @@ subroutine Solve_Poisson3D_on_SG()
    ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
    use global_parameters
    use field_array
-   use MGY_PETSc_Interface_Data
+
    use Structured_Grid
    use particle_decomp
    implicit none
@@ -454,7 +451,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
    ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
    use global_parameters
    use field_array
-   use MGY_PETSc_Interface_Data
+
    use Structured_Grid
    use particle_decomp
    implicit none
@@ -646,7 +643,7 @@ subroutine Solve_test_Poisson3D_on_SG()
    ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
    use global_parameters
    use field_array
-   use MGY_PETSc_Interface_Data
+
    use Structured_Grid
    use particle_decomp
    use field_array
@@ -955,7 +952,7 @@ end subroutine test_Laplacian_2D
 
 
 subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
-   use MGY_PETSc_Interface_Data
+
    use Structured_Grid
    use particle_decomp
    use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
@@ -1123,7 +1120,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 end subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
 subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
-   use MGY_PETSc_Interface_Data
+
    use Structured_Grid
    use particle_decomp
    use global_parameters
@@ -1350,7 +1347,7 @@ end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
 subroutine Update_Amat_Coeffs
-   use MGY_PETSc_Interface_Data
+
    use Structured_Grid
    use particle_decomp
    use global_parameters
@@ -1481,7 +1478,6 @@ end subroutine Update_Amat_Coeffs
 subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    use precision, only:wp
    use global_parameters, only:stdout,mype,ifelectron,mzetamax,msm0,amasse,amassi
-   use MGY_PETSc_Interface_Data
    use Structured_Grid
    use particle_decomp
    implicit none
@@ -1602,7 +1598,6 @@ subroutine Determine_Adiabatic_Contribution_to_Amat
 
    use precision
    use Structured_Grid
-   use MGY_PETSc_Interface_Data
    use field_array
 
    implicit none
@@ -1659,7 +1654,6 @@ end subroutine Determine_Adiabatic_Contribution_to_Amat
 
 
 subroutine Apply_BC_to_Amat_Coeffs
-   use MGY_PETSc_Interface_Data
    use Structured_Grid
    use global_parameters, only:mzetamax,stdout,mype
    implicit none
@@ -1855,7 +1849,6 @@ subroutine Apply_BC_to_Amat_Coeffs
 end subroutine Apply_BC_to_Amat_Coeffs
 
 subroutine Apply_BC_to_bVec_Coeffs
-   use MGY_PETSc_Interface_Data
    use Structured_Grid
    use global_parameters, only:mzetamax,stdout,mype
    implicit none
@@ -1961,3 +1954,5 @@ subroutine Apply_BC_to_bVec_Coeffs
 
 
 end subroutine Apply_BC_to_bVec_Coeffs
+
+end module MGY_PETSc_Interface_Data

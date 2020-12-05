@@ -26,6 +26,7 @@ program GTS
    use particle_decomp
    use Diagnostic_Grid
    use function_gg_module
+   use MGY_PETSc_Interface_Data
 #ifdef _ACCEL
    use accel_lib
 #endif _ACCEL

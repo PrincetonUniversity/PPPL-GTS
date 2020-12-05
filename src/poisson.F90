@@ -10,6 +10,7 @@ subroutine poisson( solver, masssolver )
    !use linear_system
    use solver_data_class
    use Structured_Grid
+   use MGY_PETSc_Interface_Data
    implicit none
    !
    type(solver_data) :: solver, masssolver
