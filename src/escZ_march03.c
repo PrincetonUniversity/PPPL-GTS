@@ -4645,9 +4645,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
          if((*Flag_noExB)==1){
-            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-gradPhi[1]))/Jacobian;
-            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]) -B0_cov3[0]*(gradH0_cov3[2]-gradPhi[2]))/Jacobian;
-            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]))/Jacobian;
+            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-csc0*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-csc0*gradPhi[1]))/Jacobian;
+            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-csc0*(gradPhi[0]+Er_particle[k])) -B0_cov3[0]*(gradH0_cov3[2]-csc0*gradPhi[2]))/Jacobian;
+            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-csc0*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-csc0*(gradPhi[0]+Er_particle[k])))/Jacobian;
          }
 
          // Calculate Full Velocity and acceleration of Guiding Center
