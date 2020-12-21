@@ -342,13 +342,13 @@ contains
       ! dim_a=SG%dim_a
       ! dim_gq=SG%dim_gq
       ! dim_gf=36
-      ! dim_a=3*(esi%dim_a-1)+1   ! Finer than ESI but original nodes should be included
-      ! dim_gq=3*(esi%dim_gq-1)+1
-      ! dim_gf=50
+      dim_a=3*(esi%dim_a-1)+1   ! Finer than ESI but original nodes should be included
+      dim_gq=3*(esi%dim_gq-1)+1
+      dim_gf=65 ! 64 toroidal gaps that can deal with n=32 modes
 
-      dim_a=esi%dim_a
-      dim_gq=esi%dim_gq
-      dim_gf=16
+      ! dim_a=esi%dim_a
+      ! dim_gq=esi%dim_gq
+      ! dim_gf=16
 
 
       Na=dim_a
