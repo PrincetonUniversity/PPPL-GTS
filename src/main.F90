@@ -27,6 +27,7 @@ program GTS
    use Diagnostic_Grid
    use function_gg_module
    use MGY_PETSc_Interface_Data
+   use Magnetic_Grid
 #ifdef _ACCEL
    use accel_lib
 #endif _ACCEL
@@ -123,6 +124,8 @@ program GTS
 
    ! input parameters, setup equilibrium, allocate memory
    call setup
+
+   call Init_Magnetic_Grid
 
    call Cal_FootPrint_of_MagneticFieldLine
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
