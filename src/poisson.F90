@@ -198,6 +198,11 @@ subroutine poisson( solver, masssolver )
             phi(0,:)=recvl
          endif
 
+         ! poloidal BC
+         do i=0,mpsi
+            phi(:,igrid(i)) = phi(:,igrid(i)+mtheta(i))
+         enddo
+
          ! flux surface average and normalization
          adum=0.0_wp
          do i=0,mpsi
@@ -470,6 +475,11 @@ subroutine poisson( solver, masssolver )
          else
             phi(0,:)=recvl
          endif
+
+         ! poloidal BC
+         do i=0,mpsi
+            phi(:,igrid(i)) = phi(:,igrid(i)+mtheta(i))
+         enddo
 
          ! flux surface average and normalization
          adum=0.0_wp
