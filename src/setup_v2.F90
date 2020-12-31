@@ -2451,6 +2451,7 @@ Subroutine read_input_params
       Flag_Def_dne_adiab, & ! Default=0 (OFF), can be set =1(ON) by INPUT.d
       Flag_w_Evol, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
       Flag_w_Threshold,   &
+      Flag_v_Threshold,   &
       Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
       Flag_Quiet_Start,   &   ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
       Flag_Ptl_BC0_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
@@ -2599,6 +2600,7 @@ Subroutine read_input_params
       write(0,*) 'Flag_Def_dne_adiab=', Flag_Def_dne_adiab
       write(0,*) 'Flag_w_Evol=', Flag_w_Evol
       write(0,*) 'Flag_w_Threshold=', Flag_w_Threshold
+      write(0,*) 'Flag_v_Threshold=', Flag_v_Threshold
       write(0,*) 'Flag_Load_and_WeightDef=', Flag_Load_and_WeightDef
       write(0,*) 'Flag_Quiet_Start=', Flag_Quiet_Start
       write(0,*) 'Flag_Ptl_BC0_type=', Flag_Ptl_BC0_type

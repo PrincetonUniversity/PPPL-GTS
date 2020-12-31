@@ -681,22 +681,54 @@ subroutine Abandon_Abnormal_Particles
    use global_parameters
    use particle_array
    use particle_decomp
+   use esi_interface
+   use function_gg_module
    implicit none
 
    integer i,m,mtop,lasth
    integer ABN_mid_arr(max(memax,mimax)) ! ABN=abnormal
    integer num_of_ABN_ptl
+   real(wp) norm_vpara, norm_vperp,norm_vtot
+
+   if(acc_newer_D_zion) then
+      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
 
    ! ======================
    ! Ion First.
    ! ======================
    num_of_ABN_ptl=0
-   do m=1,mi
-      if(zion(5,m)<w_Thold_min .or. zion(5,m)>w_Thold_max) then
-         num_of_ABN_ptl = num_of_ABN_ptl+1
-         ABN_mid_arr(num_of_ABN_ptl) = m
-      endif
-   enddo
+   if(Flag_w_Threshold==2) then
+      do m=1,mi
+         if(zion(5,m)<w_Thold_min .or. zion(5,m)>w_Thold_max) then
+            num_of_ABN_ptl = num_of_ABN_ptl+1
+            ABN_mid_arr(num_of_ABN_ptl) = m
+         endif
+      enddo
+   endif
+
+   if(Flag_v_Threshold==1) then
+      call n_T_u_group
+      call esigetb(zion,mi,ziondim)
+      !$acc update self(BB(:mi),backT(:mi))
+      do m=1,mi
+         norm_vpara = zion(4,m)*BB(m)/sqrt(backT(m))
+         norm_vperp = zion(6,m)*sqrt(2.0*BB(m))/sqrt(backT(m)) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m)
+         norm_vtot = sqrt(norm_vpara**2+norm_vperp**2)
+         if(norm_vtot>umax) then
+            num_of_ABN_ptl = num_of_ABN_ptl+1
+            ABN_mid_arr(num_of_ABN_ptl) = m
+         endif
+      enddo
+   endif
+
+   if(num_of_ABN_ptl>0) then
+      write(stdout,'((A,I8,A,I4,A,I8))') "istep=",istep,"; mype=",mype,"; Ion num_of_ABN_ptl=",num_of_ABN_ptl
+      call flush(stdout)
+   endif
+
 
    ! Fill holes
    mtop = mi
@@ -728,19 +760,52 @@ subroutine Abandon_Abnormal_Particles
       mtop = mtop -1
    enddo
 
+   if(num_of_ABN_ptl>0) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+   endif
 
 
 
    ! ======================
    ! Electron
    ! ======================
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
    num_of_ABN_ptl=0
-   do m=1,me
-      if(zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max) then
-         num_of_ABN_ptl = num_of_ABN_ptl+1
-         ABN_mid_arr(num_of_ABN_ptl) = m
-      endif
-   enddo
+   if(Flag_w_Threshold==2) then
+      do m=1,me
+         if(zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max) then
+            num_of_ABN_ptl = num_of_ABN_ptl+1
+            ABN_mid_arr(num_of_ABN_ptl) = m
+         endif
+      enddo
+   endif
+
+
+   if(Flag_v_Threshold==1) then
+      call n_T_u_group_e
+      call esigetb(zeon,me,zeondim)
+      !$acc update self(BB(:me),backTe(:me))
+      do m=1,me
+         norm_vpara = zeon(4,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m))) ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+         norm_vperp = zeon(6,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m)) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+         norm_vtot = sqrt(norm_vpara**2+norm_vperp**2)
+         if(norm_vtot>umax) then
+            num_of_ABN_ptl = num_of_ABN_ptl+1
+            ABN_mid_arr(num_of_ABN_ptl) = m
+         endif
+      enddo
+   endif
+
+
+   if(num_of_ABN_ptl>0) then
+      write(stdout,'((A,I8,A,I4,A,I8))') "istep=",istep,"; mype=",mype,"; Electron num_of_ABN_ptl=",num_of_ABN_ptl
+      call flush(stdout)
+   endif
 
    ! Fill holes
    mtop = me
@@ -772,6 +837,10 @@ subroutine Abandon_Abnormal_Particles
 
       mtop = mtop -1
    enddo
+
+   if(num_of_ABN_ptl>0) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+   endif
 
 end subroutine Abandon_Abnormal_Particles
 

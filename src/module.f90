@@ -50,6 +50,7 @@ module global_parameters
    ! Default values are  w_min=-50 (df/f=-0.9803892168), w_max=0.9803921568 (df/f=50)
    ! These values can be controlled in INPUT.d file
    integer :: Flag_w_Threshold = 0 ! Default=0 (OFF), can be turned on (=1;ON) via INPUT.d, (=2: Abandon abnormal particles)
+   integer :: Flag_v_Threshold = 0 ! Default=0 (OFF), can be turned on (=1;ON: Abandon abnormal particles)
    real(wp) :: w_Thold_min = -50.0, w_Thold_max = 1.0
 
    integer jr
