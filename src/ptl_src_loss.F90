@@ -2074,4 +2074,137 @@ module Ptl_Src_Loss
       end function Produce_Recycling_Ion_and_Electrons_using_OutParticles
 
 
+      subroutine Generate_Ions_in_given_Phase_Space(a,gq,gf,upara,uperp,this_N_newP,FluxFactor_over_f0)
+         use global_parameters
+         use particle_array
+         use field_array
+         use esi_interface
+         use mpi_defs
+         use function_gg_module
+         use particle_decomp
+         implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+         real(wp), intent(in), dimension(:) :: a, gq, gf, upara, uperp
+         integer, intent(in) :: this_N_newP
+         real(wp), intent(in) :: FluxFactor_over_f0
+
+
+
+         integer m,m0,i, tot_N_newP
+         real(wp) :: vpara, vperp, integral_f0
+         real(wp), allocatable :: gi_val(:)
+         real(wp), allocatable :: rand_5d(:,:)
+         real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, upara_min, upara_max, uperp_min, uperp_max
+         real(wp) :: del_a, del_gq, del_gf, del_upara, del_uperp
+         integer :: dim_a, dim_gq, dim_gf, dim_upara, dim_uperp
+         integer :: minpts, ifail=1, ierror
+         real(wp) :: ac, error_8=1e-5
+         real(wp), external:: dsda, D01AHF,jacobian
+
+
+         call MPI_ALLREDUCE(this_N_newP, tot_N_newP,1,MPI_INTEGER, MPI_SUM, partd_comm,ierror)
+
+         if(tot_N_newP<=0) then
+            return
+         endif
+
+         a_min = minval(a); a_max = maxval(a); dim_a = size(a)
+         gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
+         gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
+         upara_min = minval(upara); upara_max = maxval(upara); dim_upara = size(upara)
+         uperp_min = minval(uperp); uperp_max = maxval(uperp); dim_uperp = size(uperp)
+
+         del_a = a_max-a_min
+         del_gq = gq_max-gq_min
+         del_gf = gf_max-gf_min
+         del_upara = upara_max-upara_min
+         del_uperp = uperp_max-uperp_min
+
+         !TODO: Generate 5-D phase-space grid for measruing original marker contributions
+
+
+
+         ! Generate
+         m0=mi+1
+         mi=mi+this_N_newP
+
+         allocate(gi_val(m0:mi), rand_5d(5,m0:mi))
+
+         ! Prepare random numbers
+         do m=m0,mi
+            do i=1,5
+               rand_5d(i,m) = sprng()
+            enddo
+         enddo
+
+
+         do m=m0,mi
+            zion(1,m) = a_min + rand_5d(1,m)*del_a
+            zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,ac,dsda,-1,ifail)
+            zion(7,m)=min(s1,max(s0,zion(7,m)))
+
+            zion(2,m) = modulo(gq_min + rand_5d(2,m)*del_gq,2.0*pi)  ! gq
+            zion(3,m) = modulo(gf_min + rand_5d(3,m)*del_gf,2.0*pi)  ! gf
+
+            ilabels(m) = -1.0
+         enddo
+         !$acc update device(zion(:,m0:mi),ilabels(m0:mi))
+
+         call n_T_u_group(m0,mi)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backu(m0:mi),backT(m0:mi))
+         call esigetbf_partial(zion,m0,mi,ziondim)
+         backu(m0:mi)=backu(m0:mi)*F(m0:mi)/BB(m0:mi) ! =u_//=I*omega_t/B
+
+
+         ! Uniform Loading
+         do m=m0,mi
+            vpara = (upara_min + rand_5d(4,m)*del_upara)*sqrt(backT(m))
+            vperp = (uperp_min + rand_5d(5,m)*del_uperp)*sqrt(backT(m))
+            gi_val(m) = tot_N_newP/(del_a*del_gq*del_gf*del_upara*del_uperp*backT(m))/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
+
+            zion(4,m) = vpara/BB(m)
+            zion(4,m) = zion(4,m) + backu(m)/BB(m)
+            zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
+         enddo
+         !$acc update device(zion(:,m0:mi))
+
+         call n_T_u_group(m0,mi,flag_backf0=.true.)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+         !  !$acc update self(back_f0_i(m0:mi))
+
+         ! call ion_locator_at_larmor_points_partial(m0,mi) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
+
+         ! Set initial weights of ions
+         ! zion(5,m) is "df"
+         ! zion0(8,m) is "f_tot"
+         ! zion0(6,m) is "phase volume"
+
+         !$acc parallel loop present(zion,zion0,back_f0_i,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         do m=m0,mi
+            zion0(6,m) = 1.0/gi_val(m) ! Phase space volume
+            integral_f0 = zion0(6,m)*back_f0_i(m) !f_0
+
+            zion0(8,m) = FluxFactor_over_f0*integral_f0 ! full_f
+            zion(5,m)  = zion0(8,m)-integral_f0 ! df
+
+            wi_init(m)  = zion(5,m)
+            wi_vpara(m) = 0
+            wi_vperp(m) = 0
+            wi_accel(m) = 0
+            wi_fdamp(m) = 0
+
+            zion0(1:5,m)     = zion(1:5,m)
+            zion0(7,m)       = zion(7,m)
+            UnNorm_theta_i(m)= zion(2,m)
+            UnNorm_zeta_i(m) = zion(3,m)
+         enddo
+         acc_newer_D_zion=.true.
+
+         deallocate(gi_val, rand_5d)
+
+      end subroutine Generate_Ions_in_given_Phase_Space
+
 end module Ptl_Src_Loss
