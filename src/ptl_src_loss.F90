@@ -2207,4 +2207,127 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Ions_in_given_Phase_Space
 
+      subroutine Clear_newIons_over_Velocity_Boundary(m_start, m_end)
+         use global_parameters
+         use particle_array
+         use esi_interface
+         use function_gg_module
+         implicit none
+
+         integer, optional, intent(in) :: m_start, m_end
+         integer m0, m1
+         integer dim_zion, dim_zion0, dim_RK_cum_zion
+         integer, allocatable :: clear_mid_arr(:), fill_mid_arr(:)
+
+         real(wp), allocatable :: zion_4_arr(:),zion_6_arr(:) ! temporary array 4 (rho_para) and 6 (sqrt(mu))
+         real(wp) upara, uperp
+         integer N_clear, i,j,m,mtop,lasth,fill_num
+
+
+         m0=1
+         m1=mi
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+
+         if(acc_newer_H_zion) then
+            !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_H_zion=.false.
+            acc_newer_D_zion=.false.
+         endif
+
+         dim_zion = size(zion,1)
+         dim_zion0 = size(zion0,1)
+         dim_RK_cum_zion = size(RK_cum_zion,1)
+
+         call n_T_u_group(m0,m1)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backu(m0:m1),backT(m0:m1))
+         call esigetbf_partial(zion,m0,m1,ziondim)
+         backu(m0:m1)=backu(m0:m1)*F(m0:m1)/BB(m0:m1) ! =u_//=I*omega_t/B
+
+         allocate(zion_4_arr(m0:m1),zion_6_arr(m0:m1))
+         allocate(clear_mid_arr(m1-m0+1))
+
+         ! Update ilabels and zion(4,:), zion(6,:) from device to host
+         !$acc update self(ilabels(m0:m1))
+         !$acc parallel loop
+         do m=m0,m1
+            zion_4_arr(m)=zion(4,m)
+            zion_6_arr(m)=zion(6,m)
+         enddo
+
+
+         ! Find indices of target ions to clear
+         N_clear=0
+         do m=m0,m1
+            if(ilabels(m)<0) then
+               upara = (zion_4_arr(m)*BB(m) -backu(m))/sqrt(backT(m))
+               uperp = zion_6_arr(m)*sqrt(2.0*BB(m)/backT(m))
+
+               if(uperp>umax .or. abs(upara)>umax) then
+                  N_clear=N_clear+1
+                  clear_mid_arr(N_clear) = m
+               endif
+            endif
+         enddo
+
+
+         mtop = mi
+         mi = mi-N_clear
+         lasth = N_clear
+
+         allocate(fill_mid_arr(N_clear))
+         fill_num=0
+         do i=1,N_clear
+            m = clear_mid_arr(i)
+            if(m>mi) exit
+            do while(mtop == clear_mid_arr(lasth))
+               mtop=mtop-1
+               lasth=lasth-1
+            enddo
+            fill_mid_arr(i) = mtop
+            mtop = mtop-1
+            fill_num = i
+         enddo
+
+
+         !$acc parallel loop
+         do i=1, fill_num
+            m = clear_mid_arr(i)
+            mtop= fill_mid_arr(i)
+            !$acc loop seq
+            do j=1,dim_zion
+               zion(j, m)   = zion(j, mtop)
+            enddo
+            !$acc loop seq
+            do j=1,dim_zion0
+               zion0(j, m)  = zion0(j, mtop)
+            enddo
+            ilabels(m)      = ilabels(mtop)
+            wi_init(m)      = wi_init(mtop)
+            wi_vpara(m)     = wi_vpara(mtop)
+            wi_vperp(m)     = wi_vperp(mtop)
+            wi_accel(m)     = wi_accel(mtop)
+            wi_fdamp(m)     = wi_fdamp(mtop)
+
+            UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
+            UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
+            if(Flag_RK4==1) then
+               !$acc loop seq
+               do j=1,dim_RK_cum_zion
+                  RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
+               enddo
+            endif
+         enddo
+         acc_newer_D_zion=.true.
+
+         call ion_locator_at_larmor_points_partial(m_start=m0, m_end=mi)
+         call n_T_u_group(m_start=m0, m_end=mi)
+
+         deallocate(zion_4_arr,zion_6_arr)
+         deallocate(clear_mid_arr)
+         deallocate(fill_mid_arr)
+
+      end subroutine Clear_newIons_over_Velocity_Boundary
+
 end module Ptl_Src_Loss
