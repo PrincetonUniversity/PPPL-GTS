@@ -2229,18 +2229,202 @@ module Ptl_Src_Loss
 
          ! !Write into hdf5 file
          ! if(mype==0) then
-         !    write(filename, '("mesh_norm_dxdv_",i5.5,".h5")') istep/msnap
+         !    write(filename, '("mesh_norm_Ion_dxdv_",i5.5,".h5")') istep/msnap
          !    call h5open_f(h5err)
          !    call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
 
+         !    h5dims(1) = dim_upara
+         !    call h5ltmake_dataset_f(file_id, "upara",1,h5dims,H5T_NATIVE_DOUBLE, upara, h5err)
+         !    h5dims(1) = dim_uperp
+         !    call h5ltmake_dataset_f(file_id, "uperp",1,h5dims,H5T_NATIVE_DOUBLE, uperp, h5err)
+         !    h5dims(1) = dim_a
+         !    call h5ltmake_dataset_f(file_id, "a",1,h5dims,H5T_NATIVE_DOUBLE, a, h5err)
+         !    h5dims(1) = dim_gq
+         !    call h5ltmake_dataset_f(file_id, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
+         !    h5dims(1) = dim_gf
+         !    call h5ltmake_dataset_f(file_id, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
+
          !    h5dims(1:5) = mdims(1:5)
          !    call h5ltmake_dataset_f(file_id, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
-
 
          !    call h5fclose_f(file_id, h5err)
          !    call h5close_f(h5err)
          ! endif
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions
+
+      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons(upara,uperp,mesh_norm_dxdv)
+         use global_parameters
+         use particle_array
+         use particle_decomp
+         use Structured_Grid
+         use esi_interface
+         use mpi_defs
+         use function_gg_module
+         use hdf5
+         use h5lt
+         implicit none
+         real(wp), intent(in), dimension(:) :: upara,uperp
+         real(wp), intent(inout) :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (upara,uperp,a,gq,gf) normalized dxdv by pre-occupying particles
+         real(wp), allocatable :: tmp_mesh(:,:,:,:,:)
+
+         real(wp), allocatable :: a_1D(:), gq(:), gf(:)
+         real(wp) :: mesh_min_x(5),mesh_max_x(5), mesh_inv_dx(5)
+         integer :: midx(5), mdims(5) ! mesh index and dimensions
+         real(wp) :: ptl_data(5)
+         integer m,i,j,k,length,ierror,istatus(MPI_STATUS_SIZE)
+         integer aid,gqid,gfid,uparaid,uperpid
+         real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, upara_min, upara_max, uperp_min, uperp_max
+         real(wp) :: da, dgq, dgf, dupara, duperp
+         integer :: dim_a, dim_gq, dim_gf, dim_upara, dim_uperp
+         logical state_in_mesh ! true=in, false=out of given mesh domain
+         real(wp), external :: temperature_e
+         real(wp) mesh_cell_vol ! 5-D mesh volume
+
+         character(len=128) filename
+         integer(HID_T) file_id, gid
+         integer :: h5err
+         integer(HSIZE_T) :: h5dims(5)
+
+         ! Global mesh means that the mesh covers all the spatial range (a0-a1, 0-2pi, 0-2pi)
+         ! by taking into account all processors and their communications.
+         ! Also, the periodical conditions into theta and toroidal direcitons are considered
+
+
+         ! ! For simplicity, let's use a zero-th order shape function (closest near grid)
+         if(acc_newer_H_zeon) then
+            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_H_zeon=.false.
+            acc_newer_D_zeon=.false.
+         endif
+
+         call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zeon(4) and zeon(6)
+         call esigetb(zeon,me,zeondim)   ! get B-->BB
+
+         ! allocate a,gq,gf and copy SG information into
+         allocate(a_1D(SG%dim_a),gq(SG%dim_gq),gf(2))
+         a_1D=SG%a_1D
+         gq=SG%gq_1D
+         gf(1)=zetamin
+         gf(2)=zetamax
+
+         upara_min = minval(upara); upara_max = maxval(upara); dim_upara = size(upara)
+         uperp_min = minval(uperp); uperp_max = maxval(uperp); dim_uperp = size(uperp)
+         a_min = minval(a_1D); a_max = maxval(a_1D); dim_a = size(a_1D)
+         gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
+         gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
+
+         dupara=(upara_max-upara_min)/(dim_upara-1)
+         duperp=(uperp_max-uperp_min)/(dim_uperp-1)
+         da=(a_max-a_min)/(dim_a-1)
+         dgq=(gq_max-gq_min)/(dim_gq-1)
+         dgf=(gf_max-gf_min)/(dim_gf-1)
+
+         mesh_min_x = [upara_min, uperp_min, a_min, gq_min, gf_min]
+         mesh_max_x = [upara_max, uperp_max, a_max, gq_max, gf_max]
+         mesh_inv_dx = [1.0/dupara, 1.0/duperp, 1.0/da, 1.0/dgq, 1.0/dgf]
+         mdims = [dim_upara, dim_uperp, dim_a, dim_gq, dim_gf]
+
+         ! Measure normalized phase volume from electrons that reside in mesh domain
+         mesh_norm_dxdv=0.0
+         !$acc parallel loop private(ptl_data,midx)
+         do m=1,me
+            ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+            ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+            ptl_data(1) = zeon(4,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
+            ptl_data(2) = zeon(6,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
+            ptl_data(3) = zeon(1,m) ! a
+            ptl_data(4) = zeon(2,m) ! gq
+            ptl_data(5) = zeon(3,m) ! gf
+
+            state_in_mesh = .true.
+            !$acc loop seq
+            do i=1,5
+               state_in_mesh = state_in_mesh .and. ((ptl_data(i)-mesh_min_x(i))*(ptl_data(i)-mesh_max_x(i))<=0)
+            enddo
+
+            if(state_in_mesh) then
+               !$acc loop seq
+               do i=1,5
+                  midx(i) = ceiling( (ptl_data(i)-mesh_min_x(i))*mesh_inv_dx(i) + 0.5 ) ! round operation to find nearst grid
+               enddo
+               !$acc atomic update
+               mesh_norm_dxdv(midx(1),midx(2),midx(3),midx(4),midx(5)) = mesh_norm_dxdv(midx(1),midx(2),midx(3),midx(4),midx(5)) + zeon0(6,m)
+            endif
+         enddo
+
+
+
+         ! Communicate with other processors
+         allocate(tmp_mesh(mdims(1),mdims(2),mdims(3),mdims(4),mdims(5)))
+         if(npartdom>1) then
+            tmp_mesh = mesh_norm_dxdv
+            length = product(mdims)
+            call MPI_ALLREDUCE(tmp_mesh, mesh_norm_dxdv, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         endif
+
+         ! Match poloidal end cell
+         ! (gq=0 and gq=2pi is the same position physically although they have different gqid)
+         mesh_norm_dxdv(:,:,:,1,:) = mesh_norm_dxdv(:,:,:,1,:) + mesh_norm_dxdv(:,:,:,dim_gq,:)
+         mesh_norm_dxdv(:,:,:,dim_gq,:) = mesh_norm_dxdv(:,:,:,1,:)
+
+         !toroidal communication
+         length = product(mdims(1:4))
+         call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1, tmp_mesh(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+         mesh_norm_dxdv(:,:,:,:,dim_gf) = mesh_norm_dxdv(:,:,:,:,dim_gf) + tmp_mesh(:,:,:,:,dim_gf)
+         call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1, mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+
+         ! Normalize the results
+         do gqid=1,SG%dim_gq
+            do aid=1,SG%dim_a
+               vthc = sqrt(temperature_e(a_1D(aid),gq(gqid))) ! Note that temperature_e gives the electron velocity not the energy. so not necessary to consider mass here
+               do uperpid=1,dim_uperp
+                  ! mesh_cell_vol = (cell spatial volume)*(dvpara)*integral(2*pi*vperp)_(v0-dv)_(v0+dv)
+                  if(uperpid==1) then
+                     ! integral(vperp)_v0_(v0+0.5dv) = 0.5*(v0*dv+0.25*dv^2)
+                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp+0.25*(duperp**2.0))*(vthc**2.0)
+                  elseif(uperpid==dim_uperp) then
+                      ! integral(vperp)_(v0-0.5dv)_(v0) = 0.5*(v0*dv-0.25*dv^2)
+                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp-0.25*(duperp**2.0))*(vthc**2.0)
+                  else
+                     ! integral(vperp)_(v0-0.5dv)_(v0+0.5dv) = (v0*dv)
+                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*(uperp(uperpid)*duperp)*(vthc**2.0)
+                  endif
+
+                  ! Normalize using Cell_dxdv
+                  mesh_norm_dxdv(:,uperpid,aid,gqid,:) = mesh_norm_dxdv(:,uperpid,aid,gqid,:)/mesh_cell_vol
+                  ! Double values at vpara edges since their cell volumes are half of the normal volume
+                  mesh_norm_dxdv(1,uperpid,aid,gqid,:) = 2.0*mesh_norm_dxdv(1,uperpid,aid,gqid,:)
+                  mesh_norm_dxdv(dim_upara,uperpid,aid,gqid,:) = 2.0*mesh_norm_dxdv(dim_upara,uperpid,aid,gqid,:)
+               enddo
+            enddo
+         enddo
+
+         deallocate(a_1D,gq,gf)
+
+         ! !Write into hdf5 file
+         ! if(mype==0) then
+         !    write(filename, '("mesh_norm_Elec_dxdv_",i5.5,".h5")') istep/msnap
+         !    call h5open_f(h5err)
+         !    call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+
+         !    h5dims(1) = dim_upara
+         !    call h5ltmake_dataset_f(file_id, "upara",1,h5dims,H5T_NATIVE_DOUBLE, upara, h5err)
+         !    h5dims(1) = dim_uperp
+         !    call h5ltmake_dataset_f(file_id, "uperp",1,h5dims,H5T_NATIVE_DOUBLE, uperp, h5err)
+         !    h5dims(1) = dim_a
+         !    call h5ltmake_dataset_f(file_id, "a",1,h5dims,H5T_NATIVE_DOUBLE, a, h5err)
+         !    h5dims(1) = dim_gq
+         !    call h5ltmake_dataset_f(file_id, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
+         !    h5dims(1) = dim_gf
+         !    call h5ltmake_dataset_f(file_id, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
+
+         !    h5dims(1:5) = mdims(1:5)
+         !    call h5ltmake_dataset_f(file_id, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
+
+         !    call h5fclose_f(file_id, h5err)
+         !    call h5close_f(h5err)
+         ! endif
+      end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons
 
       subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv)
          use global_parameters
@@ -2407,6 +2591,172 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Ions_in_given_Phase_Space
 
+      subroutine Generate_Electrons_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv)
+         use global_parameters
+         use particle_array
+         use field_array
+         use esi_interface
+         use mpi_defs
+         use function_gg_module
+         use particle_decomp
+         implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+         real(wp), intent(in), dimension(:) :: upara,uperp,a,gq,gf
+         integer, intent(in) :: this_N_newP
+         real(wp), intent(in) :: FluxFactor_over_f0
+         real(wp), intent(in), optional :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (upara,uperp,a,gq,gf) normalized dxdv by pre-occupying particles
+
+
+         integer m,m0,i, tot_N_newP
+         real(wp) :: vpara, vperp, integral_f0
+         real(wp), allocatable :: ge_val(:)
+         real(wp), allocatable :: rand_5d(:,:)
+         real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, upara_min, upara_max, uperp_min, uperp_max
+         real(wp) :: Del_a, Del_gq, Del_gf, Del_upara, Del_uperp
+         real(wp) :: da, dgq, dgf, dupara, duperp
+         integer :: dim_a, dim_gq, dim_gf, dim_upara, dim_uperp
+         integer :: minpts, ifail=1, ierror
+         real(wp) :: ac, error_8=1e-5
+         real(wp), external:: dsda, D01AHF,jacobian
+
+         real(wp) :: mesh_min_x(5),mesh_inv_dx(5)
+         real(wp) :: ptl_data(5)
+         integer :: mesh_idx(5), mesh_dims(5)
+         real(wp), allocatable :: target_norm_phase_vol(:)
+         !$acc declare create(target_norm_phase_vol)
+
+         call MPI_ALLREDUCE(this_N_newP, tot_N_newP,1,MPI_INTEGER, MPI_SUM, partd_comm,ierror)
+
+         if(tot_N_newP<=0) then
+            return
+         endif
+
+         upara_min = minval(upara); upara_max = maxval(upara); dim_upara = size(upara)
+         uperp_min = minval(uperp); uperp_max = maxval(uperp); dim_uperp = size(uperp)
+         a_min = minval(a); a_max = maxval(a); dim_a = size(a)
+         gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
+         gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
+
+         Del_upara = upara_max-upara_min;  dupara=Del_upara/(dim_upara-1)
+         Del_uperp = uperp_max-uperp_min;  duperp=Del_uperp/(dim_uperp-1)
+         Del_a = a_max-a_min;       da=Del_a/(dim_a-1)
+         Del_gq = gq_max-gq_min;    dgq=Del_gq/(dim_gq-1)
+         Del_gf = gf_max-gf_min;    dgf=Del_gf/(dim_gf-1)
+
+
+         ! Generate
+         m0=me+1
+         me=me+this_N_newP
+
+         allocate(ge_val(m0:me), rand_5d(5,m0:me))
+
+         ! Prepare random numbers
+         do m=m0,me
+            do i=1,5
+               rand_5d(i,m) = sprng()
+            enddo
+         enddo
+
+
+         do m=m0,me
+            zeon(1,m) = a_min + rand_5d(1,m)*Del_a
+            zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,ac,dsda,-1,ifail)
+            zeon(7,m)=min(s1,max(s0,zeon(7,m)))
+
+            zeon(2,m) = modulo(gq_min + rand_5d(2,m)*Del_gq,2.0*pi)  ! gq
+            zeon(3,m) = modulo(gf_min + rand_5d(3,m)*Del_gf,2.0*pi)  ! gf
+
+            elabels(m) = -2.0
+         enddo
+         !$acc update device(zeon(:,m0:me),elabels(m0:me))
+
+         call n_T_u_group_e(m0,me)   ! get Te, note that back_f0_e cannot be calculated here because it requires zeon(4) and zeon(6)
+         !$acc update self(backTe(m0:me))
+         call esigetbf_partial(zeon,m0,me,zeondim)
+
+
+         ! Uniform Loading
+         do m=m0,me
+            vpara = (upara_min + rand_5d(4,m)*Del_upara)*sqrt(backTe(m))
+            vperp = (uperp_min + rand_5d(5,m)*Del_uperp)*sqrt(backTe(m))
+            ge_val(m) = tot_N_newP/(Del_a*Del_gq*Del_gf*Del_upara*Del_uperp*backTe(m))/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+
+            zeon(4,m) = msm0*vpara/(csc0*BB(m))
+            zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+         enddo
+         !$acc update device(zeon(:,m0:me))
+
+         call n_T_u_group_e(m0,me,flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+         call electron_locator_partial(m0,me) ! This may not be necessary, but just in case something goes wrong in the future
+
+         allocate(target_norm_phase_vol(m0:me))
+         if(present(mesh_norm_dxdv)) then
+
+            mesh_min_x = [upara_min, uperp_min, a_min, gq_min, gf_min]
+            mesh_inv_dx = [1.0/dupara, 1.0/duperp, 1.0/da, 1.0/dgq, 1.0/dgf]
+            mesh_dims = [dim_upara, dim_uperp, dim_a, dim_gq, dim_gf]
+
+            !$acc parallel loop present(target_norm_phase_vol) private(ptl_data,mesh_idx)
+            do m=m0,me
+               ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+               ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+               ptl_data(1) = zeon(4,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
+               ptl_data(2) = zeon(6,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
+               ptl_data(3) = zeon(1,m) ! a
+               ptl_data(4) = zeon(2,m) ! gq
+               ptl_data(5) = zeon(3,m) ! gf
+
+               !$acc loop seq
+               do i=1,5
+                  mesh_idx(i) = ceiling( (ptl_data(i)-mesh_min_x(i))*mesh_inv_dx(i) + 0.5 ) ! round operation to find nearst grid
+               enddo
+
+               target_norm_phase_vol(m) = 1.0-mesh_norm_dxdv(mesh_idx(1),mesh_idx(2),mesh_idx(3),mesh_idx(4),mesh_idx(5))
+            enddo
+         else
+            !$acc parallel loop present(target_norm_phase_vol)
+            do m=m0,me
+               target_norm_phase_vol(m) = 1.0
+            enddo
+         endif
+
+
+         ! Set initial weights of ions
+         ! zeon(5,m) is "df"
+         ! zeon(8,m) is "f_tot"
+         ! zeon0(6,m) is "phase volume"
+
+         !$acc parallel loop present(zeon,zeon0,target_norm_phase_vol,back_f0_e,we_init,we_vpara,we_vperp,we_accel,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         do m=m0,me
+            zeon0(6,m) = target_norm_phase_vol(m)/ge_val(m) ! Phase space volume
+            integral_f0 = zeon0(6,m)*back_f0_e(m) !f_0
+
+            zeon(8,m) = FluxFactor_over_f0*integral_f0 ! full_f
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df
+
+            we_init(m)  = zeon(5,m)
+            we_vpara(m) = 0
+            we_vperp(m) = 0
+            we_accel(m) = 0
+            we_adiab(m) = 0
+            we_fdamp(m) = 0
+
+            zeon0(1:5,m)     = zeon(1:5,m)
+            zeon0(7,m)       = zeon(7,m)
+            UnNorm_theta_e(m)= zeon(2,m)
+            UnNorm_zeta_e(m) = zeon(3,m)
+         enddo
+         acc_newer_D_zeon=.true.
+
+         deallocate(ge_val, rand_5d)
+         deallocate(target_norm_phase_vol)
+
+      end subroutine Generate_Electrons_in_given_Phase_Space
+
       subroutine Clear_newIons_over_Velocity_Boundary(m_start, m_end)
          use global_parameters
          use particle_array
@@ -2529,5 +2879,129 @@ module Ptl_Src_Loss
          deallocate(fill_mid_arr)
 
       end subroutine Clear_newIons_over_Velocity_Boundary
+
+      subroutine Clear_newElectrons_over_Velocity_Boundary(m_start, m_end)
+         use global_parameters
+         use particle_array
+         use esi_interface
+         use function_gg_module
+         implicit none
+
+         integer, optional, intent(in) :: m_start, m_end
+         integer m0, m1
+         integer dim_zeon, dim_zeon0, dim_RK_cum_zeon
+         integer, allocatable :: clear_mid_arr(:), fill_mid_arr(:)
+
+         real(wp), allocatable :: zeon_4_arr(:),zeon_6_arr(:) ! temporary array 4 (rho_para) and 6 (sqrt(mu))
+         real(wp) upara, uperp
+         integer N_clear, i,j,m,mtop,lasth,fill_num
+
+
+         m0=1
+         m1=me
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+
+         if(acc_newer_H_zeon) then
+            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_H_zeon=.false.
+            acc_newer_D_zeon=.false.
+         endif
+
+         dim_zeon = size(zeon,1)
+         dim_zeon0 = size(zeon0,1)
+         dim_RK_cum_zeon = size(RK_cum_zeon,1)
+
+         call n_T_u_group_e(m0,m1)   ! get Te, note that back_f0_i cannot be calculated here because it requires zeon(4) and zeon(6)
+         !$acc update self(backTe(m0:m1))
+         call esigetbf_partial(zeon,m0,m1,zeondim) ! BB update to host
+
+         allocate(zeon_4_arr(m0:m1),zeon_6_arr(m0:m1))
+         allocate(clear_mid_arr(m1-m0+1))
+
+         ! Update elabels and zeon(4,:), zeon(6,:) from device to host
+         !$acc update self(elabels(m0:m1))
+         !$acc parallel loop
+         do m=m0,m1
+            zeon_4_arr(m)=zeon(4,m)
+            zeon_6_arr(m)=zeon(6,m)
+         enddo
+
+
+         ! Find indices of target ions to clear
+         N_clear=0
+         do m=m0,m1
+            if(elabels(m)<0) then
+               ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+               ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+               upara = zeon_4_arr(m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
+               uperp = zeon_6_arr(m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
+
+               if(uperp>umax .or. abs(upara)>umax) then
+                  N_clear=N_clear+1
+                  clear_mid_arr(N_clear) = m
+               endif
+            endif
+         enddo
+
+         mtop = me
+         me = me-N_clear
+         lasth = N_clear
+
+         allocate(fill_mid_arr(N_clear))
+         fill_num=0
+         do i=1,N_clear
+            m = clear_mid_arr(i)
+            if(m>me) exit
+            do while(mtop == clear_mid_arr(lasth))
+               mtop=mtop-1
+               lasth=lasth-1
+            enddo
+            fill_mid_arr(i) = mtop
+            mtop = mtop-1
+            fill_num = i
+         enddo
+
+
+         !$acc parallel loop
+         do i=1, fill_num
+            m = clear_mid_arr(i)
+            mtop= fill_mid_arr(i)
+            !$acc loop seq
+            do j=1,dim_zeon
+               zeon(j, m)   = zeon(j, mtop)
+            enddo
+            !$acc loop seq
+            do j=1,dim_zeon0
+               zeon0(j, m)  = zeon0(j, mtop)
+            enddo
+            elabels(m)      = elabels(mtop)
+            we_init(m)      = we_init(mtop)
+            we_vpara(m)     = we_vpara(mtop)
+            we_vperp(m)     = we_vperp(mtop)
+            we_accel(m)     = we_accel(mtop)
+            we_adiab(m)     = we_adiab(mtop)
+            we_fdamp(m)     = we_fdamp(mtop)
+
+            UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
+            UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+            if(Flag_RK4==1) then
+               !$acc loop seq
+               do j=1,dim_RK_cum_zeon
+                  RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+               enddo
+            endif
+         enddo
+         acc_newer_D_zeon=.true.
+
+         call electron_locator_partial(m_start=m0, m_end=me) ! This may not be necessary, but just in case something goes wrong in the future
+         call n_T_u_group_e(m_start=m0, m_end=me)
+
+         deallocate(zeon_4_arr,zeon_6_arr)
+         deallocate(clear_mid_arr)
+         deallocate(fill_mid_arr)
+
+      end subroutine Clear_newElectrons_over_Velocity_Boundary
 
 end module Ptl_Src_Loss
