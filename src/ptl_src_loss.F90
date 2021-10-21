@@ -2075,6 +2075,173 @@ module Ptl_Src_Loss
 
 
 
+
+      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions(upara,uperp,mesh_norm_dxdv)
+         use global_parameters
+         use particle_array
+         use particle_decomp
+         use Structured_Grid
+         use esi_interface
+         use mpi_defs
+         use function_gg_module
+         use hdf5
+         use h5lt
+         implicit none
+         real(wp), intent(in), dimension(:) :: upara,uperp
+         real(wp), intent(inout) :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (upara,uperp,a,gq,gf) normalized dxdv by pre-occupying particles
+         real(wp), allocatable :: tmp_mesh(:,:,:,:,:)
+
+         real(wp), allocatable :: a_1D(:), gq(:), gf(:)
+         real(wp) :: mesh_min_x(5),mesh_max_x(5), mesh_inv_dx(5)
+         integer :: midx(5), mdims(5) ! mesh index and dimensions
+         real(wp) :: ptl_data(5)
+         integer m,i,j,k,length,ierror,istatus(MPI_STATUS_SIZE)
+         integer aid,gqid,gfid,uparaid,uperpid
+         real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, upara_min, upara_max, uperp_min, uperp_max
+         real(wp) :: da, dgq, dgf, dupara, duperp
+         integer :: dim_a, dim_gq, dim_gf, dim_upara, dim_uperp
+         logical state_in_mesh ! true=in, false=out of given mesh domain
+         real(wp), external :: temperature
+         real(wp) mesh_cell_vol ! 5-D mesh volume
+
+         character(len=128) filename
+         integer(HID_T) file_id, gid
+         integer :: h5err
+         integer(HSIZE_T) :: h5dims(5)
+
+         ! Global mesh means that the mesh covers all the spatial range (a0-a1, 0-2pi, 0-2pi)
+         ! by taking into account all processors and their communications.
+         ! Also, the periodical conditions into theta and toroidal direcitons are considered
+
+
+         ! ! For simplicity, let's use a zero-th order shape function (closest near grid)
+         if(acc_newer_H_zion) then
+            !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_H_zion=.false.
+            acc_newer_D_zion=.false.
+         endif
+
+         call n_T_u_group   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         call esigetbf(zion,mi,ziondim)   ! get B-->BB, I-->F  12/07
+         !$acc parallel loop present(backu,F,BB)
+         do m=1,mi
+            backu(m)=backu(m)*F(m)/BB(m) ! =u_//=I*omega_t/B
+         enddo
+
+         ! allocate a,gq,gf and copy SG information into
+         allocate(a_1D(SG%dim_a),gq(SG%dim_gq),gf(2))
+         a_1D=SG%a_1D
+         gq=SG%gq_1D
+         gf(1)=zetamin
+         gf(2)=zetamax
+
+         upara_min = minval(upara); upara_max = maxval(upara); dim_upara = size(upara)
+         uperp_min = minval(uperp); uperp_max = maxval(uperp); dim_uperp = size(uperp)
+         a_min = minval(a_1D); a_max = maxval(a_1D); dim_a = size(a_1D)
+         gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
+         gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
+
+         dupara=(upara_max-upara_min)/(dim_upara-1)
+         duperp=(uperp_max-uperp_min)/(dim_uperp-1)
+         da=(a_max-a_min)/(dim_a-1)
+         dgq=(gq_max-gq_min)/(dim_gq-1)
+         dgf=(gf_max-gf_min)/(dim_gf-1)
+
+         mesh_min_x = [upara_min, uperp_min, a_min, gq_min, gf_min]
+         mesh_max_x = [upara_max, uperp_max, a_max, gq_max, gf_max]
+         mesh_inv_dx = [1.0/dupara, 1.0/duperp, 1.0/da, 1.0/dgq, 1.0/dgf]
+         mdims = [dim_upara, dim_uperp, dim_a, dim_gq, dim_gf]
+
+         ! Measure normalized phase volume from ions that reside in mesh domain
+         mesh_norm_dxdv=0.0
+         !$acc parallel loop private(ptl_data,midx)
+         do m=1,mi
+            ptl_data(1) = (zion(4,m)*BB(m) -backu(m))/sqrt(backT(m)) ! upara
+            ptl_data(2) = zion(6,m)*sqrt(2.0*BB(m)/backT(m)) ! uperp
+            ptl_data(3) = zion(1,m) ! a
+            ptl_data(4) = zion(2,m) ! gq
+            ptl_data(5) = zion(3,m) ! gf
+
+            state_in_mesh = .true.
+            !$acc loop seq
+            do i=1,5
+               state_in_mesh = state_in_mesh .and. ((ptl_data(i)-mesh_min_x(i))*(ptl_data(i)-mesh_max_x(i))<=0)
+            enddo
+
+            if(state_in_mesh) then
+               !$acc loop seq
+               do i=1,5
+                  midx(i) = ceiling( (ptl_data(i)-mesh_min_x(i))*mesh_inv_dx(i) + 0.5 ) ! round operation to find nearst grid
+               enddo
+               !$acc atomic update
+               mesh_norm_dxdv(midx(1),midx(2),midx(3),midx(4),midx(5)) = mesh_norm_dxdv(midx(1),midx(2),midx(3),midx(4),midx(5)) + zion0(6,m)
+            endif
+         enddo
+
+
+
+         ! Communicate with other processors
+         allocate(tmp_mesh(mdims(1),mdims(2),mdims(3),mdims(4),mdims(5)))
+         if(npartdom>1) then
+            tmp_mesh = mesh_norm_dxdv
+            length = product(mdims)
+            call MPI_ALLREDUCE(tmp_mesh, mesh_norm_dxdv, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         endif
+
+         ! Match poloidal end cell
+         ! (gq=0 and gq=2pi is the same position physically although they have different gqid)
+         mesh_norm_dxdv(:,:,:,1,:) = mesh_norm_dxdv(:,:,:,1,:) + mesh_norm_dxdv(:,:,:,dim_gq,:)
+         mesh_norm_dxdv(:,:,:,dim_gq,:) = mesh_norm_dxdv(:,:,:,1,:)
+
+         !toroidal communication
+         length = product(mdims(1:4))
+         call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1, tmp_mesh(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+         mesh_norm_dxdv(:,:,:,:,dim_gf) = mesh_norm_dxdv(:,:,:,:,dim_gf) + tmp_mesh(:,:,:,:,dim_gf)
+         call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1, mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+
+         ! Normalize the results
+         do gqid=1,SG%dim_gq
+            do aid=1,SG%dim_a
+               vthc = sqrt(temperature(a_1D(aid),gq(gqid)))
+               do uperpid=1,dim_uperp
+                  ! mesh_cell_vol = (cell spatial volume)*(dvpara)*integral(2*pi*vperp)_(v0-dv)_(v0+dv)
+                  if(uperpid==1) then
+                     ! integral(vperp)_v0_(v0+0.5dv) = 0.5*(v0*dv+0.25*dv^2)
+                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp+0.25*(duperp**2.0))*(vthc**2.0)
+                  elseif(uperpid==dim_uperp) then
+                      ! integral(vperp)_(v0-0.5dv)_(v0) = 0.5*(v0*dv-0.25*dv^2)
+                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp-0.25*(duperp**2.0))*(vthc**2.0)
+                  else
+                     ! integral(vperp)_(v0-0.5dv)_(v0+0.5dv) = (v0*dv)
+                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*(uperp(uperpid)*duperp)*(vthc**2.0)
+                  endif
+
+                  ! Normalize using Cell_dxdv
+                  mesh_norm_dxdv(:,uperpid,aid,gqid,:) = mesh_norm_dxdv(:,uperpid,aid,gqid,:)/mesh_cell_vol
+                  ! Double values at vpara edges since their cell volumes are half of the normal volume
+                  mesh_norm_dxdv(1,uperpid,aid,gqid,:) = 2.0*mesh_norm_dxdv(1,uperpid,aid,gqid,:)
+                  mesh_norm_dxdv(dim_upara,uperpid,aid,gqid,:) = 2.0*mesh_norm_dxdv(dim_upara,uperpid,aid,gqid,:)
+               enddo
+            enddo
+         enddo
+
+         deallocate(a_1D,gq,gf)
+
+         ! !Write into hdf5 file
+         ! if(mype==0) then
+         !    write(filename, '("mesh_norm_dxdv_",i5.5,".h5")') istep/msnap
+         !    call h5open_f(h5err)
+         !    call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+
+         !    h5dims(1:5) = mdims(1:5)
+         !    call h5ltmake_dataset_f(file_id, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
+
+
+         !    call h5fclose_f(file_id, h5err)
+         !    call h5close_f(h5err)
+         ! endif
+      end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions
+
       subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv)
          use global_parameters
          use particle_array
