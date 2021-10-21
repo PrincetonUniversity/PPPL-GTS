@@ -2757,7 +2757,7 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Electrons_in_given_Phase_Space
 
-      subroutine Clear_newIons_over_Velocity_Boundary(m_start, m_end)
+      subroutine Clear_newIons_beyond_Velocity_Boundary(m_start, m_end)
          use global_parameters
          use particle_array
          use esi_interface
@@ -2878,9 +2878,9 @@ module Ptl_Src_Loss
          deallocate(clear_mid_arr)
          deallocate(fill_mid_arr)
 
-      end subroutine Clear_newIons_over_Velocity_Boundary
+      end subroutine Clear_newIons_beyond_Velocity_Boundary
 
-      subroutine Clear_newElectrons_over_Velocity_Boundary(m_start, m_end)
+      subroutine Clear_newElectrons_beyond_Velocity_Boundary(m_start, m_end)
          use global_parameters
          use particle_array
          use esi_interface
@@ -3002,6 +3002,6 @@ module Ptl_Src_Loss
          deallocate(clear_mid_arr)
          deallocate(fill_mid_arr)
 
-      end subroutine Clear_newElectrons_over_Velocity_Boundary
+      end subroutine Clear_newElectrons_beyond_Velocity_Boundary
 
 end module Ptl_Src_Loss
