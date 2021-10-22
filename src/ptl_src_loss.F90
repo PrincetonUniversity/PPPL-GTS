@@ -2623,11 +2623,17 @@ module Ptl_Src_Loss
          real(wp) :: ac, error_8=1e-5
          real(wp), external:: dsda, D01AHF,jacobian
 
+         integer ij,ip
+         real(wp) fip,r,dela
+         real(wp) wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
+         real(wp) intp_phi, intp_FLA_Te0, intp_phi00
+         real(wp), allocatable, dimension(:) :: AdiabTerm ! e*phi/T
+
          real(wp) :: mesh_min_x(5),mesh_inv_dx(5)
          real(wp) :: ptl_data(5)
          integer :: mesh_idx(5), mesh_dims(5)
          real(wp), allocatable :: target_norm_phase_vol(:)
-         !$acc declare create(target_norm_phase_vol)
+         !$acc declare create(target_norm_phase_vol, AdiabTerm)
 
          call MPI_ALLREDUCE(this_N_newP, tot_N_newP,1,MPI_INTEGER, MPI_SUM, partd_comm,ierror)
 
@@ -2691,7 +2697,6 @@ module Ptl_Src_Loss
          !$acc update device(zeon(:,m0:me))
 
          call n_T_u_group_e(m0,me,flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
-         call electron_locator_partial(m0,me) ! This may not be necessary, but just in case something goes wrong in the future
 
          allocate(target_norm_phase_vol(m0:me))
          if(present(mesh_norm_dxdv)) then
@@ -2725,6 +2730,59 @@ module Ptl_Src_Loss
          endif
 
 
+         ! Calculate Adiab term
+         allocate(AdiabTerm(m0:me))
+         call electron_locator_partial(m0,me) ! This is required to calculate wpeon, wteon0 and etc
+         !$acc parallel loop present(AdiabTerm, wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+         do m=m0,me
+            wz1=wzeon(m)
+            wz0=1.0_wp-wz1
+
+            ij=jteon0(m)
+            wp0=1.0_wp-wpeon(m)
+            wt00=1.0_wp-wteon0(m)
+            intp_phi = wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0 = wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=ij+1
+            wt10=1.0_wp-wt00
+            intp_phi=intp_phi+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0=intp_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=jteon1(m)
+            wp1=1.0_wp-wp0
+            wt01=1.0_wp-wteon1(m)
+            intp_phi=intp_phi+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0=intp_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=ij+1
+            wt11=1.0_wp-wt01
+            intp_phi=intp_phi+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+            intp_FLA_Te0=intp_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            r=(zeon(7,m)-s0)/deltar       ! in radial coordinator s
+            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            fip=r-real(ip,wp)
+            intp_phi00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+            if ( Flag_Def_dne_adiab==0 ) then
+               AdiabTerm(m)=abs(csc0)*(intp_phi-real(1.0-ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_NZ/Te)
+            elseif(Flag_Def_dne_adiab==1) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==2) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==3) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+               AdiabTerm(m)=-1.0+exp(abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (e*dphi_tot/Te)
+            else
+               AdiabTerm(m)=-1e100
+               write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+               STOP
+            endif
+         enddo
+
+
          ! Set initial weights of ions
          ! zeon(5,m) is "df"
          ! zeon(8,m) is "f_tot"
@@ -2732,11 +2790,22 @@ module Ptl_Src_Loss
 
          !$acc parallel loop present(zeon,zeon0,target_norm_phase_vol,back_f0_e,we_init,we_vpara,we_vperp,we_accel,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
          do m=m0,me
+            ! zeon(5,m) is "df" or "dh"
+            ! zeon(8,m) is "f_tot"
+            ! zeon(9,m) is "f_AD"
+            ! zeon0(9,m) is "f_0"
+            ! zeon0(6,m) is "phase volume"
+
             zeon0(6,m) = target_norm_phase_vol(m)/ge_val(m) ! Phase space volume
             integral_f0 = zeon0(6,m)*back_f0_e(m) !f_0
 
             zeon(8,m) = FluxFactor_over_f0*integral_f0 ! full_f
             zeon(5,m)  = zeon(8,m)-integral_f0 ! df
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            ! zeon0(9,m) is f_0 (@ irk=1)
+            zeon(9,m)  = integral_f0*AdiabTerm(m) ! f_AD
+            zeon0(9,m) = integral_f0 ! f_0
 
             we_init(m)  = zeon(5,m)
             we_vpara(m) = 0
@@ -2747,6 +2816,7 @@ module Ptl_Src_Loss
 
             zeon0(1:5,m)     = zeon(1:5,m)
             zeon0(7,m)       = zeon(7,m)
+            zeon0(8,m)       = zeon(8,m)
             UnNorm_theta_e(m)= zeon(2,m)
             UnNorm_zeta_e(m) = zeon(3,m)
          enddo
@@ -2754,6 +2824,7 @@ module Ptl_Src_Loss
 
          deallocate(ge_val, rand_5d)
          deallocate(target_norm_phase_vol)
+         deallocate(AdiabTerm)
 
       end subroutine Generate_Electrons_in_given_Phase_Space
 
