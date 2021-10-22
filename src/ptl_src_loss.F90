@@ -859,7 +859,7 @@ module Ptl_Src_Loss
          real(wp),intent(in) :: FluxFactor_over_f0
          real(wp),intent(in) :: target_a
 
-         integer :: Nm,m0,m,tmp_num
+         integer :: Nm,m0,m,tmp_num,k
          real(wp) inv_Nm
          real(wp) integral_f0
          real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
@@ -1190,7 +1190,10 @@ module Ptl_Src_Loss
             we_adiab(m) = 0
             we_fdamp(m) = 0
 
-            zeon0(1:5,m)     = zeon(1:5,m)
+            !$acc loop seq
+            do k=1,5
+               zeon0(k,m)    = zeon(k,m)
+            enddo
             zeon0(7,m)       = zeon(7,m)
             UnNorm_theta_e(m)= zeon(2,m)
             UnNorm_zeta_e(m) = zeon(3,m)
@@ -1234,7 +1237,7 @@ module Ptl_Src_Loss
          real(wp),intent(in) :: FluxFactor_over_f0
          real(wp),intent(in) :: target_a
 
-         integer :: Nm,m0,m,tmp_num
+         integer :: Nm,m0,m,tmp_num,k
          real(wp) inv_Nm
          real(wp) integral_f0
          real(wp) v_abs, v_theta, vpara, vperp, mean_vabs ! v_abs is amplitude of total velocity vector, and v_theta is the angle between vpara and vperp
@@ -1532,7 +1535,10 @@ module Ptl_Src_Loss
             wi_accel(m) = 0
             wi_fdamp(m) = 0
 
-            zion0(1:5,m)     = zion(1:5,m)
+            !$acc loop seq
+            do k=1,5
+               zion0(k,m)     = zion(k,m)
+            enddo
             zion0(7,m)       = zion(7,m)
             UnNorm_theta_i(m)= zion(2,m)
             UnNorm_zeta_i(m) = zion(3,m)
@@ -1999,7 +2005,10 @@ module Ptl_Src_Loss
             wi_accel(m) = 0
             wi_fdamp(m) = 0
 
-            zion0(1:5,m)     = zion(1:5,m)
+            !$acc loop seq
+            do k=1,5
+               zion0(k,m)     = zion(k,m)
+            enddo
             zion0(7,m)       = zion(7,m)
             UnNorm_theta_i(m)= zion(2,m)
             UnNorm_zeta_i(m) = zion(3,m)
@@ -2060,7 +2069,10 @@ module Ptl_Src_Loss
             we_adiab(m) = 0
             we_fdamp(m) = 0
 
-            zeon0(1:5,m)     = zeon(1:5,m)
+            !$acc loop seq
+            do k=1,5
+               zeon0(k,m)     = zeon(k,m)
+            enddo
             zeon0(7,m)       = zeon(7,m)
             UnNorm_theta_e(m)= zeon(2,m)
             UnNorm_zeta_e(m) = zeon(3,m)
@@ -2579,7 +2591,9 @@ module Ptl_Src_Loss
             wi_accel(m) = 0
             wi_fdamp(m) = 0
 
-            zion0(1:5,m)     = zion(1:5,m)
+            do i=1,5
+               zion0(i,m)     = zion(i,m)
+            enddo
             zion0(7,m)       = zion(7,m)
             UnNorm_theta_i(m)= zion(2,m)
             UnNorm_zeta_i(m) = zion(3,m)
@@ -2814,7 +2828,10 @@ module Ptl_Src_Loss
             we_adiab(m) = 0
             we_fdamp(m) = 0
 
-            zeon0(1:5,m)     = zeon(1:5,m)
+            !$acc loop seq
+            do i=1,5
+               zeon0(i,m)     = zeon(i,m)
+            enddo
             zeon0(7,m)       = zeon(7,m)
             zeon0(8,m)       = zeon(8,m)
             UnNorm_theta_e(m)= zeon(2,m)
