@@ -2115,6 +2115,7 @@ module Ptl_Src_Loss
          logical state_in_mesh ! true=in, false=out of given mesh domain
          real(wp), external :: temperature
          real(wp) mesh_cell_vol ! 5-D mesh volume
+         real(wp) time0, time1
 
          character(len=128) filename
          integer(HID_T) file_id, gid
@@ -2125,6 +2126,10 @@ module Ptl_Src_Loss
          ! by taking into account all processors and their communications.
          ! Also, the periodical conditions into theta and toroidal direcitons are considered
 
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
 
          ! ! For simplicity, let's use a zero-th order shape function (closest near grid)
          if(acc_newer_H_zion) then
@@ -2265,6 +2270,11 @@ module Ptl_Src_Loss
          deallocate(a_1D,gq,gf)
          deallocate(tmp_mesh)
 
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Ions takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions
 
       subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons(upara,uperp,mesh_norm_dxdv)
@@ -2294,6 +2304,7 @@ module Ptl_Src_Loss
          logical state_in_mesh ! true=in, false=out of given mesh domain
          real(wp), external :: temperature_e
          real(wp) mesh_cell_vol ! 5-D mesh volume
+         real(wp) time0,time1
 
          character(len=128) filename, gname
          integer(HID_T) file_id, gid
@@ -2304,6 +2315,9 @@ module Ptl_Src_Loss
          ! by taking into account all processors and their communications.
          ! Also, the periodical conditions into theta and toroidal direcitons are considered
 
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
 
          ! ! For simplicity, let's use a zero-th order shape function (closest near grid)
          if(acc_newer_H_zeon) then
@@ -2464,6 +2478,11 @@ module Ptl_Src_Loss
          deallocate(a_1D,gq,gf)
          deallocate(tmp_mesh)
 
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Electrons takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons
 
       subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv)
@@ -2497,6 +2516,7 @@ module Ptl_Src_Loss
          integer :: minpts, ifail=1, ierror
          real(wp) :: ac, error_8=1e-5
          real(wp), external:: dsda, D01AHF,jacobian
+         real(wp) time0,time1
 
          real(wp) :: mesh_min_x(5),mesh_inv_dx(5)
          real(wp) :: ptl_data(5)
@@ -2509,6 +2529,10 @@ module Ptl_Src_Loss
          if(tot_N_newP<=0) then
             return
          endif
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
 
          upara_min = minval(upara); upara_max = maxval(upara); dim_upara = size(upara)
          uperp_min = minval(uperp); uperp_max = maxval(uperp); dim_uperp = size(uperp)
@@ -2631,6 +2655,12 @@ module Ptl_Src_Loss
          deallocate(gi_val, rand_5d)
          deallocate(target_norm_phase_vol)
 
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Generate_Ions_in_given_Phase_Space takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
       end subroutine Generate_Ions_in_given_Phase_Space
 
       subroutine Generate_Electrons_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv)
@@ -2664,6 +2694,7 @@ module Ptl_Src_Loss
          integer :: minpts, ifail=1, ierror
          real(wp) :: ac, error_8=1e-5
          real(wp), external:: dsda, D01AHF,jacobian
+         real(wp) time0, time1
 
          integer ij,ip
          real(wp) fip,r,dela
@@ -2682,6 +2713,10 @@ module Ptl_Src_Loss
          if(tot_N_newP<=0) then
             return
          endif
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
 
          upara_min = minval(upara); upara_max = maxval(upara); dim_upara = size(upara)
          uperp_min = minval(uperp); uperp_max = maxval(uperp); dim_uperp = size(uperp)
@@ -2871,6 +2906,13 @@ module Ptl_Src_Loss
          deallocate(target_norm_phase_vol)
          deallocate(AdiabTerm)
 
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Generate_Electrons_in_given_Phase_Space takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
       end subroutine Generate_Electrons_in_given_Phase_Space
 
       subroutine Clear_newIons_beyond_Velocity_Boundary(m_start, m_end)
@@ -2878,6 +2920,7 @@ module Ptl_Src_Loss
          use particle_array
          use esi_interface
          use function_gg_module
+         use mpi_defs
          implicit none
 
          integer, optional, intent(in) :: m_start, m_end
@@ -2888,7 +2931,12 @@ module Ptl_Src_Loss
          real(wp), allocatable :: zion_4_arr(:),zion_6_arr(:) ! temporary array 4 (rho_para) and 6 (sqrt(mu))
          real(wp) upara, uperp
          integer N_clear, i,j,m,mtop,lasth,fill_num
+         real(wp) time0,time1
 
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
 
          m0=1
          m1=mi
@@ -2994,6 +3042,11 @@ module Ptl_Src_Loss
          deallocate(clear_mid_arr)
          deallocate(fill_mid_arr)
 
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Clear_newIons_beyond_Velocity_Boundary takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
       end subroutine Clear_newIons_beyond_Velocity_Boundary
 
       subroutine Clear_newElectrons_beyond_Velocity_Boundary(m_start, m_end)
@@ -3001,6 +3054,7 @@ module Ptl_Src_Loss
          use particle_array
          use esi_interface
          use function_gg_module
+         use mpi_defs
          implicit none
 
          integer, optional, intent(in) :: m_start, m_end
@@ -3011,7 +3065,12 @@ module Ptl_Src_Loss
          real(wp), allocatable :: zeon_4_arr(:),zeon_6_arr(:) ! temporary array 4 (rho_para) and 6 (sqrt(mu))
          real(wp) upara, uperp
          integer N_clear, i,j,m,mtop,lasth,fill_num
+         real(wp) time0,time1
 
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
 
          m0=1
          m1=me
@@ -3118,6 +3177,11 @@ module Ptl_Src_Loss
          deallocate(clear_mid_arr)
          deallocate(fill_mid_arr)
 
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Clear_newElectrons_beyond_Velocity_Boundary takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
       end subroutine Clear_newElectrons_beyond_Velocity_Boundary
 
 end module Ptl_Src_Loss
