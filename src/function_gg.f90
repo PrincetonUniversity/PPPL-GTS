@@ -326,9 +326,14 @@ module function_gg_module
 
                back_U_para = F(i)/BB(i)*backu(i)
                A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
-               E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
 
+               if(abs(vpara)<umax*sqrt(backT(i)) .and. vperp<umax*sqrt(backT(i))) then
+               E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
                back_f0_i(i) = backn(i)*A_over_meanA*((inv_twopi/backT(i))**1.5)*exp(-E_over_T)
+               else
+                  ! back_f0 is zero beyond velocity cut-off
+                  back_f0_i(i) = 0.0
+               endif
             enddo
          endif
 
@@ -553,9 +558,13 @@ module function_gg_module
                vpara = m0ms*csc0*BB(i)*zeon(4,i)  ! vpara = (eB/m)*rho_para
                vperp = sqrt(2.0*BB(i)*m0ms)*zeon(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
 
+               if(abs(vpara)<umax*sqrt(backTe(i)) .and. vperp<umax*sqrt(backTe(i))) then
                E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
-
                back_f0_e(i) = backne(i)*A_over_meanA*((msm0*inv_Te_norm*inv_twopi)**1.5)*exp(-E_over_T)
+               else
+                  ! back_f0 is zero beyond velocity cut-off
+                  back_f0_e(i) = 0.0
+               endif
             enddo
          endif
 
