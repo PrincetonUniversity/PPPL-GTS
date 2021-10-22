@@ -2086,6 +2086,67 @@ module Ptl_Src_Loss
       end function Produce_Recycling_Ion_and_Electrons_using_OutParticles
 
 
+      subroutine Generate_Ions_beyond_VelocityCutOff_Fixed_Grid
+         use global_parameters
+         use particle_decomp
+         use Structured_Grid
+         use mpi_defs
+         implicit none
+
+         real(wp), allocatable :: tmp_a(:),tmp_gq(:),tmp_gf(:),tmp_upara(:),tmp_uperp(:)
+         real(wp), allocatable :: mesh_norm_dxdv(:,:,:,:,:)
+         real(wp) den
+         real(wp) upara_min, upara_max, uperp_min, uperp_max
+         integer dim_upara, dim_uperp
+         integer Nm,i, loop
+         real(wp) time0,time1
+         real(wp) upara_min_arr(3), upara_max_arr(3)
+         real(wp) uperp_min_arr(3), uperp_max_arr(3)
+
+         den = ini_mi/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
+
+         upara_min_arr(1:3) = [-1.1*umax, -umax,     umax ]
+         upara_max_arr(1:3) = [    -umax, +umax, 1.1*umax ]
+
+         uperp_min_arr(1:3) = [0,            umax, 0        ]
+         uperp_max_arr(1:3) = [ 1.1*umax, 1.1*umax, 1.1*umax]
+
+         do loop=1,size(upara_min_arr)
+
+            ! upara_min = 2.0; upara_max = 5.0; dim_upara = 5
+            ! uperp_min = 1.0; uperp_max = 4.0; dim_uperp = 5
+            upara_min = upara_min_arr(loop); upara_max = upara_max_arr(loop); dim_upara = 6
+            uperp_min = uperp_min_arr(loop); uperp_max = uperp_max_arr(loop); dim_uperp = 6
+
+
+            allocate(mesh_norm_dxdv(dim_upara,dim_uperp,SG%dim_a,SG%dim_gq,2))
+            allocate(tmp_upara(dim_upara),tmp_uperp(dim_uperp),tmp_gf(2))
+
+            tmp_gf(1) = zetamin
+            tmp_gf(2) = zetamax
+            do i=1,dim_upara
+               tmp_upara(i) = upara_min + (i-1)*(upara_max-upara_min)/(dim_upara-1)
+            enddo
+            do i=1,dim_uperp
+               tmp_uperp(i) = uperp_min + (i-1)*(uperp_max-uperp_min)/(dim_uperp-1)
+            enddo
+
+            Nm = den*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
+            if(mype==0) then
+               write(stdout,*) "test generate Nm_i=",Nm
+               call flush(stdout)
+            endif
+
+            call Measure_Global_SG_mesh_norm_dxdv_of_Ions(tmp_upara, tmp_uperp, mesh_norm_dxdv)
+            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv)
+
+
+            deallocate(tmp_upara,tmp_uperp,tmp_gf)
+            deallocate(mesh_norm_dxdv)
+
+         enddo !loop
+
+      end subroutine Generate_Ions_beyond_VelocityCutOff_Fixed_Grid
 
 
       subroutine Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid
