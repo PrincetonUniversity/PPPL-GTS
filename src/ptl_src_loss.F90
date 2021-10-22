@@ -2237,8 +2237,6 @@ module Ptl_Src_Loss
             enddo
          enddo
 
-         deallocate(a_1D,gq,gf)
-         deallocate(tmp_mesh)
 
          ! !Write into hdf5 file
          ! if(mype==0) then
@@ -2263,6 +2261,10 @@ module Ptl_Src_Loss
          !    call h5fclose_f(file_id, h5err)
          !    call h5close_f(h5err)
          ! endif
+
+         deallocate(a_1D,gq,gf)
+         deallocate(tmp_mesh)
+
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions
 
       subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons(upara,uperp,mesh_norm_dxdv)
@@ -2293,7 +2295,7 @@ module Ptl_Src_Loss
          real(wp), external :: temperature_e
          real(wp) mesh_cell_vol ! 5-D mesh volume
 
-         character(len=128) filename
+         character(len=128) filename, gname
          integer(HID_T) file_id, gid
          integer :: h5err
          integer(HSIZE_T) :: h5dims(5)
@@ -2408,36 +2410,60 @@ module Ptl_Src_Loss
                   ! Double values at vpara edges since their cell volumes are half of the normal volume
                   mesh_norm_dxdv(1,uperpid,aid,gqid,:) = 2.0*mesh_norm_dxdv(1,uperpid,aid,gqid,:)
                   mesh_norm_dxdv(dim_upara,uperpid,aid,gqid,:) = 2.0*mesh_norm_dxdv(dim_upara,uperpid,aid,gqid,:)
+
+                  ! tmp_mesh(:,uperpid,aid,gqid,:) = mesh_cell_vol
+                  ! tmp_mesh(1,uperpid,aid,gqid,:) = 0.5*mesh_cell_vol
+                  ! tmp_mesh(dim_upara,uperpid,aid,gqid,:) = 0.5*mesh_cell_vol
+
                enddo
             enddo
          enddo
 
-         deallocate(a_1D,gq,gf)
-         deallocate(tmp_mesh)
 
          ! !Write into hdf5 file
          ! if(mype==0) then
+         !    ! write(filename, '("mesh_norm_Elec_dxdv_",i5.5,"_uparamin=",F0.2,".h5")') istep/msnap, upara_min
          !    write(filename, '("mesh_norm_Elec_dxdv_",i5.5,".h5")') istep/msnap
+
          !    call h5open_f(h5err)
-         !    call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+         !    call h5fopen_f(filename, H5F_ACC_RDWR_F, file_id, h5err)
+         !    if(h5err==-1) then ! If there is no file
+         !       call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+         !    endif
+
+         !    if(0.5*(upara_min+upara_max)<-umax) then
+         !       i=1
+         !    elseif(0.5*(upara_min+upara_max)>umax) then
+         !       i=2
+         !    else
+         !       i=3
+         !    endif
+         !    write(gname,'("case",I0)') i
+         !    call h5gcreate_f(file_id, gname, gid, h5err)
 
          !    h5dims(1) = dim_upara
-         !    call h5ltmake_dataset_f(file_id, "upara",1,h5dims,H5T_NATIVE_DOUBLE, upara, h5err)
+         !    call h5ltmake_dataset_f(gid, "upara",1,h5dims,H5T_NATIVE_DOUBLE, upara, h5err)
          !    h5dims(1) = dim_uperp
-         !    call h5ltmake_dataset_f(file_id, "uperp",1,h5dims,H5T_NATIVE_DOUBLE, uperp, h5err)
+         !    call h5ltmake_dataset_f(gid, "uperp",1,h5dims,H5T_NATIVE_DOUBLE, uperp, h5err)
          !    h5dims(1) = dim_a
-         !    call h5ltmake_dataset_f(file_id, "a",1,h5dims,H5T_NATIVE_DOUBLE, a, h5err)
+         !    call h5ltmake_dataset_f(gid, "a",1,h5dims,H5T_NATIVE_DOUBLE, a, h5err)
          !    h5dims(1) = dim_gq
-         !    call h5ltmake_dataset_f(file_id, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
+         !    call h5ltmake_dataset_f(gid, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
          !    h5dims(1) = dim_gf
-         !    call h5ltmake_dataset_f(file_id, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
+         !    call h5ltmake_dataset_f(gid, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
 
          !    h5dims(1:5) = mdims(1:5)
-         !    call h5ltmake_dataset_f(file_id, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
+         !    call h5ltmake_dataset_f(gid, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
+         !    call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, tmp_mesh, h5err)
 
+         !    call h5gclose_f(gid, h5err)
          !    call h5fclose_f(file_id, h5err)
          !    call h5close_f(h5err)
          ! endif
+
+         deallocate(a_1D,gq,gf)
+         deallocate(tmp_mesh)
+
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons
 
       subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv)
