@@ -2238,6 +2238,7 @@ module Ptl_Src_Loss
          enddo
 
          deallocate(a_1D,gq,gf)
+         deallocate(tmp_mesh)
 
          ! !Write into hdf5 file
          ! if(mype==0) then
@@ -2412,6 +2413,7 @@ module Ptl_Src_Loss
          enddo
 
          deallocate(a_1D,gq,gf)
+         deallocate(tmp_mesh)
 
          ! !Write into hdf5 file
          ! if(mype==0) then
