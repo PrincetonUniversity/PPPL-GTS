@@ -2688,7 +2688,6 @@ module Ptl_Src_Loss
          do m=m0,mi
             zion(1,m) = a_min + rand_5d(1,m)*Del_a
             zion(7,m)=D01AHF(0.0_wp,zion(1,m),error_8,minpts,ac,dsda,-1,ifail)
-            zion(7,m)=min(s1,max(s0,zion(7,m)))
 
             zion(2,m) = modulo(gq_min + rand_5d(2,m)*Del_gq,2.0*pi)  ! gq
             zion(3,m) = modulo(gf_min + rand_5d(3,m)*Del_gf,2.0*pi)  ! gf
@@ -2872,7 +2871,6 @@ module Ptl_Src_Loss
          do m=m0,me
             zeon(1,m) = a_min + rand_5d(1,m)*Del_a
             zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,ac,dsda,-1,ifail)
-            zeon(7,m)=min(s1,max(s0,zeon(7,m)))
 
             zeon(2,m) = modulo(gq_min + rand_5d(2,m)*Del_gq,2.0*pi)  ! gq
             zeon(3,m) = modulo(gf_min + rand_5d(3,m)*Del_gf,2.0*pi)  ! gf
