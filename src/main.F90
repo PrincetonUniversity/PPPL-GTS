@@ -42,7 +42,7 @@ program GTS
    character buffer1(MAX_PACKED_LENGTH)
 
    integer i,ierror,rng_type
-   integer,parameter :: nc=18
+   integer,parameter :: nc=19
    real(doubleprec) program_start_t0, program_start_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc
    real(doubleprec) tmp_time(nc), tmp_timewc(nc), loop_start_time,loop_start_timewc, mainloop_time, mainloop_timewc
    character(len=16) ic(nc)
@@ -111,8 +111,9 @@ program GTS
    ic(13)='check_tracers'
    ic(14)='snapshot'
    ic(15)='diagnostics'
-   ic(16)='Main_Loop'
-   ic(17)='others'
+   ic(16)='gen_SRC'
+   ic(17)='Main_Loop'
+   ic(18)='others'
    ic(nc)='TOTAL'
 
    if(irun==0) then      !  SPRNG initialize
@@ -335,9 +336,31 @@ program GTS
    !           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
    do istep=istart,mstep
       if(mype==0) then
-         write(stdout,'(a,I8)')'istep=',istep
+         write(stdout,'(a,I8)')'MainLoop istep=',istep
          call flush(stdout)
       endif
+
+
+      ! if(istep==istart .or. mod(istep,msnap) .eq. 0) then
+      if(istep==istart .or. mod(istep,1) .eq. 0) then
+         call timer(t0,dt,t0wc,dtwc)
+
+         ! call Clear_newElectrons_beyond_Velocity_Boundary()
+         call Clear_newElectrons_beyond_Boundaries()
+         call Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid()
+         call Generate_Electrons_beyond_PhysicalBoundary()
+
+         ! call Clear_newIons_beyond_Velocity_Boundary()
+         call Clear_newIons_beyond_Boundaries()
+         call Generate_Ions_beyond_VelocityCutOff_Fixed_Grid()
+         call Generate_Ions_beyond_PhysicalBoundary()
+
+         call timer(t0,dt,t0wc,dtwc)
+         time(16)=time(16)+dt
+         timewc(16)=timewc(16)+dtwc
+      endif
+
+
       do irk=1,nrk
 
          if(Flag_Poisson==1 .and. Flag_Poisson3D_on_SG==1 .and. Flag_Update_Pol_Shielding==1 ) then
@@ -388,8 +411,8 @@ program GTS
             endif
          endif
          call timer(t0,dt,t0wc,dtwc)
-         time(17)=time(17)+dt
-         timewc(17)=timewc(17)+dtwc
+         time(18)=time(18)+dt
+         timewc(18)=timewc(18)+dtwc
 
          ! Calculate ion weight damping
          if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
@@ -573,11 +596,15 @@ program GTS
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
 
-      if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
-         if(mod(istep,2)==0) then
-            call Generate_Particles_from_Boundaries_with_LoadBalancing(2*tstep*utime)
-         endif
-      endif
+      ! if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
+      !    if(mod(istep,2)==0) then
+      !       call timer(t0,dt,t0wc,dtwc)
+      !       call Generate_Particles_from_Boundaries_with_LoadBalancing(2*tstep*utime)
+      !       call timer(t0,dt,t0wc,dtwc)
+      !       time(16)=time(16)+dt
+      !       timewc(16)=timewc(16)+dtwc
+      !    endif
+      ! endif
       ! call load_electrons_In_or_Out_Flux(100,tstep*utime)
       ! call load_electrons_In_or_Out_Flux(10,tstep)
 
@@ -633,8 +660,8 @@ program GTS
       call timer(t0,dt,t0wc,dtwc)
       time(nc)=t0-program_start_t0
       timewc(nc)=t0wc-program_start_t0wc
-      time(16)=t0-loop_start_time
-      timewc(16)=t0wc-loop_start_timewc
+      time(17)=t0-loop_start_time
+      timewc(17)=t0wc-loop_start_timewc
       ! Print Elapsed Times
       if(mype==0 .and. mod(istep,1)==0) then
 
@@ -665,7 +692,7 @@ program GTS
          do i=1,nc
             write(190515,'(a16,2f16.6, f16.4)',advance="no")ic(i),tmp_time(i),tmp_timewc(i), tmp_timewc(i)/tmp_timewc(nc)*100
             if(i/=7 .and. i<nc-1) then
-               write(190515,'(f16.4)') tmp_timewc(i)/tmp_timewc(16)*100
+               write(190515,'(f16.4)') tmp_timewc(i)/tmp_timewc(17)*100
             else
                write(190515,*) ' '
             endif
@@ -688,8 +715,8 @@ program GTS
    call timer(t0,dt,t0wc,dtwc)
    time(nc)=t0-program_start_t0
    timewc(nc)=t0wc-program_start_t0wc
-   time(16)=t0-loop_start_time
-   timewc(16)=t0wc-loop_start_timewc
+   time(17)=t0-loop_start_time
+   timewc(17)=t0wc-loop_start_timewc
 
    if(mype==0)then
 
@@ -718,7 +745,7 @@ program GTS
       do i=1,nc
          write(stdout,'(a16,2f16.6, f16.4)',advance="no")ic(i),tmp_time(i),tmp_timewc(i), tmp_timewc(i)/tmp_timewc(nc)*100
          if(i/=7 .and. i<nc-1) then
-            write(stdout,'(f16.4)') tmp_timewc(i)/tmp_timewc(16)*100
+            write(stdout,'(f16.4)') tmp_timewc(i)/tmp_timewc(17)*100
          else
             write(stdout,*) ' '
          endif
