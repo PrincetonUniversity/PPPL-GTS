@@ -2149,6 +2149,55 @@ module Ptl_Src_Loss
       end subroutine Generate_Ions_beyond_VelocityCutOff_Fixed_Grid
 
 
+      subroutine Generate_Ions_beyond_PhysicalBoundary
+         use global_parameters
+         use particle_decomp
+         use mpi_defs
+         implicit none
+
+         real(wp), allocatable :: tmp_a(:),tmp_gq(:),tmp_gf(:),tmp_upara(:),tmp_uperp(:)
+         real(wp) den
+         integer Nm,i, loop
+
+
+         den = ini_mi/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
+         allocate(tmp_upara(2),tmp_uperp(2),tmp_a(2),tmp_gq(2),tmp_gf(2))
+
+         if(Flag_Ptl_BC0_type==1) then
+            tmp_upara = [-umax, umax]
+            tmp_uperp = [0, umax]
+            tmp_a = [a0-0.05, a0]
+            tmp_gq = [0.0, 2.0*pi]
+            tmp_gf = [zetamin, zetamax]
+
+            Nm = den*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+            if(mype==0) then
+               write(stdout,'(3(A,I0))') "gen_SRC inner radial Nm_i=",Nm,"; mi=", mi,"; mimax=",mimax
+               call flush(stdout)
+            endif
+
+            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
+         endif
+
+         if(Flag_Ptl_BC1_type==1) then
+            tmp_upara = [-umax, umax]
+            tmp_uperp = [0, umax]
+            tmp_a = [a1, a1+0.05]
+            tmp_gq = [0.0, 2.0*pi]
+            tmp_gf = [zetamin, zetamax]
+
+            Nm = den*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+            if(mype==0) then
+               write(stdout,'(3(A,I0))') "gen_SRC outer radial Nm_i=",Nm,"; mi=", mi,"; mimax=",mimax
+               call flush(stdout)
+            endif
+
+            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC1_val, in_label_val=-1.0)
+         endif
+
+         deallocate(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf)
+      end subroutine Generate_Ions_beyond_PhysicalBoundary
+
       subroutine Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid
          use global_parameters
          use particle_decomp
@@ -2211,6 +2260,55 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid
 
+      subroutine Generate_Electrons_beyond_PhysicalBoundary
+         use global_parameters
+         use particle_decomp
+         use mpi_defs
+         implicit none
+
+         real(wp), allocatable :: tmp_a(:),tmp_gq(:),tmp_gf(:),tmp_upara(:),tmp_uperp(:)
+         real(wp) den
+         integer Nm,i, loop
+
+
+         den = ini_mi/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
+
+         allocate(tmp_upara(2),tmp_uperp(2),tmp_a(2),tmp_gq(2),tmp_gf(2))
+
+         if(Flag_Ptl_BC0_type==1) then
+            tmp_upara = [-umax, umax]
+            tmp_uperp = [0, umax]
+            tmp_a = [a0-0.05, a0]
+            tmp_gq = [0.0, 2.0*pi]
+            tmp_gf = [zetamin, zetamax]
+
+            Nm = den*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+            if(mype==0) then
+               write(stdout,'(3(A,I0))') "gen_SRC inner radial Nm_e=",Nm,"; me=", me,"; memax=",memax
+               call flush(stdout)
+            endif
+
+            call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
+         endif
+
+         if(Flag_Ptl_BC1_type==1) then
+            tmp_upara = [-umax, umax]
+            tmp_uperp = [0, umax]
+            tmp_a = [a1, a1+0.05]
+            tmp_gq = [0.0, 2.0*pi]
+            tmp_gf = [zetamin, zetamax]
+
+            Nm = den*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+            if(mype==0) then
+               write(stdout,'(3(A,I0))') "gen_SRC outer radial Nm_e=",Nm,"; me=", me,"; memax=",memax
+               call flush(stdout)
+            endif
+
+            call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC1_val, in_label_val=-1.0)
+         endif
+
+         deallocate(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf)
+      end subroutine Generate_Electrons_beyond_PhysicalBoundary
 
       subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions(upara,uperp,mesh_norm_dxdv)
          use global_parameters
@@ -3089,24 +3187,28 @@ module Ptl_Src_Loss
          call esigetbf_partial(zion,m0,m1,ziondim)
          backu(m0:m1)=backu(m0:m1)*F(m0:m1)/BB(m0:m1) ! =u_//=I*omega_t/B
 
-         allocate(zion_4_arr(m0:m1),zion_6_arr(m0:m1))
+         ! allocate(zion_4_arr(m0:m1),zion_6_arr(m0:m1))
          allocate(clear_mid_arr(m1-m0+1))
 
          ! Update ilabels and zion(4,:), zion(6,:) from device to host
-         !$acc update self(ilabels(m0:m1))
-         !$acc parallel loop
-         do m=m0,m1
-            zion_4_arr(m)=zion(4,m)
-            zion_6_arr(m)=zion(6,m)
-         enddo
+         !$acc update self(ilabels(m0:m1),zion(:,m0:m1))
+
+
+         ! !$acc parallel loop
+         ! do m=m0,m1
+         !    zion_4_arr(m)=zion(4,m)
+         !    zion_6_arr(m)=zion(6,m)
+         ! enddo
 
 
          ! Find indices of target ions to clear
          N_clear=0
          do m=m0,m1
             if(ilabels(m)<0) then
-               upara = (zion_4_arr(m)*BB(m) -backu(m))/sqrt(backT(m))
-               uperp = zion_6_arr(m)*sqrt(2.0*BB(m)/backT(m))
+               ! upara = (zion_4_arr(m)*BB(m) -backu(m))/sqrt(backT(m))
+               ! uperp = zion_6_arr(m)*sqrt(2.0*BB(m)/backT(m))
+               upara = (zion(4,m)*BB(m) -backu(m))/sqrt(backT(m))
+               uperp = zion(6,m)*sqrt(2.0*BB(m)/backT(m))
 
                if(uperp>umax .or. abs(upara)>umax) then
                   N_clear=N_clear+1
@@ -3168,7 +3270,7 @@ module Ptl_Src_Loss
          call ion_locator_at_larmor_points_partial(m_start=m0, m_end=mi) ! This may not be necessary, but just in case something goes wrong in the future
          call n_T_u_group(m_start=m0, m_end=mi)
 
-         deallocate(zion_4_arr,zion_6_arr)
+         ! deallocate(zion_4_arr,zion_6_arr)
          deallocate(clear_mid_arr)
          deallocate(fill_mid_arr)
 
@@ -3178,6 +3280,133 @@ module Ptl_Src_Loss
          call flush(stdout)
 #endif
       end subroutine Clear_newIons_beyond_Velocity_Boundary
+
+      subroutine Clear_newIons_beyond_Boundaries(m_start, m_end)
+         use global_parameters
+         use particle_array
+         use esi_interface
+         use function_gg_module
+         use mpi_defs
+         implicit none
+
+         integer, optional, intent(in) :: m_start, m_end
+         integer m0, m1
+         integer dim_zion, dim_zion0, dim_RK_cum_zion
+         integer, allocatable :: clear_mid_arr(:), fill_mid_arr(:)
+
+         real(wp) P_a
+         real(wp) upara, uperp
+         integer N_clear, i,j,m,mtop,lasth,fill_num
+         real(wp) time0,time1
+
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
+
+         m0=1
+         m1=mi
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+
+         if(acc_newer_H_zion) then
+            !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            acc_newer_H_zion=.false.
+            acc_newer_D_zion=.false.
+         endif
+
+         dim_zion = size(zion,1)
+         dim_zion0 = size(zion0,1)
+         dim_RK_cum_zion = size(RK_cum_zion,1)
+
+         call n_T_u_group(m0,m1)   ! get Te, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backu(m0:m1),backT(m0:m1))
+         call esigetbf_partial(zion,m0,m1,ziondim)
+         backu(m0:m1)=backu(m0:m1)*F(m0:m1)/BB(m0:m1) ! =u_//=I*omega_t/B
+
+         allocate(clear_mid_arr(m1-m0+1))
+
+         ! Update ilabels and zion(4,:), zion(6,:) from device to host
+         !$acc update self(ilabels(m0:m1),zion(:,m0:m1))
+
+         ! Find indices of target ions to clear
+         N_clear=0
+         do m=m0,m1
+            if(ilabels(m)<0) then
+               upara = (zion(4,m)*BB(m) -backu(m))/sqrt(backT(m))
+               uperp = zion(6,m)*sqrt(2.0*BB(m)/backT(m))
+
+               P_a = zion(1,m)
+               if( (P_a-a0)*(P_a-a1)>0 .or. uperp>umax .or. abs(upara)>umax) then
+                  N_clear=N_clear+1
+                  clear_mid_arr(N_clear) = m
+               endif
+            endif
+         enddo
+
+
+         mtop = mi
+         mi = mi-N_clear
+         lasth = N_clear
+
+         allocate(fill_mid_arr(N_clear))
+         fill_num=0
+         do i=1,N_clear
+            m = clear_mid_arr(i)
+            if(m>mi) exit
+            do while(mtop == clear_mid_arr(lasth))
+               mtop=mtop-1
+               lasth=lasth-1
+            enddo
+            fill_mid_arr(i) = mtop
+            mtop = mtop-1
+            fill_num = i
+         enddo
+
+
+         !$acc parallel loop
+         do i=1, fill_num
+            m = clear_mid_arr(i)
+            mtop= fill_mid_arr(i)
+            !$acc loop seq
+            do j=1,dim_zion
+               zion(j, m)   = zion(j, mtop)
+            enddo
+            !$acc loop seq
+            do j=1,dim_zion0
+               zion0(j, m)  = zion0(j, mtop)
+            enddo
+            ilabels(m)      = ilabels(mtop)
+            wi_init(m)      = wi_init(mtop)
+            wi_vpara(m)     = wi_vpara(mtop)
+            wi_vperp(m)     = wi_vperp(mtop)
+            wi_accel(m)     = wi_accel(mtop)
+            wi_fdamp(m)     = wi_fdamp(mtop)
+
+            UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
+            UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
+            if(Flag_RK4==1) then
+               !$acc loop seq
+               do j=1,dim_RK_cum_zion
+                  RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
+               enddo
+            endif
+         enddo
+         acc_newer_D_zion=.true.
+
+         call ion_locator_at_larmor_points_partial(m_start=m0, m_end=mi) ! This may not be necessary, but just in case something goes wrong in the future
+         call n_T_u_group(m_start=m0, m_end=mi)
+
+         deallocate(clear_mid_arr)
+         deallocate(fill_mid_arr)
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Clear_newIons_beyond_Velocity_Boundary takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+      end subroutine Clear_newIons_beyond_Boundaries
 
       subroutine Clear_newElectrons_beyond_Velocity_Boundary(m_start, m_end)
          use global_parameters
@@ -3313,5 +3542,144 @@ module Ptl_Src_Loss
          call flush(stdout)
 #endif
       end subroutine Clear_newElectrons_beyond_Velocity_Boundary
+
+      subroutine Clear_newElectrons_beyond_Boundaries(m_start, m_end)
+         use global_parameters
+         use particle_array
+         use esi_interface
+         use function_gg_module
+         use mpi_defs
+         implicit none
+
+         integer, optional, intent(in) :: m_start, m_end
+         integer m0, m1
+         integer dim_zeon, dim_zeon0, dim_RK_cum_zeon
+         integer, allocatable :: clear_mid_arr(:), fill_mid_arr(:)
+
+         real(wp), allocatable :: zeon_146_arr(:,:) ! temporary array 1(a), 4 (rho_para) and 6 (sqrt(mu))
+         real(wp) P_a, upara, uperp
+         integer N_clear, i,j,m,mtop,lasth,fill_num
+         real(wp) time0,time1
+
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
+
+         m0=1
+         m1=me
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+
+         if(acc_newer_H_zeon) then
+            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_H_zeon=.false.
+            acc_newer_D_zeon=.false.
+         endif
+
+         dim_zeon = size(zeon,1)
+         dim_zeon0 = size(zeon0,1)
+         dim_RK_cum_zeon = size(RK_cum_zeon,1)
+
+         call n_T_u_group_e(m0,m1)   ! get Te, note that back_f0_i cannot be calculated here because it requires zeon(4) and zeon(6)
+         !$acc update self(backTe(m0:m1))
+         call esigetbf_partial(zeon,m0,m1,zeondim) ! BB update to host
+
+         allocate(zeon_146_arr(3,m0:m1))
+         allocate(clear_mid_arr(m1-m0+1))
+
+         ! Update elabels and zeon(4,:), zeon(6,:) from device to host
+         !$acc update self(elabels(m0:m1))
+         !$acc parallel loop
+         do m=m0,m1
+            zeon_146_arr(1,m)=zeon(1,m)
+            zeon_146_arr(2,m)=zeon(4,m)
+            zeon_146_arr(3,m)=zeon(6,m)
+         enddo
+
+
+         ! Find indices of target ions to clear
+         N_clear=0
+         do m=m0,m1
+            if(elabels(m)<0) then
+               ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+               ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+               upara = zeon_146_arr(2,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
+               uperp = zeon_146_arr(3,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
+
+               P_a = zeon_146_arr(1,m)
+
+               if( (P_a-a0)*(P_a-a1)>0 .or. uperp>umax .or. abs(upara)>umax) then
+                  N_clear=N_clear+1
+                  clear_mid_arr(N_clear) = m
+               endif
+            endif
+         enddo
+
+         mtop = me
+         me = me-N_clear
+         lasth = N_clear
+
+         allocate(fill_mid_arr(N_clear))
+         fill_num=0
+         do i=1,N_clear
+            m = clear_mid_arr(i)
+            if(m>me) exit
+            do while(mtop == clear_mid_arr(lasth))
+               mtop=mtop-1
+               lasth=lasth-1
+            enddo
+            fill_mid_arr(i) = mtop
+            mtop = mtop-1
+            fill_num = i
+         enddo
+
+
+         !$acc parallel loop
+         do i=1, fill_num
+            m = clear_mid_arr(i)
+            mtop= fill_mid_arr(i)
+            !$acc loop seq
+            do j=1,dim_zeon
+               zeon(j, m)   = zeon(j, mtop)
+            enddo
+            !$acc loop seq
+            do j=1,dim_zeon0
+               zeon0(j, m)  = zeon0(j, mtop)
+            enddo
+            elabels(m)      = elabels(mtop)
+            we_init(m)      = we_init(mtop)
+            we_vpara(m)     = we_vpara(mtop)
+            we_vperp(m)     = we_vperp(mtop)
+            we_accel(m)     = we_accel(mtop)
+            we_adiab(m)     = we_adiab(mtop)
+            we_fdamp(m)     = we_fdamp(mtop)
+
+            UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
+            UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+            if(Flag_RK4==1) then
+               !$acc loop seq
+               do j=1,dim_RK_cum_zeon
+                  RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+               enddo
+            endif
+         enddo
+         acc_newer_D_zeon=.true.
+
+         call electron_locator_partial(m_start=m0, m_end=me) ! This may not be necessary, but just in case something goes wrong in the future
+         call n_T_u_group_e(m_start=m0, m_end=me)
+
+         deallocate(zeon_146_arr)
+         deallocate(clear_mid_arr)
+         deallocate(fill_mid_arr)
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Clear_newElectrons_beyond_Boundaries takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+      end subroutine Clear_newElectrons_beyond_Boundaries
+
 
 end module Ptl_Src_Loss
