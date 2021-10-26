@@ -769,9 +769,9 @@ module Diagnostic_Grid
                   vid=23; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(KE_perp(m)) ! Te_tot_perp
 
                   if(elabels(m)==-1) then
-                     vid=19; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Negative df Markers from Walls
-                  elseif(elabels(m)==1) then
-                     vid=24;DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Negative df Markers from Walls
+                     vid=19; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Markers from Walls
+                  elseif(elabels(m)==-2) then
+                     vid=24;DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Markers from Velocity cut-off
                   endif
 
                   ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
@@ -1122,9 +1122,9 @@ module Diagnostic_Grid
                   vid=25; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(KE_perp(m)) ! Ti_tot_perp
 
                   if(ilabels(m)==-1) then
-                     vid=21; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Negative df Markers from Walls
-                  elseif(ilabels(m)==1) then
-                     vid=26; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Negative df Markers from Walls
+                     vid=21; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Markers from Walls
+                  elseif(ilabels(m)==-2) then
+                     vid=26; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Markers from velocity cut-off
                   endif
 
                   ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively

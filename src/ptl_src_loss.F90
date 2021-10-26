@@ -2133,12 +2133,12 @@ module Ptl_Src_Loss
 
             Nm = den*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
             if(mype==0) then
-               write(stdout,*) "test generate Nm_i=",Nm
+               write(stdout,'(3(A,I0))') "gen_SRC_vel Nm_i=",Nm,"; mi=", mi,"; mimax=",mimax
                call flush(stdout)
             endif
 
             call Measure_Global_SG_mesh_norm_dxdv_of_Ions(tmp_upara, tmp_uperp, mesh_norm_dxdv)
-            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv)
+            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
 
 
             deallocate(tmp_upara,tmp_uperp,tmp_gf)
@@ -2196,12 +2196,12 @@ module Ptl_Src_Loss
 
             Nm = den*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
             if(mype==0) then
-               write(stdout,*) "test generate Nm_e=",Nm
+               write(stdout,'(3(A,I0))') "gen_SRC_vel Nm_e=",Nm,"; me=", me,"; memax=",memax
                call flush(stdout)
             endif
 
             call Measure_Global_SG_mesh_norm_dxdv_of_Electrons(tmp_upara, tmp_uperp, mesh_norm_dxdv)
-            call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv)
+            call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
 
 
             deallocate(tmp_upara,tmp_uperp,tmp_gf)
@@ -2609,7 +2609,7 @@ module Ptl_Src_Loss
 #endif
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons
 
-      subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv)
+      subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv, in_label_val)
          use global_parameters
          use particle_array
          use field_array
@@ -2627,8 +2627,9 @@ module Ptl_Src_Loss
          integer, intent(in) :: this_N_newP
          real(wp), intent(in) :: FluxFactor_over_f0
          real(wp), intent(in), optional :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (upara,uperp,a,gq,gf) normalized dxdv by pre-occupying particles
+         real(wp), intent(in), optional :: in_label_val
 
-
+         real(wp) label_val
          integer m,m0,i, tot_N_newP
          real(wp) :: vpara, vperp, integral_f0
          real(wp), allocatable :: gi_val(:)
@@ -2653,6 +2654,9 @@ module Ptl_Src_Loss
          if(tot_N_newP<=0) then
             return
          endif
+
+         label_val=0
+         if(present(in_label_val)) label_val = in_label_val
 
 #ifdef _MGY_TIMER_
          time0=MPI_WTIME()
@@ -2692,7 +2696,7 @@ module Ptl_Src_Loss
             zion(2,m) = modulo(gq_min + rand_5d(2,m)*Del_gq,2.0*pi)  ! gq
             zion(3,m) = modulo(gf_min + rand_5d(3,m)*Del_gf,2.0*pi)  ! gf
 
-            ilabels(m) = -2.0
+            ilabels(m) = label_val
          enddo
          !$acc update device(zion(:,m0:mi),ilabels(m0:mi))
 
@@ -2786,7 +2790,7 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Ions_in_given_Phase_Space
 
-      subroutine Generate_Electrons_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv)
+      subroutine Generate_Electrons_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv,in_label_val)
          use global_parameters
          use particle_array
          use field_array
@@ -2804,8 +2808,9 @@ module Ptl_Src_Loss
          integer, intent(in) :: this_N_newP
          real(wp), intent(in) :: FluxFactor_over_f0
          real(wp), intent(in), optional :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (upara,uperp,a,gq,gf) normalized dxdv by pre-occupying particles
+         real(wp), intent(in), optional :: in_label_val
 
-
+         real(wp) :: label_val
          integer m,m0,i, tot_N_newP
          real(wp) :: vpara, vperp, integral_f0
          real(wp), allocatable :: ge_val(:)
@@ -2836,6 +2841,9 @@ module Ptl_Src_Loss
          if(tot_N_newP<=0) then
             return
          endif
+
+         label_val=0
+         if(present(in_label_val)) label_val = in_label_val
 
 #ifdef _MGY_TIMER_
          time0=MPI_WTIME()
@@ -2875,7 +2883,7 @@ module Ptl_Src_Loss
             zeon(2,m) = modulo(gq_min + rand_5d(2,m)*Del_gq,2.0*pi)  ! gq
             zeon(3,m) = modulo(gf_min + rand_5d(3,m)*Del_gf,2.0*pi)  ! gf
 
-            elabels(m) = -2.0
+            elabels(m) = label_val
          enddo
          !$acc update device(zeon(:,m0:me),elabels(m0:me))
 
