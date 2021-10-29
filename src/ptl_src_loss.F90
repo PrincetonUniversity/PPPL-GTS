@@ -1614,6 +1614,7 @@ module Ptl_Src_Loss
          integer mtop, lasth
          integer dim_zeon, dim_zeon0, dim_RK_cum_zeon
          real(wp) zeon_a_arr(me)
+         real(wp) target_w_tot, integral_f0
 
          m0=1
          m1=me
@@ -1755,6 +1756,47 @@ module Ptl_Src_Loss
             call n_T_u_group_e(m_start=m0, m_end=me)
          endif
 
+
+         if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
+            ! Do not remove any particles here.
+            ! (They will be removed by a separate routine every n-th timestep)
+            ! Here, change the weight of original particles (labels>0) properly
+            ! and let them flow around near the boundary.
+            ! This method could be beneficial to fill the phase-space more efficiently.
+
+            !$acc parallel loop present(zeon,zeon0,elabels,back_f0_e)
+            do m=m0,m1
+               if(elabels(m)>0) then
+                  if(Flag_Ptl_BC1_type==2 .and. zeon(1,m)>psimax)then
+                     ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+                     ! zeon0(9,m) is f_0 (@ irk=1)
+                     ! TODO: check the definition of adiabterm outside the physical boundary
+                     ! Here, assume that f_AD is smooth across the physical boundary so that zeon(9,m) is unchanged
+                     integral_f0 = zeon0(6,m)*back_f0_e(m) ! f_0
+                     target_w_tot = Ptl_BC1_val*integral_f0
+
+                     zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+                     zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
+                     zeon0(9,m) = integral_f0 ! f_0
+                     elabels(m) = -1.0
+                  elseif(Flag_Ptl_BC0_type==2 .and. zeon(1,m)<psimin)then
+                     ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+                     ! zeon0(9,m) is f_0 (@ irk=1)
+                     ! TODO: check the definition of adiabterm outside the physical boundary
+                     ! Here, assume that f_AD is smooth across the physical boundary so that zeon(9,m) is unchanged
+                     integral_f0 = zeon0(6,m)*back_f0_e(m) ! f_0
+                     target_w_tot = Ptl_BC0_val*integral_f0
+
+                     zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+                     zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
+                     zeon0(9,m) = integral_f0 ! f_0
+                     elabels(m) = -1.0
+                  endif
+               endif
+            enddo
+            acc_newer_D_zeon=.true.
+         endif
+
       end subroutine treat_electrons_out_of_boundary
 
 
@@ -1781,6 +1823,7 @@ module Ptl_Src_Loss
          integer dim_zion, dim_zion0, dim_RK_cum_zion
          real(wp) zion_a_arr(mi)
          real(wp), allocatable :: out_zion_BDY1(:,:), out_zion0_BDY1(:,:), out_ilabels_BDY1(:)
+         real(wp) target_w_tot, integral_f0
 
          m0=1
          m1=mi
@@ -1941,6 +1984,38 @@ module Ptl_Src_Loss
 
             call ion_locator_at_larmor_points_partial(m_start=m0, m_end=mi)
             call n_T_u_group(m_start=m0, m_end=mi)
+         endif
+
+         if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
+            ! Do not remove any particles here.
+            ! (They will be removed by a separate routine every n-th timestep)
+            ! Here, change the weight of original particles (labels>0) properly
+            ! and let them flow around near the boundary.
+            ! This method could be beneficial to fill the phase-space more efficiently.
+
+            !$acc parallel loop present(zion,zion0,ilabels,back_f0_i)
+            do m=m0,m1
+               if(ilabels(m)>0) then
+                  if(Flag_Ptl_BC1_type==2 .and. zion(1,m)>psimax)then
+                     integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
+                     target_w_tot = Ptl_BC1_val*integral_f0
+
+                     zion0(8,m) = target_w_tot ! full-f
+                     zion(5,m) = zion0(8,m)-integral_f0 ! df
+                     zion(8,m) = integral_f0 ! f_0
+                     ilabels(m) = -1.0
+                  elseif(Flag_Ptl_BC0_type==2 .and. zion(1,m)<psimin)then
+                     integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
+                     target_w_tot = Ptl_BC0_val*integral_f0
+
+                     zion0(8,m) = target_w_tot ! full-f
+                     zion(5,m) = zion0(8,m)-integral_f0 ! df
+                     zion(8,m) = integral_f0 ! f_0
+                     ilabels(m) = -1.0
+                  endif
+               endif
+            enddo
+            acc_newer_D_zion=.true.
          endif
 
       end subroutine treat_ions_out_of_boundary
@@ -2194,7 +2269,7 @@ module Ptl_Src_Loss
          den = ini_mi/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
          allocate(tmp_upara(2),tmp_uperp(2),tmp_a(2),tmp_gq(2),tmp_gf(2))
 
-         if(Flag_Ptl_BC0_type==1) then
+         if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC0_type==2) then
             tmp_upara = [-umax, umax]
             tmp_uperp = [0, umax]
             tmp_a = [a0-0.05, a0]
@@ -2210,7 +2285,7 @@ module Ptl_Src_Loss
             call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
          endif
 
-         if(Flag_Ptl_BC1_type==1) then
+         if(Flag_Ptl_BC1_type==1 .or. Flag_Ptl_BC1_type==2) then
             tmp_upara = [-umax, umax]
             tmp_uperp = [0, umax]
             tmp_a = [a1, a1+0.05]
@@ -2302,11 +2377,11 @@ module Ptl_Src_Loss
          integer Nm,i, loop
 
 
-         den = ini_mi/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
+         den = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
 
          allocate(tmp_upara(2),tmp_uperp(2),tmp_a(2),tmp_gq(2),tmp_gf(2))
 
-         if(Flag_Ptl_BC0_type==1) then
+         if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC0_type==2) then
             tmp_upara = [-umax, umax]
             tmp_uperp = [0, umax]
             tmp_a = [a0-0.05, a0]
@@ -2322,7 +2397,7 @@ module Ptl_Src_Loss
             call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
          endif
 
-         if(Flag_Ptl_BC1_type==1) then
+         if(Flag_Ptl_BC1_type==1 .or. Flag_Ptl_BC1_type==2) then
             tmp_upara = [-umax, umax]
             tmp_uperp = [0, umax]
             tmp_a = [a1, a1+0.05]
@@ -2760,7 +2835,7 @@ module Ptl_Src_Loss
 
          real(wp) label_val
          integer m,m0,i, tot_N_newP
-         real(wp) :: vpara, vperp, integral_f0
+         real(wp) :: vpara, vperp, integral_f0, target_w_tot
          real(wp), allocatable :: gi_val(:)
          real(wp), allocatable :: rand_5d(:,:)
          real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, upara_min, upara_max, uperp_min, uperp_max
@@ -2889,9 +2964,11 @@ module Ptl_Src_Loss
          do m=m0,mi
             zion0(6,m) = target_norm_phase_vol(m)/gi_val(m) ! Phase space volume
             integral_f0 = zion0(6,m)*back_f0_i(m) !f_0
+            target_w_tot = FluxFactor_over_f0*integral_f0
 
-            zion0(8,m) = FluxFactor_over_f0*integral_f0 ! full_f
-            zion(5,m)  = zion0(8,m)-integral_f0 ! df
+            zion0(8,m) = target_w_tot ! full-f
+            zion(5,m) = zion0(8,m)-integral_f0 ! df
+            zion(8,m) = integral_f0 ! f_0
 
             wi_init(m)  = zion(5,m)
             wi_vpara(m) = 0
@@ -2941,7 +3018,7 @@ module Ptl_Src_Loss
 
          real(wp) :: label_val
          integer m,m0,i, tot_N_newP
-         real(wp) :: vpara, vperp, integral_f0
+         real(wp) :: vpara, vperp, integral_f0, target_w_tot
          real(wp), allocatable :: ge_val(:)
          real(wp), allocatable :: rand_5d(:,:)
          real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, upara_min, upara_max, uperp_min, uperp_max
@@ -3135,12 +3212,13 @@ module Ptl_Src_Loss
             zeon0(6,m) = target_norm_phase_vol(m)/ge_val(m) ! Phase space volume
             integral_f0 = zeon0(6,m)*back_f0_e(m) !f_0
 
-            zeon(8,m) = FluxFactor_over_f0*integral_f0 ! full_f
-            zeon(5,m)  = zeon(8,m)-integral_f0 ! df
+            target_w_tot = FluxFactor_over_f0*integral_f0
 
             ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
-            ! zeon0(9,m) is f_0 (@ irk=1)
-            zeon(9,m)  = integral_f0*AdiabTerm(m) ! f_AD
+            zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
+
+            zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
             zeon0(9,m) = integral_f0 ! f_0
 
             we_init(m)  = zeon(5,m)
@@ -3312,7 +3390,7 @@ module Ptl_Src_Loss
 #endif
       end subroutine Clear_newIons_beyond_Velocity_Boundary
 
-      subroutine Clear_newIons_beyond_Boundaries(m_start, m_end)
+      subroutine Clear_some_Ions_beyond_Boundaries(m_start, m_end)
          use global_parameters
          use particle_array
          use esi_interface
@@ -3364,12 +3442,14 @@ module Ptl_Src_Loss
          ! Find indices of target ions to clear
          N_clear=0
          do m=m0,m1
-            if(ilabels(m)<0) then
+            P_a = zion(1,m)
+            if( (P_a-a0)*(P_a-a1)>0) then
+               N_clear=N_clear+1
+               clear_mid_arr(N_clear) = m
+            elseif(ilabels(m)<0) then
                upara = (zion(4,m)*BB(m) -backu(m))/sqrt(backT(m))
                uperp = zion(6,m)*sqrt(2.0*BB(m)/backT(m))
-
-               P_a = zion(1,m)
-               if( (P_a-a0)*(P_a-a1)>0 .or. uperp>umax .or. abs(upara)>umax) then
+               if(uperp>umax .or. abs(upara)>umax) then
                   N_clear=N_clear+1
                   clear_mid_arr(N_clear) = m
                endif
@@ -3437,7 +3517,7 @@ module Ptl_Src_Loss
          if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Clear_newIons_beyond_Velocity_Boundary takes", time1-time0, " secs"
          call flush(stdout)
 #endif
-      end subroutine Clear_newIons_beyond_Boundaries
+      end subroutine Clear_some_Ions_beyond_Boundaries
 
       subroutine Clear_newElectrons_beyond_Velocity_Boundary(m_start, m_end)
          use global_parameters
@@ -3574,7 +3654,7 @@ module Ptl_Src_Loss
 #endif
       end subroutine Clear_newElectrons_beyond_Velocity_Boundary
 
-      subroutine Clear_newElectrons_beyond_Boundaries(m_start, m_end)
+      subroutine Clear_some_Electrons_beyond_Boundaries(m_start, m_end)
          use global_parameters
          use particle_array
          use esi_interface
@@ -3630,18 +3710,19 @@ module Ptl_Src_Loss
          enddo
 
 
-         ! Find indices of target ions to clear
+         ! Find indices of target electrons to clear
          N_clear=0
          do m=m0,m1
-            if(elabels(m)<0) then
+            P_a = zeon_146_arr(1,m)
+            if((P_a-a0)*(P_a-a1)>0) then
+               N_clear=N_clear+1
+               clear_mid_arr(N_clear) = m
+            elseif(elabels(m)<0) then
                ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
                ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
                upara = zeon_146_arr(2,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
                uperp = zeon_146_arr(3,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
-
-               P_a = zeon_146_arr(1,m)
-
-               if( (P_a-a0)*(P_a-a1)>0 .or. uperp>umax .or. abs(upara)>umax) then
+               if(uperp>umax .or. abs(upara)>umax) then
                   N_clear=N_clear+1
                   clear_mid_arr(N_clear) = m
                endif
@@ -3707,10 +3788,10 @@ module Ptl_Src_Loss
 
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Clear_newElectrons_beyond_Boundaries takes", time1-time0, " secs"
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Clear_some_Electrons_beyond_Boundaries takes", time1-time0, " secs"
          call flush(stdout)
 #endif
-      end subroutine Clear_newElectrons_beyond_Boundaries
+      end subroutine Clear_some_Electrons_beyond_Boundaries
 
 
 end module Ptl_Src_Loss

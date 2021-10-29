@@ -342,16 +342,17 @@ program GTS
 
 
       ! if(istep==istart .or. mod(istep,msnap) .eq. 0) then
-      if(istep==istart .or. mod(istep,1) .eq. 0) then
+      if(istep==istart .or. mod(istep,10) .eq. 0) then
+
          call timer(t0,dt,t0wc,dtwc)
 
          ! call Clear_newElectrons_beyond_Velocity_Boundary()
-         call Clear_newElectrons_beyond_Boundaries()
+         call Clear_some_Electrons_beyond_Boundaries()
          call Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid()
          call Generate_Electrons_beyond_PhysicalBoundary()
 
          ! call Clear_newIons_beyond_Velocity_Boundary()
-         call Clear_newIons_beyond_Boundaries()
+         call Clear_some_Ions_beyond_Boundaries()
          call Generate_Ions_beyond_VelocityCutOff_Fixed_Grid()
          call Generate_Ions_beyond_PhysicalBoundary()
 
