@@ -996,6 +996,21 @@ module Ptl_Src_Loss
                zeon(4,m) = msm0*vpara/(csc0*BB(m))
                zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
             enddo
+         elseif(Flag_Load_and_WeightDef==3) then
+            do m=m0,me
+               ! Uniform sampling within square shape of velocity cut-off
+               vpara= (-umax + 2.0*umax*sprng())*sqrt(Te_norm(m)*m0ms)
+               vperp= (umax*sprng())*sqrt(Te_norm(m)*m0ms)
+               ! NOTE : Since Nm is not determined yet, it will be mulitplied later
+               ge_val(m) = 1.0/(4.0*pi*pi*2.0*umax*umax*Te_norm(m)*m0ms)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+
+               zeon(4,m) = msm0*vpara/(csc0*BB(m))
+               zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+            enddo
+         else
+            write(stdout,*) "Error!! Unknown Flag; Flag_Load_and_WeightDef=",Flag_Load_and_WeightDef
+            call flush(stdout)
+            stop
          endif
          !$acc update device(zeon(:,m0:me))
 
@@ -1372,6 +1387,22 @@ module Ptl_Src_Loss
                zion(4,m) = zion(4,m) + backu(m)/BB(m)
                zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
             enddo
+         elseif(Flag_Load_and_WeightDef==3) then
+            do m=m0,mi
+               ! Uniform sampling within square shape of velocity cut-off
+               vpara= (-umax + 2.0*umax*sprng())*sqrt(backT(m))
+               vperp= (umax*sprng())*sqrt(backT(m))
+               ! NOTE : Since Nm is not determined yet, it will be mulitplied later
+               gi_val(m) = 1.0/(4.0*pi*pi*2.0*umax*umax*backT(m))/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
+
+               zion(4,m) = vpara/(BB(m))
+               zion(4,m) = zion(4,m) + backu(m)/BB(m)
+               zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
+            enddo
+         else
+            write(stdout,*) "Error!! Unknown Flag; Flag_Load_and_WeightDef=",Flag_Load_and_WeightDef
+            call flush(stdout)
+            stop
          endif
          !$acc update device(zion(:,m0:mi))
 
