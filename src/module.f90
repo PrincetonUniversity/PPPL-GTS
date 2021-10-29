@@ -26,6 +26,8 @@ module global_parameters
       deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,&
       uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
       s0,s1,B_0,R_0,Cs   ! B_0=normalized on-axis B, R_0=normalized major radius
+   !$acc declare create(a0,a1)
+
    real(wp) MM_Cs, MM_Lc_over_vthci, MM_LcTi, MM_LcTe, MM_Lcn, MM_Lcu, MM_vthci, MM_vthce, MM_R_axis, MM_B_axis ! Variables for MeasureMent
    integer,dimension(:),allocatable :: mtheta
    real(wp),dimension(:),allocatable :: deltat

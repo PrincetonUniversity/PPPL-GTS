@@ -601,6 +601,8 @@ module function_gg_module
          real(wp) MP_phase, ga_amplitude
          real(wp),intent(in) :: in_a, in_theta, in_zeta, in_time
          real(wp),intent(out) :: out_ga, out_grad_ga(3), out_partial_dga0dt
+         real(wp) :: Damp_da, Damp_ratio
+         Damp_da=0.03
 
          if(electromagnetic==0) then ! when electromagnetic is turned off.
             out_ga = 0
@@ -621,6 +623,24 @@ module function_gg_module
                out_grad_ga(3) = out_grad_ga(3) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
                out_partial_dga0dt = out_partial_dga0dt + EMP(k)%dga0dt*(in_a/EMP(k)%ga_rc)*exp(-abs((in_a-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
             enddo
+
+            if(in_a<a0) then
+               Damp_ratio = exp(-(a0-in_a)/Damp_da)
+
+               out_grad_ga(1) = Damp_ratio*out_grad_ga(1) + (+1/Damp_da)*Damp_ratio*out_ga ! Note the sign of (+1/Damp_da) of 2nd term
+               out_grad_ga(2) = Damp_ratio*out_grad_ga(2)
+               out_grad_ga(3) = Damp_ratio*out_grad_ga(3)
+               out_ga = Damp_ratio*out_ga
+               out_partial_dga0dt = Damp_ratio*out_partial_dga0dt
+            elseif(in_a>a1) then
+               Damp_ratio = exp(-(in_a-a1)/Damp_da)
+
+               out_grad_ga(1) = Damp_ratio*out_grad_ga(1) + (-1/Damp_da)*Damp_ratio*out_ga ! Note the sign of (-1/Damp_da) of 2nd term
+               out_grad_ga(2) = Damp_ratio*out_grad_ga(2)
+               out_grad_ga(3) = Damp_ratio*out_grad_ga(3)
+               out_ga = Damp_ratio*out_ga
+               out_partial_dga0dt = Damp_ratio*out_partial_dga0dt
+            endif
          endif
 
       end subroutine Get_MP_alpha_amplitude
@@ -1711,7 +1731,9 @@ subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_
    real(wp),intent(in) :: in_time
    real(wp),intent(out) :: out_ga(mi), out_grad_ga(3,mi), out_partial_dga0dt(mi)
    integer m
+   real(wp) :: Damp_da, Damp_ratio
 
+   Damp_da=0.03
 
    if(electromagnetic==0) then ! when electromagnetic is turned off.
       out_ga = 0
@@ -1738,6 +1760,25 @@ subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_
             out_grad_ga(3,m) = out_grad_ga(3,m) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
             out_partial_dga0dt(m) = out_partial_dga0dt(m) + EMP(k)%dga0dt*(zion(1,m)/EMP(k)%ga_rc)*exp(-abs((zion(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
          enddo
+
+         if(zion(1,m)<a0) then
+            Damp_ratio = exp(-(a0-zion(1,m))/Damp_da)
+
+            out_grad_ga(1,m) = Damp_ratio*out_grad_ga(1,m) + (+1/Damp_da)*Damp_ratio*out_ga(m) ! Note the sign of (+1/Damp_da) of 2nd term
+            out_grad_ga(2,m) = Damp_ratio*out_grad_ga(2,m)
+            out_grad_ga(3,m) = Damp_ratio*out_grad_ga(3,m)
+            out_ga(m) = Damp_ratio*out_ga(m)
+            out_partial_dga0dt(m) = Damp_ratio*out_partial_dga0dt(m)
+         elseif(zion(1,m)>a1) then
+            Damp_ratio = exp(-(zion(1,m)-a1)/Damp_da)
+
+            out_grad_ga(1,m) = Damp_ratio*out_grad_ga(1,m) + (-1/Damp_da)*Damp_ratio*out_ga(m) ! Note the sign of (-1/Damp_da) of 2nd term
+            out_grad_ga(2,m) = Damp_ratio*out_grad_ga(2,m)
+            out_grad_ga(3,m) = Damp_ratio*out_grad_ga(3,m)
+            out_ga(m) = Damp_ratio*out_ga(m)
+            out_partial_dga0dt(m) = Damp_ratio*out_partial_dga0dt(m)
+         endif
+
       enddo
    endif
 end subroutine Get_MP_alpha_amplitude_arr_at_zion
@@ -1753,6 +1794,8 @@ subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_
    real(wp),intent(in) :: in_time
    real(wp),intent(out) :: out_ga(me), out_grad_ga(3,me), out_partial_dga0dt(me)
    integer m
+   real(wp) :: Damp_da, Damp_ratio
+   Damp_da=0.03
 
 
    if(electromagnetic==0) then ! when electromagnetic is turned off.
@@ -1780,6 +1823,25 @@ subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_
             out_grad_ga(3,m) = out_grad_ga(3,m) - EMP(k)%gan*ga_amplitude*sin(MP_phase)
             out_partial_dga0dt(m) = out_partial_dga0dt(m) + EMP(k)%dga0dt*(zeon(1,m)/EMP(k)%ga_rc)*exp(-abs((zeon(1,m)-EMP(k)%ga_rc)/EMP(k)%ga_rw)**EMP(k)%ga_pp)*cos(MP_phase) + EMP(k)%gagw*ga_amplitude*sin(MP_phase)
          enddo
+
+         if(zeon(1,m)<a0) then
+            Damp_ratio = exp(-(a0-zeon(1,m))/Damp_da)
+
+            out_grad_ga(1,m) = Damp_ratio*out_grad_ga(1,m) + (+1/Damp_da)*Damp_ratio*out_ga(m) ! Note the sign of (+1/Damp_da) of 2nd term
+            out_grad_ga(2,m) = Damp_ratio*out_grad_ga(2,m)
+            out_grad_ga(3,m) = Damp_ratio*out_grad_ga(3,m)
+            out_ga(m) = Damp_ratio*out_ga(m)
+            out_partial_dga0dt(m) = Damp_ratio*out_partial_dga0dt(m)
+         elseif(zeon(1,m)>a1) then
+            Damp_ratio = exp(-(zeon(1,m)-a1)/Damp_da)
+
+            out_grad_ga(1,m) = Damp_ratio*out_grad_ga(1,m) + (-1/Damp_da)*Damp_ratio*out_ga(m) ! Note the sign of (-1/Damp_da) of 2nd term
+            out_grad_ga(2,m) = Damp_ratio*out_grad_ga(2,m)
+            out_grad_ga(3,m) = Damp_ratio*out_grad_ga(3,m)
+            out_ga(m) = Damp_ratio*out_ga(m)
+            out_partial_dga0dt(m) = Damp_ratio*out_partial_dga0dt(m)
+         endif
+
       enddo
    endif
 end subroutine Get_MP_alpha_amplitude_arr_at_zeon

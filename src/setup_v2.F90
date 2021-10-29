@@ -209,6 +209,7 @@ Subroutine setup
    !  a0=a0*a                  ! inner boundary, unit=R_0
    !  a1=a1*a                  ! outer boundary, unit=R_0
 
+   !$acc update device(a0,a1)
    if(mype==0)then
       write(0,*) 'a1=',a1, 'a0=', a0, 'a=',a
    end if
