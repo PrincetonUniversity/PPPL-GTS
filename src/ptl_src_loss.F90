@@ -2270,8 +2270,8 @@ module Ptl_Src_Loss
          allocate(tmp_upara(2),tmp_uperp(2),tmp_a(2),tmp_gq(2),tmp_gf(2))
 
          if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC0_type==2) then
-            tmp_upara = [-umax, umax]
-            tmp_uperp = [0, umax]
+            tmp_upara = [-1.1*umax, 1.1*umax]
+            tmp_uperp = [0, 1.1*umax]
             tmp_a = [a0-0.05, a0]
             tmp_gq = [0.0, 2.0*pi]
             tmp_gf = [zetamin, zetamax]
@@ -2382,8 +2382,8 @@ module Ptl_Src_Loss
          allocate(tmp_upara(2),tmp_uperp(2),tmp_a(2),tmp_gq(2),tmp_gf(2))
 
          if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC0_type==2) then
-            tmp_upara = [-umax, umax]
-            tmp_uperp = [0, umax]
+            tmp_upara = [-1.1*umax, 1.1*umax]
+            tmp_uperp = [0, 1.1*umax]
             tmp_a = [a0-0.05, a0]
             tmp_gq = [0.0, 2.0*pi]
             tmp_gf = [zetamin, zetamax]
@@ -2398,8 +2398,8 @@ module Ptl_Src_Loss
          endif
 
          if(Flag_Ptl_BC1_type==1 .or. Flag_Ptl_BC1_type==2) then
-            tmp_upara = [-umax, umax]
-            tmp_uperp = [0, umax]
+            tmp_upara = [-1.1*umax, 1.1*umax]
+            tmp_uperp = [0, 1.1*umax]
             tmp_a = [a1, a1+0.05]
             tmp_gq = [0.0, 2.0*pi]
             tmp_gf = [zetamin, zetamax]
