@@ -2214,7 +2214,7 @@ module Ptl_Src_Loss
          upara_min_arr(1:3) = [-1.1*umax, -umax,     umax ]
          upara_max_arr(1:3) = [    -umax, +umax, 1.1*umax ]
 
-         uperp_min_arr(1:3) = [0,            umax, 0        ]
+         uperp_min_arr(1:3) = [0.0,            umax, 0.0    ]
          uperp_max_arr(1:3) = [ 1.1*umax, 1.1*umax, 1.1*umax]
 
          do loop=1,size(upara_min_arr)
@@ -2271,7 +2271,7 @@ module Ptl_Src_Loss
 
          if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC0_type==2) then
             tmp_upara = [-1.1*umax, 1.1*umax]
-            tmp_uperp = [0, 1.1*umax]
+            tmp_uperp = [0.0, 1.1*umax]
             tmp_a = [a0-0.05, a0]
             tmp_gq = [0.0, 2.0*pi]
             tmp_gf = [zetamin, zetamax]
@@ -2287,7 +2287,7 @@ module Ptl_Src_Loss
 
          if(Flag_Ptl_BC1_type==1 .or. Flag_Ptl_BC1_type==2) then
             tmp_upara = [-umax, umax]
-            tmp_uperp = [0, umax]
+            tmp_uperp = [0.0, umax]
             tmp_a = [a1, a1+0.05]
             tmp_gq = [0.0, 2.0*pi]
             tmp_gf = [zetamin, zetamax]
@@ -2312,29 +2312,64 @@ module Ptl_Src_Loss
          implicit none
 
          real(wp), allocatable :: tmp_a(:),tmp_gq(:),tmp_gf(:),tmp_upara(:),tmp_uperp(:)
+         real(wp), allocatable :: tmp_ur(:),tmp_uq(:)
          real(wp), allocatable :: mesh_norm_dxdv(:,:,:,:,:)
-         real(wp) den
+         real(wp) ini_Ne_marker_density
          real(wp) upara_min, upara_max, uperp_min, uperp_max
-         integer dim_upara, dim_uperp
+         integer dim_upara, dim_uperp,dim_ur,dim_uq
          integer Nm,i, loop
          real(wp) time0,time1
          real(wp) upara_min_arr(3), upara_max_arr(3)
          real(wp) uperp_min_arr(3), uperp_max_arr(3)
 
-         den = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
+
+
+         if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
+            ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*0.5*pi*umax**2.0)
+            dim_ur=5
+            dim_uq=10
+            allocate(tmp_ur(dim_ur),tmp_uq(dim_uq),tmp_gf(2))
+            allocate(mesh_norm_dxdv(dim_ur,dim_uq,SG%dim_a,SG%dim_gq,2))
+
+            tmp_gf(1) = zetamin
+            tmp_gf(2) = zetamax
+            do i=1,dim_ur
+               tmp_ur(i) = umax + (i-1)*(1.2*umax-umax)/(dim_ur-1)
+            enddo
+            do i=1,dim_uq
+               tmp_uq(i) = 0 + (i-1)*(pi)/(dim_uq-1)
+            enddo
+            Nm = ini_Ne_marker_density*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*0.5*pi*(maxval(tmp_ur)**2.0-minval(tmp_ur)**2.0)
+            if(mype==0) then
+               write(stdout,'(3(A,I0))') "gen_SRC_vel_Polar Nm_e=",Nm,"; me=", me,"; memax=",memax
+               call flush(stdout)
+            endif
+
+
+            call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(tmp_ur, tmp_uq, mesh_norm_dxdv)
+            call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
+            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, in_label_val=-2.0)
+            deallocate(tmp_ur,tmp_uq,tmp_gf)
+            deallocate(mesh_norm_dxdv)
+
+         elseif(Flag_Load_and_WeightDef==3) then
+            ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
 
          upara_min_arr(1:3) = [-1.1*umax, -umax,     umax ]
          upara_max_arr(1:3) = [    -umax, +umax, 1.1*umax ]
 
-         uperp_min_arr(1:3) = [0,            umax, 0        ]
+            uperp_min_arr(1:3) = [0.0,            umax, 0.0    ]
          uperp_max_arr(1:3) = [ 1.1*umax, 1.1*umax, 1.1*umax]
+
 
          do loop=1,size(upara_min_arr)
 
+               dim_upara = 5
+               dim_uperp = 7
             ! upara_min = 2.0; upara_max = 5.0; dim_upara = 5
             ! uperp_min = 1.0; uperp_max = 4.0; dim_uperp = 5
-            upara_min = upara_min_arr(loop); upara_max = upara_max_arr(loop); dim_upara = 6
-            uperp_min = uperp_min_arr(loop); uperp_max = uperp_max_arr(loop); dim_uperp = 6
+               upara_min = upara_min_arr(loop); upara_max = upara_max_arr(loop);
+               uperp_min = uperp_min_arr(loop); uperp_max = uperp_max_arr(loop);
 
 
             allocate(mesh_norm_dxdv(dim_upara,dim_uperp,SG%dim_a,SG%dim_gq,2))
@@ -2349,7 +2384,7 @@ module Ptl_Src_Loss
                tmp_uperp(i) = uperp_min + (i-1)*(uperp_max-uperp_min)/(dim_uperp-1)
             enddo
 
-            Nm = den*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
+               Nm = ini_Ne_marker_density*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
             if(mype==0) then
                write(stdout,'(3(A,I0))') "gen_SRC_vel Nm_e=",Nm,"; me=", me,"; memax=",memax
                call flush(stdout)
@@ -2358,11 +2393,12 @@ module Ptl_Src_Loss
             call Measure_Global_SG_mesh_norm_dxdv_of_Electrons(tmp_upara, tmp_uperp, mesh_norm_dxdv)
             call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
 
-
             deallocate(tmp_upara,tmp_uperp,tmp_gf)
             deallocate(mesh_norm_dxdv)
 
          enddo !loop
+         endif
+
 
       end subroutine Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid
 
@@ -2372,48 +2408,62 @@ module Ptl_Src_Loss
          use mpi_defs
          implicit none
 
-         real(wp), allocatable :: tmp_a(:),tmp_gq(:),tmp_gf(:),tmp_upara(:),tmp_uperp(:)
-         real(wp) den
+         real(wp), allocatable :: tmp_a(:),tmp_gq(:),tmp_gf(:),tmp_upara(:),tmp_uperp(:),tmp_ur(:),tmp_uq(:)
+         real(wp) ini_Ne_marker_density
          integer Nm,i, loop
 
 
-         den = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
+         ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
 
-         allocate(tmp_upara(2),tmp_uperp(2),tmp_a(2),tmp_gq(2),tmp_gf(2))
+         allocate(tmp_upara(2),tmp_uperp(2),tmp_a(2),tmp_gq(2),tmp_gf(2),tmp_ur(2),tmp_uq(2))
 
          if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC0_type==2) then
-            tmp_upara = [-1.1*umax, 1.1*umax]
-            tmp_uperp = [0, 1.1*umax]
             tmp_a = [a0-0.05, a0]
             tmp_gq = [0.0, 2.0*pi]
             tmp_gf = [zetamin, zetamax]
 
-            Nm = den*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+            if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
+               tmp_ur = [0.0, 1.1*umax]
+               tmp_uq = [0.0, pi]
+               Nm = ini_Ne_marker_density*(0.5*pi*(tmp_ur(2)**2.0-tmp_ur(1)**2.0))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+               call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
+            elseif(Flag_Load_and_WeightDef==3) then
+               tmp_upara = [-1.1*umax, 1.1*umax]
+               tmp_uperp = [0.0, 1.1*umax]
+               Nm = ini_Ne_marker_density*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
+            endif
+
             if(mype==0) then
                write(stdout,'(3(A,I0))') "gen_SRC inner radial Nm_e=",Nm,"; me=", me,"; memax=",memax
                call flush(stdout)
             endif
-
-            call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
          endif
 
          if(Flag_Ptl_BC1_type==1 .or. Flag_Ptl_BC1_type==2) then
-            tmp_upara = [-1.1*umax, 1.1*umax]
-            tmp_uperp = [0, 1.1*umax]
             tmp_a = [a1, a1+0.05]
             tmp_gq = [0.0, 2.0*pi]
             tmp_gf = [zetamin, zetamax]
 
-            Nm = den*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+            if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
+               tmp_ur = [0.0, 1.1*umax]
+               tmp_uq = [0.0, pi]
+               Nm = ini_Ne_marker_density*(0.5*pi*(tmp_ur(2)**2.0-tmp_ur(1)**2.0))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+               call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC1_val, in_label_val=-1.0)
+            elseif(Flag_Load_and_WeightDef==3) then
+               tmp_upara = [-1.1*umax, 1.1*umax]
+               tmp_uperp = [0.0, 1.1*umax]
+               Nm = ini_Ne_marker_density*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
+               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC1_val, in_label_val=-1.0)
+            endif
+
             if(mype==0) then
                write(stdout,'(3(A,I0))') "gen_SRC outer radial Nm_e=",Nm,"; me=", me,"; memax=",memax
                call flush(stdout)
             endif
-
-            call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC1_val, in_label_val=-1.0)
          endif
 
-         deallocate(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf)
+         deallocate(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,tmp_ur,tmp_uq)
       end subroutine Generate_Electrons_beyond_PhysicalBoundary
 
       subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions(upara,uperp,mesh_norm_dxdv)
@@ -2549,7 +2599,7 @@ module Ptl_Src_Loss
             do aid=1,SG%dim_a
                vthc = sqrt(temperature(a_1D(aid),gq(gqid)))
                do uperpid=1,dim_uperp
-                  ! mesh_cell_vol = (cell spatial volume)*(dvpara)*integral(2*pi*vperp)_(v0-dv)_(v0+dv)
+                  ! mesh_cell_vol = (cell spatial volume)*(dvpara)*integral(2*pi*vperp)_(v0-dv/2)_(v0+dv/2)
                   if(uperpid==1) then
                      ! integral(vperp)_v0_(v0+0.5dv) = 0.5*(v0*dv+0.25*dv^2)
                      mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp+0.25*(duperp**2.0))*(vthc**2.0)
@@ -2735,7 +2785,7 @@ module Ptl_Src_Loss
             do aid=1,SG%dim_a
                vthc = sqrt(temperature_e(a_1D(aid),gq(gqid))) ! Note that temperature_e gives the electron velocity not the energy. so not necessary to consider mass here
                do uperpid=1,dim_uperp
-                  ! mesh_cell_vol = (cell spatial volume)*(dvpara)*integral(2*pi*vperp)_(v0-dv)_(v0+dv)
+                  ! mesh_cell_vol = (cell spatial volume)*(dvpara)*integral(2*pi*vperp)_(v0-dv/2)_(v0+dv/2)
                   if(uperpid==1) then
                      ! integral(vperp)_v0_(v0+0.5dv) = 0.5*(v0*dv+0.25*dv^2)
                      mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp+0.25*(duperp**2.0))*(vthc**2.0)
@@ -2812,6 +2862,243 @@ module Ptl_Src_Loss
          call flush(stdout)
 #endif
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons
+
+
+      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(ur,uq,mesh_norm_dxdv)
+         use global_parameters
+         use particle_array
+         use particle_decomp
+         use Structured_Grid
+         use esi_interface
+         use mpi_defs
+         use function_gg_module
+         use hdf5
+         use h5lt
+         implicit none
+         real(wp), intent(in), dimension(:) :: ur,uq ! ur(radial), uq(theta)
+         real(wp), intent(inout) :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (ur,uq,a,gq,gf) normalized dxdv by pre-occupying particles
+         real(wp), allocatable :: tmp_mesh(:,:,:,:,:)
+
+         real(wp) upara,uperp, Cell_dVol_x3, Cell_dVol_ur, Cell_dVol_uq
+         real(wp), allocatable :: upara_2D(:,:), uperp_2D(:,:)
+         real(wp), allocatable :: a_1D(:), gq(:), gf(:)
+         real(wp) :: mesh_min_x(5),mesh_max_x(5), mesh_inv_dx(5)
+         integer :: midx(5), mdims(5) ! mesh index and dimensions
+         real(wp) :: ptl_data(5)
+         integer m,i,j,k,length,ierror,istatus(MPI_STATUS_SIZE)
+         integer aid,gqid,gfid,urid,uqid
+         real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, ur_min, ur_max, uq_min, uq_max
+         real(wp) :: da, dgq, dgf, dur, duq
+         integer :: dim_a, dim_gq, dim_gf, dim_ur, dim_uq
+         logical state_in_mesh ! true=in, false=out of given mesh domain
+         real(wp), external :: temperature_e
+         real(wp) mesh_cell_vol ! 5-D mesh volume
+         real(wp) time0,time1
+
+         character(len=128) filename, gname
+         integer(HID_T) file_id, gid
+         integer :: h5err
+         integer(HSIZE_T) :: h5dims(5)
+
+         ! Global mesh means that the mesh covers all the spatial range (a0-a1, 0-2pi, 0-2pi)
+         ! by taking into account all processors and their communications.
+         ! Also, the periodical conditions into theta and toroidal direcitons are considered
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
+
+         ! ! For simplicity, let's use a zero-th order shape function (closest near grid)
+         if(acc_newer_H_zeon) then
+            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_H_zeon=.false.
+            acc_newer_D_zeon=.false.
+         endif
+
+         call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zeon(4) and zeon(6)
+         call esigetb(zeon,me,zeondim)   ! get B-->BB
+
+
+
+         ! allocate a,gq,gf and copy SG information into
+         allocate(a_1D(SG%dim_a),gq(SG%dim_gq),gf(2))
+         a_1D=SG%a_1D
+         gq=SG%gq_1D
+         gf(1)=zetamin
+         gf(2)=zetamax
+
+         ur_min = minval(ur); ur_max = maxval(ur); dim_ur = size(ur)
+         uq_min = minval(uq); uq_max = maxval(uq); dim_uq = size(uq)
+         a_min = minval(a_1D); a_max = maxval(a_1D); dim_a = size(a_1D)
+         gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
+         gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
+
+         dur=(ur_max-ur_min)/(dim_ur-1)
+         duq=(uq_max-uq_min)/(dim_uq-1)
+         da=(a_max-a_min)/(dim_a-1)
+         dgq=(gq_max-gq_min)/(dim_gq-1)
+         dgf=(gf_max-gf_min)/(dim_gf-1)
+
+         mesh_min_x = [ur_min, uq_min, a_min, gq_min, gf_min]
+         mesh_max_x = [ur_max, uq_max, a_max, gq_max, gf_max]
+         mesh_inv_dx = [1.0/dur, 1.0/duq, 1.0/da, 1.0/dgq, 1.0/dgf]
+         mdims = [dim_ur, dim_uq, dim_a, dim_gq, dim_gf]
+
+         ! Measure normalized phase volume from electrons that reside in mesh domain
+         mesh_norm_dxdv=0.0
+         !$acc parallel loop private(ptl_data,midx)
+         do m=1,me
+            ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+            ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+            upara = zeon(4,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
+            uperp = zeon(6,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
+
+            ptl_data(1) = sqrt(upara**2.0+uperp**2.0) ! ur (raidus in the polar coordinate)
+            ptl_data(2) = acos(upara/ptl_data(1)) ! uq (angle in the polar coordinate)
+            ptl_data(3) = zeon(1,m) ! a
+            ptl_data(4) = zeon(2,m) ! gq
+            ptl_data(5) = zeon(3,m) ! gf
+
+            state_in_mesh = .true.
+            !$acc loop seq
+            do i=1,5
+               state_in_mesh = state_in_mesh .and. ((ptl_data(i)-mesh_min_x(i))*(ptl_data(i)-mesh_max_x(i))<=0)
+            enddo
+
+            if(state_in_mesh) then
+               !$acc loop seq
+               do i=1,5
+                  midx(i) = ceiling( (ptl_data(i)-mesh_min_x(i))*mesh_inv_dx(i) + 0.5 ) ! round operation to find nearst grid
+               enddo
+               !$acc atomic update
+               mesh_norm_dxdv(midx(1),midx(2),midx(3),midx(4),midx(5)) = mesh_norm_dxdv(midx(1),midx(2),midx(3),midx(4),midx(5)) + zeon0(6,m)
+            endif
+         enddo
+
+
+
+         ! Communicate with other processors
+         allocate(tmp_mesh(mdims(1),mdims(2),mdims(3),mdims(4),mdims(5)))
+         if(npartdom>1) then
+            tmp_mesh = mesh_norm_dxdv
+            length = product(mdims)
+            call MPI_ALLREDUCE(tmp_mesh, mesh_norm_dxdv, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         endif
+
+         ! Match poloidal end cell
+         ! (gq=0 and gq=2pi is the same position physically although they have different gqid)
+         mesh_norm_dxdv(:,:,:,1,:) = mesh_norm_dxdv(:,:,:,1,:) + mesh_norm_dxdv(:,:,:,dim_gq,:)
+         mesh_norm_dxdv(:,:,:,dim_gq,:) = mesh_norm_dxdv(:,:,:,1,:)
+
+         !toroidal communication
+         length = product(mdims(1:4))
+         call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1, tmp_mesh(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+         mesh_norm_dxdv(:,:,:,:,dim_gf) = mesh_norm_dxdv(:,:,:,:,dim_gf) + tmp_mesh(:,:,:,:,dim_gf)
+         call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1, mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+
+         ! Normalize the results
+         do gqid=1,SG%dim_gq
+            do aid=1,SG%dim_a
+               vthc = sqrt(temperature_e(a_1D(aid),gq(gqid))) ! Note that temperature_e gives the electron velocity not the energy. so not necessary to consider mass here
+               ! mesh_cell_vol = (cell spatial volume)*integral(2*pi*ur^2*sin(uq))
+               !               = (cell spatial volume)*2*pi*integral(ur^2)_(ur0-dur/2)^(ur0+dur/2) * integral(sin(uq))_(uq0-duq/2)^(uq0+duq/2)
+               Cell_dVol_x3 = SG%Cell_dV(gqid,aid)
+
+               do uqid=1,dim_uq
+                  if(uqid==1) then
+                     ! integral(sin(uq))_(uq0)^(uq0+duq/2) = 2*sin(duq/4)*sin(uq0+duq/4)
+                     Cell_dVol_uq = 2.0*sin(0.25*duq)*sin(uq(uqid)+0.25*duq)
+                  elseif(uqid==dim_uq) then
+                     ! integral(sin(uq))_(uq0-duq/2)^(uq0) = 2*sin(duq/4)*sin(uq0-duq/4)
+                     Cell_dVol_uq = 2.0*sin(0.25*duq)*sin(uq(uqid)-0.25*duq)
+                  else
+                     ! integral(sin(uq))_(uq0-duq/2)^(uq0+duq/2) = 2*sin(duq/2)*sin(uq0)
+                     Cell_dVol_uq = 2.0*sin(0.5*duq)*sin(uq(uqid))
+                  endif
+
+                  do urid=1,dim_ur
+                     if(urid==1) then
+                        ! integral(ur^2)_(ur0)_(ur0+0.5dur) = ((ur0+0.5dur)^3-(ur0)^3)/3
+                        Cell_dVol_ur = ((ur(urid)+0.5*dur)**3.0-ur(urid)**3.0)/3.0
+                     elseif(urid==dim_ur) then
+                        ! integral(ur^2)_(ur0-0.5dur)_(ur0) = (ur0^3-(ur0-0.5dur)^3)/3
+                        Cell_dVol_ur = (ur(urid)**3.0-(ur(urid)-0.5*dur)**3.0)/3.0
+                     else
+                        ! integral(ur^2)_(ur0-0.5dur)_(ur0+0.5dur) = ((ur0+0.5dur)^3-(ur0-0.5dur)^3)/3
+                        Cell_dVol_ur = ((ur(urid)+0.5*dur)**3.0-(ur(urid)-0.5*dur)**3.0)/3.0
+                     endif
+
+                     mesh_cell_vol = 2.0*pi*(vthc**3.0)*Cell_dVol_x3*Cell_dVol_ur*Cell_dVol_uq
+
+                     ! Normalize using Cell_dxdv
+                     mesh_norm_dxdv(urid,uqid,aid,gqid,:) = mesh_norm_dxdv(urid,uqid,aid,gqid,:)/mesh_cell_vol
+
+                     tmp_mesh(urid,uqid,aid,gqid,:) = mesh_cell_vol
+                  enddo
+               enddo
+            enddo
+         enddo
+
+
+         ! !Write into hdf5 file
+         ! if(mype==0) then
+         !    ! write(filename, '("polar_mesh_norm_Elec_dxdv_",i5.5,"_urmin=",F0.2,".h5")') istep/msnap, ur_min
+         !    write(filename, '("mesh_norm_Elec_dxdv_",i5.5,".h5")') istep/msnap
+
+         !    call h5open_f(h5err)
+         !    call h5fopen_f(filename, H5F_ACC_RDWR_F, file_id, h5err)
+         !    if(h5err==-1) then ! If there is no file
+         !       call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+         !    endif
+
+         !    write(gname,'("polar")')
+         !    call h5gcreate_f(file_id, gname, gid, h5err)
+
+         !    h5dims(1) = dim_ur
+         !    call h5ltmake_dataset_f(gid, "ur",1,h5dims,H5T_NATIVE_DOUBLE, ur, h5err)
+         !    h5dims(1) = dim_uq
+         !    call h5ltmake_dataset_f(gid, "uq",1,h5dims,H5T_NATIVE_DOUBLE, uq, h5err)
+         !    h5dims(1) = dim_a
+         !    call h5ltmake_dataset_f(gid, "a",1,h5dims,H5T_NATIVE_DOUBLE, a, h5err)
+         !    h5dims(1) = dim_gq
+         !    call h5ltmake_dataset_f(gid, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
+         !    h5dims(1) = dim_gf
+         !    call h5ltmake_dataset_f(gid, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
+
+         !    allocate(upara_2D(dim_ur,dim_uq),uperp_2D(dim_ur,dim_uq))
+         !    do urid=1,dim_ur
+         !       do uqid=1,dim_uq
+         !          upara_2D(urid,uqid) = ur(urid)*cos(uq(uqid))
+         !          uperp_2D(urid,uqid) = ur(urid)*sin(uq(uqid))
+         !       enddo
+         !    enddo
+
+         !    h5dims(1:2) = [dim_ur,dim_uq]
+         !    call h5ltmake_dataset_f(gid, "upara_2D",2,h5dims,H5T_NATIVE_DOUBLE, upara_2D, h5err)
+         !    call h5ltmake_dataset_f(gid, "uperp_2D",2,h5dims,H5T_NATIVE_DOUBLE, uperp_2D, h5err)
+
+         !    h5dims(1:5) = mdims(1:5)
+         !    call h5ltmake_dataset_f(gid, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
+         !    call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, tmp_mesh, h5err)
+
+         !    call h5gclose_f(gid, h5err)
+         !    call h5fclose_f(file_id, h5err)
+         !    call h5close_f(h5err)
+
+         !    deallocate(upara_2D,uperp_2D)
+         ! endif
+
+         deallocate(a_1D,gq,gf)
+         deallocate(tmp_mesh)
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarCoord takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+      end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord
+
+
 
       subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv, in_label_val)
          use global_parameters
@@ -2976,6 +3263,7 @@ module Ptl_Src_Loss
             wi_accel(m) = 0
             wi_fdamp(m) = 0
 
+            !$acc loop seq
             do i=1,5
                zion0(i,m)     = zion(i,m)
             enddo
@@ -3251,6 +3539,273 @@ module Ptl_Src_Loss
 #endif
 
       end subroutine Generate_Electrons_in_given_Phase_Space
+
+
+      subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord(ur,uq,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv,in_label_val)
+         use global_parameters
+         use particle_array
+         use field_array
+         use esi_interface
+         use mpi_defs
+         use function_gg_module
+         use particle_decomp
+         implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+         real(wp), intent(in), dimension(:) :: ur,uq,a,gq,gf
+         integer, intent(in) :: this_N_newP
+         real(wp), intent(in) :: FluxFactor_over_f0
+         real(wp), intent(in), optional :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (ur,uq,a,gq,gf) normalized dxdv by pre-occupying particles
+         real(wp), intent(in), optional :: in_label_val
+
+         real(wp) :: label_val, upara, uperp, tmp_ur, tmp_uq
+         integer m,m0,i, tot_N_newP
+         real(wp) :: vpara, vperp, integral_f0, target_w_tot
+         real(wp), allocatable :: ge_val(:)
+         real(wp), allocatable :: rand_5d(:,:)
+         real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, ur_min, ur_max, uq_min, uq_max
+         real(wp) :: Del_a, Del_gq, Del_gf, Del_ur, Del_uq
+         real(wp) :: da, dgq, dgf, dur, duq
+         integer :: dim_a, dim_gq, dim_gf, dim_ur, dim_uq
+         integer :: minpts, ifail=1, ierror
+         real(wp) :: ac, error_8=1e-5
+         real(wp), external:: dsda, D01AHF,jacobian
+         real(wp) time0, time1
+
+         integer ij,ip
+         real(wp) fip,r,dela
+         real(wp) wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
+         real(wp) intp_phi, intp_FLA_Te0, intp_phi00
+         real(wp), allocatable, dimension(:) :: AdiabTerm ! e*phi/T
+
+         real(wp) :: mesh_min_x(5),mesh_inv_dx(5)
+         real(wp) :: ptl_data(5)
+         integer :: mesh_idx(5), mesh_dims(5)
+         real(wp), allocatable :: target_norm_phase_vol(:)
+         !$acc declare create(target_norm_phase_vol, AdiabTerm)
+
+         call MPI_ALLREDUCE(this_N_newP, tot_N_newP,1,MPI_INTEGER, MPI_SUM, partd_comm,ierror)
+
+         if(tot_N_newP<=0) then
+            return
+         endif
+
+         label_val=0
+         if(present(in_label_val)) label_val = in_label_val
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
+
+         ur_min = minval(ur); ur_max = maxval(ur); dim_ur = size(ur)
+         uq_min = minval(uq); uq_max = maxval(uq); dim_uq = size(uq)
+         a_min = minval(a); a_max = maxval(a); dim_a = size(a)
+         gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
+         gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
+
+         Del_ur = ur_max-ur_min;  dur=Del_ur/(dim_ur-1)
+         Del_uq = uq_max-uq_min;  duq=Del_uq/(dim_uq-1)
+         Del_a = a_max-a_min;       da=Del_a/(dim_a-1)
+         Del_gq = gq_max-gq_min;    dgq=Del_gq/(dim_gq-1)
+         Del_gf = gf_max-gf_min;    dgf=Del_gf/(dim_gf-1)
+
+
+         ! Generate
+         m0=me+1
+         me=me+this_N_newP
+
+         allocate(ge_val(m0:me), rand_5d(5,m0:me))
+
+         ! Prepare random numbers
+         do m=m0,me
+            do i=1,5
+               rand_5d(i,m) = sprng()
+            enddo
+         enddo
+
+
+         do m=m0,me
+            zeon(1,m) = a_min + rand_5d(1,m)*Del_a
+            zeon(7,m)=D01AHF(0.0_wp,zeon(1,m),error_8,minpts,ac,dsda,-1,ifail)
+
+            zeon(2,m) = modulo(gq_min + rand_5d(2,m)*Del_gq,2.0*pi)  ! gq
+            zeon(3,m) = modulo(gf_min + rand_5d(3,m)*Del_gf,2.0*pi)  ! gf
+
+            elabels(m) = label_val
+         enddo
+         !$acc update device(zeon(:,m0:me),elabels(m0:me))
+
+         call n_T_u_group_e(m0,me)   ! get Te, note that back_f0_e cannot be calculated here because it requires zeon(4) and zeon(6)
+         !$acc update self(backTe(m0:me))
+         call esigetbf_partial(zeon,m0,me,zeondim)
+
+
+         ! Uniform Loading
+         do m=m0,me
+            ! Find sampling points uniformly distributed within an annulus in the poloar coordinates (vpara,vperp)
+            ! r=sqrt(a1^2+rand*(a2^2-a1^2));
+            tmp_ur = sqrt(ur_min**2.0 + rand_5d(4,m)*(ur_max**2.0-ur_min**2.0))
+            tmp_uq = (uq_min + rand_5d(5,m)*Del_uq)
+
+            vpara = (tmp_ur*cos(tmp_uq))*sqrt(backTe(m))
+            vperp = (tmp_ur*sin(tmp_uq))*sqrt(backTe(m))
+
+            ! Note that ge_val (marker distribution) should include the Jacobian from the polar coordinate (here, tmp_ur)
+            ge_val(m) = tot_N_newP/(Del_a*Del_gq*Del_gf*(0.5*pi*(ur_max**2.0-ur_min**2.0))*backTe(m))/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+
+            zeon(4,m) = msm0*vpara/(csc0*BB(m))
+            zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+         enddo
+         !$acc update device(zeon(:,m0:me))
+
+         call n_T_u_group_e(m0,me,flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+
+         allocate(target_norm_phase_vol(m0:me))
+         if(present(mesh_norm_dxdv)) then
+
+            mesh_min_x = [ur_min, uq_min, a_min, gq_min, gf_min]
+            mesh_inv_dx = [1.0/dur, 1.0/duq, 1.0/da, 1.0/dgq, 1.0/dgf]
+            mesh_dims = [dim_ur, dim_uq, dim_a, dim_gq, dim_gf]
+
+            !$acc parallel loop present(target_norm_phase_vol) private(ptl_data,mesh_idx)
+            do m=m0,me
+               ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+               ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+               upara = zeon(4,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
+               uperp = zeon(6,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
+
+               ptl_data(1) = sqrt(upara**2.0+uperp**2.0) ! ur (raidus in the polar coordinate)
+               ptl_data(2) = acos(upara/ptl_data(1)) ! uq (angle in the polar coordinate)
+               ptl_data(3) = zeon(1,m) ! a
+               ptl_data(4) = zeon(2,m) ! gq
+               ptl_data(5) = zeon(3,m) ! gf
+
+               !$acc loop seq
+               do i=1,5
+                  mesh_idx(i) = ceiling( (ptl_data(i)-mesh_min_x(i))*mesh_inv_dx(i) + 0.5 ) ! round operation to find nearst grid
+               enddo
+
+               target_norm_phase_vol(m) = 1.0-mesh_norm_dxdv(mesh_idx(1),mesh_idx(2),mesh_idx(3),mesh_idx(4),mesh_idx(5))
+            enddo
+         else
+            !$acc parallel loop present(target_norm_phase_vol)
+            do m=m0,me
+               target_norm_phase_vol(m) = 1.0
+            enddo
+         endif
+
+
+         ! Calculate Adiab term
+         allocate(AdiabTerm(m0:me))
+         call electron_locator_partial(m0,me) ! This is required to calculate wpeon, wteon0 and etc
+         !$acc parallel loop present(AdiabTerm, wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+         do m=m0,me
+            wz1=wzeon(m)
+            wz0=1.0_wp-wz1
+
+            ij=jteon0(m)
+            wp0=1.0_wp-wpeon(m)
+            wt00=1.0_wp-wteon0(m)
+            intp_phi = wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0 = wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=ij+1
+            wt10=1.0_wp-wt00
+            intp_phi=intp_phi+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0=intp_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=jteon1(m)
+            wp1=1.0_wp-wp0
+            wt01=1.0_wp-wteon1(m)
+            intp_phi=intp_phi+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0=intp_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=ij+1
+            wt11=1.0_wp-wt01
+            intp_phi=intp_phi+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+            intp_FLA_Te0=intp_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            r=(zeon(7,m)-s0)/deltar       ! in radial coordinator s
+            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            fip=r-real(ip,wp)
+            intp_phi00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+            if ( Flag_Def_dne_adiab==0 ) then
+               AdiabTerm(m)=abs(csc0)*(intp_phi-real(1.0-ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_NZ/Te)
+            elseif(Flag_Def_dne_adiab==1) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==2) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==3) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+               AdiabTerm(m)=-1.0+exp(abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (e*dphi_tot/Te)
+            else
+               AdiabTerm(m)=-1e100
+               write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+               STOP
+            endif
+         enddo
+
+
+         ! Set initial weights of ions
+         ! zeon(5,m) is "df"
+         ! zeon(8,m) is "f_tot"
+         ! zeon0(6,m) is "phase volume"
+
+         !$acc parallel loop present(zeon,zeon0,target_norm_phase_vol,back_f0_e,we_init,we_vpara,we_vperp,we_accel,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         do m=m0,me
+            ! zeon(5,m) is "df" or "dh"
+            ! zeon(8,m) is "f_tot"
+            ! zeon(9,m) is "f_AD"
+            ! zeon0(9,m) is "f_0"
+            ! zeon0(6,m) is "phase volume"
+
+            zeon0(6,m) = target_norm_phase_vol(m)/ge_val(m) ! Phase space volume
+            integral_f0 = zeon0(6,m)*back_f0_e(m) !f_0
+
+            target_w_tot = FluxFactor_over_f0*integral_f0
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
+
+            zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
+            zeon0(9,m) = integral_f0 ! f_0
+
+            we_init(m)  = zeon(5,m)
+            we_vpara(m) = 0
+            we_vperp(m) = 0
+            we_accel(m) = 0
+            we_adiab(m) = 0
+            we_fdamp(m) = 0
+
+            !$acc loop seq
+            do i=1,5
+               zeon0(i,m)     = zeon(i,m)
+            enddo
+            zeon0(7,m)       = zeon(7,m)
+            zeon0(8,m)       = zeon(8,m)
+            UnNorm_theta_e(m)= zeon(2,m)
+            UnNorm_zeta_e(m) = zeon(3,m)
+         enddo
+         acc_newer_D_zeon=.true.
+
+         deallocate(ge_val, rand_5d)
+         deallocate(target_norm_phase_vol)
+         deallocate(AdiabTerm)
+
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Generate_Electrons_in_given_Phase_Space_PolarVelCoord takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
+      end subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord
 
       subroutine Clear_newIons_beyond_Velocity_Boundary(m_start, m_end)
          use global_parameters
