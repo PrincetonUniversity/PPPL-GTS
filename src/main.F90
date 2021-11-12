@@ -344,6 +344,7 @@ program GTS
       ! if(istep==istart .or. mod(istep,msnap) .eq. 0) then
       if(istep==istart .or. mod(istep,10) .eq. 0) then
 
+         if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
          call timer(t0,dt,t0wc,dtwc)
 
          ! call Clear_newElectrons_beyond_Velocity_Boundary()
@@ -359,6 +360,7 @@ program GTS
          call timer(t0,dt,t0wc,dtwc)
          time(16)=time(16)+dt
          timewc(16)=timewc(16)+dtwc
+      endif
       endif
 
 
@@ -597,15 +599,15 @@ program GTS
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
 
-      ! if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
-      !    if(mod(istep,2)==0) then
-      !       call timer(t0,dt,t0wc,dtwc)
-      !       call Generate_Particles_from_Boundaries_with_LoadBalancing(2*tstep*utime)
-      !       call timer(t0,dt,t0wc,dtwc)
-      !       time(16)=time(16)+dt
-      !       timewc(16)=timewc(16)+dtwc
-      !    endif
-      ! endif
+      if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
+         if(mod(istep,2)==0) then
+            call timer(t0,dt,t0wc,dtwc)
+            call Generate_Particles_from_Boundaries_with_LoadBalancing(2*tstep*utime)
+            call timer(t0,dt,t0wc,dtwc)
+            time(16)=time(16)+dt
+            timewc(16)=timewc(16)+dtwc
+         endif
+      endif
       ! call load_electrons_In_or_Out_Flux(100,tstep*utime)
       ! call load_electrons_In_or_Out_Flux(10,tstep)
 

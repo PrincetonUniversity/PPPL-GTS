@@ -724,9 +724,9 @@ module Ptl_Src_Loss
          time0 = MPI_WTIME()
 #endif
          ! Create Src from inner boundary (BDY0)
-         call load_electrons_In_or_Out_Flux(dNe_BDY0, delta_t_seconds,Ptl_BC0_val,a0)
+         if(Flag_Ptl_BC0_type==1) call load_electrons_In_or_Out_Flux(dNe_BDY0, delta_t_seconds,Ptl_BC0_val,a0)
          ! Create Src from inner boundary (BDY1)
-         call load_electrons_In_or_Out_Flux(dNe_BDY1, delta_t_seconds,Ptl_BC1_val,a1)
+         if(Flag_Ptl_BC1_type==1) call load_electrons_In_or_Out_Flux(dNe_BDY1, delta_t_seconds,Ptl_BC1_val,a1)
          ! Clear accumulated electron lost number
          call Clear_e_cum_lost_num
 #ifdef _MGY_TIMER_
@@ -740,9 +740,9 @@ module Ptl_Src_Loss
          time0 = MPI_WTIME()
 #endif
          ! Create Src from inner boundary (BDY0)
-         call load_ions_In_or_Out_Flux(dNi_BDY0, delta_t_seconds,Ptl_BC0_val,a0)
+         if(Flag_Ptl_BC0_type==1) call load_ions_In_or_Out_Flux(dNi_BDY0, delta_t_seconds,Ptl_BC0_val,a0)
          ! Create Src from inner boundary (BDY1)
-         call load_ions_In_or_Out_Flux(dNi_BDY1, delta_t_seconds,Ptl_BC1_val,a1)
+         if(Flag_Ptl_BC1_type==1) call load_ions_In_or_Out_Flux(dNi_BDY1, delta_t_seconds,Ptl_BC1_val,a1)
          ! Clear accumulated ion lost number
          call Clear_i_cum_lost_num
 #ifdef _MGY_TIMER_
