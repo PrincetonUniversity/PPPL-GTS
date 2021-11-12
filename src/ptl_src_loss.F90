@@ -3318,10 +3318,16 @@ module Ptl_Src_Loss
                ! uperp = zion_6_arr(m)*sqrt(2.0*BB(m)/backT(m))
                upara = (zion(4,m)*BB(m) -backu(m))/sqrt(backT(m))
                uperp = zion(6,m)*sqrt(2.0*BB(m)/backT(m))
-
+               if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
+                  if(sqrt(upara**2.0+uperp**2.0)>umax) then
+                     N_clear=N_clear+1
+                     clear_mid_arr(N_clear) = m
+                  endif
+               elseif (Flag_Load_and_WeightDef==3) then
                if(uperp>umax .or. abs(upara)>umax) then
                   N_clear=N_clear+1
                   clear_mid_arr(N_clear) = m
+                  endif
                endif
             endif
          enddo
@@ -3449,9 +3455,16 @@ module Ptl_Src_Loss
             elseif(ilabels(m)<0) then
                upara = (zion(4,m)*BB(m) -backu(m))/sqrt(backT(m))
                uperp = zion(6,m)*sqrt(2.0*BB(m)/backT(m))
+               if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
+                  if(sqrt(upara**2.0+uperp**2.0)>umax) then
+                     N_clear=N_clear+1
+                     clear_mid_arr(N_clear) = m
+                  endif
+               elseif (Flag_Load_and_WeightDef==3) then
                if(uperp>umax .or. abs(upara)>umax) then
                   N_clear=N_clear+1
                   clear_mid_arr(N_clear) = m
+                  endif
                endif
             endif
          enddo
@@ -3583,9 +3596,16 @@ module Ptl_Src_Loss
                upara = zeon_4_arr(m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
                uperp = zeon_6_arr(m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
 
+               if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
+                  if(sqrt(upara**2.0+uperp**2.0)>umax) then
+                     N_clear=N_clear+1
+                     clear_mid_arr(N_clear) = m
+                  endif
+               elseif (Flag_Load_and_WeightDef==3) then
                if(uperp>umax .or. abs(upara)>umax) then
                   N_clear=N_clear+1
                   clear_mid_arr(N_clear) = m
+                  endif
                endif
             endif
          enddo
@@ -3722,9 +3742,16 @@ module Ptl_Src_Loss
                ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
                upara = zeon_146_arr(2,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
                uperp = zeon_146_arr(3,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
+               if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
+                  if(sqrt(upara**2.0+uperp**2.0)>umax) then
+                     N_clear=N_clear+1
+                     clear_mid_arr(N_clear) = m
+                  endif
+               elseif (Flag_Load_and_WeightDef==3) then
                if(uperp>umax .or. abs(upara)>umax) then
                   N_clear=N_clear+1
                   clear_mid_arr(N_clear) = m
+                  endif
                endif
             endif
          enddo
