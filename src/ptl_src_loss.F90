@@ -2877,7 +2877,9 @@ module Ptl_Src_Loss
          implicit none
          real(wp), intent(in), dimension(:) :: ur,uq ! ur(radial), uq(theta)
          real(wp), intent(inout) :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (ur,uq,a,gq,gf) normalized dxdv by pre-occupying particles
+         !$acc declare create(mesh_norm_dxdv)
          real(wp), allocatable :: tmp_mesh(:,:,:,:,:)
+         ! real(wp) cell_vol_5D(:,:,:,:,:)
 
          real(wp) upara,uperp, Cell_dVol_x3, Cell_dVol_ur, Cell_dVol_uq
          real(wp), allocatable :: upara_2D(:,:), uperp_2D(:,:)
@@ -2885,7 +2887,7 @@ module Ptl_Src_Loss
          real(wp) :: mesh_min_x(5),mesh_max_x(5), mesh_inv_dx(5)
          integer :: midx(5), mdims(5) ! mesh index and dimensions
          real(wp) :: ptl_data(5)
-         integer m,i,j,k,length,ierror,istatus(MPI_STATUS_SIZE)
+         integer m,i,j,k,LL,length,ierror,istatus(MPI_STATUS_SIZE)
          integer aid,gqid,gfid,urid,uqid
          real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, ur_min, ur_max, uq_min, uq_max
          real(wp) :: da, dgq, dgf, dur, duq
@@ -2894,6 +2896,7 @@ module Ptl_Src_Loss
          real(wp), external :: temperature_e
          real(wp) mesh_cell_vol ! 5-D mesh volume
          real(wp) time0,time1
+         real(wp), allocatable :: SG_Te0_1D(:), SG_Cell_dV(:,:)
 
          character(len=128) filename, gname
          integer(HID_T) file_id, gid
@@ -2944,9 +2947,13 @@ module Ptl_Src_Loss
          mesh_inv_dx = [1.0/dur, 1.0/duq, 1.0/da, 1.0/dgq, 1.0/dgf]
          mdims = [dim_ur, dim_uq, dim_a, dim_gq, dim_gf]
 
+
          ! Measure normalized phase volume from electrons that reside in mesh domain
+         ! mesh_norm_dxdv was allocated at the outside of this subroutine
          mesh_norm_dxdv=0.0
-         !$acc parallel loop private(ptl_data,midx)
+         !$acc update device(mesh_norm_dxdv)
+
+         !$acc parallel loop present(mesh_norm_dxdv) private(ptl_data,midx)
          do m=1,me
             ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
             ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
@@ -2976,9 +2983,69 @@ module Ptl_Src_Loss
          enddo
 
 
+         allocate(SG_Te0_1D(SG%dim_a),SG_Cell_dV(SG%dim_gq,SG%dim_a))
 
-         ! Communicate with other processors
+         SG_Te0_1D = SG%Te0_1D
+         SG_Cell_dV = SG%Cell_dV
+
+         ! allocate(cell_vol_5D(mdims(1),mdims(2),mdims(3),mdims(4),mdims(5)))
+
+         length=dim_gq*dim_a*dim_uq*dim_ur
+         ! Normalize the results
+         !$acc parallel loop gang vector present(mesh_norm_dxdv) private(LL,k)
+         do k=1,length
+            LL=k
+            gqid  = int((LL-1)/(dim_ur*dim_uq*dim_a))+1
+            LL    = modulo((LL-1),dim_ur*dim_uq*dim_a)+1
+            aid   = int((LL-1)/(dim_ur*dim_uq))+1
+            LL    = modulo((LL-1),dim_ur*dim_uq)+1
+            uqid  = int((LL-1)/(dim_ur))+1
+            LL    = modulo((LL-1),dim_ur)+1
+            urid  = LL
+
+            vthc = sqrt(SG_Te0_1D(aid)*m0ms)
+               ! mesh_cell_vol = (cell spatial volume)*integral(2*pi*ur^2*sin(uq))
+               !               = (cell spatial volume)*2*pi*integral(ur^2)_(ur0-dur/2)^(ur0+dur/2) * integral(sin(uq))_(uq0-duq/2)^(uq0+duq/2)
+            ! Cell_dVol_x3 = SG%Cell_dV(gqid,aid)
+            Cell_dVol_x3 = SG_Cell_dV(gqid,aid)
+
+                  if(uqid==1) then
+                     ! integral(sin(uq))_(uq0)^(uq0+duq/2) = 2*sin(duq/4)*sin(uq0+duq/4)
+                     Cell_dVol_uq = 2.0*sin(0.25*duq)*sin(uq(uqid)+0.25*duq)
+                  elseif(uqid==dim_uq) then
+                     ! integral(sin(uq))_(uq0-duq/2)^(uq0) = 2*sin(duq/4)*sin(uq0-duq/4)
+                     Cell_dVol_uq = 2.0*sin(0.25*duq)*sin(uq(uqid)-0.25*duq)
+                  else
+                     ! integral(sin(uq))_(uq0-duq/2)^(uq0+duq/2) = 2*sin(duq/2)*sin(uq0)
+                     Cell_dVol_uq = 2.0*sin(0.5*duq)*sin(uq(uqid))
+                  endif
+
+                     if(urid==1) then
+                        ! integral(ur^2)_(ur0)_(ur0+0.5dur) = ((ur0+0.5dur)^3-(ur0)^3)/3
+                        Cell_dVol_ur = ((ur(urid)+0.5*dur)**3.0-ur(urid)**3.0)/3.0
+                     elseif(urid==dim_ur) then
+                        ! integral(ur^2)_(ur0-0.5dur)_(ur0) = (ur0^3-(ur0-0.5dur)^3)/3
+                        Cell_dVol_ur = (ur(urid)**3.0-(ur(urid)-0.5*dur)**3.0)/3.0
+                     else
+                        ! integral(ur^2)_(ur0-0.5dur)_(ur0+0.5dur) = ((ur0+0.5dur)^3-(ur0-0.5dur)^3)/3
+                        Cell_dVol_ur = ((ur(urid)+0.5*dur)**3.0-(ur(urid)-0.5*dur)**3.0)/3.0
+                     endif
+
+                     mesh_cell_vol = 2.0*pi*(vthc**3.0)*Cell_dVol_x3*Cell_dVol_ur*Cell_dVol_uq
+
+                     ! Normalize using Cell_dxdv
+            !$acc loop seq
+            do gfid=1,2
+               mesh_norm_dxdv(urid,uqid,aid,gqid,gfid) = mesh_norm_dxdv(urid,uqid,aid,gqid,gfid)/mesh_cell_vol
+               ! cell_vol_5D(urid,uqid,aid,gqid,gfid) = mesh_cell_vol
+            enddo
+         enddo
+         deallocate(SG_Te0_1D,SG_Cell_dV)
+
+         !$acc update self(mesh_norm_dxdv)
+
          allocate(tmp_mesh(mdims(1),mdims(2),mdims(3),mdims(4),mdims(5)))
+         ! Communicate with other processors
          if(npartdom>1) then
             tmp_mesh = mesh_norm_dxdv
             length = product(mdims)
@@ -2996,48 +3063,6 @@ module Ptl_Src_Loss
          mesh_norm_dxdv(:,:,:,:,dim_gf) = mesh_norm_dxdv(:,:,:,:,dim_gf) + tmp_mesh(:,:,:,:,dim_gf)
          call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1, mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
-         ! Normalize the results
-         do gqid=1,SG%dim_gq
-            do aid=1,SG%dim_a
-               vthc = sqrt(temperature_e(a_1D(aid),gq(gqid))) ! Note that temperature_e gives the electron velocity not the energy. so not necessary to consider mass here
-               ! mesh_cell_vol = (cell spatial volume)*integral(2*pi*ur^2*sin(uq))
-               !               = (cell spatial volume)*2*pi*integral(ur^2)_(ur0-dur/2)^(ur0+dur/2) * integral(sin(uq))_(uq0-duq/2)^(uq0+duq/2)
-               Cell_dVol_x3 = SG%Cell_dV(gqid,aid)
-
-               do uqid=1,dim_uq
-                  if(uqid==1) then
-                     ! integral(sin(uq))_(uq0)^(uq0+duq/2) = 2*sin(duq/4)*sin(uq0+duq/4)
-                     Cell_dVol_uq = 2.0*sin(0.25*duq)*sin(uq(uqid)+0.25*duq)
-                  elseif(uqid==dim_uq) then
-                     ! integral(sin(uq))_(uq0-duq/2)^(uq0) = 2*sin(duq/4)*sin(uq0-duq/4)
-                     Cell_dVol_uq = 2.0*sin(0.25*duq)*sin(uq(uqid)-0.25*duq)
-                  else
-                     ! integral(sin(uq))_(uq0-duq/2)^(uq0+duq/2) = 2*sin(duq/2)*sin(uq0)
-                     Cell_dVol_uq = 2.0*sin(0.5*duq)*sin(uq(uqid))
-                  endif
-
-                  do urid=1,dim_ur
-                     if(urid==1) then
-                        ! integral(ur^2)_(ur0)_(ur0+0.5dur) = ((ur0+0.5dur)^3-(ur0)^3)/3
-                        Cell_dVol_ur = ((ur(urid)+0.5*dur)**3.0-ur(urid)**3.0)/3.0
-                     elseif(urid==dim_ur) then
-                        ! integral(ur^2)_(ur0-0.5dur)_(ur0) = (ur0^3-(ur0-0.5dur)^3)/3
-                        Cell_dVol_ur = (ur(urid)**3.0-(ur(urid)-0.5*dur)**3.0)/3.0
-                     else
-                        ! integral(ur^2)_(ur0-0.5dur)_(ur0+0.5dur) = ((ur0+0.5dur)^3-(ur0-0.5dur)^3)/3
-                        Cell_dVol_ur = ((ur(urid)+0.5*dur)**3.0-(ur(urid)-0.5*dur)**3.0)/3.0
-                     endif
-
-                     mesh_cell_vol = 2.0*pi*(vthc**3.0)*Cell_dVol_x3*Cell_dVol_ur*Cell_dVol_uq
-
-                     ! Normalize using Cell_dxdv
-                     mesh_norm_dxdv(urid,uqid,aid,gqid,:) = mesh_norm_dxdv(urid,uqid,aid,gqid,:)/mesh_cell_vol
-
-                     tmp_mesh(urid,uqid,aid,gqid,:) = mesh_cell_vol
-                  enddo
-               enddo
-            enddo
-         enddo
 
 
          ! !Write into hdf5 file
@@ -3079,7 +3104,7 @@ module Ptl_Src_Loss
 
          !    h5dims(1:5) = mdims(1:5)
          !    call h5ltmake_dataset_f(gid, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
-         !    call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, tmp_mesh, h5err)
+         !    call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, cell_vol_5D, h5err)
 
          !    call h5gclose_f(gid, h5err)
          !    call h5fclose_f(file_id, h5err)
@@ -3090,7 +3115,7 @@ module Ptl_Src_Loss
 
          deallocate(a_1D,gq,gf)
          deallocate(tmp_mesh)
-
+         ! deallocate(cell_vol_5D)
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
          if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarCoord takes", time1-time0, " secs"
