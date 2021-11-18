@@ -527,8 +527,8 @@ subroutine snapshot_hdf5
    real(wp) Device_simple_Vol, EE_tot, EE_Z,EE_NZ, EE_FLA, EE_NFLA, recv_0D, tmp_FLA_dphi_nonNaN(0:1,mgrid) ! Electric Energy (EE) with total, Z(Zonal), NZ(NonZonal), FLA and NFLA components of dphi
 
    real(wp) coarser_dgq, coarser_dpsi1, coarser_dpsi2
-   real(wp), dimension(:), allocatable :: intp_a_1D, recvl, recvr
-   real(wp), dimension(:,:), allocatable :: intp_mean_full_dphi, right_intp_mean_full_dphi, left_intp_mean_full_dphi
+   real(wp), dimension(:), allocatable :: intp_a_1D, intp_q_1D, recvl, recvr
+   real(wp), dimension(:,:), allocatable :: intp_mean_full_dphi, right_intp_mean_full_dphi, left_intp_mean_full_dphi,gq_mgrid,a_mgrid
    real(wp), dimension(:,:), allocatable :: intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi
    real(wp), dimension(:,:,:), allocatable :: intp_mean_dE_cov3, right_mean_dE_cov3, left_mean_dE_cov3, intp_FLA_dE_cov3, right_FLA_dE_cov3, left_FLA_dE_cov3
    real(wp) dE_cov3(3,0:1,mgrid)  ! (-evector)=-grad(Phi) , This is instantaneous electric fields which might have many noises.
@@ -684,7 +684,7 @@ subroutine snapshot_hdf5
    !================================
    dE_cov3 = -evector ! This is an instanteneous
 
-   allocate(intp_a_1D(dim_a), recvl(dim_gq*dim_a), recvr(dim_gq*dim_a), intp_val_Arr(dim_gq*dim_a))
+   allocate(intp_a_1D(dim_a),intp_q_1D(dim_a), recvl(dim_gq*dim_a), recvr(dim_gq*dim_a), intp_val_Arr(dim_gq*dim_a))
    allocate(intp_mean_full_dphi(dim_gq, dim_a), right_intp_mean_full_dphi(dim_gq, dim_a), left_intp_mean_full_dphi(dim_gq, dim_a))
    allocate(intp_FLA_dphi(dim_gq, dim_a), right_intp_FLA_dphi(dim_gq, dim_a), left_intp_FLA_dphi(dim_gq, dim_a))
    allocate(intp_mean_dE_cov3(3,dim_gq,dim_a), right_mean_dE_cov3(3,dim_gq,dim_a),left_mean_dE_cov3(3,dim_gq,dim_a))
@@ -694,6 +694,7 @@ subroutine snapshot_hdf5
    k=1
    do i=0,mpsi,a_jump
       intp_a_1D(k) = psi_grid(i)
+      intp_q_1D(k) = q_grid(i)
       k=k+1
    enddo
 
@@ -741,6 +742,9 @@ subroutine snapshot_hdf5
    intp_mean_dE_cov3(2,dim_gq,:) = intp_mean_dE_cov3(2,1,:)
    ! toroidal electric fields
    intp_mean_dE_cov3(3,:,:) = -(right_intp_mean_full_dphi-left_intp_mean_full_dphi)/(2.0*deltaz)
+   do i=1,dim_a
+      intp_mean_dE_cov3(3,:,i) = intp_mean_dE_cov3(3,:,i) -intp_mean_dE_cov3(2,:,i)/intp_q_1D(i)
+   enddo
 
 
    ! Radial electric fields (delta_a may not be constant; so it should be calculated at each )
@@ -759,6 +763,11 @@ subroutine snapshot_hdf5
    intp_FLA_dE_cov3(2,dim_gq,:) = intp_FLA_dE_cov3(2,1,:)
    ! toroidal electric fields
    intp_FLA_dE_cov3(3,:,:) = -(right_intp_FLA_dphi-left_intp_FLA_dphi)/(2.0*deltaz)
+   do i=1,dim_a
+      intp_FLA_dE_cov3(3,:,i) = intp_FLA_dE_cov3(3,:,i) -intp_FLA_dE_cov3(2,:,i)/intp_q_1D(i)
+   enddo
+
+
 
    ! Send&Recv intp_mean_dE_cov3 b.t.w. adjacent polodial planes
    call MPI_SENDRECV(intp_mean_dE_cov3, 3*dim_gq*dim_a, mpi_Rsize, right_pe, myrank_toroidal, &
@@ -2032,7 +2041,7 @@ subroutine snapshot_hdf5
    endif
 
 
-   deallocate(intp_a_1D)
+   deallocate(intp_a_1D,intp_q_1D)
    deallocate(intp_mean_full_dphi, right_intp_mean_full_dphi, left_intp_mean_full_dphi)
    deallocate(intp_FLA_dphi, right_intp_FLA_dphi, left_intp_FLA_dphi)
    deallocate(intp_mean_dE_cov3, right_mean_dE_cov3, left_mean_dE_cov3)
