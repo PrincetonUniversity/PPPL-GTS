@@ -336,31 +336,31 @@ program GTS
    !           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
    do istep=istart,mstep
       if(mype==0) then
-         write(stdout,'(a,I8)')'MainLoop istep=',istep
+         write(stdout,'(a,I8,a,I8,a,I8)')'MainLoop istep=',istep, '; mi=',mi, '; me=',me
          call flush(stdout)
       endif
 
 
       ! if(istep==istart .or. mod(istep,msnap) .eq. 0) then
-      if(istep==istart .or. mod(istep,10) .eq. 0) then
+      if(istep==istart .or. mod(istep,Ptl_Src_nstep) .eq. 0) then
 
          if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
-         call timer(t0,dt,t0wc,dtwc)
+            call timer(t0,dt,t0wc,dtwc)
 
-         ! call Clear_newElectrons_beyond_Velocity_Boundary()
-         call Clear_some_Electrons_beyond_Boundaries()
-         call Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid()
-         call Generate_Electrons_beyond_PhysicalBoundary()
+            ! call Clear_newElectrons_beyond_Velocity_Boundary()
+            call Clear_some_Electrons_beyond_Boundaries()
+            call Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid()
+            call Generate_Electrons_beyond_PhysicalBoundary()
 
-         ! call Clear_newIons_beyond_Velocity_Boundary()
-         call Clear_some_Ions_beyond_Boundaries()
-         call Generate_Ions_beyond_VelocityCutOff_Fixed_Grid()
-         call Generate_Ions_beyond_PhysicalBoundary()
+            ! call Clear_newIons_beyond_Velocity_Boundary()
+            call Clear_some_Ions_beyond_Boundaries()
+            call Generate_Ions_beyond_VelocityCutOff_Fixed_Grid()
+            call Generate_Ions_beyond_PhysicalBoundary()
 
-         call timer(t0,dt,t0wc,dtwc)
-         time(16)=time(16)+dt
-         timewc(16)=timewc(16)+dtwc
-      endif
+            call timer(t0,dt,t0wc,dtwc)
+            time(16)=time(16)+dt
+            timewc(16)=timewc(16)+dtwc
+         endif
       endif
 
 
@@ -600,7 +600,7 @@ program GTS
       call Cumulate_Some_Variables_for_Measure
 
       if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
-         if(mod(istep,2)==0) then
+         if(mod(istep,Ptl_Src_nstep)==0) then
             call timer(t0,dt,t0wc,dtwc)
             call Generate_Particles_from_Boundaries_with_LoadBalancing(2*tstep*utime)
             call timer(t0,dt,t0wc,dtwc)

@@ -91,6 +91,12 @@ module global_parameters
    integer   nv
    real(wp)  dradius, dtheta, delta_v
 
+   ! Diagnostic Grid, PVS information
+   integer :: num_of_PVS=0
+   integer :: PVS_max_v=4, PVS_nv=20
+   real(wp):: PVS_a0(100), PVS_a1(100), PVS_gq0(100), PVS_gq1(100) ! at zetamax (temporal storage here)
+
+
    ! The following input parameters are specified in setup for radial boundary layers with damping
    real(wp) lmin, lmax, rmin, rmax
 
@@ -162,6 +168,7 @@ module global_parameters
    integer :: Flag_noExB=0 ! Default=0 (ExB is considered), can be set =1 (noExB)
    integer :: Flag_Recycling=0 ! Default=0 (no Recycling), can be set = 1 (Recycling of Ion at outer wall)
    integer :: Flag_Weight_dfh=0 ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight)
+   integer :: Ptl_Src_nstep=50 ! Generate src from boundaires at every Ptl_Src_nstep (default=50 steps)
 
    integer :: MaxLoopNum_Adiab_Weight_Update=1 ! Default=1 (number of loop for updating adiabatic weight evolution)
 

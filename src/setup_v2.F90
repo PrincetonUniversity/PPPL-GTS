@@ -2426,6 +2426,7 @@ Subroutine read_input_params
    use profile_array
    use FieldLineFollowing
    use MGY_PETSc_Interface_Data
+   use Diagnostic_Grid
 
    implicit none
    integer :: max_EMP_num = 20, k
@@ -2551,11 +2552,19 @@ Subroutine read_input_params
       larmor_num,         &    !how many points are used to do something on gyro orbit
       FLF_max_tor_num,    &    ! For FieldLineFollowing routine, Maximum toroidal rotation in each direction (+,-)
       gPPI_max_tor_num,   &    ! For gPPI routine, Maximum toroidal rotation in each direction (+,-)
+      Ptl_Src_nstep,      &    ! Generate src from boundaires at every Ptl_Src_nstep
       BC0_type,           &    ! type of BC0 (inner boundary; s=s0) (type=0: Dirichelt, type=1: Neumann)
       BC0_value,          &    ! value of BC0 (inner boundary; s=s0)
       BC1_type,           &    ! type of BC1 (outer boundary; s=s1) (type=0: Dirichelt, type=1: Neumann)
       BC1_value,          &    ! value of BC1 (outer boundary; s=s1)
-      MaxLoopNum_Adiab_Weight_Update ! Default=1 (number of loop for updating adiabatic weight evolution)
+      MaxLoopNum_Adiab_Weight_Update, &! Default=1 (number of loop for updating adiabatic weight evolution)
+      num_of_PVS,         &
+      PVS_max_v,          &
+      PVS_nv,             &
+      PVS_a0,             &
+      PVS_a1,             &
+      PVS_gq0,            &
+      PVS_gq1
 
    namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
       its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2647,6 +2656,7 @@ Subroutine read_input_params
       write(0,*) 'FLF_max_tor_num=', FLF_max_tor_num,', gPPI_max_tor_num=',gPPI_max_tor_num
       write(0,*) 'BC0_type=', BC0_type,', BC0_value=',BC0_value
       write(0,*) 'BC1_type=', BC1_type,', BC1_value=',BC1_value
+      write(0,*) 'Ptl_Src_nstep=', Ptl_Src_nstep
 
    endif
 
