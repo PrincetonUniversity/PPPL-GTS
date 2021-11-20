@@ -247,12 +247,23 @@ module Ptl_Src_Loss
    end type
 
 
+   type Particle_Source_Control_Variables
+      integer :: nstep, cum_num
+      real(wp), allocatable, dimension(:,:,:) :: cum_E_para, mean_E_para
+      real(wp), allocatable, dimension(:,:,:) :: Elec_dupara_per_nstep,Ion_dupara_per_nstep
+      real(wp), allocatable, dimension(:,:,:) :: Elec_dupara_per_nstep_SM,Ion_dupara_per_nstep_SM
+      ! real(wp), allocatable, dimension(:,:,:,:) :: cum_E_cov3, mean_E_cov3 ! electric field
+   end type
+
    type(OutParticles) outION
+   type(Particle_Source_Control_Variables) PtlSrcCV
+
 
    contains
 
       subroutine Initialize_Ptl_Src_Loss
          use global_parameters
+         use Structured_Grid
          implicit none
 
          if(Flag_Recycling==1) then
@@ -264,7 +275,37 @@ module Ptl_Src_Loss
          call Initialize_FootPrint(FP_BDY1,a1)
          call Initialize_FootPrint(cum_FP_BDY1,a1)
 
+         call Initialize_Particle_Source_Control_Variables(SG%dim_gq, SG%dim_a)
+
       end subroutine Initialize_Ptl_Src_Loss
+
+      subroutine Initialize_Particle_Source_Control_Variables(dim_gq,dim_a)
+         use global_parameters
+         implicit none
+         integer,intent(in) :: dim_gq, dim_a
+
+         PtlSrcCV%nstep = Ptl_Src_nstep
+         allocate(PtlSrcCV%cum_E_para(dim_gq,dim_a,0:1), PtlSrcCV%mean_E_para(dim_gq,dim_a,0:1))
+         allocate(PtlSrcCV%Elec_dupara_per_nstep(dim_gq,dim_a,0:1), PtlSrcCV%Ion_dupara_per_nstep(dim_gq,dim_a,0:1))
+         allocate(PtlSrcCV%Elec_dupara_per_nstep_SM(dim_gq,dim_a,0:1), PtlSrcCV%Ion_dupara_per_nstep_SM(dim_gq,dim_a,0:1))
+         ! allocate(PtlSrcCV%cum_E_cov3(3,dim_gq,dim_a,0:1), PtlSrcCV%mean_E_cov3(3,dim_gq,dim_a,0:1))
+
+         PtlSrcCV%cum_E_para = 0.0
+         PtlSrcCV%cum_num = 0
+         PtlSrcCV%mean_E_para = 0.0
+         ! PtlSrcCV%cum_E_cov3 = 0.0
+         ! PtlSrcCV%mean_E_cov3 = 0.0
+      end subroutine Initialize_Particle_Source_Control_Variables
+
+      subroutine Finalize_Ptl_Src_Loss
+         implicit none
+
+         if(allocated(outION%P)) deallocate(outION%P, outION%P0, outION%energy, outION%backT, outION%backf0,outION%labels)
+         if(allocated(PtlSrcCV%cum_E_para)) deallocate(PtlSrcCV%cum_E_para, PtlSrcCV%mean_E_para)
+         if(allocated(PtlSrcCV%Elec_dupara_per_nstep)) deallocate(PtlSrcCV%Elec_dupara_per_nstep,PtlSrcCV%Ion_dupara_per_nstep)
+         if(allocated(PtlSrcCV%Elec_dupara_per_nstep_SM)) deallocate(PtlSrcCV%Elec_dupara_per_nstep_SM,PtlSrcCV%Ion_dupara_per_nstep_SM)
+         ! if(allocated(PtlSrcCV%cum_E_cov3)) deallocate(PtlSrcCV%cum_E_cov3, PtlSrcCV%mean_E_cov3)
+      end subroutine Finalize_Ptl_Src_Loss
 
       subroutine Initialize_FootPrint(FP,target_a)
          use global_parameters
@@ -312,6 +353,76 @@ module Ptl_Src_Loss
          call esigetrzb(FP%R_2D, FP%Z_2D, FP%BB_2D, FP%a_2D, FP%gq_2D, Nq*Nf)
 
       end subroutine
+
+      subroutine Cumulate_SG_E_para
+         use Structured_Grid
+         implicit none
+
+         PtlSrcCV%cum_E_para = PtlSrcCV%cum_E_para + SG%E_para
+         ! PtlSrcCV%cum_E_cov3 = PtlSrcCV%cum_E_cov3 + (-SG%grad_phi_cov)
+         PtlSrcCV%cum_num = PtlSrcCV%cum_num + 1
+      end subroutine Cumulate_SG_E_para
+
+      subroutine Cal_mean_E_para_and_Dump_cum_Epara
+         implicit none
+
+         if(PtlSrcCV%cum_num==0) then
+            PtlSrcCV%mean_E_para = 0.0
+            ! PtlSrcCV%mean_E_cov3 = 0.0
+         else
+            PtlSrcCV%mean_E_para = PtlSrcCV%cum_E_para/PtlSrcCV%cum_num
+            ! PtlSrcCV%mean_E_cov3 = PtlSrcCV%cum_E_cov3/PtlSrcCV%cum_num
+         endif
+         PtlSrcCV%cum_num = 0
+         PtlSrcCV%cum_E_para = 0.0
+         ! PtlSrcCV%cum_E_cov3 = 0.0
+      end subroutine
+
+      subroutine Cal_dupara_per_dt_using_SG
+         use global_parameters
+         use Structured_Grid
+         implicit none
+         real(wp) dt_s,me_kg,mi_kg,qe_C,qi_C, vthe_mps, vthi_mps ! velocity unit (meter per second)
+         integer ss,qq,k
+         real(wp) peak_before, peak_after
+
+         dt_s  = tstep*utime
+         me_kg = 1e-3*amasse
+         mi_kg = 1e-3*amassi
+         qe_C = charge/2997924580.0
+         qi_C = chargi/2997924580.0
+
+         if(mod(istep,PtlSrcCV%nstep)/=0) then
+            write(stdout,'(2(A,I0))') "Something is Wrong!! istep=", istep,",  is not multiple of PtlSrcCV%nstep=", PtlSrcCV%nstep
+            call flush(stdout)
+            stop
+         else
+
+            do ss=1,SG%dim_s
+               vthe_mps = sqrt(abs(qe_C)*SG%Te0_eV_1D(ss)/(me_kg))
+               vthi_mps = sqrt(abs(qi_C)*SG%Ti0_eV_1D(ss)/(mi_kg))
+
+               PtlSrcCV%Elec_dupara_per_nstep(:,ss,:) = PtlSrcCV%nstep*abs(qe_C*PtlSrcCV%mean_E_para(:,ss,:)/me_kg)*dt_s/vthe_mps
+               PtlSrcCV%Ion_dupara_per_nstep(:,ss,:)  = PtlSrcCV%nstep*abs(qi_C*PtlSrcCV%mean_E_para(:,ss,:)/mi_kg)*dt_s/vthi_mps
+            enddo
+         endif
+         PtlSrcCV%Elec_dupara_per_nstep_SM = PtlSrcCV%Elec_dupara_per_nstep
+         PtlSrcCV%Ion_dupara_per_nstep_SM = PtlSrcCV%Ion_dupara_per_nstep
+
+         ! Smooth and rescale elec_dupara and ion_dupara
+         do k=0,1
+            peak_before = maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
+            call Smooth_SG_Data_2D([20], PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
+            peak_after  = maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
+            PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k) = (peak_before/peak_after)*PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k)
+
+            peak_before = maxval(PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
+            call Smooth_SG_Data_2D([20], PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
+            peak_after  = maxval(PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
+            PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k) = (peak_before/peak_after)*PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k)
+         enddo
+
+      end subroutine Cal_dupara_per_dt_using_SG
 
       subroutine Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP, energy)
          use global_parameters

@@ -13,7 +13,7 @@ module Structured_Grid
       real(wp) ds,inv_ds   ! ds is constant since this is the structured grid on (s-gq-gf) coordinate.
 
       real(wp),allocatable,dimension(:) :: a_1D,ori_sid,s_1D,dsda_1D,gq_1D
-      real(wp),allocatable,dimension(:) :: safety_q_1D,n0_1D,Te0_1D,Te0_eV_1D,Ti0_1D ! some equilibrium 1D profile information
+      real(wp),allocatable,dimension(:) :: safety_q_1D,n0_1D,Te0_1D,Te0_eV_1D,Ti0_1D,Ti0_eV_1D ! some equilibrium 1D profile information
       real(wp),allocatable,dimension(:,:) :: a_2D,s_2D,dsda_2D,gq_2D
       real(wp),allocatable,dimension(:,:) :: Cell_dV,inv_Cell_dV ! Cell Volume and its inverse
       real(wp),allocatable,dimension(:,:) :: Cell_dS_s,inv_Cell_dS_s,Cell_dS_gq,inv_Cell_dS_gq,Cell_dS_gf,inv_Cell_dS_gf ! Node_Surface in each direction
@@ -27,6 +27,10 @@ module Structured_Grid
       ! Metrics and some vectors regarding s coordinates
       real(wp),allocatable,dimension(:,:) :: g_ss_cntv,g_sq_cntv,g_ss_cov,g_sq_cov,Jacob_sqf
       real(wp),allocatable,dimension(:,:,:) :: B0_cntv3_sqf
+
+
+      real(wp),allocatable,dimension(:,:,:,:) :: dB_cntv3
+      real(wp),allocatable,dimension(:,:,:) :: E_para
 
       ! Gyro-Orbit positioning information
       ! real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
@@ -64,6 +68,7 @@ contains
       real(wp) tmp, this_ds
       integer larmor,ss,qq
       real(wp) gyro_phase,coeff,dR_du(3,2)
+      real(wp) :: tmp_ga, tmp_grad_ga(3), tmp_dga0dt
 
       SG%dim_s=(mpsi+1)/SG%s_jump
       SG%dim_a=SG%dim_s
@@ -84,7 +89,7 @@ contains
       Nq=SG%dim_gq
 
       allocate(SG%gq_1D(Nq))
-      allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
+      allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%Ti0_eV_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
       allocate(SG%a_2D(Nq,Ns),SG%dsda_2D(Nq,Ns),SG%gq_2D(Nq,Ns),SG%Cell_dV(Nq,Ns),SG%inv_Cell_dV(Nq,Ns))
       allocate(SG%Cell_dS_s(Nq,Ns),SG%inv_Cell_dS_s(Nq,Ns),SG%Cell_dS_gq(Nq,Ns),SG%inv_Cell_dS_gq(Nq,Ns),SG%Cell_dS_gf(Nq,Ns),SG%inv_Cell_dS_gf(Nq,Ns))
 
@@ -101,6 +106,7 @@ contains
          SG%safety_q_1D(k)=q_grid(i)
          k=k+1
       enddo
+      SG%Ti0_eV_1D=1e3*Tem_00*SG%Ti0_1D
 
       do i=1,Nq
          SG%gq_1D(i)=(2.0*pi)/(Nq-1)*(i-1)
@@ -179,6 +185,28 @@ contains
       SG%j0_cov3(3,:,:)=SG%g_ff_cov*SG%j0_cntv3(3,:,:)
 
 
+      if(electromagnetic==1 .and. num_of_EMP>0) then
+         allocate(SG%dB_cntv3(3,SG%dim_gq,SG%dim_s,0:1))
+
+         do ss=1,SG%dim_s
+            do qq=1,SG%dim_gq
+
+               ! At zeta=zetamin
+               call Get_MP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamin, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
+               SG%dB_cntv3(1,qq,ss,0) = tmp_ga*SG%j0_cntv3(1,qq,ss) + (tmp_grad_ga(2)*SG%B0_cov3(3,qq,ss) - tmp_grad_ga(3)*SG%B0_cov3(2,qq,ss))/SG%Jacobian(qq,ss)
+               SG%dB_cntv3(2,qq,ss,0) = tmp_ga*SG%j0_cntv3(2,qq,ss) + (tmp_grad_ga(3)*SG%B0_cov3(1,qq,ss) - tmp_grad_ga(1)*SG%B0_cov3(3,qq,ss))/SG%Jacobian(qq,ss)
+               SG%dB_cntv3(3,qq,ss,0) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)
+
+               ! At zeta=zetamax
+               call Get_MP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamax, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
+               SG%dB_cntv3(1,qq,ss,1) = tmp_ga*SG%j0_cntv3(1,qq,ss) + (tmp_grad_ga(2)*SG%B0_cov3(3,qq,ss) - tmp_grad_ga(3)*SG%B0_cov3(2,qq,ss))/SG%Jacobian(qq,ss)
+               SG%dB_cntv3(2,qq,ss,1) = tmp_ga*SG%j0_cntv3(2,qq,ss) + (tmp_grad_ga(3)*SG%B0_cov3(1,qq,ss) - tmp_grad_ga(1)*SG%B0_cov3(3,qq,ss))/SG%Jacobian(qq,ss)
+               SG%dB_cntv3(3,qq,ss,1) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)
+            enddo
+         enddo
+      endif
+
+      allocate(SG%E_para(SG%dim_gq,SG%dim_a,0:1))
 
       ! Calculate gyro-radius information
       ! gyro-orbit position = GC_position + (gyro_over_sqrt_mu)*sqrt(mu)
@@ -971,6 +999,23 @@ contains
       endif
 
    end subroutine Cal_gradPhi_on_SG
+
+   subroutine Cal_E_para_on_SG
+      implicit none
+      real(wp) E_para(0:1)
+      integer ss,qq,k
+
+      do ss=1,SG%dim_s
+         do qq=1,SG%dim_gq
+            E_para = 0.0
+            do k=1,3
+               E_para = E_para -(SG%grad_phi_cov(k,qq,ss,:)*(SG%B0_cntv3(k,qq,ss)+SG%dB_cntv3(k,qq,ss,:))/(SG%BB(qq,ss)))
+            enddo
+            SG%E_para(qq,ss,:) = E_para
+         enddo
+      enddo
+   end subroutine Cal_E_para_on_SG
+
 
 
 end module Structured_Grid

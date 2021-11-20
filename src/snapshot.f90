@@ -507,7 +507,7 @@ subroutine snapshot_hdf5
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
    integer(HSIZE_T) :: h5dims(5)
-   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_SG, gid_SG_SM, gid_DG_ZON, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid, gid_FP, gid_FP_cum
+   integer(HID_T) :: file_id, gid_PARAMS, gid_FLA, gid_DCOMP, gid_BIN, gid_DG, gid_SG, gid_SG_SM, gid_DG_ZON, gid_DG_SM,gid_DG_FLA,gid_DG_FLA_SM, gid_PVS, gid, gid_FP, gid_FP_cum, gid_PtlSrc
    integer :: h5err
    logical :: snap_flag=.false.
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
@@ -829,6 +829,8 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "DG/FLA/SM", gid_DG_FLA_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "FP", gid_FP, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "FP/cum", gid_FP_cum, h5err) ! Diagnostic Grid
+      call h5gcreate_f(file_id, "PtlSrc", gid_PtlSrc, h5err) ! Particle Source
+
 
       !
       h5dims(1) = 1
@@ -1428,6 +1430,17 @@ subroutine snapshot_hdf5
 
       deallocate(intp_val_Arr)
 
+      h5dims(1)=1
+      call h5ltmake_dataset_f(gid_PtlSrc, "nstep",1,h5dims,H5T_NATIVE_INTEGER, PtlSrcCV%nstep,h5err)
+
+      h5dims(1:3)=[SG%dim_gq, SG%dim_a, 2]
+      call h5ltmake_dataset_f(gid_PtlSrc, "mean_E_para",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%mean_E_para,h5err)
+      call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dupara_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Elec_dupara_per_nstep,h5err)
+      call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dupara_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Ion_dupara_per_nstep,h5err)
+      call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dupara_per_nstep_SM",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Elec_dupara_per_nstep_SM,h5err)
+      call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dupara_per_nstep_SM",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Ion_dupara_per_nstep_SM,h5err)
+      ! h5dims(1:4)=[3, SG%dim_gq, SG%dim_a, 2]
+      ! call h5ltmake_dataset_f(gid_PtlSrc, "mean_E_cov3",4,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%mean_E_cov3,h5err)
 
       ! Print SG (Diagnostic Grid) Data
       ! Note that dimension has to use SG%dim_* rather than dim_*
@@ -1473,9 +1486,24 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
 
       call h5ltmake_dataset_f(gid_SG, "phi",2,h5dims,H5T_NATIVE_DOUBLE, SG%phi(:,:,1),h5err)
+
+      call h5ltmake_dataset_f(gid_SG, "BB0",2,h5dims,H5T_NATIVE_DOUBLE, SG%BB,h5err)
+
       h5dims(1:3)=(/3,SG%dim_gq,SG%dim_s/)
+      call h5ltmake_dataset_f(gid_SG, "B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%B0_cov3,h5err)
       call h5ltmake_dataset_f(gid_SG, "grad_phi_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_phi_cov(:,:,:,1),h5err)
 
+
+      call h5ltmake_dataset_f(gid_SG, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, SG%B0_cntv3,h5err)
+
+
+      h5dims(1:3)=(/SG%dim_gq,SG%dim_s,2/)
+      call h5ltmake_dataset_f(gid_SG, "E_para",3,h5dims,H5T_NATIVE_DOUBLE, SG%E_para,h5err)
+
+      if(electromagnetic==1) then
+         h5dims(1:4)=(/3,SG%dim_gq,SG%dim_s,2/)
+         call h5ltmake_dataset_f(gid_SG, "dB_cntv",4,h5dims,H5T_NATIVE_DOUBLE, SG%dB_cntv3,h5err)
+      endif
 
       h5dims(1:2)=(/SG%dim_gq,SG%dim_s/)
       ! Followings are for the debugging purpose
@@ -2025,6 +2053,7 @@ subroutine snapshot_hdf5
       call h5gclose_f(gid_DG_FLA_SM, h5err)
       call h5gclose_f(gid_FP, h5err)
       call h5gclose_f(gid_FP_cum, h5err)
+      call h5gclose_f(gid_PtlSrc, h5err)
 
       call h5fclose_f(file_id, h5err)
       call h5close_f(h5err)

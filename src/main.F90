@@ -347,6 +347,9 @@ program GTS
          if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
             call timer(t0,dt,t0wc,dtwc)
 
+            call Cal_mean_E_para_and_Dump_cum_Epara
+            call Cal_dupara_per_dt_using_SG
+
             ! call Clear_newElectrons_beyond_Velocity_Boundary()
             call Clear_some_Electrons_beyond_Boundaries()
             call Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid()
@@ -598,6 +601,8 @@ program GTS
       ! profile snapshots, write particle information to restart file
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
+      call Cal_E_para_on_SG
+      call Cumulate_SG_E_para
 
       if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
          if(mod(istep,Ptl_Src_nstep)==0) then
@@ -768,6 +773,8 @@ program GTS
          call destroy_solver( solver_dphi_dt )
       endif
    endif
+
+   call Finalize_Ptl_Src_Loss
 
    !free all allocated arrays
    !  call GTS_finalize(ierror)
