@@ -392,7 +392,7 @@ module Ptl_Src_Loss
          qe_C = charge/2997924580.0
          qi_C = chargi/2997924580.0
 
-         if(mod(istep,PtlSrcCV%nstep)/=0) then
+         if(istep>PtlSrcCV%nstep .and. mod(istep,PtlSrcCV%nstep)/=0) then
             write(stdout,'(2(A,I0))') "Something is Wrong!! istep=", istep,",  is not multiple of PtlSrcCV%nstep=", PtlSrcCV%nstep
             call flush(stdout)
             stop
