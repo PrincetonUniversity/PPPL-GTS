@@ -2466,48 +2466,48 @@ module Ptl_Src_Loss
          elseif(Flag_Load_and_WeightDef==3) then
             ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
 
-         upara_min_arr(1:3) = [-1.1*umax, -umax,     umax ]
-         upara_max_arr(1:3) = [    -umax, +umax, 1.1*umax ]
+            upara_min_arr(1:3) = [-1.1*umax, -umax,     umax ]
+            upara_max_arr(1:3) = [    -umax, +umax, 1.1*umax ]
 
             uperp_min_arr(1:3) = [0.0,            umax, 0.0    ]
-         uperp_max_arr(1:3) = [ 1.1*umax, 1.1*umax, 1.1*umax]
+            uperp_max_arr(1:3) = [ 1.1*umax, 1.1*umax, 1.1*umax]
 
 
-         do loop=1,size(upara_min_arr)
+            do loop=1,size(upara_min_arr)
 
                dim_upara = 5
                dim_uperp = 7
-            ! upara_min = 2.0; upara_max = 5.0; dim_upara = 5
-            ! uperp_min = 1.0; uperp_max = 4.0; dim_uperp = 5
+               ! upara_min = 2.0; upara_max = 5.0; dim_upara = 5
+               ! uperp_min = 1.0; uperp_max = 4.0; dim_uperp = 5
                upara_min = upara_min_arr(loop); upara_max = upara_max_arr(loop);
                uperp_min = uperp_min_arr(loop); uperp_max = uperp_max_arr(loop);
 
 
-            allocate(mesh_norm_dxdv(dim_upara,dim_uperp,SG%dim_a,SG%dim_gq,2))
-            allocate(tmp_upara(dim_upara),tmp_uperp(dim_uperp),tmp_gf(2))
+               allocate(mesh_norm_dxdv(dim_upara,dim_uperp,SG%dim_a,SG%dim_gq,2))
+               allocate(tmp_upara(dim_upara),tmp_uperp(dim_uperp),tmp_gf(2))
 
-            tmp_gf(1) = zetamin
-            tmp_gf(2) = zetamax
-            do i=1,dim_upara
-               tmp_upara(i) = upara_min + (i-1)*(upara_max-upara_min)/(dim_upara-1)
-            enddo
-            do i=1,dim_uperp
-               tmp_uperp(i) = uperp_min + (i-1)*(uperp_max-uperp_min)/(dim_uperp-1)
-            enddo
+               tmp_gf(1) = zetamin
+               tmp_gf(2) = zetamax
+               do i=1,dim_upara
+                  tmp_upara(i) = upara_min + (i-1)*(upara_max-upara_min)/(dim_upara-1)
+               enddo
+               do i=1,dim_uperp
+                  tmp_uperp(i) = uperp_min + (i-1)*(uperp_max-uperp_min)/(dim_uperp-1)
+               enddo
 
-               Nm = ini_Ne_marker_density*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
-            if(mype==0) then
-               write(stdout,'(3(A,I0))') "gen_SRC_vel Nm_e=",Nm,"; me=", me,"; memax=",memax
-               call flush(stdout)
-            endif
+                  Nm = ini_Ne_marker_density*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
+               if(mype==0) then
+                  write(stdout,'(3(A,I0))') "gen_SRC_vel Nm_e=",Nm,"; me=", me,"; memax=",memax
+                  call flush(stdout)
+               endif
 
-            call Measure_Global_SG_mesh_norm_dxdv_of_Electrons(tmp_upara, tmp_uperp, mesh_norm_dxdv)
-            call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
+               call Measure_Global_SG_mesh_norm_dxdv_of_Electrons(tmp_upara, tmp_uperp, mesh_norm_dxdv)
+               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
 
-            deallocate(tmp_upara,tmp_uperp,tmp_gf)
-            deallocate(mesh_norm_dxdv)
+               deallocate(tmp_upara,tmp_uperp,tmp_gf)
+               deallocate(mesh_norm_dxdv)
 
-         enddo !loop
+            enddo !loop
          endif
 
 
