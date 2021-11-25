@@ -3943,6 +3943,380 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord
 
+      subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(a,gq,gf,tgt_ur_bound,mesh5D_norm_occup_MarkerDen,mesh5D_norm_occup_dxdv,in_FluxFactor_over_f0,in_label_val)
+         use global_parameters
+         use particle_array
+         use field_array
+         use esi_interface
+         use mpi_defs
+         use function_gg_module
+         use particle_decomp
+         use Structured_Grid
+         implicit none
+
+#define SIMPLE_SPRNG
+#define USE_MPI
+#include "sprng_f.h"
+
+         real(wp), intent(in), dimension(:) :: a,gq,gf
+         real(wp), intent(in) :: tgt_ur_bound(:,:,:,:) ! (dim_a,dim_gq,dim_gf,2); upper ur and lower ur bound on 3-D grid (a,gq,gf)
+         real(wp), intent(in), optional, dimension(:,:,:,:,:) :: mesh5D_norm_occup_MarkerDen, mesh5D_norm_occup_dxdv ! 5-D grid (sr,sq,a,gq,gf) normalized MarkerDensity and dxdv (phase volume) occupied by present particles
+         real(wp), intent(in), optional :: in_FluxFactor_over_f0
+         real(wp), intent(in), optional :: in_label_val
+         real(wp) FluxFactor_over_f0
+         ! where sr (speed) refers normalized ur regarding tgt_ur_bound:
+         ! s(sr,sq,a,gq,gf) = (u(sr,sq,a,gq,gf)-ur_LowerBound(a,gq,gf))/(ur_UpperBound(a,gq,gf)-ur_LowerBound(a,gq,gf))
+         ! sr(radius) and sq(angle) are polar coordinates for velocity space
+         ! Particles will be generated in the domain of s=[0,1] on every spatial node
+         integer :: dim_sr, dim_sq
+         real(wp) :: sr_min, sr_max, sq_min, sq_max
+         real(wp) :: Del_sr, Del_sq
+         real(wp) ini_Ne_marker_density
+         integer :: BLK_SZa, BLK_SZq  ! Block size (number of indices) into a, gq direction
+         integer :: aid,qid,fid, loc_max_aid, loc_max_qid, loc_Nsamp
+
+         real(wp) :: label_val, upara, uperp, tmp_ur, tmp_uq
+         integer m,m0,i, tot_N_newP
+         real(wp) :: ge_val, vpara, vperp, integral_f0, target_w_tot
+         real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max
+         real(wp) :: Del_a, Del_gq, Del_gf
+         real(wp) :: da, dgq, dgf, dsr, dsq
+         integer :: dim_a, dim_gq, dim_gf
+         integer :: minpts, ifail=1, ierror
+         real(wp) :: ac, error_8=1e-5
+         real(wp), external:: dsda, D01AHF,jacobian
+         real(wp) time0, time1
+
+         integer ij,ip
+         real(wp) fip,r,dela
+         real(wp) wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
+         real(wp) intp_phi, intp_FLA_Te0, intp_phi00
+         real(wp), allocatable, dimension(:) :: AdiabTerm ! e*phi/T
+
+         real(wp) loc_max_ur, loc_min_ur, loc_Del_a, loc_Del_q, loc_Del_f, loc_gf_min, loc_gf_max
+         real(wp) ptl_a, ptl_gq, ptl_sr,ptl_sq, ptl_ur, inv_da, inv_dgq,inv_dsr,inv_dsq, ws0,ws1
+         integer sid,k,ptl_aid,ptl_gqid, ptl_srid, ptl_sqid, Bid
+         real(wp) P_safety_q
+         real(wp) ptl_ur_bound(2)
+         integer, allocatable :: num_BLKs,BLKs_aid(:),BLKs_gqid(:),BLKs_gfid(:), BLKs_m0(:), BLKs_m1(:)
+         integer, allocatable :: BLKs_Nsamp_mype(:), BLKs_Nsamp_npartd(:),BLKs_NnewP_mype(:), BLKs_NnewP_npartd(:)
+         real(wp), allocatable :: BLKs_d3x(:), BLKs_d2u(:) ! spatial area and velocity area of each block
+
+         !$acc declare create(AdiabTerm)
+
+
+
+         label_val=0
+         if(present(in_label_val)) label_val = in_label_val
+
+         FluxFactor_over_f0=0.0
+         if(present(in_FluxFactor_over_f0)) FluxFactor_over_f0 = in_FluxFactor_over_f0
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
+
+
+
+         sr_min = 0.0; sr_max = 1.0; dim_sr = 6
+         sq_min = 0.0; sq_max = pi;  dim_sq = 10
+         a_min = minval(a); a_max = maxval(a); dim_a = size(a)
+         gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
+         gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
+
+         Del_sr = sr_max-sr_min;    dsr=Del_sr/(dim_sr-1)
+         Del_sq = sq_max-sq_min;    dsq=Del_sq/(dim_sq-1)
+         Del_a = a_max-a_min;       da=Del_a/(dim_a-1)
+         Del_gq = gq_max-gq_min;    dgq=Del_gq/(dim_gq-1)
+         Del_gf = gf_max-gf_min;    dgf=Del_gf/(dim_gf-1)
+
+
+         ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*0.5*pi*umax**2.0)
+
+         ! 여기서 해야할일..
+         ! 이 때 interpolation은 fieldline following..
+         ! 1. 블럭별로 maximum u_abs 값 찾고, rejection sampling 한다. abs(u_sample)<u_th인 애들만 accept
+         !   1.1. 블럭별로 tot_N_newP 계산하고 npartd 프로세스별로 배분. this_N_newP ~ tot_N_newP/npartd 마지막은 보정분 반영.
+         ! 2. accept 된 애들 필요한 값들 계산 (ge_val)
+         ! 3. accept된 애들 target_norm_phase_vol 계산해서 ge_vol과 결합하여 각 입자의 볼륨 계산하고,  Norm_Marker_Den 있으면 추가 rejection 수행.
+
+         ! Assume that max_uabs is determined by the mesh_Delta_u at the lower zeta plane.
+
+         inv_da = 1.0/da; inv_dgq=1.0/dgq; inv_dsr=1.0/dsr; inv_dsq=1.0/dsq
+
+
+         BLK_SZa = 5
+         BLK_SZq = 10
+         num_BLKs = dim_gf*ceiling(real(dim_a-1)/BLK_SZa)*ceiling(real(dim_gq-1)/BLK_SZq)
+         allocate(BLKs_aid(num_BLKs),BLKs_gqid(num_BLKs),BLKs_gfid(num_BLKs),BLKs_m0(num_BLKs), BLKs_m1(num_BLKs))
+         allocate(BLKs_Nsamp_mype(num_BLKs), BLKs_Nsamp_npartd(num_BLKs),BLKs_NnewP_mype(num_BLKs),BLKs_NnewP_npartd(num_BLKs))
+         allocate(BLKs_d3x(num_BLKs),BLKs_d2u(num_BLKs))
+
+
+         Bid=0
+         do fid=1,dim_gf
+            do aid=1,dim_a-1,BLK_SZa
+               do qid=1,dim_gq-1,BLK_SZq
+                  Bid = Bid + 1
+                  BLKs_aid(Bid)=aid
+                  BLKs_gqid(Bid)=qid
+                  BLKs_gfid(Bid)=fid
+               enddo
+            enddo
+         enddo
+
+         m0 = me+1
+
+         do Bid=1,num_BLKs
+
+            BLKs_m0(Bid) = me+1
+
+            aid = BLKs_aid(Bid)
+            qid = BLKs_gqid(Bid)
+            fid = BLKs_gfid(Bid)
+
+            loc_max_aid = min(dim_a,aid+BLK_SZa)
+            loc_Del_a = a(loc_max_aid)-a(aid)
+            loc_max_qid = min(dim_gq,qid+BLK_SZq)
+            loc_Del_q = gq(loc_max_qid)-gq(qid)
+
+            loc_gf_max = min(gf(dim_gf),gf(fid)+0.5*dgf)
+            loc_gf_min = max(gf(1),gf(fid)-0.5*dgf)
+            loc_Del_f = loc_gf_max - loc_gf_min
+
+            BLKs_d3x(Bid) = loc_Del_f*loc_Del_a*loc_Del_q
+
+            loc_min_ur = minval(tgt_ur_bound(aid:loc_max_aid, qid:loc_max_qid, fid,1)) ! lower bound
+            loc_max_ur = maxval(tgt_ur_bound(aid:loc_max_aid, qid:loc_max_qid, fid,2)) ! upper bound
+
+            BLKs_d2u(Bid) = 0.5*pi*(loc_max_ur**2.0-loc_min_ur**2.0)
+
+            ! loc_Nsamp = ceiling(ini_Ne_marker_density*loc_Del_a*loc_Del_q*loc_Del_f*0.5*pi*(loc_max_ur**2.0-loc_min_ur**2.0) +sprng())
+            loc_Nsamp = ceiling(ini_Ne_marker_density*BLKs_d3x(Bid)*BLKs_d2u(Bid) +sprng())
+            BLKs_Nsamp_mype(Bid) = loc_Nsamp
+
+            BLKs_NnewP_mype(Bid) = 0
+            do k=1,loc_Nsamp
+               ptl_a  = a(aid) +loc_Del_a*sprng()
+               ptl_gq = gq(qid)+loc_Del_q*sprng()
+
+               ! ptl_aid  = aid+floor((ptl_a-a(aid))*inv_da+0.5) ! Find nearst grid
+               ! ptl_gqid = qid+floor((ptl_gq-gq(qid))*inv_dgq+0.5) ! Find nearst grid
+
+               ptl_aid  = ceiling((ptl_a-a_min)*inv_da+0.5) ! Find nearst grid
+               ptl_gqid = ceiling((ptl_gq-gq_min)*inv_dgq+0.5) ! Find nearst grid
+
+               ! ur lower(1) and upper(2) bound at ptl position
+               ptl_ur_bound = tgt_ur_bound(ptl_aid,ptl_gqid,fid,:)
+
+               ! Find sampling points uniformly distributed within an annulus in the poloar coordinates (vpara,vperp)
+               ! r=sqrt(a1^2+rand*(a2^2-a1^2));
+               ptl_ur = sqrt(loc_min_ur**2.0 + sprng()*(loc_max_ur**2.0-loc_min_ur**2.0))
+
+
+               if( (ptl_ur-ptl_ur_bound(1))*(ptl_ur-ptl_ur_bound(2)) < 0 ) then
+                  ! sr (speed) refers normalized ur regarding tgt_ur_bound:
+                  ! sr(sr,sq,a,gq,gf) = (ur(sr,sq,a,gq,gf)-ur_LowerBound(a,gq,gf))/(ur_UpperBound(a,gq,gf)-ur_LowerBound(a,gq,gf))
+                  ptl_sr = (ptl_ur-ptl_ur_bound(1))/(ptl_ur_bound(2)-ptl_ur_bound(1))
+                  ptl_srid = ceiling((ptl_sr-sr_min)*inv_dsr+0.5)
+
+                  ptl_sq = sq_min + sprng()*(sq_max-sq_min)
+                  ptl_sqid = ceiling((ptl_sq-sq_min)*inv_dsq+0.5)
+
+                  if(present(mesh5D_norm_occup_MarkerDen)) then
+                     if(sprng() < mesh5D_norm_occup_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)) then
+                        cycle ! reject this particle
+                     endif
+                  endif
+
+
+                  !accept this particle
+                  BLKs_NnewP_mype(Bid) = BLKs_NnewP_mype(Bid) +1
+                  me = me+1
+
+                  ! This is only a part of zeon0(6,m); it will be recalulated by multiplying 1/ge_val later
+                  if(present(mesh5D_norm_occup_dxdv)) then
+                     zeon0(6,me) = 1.0 -mesh5D_norm_occup_dxdv(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
+                  else
+                     zeon0(6,me) = 1.0
+                  endif
+
+                  zeon(1,me) = ptl_a
+                  zeon(7,me) = D01AHF(0.0_wp,zeon(1,me),error_8,minpts,ac,dsda,-1,ifail)
+
+
+                  sid = max(1,min(int((zeon(7,me)-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+                  ws1 = (zeon(7,me)-SG%s_1D(sid))*SG%inv_ds
+                  ws0 = (1.0-ws1)
+
+                  P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
+
+                  zeon(3,me) = modulo(loc_gf_min + loc_Del_f*sprng(), 2.0*pi)
+                  zeon(2,me) = modulo(ptl_gq + (gf(fid)-zeon(3,me))/P_safety_q, 2.0*pi)
+
+                  upara = (ptl_ur*cos(ptl_sq))
+                  uperp = (ptl_ur*sin(ptl_sq))
+
+                  ! Note that zeon(4) and zeon(6) are temporary used to carray upara and uperp values
+                  ! The real zeon values will be calculated later
+                  zeon(4,me) = upara
+                  zeon(6,me) = uperp
+
+                  elabels(me) = label_val
+               endif
+            enddo ! End k=1,loc_Nsamp
+
+            BLKs_m1(Bid) = me
+
+         enddo ! End BLK loop
+         !$acc update device(zeon(:,m0:me),elabels(m0:me))
+         call MPI_ALLREDUCE(BLKs_NnewP_mype, BLKs_NnewP_npartd, num_BLKs, MPI_INTEGER, MPI_SUM, partd_comm,ierror)
+         call MPI_ALLREDUCE(BLKs_Nsamp_mype, BLKs_Nsamp_npartd, num_BLKs, MPI_INTEGER, MPI_SUM, partd_comm,ierror)
+
+         if(mype==0) then
+            write(stdout,'(2(A,I0),A,F8.3)') "tot_BLKs_NnewP_npartd=",sum(BLKs_NnewP_npartd),"; tot_BLKs_Nsamp_npartd=",sum(BLKs_Nsamp_npartd),"; Acceptance Rate=",real(sum(BLKs_NnewP_npartd))/sum(BLKs_Nsamp_npartd)
+            call flush(stdout)
+         endif
+
+         call n_T_u_group_e(m0,me)   ! get Te, note that back_f0_e cannot be calculated here because it requires zeon(4) and zeon(6)
+         !$acc update self(backTe(m0:me))
+         call esigetbf_partial(zeon,m0,me,zeondim)
+
+         do Bid=1,num_BLKs
+            do m=BLKs_m0(Bid),BLKs_m1(Bid)
+               upara = zeon(4,m) ! upara value is carried by zeon(4) from the previous do loop
+               uperp = zeon(6,m) ! uperp value is carried by zeon(6) from the previous do loop
+
+               vpara = upara*sqrt(backTe(m))
+               vperp = uperp*sqrt(backTe(m))
+
+               zeon(4,m) = msm0*vpara/(csc0*BB(m))
+               zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+
+               ! Note that ge_val (marker distribution) should include the Jacobian from the polar coordinate (here, vperp)
+               ! ge_val(m) = tot_N_newP/(Del_a*Del_gq*Del_gf*(0.5*pi*(ur_max**2.0-ur_min**2.0))*backTe(m))/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+               ! ge_val = BLKs_NnewP_npartd(Bid)/(BLKs_d3x(Bid)*BLKs_d2u(Bid)*backTe(m)*Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+               ge_val = BLKs_Nsamp_npartd(Bid)/(BLKs_d3x(Bid)*BLKs_d2u(Bid)*backTe(m)*Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+               zeon0(6,m) = zeon0(6,m)/ge_val ! Phase space volume
+            enddo
+         enddo
+         !$acc update device(zeon(:,m0:me))
+         !$acc update device(zeon0(6,m0:me))
+         call n_T_u_group_e(m0,me,flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+
+
+
+         ! Calculate Adiab term
+         allocate(AdiabTerm(m0:me))
+         call electron_locator_partial(m0,me) ! This is required to calculate wpeon, wteon0 and etc
+         !$acc parallel loop present(AdiabTerm, wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+         do m=m0,me
+            wz1=wzeon(m)
+            wz0=1.0_wp-wz1
+
+            ij=jteon0(m)
+            wp0=1.0_wp-wpeon(m)
+            wt00=1.0_wp-wteon0(m)
+            intp_phi = wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0 = wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=ij+1
+            wt10=1.0_wp-wt00
+            intp_phi=intp_phi+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0=intp_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=jteon1(m)
+            wp1=1.0_wp-wp0
+            wt01=1.0_wp-wteon1(m)
+            intp_phi=intp_phi+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+            intp_FLA_Te0=intp_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            ij=ij+1
+            wt11=1.0_wp-wt01
+            intp_phi=intp_phi+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+            intp_FLA_Te0=intp_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
+
+            r=(zeon(7,m)-s0)/deltar       ! in radial coordinator s
+            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            fip=r-real(ip,wp)
+            intp_phi00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+            if ( Flag_Def_dne_adiab==0 ) then
+               AdiabTerm(m)=abs(csc0)*(intp_phi-real(1.0-ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_NZ/Te)
+            elseif(Flag_Def_dne_adiab==1) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==2) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==3) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
+               AdiabTerm(m)=-1.0+exp(abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (e*dphi_tot/Te)
+            else
+               AdiabTerm(m)=-1e100
+               write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+               STOP
+            endif
+         enddo
+
+
+         ! Set initial weights of ions
+         ! zeon(5,m) is "df"
+         ! zeon(8,m) is "f_tot"
+         ! zeon0(6,m) is "phase volume"
+
+         !$acc parallel loop present(zeon,zeon0,back_f0_e,we_init,we_vpara,we_vperp,we_accel,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         do m=m0,me
+            ! zeon(5,m) is "df" or "dh"
+            ! zeon(8,m) is "f_tot"
+            ! zeon(9,m) is "f_AD"
+            ! zeon0(9,m) is "f_0"
+            ! zeon0(6,m) is "phase volume"
+
+            integral_f0 = zeon0(6,m)*back_f0_e(m) !f_0
+
+            target_w_tot = FluxFactor_over_f0*integral_f0
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
+
+            zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
+            zeon0(9,m) = integral_f0 ! f_0
+
+            we_init(m)  = zeon(5,m)
+            we_vpara(m) = 0
+            we_vperp(m) = 0
+            we_accel(m) = 0
+            we_adiab(m) = 0
+            we_fdamp(m) = 0
+
+            !$acc loop seq
+            do i=1,5
+               zeon0(i,m)     = zeon(i,m)
+            enddo
+            zeon0(7,m)       = zeon(7,m)
+            zeon0(8,m)       = zeon(8,m)
+            UnNorm_theta_e(m)= zeon(2,m)
+            UnNorm_zeta_e(m) = zeon(3,m)
+         enddo
+         acc_newer_D_zeon=.true.
+
+
+         deallocate(AdiabTerm)
+
+         deallocate(BLKs_aid,BLKs_gqid,BLKs_gfid,BLKs_m0,BLKs_m1)
+         deallocate(BLKs_Nsamp_mype, BLKs_Nsamp_npartd,BLKs_NnewP_mype,BLKs_NnewP_npartd)
+         deallocate(BLKs_d3x,BLKs_d2u)
+
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+
+      end subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr
+
       subroutine Clear_newIons_beyond_Velocity_Boundary(m_start, m_end)
          use global_parameters
          use particle_array
