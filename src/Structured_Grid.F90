@@ -185,9 +185,8 @@ contains
       SG%j0_cov3(3,:,:)=SG%g_ff_cov*SG%j0_cntv3(3,:,:)
 
 
+      allocate(SG%dB_cntv3(3,SG%dim_gq,SG%dim_s,0:1))
       if(electromagnetic==1 .and. num_of_EMP>0) then
-         allocate(SG%dB_cntv3(3,SG%dim_gq,SG%dim_s,0:1))
-
          do ss=1,SG%dim_s
             do qq=1,SG%dim_gq
 
@@ -204,6 +203,8 @@ contains
                SG%dB_cntv3(3,qq,ss,1) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)
             enddo
          enddo
+      else
+         SG%dB_cntv3 = 0.0
       endif
 
       allocate(SG%E_para(SG%dim_gq,SG%dim_a,0:1))
