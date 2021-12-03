@@ -3240,6 +3240,319 @@ module Ptl_Src_Loss
 
 
 
+      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_sr, dim_sq, tgt_ur_bound, mesh_norm_dxdv, mesh_MarkerDen)
+         use global_parameters
+         use particle_array
+         use particle_decomp
+         use Structured_Grid
+         use esi_interface
+         use mpi_defs
+         use function_gg_module
+         use hdf5
+         use h5lt
+         implicit none
+         integer, intent(in) :: dim_sr, dim_sq
+         real(wp), intent(in) :: tgt_ur_bound(:,:,:,:) ! (dim_a,dim_gq,dim_gf,2); upper ur and lower ur bound on 3-D grid (a,gq,gf)
+         real(wp), intent(inout) :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (sr,sq,a,gq,gf) normalized dxdv by pre-occupying particles
+         real(wp), intent(inout) :: mesh_MarkerDen(:,:,:,:,:) ! 5-D grid (sr,sq,a,gq,gf) normalized density by pre-occupying particles (on upace, no Jacobian)
+         !$acc declare create(mesh_norm_dxdv,mesh_MarkerDen)
+         real(wp), allocatable :: tmp_mesh(:,:,:,:,:),cell_vol_5D(:,:,:,:,:), cell_area_5D(:,:,:,:,:)
+         real(wp), allocatable :: sr(:), sq(:)
+         real(wp), allocatable :: a_1D(:), gq(:), gf(:)
+         integer :: sid, tgt_aid, tgt_gqid, tgt_gfid, tgt_srid, tgt_sqid
+         real(wp) ptl_ur, ptl_sr, ptl_sq, ptl_ur_bound(2)
+         real(wp) tgt_gq, ws0,ws1, P_safety_q
+         real(wp) upara,uperp, Cell_dVol_x3, Cell_dVol_sr, Cell_dVol_sq
+         real(wp), allocatable :: spara_2D(:,:), sperp_2D(:,:), ur_4D(:,:,:,:), upara_5D(:,:,:,:,:), uperp_5D(:,:,:,:,:)
+         integer m,i,j,k,LL,length,ierror,istatus(MPI_STATUS_SIZE)
+         integer aid,gqid,gfid,srid,sqid
+         real(wp) :: a_min, a_max, gq_min, gq_max, gf_min, gf_max, sr_min, sr_max, sq_min, sq_max
+         real(wp) :: da, dgq, dgf, dsr, dsq, inv_da, inv_dgq, inv_dgf, inv_dsr, inv_dsq
+         real(wp) :: sr0,sr1,sq0,sq1,ur0,ur1
+         integer :: dim_a, dim_gq, dim_gf
+         real(wp), external :: temperature_e
+         real(wp) mesh_cell_vol, mesh_cell_area ! 5-D mesh volume and area of each mesh grid
+         real(wp) time0,time1
+         real(wp), allocatable :: SG_Te0_1D(:), SG_Cell_dV(:,:), SG_safety_q_1D(:)
+
+         character(len=128) filename, gname
+         integer(HID_T) file_id, gid
+         integer :: h5err
+         integer(HSIZE_T) :: h5dims(5)
+
+         ! Global mesh means that the mesh covers all the spatial range (a0-a1, 0-2pi, 0-2pi)
+         ! by taking into account all processors and their communications.
+         ! Also, the periodical conditions into theta and toroidal direcitons are considered
+
+#ifdef _MGY_TIMER_
+         time0=MPI_WTIME()
+#endif
+
+         ! ! For simplicity, let's use a zero-th order shape function (closest near grid)
+         if(acc_newer_H_zeon) then
+            !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            acc_newer_H_zeon=.false.
+            acc_newer_D_zeon=.false.
+         endif
+
+         call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zeon(4) and zeon(6)
+         call esigetb(zeon,me,zeondim)   ! get B-->BB
+
+
+
+         ! allocate a,gq,gf and copy SG information into
+         allocate(a_1D(SG%dim_a),gq(SG%dim_gq),gf(2))
+         allocate(sr(dim_sr),sq(dim_sq))
+         a_1D=SG%a_1D
+         gq=SG%gq_1D
+         gf(1)=zetamin
+         gf(2)=zetamax
+
+         sr_min = 0; sr_max = 1;
+         sq_min = 0; sq_max = pi;
+         dsr=(sr_max-sr_min)/(dim_sr-1); inv_dsr = 1.0/dsr
+         dsq=(sq_max-sq_min)/(dim_sq-1); inv_dsq = 1.0/dsq
+         do i=1,dim_sr
+            sr(i) = sr_min + (i-1)*dsr
+         enddo
+         do i=1,dim_sq
+            sq(i) = sq_min + (i-1)*dsq
+         enddo
+
+
+         a_min = minval(a_1D); a_max = maxval(a_1D); dim_a = size(a_1D)
+         gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
+         gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
+
+         da=(a_max-a_min)/(dim_a-1);     inv_da  = 1.0/da
+         dgq=(gq_max-gq_min)/(dim_gq-1); inv_dgq = 1.0/dgq
+         dgf=(gf_max-gf_min)/(dim_gf-1); inv_dgf = 1.0/dgf
+
+         ! Measure normalized phase volume from electrons that reside in mesh domain
+         ! mesh_norm_dxdv was allocated at the outside of this subroutine
+         mesh_norm_dxdv=0.0
+         mesh_MarkerDen=0.0
+         !$acc update device(mesh_norm_dxdv,mesh_MarkerDen)
+
+         !$acc parallel loop present(mesh_norm_dxdv,mesh_MarkerDen)
+         do m=1,me
+            tgt_aid  = ceiling((zeon(1,m)-a_min)*inv_da+0.5) ! Find nearst grid
+            tgt_gfid = ceiling((zeon(3,m)-gf_min)*inv_dgf+0.5) ! Find nearst grid
+
+            ! Interpolate safety factor
+            sid = max(1,min(int((zeon(7,m)-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (zeon(7,m)-SG%s_1D(sid))*SG%inv_ds
+            ws0 = (1.0-ws1)
+            P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
+
+            tgt_gq = modulo(zeon(2,m) + (gf(tgt_gfid)-zeon(3,m))/P_safety_q, 2.0*pi)
+            tgt_gqid = ceiling((tgt_gq-gq_min)*inv_dgq+0.5) ! Find nearst grid
+
+            ! Find ur bound of the particle
+            ptl_ur_bound = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,:)
+
+            ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+            ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+            upara = zeon(4,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
+            uperp = zeon(6,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
+
+            ptl_ur = sqrt(upara**2.0+uperp**2.0)
+
+            if( (ptl_ur-ptl_ur_bound(1))*(ptl_ur-ptl_ur_bound(2)) <0) then
+               ! Measure particle's contribution to the norm_phase_volume and MarkerDen
+               ptl_sr = (ptl_ur-ptl_ur_bound(1))/(ptl_ur_bound(2)-ptl_ur_bound(1))
+               tgt_srid = ceiling((ptl_sr-sr_min)*inv_dsr+0.5)
+               ptl_sq = acos(upara/ptl_ur)
+               tgt_sqid = ceiling((ptl_sq-sq_min)*inv_dsq+0.5)
+
+               !$acc atomic update
+               mesh_norm_dxdv(tgt_srid,tgt_sqid,tgt_aid,tgt_gqid,tgt_gfid) = mesh_norm_dxdv(tgt_srid,tgt_sqid,tgt_aid,tgt_gqid,tgt_gfid) + zeon0(6,m)
+               !$acc atomic update
+               mesh_MarkerDen(tgt_srid,tgt_sqid,tgt_aid,tgt_gqid,tgt_gfid) = mesh_MarkerDen(tgt_srid,tgt_sqid,tgt_aid,tgt_gqid,tgt_gfid) + 1.0
+            endif
+         enddo
+
+
+         allocate(SG_Te0_1D(SG%dim_a),SG_Cell_dV(SG%dim_gq,SG%dim_a))
+
+         SG_Te0_1D = SG%Te0_1D
+         SG_Cell_dV = SG%Cell_dV
+
+
+
+         allocate(cell_vol_5D(dim_sr,dim_sq,dim_a,dim_gq,dim_gf))
+         allocate(cell_area_5D(dim_sr,dim_sq,dim_a,dim_gq,dim_gf))
+
+         length=dim_sq*dim_sr*dim_a*dim_gq*dim_gf
+         ! Normalize the results
+         !$acc parallel loop gang vector present(mesh_norm_dxdv,mesh_MarkerDen) private(LL,k)
+         do k=1,length
+            LL=k
+            gfid  = int((LL-1)/(dim_sr*dim_sq*dim_a*dim_gq))+1
+            LL    = modulo((LL-1),dim_sr*dim_sq*dim_a*dim_gq)+1
+            gqid  = int((LL-1)/(dim_sr*dim_sq*dim_a))+1
+            LL    = modulo((LL-1),dim_sr*dim_sq*dim_a)+1
+            aid   = int((LL-1)/(dim_sr*dim_sq))+1
+            LL    = modulo((LL-1),dim_sr*dim_sq)+1
+            sqid  = int((LL-1)/(dim_sr))+1
+            LL    = modulo((LL-1),dim_sr)+1
+            srid  = LL
+
+            vthc = sqrt(SG_Te0_1D(aid)*m0ms)
+               ! mesh_cell_vol = (cell spatial volume)*integral(2*pi*sr^2*sin(sq))
+               !               = (cell spatial volume)*2*pi*integral(sr^2)_(ur0-dsr/2)^(ur0+dsr/2) * integral(sin(sq))_(uq0-dsq/2)^(uq0+dsq/2)
+            ! Cell_dVol_x3 = SG%Cell_dV(gqid,aid)
+            Cell_dVol_x3 = SG_Cell_dV(gqid,aid)
+
+
+            sq0 = max(sq_min, sq(sqid)-0.5*dsq)
+            sq1 = min(sq_max, sq(sqid)+0.5*dsq)
+            Cell_dVol_sq = (-cos(sq1)+cos(sq0))
+
+
+            sr0 = max(sr_min, sr(srid)-0.5*dsr)
+            sr1 = min(sr_max, sr(srid)+0.5*dsr)
+            ptl_ur_bound = tgt_ur_bound(aid,gqid,gfid,:)
+            ur0 = ptl_ur_bound(1) + sr0*(ptl_ur_bound(2)-ptl_ur_bound(1))
+            ur1 = ptl_ur_bound(1) + sr1*(ptl_ur_bound(2)-ptl_ur_bound(1))
+            Cell_dVol_sr = (ur1**3.0-ur0**3.0)/3.0
+
+            mesh_cell_vol = 2.0*pi*(vthc**3.0)*Cell_dVol_x3*Cell_dVol_sr*Cell_dVol_sq
+
+            ! mesh_cell_area is without Jacobian by v_perp (2*pi*vperp) uspace
+            mesh_cell_area =  (min(a1,a_1D(aid)+0.5*da)-max(a0,a_1D(aid)-0.5*da))*dgq*dgf*0.5*(ur1**2.0-ur0**2.0)*(sq1-sq0)
+
+            ! Normalize using Cell_dxdv
+            mesh_norm_dxdv(srid,sqid,aid,gqid,gfid) = mesh_norm_dxdv(srid,sqid,aid,gqid,gfid)/mesh_cell_vol
+            mesh_MarkerDen(srid,sqid,aid,gqid,gfid) = mesh_MarkerDen(srid,sqid,aid,gqid,gfid)/mesh_cell_area
+            cell_vol_5D(srid,sqid,aid,gqid,gfid) = mesh_cell_vol
+            cell_area_5D(srid,sqid,aid,gqid,gfid) = mesh_cell_area
+         enddo
+         deallocate(SG_Te0_1D,SG_Cell_dV)
+
+         !$acc update self(mesh_norm_dxdv,mesh_MarkerDen)
+
+         allocate(tmp_mesh(dim_sr,dim_sq,dim_a,dim_gq,dim_gf))
+         ! Communicate with other processors
+         if(npartdom>1) then
+            tmp_mesh = mesh_norm_dxdv
+            length = dim_sr*dim_sq*dim_a*dim_gq*dim_gf
+            call MPI_ALLREDUCE(tmp_mesh, mesh_norm_dxdv, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+
+            tmp_mesh = mesh_MarkerDen
+            length = dim_sr*dim_sq*dim_a*dim_gq*dim_gf
+            call MPI_ALLREDUCE(tmp_mesh, mesh_MarkerDen, length, mpi_Rsize, MPI_SUM, partd_comm, ierror)
+         endif
+
+         ! Match poloidal end cell
+         ! (gq=0 and gq=2pi is the same position physically although they have different gqid)
+         mesh_norm_dxdv(:,:,:,1,:) = mesh_norm_dxdv(:,:,:,1,:) + mesh_norm_dxdv(:,:,:,dim_gq,:)
+         mesh_norm_dxdv(:,:,:,dim_gq,:) = mesh_norm_dxdv(:,:,:,1,:)
+
+         mesh_MarkerDen(:,:,:,1,:) = mesh_MarkerDen(:,:,:,1,:) + mesh_MarkerDen(:,:,:,dim_gq,:)
+         mesh_MarkerDen(:,:,:,dim_gq,:) = mesh_MarkerDen(:,:,:,1,:)
+
+         !toroidal communication
+         length = dim_sr*dim_sq*dim_a*dim_gq
+         call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1, tmp_mesh(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+         mesh_norm_dxdv(:,:,:,:,dim_gf) = mesh_norm_dxdv(:,:,:,:,dim_gf) + tmp_mesh(:,:,:,:,dim_gf)
+         call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1, mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+
+         call MPI_SENDRECV(mesh_MarkerDen(:,:,:,:,1),length,mpi_Rsize,left_pe,1, tmp_mesh(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+         mesh_MarkerDen(:,:,:,:,dim_gf) = mesh_MarkerDen(:,:,:,:,dim_gf) + tmp_mesh(:,:,:,:,dim_gf)
+         call MPI_SENDRECV(mesh_MarkerDen(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1, mesh_MarkerDen(:,:,:,:,1),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
+
+
+
+         ! !Write into hdf5 file
+         ! if(mype==0) then
+         !    ! write(filename, '("polar_mesh_norm_Elec_dxdv_",i5.5,"_urmin=",F0.2,".h5")') istep/msnap, sr_min
+         !    write(filename, '("mesh_norm_Elec_Adap_",i5.5,".h5")') istep/msnap
+
+         !    call h5open_f(h5err)
+         !    call h5fopen_f(filename, H5F_ACC_RDWR_F, file_id, h5err)
+         !    if(h5err==-1) then ! If there is no file
+         !       call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+         !    endif
+
+         !    write(gname,'("polar")')
+         !    call h5gcreate_f(file_id, gname, gid, h5err)
+
+
+         !    h5dims(1) = dim_sr
+         !    call h5ltmake_dataset_f(gid, "sr",1,h5dims,H5T_NATIVE_DOUBLE, sr, h5err)
+         !    h5dims(1) = dim_sq
+         !    call h5ltmake_dataset_f(gid, "sq",1,h5dims,H5T_NATIVE_DOUBLE, sq, h5err)
+         !    h5dims(1) = dim_a
+         !    call h5ltmake_dataset_f(gid, "a",1,h5dims,H5T_NATIVE_DOUBLE, a_1D, h5err)
+         !    h5dims(1) = dim_gq
+         !    call h5ltmake_dataset_f(gid, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
+         !    h5dims(1) = dim_gf
+         !    call h5ltmake_dataset_f(gid, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
+
+
+         !    allocate(ur_4D(dim_sr,dim_a,dim_gq,dim_gf))
+         !    allocate(spara_2D(dim_sr,dim_sq),sperp_2D(dim_sr,dim_sq))
+         !    allocate(upara_5D(dim_sr,dim_sq,dim_a,dim_gq,dim_gf),uperp_5D(dim_sr,dim_sq,dim_a,dim_gq,dim_gf))
+
+         !    do gfid=1,dim_gf
+         !       do gqid=1,dim_gq
+         !          do aid=1,dim_a
+         !             do srid=1,dim_sr
+         !                ur_4D(srid,aid,gqid,gfid) = tgt_ur_bound(aid,gqid,gfid,1)+ sr(srid)*(tgt_ur_bound(aid,gqid,gfid,2)-tgt_ur_bound(aid,gqid,gfid,1))
+         !                do sqid=1,dim_sq
+         !                   upara_5D(srid,sqid,aid,gqid,gfid) = ur_4D(srid,aid,gqid,gfid)*cos(sq(sqid))
+         !                   uperp_5D(srid,sqid,aid,gqid,gfid) = ur_4D(srid,aid,gqid,gfid)*sin(sq(sqid))
+         !                enddo
+         !             enddo
+         !          enddo
+         !       enddo
+         !    enddo
+         !    do srid=1,dim_sr
+         !       do sqid=1,dim_sq
+         !          spara_2D(srid,sqid) = sr(srid)*cos(sq(sqid))
+         !          sperp_2D(srid,sqid) = sr(srid)*sin(sq(sqid))
+         !       enddo
+         !    enddo
+
+         !    h5dims(1:2) = [dim_sr,dim_sq]
+         !    call h5ltmake_dataset_f(gid, "spara_2D",2,h5dims,H5T_NATIVE_DOUBLE, spara_2D, h5err)
+         !    call h5ltmake_dataset_f(gid, "sperp_2D",2,h5dims,H5T_NATIVE_DOUBLE, sperp_2D, h5err)
+
+         !    h5dims(1:4) = [dim_sr,dim_a,dim_gq,dim_gf]
+         !    call h5ltmake_dataset_f(gid, "ur_4D",4,h5dims,H5T_NATIVE_DOUBLE, ur_4D, h5err)
+
+         !    h5dims(1:5) = [dim_sr,dim_sq,dim_a,dim_gq,dim_gf]
+         !    call h5ltmake_dataset_f(gid, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
+         !    call h5ltmake_dataset_f(gid, "mesh_MarkerDen",5,h5dims,H5T_NATIVE_DOUBLE, mesh_MarkerDen, h5err)
+         !    call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, cell_vol_5D, h5err)
+         !    call h5ltmake_dataset_f(gid, "mesh_cell_area",5,h5dims,H5T_NATIVE_DOUBLE, cell_area_5D, h5err)
+         !    call h5ltmake_dataset_f(gid, "upara_5D",5,h5dims,H5T_NATIVE_DOUBLE, upara_5D, h5err)
+         !    call h5ltmake_dataset_f(gid, "uperp_5D",5,h5dims,H5T_NATIVE_DOUBLE, uperp_5D, h5err)
+
+         !    call h5gclose_f(gid, h5err)
+         !    call h5fclose_f(file_id, h5err)
+         !    call h5close_f(h5err)
+
+         !    deallocate(spara_2D,sperp_2D)
+         !    deallocate(ur_4D)
+         !    deallocate(upara_5D,uperp_5D)
+         ! endif
+
+         deallocate(a_1D,gq,gf)
+         deallocate(sr,sq)
+         deallocate(tmp_mesh)
+         deallocate(cell_vol_5D)
+         deallocate(cell_area_5D)
+
+#ifdef _MGY_TIMER_
+         time1=MPI_WTIME()
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr takes", time1-time0, " secs"
+         call flush(stdout)
+#endif
+      end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr
+
+
       subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv, in_label_val)
          use global_parameters
          use particle_array
