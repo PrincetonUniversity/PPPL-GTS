@@ -441,6 +441,191 @@ module Ptl_Src_Loss
 
       end subroutine Cal_dupara_per_dt_using_SG
 
+
+      subroutine Cal_dErg_per_nstep_by_Potential_along_FieldLine
+         use global_parameters
+         use Magnetic_Grid, only: B_cntv,grad_B_cntv,d23_B_cntv,TriCubic_Interpolation_of_Vec
+         use particle_decomp
+         use mpi_defs
+         use Structured_Grid
+         implicit none
+
+         integer :: minpts, ifail=1, ierror, istatus(MPI_STATUS_SIZE)
+         real(wp) :: acc, error_8=1e-5
+         real(wp), external:: dsda, D01AHF
+         real(wp) dgf,specific_time ! toroidal step for field-line-following integration
+         real(wp) a_RK(4), gq_RK(4), B_vec_cntv(3)
+         integer, allocatable :: F_ini_aid(:), F_ini_gqid(:)
+         real(wp),dimension(:),allocatable :: ini_a,ini_gq,ini_gf
+         real(wp) now_a, now_gq, now_gf, now_s, ori_phi_V, now_phi_V ! Note that phi is the potential in Volt unit
+         real(wp) prev_a, prev_gq, prev_gf
+         real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+         integer recv_counts_Lsize(npartdom), recv_displs_Lsize(npartdom)
+         integer max_tor_rotation, num_gq, num_gf, i, j, k, ierr,length, h5err
+         integer Gsize, Lsize, extra! Number of G(Global) or L(Local) Field lines
+         integer Fid, Fid_start, Fid_end
+         integer tor_dir,aid,gqid
+         real(wp) :: dErg_eV, FL_loc_Lc ! field line length
+         real(wp), allocatable :: FL_max_dErg_eV(:), recv_FL_max_dErg_eV(:) ! maximum energy change by potential along field line
+         real(wp) Lc_track_threshold ! Determine how long the field line will be tracked (vmax*dt*nstep)
+
+#ifdef _MGY_TIMER_
+   Gt_start=MPI_WTIME()
+#endif
+
+         specific_time = 0.0
+
+         ! Prepare SG's phi_3D in case
+         call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+
+         max_tor_rotation = 100
+         Lc_track_threshold = 50 ! 50 m
+
+
+         Gsize = PtlSrcCV%dim_a*PtlSrcCV%dim_gq
+         Lsize = Gsize/npartdom
+         extra = Gsize-Lsize*npartdom
+         Fid_start = Lsize*(myrank_partd)   + min(extra,myrank_partd) +1 ! Last +1 is due to Fortran's indexing that starts from 1
+         Fid_end   = Lsize*(myrank_partd+1) + min(extra,myrank_partd+1)
+         Lsize = Fid_end - Fid_start +1
+
+         ! Get counts and displacements of Lsize in MPI_COMM_WORLD
+         call MPI_ALLGATHER(Lsize,1,MPI_INTEGER,recv_counts_Lsize,1,MPI_INTEGER,partd_comm,ierr)
+         recv_displs_Lsize(1)=0
+         do i=1,npartdom-1
+            recv_displs_Lsize(i+1)=recv_displs_Lsize(i)+recv_counts_Lsize(i)
+         enddo
+
+
+         allocate(F_ini_aid(Gsize), F_ini_gqid(Gsize))
+         allocate(ini_a(Gsize),ini_gq(Gsize),ini_gf(Gsize))
+
+         ! Calculate at zetamax and communicate with other planes later
+         ini_gf(:) = zetamax
+         Fid = 1
+         do aid=1,PtlSrcCV%dim_a
+            do gqid=1,PtlSrcCV%dim_gq
+               ini_a(Fid) = PtlSrcCV%a_1D(aid)
+               ini_gq(Fid)= PtlSrcCV%gq_1D(gqid)
+               F_ini_aid(Fid) = aid
+               F_ini_gqid(Fid)= gqid
+               Fid=Fid+1
+            enddo
+         enddo
+
+
+         allocate(FL_max_dErg_eV(Fid_start:Fid_end))
+         allocate(recv_FL_max_dErg_eV(Gsize))
+
+         FL_max_dErg_eV = 0.0
+
+         do Fid = Fid_start,Fid_end
+            do tor_dir=-1,1,2
+
+               FL_loc_Lc = 0.0
+
+               dgf = tor_dir*2.0*pi/50.0 ! tor_dir=-1 (CW; -zeta), tor_dir=1(CCW; +zeta)
+
+               now_a  = ini_a(Fid)
+               now_gq = ini_gq(Fid)
+               now_gf = ini_gf(Fid)
+
+               prev_a  = now_a
+               prev_gq = now_gq
+               prev_gf = now_gf
+
+               now_s = D01AHF(0.0,now_a,error_8,minpts,acc,dsda,-1,IFAIL)
+               ! now_s = now_a
+               call Get_Intp_global_phi3D_on_SG(now_s, now_gq, now_gf, ori_phi_V)
+
+               do while(.true.)
+
+                  prev_a = now_a
+                  prev_gq = now_gq
+                  prev_gf = now_gf
+
+                  ! Runge-Kutta 4th order
+                  ! call esiget_Intp_B_vec_contravariant(now_a, modulo(now_gq,2.0*pi), modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+                  call TriCubic_Interpolation_of_Vec(now_a, modulo(now_gq,2.0*pi), modulo(now_gf,2.0*pi), B_cntv, grad_B_cntv, d23_B_cntv, B_vec_cntv)
+                  a_RK(1)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                  gq_RK(1)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                  ! call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(1), modulo(now_gq+0.5*gq_RK(1),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+                  call TriCubic_Interpolation_of_Vec(now_a+0.5*a_RK(1), modulo(now_gq+0.5*gq_RK(1),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), B_cntv, grad_B_cntv, d23_B_cntv, B_vec_cntv)
+                  a_RK(2)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                  gq_RK(2)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                  ! call esiget_Intp_B_vec_contravariant(now_a+0.5*a_RK(2), modulo(now_gq+0.5*gq_RK(2),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), specific_time, B_vec_cntv)
+                  call TriCubic_Interpolation_of_Vec(now_a+0.5*a_RK(2), modulo(now_gq+0.5*gq_RK(2),2.0*pi), modulo(now_gf+0.5*dgf,2.0*pi), B_cntv, grad_B_cntv, d23_B_cntv, B_vec_cntv)
+                  a_RK(3)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                  gq_RK(3)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+                  ! call esiget_Intp_B_vec_contravariant(now_a+a_RK(3), modulo(now_gq+gq_RK(3),2.0*pi), modulo(now_gf+dgf,2.0*pi), specific_time, B_vec_cntv)
+                  call TriCubic_Interpolation_of_Vec(now_a+a_RK(3), modulo(now_gq+gq_RK(3),2.0*pi), modulo(now_gf+dgf,2.0*pi), B_cntv, grad_B_cntv, d23_B_cntv, B_vec_cntv)
+                  a_RK(4)     = dgf*B_vec_cntv(1)/B_vec_cntv(3) ! Ba_cntv/Bgf_cntv
+                  gq_RK(4)    = dgf*B_vec_cntv(2)/B_vec_cntv(3) ! Bgq_cntv/Bgf_cntv
+
+
+                  now_a = now_a + (a_RK(1)+2.0*a_RK(2)+2.0*a_RK(3)+a_RK(4))/6.0
+                  now_gq = now_gq + (gq_RK(1)+2.0*gq_RK(2)+2.0*gq_RK(3)+gq_RK(4))/6.0
+                  now_gf = now_gf + dgf
+
+
+                  aaa=now_a
+                  the=modulo(now_gq, 2.0*pi)
+                  call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+                  ! call esiget_Intp_B_vec_contravariant(aaa, the, modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
+                  call TriCubic_Interpolation_of_Vec(aaa, the, modulo(now_gf,2.0*pi), B_cntv, grad_B_cntv, d23_B_cntv, B_vec_cntv)
+                  FL_loc_Lc  = FL_loc_Lc + abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+                                                                     +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
+                                                                     +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
+                                                                     + rj**2  )
+
+
+                  ! Interpolate phi at current point (now_a,now_gq,now_gf)
+                  now_s = D01AHF(0.0,now_a,error_8,minpts,acc,dsda,-1,IFAIL)
+                  ! now_s = now_a
+
+                  ! call Get_Intp_phi_on_SG(now_s, now_gq, now_gf, now_phi_V)
+                  call Get_Intp_global_phi3D_on_SG(now_s, now_gq, now_gf, now_phi_V)
+
+                  dErg_eV = abs(now_phi_V-ori_phi_V)
+                  if(dErg_eV > FL_max_dErg_eV(Fid)) then
+                     FL_max_dErg_eV(Fid) = dErg_eV
+                  endif
+
+                  if(FL_loc_Lc>Lc_track_threshold .or. now_a<=minval(PtlSrcCV%a_1D) .or. now_a >= maxval(PtlSrcCV%a_1D) .or. abs(now_gf-ini_gf(Fid))>max_tor_rotation*(2*pi)) then
+                     exit
+                  endif
+               enddo ! end while(.true.)
+            enddo ! tor_id=1,2
+
+            ! write(stdout,'(2(A,I0),A,2(I0,1x),2(A,ES9.3))') "mype=",mype,"; Fid=",Fid,"; Fid_start_end=",Fid_start, Fid_end, "; FL_max_dErg_eV(Fid)", FL_max_dErg_eV(Fid), "; FL_loc_Lc=", FL_loc_Lc
+            ! call flush(stdout)
+            ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         enddo ! Fid
+
+         call MPI_Allgatherv(FL_max_dErg_eV, Lsize, MPI_Rsize, recv_FL_max_dErg_eV, recv_counts_Lsize, recv_displs_Lsize, MPI_Rsize, partd_comm, ierr)
+
+         do Fid=1,Gsize
+            PtlSrcCV%Elec_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
+         enddo
+
+         !toroidal communication
+         length = PtlSrcCV%dim_a*PtlSrcCV%dim_gq
+         call MPI_SENDRECV(PtlSrcCV%Elec_dErg_eV_per_nstep(:,:,1),length,mpi_Rsize,left_pe,1, PtlSrcCV%Elec_dErg_eV_per_nstep(:,:,0),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+
+         deallocate(F_ini_aid, F_ini_gqid)
+         deallocate(ini_a, ini_gq, ini_gf)
+         deallocate(FL_max_dErg_eV)
+         deallocate(recv_FL_max_dErg_eV)
+
+#ifdef _MGY_TIMER_
+   Gt_end=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", Cal_dErg_per_nstep_by_Potential_along_FieldLine takes", Gt_end-Gt_start, " secs"
+   call flush(stdout)
+#endif
+
+      end subroutine Cal_dErg_per_nstep_by_Potential_along_FieldLine
+
+
       subroutine Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP, energy)
          use global_parameters
          use particle_array
