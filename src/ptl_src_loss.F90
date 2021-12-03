@@ -385,6 +385,7 @@ module Ptl_Src_Loss
          real(wp) dt_s,me_kg,mi_kg,qe_C,qi_C, vthe_mps, vthi_mps ! velocity unit (meter per second)
          integer ss,qq,k
          real(wp) peak_before, peak_after
+         integer Wsz_q, Wsz_a
 
          dt_s  = tstep*utime
          me_kg = 1e-3*amasse
@@ -406,24 +407,36 @@ module Ptl_Src_Loss
                PtlSrcCV%Ion_dupara_per_nstep(:,ss,:)  = PtlSrcCV%nstep*abs(qi_C*PtlSrcCV%mean_E_para(:,ss,:)/mi_kg)*dt_s/vthi_mps
             enddo
          endif
-         PtlSrcCV%Elec_dupara_per_nstep_SM = PtlSrcCV%Elec_dupara_per_nstep
-         PtlSrcCV%Ion_dupara_per_nstep_SM = PtlSrcCV%Ion_dupara_per_nstep
+         ! PtlSrcCV%Elec_dupara_per_nstep_SM = PtlSrcCV%Elec_dupara_per_nstep
+         ! PtlSrcCV%Ion_dupara_per_nstep_SM = PtlSrcCV%Ion_dupara_per_nstep
 
-         ! Smooth and rescale elec_dupara and ion_dupara
-         do k=0,1
-            peak_before = maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
-            if(peak_before>0) then
-               call Smooth_SG_Data_2D([20], PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
-               peak_after  = maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
-               PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k) = (peak_before/peak_after)*PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k)
-            endif
 
-            peak_before = maxval(PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
-            if(peak_before>0) then
-               call Smooth_SG_Data_2D([20], PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
-               peak_after  = maxval(PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
-               PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k) = (peak_before/peak_after)*PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k)
-            endif
+         ! ! Smooth and rescale elec_dupara and ion_dupara
+         ! do k=0,1
+         !    peak_before = maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
+         !    if(peak_before>0) then
+         !       call Smooth_SG_Data_2D([20], PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
+         !       peak_after  = maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
+         !       PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k) = (peak_before/peak_after)*PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k)
+         !    endif
+
+         !    peak_before = maxval(PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
+         !    if(peak_before>0) then
+         !       call Smooth_SG_Data_2D([20], PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
+         !       peak_after  = maxval(PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
+         !       PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k) = (peak_before/peak_after)*PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k)
+         !    endif
+         ! enddo
+
+         Wsz_q=10;
+         Wsz_a=5;
+         do ss=1,SG%dim_s
+            do qq=1,SG%dim_gq
+               do k=0,1
+                  PtlSrcCV%Elec_dupara_per_nstep_SM(qq,ss,k) = maxval(PtlSrcCV%Elec_dupara_per_nstep(modulo([qq-Wsz_q:qq+Wsz_q]-1, SG%dim_gq)+1, max(1,ss-Wsz_a):min(SG%dim_s,ss+Wsz_a),k))
+                  PtlSrcCV%Ion_dupara_per_nstep_SM(qq,ss,k) = maxval(PtlSrcCV%Ion_dupara_per_nstep(modulo([qq-Wsz_q:qq+Wsz_q]-1, SG%dim_gq)+1, max(1,ss-Wsz_a):min(SG%dim_s,ss+Wsz_a),k))
+               enddo
+            enddo
          enddo
 
       end subroutine Cal_dupara_per_dt_using_SG
