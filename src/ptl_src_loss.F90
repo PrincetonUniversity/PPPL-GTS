@@ -4260,7 +4260,7 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord
 
-      subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(a,gq,gf,tgt_ur_bound,mesh5D_norm_occup_MarkerDen,mesh5D_norm_occup_dxdv,in_FluxFactor_over_f0,in_label_val)
+      subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(a,gq,gf,tgt_ur_bound,mesh_occp_MarkerDen,mesh5D_norm_occp_dxdv,in_FluxFactor_over_f0,in_label_val)
          use global_parameters
          use particle_array
          use field_array
@@ -4277,7 +4277,7 @@ module Ptl_Src_Loss
 
          real(wp), intent(in), dimension(:) :: a,gq,gf
          real(wp), intent(in) :: tgt_ur_bound(:,:,:,:) ! (dim_a,dim_gq,dim_gf,2); upper ur and lower ur bound on 3-D grid (a,gq,gf)
-         real(wp), intent(in), optional, dimension(:,:,:,:,:) :: mesh5D_norm_occup_MarkerDen, mesh5D_norm_occup_dxdv ! 5-D grid (sr,sq,a,gq,gf) normalized MarkerDensity and dxdv (phase volume) occupied by present particles
+         real(wp), intent(in), optional, dimension(:,:,:,:,:) :: mesh_occp_MarkerDen, mesh5D_norm_occp_dxdv ! 5-D grid (sr,sq,a,gq,gf) normalized MarkerDensity and dxdv (phase volume) occupied by present particles
          real(wp), intent(in), optional :: in_FluxFactor_over_f0
          real(wp), intent(in), optional :: in_label_val
          real(wp) FluxFactor_over_f0
@@ -4285,10 +4285,12 @@ module Ptl_Src_Loss
          ! s(sr,sq,a,gq,gf) = (u(sr,sq,a,gq,gf)-ur_LowerBound(a,gq,gf))/(ur_UpperBound(a,gq,gf)-ur_LowerBound(a,gq,gf))
          ! sr(radius) and sq(angle) are polar coordinates for velocity space
          ! Particles will be generated in the domain of s=[0,1] on every spatial node
-         integer :: dim_sr, dim_sq
+         integer :: dim_sr, dim_sq, srid, sqid
          real(wp) :: sr_min, sr_max, sq_min, sq_max
+         real(wp) :: tgt_cell_Nm, sr0,sr1,ur0,ur1,sq0,sq1
+         real(wp),allocatable :: sr_1D(:), sq_1D(:)
          real(wp) :: Del_sr, Del_sq
-         real(wp) ini_Ne_marker_density
+         real(wp) ini_MarkerDen_mype, ini_MarkerDen_npartd
          integer :: BLK_SZa, BLK_SZq  ! Block size (number of indices) into a, gq direction
          integer :: aid,qid,fid, loc_max_aid, loc_max_qid, loc_Nsamp
 
@@ -4318,6 +4320,7 @@ module Ptl_Src_Loss
          integer, allocatable :: num_BLKs,BLKs_aid(:),BLKs_gqid(:),BLKs_gfid(:), BLKs_m0(:), BLKs_m1(:)
          integer, allocatable :: BLKs_Nsamp_mype(:), BLKs_Nsamp_npartd(:),BLKs_NnewP_mype(:), BLKs_NnewP_npartd(:)
          real(wp), allocatable :: BLKs_d3x(:), BLKs_d2u(:) ! spatial area and velocity area of each block
+         real(wp) occp_MarkerDen,amp_factor, mean_occp_MarkerNum, mean_norm_occp_dxdv
 
          !$acc declare create(AdiabTerm)
 
@@ -4337,6 +4340,33 @@ module Ptl_Src_Loss
 
          sr_min = 0.0; sr_max = 1.0; dim_sr = 6
          sq_min = 0.0; sq_max = pi;  dim_sq = 10
+
+         if(present(mesh_occp_MarkerDen)) then
+            dim_sr = size(mesh_occp_MarkerDen,1)
+            dim_sq = size(mesh_occp_MarkerDen,2)
+            if(present(mesh5D_norm_occp_dxdv)) then
+               if(dim_sr/=size(mesh5D_norm_occp_dxdv,1)) then
+                  write(stdout,*) "Error!! mesh5D_MarkerDen's dim_sr=",dim_sr," is different from mesh5D_dxdv's dim_s=",size(mesh5D_norm_occp_dxdv,1)
+                  call flush(stdout)
+                  stop
+               endif
+               if(dim_sq/=size(mesh5D_norm_occp_dxdv,2)) then
+                  write(stdout,*) "Error!! mesh5D_MarkerDen's dim_sq=",dim_sq," is different from mesh5D_dxdv's dim_q=",size(mesh5D_norm_occp_dxdv,2)
+                  call flush(stdout)
+                  stop
+               endif
+            endif
+         elseif(present(mesh5D_norm_occp_dxdv)) then
+            dim_sr = size(mesh5D_norm_occp_dxdv,1)
+            dim_sq = size(mesh5D_norm_occp_dxdv,2)
+         endif
+
+
+         ! if(mype==0) then
+         !    write(stdout,'(2(A,I0))') "In Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr, dim_sr=",dim_sr,"; dim_sq=",dim_sq
+         !    call flush(stdout)
+         ! endif
+
          a_min = minval(a); a_max = maxval(a); dim_a = size(a)
          gq_min = minval(gq); gq_max = maxval(gq); dim_gq = size(gq)
          gf_min = minval(gf); gf_max = maxval(gf); dim_gf = size(gf)
@@ -4348,22 +4378,24 @@ module Ptl_Src_Loss
          Del_gf = gf_max-gf_min;    dgf=Del_gf/(dim_gf-1)
 
 
-         ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*0.5*pi*umax**2.0)
+         allocate(sr_1D(dim_sr),sq_1D(dim_sq))
 
-         ! 여기서 해야할일..
-         ! 이 때 interpolation은 fieldline following..
-         ! 1. 블럭별로 maximum u_abs 값 찾고, rejection sampling 한다. abs(u_sample)<u_th인 애들만 accept
-         !   1.1. 블럭별로 tot_N_newP 계산하고 npartd 프로세스별로 배분. this_N_newP ~ tot_N_newP/npartd 마지막은 보정분 반영.
-         ! 2. accept 된 애들 필요한 값들 계산 (ge_val)
-         ! 3. accept된 애들 target_norm_phase_vol 계산해서 ge_vol과 결합하여 각 입자의 볼륨 계산하고,  Norm_Marker_Den 있으면 추가 rejection 수행.
+         do srid=1,dim_sr
+            sr_1D(srid)=sr_min+(srid-1)*dsr
+         enddo
+         do sqid=1,dim_sq
+            sq_1D(sqid)=sq_min+(sqid-1)*dsq
+         enddo
 
-         ! Assume that max_uabs is determined by the mesh_Delta_u at the lower zeta plane.
+         ini_MarkerDen_mype = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*0.5*pi*umax**2.0)
+         ini_MarkerDen_npartd = ini_me_npartd/((a1-a0)*(2*pi)*(zetamax-zetamin)*0.5*pi*umax**2.0)
+
+
 
          inv_da = 1.0/da; inv_dgq=1.0/dgq; inv_dsr=1.0/dsr; inv_dsq=1.0/dsq
 
-
-         BLK_SZa = 5
-         BLK_SZq = 10
+         BLK_SZa = 7
+         BLK_SZq = 20
          num_BLKs = dim_gf*ceiling(real(dim_a-1)/BLK_SZa)*ceiling(real(dim_gq-1)/BLK_SZq)
          allocate(BLKs_aid(num_BLKs),BLKs_gqid(num_BLKs),BLKs_gfid(num_BLKs),BLKs_m0(num_BLKs), BLKs_m1(num_BLKs))
          allocate(BLKs_Nsamp_mype(num_BLKs), BLKs_Nsamp_npartd(num_BLKs),BLKs_NnewP_mype(num_BLKs),BLKs_NnewP_npartd(num_BLKs))
@@ -4409,8 +4441,14 @@ module Ptl_Src_Loss
             BLKs_d2u(Bid) = 0.5*pi*(loc_max_ur**2.0-loc_min_ur**2.0)
 
             ! loc_Nsamp = ceiling(ini_Ne_marker_density*loc_Del_a*loc_Del_q*loc_Del_f*0.5*pi*(loc_max_ur**2.0-loc_min_ur**2.0) +sprng())
-            loc_Nsamp = ceiling(ini_Ne_marker_density*BLKs_d3x(Bid)*BLKs_d2u(Bid) +sprng())
+            loc_Nsamp = ceiling(ini_MarkerDen_mype*BLKs_d3x(Bid)*BLKs_d2u(Bid) +sprng())
             BLKs_Nsamp_mype(Bid) = loc_Nsamp
+
+
+            ! if(mype==0) then
+            !    write(stdout,'(4(A,I0),2(A,ES9.3))') "num_BLKs=",num_BLKs, "; Bid=", Bid, "; loc_Nsamp=",loc_Nsamp,"; me=", me,"; loc_max_ur=", loc_max_ur, "; loc_min_ur=", loc_min_ur
+            !    call flush(stdout)
+            ! endif
 
             BLKs_NnewP_mype(Bid) = 0
             do k=1,loc_Nsamp
@@ -4440,23 +4478,98 @@ module Ptl_Src_Loss
                   ptl_sq = sq_min + sprng()*(sq_max-sq_min)
                   ptl_sqid = ceiling((ptl_sq-sq_min)*inv_dsq+0.5)
 
-                  if(present(mesh5D_norm_occup_MarkerDen)) then
-                     if(sprng() < mesh5D_norm_occup_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)) then
-                        cycle ! reject this particle
-                     endif
-                  endif
-
-
                   !accept this particle
                   BLKs_NnewP_mype(Bid) = BLKs_NnewP_mype(Bid) +1
                   me = me+1
 
                   ! This is only a part of zeon0(6,m); it will be recalulated by multiplying 1/ge_val later
-                  if(present(mesh5D_norm_occup_dxdv)) then
-                     zeon0(6,me) = 1.0 -mesh5D_norm_occup_dxdv(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
+                  if(present(mesh5D_norm_occp_dxdv)) then
+                     zeon0(6,me) = 1.0 -mesh5D_norm_occp_dxdv(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
                   else
                      zeon0(6,me) = 1.0
                   endif
+
+                  if(present(mesh_occp_MarkerDen)) then
+
+                     sq0 = max(sq_min, sq_1D(ptl_sqid)-0.5*dsq)
+                     sq1 = min(sq_max, sq_1D(ptl_sqid)+0.5*dsq)
+
+                     sr0 = max(sr_min, sr_1D(ptl_srid)-0.5*dsr)
+                     sr1 = min(sr_max, sr_1D(ptl_srid)+0.5*dsr)
+                     ur0 = ptl_ur_bound(1) + sr0*(ptl_ur_bound(2)-ptl_ur_bound(1))
+                     ur1 = ptl_ur_bound(1) + sr1*(ptl_ur_bound(2)-ptl_ur_bound(1))
+
+                     ! ! mesh_cell_area =  Cell_dVol_x3*0.5*(ur1**2.0-ur0**2.0)*(sq1-sq0)
+                     tgt_cell_Nm = ini_MarkerDen_mype*(min(a1,a(ptl_aid)+0.5*da)-max(a0,a(ptl_aid)-0.5*da))*dgq*(dgf)*0.5*(ur1**2.0-ur0**2.0)*(sq1-sq0)
+
+                     ! if(mype==0) then
+                     !    if(ur1<umax) then
+                     !       write(stdout,'(2(A,ES10.4))') "tgt_cell_Nm=", tgt_cell_Nm, "; mesh_MarkerDen_mype=",mesh_occp_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
+                     !       call flush(stdout)
+                     !    endif
+                     ! endif
+
+                     ! if(mype==0) then
+                     !    if(ur1<umax) then
+                     !       write(stdout,'(3(A,ES10.4))') "tgt_cell_Nm=", tgt_cell_Nm, "; ini_MarkerDen_npartd=",ini_MarkerDen_npartd,"; mesh_MarkerDen=",mesh_occp_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
+                     !       call flush(stdout)
+                     !    endif
+                     ! endif
+
+                     if(tgt_cell_Nm<20) then
+                        ! if tgt_cell_Nm is too small, it needs some amplification for a more proper determination.
+                        ! amp_factor =(min(dim_sr,ptl_srid+1)-max(1,ptl_srid-1)+1)*(min(dim_sq,ptl_sqid+1)-max(1,ptl_sqid-1)+1)*(min(dim_a,ptl_aid+3)-max(1,ptl_aid-3))*(min(dim_gq,ptl_gqid+6)- max(1,ptl_gqid-6))*dim_gf
+                        ! amp_tgt_cell_Nm = amp_factor*tgt_cell_Nm
+                        ! amp_occp_MarkerNum_mype = (1.0/npartdom)*sum(mesh_occp_MarkerNum_npartd(max(1,ptl_srid-1):min(dim_sr,ptl_srid+1), max(1,ptl_sqid-1):min(dim_sq,ptl_sqid+1), max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), :))
+                        ! amp_factor =(min(dim_a,ptl_aid+3)-max(1,ptl_aid-3)+1)*(min(dim_gq,ptl_gqid+6)- max(1,ptl_gqid-6)+1)*dim_gf
+                        ! amp_tgt_cell_Nm = amp_factor*tgt_cell_Nm
+                        ! amp_occp_MarkerNum_mype = (1.0/npartdom)*sum(mesh_occp_MarkerDen(ptl_srid, ptl_sqid, max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), :))
+                        amp_factor =(min(dim_a,ptl_aid+3)-max(1,ptl_aid-3)+1)*(min(dim_gq,ptl_gqid+6)- max(1,ptl_gqid-6)+1)*dim_gf
+                        mean_occp_MarkerNum = (1.0/amp_factor)*sum(mesh_occp_MarkerDen(ptl_srid, ptl_sqid, max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), :))
+
+                        if(present(mesh5D_norm_occp_dxdv)) then
+                           mean_norm_occp_dxdv = (1.0/amp_factor)*sum(mesh5D_norm_occp_dxdv(ptl_srid, ptl_sqid, max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), :))
+                           zeon0(6,me) = 1.0 -mean_norm_occp_dxdv
+                        endif
+
+                        ! if(mype==0) then
+                        !    if(ur1<umax) then
+                        !       write(stdout,'(2(A,ES10.4))') "amp_tgt_cell_Nm=", amp_tgt_cell_Nm, "; amp_occp_MarkerNum_mype=",amp_occp_MarkerNum_mype
+                        !       call flush(stdout)
+                        !    endif
+                        ! endif
+
+
+                        ! if(mype==0) then
+                        !    if(ur1<umax) then
+                        !       write(stdout,'(2(A,ES10.4))') "amp_factor*tgt_cell_Nm=",amp_factor*tgt_cell_Nm,"; ini_MarkerDen_npartd=", ini_MarkerDen_npartd, "; mean_occp_MarkerNum=",mean_occp_MarkerNum
+                        !       call flush(stdout)
+                        !    endif
+                        ! endif
+
+                        if(sprng()*ini_MarkerDen_npartd < mean_occp_MarkerNum) then
+                           BLKs_NnewP_mype(Bid) = BLKs_NnewP_mype(Bid) -1
+                           me=me-1
+                           cycle ! reject this particle
+                        endif
+                        ! Note that denominator is always smaller than 1 otherwise it should be rejected by the previous checking routine
+                        zeon0(6,me) = zeon0(6,me)/(1.0-mean_occp_MarkerNum/ini_MarkerDen_npartd)
+
+
+
+                     else
+                        ! occp_MarkerDen = (1.0/npartdom)*mesh_occp_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
+                        occp_MarkerDen = mesh_occp_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
+                        if(sprng()*ini_MarkerDen_npartd <occp_MarkerDen) then
+                           BLKs_NnewP_mype(Bid) = BLKs_NnewP_mype(Bid) -1
+                           me=me-1
+                           cycle ! reject this particle
+                        endif
+                        ! Note that denominator is always smaller than 1 otherwise it should be rejected by the previous checking routine
+                        zeon0(6,me) = zeon0(6,me)/(1.0-occp_MarkerDen/ini_MarkerDen_npartd)
+                     endif
+                  endif
+
 
                   zeon(1,me) = ptl_a
                   zeon(7,me) = D01AHF(0.0_wp,zeon(1,me),error_8,minpts,ac,dsda,-1,ifail)
@@ -4485,13 +4598,19 @@ module Ptl_Src_Loss
 
             BLKs_m1(Bid) = me
 
+            ! if(mype==0) then
+            !    write(stdout,'(4(A,I0),A,F8.3)') "num_BLKs=",num_BLKs, "; Bid=", Bid, "; this_BLK_NnewP_mype=",BLKs_NnewP_mype(Bid),"; this_BLKs_Nsamp_npartd=",BLKs_Nsamp_mype(Bid),"; Acceptance Rate=",real(BLKs_NnewP_mype(Bid))/(BLKs_Nsamp_mype(Bid))
+            !    call flush(stdout)
+            ! endif
+
          enddo ! End BLK loop
          !$acc update device(zeon(:,m0:me),elabels(m0:me))
          call MPI_ALLREDUCE(BLKs_NnewP_mype, BLKs_NnewP_npartd, num_BLKs, MPI_INTEGER, MPI_SUM, partd_comm,ierror)
          call MPI_ALLREDUCE(BLKs_Nsamp_mype, BLKs_Nsamp_npartd, num_BLKs, MPI_INTEGER, MPI_SUM, partd_comm,ierror)
 
          if(mype==0) then
-            write(stdout,'(2(A,I0),A,F8.3)') "tot_BLKs_NnewP_npartd=",sum(BLKs_NnewP_npartd),"; tot_BLKs_Nsamp_npartd=",sum(BLKs_Nsamp_npartd),"; Acceptance Rate=",real(sum(BLKs_NnewP_npartd))/sum(BLKs_Nsamp_npartd)
+            write(stdout,'(3(A,I0),A,F8.3)') "num_BLKs=",num_BLKs, "; tot_BLKs_NnewP_npartd=",sum(BLKs_NnewP_npartd),"; tot_BLKs_Nsamp_npartd=",sum(BLKs_Nsamp_npartd),"; Acceptance Rate=",real(sum(BLKs_NnewP_npartd))/sum(BLKs_Nsamp_npartd)
+            write(stdout,'(3(A,I0))') "tot_BLKs_NnewP_mype=",sum(BLKs_NnewP_mype),"; me=",me,"; memax=",memax
             call flush(stdout)
          endif
 
@@ -4624,6 +4743,7 @@ module Ptl_Src_Loss
          deallocate(BLKs_aid,BLKs_gqid,BLKs_gfid,BLKs_m0,BLKs_m1)
          deallocate(BLKs_Nsamp_mype, BLKs_Nsamp_npartd,BLKs_NnewP_mype,BLKs_NnewP_npartd)
          deallocate(BLKs_d3x,BLKs_d2u)
+         deallocate(sr_1D,sq_1D)
 
 
 #ifdef _MGY_TIMER_
