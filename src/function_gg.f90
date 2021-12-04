@@ -320,17 +320,17 @@ module function_gg_module
 
 
             if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
-            !$acc parallel loop present(zion,backu,backT,back_f0_i,backn,back_flux_A)
-            do i=m0,m1
-               vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
-               vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
+               !$acc parallel loop present(zion,backu,backT,back_f0_i,backn,back_flux_A)
+               do i=m0,m1
+                  vpara = BB(i)*zion(4,i)  ! vpara = (eB/m)*rho_para
+                  vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
                   if(sqrt(vpara**2.0+vperp**2.0)>umax*sqrt(backT(i))) then
                      back_f0_i(i) = 0.0 ! back_f0 is zero beyond velocity cut-off
                   else
-               back_U_para = F(i)/BB(i)*backu(i)
-               A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
-               E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
-               back_f0_i(i) = backn(i)*A_over_meanA*((inv_twopi/backT(i))**1.5)*exp(-E_over_T)
+                     back_U_para = F(i)/BB(i)*backu(i)
+                     A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
+                     E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
+                     back_f0_i(i) = backn(i)*A_over_meanA*((inv_twopi/backT(i))**1.5)*exp(-E_over_T)
                   endif
                enddo
             elseif (Flag_Load_and_WeightDef==3) then
@@ -340,14 +340,14 @@ module function_gg_module
                   vperp = sqrt(2.0*BB(i))*zion(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
                   if((abs(vpara)>umax*sqrt(backT(i)) .or. vperp>umax*sqrt(backT(i)))) then
                      back_f0_i(i) = 0.0 ! back_f0 is zero beyond velocity cut-off
-               else
+                  else
                      back_U_para = F(i)/BB(i)*backu(i)
                      A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
                      E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
                      back_f0_i(i) = backn(i)*A_over_meanA*((inv_twopi/backT(i))**1.5)*exp(-E_over_T)
-               endif
-            enddo
-         endif
+                  endif
+               enddo
+            endif
          endif
 
          deallocate(back_flux_A)
@@ -561,17 +561,17 @@ module function_gg_module
             call esigetbf_partial(zeon, m0, m1, size(zeon,1))
 
             if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
-            !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
-            do i=m0,m1
-               ! Following part is to calculate theta dependency of density which needs ion rotation information
+               !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
+               do i=m0,m1
+                  ! Following part is to calculate theta dependency of density which needs ion rotation information
                   vpara = m0ms*csc0*BB(i)*zeon(4,i)  ! vpara = (eB/m)*rho_para
                   vperp = sqrt(2.0*BB(i)*m0ms)*zeon(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
                   if(sqrt(vpara**2.0+vperp**2.0)>umax*sqrt(backTe(i))) then
                      back_f0_e(i) = 0.0 ! back_f0 is zero beyond velocity cut-off
                   else
-               back_Ui_para = F(i)/BB(i)*omega_ui(i)
-               A_over_meanA = exp(0.5*(back_Ui_para**2.0)/backTi(i))/(back_flux_A(i))
-               inv_Te_norm = 1.0/(backTe(i)*msm0)  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+                     back_Ui_para = F(i)/BB(i)*omega_ui(i)
+                     A_over_meanA = exp(0.5*(back_Ui_para**2.0)/backTi(i))/(back_flux_A(i))
+                     inv_Te_norm = 1.0/(backTe(i)*msm0)  ! normalized-Te=Te/E_0, the same unit as normalized Ti
                      E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
                      back_f0_e(i) = backne(i)*A_over_meanA*((msm0*inv_Te_norm*inv_twopi)**1.5)*exp(-E_over_T)
                   endif
@@ -580,19 +580,19 @@ module function_gg_module
                !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
                do i=m0,m1
                   ! Following part is to calculate theta dependency of density which needs ion rotation information
-               vpara = m0ms*csc0*BB(i)*zeon(4,i)  ! vpara = (eB/m)*rho_para
-               vperp = sqrt(2.0*BB(i)*m0ms)*zeon(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
+                  vpara = m0ms*csc0*BB(i)*zeon(4,i)  ! vpara = (eB/m)*rho_para
+                  vperp = sqrt(2.0*BB(i)*m0ms)*zeon(6,i) ! vperp=sqrt(2B/m)*sqrt(mu)
                   if(abs(vpara)>umax*sqrt(backTe(i)) .or. vperp>umax*sqrt(backTe(i))) then
                      back_f0_e(i) = 0.0 ! back_f0 is zero beyond velocity cut-off
                   else
                      back_Ui_para = F(i)/BB(i)*omega_ui(i)
                      A_over_meanA = exp(0.5*(back_Ui_para**2.0)/backTi(i))/(back_flux_A(i))
                      inv_Te_norm = 1.0/(backTe(i)*msm0)  ! normalized-Te=Te/E_0, the same unit as normalized Ti
-               E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
-               back_f0_e(i) = backne(i)*A_over_meanA*((msm0*inv_Te_norm*inv_twopi)**1.5)*exp(-E_over_T)
-               endif
-            enddo
-         endif
+                     E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
+                     back_f0_e(i) = backne(i)*A_over_meanA*((msm0*inv_Te_norm*inv_twopi)**1.5)*exp(-E_over_T)
+                  endif
+               enddo
+            endif
          endif
 
 
