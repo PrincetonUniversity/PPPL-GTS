@@ -675,6 +675,27 @@ module function_gg_module
       end subroutine Get_MP_alpha_amplitude
 
 
+      subroutine Convert_a_to_s(in_a, out_s)
+         !$acc routine seq
+         use global_parameters
+
+         implicit none
+
+         real(wp) in_a, out_s
+         integer ierr, IFAIL, minpts
+         real(wp) error_8, acc
+         real(wp), external :: D01AHF,dsda
+
+         if (dsda_power == 0) then
+            out_s = s0 + (in_a-a0) !!
+         else
+            error_8=1.0e-5_wp
+            IFAIL=1
+            out_s=D01AHF(0.0_wp,in_a,error_8,minpts,acc,dsda,-1,IFAIL)
+            out_s=min(s1,max(s0,out_s))
+         endif
+      end subroutine Convert_a_to_s
+
 end module function_gg_module
 
 function metric_elements(pdum,tdum,zdum)
@@ -5577,25 +5598,6 @@ subroutine find_unique_sorted_array_and_its_num_of_elements(a, first, last, num_
    num_of_unique_elements = i
 end subroutine find_unique_sorted_array_and_its_num_of_elements
 
-subroutine Convert_a_to_s(in_a, out_s)
-   use global_parameters
-
-   implicit none
-
-   real(wp) in_a, out_s
-   integer ierr, IFAIL, minpts
-   real(wp) error_8, acc
-   real(wp), external :: D01AHF,dsda
-
-   if (dsda_power == 0) then
-      out_s = s0 + (in_a-a0) !!
-   else
-      error_8=1.0e-5_wp
-      IFAIL=1
-      out_s=D01AHF(0.0_wp,in_a,error_8,minpts,acc,dsda,-1,IFAIL)
-      out_s=min(s1,max(s0,out_s))
-   endif
-end subroutine Convert_a_to_s
 
 subroutine Cal_Weighted_Neighboring_Volume_on_each_GridNode
 
