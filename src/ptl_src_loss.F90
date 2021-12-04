@@ -249,7 +249,7 @@ module Ptl_Src_Loss
 
    type Particle_Source_Control_Variables
       integer :: dim_a, dim_gq
-      real(wp), allocatable, dimension(:) :: a_1D, gq_1D
+      real(wp), allocatable, dimension(:) :: a_1D, gq_1D, Te0_eV_1D, Ti0_eV_1D
       real(wp) :: a_min, a_max
 
       integer :: nstep, cum_num
@@ -297,13 +297,15 @@ module Ptl_Src_Loss
          dim_a=PtlSrcCV%dim_a
          dim_gq=PtlSrcCV%dim_gq
          allocate(PtlSrcCV%a_1D(dim_a),PtlSrcCV%gq_1D(dim_gq))
+         allocate(PtlSrcCV%Te0_eV_1D(dim_a), PtlSrcCV%Ti0_eV_1D(dim_a))
 
          PtlSrcCV%a_1D = SG%a_1D
          PtlSrcCV%gq_1D = SG%gq_1D
          PtlSrcCV%a_min = minval(PtlSrcCV%a_1D)
          PtlSrcCV%a_max = maxval(PtlSrcCV%a_1D)
 
-
+         PtlSrcCV%Te0_eV_1D = SG%Te0_eV_1D
+         PtlSrcCV%Ti0_eV_1D = SG%Ti0_eV_1D
 
          PtlSrcCV%nstep = Ptl_Src_nstep
          allocate(PtlSrcCV%cum_E_para(dim_gq,dim_a,0:1), PtlSrcCV%mean_E_para(dim_gq,dim_a,0:1))
@@ -327,6 +329,10 @@ module Ptl_Src_Loss
          if(allocated(PtlSrcCV%Elec_dupara_per_nstep)) deallocate(PtlSrcCV%Elec_dupara_per_nstep,PtlSrcCV%Ion_dupara_per_nstep)
          if(allocated(PtlSrcCV%Elec_dupara_per_nstep_SM)) deallocate(PtlSrcCV%Elec_dupara_per_nstep_SM,PtlSrcCV%Ion_dupara_per_nstep_SM)
          if(allocated(PtlSrcCV%Elec_dErg_eV_per_nstep)) deallocate(PtlSrcCV%Elec_dErg_eV_per_nstep,PtlSrcCV%Ion_dErg_eV_per_nstep)
+         if(allocated(PtlSrcCV%a_1D)) deallocate(PtlSrcCV%a_1D,PtlSrcCV%gq_1D)
+         if(allocated(PtlSrcCV%Te0_eV_1D)) deallocate(PtlSrcCV%Te0_eV_1D, PtlSrcCV%Ti0_eV_1D)
+
+
          ! if(allocated(PtlSrcCV%cum_E_cov3)) deallocate(PtlSrcCV%cum_E_cov3, PtlSrcCV%mean_E_cov3)
       end subroutine Finalize_Ptl_Src_Loss
 
@@ -678,6 +684,47 @@ module Ptl_Src_Loss
 #endif
 
       end subroutine Cal_dErg_per_nstep_by_Potential_along_FieldLine
+
+
+      subroutine Cal_dupara_per_dt_using_dErg_per_nstep
+         use global_parameters
+         implicit none
+         real(wp) dt_s,me_kg,mi_kg,qe_C,qi_C, vthe_mps, vthi_mps, vmax_mps ! velocity unit (meter per second)
+         real(wp) MarginFactor, MinimumVal
+         integer aid,ss,qq,k
+         integer Wsz_q, Wsz_a
+
+         dt_s  = tstep*utime
+         me_kg = 1e-3*amasse
+         mi_kg = 1e-3*amassi
+         qe_C = charge/2997924580.0
+         qi_C = chargi/2997924580.0
+
+         MarginFactor = 1.2 ! Give 20% margin for more safety
+         MinimumVal = 0.02 ! du=0.02 for everywhere
+
+         do ss=1,PtlSrcCV%dim_a
+            vthe_mps = sqrt(abs(qe_C)*PtlSrcCV%Te0_eV_1D(ss)/(me_kg))
+            vthi_mps = sqrt(abs(qi_C)*PtlSrcCV%Ti0_eV_1D(ss)/(mi_kg))
+
+            vmax_mps = umax*vthe_mps
+
+            PtlSrcCV%Elec_dupara_per_nstep(:,ss,:) = abs(-vmax_mps + sqrt(vmax_mps**2.0 + abs(qe_C)*MarginFactor*PtlSrcCV%Elec_dErg_eV_per_nstep(:,ss,:)/me_kg))/(vthe_mps)
+            PtlSrcCV%Ion_dupara_per_nstep(:,ss,:)  = abs(-vmax_mps + sqrt(vmax_mps**2.0 + abs(qe_C)*MarginFactor*PtlSrcCV%Ion_dErg_eV_per_nstep(:,ss,:)/mi_kg))/(vthi_mps)
+         enddo
+
+         Wsz_q=5;
+         Wsz_a=3;
+         do ss=1,PtlSrcCV%dim_a
+            do qq=1,PtlSrcCV%dim_gq
+               do k=0,1
+                  PtlSrcCV%Elec_dupara_per_nstep_SM(qq,ss,k) = max(MinimumVal, maxval(PtlSrcCV%Elec_dupara_per_nstep(modulo([qq-Wsz_q:qq+Wsz_q]-1, PtlSrcCV%dim_gq)+1, max(1,ss-Wsz_a):min(PtlSrcCV%dim_a,ss+Wsz_a),k)))
+                  PtlSrcCV%Ion_dupara_per_nstep_SM(qq,ss,k) = max(MinimumVal, maxval(PtlSrcCV%Ion_dupara_per_nstep(modulo([qq-Wsz_q:qq+Wsz_q]-1, PtlSrcCV%dim_gq)+1, max(1,ss-Wsz_a):min(PtlSrcCV%dim_a,ss+Wsz_a),k)))
+               enddo
+            enddo
+         enddo
+
+      end subroutine Cal_dupara_per_dt_using_dErg_per_nstep
 
 
       subroutine Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP, energy)
@@ -2680,15 +2727,15 @@ module Ptl_Src_Loss
 
          real(wp), allocatable :: tmp_a(:),tmp_gq(:),tmp_gf(:),tmp_upara(:),tmp_uperp(:)
          real(wp), allocatable :: tmp_ur(:),tmp_uq(:)
-         real(wp), allocatable :: mesh_norm_dxdv(:,:,:,:,:)
+         real(wp), allocatable :: mesh_norm_dxdv(:,:,:,:,:), mesh_MarkerDen(:,:,:,:,:)
          real(wp) ini_Ne_marker_density
          real(wp) upara_min, upara_max, uperp_min, uperp_max
          integer dim_upara, dim_uperp,dim_ur,dim_uq
-         integer Nm,i, loop
+         integer Nm,i,j, loop
          real(wp) time0,time1
          real(wp) upara_min_arr(3), upara_max_arr(3)
          real(wp) uperp_min_arr(3), uperp_max_arr(3)
-
+         real(wp), allocatable :: ur_bound(:,:,:,:)
 
 
          if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
@@ -2696,7 +2743,7 @@ module Ptl_Src_Loss
             dim_ur=5
             dim_uq=10
             allocate(tmp_ur(dim_ur),tmp_uq(dim_uq),tmp_gf(2))
-            allocate(mesh_norm_dxdv(dim_ur,dim_uq,SG%dim_a,SG%dim_gq,2))
+            allocate(mesh_norm_dxdv(dim_ur,dim_uq,SG%dim_a,SG%dim_gq,2), mesh_MarkerDen(dim_ur,dim_uq,SG%dim_a,SG%dim_gq,2))
 
             tmp_gf(1) = zetamin
             tmp_gf(2) = zetamax
@@ -2713,11 +2760,40 @@ module Ptl_Src_Loss
             endif
 
 
-            call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(tmp_ur, tmp_uq, mesh_norm_dxdv)
-            call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
+            allocate(ur_bound(SG%dim_a,SG%dim_gq,size(tmp_gf),2))
+            ur_bound(:,:,:,1) = 1.0*umax
+            ! ur_bound(:,:,:,2) = 1.2*umax
+            ! ur_bound(:,:,:,2) = umax + PtlSrcCV%Elec_dupara_per_nstep_SM
+            do i=1,SG%dim_a
+               do j=1,SG%dim_gq
+                  ! Helical source
+                  ! ur_bound(i,j,1,2) = umax + max(0.1,(2*sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*(zetamin/SG%safety_q_1D(i)-SG%gq_1D(j)))))
+                  ! ur_bound(i,j,2,2) = umax + max(0.1,(2*sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*(zetamax/SG%safety_q_1D(i)-SG%gq_1D(j)))))
+                  ! ur_bound(i,j,:,:) = umax + max(0.1,(2*sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*2.0*pi*real(j)/SG%dim_gq)))
+
+                  ! ur_bound(i,j,:,2) = umax + (1.0 + sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*2.0*pi*real(j)/SG%dim_gq))
+                  ! ur_bound(i,j,:,2) = umax + max(0.1,(2*sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*2.0*pi*real(j)/SG%dim_gq)))
+                  ! PtlSrcCV%Elec_dupara_per_nstep_SM(i,j,:) = 1.0 + sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*2.0*pi*real(j)/SG%dim_gq)
+                  ! ur_bound(i,j,:,2) = umax + max(0.05, 2.0*PtlSrcCV%Elec_dupara_per_nstep_SM(j,i,:))
+                  ! ur_bound(i,j,:,2) = umax + max(0.05, 2.0*PtlSrcCV%Elec_dupara_per_nstep_SM(j,i,:))
+                  ur_bound(i,j,:,2) = umax + PtlSrcCV%Elec_dupara_per_nstep_SM(j,i,:)
+               enddo
+               ! ur_bound(i,:,:,2) = umax + 2.0*maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,i,:))
+            enddo
+
+            ! call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(tmp_ur, tmp_uq, mesh_norm_dxdv)
+            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
             ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, in_label_val=-2.0)
+
+            call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_ur,dim_uq,ur_bound, mesh_norm_dxdv, mesh_MarkerDen)
+            call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(SG%a_1D,SG%gq_1D,tmp_gf,ur_bound, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=-2.0)
+            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(SG%a_1D,SG%gq_1D,tmp_gf,ur_bound, in_label_val=-2.0)
+            ! Using MarkerDen is possible, but its accuracy could be low if total number of particles are not enough
+            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(SG%a_1D,SG%gq_1D,tmp_gf,ur_bound,mesh_occp_MarkerDen=mesh_MarkerDen, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=-2.0)
+
+            deallocate(ur_bound)
             deallocate(tmp_ur,tmp_uq,tmp_gf)
-            deallocate(mesh_norm_dxdv)
+            deallocate(mesh_norm_dxdv,mesh_MarkerDen)
 
          elseif(Flag_Load_and_WeightDef==3) then
             ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
@@ -3246,7 +3322,7 @@ module Ptl_Src_Loss
          real(wp), intent(inout) :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (ur,uq,a,gq,gf) normalized dxdv by pre-occupying particles
          !$acc declare create(mesh_norm_dxdv)
          real(wp), allocatable :: tmp_mesh(:,:,:,:,:)
-         ! real(wp) cell_vol_5D(:,:,:,:,:)
+         ! real(wp), allocatable :: cell_vol_5D(:,:,:,:,:)
 
          real(wp) upara,uperp, Cell_dVol_x3, Cell_dVol_ur, Cell_dVol_uq
          real(wp), allocatable :: upara_2D(:,:), uperp_2D(:,:)
@@ -3525,7 +3601,7 @@ module Ptl_Src_Loss
          real(wp), external :: temperature_e
          real(wp) mesh_cell_vol, mesh_cell_area ! 5-D mesh volume and area of each mesh grid
          real(wp) time0,time1
-         real(wp), allocatable :: SG_Te0_1D(:), SG_Cell_dV(:,:), SG_safety_q_1D(:)
+         real(wp), allocatable :: SG_Te0_1D(:), SG_Cell_dV(:,:)
 
          character(len=128) filename, gname
          integer(HID_T) file_id, gid
