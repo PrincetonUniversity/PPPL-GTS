@@ -22,17 +22,28 @@ module Magnetic_Grid
 
    end type esi_data
 
+   type FieldMap_3D
+      integer dim_a,dim_gq,dim_gf
+      real(wp) inv_da, inv_dgq, inv_dgf
+      real(wp),allocatable,dimension(:) :: a_1D, gq_1D, gf_1D
+      real(wp),allocatable,dimension(:,:,:) :: Max_BB0_CW, Max_BB0_CCW,BB0,Mirror_Ratio
+   end type FieldMap_3D
+
+
+   type(FieldMap_3D), target :: FMap3D ! This will be loaded by reading some pre-calculated hdf5 file
    type(esi_data), target :: esi
    integer dim_a,dim_gq,dim_gf ! Number of grid points
+   !$acc declare create(dim_a,dim_gq,dim_gf)
    real(wp) da,dgq,dgf,inv_da,inv_dgq,inv_dgf
+   !$acc declare create(da,dgq,dgf,inv_da,inv_dgq,inv_dgf)
    real(wp),allocatable,dimension(:) :: a_1D, gq_1D, gf_1D
-   real(wp),allocatable,dimension(:,:) :: R_2D, Z_2D
+   !$acc declare create(a_1D,gq_1D,gf_1D)
+   real(wp),allocatable,dimension(:,:) :: R_2D, Z_2D  ! (R,Z) based on 2D equilibrium
+   real(wp),allocatable,dimension(:,:,:) :: d12_R_2D, d12_Z_2D ! (R,Z)'s 1st and 2nd derivatvies in (a,gq) direction
    real(wp),allocatable,dimension(:,:,:) :: Jacobian_3D
 
    real(wp),allocatable,dimension(:,:,:) :: g_aa_cov,g_aq_cov,g_qq_cov,g_ff_cov
 
-
-   ! real(wp),allocatable,dimension(:,:,:) :: ga, grad_ga
 
 
    ! Equilibrium B fields
@@ -56,8 +67,83 @@ module Magnetic_Grid
    real(wp),allocatable,dimension(:,:,:,:,:) :: grad_B_cov, grad_B_cntv, grad_j_cov, grad_j_cntv
    real(wp),allocatable,dimension(:,:,:,:,:) :: d23_B_cov, d23_B_cntv, d23_j_cov, d23_j_cntv
 
+   !$acc declare create(R_2D,d12_R_2D,Z_2D,d12_Z_2D)
+   !$acc declare create(BB,grad_BB,d23_BB)
+   !$acc declare create(B_cov,grad_B_cov,d23_B_cov)
+   !$acc declare create(B_cntv,grad_B_cntv,d23_B_cntv)
+   !$acc declare create(j_cntv,grad_j_cntv,d23_j_cntv)
 
 contains
+
+   subroutine Read_FMap3D_on_MG
+      use hdf5
+      use h5lt
+      use global_parameters, only:stdout,mype
+      implicit none
+      type(FieldMap_3D), pointer :: FM
+      character(128) :: filename
+      integer :: Na,Nq,Nf,i,j,k
+      integer :: h5err
+      integer(HSIZE_T) :: h5dims(5)
+      integer(HID_T) file_id
+
+      FM=>FMap3D
+
+      call h5open_f(h5err)
+      call h5fopen_f('FootPrint.h5',H5F_ACC_RDONLY_F,file_id, h5err)
+
+      h5dims(1)=1
+      call h5ltread_dataset_f(file_id, "FMap3D/dim_a", H5T_NATIVE_INTEGER, FM%dim_a, h5dims(1:1), h5err)
+      call h5ltread_dataset_f(file_id, "FMap3D/dim_gq", H5T_NATIVE_INTEGER, FM%dim_gq, h5dims(1:1), h5err)
+      call h5ltread_dataset_f(file_id, "FMap3D/dim_gf", H5T_NATIVE_INTEGER, FM%dim_gf, h5dims(1:1), h5err)
+
+      if(mype==0) write(stdout,'(3(A,I4))') "MG; FMap3D dim_a=",FMap3D%dim_a, "; dim_gq=",FMap3D%dim_gq, "; dim_gf=",FMap3D%dim_gf
+      call flush(stdout)
+
+      ! FM%dim_a  = 200
+      ! FM%dim_gq = 300
+      ! FM%dim_gf = 100
+
+      Na = FM%dim_a
+      Nq = FM%dim_gq
+      Nf = FM%dim_gf
+
+      allocate(FM%a_1D(Na),FM%gq_1D(Nq),FM%gf_1D(Nf))
+      allocate(FM%Max_BB0_CCW(Nq,Na,Nf),FM%Max_BB0_CW(Nq,Na,Nf),FM%BB0(Nq,Na,Nf),FM%Mirror_Ratio(Nq,Na,Nf))
+
+      h5dims(1)=Na
+      call h5ltread_dataset_f(file_id, "FMap3D/a_1D", H5T_NATIVE_DOUBLE, FM%a_1D, h5dims(1:1), h5err)
+      h5dims(1)=Nq
+      call h5ltread_dataset_f(file_id, "FMap3D/gq_1D", H5T_NATIVE_DOUBLE, FM%gq_1D, h5dims(1:1), h5err)
+      h5dims(1)=Nf
+      call h5ltread_dataset_f(file_id, "FMap3D/gf_1D", H5T_NATIVE_DOUBLE, FM%gf_1D, h5dims(1:1), h5err)
+
+      h5dims(1:3)=[Nq,Na,Nf]
+      call h5ltread_dataset_f(file_id, "FMap3D/Max_BB0_CW", H5T_NATIVE_DOUBLE, FM%Max_BB0_CW, h5dims(1:3), h5err)
+      call h5ltread_dataset_f(file_id, "FMap3D/Max_BB0_CCW", H5T_NATIVE_DOUBLE, FM%Max_BB0_CCW, h5dims(1:3), h5err)
+      call h5ltread_dataset_f(file_id, "FMap3D/BB0", H5T_NATIVE_DOUBLE, FM%BB0, h5dims(1:3), h5err)
+      call h5close_f(h5err)
+
+      FM%inv_da = 1.0/(FM%a_1D(2)-FM%a_1D(1))
+      FM%inv_dgq= 1.0/(FM%gq_1D(2)-FM%gq_1D(1))
+      FM%inv_dgf= 1.0/(FM%gf_1D(2)-FM%gf_1D(1))
+
+      do k=1,Nf
+         do j=1,Na
+            do i=1,Nq
+               FMap3D%Mirror_Ratio(i,j,k) = min(FM%Max_BB0_CCW(i,j,k),FM%Max_BB0_CW(i,j,k))/(FM%BB0(i,j,k))
+               if(ieee_is_nan(FMap3D%Mirror_Ratio(i,j,k))) then
+                  FMap3D%Mirror_Ratio(i,j,k)=-1.0
+               endif
+            enddo
+         enddo
+      enddo
+
+      if(mype==0) write(stdout,'(3(A,ES12.4))') "MG; FMap3D inv_da=",FMap3D%inv_da, "; inv_dgq=",FMap3D%inv_dgq, "; inv_dgf=",FMap3D%inv_dgf
+      call flush(stdout)
+
+
+   end subroutine Read_FMap3D_on_MG
 
    subroutine Read_ESI(filename)
       implicit none
@@ -265,6 +351,8 @@ contains
 
 
       h5dims(1:3)=[3,dim_gq,dim_a]
+      call h5ltmake_dataset_f(file_id, "d12_R_2D",3,h5dims,H5T_NATIVE_DOUBLE, d12_R_2D, h5err)
+      call h5ltmake_dataset_f(file_id, "d12_Z_2D",3,h5dims,H5T_NATIVE_DOUBLE, d12_Z_2D, h5err)
       call h5ltmake_dataset_f(file_id, "B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, B0_cov(:,:,:,1), h5err)
       call h5ltmake_dataset_f(file_id, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, B0_cntv(:,:,:,1), h5err)
       call h5ltmake_dataset_f(file_id, "j0_cov",3,h5dims,H5T_NATIVE_DOUBLE, j0_cov(:,:,:,1), h5err)
@@ -330,13 +418,17 @@ contains
 
 
    subroutine Init_Magnetic_Grid
-      use global_parameters, only:eq_data_name,pi,mype
+      use global_parameters, only:eq_data_name,pi,mype,stdout
+      use mpi_defs
       implicit none
 
       integer i,j,k
       integer Na,Nq,Nf
       real(wp) a_min, a_max
+      real(wp) tt0,tt1
 
+
+      tt0=MPI_WTIME()
 
       call Read_ESI(eq_data_name)
       ! dim_a=SG%dim_a
@@ -384,6 +476,7 @@ contains
 
 
       allocate(R_2D(Nq,Na),Z_2D(Nq,Na))
+      allocate(d12_R_2D(3,Nq,Na),d12_Z_2D(3,Nq,Na)) ! dRda, dRdgq, d2Rdagq
       allocate(Jacobian_3D(Nq,Na,Nf))
       allocate(g_aa_cov(Nq,Na,Nf),g_aq_cov(Nq,Na,Nf),g_qq_cov(Nq,Na,Nf),g_ff_cov(Nq,Na,Nf))
 
@@ -430,9 +523,26 @@ contains
       call Cal_grad_of_Scalar_on_MG(BB, grad_BB)
       call Cal_d23_of_Scalar_on_MG(BB,  d23_BB)
 
-      if(mype==0) call test_MG_TriCubic_Interpolation
-      if(mype==0) call Write_Magnetic_Grid_hdf5
       if(mype==0) call Write_ESI_hdf5
+      if(mype==0) call Write_Magnetic_Grid_hdf5
+      ! if(mype==0) call test_MG_TriCubic_Interpolation
+
+      !$acc update device(dim_a,dim_gq,dim_gf)
+      !$acc update device(inv_da,inv_dgq,inv_dgf)
+      !$acc update device(a_1D,gq_1D,gf_1D)
+      !$acc update device(R_2D,d12_R_2D,Z_2D,d12_Z_2D)
+      !$acc update device(BB,grad_BB,d23_BB)
+      !$acc update device(B_cov,grad_B_cov,d23_B_cov)
+      !$acc update device(B_cntv,grad_B_cntv,d23_B_cntv)
+      !$acc update device(j_cntv,grad_j_cntv,d23_j_cntv)
+
+
+
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "Init_Magnetic_Grid takes", tt1-tt0," secs"
+      call flush(stdout)
+
+
 
    end subroutine Init_Magnetic_Grid
 
@@ -440,13 +550,15 @@ contains
       use hdf5
       use h5lt
       use global_parameters
+      use mpi_defs
       implicit none
       character(len=128) filename
       integer(HID_T) file_id, gid
       integer :: h5err
       integer(HSIZE_T) :: h5dims(4)
       real(wp),allocatable,dimension(:) :: test_a, test_gq, test_gf
-      real(wp),allocatable,dimension(:,:,:) :: intp_BB,intp_dBB
+      real(wp),allocatable,dimension(:,:) :: intp_R_2D
+      real(wp),allocatable,dimension(:,:,:) :: intp_BB,intp_dBB, intp_grad_R_2D
       real(wp),allocatable,dimension(:,:,:,:) :: intp_grad_BB,intp_grad_dBB
       real(wp),allocatable,dimension(:,:,:,:) :: intp_B_cov, intp_B_cntv, intp_dB_cov, intp_dB_cntv
       integer test_Na, test_Nq, test_Nf
@@ -462,6 +574,7 @@ contains
       test_Nf = 3*(dim_gf-1)+1
 
       allocate(test_a(test_Na), test_gq(test_Nq), test_gf(test_Nf))
+      allocate(intp_R_2D(test_Nq,test_Na), intp_grad_R_2D(2,test_Nq,test_Na))
       allocate(intp_BB(test_Nq,test_Na,test_Nf),intp_dBB(test_Nq,test_Na,test_Nf))
       allocate(intp_grad_BB(3,test_Nq,test_Na,test_Nf),intp_grad_dBB(3,test_Nq,test_Na,test_Nf))
       allocate(intp_B_cov(3,test_Nq,test_Na,test_Nf),intp_B_cntv(3,test_Nq,test_Na,test_Nf))
@@ -481,6 +594,7 @@ contains
 
       do i=1,test_Nq
          do j=1,test_Na
+            call BiCubic_Interpolation_of_2D_Scalar_and_gradient(test_a(j),test_gq(i),R_2D, d12_R_2D,intp_R_2D(i,j), intp_grad_R_2D(:,i,j))
             do k=1,test_Nf
                ! call TriCubic_Interpolation_of_Scalar(test_a(j),test_gq(i),test_gf(k), BB, grad_BB, d23_BB, intp_BB(i,j,k))
                ! call TriCubic_Interpolation_of_Scalar(test_a(j),test_gq(i),test_gf(k), dBB, grad_dBB, d23_dBB, intp_dBB(i,j,k))
@@ -506,6 +620,10 @@ contains
       h5dims(1)=test_Nf
       call h5ltmake_dataset_f(file_id, "gf_1D",1,h5dims,H5T_NATIVE_DOUBLE, test_gf, h5err)
 
+      h5dims(1:2) = [test_Nq,test_Na]
+      call h5ltmake_dataset_f(file_id, "R_2D",2,h5dims,H5T_NATIVE_DOUBLE, intp_R_2D, h5err)
+      h5dims(1:3) = [2,test_Nq,test_Na]
+      call h5ltmake_dataset_f(file_id, "grad_R_2D",3,h5dims,H5T_NATIVE_DOUBLE, intp_grad_R_2D, h5err)
 
       h5dims(1:3) = [test_Nq,test_Na,test_Nf]
       call h5ltmake_dataset_f(file_id, "BB",3,h5dims,H5T_NATIVE_DOUBLE, intp_BB, h5err)
@@ -522,15 +640,11 @@ contains
       call h5close_f(h5err)
 
 
-
-
-
       deallocate(test_a,test_gq,test_gf)
       deallocate(intp_BB,intp_dBB,intp_B_cov,intp_B_cntv)
       deallocate(intp_dB_cntv,intp_dB_cov)
-
-
-
+      deallocate(intp_R_2D, intp_grad_R_2D)
+      deallocate(intp_grad_BB,intp_grad_dBB)
 
    end subroutine test_MG_TriCubic_Interpolation
 
@@ -550,7 +664,7 @@ contains
       integer esi_aid,esi_gqid
       real(wp) Jacob, esi_N, esi_K
       real(wp) F,dFda,gYa,P,T
-      real(wp) R,dRda,dRdq,Z,dZda,dZdq
+      real(wp) R,dRda,dRdq,d2Rdadq,Z,dZda,dZdq,d2Zdadq
       real(wp) f1D(0:1), dfa1D(0:1), f2D(0:1,0:1), dfa2D(0:1,0:1), dfq2D(0:1,0:1), dfaq2D(0:1,0:1)
       real(wp) f_Ha(0:1), dfa_Ha(0:1), dfq_Ha(0:1), dfaq_Ha(0:1) ! values at Half a
 
@@ -621,6 +735,7 @@ contains
             R      =  hq00*f_Ha(0)    + hq10*dfq_Ha(0)   + hq01*f_Ha(1)    + hq11*dfq_Ha(1)
             dRdq   = dhq00*f_Ha(0)    +dhq10*dfq_Ha(0)   +dhq01*f_Ha(1)    +dhq11*dfq_Ha(1)
             dRda   =  hq00*dfa_Ha(0)  + hq10*dfaq_Ha(0)  + hq01*dfa_Ha(1)  + hq11*dfaq_Ha(1)
+            d2Rdadq= dhq00*dfa_Ha(0)  +dhq10*dfaq_Ha(0)  +dhq01*dfa_Ha(1)  +dhq11*dfaq_Ha(1)
 
             f2D    = esi%Z(esi_gqid:esi_gqid+1,esi_aid:esi_aid+1)
             dfa2D  = esi%Za(esi_gqid:esi_gqid+1,esi_aid:esi_aid+1)
@@ -633,12 +748,16 @@ contains
             Z      =  hq00*f_Ha(0)    + hq10*dfq_Ha(0)   + hq01*f_Ha(1)    + hq11*dfq_Ha(1)
             dZdq   = dhq00*f_Ha(0)    +dhq10*dfq_Ha(0)   +dhq01*f_Ha(1)    +dhq11*dfq_Ha(1)
             dZda   =  hq00*dfa_Ha(0)  + hq10*dfaq_Ha(0)  + hq01*dfa_Ha(1)  + hq11*dfaq_Ha(1)
+            d2Zdadq= dhq00*dfa_Ha(0)  +dhq10*dfaq_Ha(0)  +dhq01*dfa_Ha(1)  +dhq11*dfaq_Ha(1)
 
             Jacob  = R*(dZda*dRdq-dZdq*dRda)
 
 
             R_2D(gqid,aid) = R
             Z_2D(gqid,aid) = Z
+            d12_R_2D(:,gqid,aid) = [dRda, dRdq, d2Rdadq]
+            d12_Z_2D(:,gqid,aid) = [dZda, dZdq, d2Zdadq]
+
             Jacobian_3D(gqid,aid,:) = Jacob
 
 
@@ -988,7 +1107,99 @@ contains
    ! end subroutine Cal_d23_of_Vec_on_MG
 
 
+   subroutine BiCubic_Interpolation_of_2D_Scalar(in_a, in_gq, in_Sca, in_d12Sca, out_Sca)
+      !$acc routine seq
+      implicit none
+      real(wp),intent(in) :: in_a,in_gq
+      real(wp),intent(in) :: in_Sca(dim_gq,dim_a)
+      real(wp),intent(in) :: in_d12Sca(3,dim_gq,dim_a) ! First dimension is for three elements of dFda, dFdgq, d2Fdadgq
+      real(wp),intent(out) :: out_Sca
+      real(wp) h00(2),h10(2),h01(2),h11(2)
+      integer aid,qid
+      real(wp) at,qt,tt(2),du(2)
+      real(wp) F(0:1,0:1),d12F(3,0:1,0:1) ! Values at corners (2D in a,q)
+      real(wp) F_Ha(0:1),dFq_Ha(0:1) ! Values at Half a (1D in q)
+
+
+      aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
+      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
+
+      at = (in_a-a_1D(aid))*inv_da
+      qt = (in_gq-gq_1D(qid))*inv_dgq
+
+      tt = [at,qt]
+      du = [da,dgq]
+
+      h00 = 2*tt**3 -3*tt**2 +1
+      h10 = (tt**3 -2*tt**2 +tt)*du
+      h01 = -2*tt**3 +3*tt**2
+      h11 = (tt**3 -tt**2)*du
+
+      F  = in_Sca(qid:qid+1,aid:aid+1)
+      d12F = in_d12Sca(:,qid:qid+1,aid:aid+1)
+
+      ! Find values at Half a (for 1D in gq)
+      F_Ha = h00(1)*F(:,0) +h10(1)*d12F(1,:,0) +h01(1)*F(:,1) +h11(1)*d12F(1,:,1)
+      dFq_Ha = h00(1)*d12F(2,:,0) +h10(1)*d12F(3,:,0) +h01(1)*d12F(2,:,1) +h11(1)*d12F(3,:,1)
+
+      ! Find values at Half a & Half gq (at the given point)
+      out_Sca = h00(2)*F_Ha(0) +h10(2)*dFq_Ha(0) +h01(2)*F_Ha(1) +h11(2)*dFq_Ha(1) ! F
+
+   end subroutine BiCubic_Interpolation_of_2D_Scalar
+
+   subroutine BiCubic_Interpolation_of_2D_Scalar_and_gradient(in_a, in_gq, in_Sca, in_d12Sca, out_Sca, out_gradSca)
+      !$acc routine seq
+      implicit none
+      real(wp),intent(in) :: in_a,in_gq
+      real(wp),intent(in) :: in_Sca(dim_gq,dim_a)
+      real(wp),intent(in) :: in_d12Sca(3,dim_gq,dim_a) ! First dimension is for three elements of dFda, dFdgq, d2Fdadgq
+      real(wp),intent(out) :: out_Sca, out_gradSca(2)
+      real(wp) h00(2),h10(2),h01(2),h11(2)
+      real(wp) dh00(2),dh10(2),dh01(2),dh11(2)
+      integer aid,qid
+      real(wp) at,qt,tt(2),du(2)
+      real(wp) F(0:1,0:1),d12F(3,0:1,0:1) ! Values at corners (2D in a,q)
+      real(wp) F_Ha(0:1),dFa_Ha(0:1),dFq_Ha(0:1),dFaq_Ha(0:1) ! Values at Half a (1D in q)
+
+
+      aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
+      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
+
+      at = (in_a-a_1D(aid))*inv_da
+      qt = (in_gq-gq_1D(qid))*inv_dgq
+
+
+      tt = [at,qt]
+      du = [da,dgq]
+
+      h00 = 2*tt**3 -3*tt**2 +1
+      h10 = (tt**3 -2*tt**2 +tt)*du
+      h01 = -2*tt**3 +3*tt**2
+      h11 = (tt**3 -tt**2)*du
+      dh00 = (6*tt**2 -6*tt)/du
+      dh10 = 3*tt**2 -4*tt +1
+      dh01 = (-6*tt**2 +6*tt)/du
+      dh11 = 3*tt**2 -2*tt
+
+      F  = in_Sca(qid:qid+1,aid:aid+1)
+      d12F = in_d12Sca(:,qid:qid+1,aid:aid+1)
+
+      ! Find values at Half a (for 1D in gq)
+      F_Ha = h00(1)*F(:,0) +h10(1)*d12F(1,:,0) +h01(1)*F(:,1) +h11(1)*d12F(1,:,1)
+      dFa_Ha = dh00(1)*F(:,0) +dh10(1)*d12F(1,:,0) +dh01(1)*F(:,1) +dh11(1)*d12F(1,:,1)
+      dFq_Ha = h00(1)*d12F(2,:,0) +h10(1)*d12F(3,:,0) +h01(1)*d12F(2,:,1) +h11(1)*d12F(3,:,1)
+      dFaq_Ha = dh00(1)*d12F(2,:,0) +dh10(1)*d12F(3,:,0) +dh01(1)*d12F(2,:,1) +dh11(1)*d12F(3,:,1)
+
+      ! Find values at Half a & Half gq (at the given point)
+      out_Sca = h00(2)*F_Ha(0) +h10(2)*dFq_Ha(0) +h01(2)*F_Ha(1) +h11(2)*dFq_Ha(1) ! F
+      out_gradSca(1) = h00(2)*dFa_Ha(0) +h10(2)*dFaq_Ha(0) +h01(2)*dFa_Ha(1) +h11(2)*dFaq_Ha(1) ! dFda
+      out_gradSca(2) = dh00(2)*F_Ha(0) +dh10(2)*dFq_Ha(0) +dh01(2)*F_Ha(1) +dh11(2)*dFq_Ha(1) ! dFdgq
+
+   end subroutine BiCubic_Interpolation_of_2D_Scalar_and_gradient
+
+
    subroutine TriCubic_Interpolation_of_Scalar(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca)
+      !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq,in_gf
       real(wp),intent(in) :: in_Sca(dim_gq,dim_a,dim_gf)
@@ -1046,6 +1257,7 @@ contains
    end subroutine TriCubic_Interpolation_of_Scalar
 
    subroutine TriCubic_Interpolation_of_Scalar_and_gradient(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca, out_gradSca)
+      !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq,in_gf
       real(wp),intent(in) :: in_Sca(dim_gq,dim_a,dim_gf)
@@ -1118,6 +1330,7 @@ contains
 
 
    subroutine TriCubic_Interpolation_of_Vec(in_a,in_gq,in_gf, in_Vec, in_gradVec, in_d23Vec, out_Vec)
+      !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq,in_gf
       real(wp),intent(in) :: in_Vec(3,dim_gq,dim_a,dim_gf)
@@ -1175,6 +1388,316 @@ contains
    end subroutine TriCubic_Interpolation_of_Vec
 
 
+   subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion(in_a,in_gq,in_gf,P_R,P_grad_R,P_Z,P_grad_Z,P_BB,P_grad_BB,P_B_cov,P_B_cntv,P_j_cntv)
+      !$acc routine seq
+      implicit none
+      ! real(wp),intent(in) :: in_a,in_gq,in_gf
+      ! real(wp),intent(in) :: in_Vec(3,dim_gq,dim_a,dim_gf)
+      ! real(wp),intent(in) :: in_gradVec(3,3,dim_gq,dim_a,dim_gf), in_d23Vec(4,3,dim_gq,dim_a,dim_gf)
+      ! real(wp),intent(out) :: out_Vec(3)
+      real(wp) h00(3),h10(3),h01(3),h11(3)
+      real(wp) dh00(3),dh10(3),dh01(3),dh11(3)
+      integer aid,qid,fid
+      real(wp) at,qt,ft,tt(3),du(3)
+      real(wp) S(0:1,0:1,0:1),dS(3,0:1,0:1,0:1),d23S(4,0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
+      real(wp) S_Ha(0:1,0:1), dSa_Ha(0:1,0:1), dSq_Ha(0:1,0:1), dSf_Ha(0:1,0:1), d2Saq_Ha(0:1,0:1), d2Saf_Ha(0:1,0:1), d2Sqf_Ha(0:1,0:1), d3Saqf_Ha(0:1,0:1)  ! Values at Half a (2D in q,f)
+      real(wp) S_Haq(0:1), dSa_Haq(0:1), dSq_Haq(0:1), dSf_Haq(0:1), d2Saf_Haq(0:1), d2Sqf_Haq(0:1) ! Values at Half a & Half q (1D in f)
+      real(wp) V(3,0:1,0:1,0:1),dV(3,3,0:1,0:1,0:1),d23V(4,3,0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
+      real(wp) V_Ha(3,0:1,0:1), dVq_Ha(3,0:1,0:1), dVf_Ha(3,0:1,0:1), d2Vqf_Ha(3,0:1,0:1)  ! Values at Half a (2D in q,f)
+      real(wp) V_Haq(3,0:1), dVf_Haq(3,0:1) ! Values at Half a & Half q (1D in f)
+      real(wp) F(0:1,0:1),d12F(3,0:1,0:1) ! Values at corners (2D in a,q)
+      real(wp) F_Ha(0:1),dFa_Ha(0:1),dFq_Ha(0:1),dFaq_Ha(0:1) ! Values at Half a (1D in q)
+
+      real(wp) in_a,in_gq,in_gf
+      real(wp) P_R,P_grad_R(2),P_Z,P_grad_Z(2)
+      real(wp) P_BB, P_grad_BB(3), P_B_cntv(3), P_B_cov(3), P_j_cntv(3)
+
+
+
+      aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
+      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
+      fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+
+      at = (in_a-a_1D(aid))*inv_da
+      qt = (in_gq-gq_1D(qid))*inv_dgq
+      ft = (in_gf-gf_1D(fid))*inv_dgf
+
+
+      tt = [at,qt,ft]
+      du = [da,dgq,dgf]
+
+      h00 = 2*tt**3 -3*tt**2 +1
+      h10 = (tt**3 -2*tt**2 +tt)*du
+      h01 = -2*tt**3 +3*tt**2
+      h11 = (tt**3 -tt**2)*du
+      dh00 = (6*tt**2 -6*tt)/du
+      dh10 = 3*tt**2 -4*tt +1
+      dh01 = (-6*tt**2 +6*tt)/du
+      dh11 = 3*tt**2 -2*tt
+
+
+
+      F  = R_2D(qid:qid+1,aid:aid+1)
+      d12F = d12_R_2D(:,qid:qid+1,aid:aid+1)
+      ! Find values at Half a (for 1D in gq)
+      F_Ha = h00(1)*F(:,0) +h10(1)*d12F(1,:,0) +h01(1)*F(:,1) +h11(1)*d12F(1,:,1)
+      dFa_Ha = dh00(1)*F(:,0) +dh10(1)*d12F(1,:,0) +dh01(1)*F(:,1) +dh11(1)*d12F(1,:,1)
+      dFq_Ha = h00(1)*d12F(2,:,0) +h10(1)*d12F(3,:,0) +h01(1)*d12F(2,:,1) +h11(1)*d12F(3,:,1)
+      dFaq_Ha = dh00(1)*d12F(2,:,0) +dh10(1)*d12F(3,:,0) +dh01(1)*d12F(2,:,1) +dh11(1)*d12F(3,:,1)
+      ! Find values at Half a & Half gq (at the given point)
+      P_R = h00(2)*F_Ha(0) +h10(2)*dFq_Ha(0) +h01(2)*F_Ha(1) +h11(2)*dFq_Ha(1) ! F
+      P_grad_R(1) = h00(2)*dFa_Ha(0) +h10(2)*dFaq_Ha(0) +h01(2)*dFa_Ha(1) +h11(2)*dFaq_Ha(1) ! dFda
+      P_grad_R(2) = dh00(2)*F_Ha(0) +dh10(2)*dFq_Ha(0) +dh01(2)*F_Ha(1) +dh11(2)*dFq_Ha(1) ! dFdgq
+
+
+      F  = Z_2D(qid:qid+1,aid:aid+1)
+      d12F = d12_Z_2D(:,qid:qid+1,aid:aid+1)
+      ! Find values at Half a (for 1D in gq)
+      F_Ha = h00(1)*F(:,0) +h10(1)*d12F(1,:,0) +h01(1)*F(:,1) +h11(1)*d12F(1,:,1)
+      dFa_Ha = dh00(1)*F(:,0) +dh10(1)*d12F(1,:,0) +dh01(1)*F(:,1) +dh11(1)*d12F(1,:,1)
+      dFq_Ha = h00(1)*d12F(2,:,0) +h10(1)*d12F(3,:,0) +h01(1)*d12F(2,:,1) +h11(1)*d12F(3,:,1)
+      dFaq_Ha = dh00(1)*d12F(2,:,0) +dh10(1)*d12F(3,:,0) +dh01(1)*d12F(2,:,1) +dh11(1)*d12F(3,:,1)
+      ! Find values at Half a & Half gq (at the given point)
+      P_Z = h00(2)*F_Ha(0) +h10(2)*dFq_Ha(0) +h01(2)*F_Ha(1) +h11(2)*dFq_Ha(1) ! F
+      P_grad_Z(1) = h00(2)*dFa_Ha(0) +h10(2)*dFaq_Ha(0) +h01(2)*dFa_Ha(1) +h11(2)*dFaq_Ha(1) ! dFda
+      P_grad_Z(2) = dh00(2)*F_Ha(0) +dh10(2)*dFq_Ha(0) +dh01(2)*F_Ha(1) +dh11(2)*dFq_Ha(1) ! dFdgq
+
+
+
+
+      ! Some Scalars
+      S  = BB(qid:qid+1,aid:aid+1,fid:fid+1)
+      dS = grad_BB(:,qid:qid+1,aid:aid+1,fid:fid+1)
+      d23S = d23_BB(:,qid:qid+1,aid:aid+1,fid:fid+1)
+
+      ! Find values at Half a (for 2D in gq,gf)
+      S_Ha = h00(1)*S(:,0,:) +h10(1)*dS(1,:,0,:) +h01(1)*S(:,1,:) +h11(1)*dS(1,:,1,:)
+      dSa_Ha=dh00(1)*S(:,0,:) +dh10(1)*dS(1,:,0,:) +dh01(1)*S(:,1,:) +dh11(1)*dS(1,:,1,:)
+      dSq_Ha = h00(1)*dS(2,:,0,:) +h10(1)*d23S(1,:,0,:) +h01(1)*dS(2,:,1,:) +h11(1)*d23S(1,:,1,:)
+      dSf_Ha = h00(1)*dS(3,:,0,:) +h10(1)*d23S(2,:,0,:) +h01(1)*dS(3,:,1,:) +h11(1)*d23S(2,:,1,:)
+      d2Saq_Ha = dh00(1)*dS(2,:,0,:) +dh10(1)*d23S(1,:,0,:) +dh01(1)*dS(2,:,1,:) +dh11(1)*d23S(1,:,1,:)
+      d2Saf_Ha = dh00(1)*dS(3,:,0,:) +dh10(1)*d23S(2,:,0,:) +dh01(1)*dS(3,:,1,:) +dh11(1)*d23S(2,:,1,:)
+      d2Sqf_Ha = h00(1)*d23S(3,:,0,:) +h10(1)*d23S(4,:,0,:) +h01(1)*d23S(3,:,1,:) +h11(1)*d23S(4,:,1,:)
+      d3Saqf_Ha=dh00(1)*d23S(3,:,0,:) +dh10(1)*d23S(4,:,0,:) +dh01(1)*d23S(3,:,1,:) +dh11(1)*d23S(4,:,1,:)
+      ! Find values at Half a & Half gq (for 1D in gf)
+      S_Haq = h00(2)*S_Ha(0,:) +h10(2)*dSq_Ha(0,:) +h01(2)*S_Ha(1,:) +h11(2)*dSq_Ha(1,:)
+      dSa_Haq =  h00(2)*dSa_Ha(0,:) +h10(2)*d2Saq_Ha(0,:) +h01(2)*dSa_Ha(0,:) +h11(2)*d2Saq_Ha(0,:)
+      dSq_Haq = dh00(2)*S_Ha(0,:) +dh10(2)*dSq_Ha(0,:) +dh01(2)*S_Ha(1,:) +dh11(2)*dSq_Ha(1,:)
+      dSf_Haq =  h00(2)*dSf_Ha(0,:) +h10(2)*d2Sqf_Ha(0,:) +h01(2)*dSf_Ha(1,:) +h11(2)*d2Sqf_Ha(1,:)
+      d2Saf_Haq = h00(2)*d2Saf_Ha(0,:) +h10(2)*d3Saqf_Ha(0,:) +h01(2)*d2Saf_Ha(1,:) +h11(2)*d3Saqf_Ha(1,:)
+      d2Sqf_Haq = dh00(2)*dSf_Ha(0,:) +dh10(2)*d2Sqf_Ha(0,:) +dh01(2)*dSf_Ha(1,:) +dh11(2)*d2Sqf_Ha(1,:)
+      ! Find interpolated value at the given point
+      P_BB = h00(3)*S_Haq(0) +h10(3)*dSf_Haq(0) +h01(3)*S_Haq(1) +h11(3)*dSf_Haq(1)
+      P_grad_BB(1) = h00(3)*dSa_Haq(0) +h10(3)*d2Saf_Haq(0) +h01(3)*dSa_Haq(1) +h11(3)*d2Saf_Haq(1)
+      P_grad_BB(2) = h00(3)*dSq_Haq(0) +h10(3)*d2Sqf_Haq(0) +h01(3)*dSq_Haq(1) +h11(3)*d2Sqf_Haq(1)
+
+
+      V  = B_cov(:,qid:qid+1,aid:aid+1,fid:fid+1)
+      dV = grad_B_cov(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+      d23V = d23_B_cov(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+      ! Find values at Half a (for 2D in gq,gf)
+      V_Ha = h00(1)*V(:,:,0,:) +h10(1)*dV(1,:,:,0,:) +h01(1)*V(:,:,1,:) +h11(1)*dV(1,:,:,1,:)
+      dVq_Ha = h00(1)*dV(2,:,:,0,:) +h10(1)*d23V(1,:,:,0,:) +h01(1)*dV(2,:,:,1,:) +h11(1)*d23V(1,:,:,1,:)
+      dVf_Ha = h00(1)*dV(3,:,:,0,:) +h10(1)*d23V(2,:,:,0,:) +h01(1)*dV(3,:,:,1,:) +h11(1)*d23V(2,:,:,1,:)
+      d2Vqf_Ha = h00(1)*d23V(3,:,:,0,:) +h10(1)*d23V(4,:,:,0,:) +h01(1)*d23V(3,:,:,1,:) +h11(1)*d23V(4,:,:,1,:)
+      ! Find values at Half a & Half gq (for 1D in gf)
+      V_Haq = h00(2)*V_Ha(:,0,:) +h10(2)*dVq_Ha(:,0,:) +h01(2)*V_Ha(:,1,:) +h11(2)*dVq_Ha(:,1,:)
+      dVf_Haq =  h00(2)*dVf_Ha(:,0,:) +h10(2)*d2Vqf_Ha(:,0,:) +h01(2)*dVf_Ha(:,1,:) +h11(2)*d2Vqf_Ha(:,1,:)
+      ! Find interpolated value at the given point
+      P_B_cov = h00(3)*V_Haq(:,0) +h10(3)*dVf_Haq(:,0) +h01(3)*V_Haq(:,1) +h11(3)*dVf_Haq(:,1)
+
+
+      V  = B_cntv(:,qid:qid+1,aid:aid+1,fid:fid+1)
+      dV = grad_B_cntv(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+      d23V = d23_B_cntv(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+      ! Find values at Half a (for 2D in gq,gf)
+      V_Ha = h00(1)*V(:,:,0,:) +h10(1)*dV(1,:,:,0,:) +h01(1)*V(:,:,1,:) +h11(1)*dV(1,:,:,1,:)
+      dVq_Ha = h00(1)*dV(2,:,:,0,:) +h10(1)*d23V(1,:,:,0,:) +h01(1)*dV(2,:,:,1,:) +h11(1)*d23V(1,:,:,1,:)
+      dVf_Ha = h00(1)*dV(3,:,:,0,:) +h10(1)*d23V(2,:,:,0,:) +h01(1)*dV(3,:,:,1,:) +h11(1)*d23V(2,:,:,1,:)
+      d2Vqf_Ha = h00(1)*d23V(3,:,:,0,:) +h10(1)*d23V(4,:,:,0,:) +h01(1)*d23V(3,:,:,1,:) +h11(1)*d23V(4,:,:,1,:)
+      ! Find values at Half a & Half gq (for 1D in gf)
+      V_Haq = h00(2)*V_Ha(:,0,:) +h10(2)*dVq_Ha(:,0,:) +h01(2)*V_Ha(:,1,:) +h11(2)*dVq_Ha(:,1,:)
+      dVf_Haq =  h00(2)*dVf_Ha(:,0,:) +h10(2)*d2Vqf_Ha(:,0,:) +h01(2)*dVf_Ha(:,1,:) +h11(2)*d2Vqf_Ha(:,1,:)
+      ! Find interpolated value at the given point
+      P_B_cntv = h00(3)*V_Haq(:,0) +h10(3)*dVf_Haq(:,0) +h01(3)*V_Haq(:,1) +h11(3)*dVf_Haq(:,1)
+
+
+      V  = j_cntv(:,qid:qid+1,aid:aid+1,fid:fid+1)
+      dV = grad_j_cntv(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+      d23V = d23_j_cntv(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+      ! Find values at Half a (for 2D in gq,gf)
+      V_Ha = h00(1)*V(:,:,0,:) +h10(1)*dV(1,:,:,0,:) +h01(1)*V(:,:,1,:) +h11(1)*dV(1,:,:,1,:)
+      dVq_Ha = h00(1)*dV(2,:,:,0,:) +h10(1)*d23V(1,:,:,0,:) +h01(1)*dV(2,:,:,1,:) +h11(1)*d23V(1,:,:,1,:)
+      dVf_Ha = h00(1)*dV(3,:,:,0,:) +h10(1)*d23V(2,:,:,0,:) +h01(1)*dV(3,:,:,1,:) +h11(1)*d23V(2,:,:,1,:)
+      d2Vqf_Ha = h00(1)*d23V(3,:,:,0,:) +h10(1)*d23V(4,:,:,0,:) +h01(1)*d23V(3,:,:,1,:) +h11(1)*d23V(4,:,:,1,:)
+      ! Find values at Half a & Half gq (for 1D in gf)
+      V_Haq = h00(2)*V_Ha(:,0,:) +h10(2)*dVq_Ha(:,0,:) +h01(2)*V_Ha(:,1,:) +h11(2)*dVq_Ha(:,1,:)
+      dVf_Haq =  h00(2)*dVf_Ha(:,0,:) +h10(2)*d2Vqf_Ha(:,0,:) +h01(2)*dVf_Ha(:,1,:) +h11(2)*d2Vqf_Ha(:,1,:)
+      ! Find interpolated value at the given point
+      P_j_cntv = h00(3)*V_Haq(:,0) +h10(3)*dVf_Haq(:,0) +h01(3)*V_Haq(:,1) +h11(3)*dVf_Haq(:,1)
+
+   end subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion
+
+
+
+
+   subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion_at_zeon(P_R,P_grad_R,P_Z,P_grad_Z,P_BB,P_grad_BB,P_B_cov,P_B_cntv,P_j_cntv)
+      use global_parameters,only:me
+      use particle_array
+      implicit none
+      ! real(wp),intent(in) :: in_a,in_gq,in_gf
+      ! real(wp),intent(in) :: in_Vec(3,dim_gq,dim_a,dim_gf)
+      ! real(wp),intent(in) :: in_gradVec(3,3,dim_gq,dim_a,dim_gf), in_d23Vec(4,3,dim_gq,dim_a,dim_gf)
+      ! real(wp),intent(out) :: out_Vec(3)
+      real(wp) h00(3),h10(3),h01(3),h11(3)
+      real(wp) dh00(3),dh10(3),dh01(3),dh11(3)
+      integer aid,qid,fid
+      real(wp) at,qt,ft,tt(3),du(3)
+      real(wp) S(0:1,0:1,0:1),dS(3,0:1,0:1,0:1),d23S(4,0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
+      real(wp) S_Ha(0:1,0:1), dSa_Ha(0:1,0:1), dSq_Ha(0:1,0:1), dSf_Ha(0:1,0:1), d2Saq_Ha(0:1,0:1), d2Saf_Ha(0:1,0:1), d2Sqf_Ha(0:1,0:1), d3Saqf_Ha(0:1,0:1)  ! Values at Half a (2D in q,f)
+      real(wp) S_Haq(0:1), dSa_Haq(0:1), dSq_Haq(0:1), dSf_Haq(0:1), d2Saf_Haq(0:1), d2Sqf_Haq(0:1) ! Values at Half a & Half q (1D in f)
+      real(wp) V(3,0:1,0:1,0:1),dV(3,3,0:1,0:1,0:1),d23V(4,3,0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
+      real(wp) V_Ha(3,0:1,0:1), dVq_Ha(3,0:1,0:1), dVf_Ha(3,0:1,0:1), d2Vqf_Ha(3,0:1,0:1)  ! Values at Half a (2D in q,f)
+      real(wp) V_Haq(3,0:1), dVf_Haq(3,0:1) ! Values at Half a & Half q (1D in f)
+      real(wp) F(0:1,0:1),d12F(3,0:1,0:1) ! Values at corners (2D in a,q)
+      real(wp) F_Ha(0:1),dFa_Ha(0:1),dFq_Ha(0:1),dFaq_Ha(0:1) ! Values at Half a (1D in q)
+
+      real(wp) in_a,in_gq,in_gf
+      real(wp) P_R(me),P_grad_R(2,me),P_Z(me),P_grad_Z(2,me)
+      real(wp) P_BB(me), P_grad_BB(3,me), P_B_cntv(3,me), P_B_cov(3,me), P_j_cntv(3,me)
+
+      integer m
+
+      !$acc parallel loop gang vector present(zeon)
+      do m=1,me
+
+         in_a = zeon(1,m)
+         in_gq = zeon(2,m)
+         in_gf = zeon(3,m)
+
+         aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
+         qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
+         fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+
+         at = (in_a-a_1D(aid))*inv_da
+         qt = (in_gq-gq_1D(qid))*inv_dgq
+         ft = (in_gf-gf_1D(fid))*inv_dgf
+
+
+         tt = [at,qt,ft]
+         du = [da,dgq,dgf]
+
+         h00 = 2*tt**3 -3*tt**2 +1
+         h10 = (tt**3 -2*tt**2 +tt)*du
+         h01 = -2*tt**3 +3*tt**2
+         h11 = (tt**3 -tt**2)*du
+         dh00 = (6*tt**2 -6*tt)/du
+         dh10 = 3*tt**2 -4*tt +1
+         dh01 = (-6*tt**2 +6*tt)/du
+         dh11 = 3*tt**2 -2*tt
+
+
+         F  = R_2D(qid:qid+1,aid:aid+1)
+         d12F = d12_R_2D(:,qid:qid+1,aid:aid+1)
+         ! Find values at Half a (for 1D in gq)
+         F_Ha = h00(1)*F(:,0) +h10(1)*d12F(1,:,0) +h01(1)*F(:,1) +h11(1)*d12F(1,:,1)
+         dFa_Ha = dh00(1)*F(:,0) +dh10(1)*d12F(1,:,0) +dh01(1)*F(:,1) +dh11(1)*d12F(1,:,1)
+         dFq_Ha = h00(1)*d12F(2,:,0) +h10(1)*d12F(3,:,0) +h01(1)*d12F(2,:,1) +h11(1)*d12F(3,:,1)
+         dFaq_Ha = dh00(1)*d12F(2,:,0) +dh10(1)*d12F(3,:,0) +dh01(1)*d12F(2,:,1) +dh11(1)*d12F(3,:,1)
+         ! Find values at Half a & Half gq (at the given point)
+         P_R(m) = h00(2)*F_Ha(0) +h10(2)*dFq_Ha(0) +h01(2)*F_Ha(1) +h11(2)*dFq_Ha(1) ! F
+         P_grad_R(1,m) = h00(2)*dFa_Ha(0) +h10(2)*dFaq_Ha(0) +h01(2)*dFa_Ha(1) +h11(2)*dFaq_Ha(1) ! dFda
+         P_grad_R(2,m) = dh00(2)*F_Ha(0) +dh10(2)*dFq_Ha(0) +dh01(2)*F_Ha(1) +dh11(2)*dFq_Ha(1) ! dFdgq
+
+
+         F  = Z_2D(qid:qid+1,aid:aid+1)
+         d12F = d12_Z_2D(:,qid:qid+1,aid:aid+1)
+         ! Find values at Half a (for 1D in gq)
+         F_Ha = h00(1)*F(:,0) +h10(1)*d12F(1,:,0) +h01(1)*F(:,1) +h11(1)*d12F(1,:,1)
+         dFa_Ha = dh00(1)*F(:,0) +dh10(1)*d12F(1,:,0) +dh01(1)*F(:,1) +dh11(1)*d12F(1,:,1)
+         dFq_Ha = h00(1)*d12F(2,:,0) +h10(1)*d12F(3,:,0) +h01(1)*d12F(2,:,1) +h11(1)*d12F(3,:,1)
+         dFaq_Ha = dh00(1)*d12F(2,:,0) +dh10(1)*d12F(3,:,0) +dh01(1)*d12F(2,:,1) +dh11(1)*d12F(3,:,1)
+         ! Find values at Half a & Half gq (at the given point)
+         P_Z(m) = h00(2)*F_Ha(0) +h10(2)*dFq_Ha(0) +h01(2)*F_Ha(1) +h11(2)*dFq_Ha(1) ! F
+         P_grad_Z(1,m) = h00(2)*dFa_Ha(0) +h10(2)*dFaq_Ha(0) +h01(2)*dFa_Ha(1) +h11(2)*dFaq_Ha(1) ! dFda
+         P_grad_Z(2,m) = dh00(2)*F_Ha(0) +dh10(2)*dFq_Ha(0) +dh01(2)*F_Ha(1) +dh11(2)*dFq_Ha(1) ! dFdgq
+
+
+
+
+         ! Some Scalars
+         S  = BB(qid:qid+1,aid:aid+1,fid:fid+1)
+         dS = grad_BB(:,qid:qid+1,aid:aid+1,fid:fid+1)
+         d23S = d23_BB(:,qid:qid+1,aid:aid+1,fid:fid+1)
+
+         ! Find values at Half a (for 2D in gq,gf)
+         S_Ha = h00(1)*S(:,0,:) +h10(1)*dS(1,:,0,:) +h01(1)*S(:,1,:) +h11(1)*dS(1,:,1,:)
+         dSa_Ha=dh00(1)*S(:,0,:) +dh10(1)*dS(1,:,0,:) +dh01(1)*S(:,1,:) +dh11(1)*dS(1,:,1,:)
+         dSq_Ha = h00(1)*dS(2,:,0,:) +h10(1)*d23S(1,:,0,:) +h01(1)*dS(2,:,1,:) +h11(1)*d23S(1,:,1,:)
+         dSf_Ha = h00(1)*dS(3,:,0,:) +h10(1)*d23S(2,:,0,:) +h01(1)*dS(3,:,1,:) +h11(1)*d23S(2,:,1,:)
+         d2Saq_Ha = dh00(1)*dS(2,:,0,:) +dh10(1)*d23S(1,:,0,:) +dh01(1)*dS(2,:,1,:) +dh11(1)*d23S(1,:,1,:)
+         d2Saf_Ha = dh00(1)*dS(3,:,0,:) +dh10(1)*d23S(2,:,0,:) +dh01(1)*dS(3,:,1,:) +dh11(1)*d23S(2,:,1,:)
+         d2Sqf_Ha = h00(1)*d23S(3,:,0,:) +h10(1)*d23S(4,:,0,:) +h01(1)*d23S(3,:,1,:) +h11(1)*d23S(4,:,1,:)
+         d3Saqf_Ha=dh00(1)*d23S(3,:,0,:) +dh10(1)*d23S(4,:,0,:) +dh01(1)*d23S(3,:,1,:) +dh11(1)*d23S(4,:,1,:)
+         ! Find values at Half a & Half gq (for 1D in gf)
+         S_Haq = h00(2)*S_Ha(0,:) +h10(2)*dSq_Ha(0,:) +h01(2)*S_Ha(1,:) +h11(2)*dSq_Ha(1,:)
+         dSa_Haq =  h00(2)*dSa_Ha(0,:) +h10(2)*d2Saq_Ha(0,:) +h01(2)*dSa_Ha(0,:) +h11(2)*d2Saq_Ha(0,:)
+         dSq_Haq = dh00(2)*S_Ha(0,:) +dh10(2)*dSq_Ha(0,:) +dh01(2)*S_Ha(1,:) +dh11(2)*dSq_Ha(1,:)
+         dSf_Haq =  h00(2)*dSf_Ha(0,:) +h10(2)*d2Sqf_Ha(0,:) +h01(2)*dSf_Ha(1,:) +h11(2)*d2Sqf_Ha(1,:)
+         d2Saf_Haq = h00(2)*d2Saf_Ha(0,:) +h10(2)*d3Saqf_Ha(0,:) +h01(2)*d2Saf_Ha(1,:) +h11(2)*d3Saqf_Ha(1,:)
+         d2Sqf_Haq = dh00(2)*dSf_Ha(0,:) +dh10(2)*d2Sqf_Ha(0,:) +dh01(2)*dSf_Ha(1,:) +dh11(2)*d2Sqf_Ha(1,:)
+         ! Find interpolated value at the given point
+         P_BB(m) = h00(3)*S_Haq(0) +h10(3)*dSf_Haq(0) +h01(3)*S_Haq(1) +h11(3)*dSf_Haq(1)
+         P_grad_BB(1,m) = h00(3)*dSa_Haq(0) +h10(3)*d2Saf_Haq(0) +h01(3)*dSa_Haq(1) +h11(3)*d2Saf_Haq(1)
+         P_grad_BB(2,m) = h00(3)*dSq_Haq(0) +h10(3)*d2Sqf_Haq(0) +h01(3)*dSq_Haq(1) +h11(3)*d2Sqf_Haq(1)
+
+
+         V  = B_cov(:,qid:qid+1,aid:aid+1,fid:fid+1)
+         dV = grad_B_cov(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+         d23V = d23_B_cov(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+         ! Find values at Half a (for 2D in gq,gf)
+         V_Ha = h00(1)*V(:,:,0,:) +h10(1)*dV(1,:,:,0,:) +h01(1)*V(:,:,1,:) +h11(1)*dV(1,:,:,1,:)
+         dVq_Ha = h00(1)*dV(2,:,:,0,:) +h10(1)*d23V(1,:,:,0,:) +h01(1)*dV(2,:,:,1,:) +h11(1)*d23V(1,:,:,1,:)
+         dVf_Ha = h00(1)*dV(3,:,:,0,:) +h10(1)*d23V(2,:,:,0,:) +h01(1)*dV(3,:,:,1,:) +h11(1)*d23V(2,:,:,1,:)
+         d2Vqf_Ha = h00(1)*d23V(3,:,:,0,:) +h10(1)*d23V(4,:,:,0,:) +h01(1)*d23V(3,:,:,1,:) +h11(1)*d23V(4,:,:,1,:)
+         ! Find values at Half a & Half gq (for 1D in gf)
+         V_Haq = h00(2)*V_Ha(:,0,:) +h10(2)*dVq_Ha(:,0,:) +h01(2)*V_Ha(:,1,:) +h11(2)*dVq_Ha(:,1,:)
+         dVf_Haq =  h00(2)*dVf_Ha(:,0,:) +h10(2)*d2Vqf_Ha(:,0,:) +h01(2)*dVf_Ha(:,1,:) +h11(2)*d2Vqf_Ha(:,1,:)
+         ! Find interpolated value at the given point
+         P_B_cov(:,m) = h00(3)*V_Haq(:,0) +h10(3)*dVf_Haq(:,0) +h01(3)*V_Haq(:,1) +h11(3)*dVf_Haq(:,1)
+
+
+         V  = B_cntv(:,qid:qid+1,aid:aid+1,fid:fid+1)
+         dV = grad_B_cntv(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+         d23V = d23_B_cntv(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+         ! Find values at Half a (for 2D in gq,gf)
+         V_Ha = h00(1)*V(:,:,0,:) +h10(1)*dV(1,:,:,0,:) +h01(1)*V(:,:,1,:) +h11(1)*dV(1,:,:,1,:)
+         dVq_Ha = h00(1)*dV(2,:,:,0,:) +h10(1)*d23V(1,:,:,0,:) +h01(1)*dV(2,:,:,1,:) +h11(1)*d23V(1,:,:,1,:)
+         dVf_Ha = h00(1)*dV(3,:,:,0,:) +h10(1)*d23V(2,:,:,0,:) +h01(1)*dV(3,:,:,1,:) +h11(1)*d23V(2,:,:,1,:)
+         d2Vqf_Ha = h00(1)*d23V(3,:,:,0,:) +h10(1)*d23V(4,:,:,0,:) +h01(1)*d23V(3,:,:,1,:) +h11(1)*d23V(4,:,:,1,:)
+         ! Find values at Half a & Half gq (for 1D in gf)
+         V_Haq = h00(2)*V_Ha(:,0,:) +h10(2)*dVq_Ha(:,0,:) +h01(2)*V_Ha(:,1,:) +h11(2)*dVq_Ha(:,1,:)
+         dVf_Haq =  h00(2)*dVf_Ha(:,0,:) +h10(2)*d2Vqf_Ha(:,0,:) +h01(2)*dVf_Ha(:,1,:) +h11(2)*d2Vqf_Ha(:,1,:)
+         ! Find interpolated value at the given point
+         P_B_cntv(:,m) = h00(3)*V_Haq(:,0) +h10(3)*dVf_Haq(:,0) +h01(3)*V_Haq(:,1) +h11(3)*dVf_Haq(:,1)
+
+
+         V  = j_cntv(:,qid:qid+1,aid:aid+1,fid:fid+1)
+         dV = grad_j_cntv(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+         d23V = d23_j_cntv(:,:,qid:qid+1,aid:aid+1,fid:fid+1)
+         ! Find values at Half a (for 2D in gq,gf)
+         V_Ha = h00(1)*V(:,:,0,:) +h10(1)*dV(1,:,:,0,:) +h01(1)*V(:,:,1,:) +h11(1)*dV(1,:,:,1,:)
+         dVq_Ha = h00(1)*dV(2,:,:,0,:) +h10(1)*d23V(1,:,:,0,:) +h01(1)*dV(2,:,:,1,:) +h11(1)*d23V(1,:,:,1,:)
+         dVf_Ha = h00(1)*dV(3,:,:,0,:) +h10(1)*d23V(2,:,:,0,:) +h01(1)*dV(3,:,:,1,:) +h11(1)*d23V(2,:,:,1,:)
+         d2Vqf_Ha = h00(1)*d23V(3,:,:,0,:) +h10(1)*d23V(4,:,:,0,:) +h01(1)*d23V(3,:,:,1,:) +h11(1)*d23V(4,:,:,1,:)
+         ! Find values at Half a & Half gq (for 1D in gf)
+         V_Haq = h00(2)*V_Ha(:,0,:) +h10(2)*dVq_Ha(:,0,:) +h01(2)*V_Ha(:,1,:) +h11(2)*dVq_Ha(:,1,:)
+         dVf_Haq =  h00(2)*dVf_Ha(:,0,:) +h10(2)*d2Vqf_Ha(:,0,:) +h01(2)*dVf_Ha(:,1,:) +h11(2)*d2Vqf_Ha(:,1,:)
+         ! Find interpolated value at the given point
+         P_j_cntv(:,m) = h00(3)*V_Haq(:,0) +h10(3)*dVf_Haq(:,0) +h01(3)*V_Haq(:,1) +h11(3)*dVf_Haq(:,1)
+
+      enddo
+   end subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion_at_zeon
 
 
 
