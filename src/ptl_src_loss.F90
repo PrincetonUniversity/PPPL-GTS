@@ -248,10 +248,16 @@ module Ptl_Src_Loss
 
 
    type Particle_Source_Control_Variables
+      integer :: dim_a, dim_gq
+      real(wp), allocatable, dimension(:) :: a_1D, gq_1D
+      real(wp) :: a_min, a_max
+
       integer :: nstep, cum_num
       real(wp), allocatable, dimension(:,:,:) :: cum_E_para, mean_E_para
       real(wp), allocatable, dimension(:,:,:) :: Elec_dupara_per_nstep,Ion_dupara_per_nstep
       real(wp), allocatable, dimension(:,:,:) :: Elec_dupara_per_nstep_SM,Ion_dupara_per_nstep_SM
+
+      real(wp), allocatable, dimension(:,:,:) :: Elec_dErg_eV_per_nstep, Ion_dErg_eV_per_nstep
       ! real(wp), allocatable, dimension(:,:,:,:) :: cum_E_cov3, mean_E_cov3 ! electric field
    end type
 
@@ -275,19 +281,35 @@ module Ptl_Src_Loss
          call Initialize_FootPrint(FP_BDY1,a1)
          call Initialize_FootPrint(cum_FP_BDY1,a1)
 
-         call Initialize_Particle_Source_Control_Variables(SG%dim_gq, SG%dim_a)
+         call Initialize_Particle_Source_Control_Variables
 
       end subroutine Initialize_Ptl_Src_Loss
 
-      subroutine Initialize_Particle_Source_Control_Variables(dim_gq,dim_a)
+      subroutine Initialize_Particle_Source_Control_Variables
          use global_parameters
+         use Structured_Grid
          implicit none
-         integer,intent(in) :: dim_gq, dim_a
+         integer :: dim_gq, dim_a
+
+         PtlSrcCV%dim_a = SG%dim_a
+         PtlSrcCV%dim_gq = SG%dim_gq
+
+         dim_a=PtlSrcCV%dim_a
+         dim_gq=PtlSrcCV%dim_gq
+         allocate(PtlSrcCV%a_1D(dim_a),PtlSrcCV%gq_1D(dim_gq))
+
+         PtlSrcCV%a_1D = SG%a_1D
+         PtlSrcCV%gq_1D = SG%gq_1D
+         PtlSrcCV%a_min = minval(PtlSrcCV%a_1D)
+         PtlSrcCV%a_max = maxval(PtlSrcCV%a_1D)
+
+
 
          PtlSrcCV%nstep = Ptl_Src_nstep
          allocate(PtlSrcCV%cum_E_para(dim_gq,dim_a,0:1), PtlSrcCV%mean_E_para(dim_gq,dim_a,0:1))
          allocate(PtlSrcCV%Elec_dupara_per_nstep(dim_gq,dim_a,0:1), PtlSrcCV%Ion_dupara_per_nstep(dim_gq,dim_a,0:1))
          allocate(PtlSrcCV%Elec_dupara_per_nstep_SM(dim_gq,dim_a,0:1), PtlSrcCV%Ion_dupara_per_nstep_SM(dim_gq,dim_a,0:1))
+         allocate(PtlSrcCV%Elec_dErg_eV_per_nstep(dim_gq,dim_a,0:1),PtlSrcCV%Ion_dErg_eV_per_nstep(dim_gq,dim_a,0:1))
          ! allocate(PtlSrcCV%cum_E_cov3(3,dim_gq,dim_a,0:1), PtlSrcCV%mean_E_cov3(3,dim_gq,dim_a,0:1))
 
          PtlSrcCV%cum_E_para = 0.0
@@ -304,6 +326,7 @@ module Ptl_Src_Loss
          if(allocated(PtlSrcCV%cum_E_para)) deallocate(PtlSrcCV%cum_E_para, PtlSrcCV%mean_E_para)
          if(allocated(PtlSrcCV%Elec_dupara_per_nstep)) deallocate(PtlSrcCV%Elec_dupara_per_nstep,PtlSrcCV%Ion_dupara_per_nstep)
          if(allocated(PtlSrcCV%Elec_dupara_per_nstep_SM)) deallocate(PtlSrcCV%Elec_dupara_per_nstep_SM,PtlSrcCV%Ion_dupara_per_nstep_SM)
+         if(allocated(PtlSrcCV%Elec_dErg_eV_per_nstep)) deallocate(PtlSrcCV%Elec_dErg_eV_per_nstep,PtlSrcCV%Ion_dErg_eV_per_nstep)
          ! if(allocated(PtlSrcCV%cum_E_cov3)) deallocate(PtlSrcCV%cum_E_cov3, PtlSrcCV%mean_E_cov3)
       end subroutine Finalize_Ptl_Src_Loss
 
