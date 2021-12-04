@@ -14,12 +14,13 @@ end module precision
 module global_parameters
    use precision
    integer,parameter :: ihistory=22,snapout=33
-   integer micell,mi,mimax,me,ini_me, ini_mi, memax,mgrid,mpsi,mthetamax,& ! ,mzeta
+   integer micell,mi,mimax,me,ini_me,ini_mi,ini_me_npartd, ini_mi_npartd, memax,mgrid,mpsi,mthetamax,& ! ,mzeta
       mzetamax,istep,ndiag,istart,movie_3D_h5,ntracer,msnap,mstep,mstepall,&
       stdout,mype,numberpe,mode00,nbound,irun,iload,irk,&
       idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,maintnT,&
-      nelectron,ntracer_e,ntracer00,me00,idiag_e
+      nelectron,ntracer_e,ntracer00,me00,idiag_e,ierrr
    integer :: nbound_inner=-100, nbound_outer=-100
+   real(wp) Gt_start, Gt_end ! for measuring the elpased time for something
    real(wp) misum,mesum  !Total number of ions and electrons can be >2 billion
    real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,inv_twopi,tstep,kappati,kappate,&
       kappan,flow0,flow1,flow2,ulength,utime,E_00,gyroradius,deltar,&
@@ -27,6 +28,7 @@ module global_parameters
       uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
       s0,s1,B_0,R_0,Cs   ! B_0=normalized on-axis B, R_0=normalized major radius
    !$acc declare create(a0,a1)
+   !$acc declare create(s0,mzetamax)
 
    real(wp) MM_Cs, MM_Lc_over_vthci, MM_LcTi, MM_LcTe, MM_Lcn, MM_Lcu, MM_vthci, MM_vthce, MM_R_axis, MM_B_axis ! Variables for MeasureMent
    integer,dimension(:),allocatable :: mtheta
@@ -192,7 +194,7 @@ module FieldLineFollowing
       real(wp) target_normalized_gf  ! target_zeta in [0,...,2*pi]
       real(wp) s, a, gq, gf
       real(wp) R, Z
-      real(wp) dl, inv_B
+      real(wp) dl, inv_B, B
       real(wp) ini_FLabel ! FLabel_Function will be used to estimate modified flux-surface labels
    end type
 

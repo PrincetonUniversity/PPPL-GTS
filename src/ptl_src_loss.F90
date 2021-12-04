@@ -471,6 +471,7 @@ module Ptl_Src_Loss
          use particle_decomp
          use mpi_defs
          use Structured_Grid
+         use function_gg_module
          implicit none
 
          integer :: minpts, ifail=1, ierror, istatus(MPI_STATUS_SIZE)
@@ -484,25 +485,41 @@ module Ptl_Src_Loss
          real(wp) prev_a, prev_gq, prev_gf
          real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
          integer recv_counts_Lsize(npartdom), recv_displs_Lsize(npartdom)
-         integer max_tor_rotation, num_gq, num_gf, i, j, k, ierr,length, h5err
+         integer max_tor_rotation, step,max_step,num_gq, num_gf, i, j, k, ierr,length, h5err
          integer Gsize, Lsize, extra! Number of G(Global) or L(Local) Field lines
          integer Fid, Fid_start, Fid_end
          integer tor_dir,aid,gqid
          real(wp) :: dErg_eV, FL_loc_Lc ! field line length
-         real(wp), allocatable :: FL_max_dErg_eV(:), recv_FL_max_dErg_eV(:) ! maximum energy change by potential along field line
+         real(wp), allocatable :: FL_max_Elec_dErg_eV(:),FL_max_Ion_dErg_eV(:), recv_FL_max_dErg_eV(:) ! maximum energy change by potential along field line
          real(wp) Lc_track_threshold ! Determine how long the field line will be tracked (vmax*dt*nstep)
+         real(wp) Elec_Lc_thold, Ion_Lc_thold
 
 #ifdef _MGY_TIMER_
    Gt_start=MPI_WTIME()
 #endif
 
-         specific_time = 0.0
-
          ! Prepare SG's phi_3D in case
          call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+         SG_phi_3D = SG%test_phi_3D
+         !$acc update device(SG_phi_3D)
+
+         specific_time = 0.0
+
 
          max_tor_rotation = 100
-         Lc_track_threshold = 50 ! 50 m
+         ! Lc_track_threshold = 50 ! 50 m
+
+         dgf = 2.0*pi/100.0
+         Elec_Lc_thold = PtlSrcCV%nstep*(2*umax*MM_vthce*tstep) ! electron travel distance (m) during nstep assuming 2*umax speed
+         Ion_Lc_thold  = PtlSrcCV%nstep*(2*umax*MM_vthci*tstep) ! ion travel distance (m) during nstep assuming 2*umax speed
+         Lc_track_threshold = max(Elec_Lc_thold, Ion_Lc_thold)
+         max_step = ceiling(Lc_track_threshold/(MM_R_axis*dgf)) ! Changle Lc condition into approximate number of steps
+
+
+         if(mype==0) then
+            write(stdout,*) "mype=",mype,"; Elec_Lc_thold=", Elec_Lc_thold, ", Ion_Lc_thold=", Ion_Lc_thold, "max_step=",max_step
+            call flush(stdout)
+         endif
 
 
          Gsize = PtlSrcCV%dim_a*PtlSrcCV%dim_gq
@@ -537,17 +554,20 @@ module Ptl_Src_Loss
          enddo
 
 
-         allocate(FL_max_dErg_eV(Fid_start:Fid_end))
+         allocate(FL_max_Elec_dErg_eV(Fid_start:Fid_end), FL_max_Ion_dErg_eV(Fid_start:Fid_end))
          allocate(recv_FL_max_dErg_eV(Gsize))
 
-         FL_max_dErg_eV = 0.0
-
+         FL_max_Elec_dErg_eV = 0.0
+         FL_max_Ion_dErg_eV  = 0.0
+         !$acc parallel loop private(a_RK,gq_RK,B_vec_cntv)
          do Fid = Fid_start,Fid_end
+            !$acc loop seq private(a_RK,gq_RK)
             do tor_dir=-1,1,2
 
                FL_loc_Lc = 0.0
 
-               dgf = tor_dir*2.0*pi/50.0 ! tor_dir=-1 (CW; -zeta), tor_dir=1(CCW; +zeta)
+               ! dgf = tor_dir*2.0*pi/50.0 ! tor_dir=-1 (CW; -zeta), tor_dir=1(CCW; +zeta)
+               dgf = tor_dir*abs(dgf) ! tor_dir=-1 (CW; -zeta), tor_dir=1(CCW; +zeta)
 
                now_a  = ini_a(Fid)
                now_gq = ini_gq(Fid)
@@ -556,12 +576,12 @@ module Ptl_Src_Loss
                prev_a  = now_a
                prev_gq = now_gq
                prev_gf = now_gf
-
-               now_s = D01AHF(0.0,now_a,error_8,minpts,acc,dsda,-1,IFAIL)
-               ! now_s = now_a
+               call Convert_a_to_s(now_a,now_s)
                call Get_Intp_global_phi3D_on_SG(now_s, now_gq, now_gf, ori_phi_V)
 
-               do while(.true.)
+               ! do while(.true.)
+               !$acc loop seq private(a_RK,gq_RK)
+               do step=1,max_step
 
                   prev_a = now_a
                   prev_gq = now_gq
@@ -591,30 +611,34 @@ module Ptl_Src_Loss
                   now_gf = now_gf + dgf
 
 
-                  aaa=now_a
-                  the=modulo(now_gq, 2.0*pi)
-                  call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+                  ! aaa=now_a
+                  ! the=modulo(now_gq, 2.0*pi)
+                  ! call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
                   ! call esiget_Intp_B_vec_contravariant(aaa, the, modulo(now_gf,2.0*pi), specific_time, B_vec_cntv)
-                  call TriCubic_Interpolation_of_Vec(aaa, the, modulo(now_gf,2.0*pi), B_cntv, grad_B_cntv, d23_B_cntv, B_vec_cntv)
-                  FL_loc_Lc  = FL_loc_Lc + abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
-                                                                     +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
-                                                                     +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
-                                                                     + rj**2  )
+                  ! call TriCubic_Interpolation_of_Vec(aaa, the, modulo(now_gf,2.0*pi), B_cntv, grad_B_cntv, d23_B_cntv, B_vec_cntv)
+                  ! FL_loc_Lc  = FL_loc_Lc + abs(dgf)*sqrt( ((B_vec_cntv(1)/B_vec_cntv(3))**2)*(raj**2+zaj**2)  &
+                  !                                                    +((B_vec_cntv(2)/B_vec_cntv(3))**2)*(rqj**2+zqj**2)  &
+                  !                                                    +(B_vec_cntv(1)*B_vec_cntv(2)/(B_vec_cntv(3)**2))*(raj*rqj+zaj*zqj) &
+                  !                                                    + rj**2  )
 
+
+                  FL_loc_Lc = FL_loc_Lc+MM_R_axis*abs(dgf)
 
                   ! Interpolate phi at current point (now_a,now_gq,now_gf)
-                  now_s = D01AHF(0.0,now_a,error_8,minpts,acc,dsda,-1,IFAIL)
-                  ! now_s = now_a
 
-                  ! call Get_Intp_phi_on_SG(now_s, now_gq, now_gf, now_phi_V)
+                  call Convert_a_to_s(now_a,now_s)
                   call Get_Intp_global_phi3D_on_SG(now_s, now_gq, now_gf, now_phi_V)
 
                   dErg_eV = abs(now_phi_V-ori_phi_V)
-                  if(dErg_eV > FL_max_dErg_eV(Fid)) then
-                     FL_max_dErg_eV(Fid) = dErg_eV
+                  if(dErg_eV > FL_max_Elec_dErg_eV(Fid)) then
+                     FL_max_Elec_dErg_eV(Fid) = dErg_eV
                   endif
 
-                  if(FL_loc_Lc>Lc_track_threshold .or. now_a<=minval(PtlSrcCV%a_1D) .or. now_a >= maxval(PtlSrcCV%a_1D) .or. abs(now_gf-ini_gf(Fid))>max_tor_rotation*(2*pi)) then
+                  if(FL_loc_Lc < Ion_Lc_thold .and. dErg_eV > FL_max_Ion_dErg_eV(Fid)) then
+                     FL_max_Ion_dErg_eV(Fid) = dErg_eV
+                  endif
+
+                  if(now_a<=PtlSrcCV%a_min .or. now_a>=PtlSrcCV%a_max) then
                      exit
                   endif
                enddo ! end while(.true.)
@@ -625,19 +649,26 @@ module Ptl_Src_Loss
             ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          enddo ! Fid
 
-         call MPI_Allgatherv(FL_max_dErg_eV, Lsize, MPI_Rsize, recv_FL_max_dErg_eV, recv_counts_Lsize, recv_displs_Lsize, MPI_Rsize, partd_comm, ierr)
-
+         ! Gather Electron max_dErg
+         call MPI_Allgatherv(FL_max_Elec_dErg_eV, Lsize, MPI_Rsize, recv_FL_max_dErg_eV, recv_counts_Lsize, recv_displs_Lsize, MPI_Rsize, partd_comm, ierr)
          do Fid=1,Gsize
             PtlSrcCV%Elec_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
+         enddo
+
+         ! Gather Ion max_dErg
+         call MPI_Allgatherv(FL_max_Ion_dErg_eV, Lsize, MPI_Rsize, recv_FL_max_dErg_eV, recv_counts_Lsize, recv_displs_Lsize, MPI_Rsize, partd_comm, ierr)
+         do Fid=1,Gsize
+            PtlSrcCV%Ion_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
          enddo
 
          !toroidal communication
          length = PtlSrcCV%dim_a*PtlSrcCV%dim_gq
          call MPI_SENDRECV(PtlSrcCV%Elec_dErg_eV_per_nstep(:,:,1),length,mpi_Rsize,left_pe,1, PtlSrcCV%Elec_dErg_eV_per_nstep(:,:,0),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
+         call MPI_SENDRECV(PtlSrcCV%Ion_dErg_eV_per_nstep(:,:,1),length,mpi_Rsize,left_pe,1, PtlSrcCV%Ion_dErg_eV_per_nstep(:,:,0),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
 
          deallocate(F_ini_aid, F_ini_gqid)
          deallocate(ini_a, ini_gq, ini_gf)
-         deallocate(FL_max_dErg_eV)
+         deallocate(FL_max_Elec_dErg_eV, FL_max_Ion_dErg_eV)
          deallocate(recv_FL_max_dErg_eV)
 
 #ifdef _MGY_TIMER_

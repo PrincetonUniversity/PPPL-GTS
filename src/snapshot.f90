@@ -1439,6 +1439,8 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dupara_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Ion_dupara_per_nstep,h5err)
       call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dupara_per_nstep_SM",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Elec_dupara_per_nstep_SM,h5err)
       call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dupara_per_nstep_SM",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Ion_dupara_per_nstep_SM,h5err)
+      call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dErg_eV_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Elec_dErg_eV_per_nstep,h5err)
+      call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dErg_eV_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%Ion_dErg_eV_per_nstep,h5err)
       ! h5dims(1:4)=[3, SG%dim_gq, SG%dim_a, 2]
       ! call h5ltmake_dataset_f(gid_PtlSrc, "mean_E_cov3",4,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%mean_E_cov3,h5err)
 

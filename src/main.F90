@@ -261,6 +261,8 @@ program GTS
          call poisson( solver1, masssolver  )
       endif
    endif
+   call Cal_E_para_on_SG
+   call Cumulate_SG_E_para
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
    ! call smooth(0)
@@ -349,6 +351,7 @@ program GTS
 
             call Cal_mean_E_para_and_Dump_cum_Epara
             call Cal_dupara_per_dt_using_SG
+            call Cal_dErg_per_nstep_by_Potential_along_FieldLine
 
             ! call Clear_newElectrons_beyond_Velocity_Boundary()
             call Clear_some_Electrons_beyond_Boundaries()

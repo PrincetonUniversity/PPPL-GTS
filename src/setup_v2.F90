@@ -143,6 +143,8 @@ Subroutine setup
    ! make sure that mzetamax is a multiple of ntoroidal
    mzetamax=ntoroidal*max(1,int(real(mzetamax)/real(ntoroidal)+0.5_wp))
 
+   !$acc update device(mzetamax)
+
    ! Domain decomposition in toroidal direction.
    zetamin=2.0_wp*pi*real(toroidal_domain_location)/real(ntoroidal)
    zetamax=2.0_wp*pi*real(toroidal_domain_location+1)/real(ntoroidal)
@@ -502,6 +504,8 @@ Subroutine setup
    error_8=1.0e-5_wp
    IFAIL=1
    s1=D01AHF(0.0_wp,a1,error_8,minpts,acc,dsda,-1,IFAIL)
+
+   !$acc update device(s0)
 
    if(mype==0) write(0,*) 'Tc=', Tc*Tem_00,  'in KeV', backnc, &
       ' a_ref=',a_ref,'  vthc=',vthc,'  s0=',s0,'  s1=',s1
