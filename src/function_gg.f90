@@ -696,6 +696,30 @@ module function_gg_module
          endif
       end subroutine Convert_a_to_s
 
+      subroutine Convert_a_arr_to_s_arr(in_a_arr, out_s_arr)
+         !$acc routine seq
+         use global_parameters
+
+         implicit none
+         real(wp), intent(in) :: in_a_arr(:)
+         real(wp), intent(out) :: out_s_arr(:)
+         integer ierr, IFAIL, minpts
+         real(wp) error_8, acc
+         real(wp), external :: D01AHF,dsda
+         integer i
+
+         if (dsda_power == 0) then
+            out_s_arr = s0 + (in_a_arr-a0)
+         else
+            do i=1,size(in_a_arr)
+               error_8=1.0e-5_wp
+               IFAIL=1
+               out_s_arr(i)=D01AHF(0.0_wp,in_a_arr(i),error_8,minpts,acc,dsda,-1,IFAIL)
+               out_s_arr(i)=min(s1,max(s0,out_s_arr(i)))
+            enddo
+         endif
+      end subroutine Convert_a_arr_to_s_arr
+
 end module function_gg_module
 
 function metric_elements(pdum,tdum,zdum)
