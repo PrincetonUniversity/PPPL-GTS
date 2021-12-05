@@ -505,9 +505,7 @@ module Ptl_Src_Loss
 #endif
 
          ! Prepare SG's phi_3D in case
-         call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-         SG_phi_3D = SG%test_phi_3D
-         !$acc update device(SG_phi_3D)
+         call Update_SG_phi_3D_by_gathering_SG_phi2D
 
          specific_time = 0.0
 

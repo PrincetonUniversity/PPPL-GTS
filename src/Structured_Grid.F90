@@ -1112,6 +1112,14 @@ contains
    end subroutine Get_Intp_phi_on_SG
 
 
+   subroutine Update_SG_phi_3D_by_gathering_SG_phi2D
+      use particle_decomp
+      implicit none
+      integer ierr
+      call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+      !$acc update device(SG_phi_3D)
+   end subroutine Update_SG_phi_3D_by_gathering_SG_phi2D
+
    subroutine Get_Intp_global_phi3D_on_SG(P_s, P_gq, P_gf, out_phi)
       !$acc routine seq
       use precision
