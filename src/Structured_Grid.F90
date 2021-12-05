@@ -889,7 +889,7 @@ contains
       dim = size(inout_s_1D)
 
       do i=1,dim
-         SG_sid = (inout_s_1D(i)-SG%s_1D(1))*SG%inv_ds
+         SG_sid = max(1,min(SG%dim_s-1, (inout_s_1D(i)-SG%s_1D(1))*SG%inv_ds))
 
          ws1 = (inout_s_1D(i)-SG%s_1D(SG_sid))*SG%inv_ds
          ws0 = 1.0-ws1
