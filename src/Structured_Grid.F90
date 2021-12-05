@@ -876,6 +876,29 @@ contains
 
    end subroutine Get_Conserving_Smooth_Coeffs_on_SG
 
+
+   subroutine Interpolate_SG_1D_Data_at_given_s_arr(SG_Data_1D, inout_s_1D, out_IntpData_1D)
+
+      implicit none
+      real(wp), intent(in) :: SG_Data_1D(:)
+      real(wp), intent(inout) :: inout_s_1D(:)
+      real(wp), intent(out) :: out_IntpData_1D(:)
+      integer :: i, dim, SG_sid
+      real(wp) ws0,ws1
+
+      dim = size(inout_s_1D)
+
+      do i=1,dim
+         SG_sid = (inout_s_1D(i)-SG%s_1D(1))*SG%inv_ds
+
+         ws1 = (inout_s_1D(i)-SG%s_1D(SG_sid))*SG%inv_ds
+         ws0 = 1.0-ws1
+
+         out_IntpData_1D(i) = ws0*SG_Data_1D(SG_sid)+ws1*SG_Data_1D(SG_sid+1)
+      enddo
+
+   end subroutine Interpolate_SG_1D_Data_at_given_s_arr
+
    subroutine Interpolate_OriGridData_into_SG(oriData_1D, out_IntpData_2D)
 
       use precision
