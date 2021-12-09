@@ -70,7 +70,7 @@ contains
 
       integer i,j,k,sid,gqid,ij,Ns,Nq
       real(wp), external :: dsda
-      real(wp) tmp, this_ds
+      real(wp) tmp, this_ds, this_s, this_Jacob
       integer larmor,ss,qq
       real(wp) gyro_phase,coeff,dR_du(3,2)
       real(wp) :: tmp_ga, tmp_grad_ga(3), tmp_dga0dt
@@ -255,17 +255,22 @@ contains
       !        For higher accuracy, a Weighted Volume by considering helical particle shape and varying da is required
 
       do sid=1,Ns
-         if(sid==1 .or. sid==Ns) then
-            this_ds=0.5*SG%ds
-         else
-            this_ds=SG%ds
-         endif
-
          do gqid=1,Nq
-            SG%Cell_dV(gqid,sid)=SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgq*SG%dgf
-            SG%Cell_dS_s(gqid,sid)=sqrt(SG%g_aa_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*SG%dgq*SG%dgf
-            SG%Cell_dS_gq(gqid,sid)=sqrt(SG%g_qq_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgf
-            SG%Cell_dS_gf(gqid,sid)=sqrt(SG%g_ff_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgq
+            if(sid==1) then
+               this_Jacob = 0.5*(SG%Jacob_sqf(gqid,1)+SG%Jacob_sqf(gqid,2))
+               this_ds=0.5*SG%ds
+            elseif(sid==Ns) then
+               this_Jacob = 0.5*(SG%Jacob_sqf(gqid,Ns-1)+SG%Jacob_sqf(gqid,Ns))
+               this_ds=0.5*SG%ds
+            else
+               this_Jacob = SG%Jacob_sqf(gqid,sid)
+               this_ds=SG%ds
+            endif
+
+            SG%Cell_dV(gqid,sid)=this_Jacob*this_ds*SG%dgq*SG%dgf
+            SG%Cell_dS_s(gqid,sid)=sqrt(SG%g_aa_cntv(gqid,sid))*this_Jacob*SG%dgq*SG%dgf
+            SG%Cell_dS_gq(gqid,sid)=sqrt(SG%g_qq_cntv(gqid,sid))*this_Jacob*this_ds*SG%dgf
+            SG%Cell_dS_gf(gqid,sid)=sqrt(SG%g_ff_cntv(gqid,sid))*this_Jacob*this_ds*SG%dgq
          enddo
       enddo
       SG%inv_Cell_dV=1.0/SG%Cell_dV

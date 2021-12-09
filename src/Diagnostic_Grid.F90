@@ -93,7 +93,7 @@ module Diagnostic_Grid
          real(wp), external :: temperature, temperature_e, density, Cal_FLabel_Function, dsda
 
          ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
-         real(wp) approx_da, approx_dgf, tmp
+         real(wp) approx_da, approx_dgf, tmp, this_Jacob
          real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data1, tmp_DG_Data2
          integer ierror, istatus(MPI_STATUS_SIZE)
          real(wp) uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
@@ -239,19 +239,22 @@ module Diagnostic_Grid
          !        For higher accuracy, a Weighted Volume by considering hellical particle shape and varying da is required
          approx_dgf=zetamax-zetamin
          do aid=1,Na
-            if(aid==1) then
-               approx_da=0.5*(DG%a_1D(2)-DG%a_1D(1))    ! half cell
-            else if(aid==Na) then
-               approx_da=0.5*(DG%a_1D(Na)-DG%a_1D(Na-1)) ! half cell
-            else
-               approx_da=0.5*(DG%a_1D(aid+1)-DG%a_1D(aid-1))  ! full cell
-            endif
-
             do gqid=1,Nq
-               DG%Cell_dV(gqid,aid)=DG%Jacobian(gqid,aid)*approx_da*DG%dgq*approx_dgf
-               DG%Cell_dS_a(gqid,aid) = sqrt(DG%g_aa_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*DG%dgq*approx_dgf
-               DG%Cell_dS_gq(gqid,aid) = sqrt(DG%g_qq_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*approx_dgf
-               DG%Cell_dS_gf(gqid,aid) = sqrt(DG%g_ff_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*DG%dgq
+               if(aid==1) then
+                  approx_da=0.5*(DG%a_1D(2)-DG%a_1D(1))    ! half cell
+                  this_Jacob = 0.5*(DG%Jacobian(gqid,1)+DG%Jacobian(gqid,2))
+               else if(aid==Na) then
+                  approx_da=0.5*(DG%a_1D(Na)-DG%a_1D(Na-1)) ! half cell
+                  this_Jacob = 0.5*(DG%Jacobian(gqid,Na-1)+DG%Jacobian(gqid,Na))
+               else
+                  approx_da=0.5*(DG%a_1D(aid+1)-DG%a_1D(aid-1))  ! full cell
+                  this_Jacob = DG%Jacobian(gqid,aid)
+               endif
+
+               DG%Cell_dV(gqid,aid)=this_Jacob*approx_da*DG%dgq*approx_dgf
+               DG%Cell_dS_a(gqid,aid) = sqrt(DG%g_aa_cntv(gqid,aid))*this_Jacob*DG%dgq*approx_dgf
+               DG%Cell_dS_gq(gqid,aid) = sqrt(DG%g_qq_cntv(gqid,aid))*this_Jacob*approx_da*approx_dgf
+               DG%Cell_dS_gf(gqid,aid) = sqrt(DG%g_ff_cntv(gqid,aid))*this_Jacob*approx_da*DG%dgq
             enddo
          enddo
          DG%inv_Cell_dV=1.0/DG%Cell_dV
