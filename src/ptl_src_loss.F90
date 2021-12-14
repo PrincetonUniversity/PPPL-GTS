@@ -3358,7 +3358,7 @@ module Ptl_Src_Loss
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons
 
 
-      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(ur,uq,mesh_norm_dxdv)
+      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(ur,uq,mesh_norm_dxdv,InFlag_debug_output)
          use global_parameters
          use particle_array
          use particle_decomp
@@ -3371,6 +3371,8 @@ module Ptl_Src_Loss
          implicit none
          real(wp), intent(in), dimension(:) :: ur,uq ! ur(radial), uq(theta)
          real(wp), intent(inout) :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (ur,uq,a,gq,gf) normalized dxdv by pre-occupying particles
+         logical, intent(in), optional :: InFlag_debug_output
+         logical :: flag_debug_output
          !$acc declare create(mesh_norm_dxdv)
          real(wp), allocatable :: tmp_mesh(:,:,:,:,:)
          ! real(wp), allocatable :: cell_vol_5D(:,:,:,:,:)
@@ -3404,6 +3406,9 @@ module Ptl_Src_Loss
 #ifdef _MGY_TIMER_
          time0=MPI_WTIME()
 #endif
+
+         flag_debug_output = .false.
+         if(present(InFlag_debug_output)) flag_debug_output=InFlag_debug_output
 
          ! ! For simplicity, let's use a zero-th order shape function (closest near grid)
          if(acc_newer_H_zeon) then
@@ -3559,53 +3564,62 @@ module Ptl_Src_Loss
 
 
 
-         ! !Write into hdf5 file
-         ! if(mype==0) then
-         !    ! write(filename, '("polar_mesh_norm_Elec_dxdv_",i5.5,"_urmin=",F0.2,".h5")') istep/msnap, ur_min
-         !    write(filename, '("mesh_norm_Elec_dxdv_",i5.5,".h5")') istep/msnap
+         !Write into hdf5 file
+         if(mype==0 .and. flag_debug_output==.true.) then
+            ! write(filename, '("polar_mesh_norm_Elec_dxdv_",i5.5,"_urmin=",F0.2,".h5")') istep/msnap, ur_min
+            write(filename, '("mesh_norm_Elec_dxdv_",i5.5,".h5")') istep/msnap
 
-         !    call h5open_f(h5err)
-         !    call h5fopen_f(filename, H5F_ACC_RDWR_F, file_id, h5err)
-         !    if(h5err==-1) then ! If there is no file
-         !       call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
-         !    endif
+            call h5open_f(h5err)
+            call h5fopen_f(filename, H5F_ACC_RDWR_F, file_id, h5err)
+            if(h5err==-1) then ! If there is no file
+               call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+            else ! If there is file
+               write(filename, '("mesh_norm_Elec_after",i5.5,".h5")') istep/msnap
+               call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+            endif
 
-         !    write(gname,'("polar")')
-         !    call h5gcreate_f(file_id, gname, gid, h5err)
+            ! write(gname,'("polar")')
+            ! call h5gcreate_f(file_id, gname, gid, h5err)
+            gid=file_id
 
-         !    h5dims(1) = dim_ur
-         !    call h5ltmake_dataset_f(gid, "ur",1,h5dims,H5T_NATIVE_DOUBLE, ur, h5err)
-         !    h5dims(1) = dim_uq
-         !    call h5ltmake_dataset_f(gid, "uq",1,h5dims,H5T_NATIVE_DOUBLE, uq, h5err)
-         !    h5dims(1) = dim_a
-         !    call h5ltmake_dataset_f(gid, "a",1,h5dims,H5T_NATIVE_DOUBLE, a, h5err)
-         !    h5dims(1) = dim_gq
-         !    call h5ltmake_dataset_f(gid, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
-         !    h5dims(1) = dim_gf
-         !    call h5ltmake_dataset_f(gid, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
+            h5dims(1) = dim_ur
+            call h5ltmake_dataset_f(gid, "ur",1,h5dims,H5T_NATIVE_DOUBLE, ur, h5err)
+            h5dims(1) = dim_uq
+            call h5ltmake_dataset_f(gid, "uq",1,h5dims,H5T_NATIVE_DOUBLE, uq, h5err)
+            h5dims(1) = dim_a
+            call h5ltmake_dataset_f(gid, "a",1,h5dims,H5T_NATIVE_DOUBLE, a_1D, h5err)
+            h5dims(1) = dim_gq
+            call h5ltmake_dataset_f(gid, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
+            h5dims(1) = dim_gf
+            call h5ltmake_dataset_f(gid, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
 
-         !    allocate(upara_2D(dim_ur,dim_uq),uperp_2D(dim_ur,dim_uq))
-         !    do urid=1,dim_ur
-         !       do uqid=1,dim_uq
-         !          upara_2D(urid,uqid) = ur(urid)*cos(uq(uqid))
-         !          uperp_2D(urid,uqid) = ur(urid)*sin(uq(uqid))
-         !       enddo
-         !    enddo
+            allocate(upara_2D(dim_ur,dim_uq),uperp_2D(dim_ur,dim_uq))
+            do urid=1,dim_ur
+               do uqid=1,dim_uq
+                  upara_2D(urid,uqid) = ur(urid)*cos(uq(uqid))
+                  uperp_2D(urid,uqid) = ur(urid)*sin(uq(uqid))
+               enddo
+            enddo
 
-         !    h5dims(1:2) = [dim_ur,dim_uq]
-         !    call h5ltmake_dataset_f(gid, "upara_2D",2,h5dims,H5T_NATIVE_DOUBLE, upara_2D, h5err)
-         !    call h5ltmake_dataset_f(gid, "uperp_2D",2,h5dims,H5T_NATIVE_DOUBLE, uperp_2D, h5err)
+            h5dims(1:2) = [dim_ur,dim_uq]
+            call h5ltmake_dataset_f(gid, "upara_2D",2,h5dims,H5T_NATIVE_DOUBLE, upara_2D, h5err)
+            call h5ltmake_dataset_f(gid, "uperp_2D",2,h5dims,H5T_NATIVE_DOUBLE, uperp_2D, h5err)
 
-         !    h5dims(1:5) = mdims(1:5)
-         !    call h5ltmake_dataset_f(gid, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
-         !    call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, cell_vol_5D, h5err)
+            h5dims(1:5) = mdims(1:5)
+            call h5ltmake_dataset_f(gid, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
+            ! call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, cell_vol_5D, h5err)
 
-         !    call h5gclose_f(gid, h5err)
-         !    call h5fclose_f(file_id, h5err)
-         !    call h5close_f(h5err)
+            tmp_mesh = mesh_norm_dxdv
+            call Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions([10,10],tmp_mesh)
+            call h5ltmake_dataset_f(gid, "mesh_norm_dxdv_SM",5,h5dims,H5T_NATIVE_DOUBLE, tmp_mesh, h5err)
 
-         !    deallocate(upara_2D,uperp_2D)
-         ! endif
+
+            call h5gclose_f(gid, h5err)
+            call h5fclose_f(file_id, h5err)
+            call h5close_f(h5err)
+
+            deallocate(upara_2D,uperp_2D)
+         endif
 
          deallocate(a_1D,gq,gf)
          deallocate(tmp_mesh)
@@ -3619,7 +3633,7 @@ module Ptl_Src_Loss
 
 
 
-      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_sr, dim_sq, tgt_ur_bound, mesh_norm_dxdv, mesh_MarkerDen)
+      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_sr, dim_sq, tgt_ur_bound, mesh_norm_dxdv, mesh_MarkerDen, InFlag_debug_output)
          use global_parameters
          use particle_array
          use particle_decomp
@@ -3634,6 +3648,8 @@ module Ptl_Src_Loss
          real(wp), intent(in) :: tgt_ur_bound(:,:,:,:) ! (dim_a,dim_gq,dim_gf,2); upper ur and lower ur bound on 3-D grid (a,gq,gf)
          real(wp), intent(inout) :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (sr,sq,a,gq,gf) normalized dxdv by pre-occupying particles
          real(wp), intent(inout) :: mesh_MarkerDen(:,:,:,:,:) ! 5-D grid (sr,sq,a,gq,gf) normalized density by pre-occupying particles (on upace, no Jacobian)
+         logical, intent(in), optional :: InFlag_debug_output
+         logical :: flag_debug_output
          !$acc declare create(mesh_norm_dxdv,mesh_MarkerDen)
          real(wp), allocatable :: tmp_mesh(:,:,:,:,:),cell_vol_5D(:,:,:,:,:), cell_area_5D(:,:,:,:,:)
          real(wp), allocatable :: sr(:), sq(:)
@@ -3666,6 +3682,9 @@ module Ptl_Src_Loss
 #ifdef _MGY_TIMER_
          time0=MPI_WTIME()
 #endif
+
+         flag_debug_output = .false.
+         if(present(InFlag_debug_output)) flag_debug_output=InFlag_debug_output
 
          ! ! For simplicity, let's use a zero-th order shape function (closest near grid)
          if(acc_newer_H_zeon) then
@@ -3849,80 +3868,95 @@ module Ptl_Src_Loss
 
 
 
-         ! !Write into hdf5 file
-         ! if(mype==0) then
-         !    ! write(filename, '("polar_mesh_norm_Elec_dxdv_",i5.5,"_urmin=",F0.2,".h5")') istep/msnap, sr_min
-         !    write(filename, '("mesh_norm_Elec_Adap_",i5.5,".h5")') istep/msnap
+         !Write into hdf5 file
+         if(mype==0 .and. flag_debug_output==.true.) then
+            ! write(filename, '("polar_mesh_norm_Elec_dxdv_",i5.5,"_urmin=",F0.2,".h5")') istep/msnap, sr_min
+            ! write(filename, '("mesh_norm_Elec_Adap_",i5.5,".h5")') istep/msnap
+            write(filename, '("mesh_norm_Elec_Adap_",i5.5,"_a=",F0.1,".h5")') istep/msnap, 0.5*(a_min+a_max)
 
-         !    call h5open_f(h5err)
-         !    call h5fopen_f(filename, H5F_ACC_RDWR_F, file_id, h5err)
-         !    if(h5err==-1) then ! If there is no file
-         !       call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
-         !    endif
+            call h5open_f(h5err)
+            call h5fopen_f(filename, H5F_ACC_RDWR_F, file_id, h5err)
+            if(h5err==-1) then ! If there is no file
+               call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+            else ! If there is file
+               ! write(filename, '("mesh_norm_Elec_Adap_after",i5.5,".h5")') istep/msnap
+            write(filename, '("mesh_norm_Elec_Adap_after_",i5.5,"_a=",F0.1,".h5")') istep/msnap, 0.5*(a_min+a_max)
+               call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+            endif
 
-         !    write(gname,'("polar")')
-         !    call h5gcreate_f(file_id, gname, gid, h5err)
-
-
-         !    h5dims(1) = dim_sr
-         !    call h5ltmake_dataset_f(gid, "sr",1,h5dims,H5T_NATIVE_DOUBLE, sr, h5err)
-         !    h5dims(1) = dim_sq
-         !    call h5ltmake_dataset_f(gid, "sq",1,h5dims,H5T_NATIVE_DOUBLE, sq, h5err)
-         !    h5dims(1) = dim_a
-         !    call h5ltmake_dataset_f(gid, "a",1,h5dims,H5T_NATIVE_DOUBLE, a_1D, h5err)
-         !    h5dims(1) = dim_gq
-         !    call h5ltmake_dataset_f(gid, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
-         !    h5dims(1) = dim_gf
-         !    call h5ltmake_dataset_f(gid, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
+            ! write(gname,'("polar")')
+            ! call h5gcreate_f(file_id, gname, gid, h5err)
+            gid=file_id
 
 
-         !    allocate(ur_4D(dim_sr,dim_a,dim_gq,dim_gf))
-         !    allocate(spara_2D(dim_sr,dim_sq),sperp_2D(dim_sr,dim_sq))
-         !    allocate(upara_5D(dim_sr,dim_sq,dim_a,dim_gq,dim_gf),uperp_5D(dim_sr,dim_sq,dim_a,dim_gq,dim_gf))
+            h5dims(1) = dim_sr
+            call h5ltmake_dataset_f(gid, "sr",1,h5dims,H5T_NATIVE_DOUBLE, sr, h5err)
+            h5dims(1) = dim_sq
+            call h5ltmake_dataset_f(gid, "sq",1,h5dims,H5T_NATIVE_DOUBLE, sq, h5err)
+            h5dims(1) = dim_a
+            call h5ltmake_dataset_f(gid, "a",1,h5dims,H5T_NATIVE_DOUBLE, a_1D, h5err)
+            h5dims(1) = dim_gq
+            call h5ltmake_dataset_f(gid, "gq",1,h5dims,H5T_NATIVE_DOUBLE, gq, h5err)
+            h5dims(1) = dim_gf
+            call h5ltmake_dataset_f(gid, "gf",1,h5dims,H5T_NATIVE_DOUBLE, gf, h5err)
 
-         !    do gfid=1,dim_gf
-         !       do gqid=1,dim_gq
-         !          do aid=1,dim_a
-         !             do srid=1,dim_sr
-         !                ur_4D(srid,aid,gqid,gfid) = tgt_ur_bound(aid,gqid,gfid,1)+ sr(srid)*(tgt_ur_bound(aid,gqid,gfid,2)-tgt_ur_bound(aid,gqid,gfid,1))
-         !                do sqid=1,dim_sq
-         !                   upara_5D(srid,sqid,aid,gqid,gfid) = ur_4D(srid,aid,gqid,gfid)*cos(sq(sqid))
-         !                   uperp_5D(srid,sqid,aid,gqid,gfid) = ur_4D(srid,aid,gqid,gfid)*sin(sq(sqid))
-         !                enddo
-         !             enddo
-         !          enddo
-         !       enddo
-         !    enddo
-         !    do srid=1,dim_sr
-         !       do sqid=1,dim_sq
-         !          spara_2D(srid,sqid) = sr(srid)*cos(sq(sqid))
-         !          sperp_2D(srid,sqid) = sr(srid)*sin(sq(sqid))
-         !       enddo
-         !    enddo
 
-         !    h5dims(1:2) = [dim_sr,dim_sq]
-         !    call h5ltmake_dataset_f(gid, "spara_2D",2,h5dims,H5T_NATIVE_DOUBLE, spara_2D, h5err)
-         !    call h5ltmake_dataset_f(gid, "sperp_2D",2,h5dims,H5T_NATIVE_DOUBLE, sperp_2D, h5err)
+            allocate(ur_4D(dim_sr,dim_a,dim_gq,dim_gf))
+            allocate(spara_2D(dim_sr,dim_sq),sperp_2D(dim_sr,dim_sq))
+            allocate(upara_5D(dim_sr,dim_sq,dim_a,dim_gq,dim_gf),uperp_5D(dim_sr,dim_sq,dim_a,dim_gq,dim_gf))
 
-         !    h5dims(1:4) = [dim_sr,dim_a,dim_gq,dim_gf]
-         !    call h5ltmake_dataset_f(gid, "ur_4D",4,h5dims,H5T_NATIVE_DOUBLE, ur_4D, h5err)
+            do gfid=1,dim_gf
+               do gqid=1,dim_gq
+                  do aid=1,dim_a
+                     do srid=1,dim_sr
+                        ur_4D(srid,aid,gqid,gfid) = tgt_ur_bound(aid,gqid,gfid,1)+ sr(srid)*(tgt_ur_bound(aid,gqid,gfid,2)-tgt_ur_bound(aid,gqid,gfid,1))
+                        do sqid=1,dim_sq
+                           upara_5D(srid,sqid,aid,gqid,gfid) = ur_4D(srid,aid,gqid,gfid)*cos(sq(sqid))
+                           uperp_5D(srid,sqid,aid,gqid,gfid) = ur_4D(srid,aid,gqid,gfid)*sin(sq(sqid))
+                        enddo
+                     enddo
+                  enddo
+               enddo
+            enddo
+            do srid=1,dim_sr
+               do sqid=1,dim_sq
+                  spara_2D(srid,sqid) = sr(srid)*cos(sq(sqid))
+                  sperp_2D(srid,sqid) = sr(srid)*sin(sq(sqid))
+               enddo
+            enddo
 
-         !    h5dims(1:5) = [dim_sr,dim_sq,dim_a,dim_gq,dim_gf]
-         !    call h5ltmake_dataset_f(gid, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
-         !    call h5ltmake_dataset_f(gid, "mesh_MarkerDen",5,h5dims,H5T_NATIVE_DOUBLE, mesh_MarkerDen, h5err)
-         !    call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, cell_vol_5D, h5err)
-         !    call h5ltmake_dataset_f(gid, "mesh_cell_area",5,h5dims,H5T_NATIVE_DOUBLE, cell_area_5D, h5err)
-         !    call h5ltmake_dataset_f(gid, "upara_5D",5,h5dims,H5T_NATIVE_DOUBLE, upara_5D, h5err)
-         !    call h5ltmake_dataset_f(gid, "uperp_5D",5,h5dims,H5T_NATIVE_DOUBLE, uperp_5D, h5err)
+            h5dims(1:2) = [dim_sr,dim_sq]
+            call h5ltmake_dataset_f(gid, "spara_2D",2,h5dims,H5T_NATIVE_DOUBLE, spara_2D, h5err)
+            call h5ltmake_dataset_f(gid, "sperp_2D",2,h5dims,H5T_NATIVE_DOUBLE, sperp_2D, h5err)
 
-         !    call h5gclose_f(gid, h5err)
-         !    call h5fclose_f(file_id, h5err)
-         !    call h5close_f(h5err)
+            h5dims(1:4) = [dim_sr,dim_a,dim_gq,dim_gf]
+            call h5ltmake_dataset_f(gid, "ur_4D",4,h5dims,H5T_NATIVE_DOUBLE, ur_4D, h5err)
 
-         !    deallocate(spara_2D,sperp_2D)
-         !    deallocate(ur_4D)
-         !    deallocate(upara_5D,uperp_5D)
-         ! endif
+            h5dims(1:5) = [dim_sr,dim_sq,dim_a,dim_gq,dim_gf]
+            call h5ltmake_dataset_f(gid, "mesh_norm_dxdv",5,h5dims,H5T_NATIVE_DOUBLE, mesh_norm_dxdv, h5err)
+            call h5ltmake_dataset_f(gid, "mesh_MarkerDen",5,h5dims,H5T_NATIVE_DOUBLE, mesh_MarkerDen, h5err)
+            call h5ltmake_dataset_f(gid, "mesh_cell_vol",5,h5dims,H5T_NATIVE_DOUBLE, cell_vol_5D, h5err)
+            call h5ltmake_dataset_f(gid, "mesh_cell_area",5,h5dims,H5T_NATIVE_DOUBLE, cell_area_5D, h5err)
+            call h5ltmake_dataset_f(gid, "upara_5D",5,h5dims,H5T_NATIVE_DOUBLE, upara_5D, h5err)
+            call h5ltmake_dataset_f(gid, "uperp_5D",5,h5dims,H5T_NATIVE_DOUBLE, uperp_5D, h5err)
+
+
+            tmp_mesh = mesh_norm_dxdv
+            call Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions([10,10],tmp_mesh)
+            call h5ltmake_dataset_f(gid, "mesh_norm_dxdv_SM",5,h5dims,H5T_NATIVE_DOUBLE, tmp_mesh, h5err)
+            tmp_mesh = mesh_MarkerDen
+            call Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions([10,10],tmp_mesh)
+            call h5ltmake_dataset_f(gid, "mesh_MarkerDen_SM",5,h5dims,H5T_NATIVE_DOUBLE, tmp_mesh, h5err)
+
+
+            call h5gclose_f(gid, h5err)
+            call h5fclose_f(file_id, h5err)
+            call h5close_f(h5err)
+
+            deallocate(spara_2D,sperp_2D)
+            deallocate(ur_4D)
+            deallocate(upara_5D,uperp_5D)
+         endif
 
          deallocate(a_1D,gq,gf)
          deallocate(sr,sq)
