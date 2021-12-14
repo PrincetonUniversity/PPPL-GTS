@@ -824,12 +824,6 @@ subroutine load_uniform_MGY
          else
             gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
          endif
-      elseif(Flag_Load_and_WeightDef==3) then
-         ! Uniform sampling within square shape of velocity cut-off
-         vpara= (-umax + 2.0*umax*rand_5D(4,m))*sqrt(backT(m))
-         vperp= (umax*rand_5D(5,m))*sqrt(backT(m))
-         ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
-         gi_val(m) = Nm/((a1-a0)*4.0*pi*pi*2.0*umax*umax*backT(m))/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
       endif
 
       zion(4,m) = vpara/BB(m)
@@ -991,12 +985,6 @@ subroutine load_uniform_MGY
                else
                   ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
                endif
-            elseif(Flag_Load_and_WeightDef==3) then
-               ! Uniform sampling within square shape of velocity cut-off
-               vpara= (-umax + 2.0*umax*rand_5D(4,m))*sqrt(Te_norm(m)*m0ms)
-               vperp= (umax*rand_5D(5,m))*sqrt(Te_norm(m)*m0ms)
-               ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
-               ge_val(m) = Nm/((a1-a0)*4.0*pi*pi*2.0*umax*umax*Te_norm(m)*m0ms)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
             else
                write(stdout,*) "Error!! Unknown Flag; Flag_Load_and_WeightDef=",Flag_Load_and_WeightDef
                call flush(stdout)

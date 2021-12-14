@@ -260,7 +260,6 @@ module Ptl_Src_Loss
       real(wp), allocatable, dimension(:,:,:) :: Elec_dupara_per_nstep_SM,Ion_dupara_per_nstep_SM
 
       real(wp), allocatable, dimension(:,:,:) :: Elec_dErg_eV_per_nstep, Ion_dErg_eV_per_nstep
-      ! real(wp), allocatable, dimension(:,:,:,:) :: cum_E_cov3, mean_E_cov3 ! electric field
    end type
 
    type(OutParticles) outION
@@ -353,13 +352,10 @@ module Ptl_Src_Loss
          allocate(PSCV%Elec_dupara_per_nstep(dim_gq,dim_a,0:1), PSCV%Ion_dupara_per_nstep(dim_gq,dim_a,0:1))
          allocate(PSCV%Elec_dupara_per_nstep_SM(dim_gq,dim_a,0:1), PSCV%Ion_dupara_per_nstep_SM(dim_gq,dim_a,0:1))
          allocate(PSCV%Elec_dErg_eV_per_nstep(dim_gq,dim_a,0:1),PSCV%Ion_dErg_eV_per_nstep(dim_gq,dim_a,0:1))
-         ! allocate(PtlSrcCV%cum_E_cov3(3,dim_gq,dim_a,0:1), PtlSrcCV%mean_E_cov3(3,dim_gq,dim_a,0:1))
 
          PSCV%cum_E_para = 0.0
          PSCV%cum_num = 0
          PSCV%mean_E_para = 0.0
-         ! PtlSrcCV%cum_E_cov3 = 0.0
-         ! PtlSrcCV%mean_E_cov3 = 0.0
       end subroutine Initialize_Particle_Source_Control_Variables
 
       subroutine Finalize_Ptl_Src_Loss
@@ -379,7 +375,6 @@ module Ptl_Src_Loss
             if(allocated(PSCV%Cell_dV)) deallocate(PSCV%Cell_dV)
          enddo
 
-         ! if(allocated(PtlSrcCV%cum_E_cov3)) deallocate(PtlSrcCV%cum_E_cov3, PtlSrcCV%mean_E_cov3)
       end subroutine Finalize_Ptl_Src_Loss
 
       subroutine Initialize_FootPrint(FP,target_a)
@@ -482,26 +477,6 @@ module Ptl_Src_Loss
                PSCV%Ion_dupara_per_nstep(:,aa,:)  = PSCV%nstep*abs(qi_C*PSCV%mean_E_para(:,aa,:)/mi_kg)*dt_s/vthi_mps
             enddo
          endif
-         ! PtlSrcCV%Elec_dupara_per_nstep_SM = PtlSrcCV%Elec_dupara_per_nstep
-         ! PtlSrcCV%Ion_dupara_per_nstep_SM = PtlSrcCV%Ion_dupara_per_nstep
-
-
-         ! ! Smooth and rescale elec_dupara and ion_dupara
-         ! do k=0,1
-         !    peak_before = maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
-         !    if(peak_before>0) then
-         !       call Smooth_SG_Data_2D([20], PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
-         !       peak_after  = maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k))
-         !       PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k) = (peak_before/peak_after)*PtlSrcCV%Elec_dupara_per_nstep_SM(:,:,k)
-         !    endif
-
-         !    peak_before = maxval(PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
-         !    if(peak_before>0) then
-         !       call Smooth_SG_Data_2D([20], PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
-         !       peak_after  = maxval(PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k))
-         !       PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k) = (peak_before/peak_after)*PtlSrcCV%Ion_dupara_per_nstep_SM(:,:,k)
-         !    endif
-         ! enddo
 
          Wsz_q=10;
          Wsz_a=5;
@@ -1461,17 +1436,6 @@ module Ptl_Src_Loss
                zeon(4,m) = msm0*vpara/(csc0*BB(m))
                zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
             enddo
-         elseif(Flag_Load_and_WeightDef==3) then
-            do m=m0,me
-               ! Uniform sampling within square shape of velocity cut-off
-               vpara= (-umax + 2.0*umax*sprng())*sqrt(Te_norm(m)*m0ms)
-               vperp= (umax*sprng())*sqrt(Te_norm(m)*m0ms)
-               ! NOTE : Since Nm is not determined yet, it will be mulitplied later
-               ge_val(m) = 1.0/(4.0*pi*pi*2.0*umax*umax*Te_norm(m)*m0ms)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
-
-               zeon(4,m) = msm0*vpara/(csc0*BB(m))
-               zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
-            enddo
          else
             write(stdout,*) "Error!! Unknown Flag; Flag_Load_and_WeightDef=",Flag_Load_and_WeightDef
             call flush(stdout)
@@ -1847,18 +1811,6 @@ module Ptl_Src_Loss
                   gi_val(m) = 1.0*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/(4.0*pi*pi)/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
                endif
 
-
-               zion(4,m) = vpara/(BB(m))
-               zion(4,m) = zion(4,m) + backu(m)/BB(m)
-               zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
-            enddo
-         elseif(Flag_Load_and_WeightDef==3) then
-            do m=m0,mi
-               ! Uniform sampling within square shape of velocity cut-off
-               vpara= (-umax + 2.0*umax*sprng())*sqrt(backT(m))
-               vperp= (umax*sprng())*sqrt(backT(m))
-               ! NOTE : Since Nm is not determined yet, it will be mulitplied later
-               gi_val(m) = 1.0/(4.0*pi*pi*2.0*umax*umax*backT(m))/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
 
                zion(4,m) = vpara/(BB(m))
                zion(4,m) = zion(4,m) + backu(m)/BB(m)
@@ -2701,7 +2653,7 @@ module Ptl_Src_Loss
                call flush(stdout)
             endif
 
-            call Measure_Global_SG_mesh_norm_dxdv_of_Ions(tmp_upara, tmp_uperp, mesh_norm_dxdv)
+            call Measure_Global_mesh_norm_dxdv_of_Ions(tmp_upara, tmp_uperp, mesh_norm_dxdv)
             call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,PSCV%a_1D,PSCV%gq_1D,tmp_gf,Nm,mesh_norm_dxdv,-2.0)
 
 
@@ -2762,133 +2714,58 @@ module Ptl_Src_Loss
          deallocate(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf)
       end subroutine Generate_Ions_beyond_PhysicalBoundary
 
-      subroutine Generate_Electrons_beyond_VelocityCutOff
+      subroutine Generate_Electrons_beyond_Boundaries_using_Adaptive_PSCV
          use global_parameters
          use particle_decomp
          use Structured_Grid
          use mpi_defs
          implicit none
 
-         real(wp), allocatable :: tmp_a(:),tmp_gq(:),tmp_gf(:),tmp_upara(:),tmp_uperp(:)
-         real(wp), allocatable :: tmp_ur(:),tmp_uq(:)
+         real(wp), allocatable :: tmp_gf(:)
          real(wp), allocatable :: mesh_norm_dxdv(:,:,:,:,:), mesh_MarkerDen(:,:,:,:,:)
-         real(wp) ini_Ne_marker_density
-         real(wp) upara_min, upara_max, uperp_min, uperp_max
-         integer dim_upara, dim_uperp,dim_ur,dim_uq
-         integer Nm,i,j, loop
-         real(wp) time0,time1
-         real(wp) upara_min_arr(3), upara_max_arr(3)
-         real(wp) uperp_min_arr(3), uperp_max_arr(3)
+         integer dim_ur, dim_uq
+         integer i,j
          real(wp), allocatable :: ur_bound(:,:,:,:)
          real(wp) PSCV_mean_a
 
          if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
-            ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*0.5*pi*umax**2.0)
             dim_ur=5
             dim_uq=8
-            ! dim_ur=3
-            ! dim_uq=5
-            allocate(tmp_ur(dim_ur),tmp_uq(dim_uq),tmp_gf(2))
+            allocate(tmp_gf(2))
             allocate(mesh_norm_dxdv(dim_ur,dim_uq,PSCV%dim_a,PSCV%dim_gq,2), mesh_MarkerDen(dim_ur,dim_uq,PSCV%dim_a,PSCV%dim_gq,2))
 
             tmp_gf(1) = zetamin
             tmp_gf(2) = zetamax
-            do i=1,dim_ur
-               tmp_ur(i) = umax + (i-1)*(1.2*umax-umax)/(dim_ur-1)
-            enddo
-            do i=1,dim_uq
-               tmp_uq(i) = 0 + (i-1)*(pi)/(dim_uq-1)
-            enddo
-            Nm = ini_Ne_marker_density*(PSCV%a_max-PSCV%a_min)*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*0.5*pi*(maxval(tmp_ur)**2.0-minval(tmp_ur)**2.0)
-            if(mype==0) then
-               write(stdout,'(3(A,I0))') "gen_SRC_vel_Polar Nm_e=",Nm,"; me=", me,"; memax=",memax
-               call flush(stdout)
-            endif
-
 
             allocate(ur_bound(PSCV%dim_a,PSCV%dim_gq,size(tmp_gf),2))
 
             PSCV_mean_a = 0.5*(PSCV%a_min+PSCV%a_max)
-
             if( (PSCV_mean_a-a0)*(PSCV_mean_a-a1)<0) then
-               ! Inside the wall
-               ur_bound(:,:,:,1) = umax
+               ur_bound(:,:,:,1) = umax ! Inside the wall
             else
-               ! Outside the wall
-               ur_bound(:,:,:,1) = 0.0
+               ur_bound(:,:,:,1) = 0.0 ! Outside the wall
             endif
 
             do i=1,PSCV%dim_a
                do j=1,PSCV%dim_gq
-                  ur_bound(i,j,:,2) = umax + PSCV%Elec_dupara_per_nstep_SM(j,i,:)
+                  ! ur_bound(i,j,:,2) = umax + PSCV%Elec_dupara_per_nstep_SM(j,i,:)
+                  ur_bound(i,j,:,2) = umax + PSCV%Elec_dupara_per_nstep(j,i,:)
                enddo
             enddo
 
-            ! call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(tmp_ur, tmp_uq, mesh_norm_dxdv)
-            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,PtlSrcCV%a_1D,PtlSrcCV%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
 
-            ! call Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions([10,10],mesh_norm_dxdv)
-            ! call Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions([10,10],mesh_MarkerDen)
-
-            call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_ur,dim_uq,ur_bound, mesh_norm_dxdv, mesh_MarkerDen)
-            call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(PSCV%a_1D,PSCV%gq_1D,tmp_gf,ur_bound, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=-2.0)
+            call Measure_Global_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_ur,dim_uq,ur_bound, mesh_norm_dxdv, mesh_MarkerDen, InFlag_debug_output=.false.)
+            call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(PSCV%a_1D,PSCV%gq_1D,tmp_gf,ur_bound, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=PSCV%ptl_label)
             ! ! Using MarkerDen is possible, but its accuracy could be low if total number of particles are not enough
             ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(PtlSrcCV%a_1D,PtlSrcCV%gq_1D,tmp_gf,ur_bound,mesh_occp_MarkerDen=mesh_MarkerDen, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=-2.0)
-            call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_ur,dim_uq,ur_bound, mesh_norm_dxdv, mesh_MarkerDen)
 
             deallocate(ur_bound)
-            deallocate(tmp_ur,tmp_uq,tmp_gf)
+            deallocate(tmp_gf)
             deallocate(mesh_norm_dxdv,mesh_MarkerDen)
-
-         elseif(Flag_Load_and_WeightDef==3) then
-            ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*(2*umax)*umax)
-
-            upara_min_arr(1:3) = [-1.1*umax, -umax,     umax ]
-            upara_max_arr(1:3) = [    -umax, +umax, 1.1*umax ]
-
-            uperp_min_arr(1:3) = [0.0,            umax, 0.0    ]
-            uperp_max_arr(1:3) = [ 1.1*umax, 1.1*umax, 1.1*umax]
-
-
-            do loop=1,size(upara_min_arr)
-
-               dim_upara = 5
-               dim_uperp = 7
-               ! upara_min = 2.0; upara_max = 5.0; dim_upara = 5
-               ! uperp_min = 1.0; uperp_max = 4.0; dim_uperp = 5
-               upara_min = upara_min_arr(loop); upara_max = upara_max_arr(loop);
-               uperp_min = uperp_min_arr(loop); uperp_max = uperp_max_arr(loop);
-
-
-               allocate(mesh_norm_dxdv(dim_upara,dim_uperp,PSCV%dim_a,PSCV%dim_gq,2))
-               allocate(tmp_upara(dim_upara),tmp_uperp(dim_uperp),tmp_gf(2))
-
-               tmp_gf(1) = zetamin
-               tmp_gf(2) = zetamax
-               do i=1,dim_upara
-                  tmp_upara(i) = upara_min + (i-1)*(upara_max-upara_min)/(dim_upara-1)
-               enddo
-               do i=1,dim_uperp
-                  tmp_uperp(i) = uperp_min + (i-1)*(uperp_max-uperp_min)/(dim_uperp-1)
-               enddo
-
-                  Nm = ini_Ne_marker_density*(PSCV%a_max-PSCV%a_min)*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
-               if(mype==0) then
-                  write(stdout,'(3(A,I0))') "gen_SRC_vel Nm_e=",Nm,"; me=", me,"; memax=",memax
-                  call flush(stdout)
-               endif
-
-               call Measure_Global_SG_mesh_norm_dxdv_of_Electrons(tmp_upara, tmp_uperp, mesh_norm_dxdv)
-               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,PSCV%a_1D,PSCV%gq_1D,tmp_gf,Nm, mesh_norm_dxdv,-2.0)
-
-               deallocate(tmp_upara,tmp_uperp,tmp_gf)
-               deallocate(mesh_norm_dxdv)
-
-            enddo !loop
          endif
 
 
-      end subroutine Generate_Electrons_beyond_VelocityCutOff
+      end subroutine Generate_Electrons_beyond_Boundaries_using_Adaptive_PSCV
 
       subroutine Generate_Electrons_beyond_PhysicalBoundary
          use global_parameters
@@ -2915,11 +2792,6 @@ module Ptl_Src_Loss
                tmp_uq = [0.0, pi]
                Nm = ini_Ne_marker_density*(0.5*pi*(tmp_ur(2)**2.0-tmp_ur(1)**2.0))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
                call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,tmp_a,tmp_gq,tmp_gf,Nm, in_label_val=-1.0)
-            elseif(Flag_Load_and_WeightDef==3) then
-               tmp_upara = [-1.1*umax, 1.1*umax]
-               tmp_uperp = [0.0, 1.1*umax]
-               Nm = ini_Ne_marker_density*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
-               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm, in_label_val=-1.0)
             endif
 
             if(mype==0) then
@@ -2938,11 +2810,6 @@ module Ptl_Src_Loss
                tmp_uq = [0.0, pi]
                Nm = ini_Ne_marker_density*(0.5*pi*(tmp_ur(2)**2.0-tmp_ur(1)**2.0))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
                call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,tmp_a,tmp_gq,tmp_gf,Nm, in_label_val=-3.0)
-            elseif(Flag_Load_and_WeightDef==3) then
-               tmp_upara = [-1.1*umax, 1.1*umax]
-               tmp_uperp = [0.0, 1.1*umax]
-               Nm = ini_Ne_marker_density*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
-               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm, in_label_val=-3.0)
             endif
 
             if(mype==0) then
@@ -2954,7 +2821,7 @@ module Ptl_Src_Loss
          deallocate(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,tmp_ur,tmp_uq)
       end subroutine Generate_Electrons_beyond_PhysicalBoundary
 
-      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions(upara,uperp,mesh_norm_dxdv)
+      subroutine Measure_Global_mesh_norm_dxdv_of_Ions(upara,uperp,mesh_norm_dxdv)
          use global_parameters
          use particle_array
          use particle_decomp
@@ -3138,12 +3005,12 @@ module Ptl_Src_Loss
 
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Ions takes", time1-time0, " secs"
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_mesh_norm_dxdv_of_Ions takes", time1-time0, " secs"
          call flush(stdout)
 #endif
-      end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Ions
+      end subroutine Measure_Global_mesh_norm_dxdv_of_Ions
 
-      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons(upara,uperp,mesh_norm_dxdv)
+      subroutine Measure_Global_mesh_norm_dxdv_of_Electrons(upara,uperp,mesh_norm_dxdv)
          use global_parameters
          use particle_array
          use particle_decomp
@@ -3346,13 +3213,13 @@ module Ptl_Src_Loss
 
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Electrons takes", time1-time0, " secs"
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_mesh_norm_dxdv_of_Electrons takes", time1-time0, " secs"
          call flush(stdout)
 #endif
-      end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons
+      end subroutine Measure_Global_mesh_norm_dxdv_of_Electrons
 
 
-      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(ur,uq,mesh_norm_dxdv,InFlag_debug_output)
+      subroutine Measure_Global_mesh_norm_dxdv_of_Electrons_PolarVelCoord(ur,uq,mesh_norm_dxdv,InFlag_debug_output)
          use global_parameters
          use particle_array
          use particle_decomp
@@ -3620,14 +3487,14 @@ module Ptl_Src_Loss
          ! deallocate(cell_vol_5D)
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarCoord takes", time1-time0, " secs"
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_mesh_norm_dxdv_of_Electrons_PolarCoord takes", time1-time0, " secs"
          call flush(stdout)
 #endif
-      end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord
+      end subroutine Measure_Global_mesh_norm_dxdv_of_Electrons_PolarVelCoord
 
 
 
-      subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_sr, dim_sq, tgt_ur_bound, mesh_norm_dxdv, mesh_MarkerDen, InFlag_debug_output)
+      subroutine Measure_Global_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_sr, dim_sq, tgt_ur_bound, mesh_norm_dxdv, mesh_MarkerDen, InFlag_debug_output)
          use global_parameters
          use particle_array
          use particle_decomp
@@ -3960,10 +3827,10 @@ module Ptl_Src_Loss
 
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
-         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr takes", time1-time0, " secs"
+         if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "mype=",mype, ", Measure_Global_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr takes", time1-time0, " secs"
          call flush(stdout)
 #endif
-      end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr
+      end subroutine Measure_Global_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr
 
 
       subroutine Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions(num_smooth_gq_a,tgt_mesh5D, Reference_Vol_2D_gq_a)
@@ -5381,11 +5248,6 @@ module Ptl_Src_Loss
                      N_clear=N_clear+1
                      clear_mid_arr(N_clear) = m
                   endif
-               elseif (Flag_Load_and_WeightDef==3) then
-               if(uperp>umax .or. abs(upara)>umax) then
-                  N_clear=N_clear+1
-                  clear_mid_arr(N_clear) = m
-                  endif
                endif
             endif
          enddo
@@ -5515,23 +5377,6 @@ module Ptl_Src_Loss
                uperp = zion(6,m)*sqrt(2.0*BB(m)/backT(m))
                if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
                   if(sqrt(upara**2.0+uperp**2.0)>umax) then
-                     if(ilabels(m)==-2.0) then
-                        N_clear=N_clear+1
-                        clear_mid_arr(N_clear) = m
-                     elseif(ilabels(m)==-1.0 .and. Ptl_BC0_val==0.0) then
-                        ! when the particle comes from PSCV_BDY0 (left boundary)
-                        ! and when f0(PSCV_BDY0)=0
-                        N_clear=N_clear+1
-                        clear_mid_arr(N_clear) = m
-                     elseif(ilabels(m)==-3.0 .and. Ptl_BC1_val==0.0) then
-                        ! when the particle comes from PSCV_BDY1 (right boundary)
-                        ! and when f0(PSCV_BDY1)=0
-                        N_clear=N_clear+1
-                        clear_mid_arr(N_clear) = m
-                     endif
-                  endif
-               elseif (Flag_Load_and_WeightDef==3) then
-                  if(uperp>umax .or. abs(upara)>umax) then
                      if(ilabels(m)==-2.0) then
                         N_clear=N_clear+1
                         clear_mid_arr(N_clear) = m
@@ -5683,11 +5528,6 @@ module Ptl_Src_Loss
                      N_clear=N_clear+1
                      clear_mid_arr(N_clear) = m
                   endif
-               elseif (Flag_Load_and_WeightDef==3) then
-               if(uperp>umax .or. abs(upara)>umax) then
-                  N_clear=N_clear+1
-                  clear_mid_arr(N_clear) = m
-                  endif
                endif
             endif
          enddo
@@ -5826,23 +5666,6 @@ module Ptl_Src_Loss
                uperp = zeon_146_arr(3,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
                if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
                   if(sqrt(upara**2.0+uperp**2.0)>umax) then
-                     if(elabels(m)==-2.0) then
-                        N_clear=N_clear+1
-                        clear_mid_arr(N_clear) = m
-                     elseif(elabels(m)==-1.0 .and. Ptl_BC0_val==0.0) then
-                        ! when the particle comes from PSCV_BDY0 (left boundary)
-                        ! and when f0(PSCV_BDY0)=0
-                        N_clear=N_clear+1
-                        clear_mid_arr(N_clear) = m
-                     elseif(elabels(m)==-3.0 .and. Ptl_BC1_val==0.0) then
-                        ! when the particle comes from PSCV_BDY1 (right boundary)
-                        ! and when f0(PSCV_BDY1)=0
-                        N_clear=N_clear+1
-                        clear_mid_arr(N_clear) = m
-                     endif
-                  endif
-               elseif (Flag_Load_and_WeightDef==3) then
-                  if(uperp>umax .or. abs(upara)>umax) then
                      if(elabels(m)==-2.0) then
                         N_clear=N_clear+1
                         clear_mid_arr(N_clear) = m

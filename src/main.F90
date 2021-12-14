@@ -354,7 +354,7 @@ program GTS
                PSCV=>PSCV_list(i)
                call Cal_dErg_per_nstep_by_Potential_along_FieldLine
                call Cal_dupara_per_dt_using_dErg_per_nstep
-               call Generate_Electrons_beyond_VelocityCutOff()
+               call Generate_Electrons_beyond_Boundaries_using_Adaptive_PSCV()
             enddo
 
             ! call Clear_newIons_beyond_Velocity_Boundary()
