@@ -1232,7 +1232,13 @@ subroutine load_uniform_MGY
    ini_mi=mi
    ini_me=me
 
-   write(stdout,'((A,I4,A,I8,A,I8))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_me=",ini_me
+
+   call MPI_ALLREDUCE(ini_mi,ini_mi_npartd,1,MPI_INTEGER,MPI_SUM,partd_comm,ierror)
+   call MPI_ALLREDUCE(ini_me,ini_me_npartd,1,MPI_INTEGER,MPI_SUM,partd_comm,ierror)
+
+
+   ! write(stdout,'((A,I4,A,I8,A,I8))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_me=",ini_me
+   write(stdout,'(5(A,I0))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_mi_npartd=",ini_mi_npartd, ", ini_me=",ini_me,", ini_me_npartd=",ini_me_npartd
    call flush(stdout)
 
    call Print_Reference_ntracer_Information

@@ -2557,6 +2557,8 @@ Subroutine read_input_params
       FLF_max_tor_num,    &    ! For FieldLineFollowing routine, Maximum toroidal rotation in each direction (+,-)
       gPPI_max_tor_num,   &    ! For gPPI routine, Maximum toroidal rotation in each direction (+,-)
       Ptl_Src_nstep,      &    ! Generate src from boundaires at every Ptl_Src_nstep
+      Ptl_Src_dim_a,      &    ! radial dimension of PtlSrcCV system
+      Ptl_Src_dim_gq,     &    ! poloidal dimension of PtlSrcCV system
       BC0_type,           &    ! type of BC0 (inner boundary; s=s0) (type=0: Dirichelt, type=1: Neumann)
       BC0_value,          &    ! value of BC0 (inner boundary; s=s0)
       BC1_type,           &    ! type of BC1 (outer boundary; s=s1) (type=0: Dirichelt, type=1: Neumann)

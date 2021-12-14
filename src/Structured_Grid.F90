@@ -289,6 +289,16 @@ contains
       allocate(SG%test_phi_3D(Nq,Ns,mzetamax),SG%test_src_3D(Nq,Ns,mzetamax),SG%test_res_3D(Nq,Ns,mzetamax))
 
 
+
+
+      allocate(SG_s_1D(Ns), SG_gq_1D(Ns), SG_safety_q_1D(Ns))
+      allocate(SG_phi_3D(Nq,Ns,mzetamax))
+
+      SG_s_1D  = SG%s_1D
+      SG_gq_1D = SG%gq_1D
+      SG_safety_q_1D = SG%safety_q_1D
+      !$acc update device(SG_s_1D,SG_gq_1D,SG_safety_q_1D)
+
    end subroutine Initialize_Structured_Grid
 
    subroutine Measure_Electron_Density_on_SG(flag_which_target)

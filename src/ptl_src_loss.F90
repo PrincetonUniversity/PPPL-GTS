@@ -249,8 +249,9 @@ module Ptl_Src_Loss
 
    type Particle_Source_Control_Variables
       integer :: dim_a, dim_gq
-      real(wp), allocatable, dimension(:) :: a_1D, gq_1D, Te0_eV_1D, Ti0_eV_1D
-      real(wp) :: a_min, a_max
+      real(wp), allocatable, dimension(:) :: a_1D, gq_1D, s_1D, Te0_1D, Te0_eV_1D, Ti0_1D, Ti0_eV_1D, safety_q_1D
+      real(wp), allocatable, dimension(:,:) :: Cell_dV
+      real(wp) :: a_min, a_max, da, dgq, inv_da, inv_dgq
 
       integer :: nstep, cum_num
       real(wp), allocatable, dimension(:,:,:) :: cum_E_para, mean_E_para
@@ -288,24 +289,61 @@ module Ptl_Src_Loss
       subroutine Initialize_Particle_Source_Control_Variables
          use global_parameters
          use Structured_Grid
+         use function_gg_module
          implicit none
-         integer :: dim_gq, dim_a
+         integer :: dim_gq, dim_a, aid, gqid
+         real(wp) :: this_a,this_da, this_gq
+         real(wp), external :: Jacobian
 
-         PtlSrcCV%dim_a = SG%dim_a
-         PtlSrcCV%dim_gq = SG%dim_gq
+         PtlSrcCV%a_min = minval(SG%a_1D)
+         PtlSrcCV%a_max = maxval(SG%a_1D)
+
+         ! PtlSrcCV%dim_a  = SG%dim_a
+         ! PtlSrcCV%dim_gq = SG%dim_gq
+
+         PtlSrcCV%dim_a   = Ptl_Src_dim_a
+         PtlSrcCV%dim_gq  = Ptl_Src_dim_gq
+         ! PtlSrcCV%dim_a  = 50
+         ! PtlSrcCV%dim_gq = 50
+
 
          dim_a=PtlSrcCV%dim_a
          dim_gq=PtlSrcCV%dim_gq
-         allocate(PtlSrcCV%a_1D(dim_a),PtlSrcCV%gq_1D(dim_gq))
-         allocate(PtlSrcCV%Te0_eV_1D(dim_a), PtlSrcCV%Ti0_eV_1D(dim_a))
+         allocate(PtlSrcCV%a_1D(dim_a),PtlSrcCV%gq_1D(dim_gq), PtlSrcCV%s_1D(dim_a))
+         allocate(PtlSrcCV%Te0_1D(dim_a), PtlSrcCV%Te0_eV_1D(dim_a), PtlSrcCV%Ti0_1D(dim_a), PtlSrcCV%Ti0_eV_1D(dim_a), PtlSrcCV%safety_q_1D(dim_a))
+         allocate(PtlSrcCv%Cell_dV(dim_gq,dim_a))
 
-         PtlSrcCV%a_1D = SG%a_1D
-         PtlSrcCV%gq_1D = SG%gq_1D
-         PtlSrcCV%a_min = minval(PtlSrcCV%a_1D)
-         PtlSrcCV%a_max = maxval(PtlSrcCV%a_1D)
+         do aid=1,PtlSrcCV%dim_a
+            PtlSrcCV%a_1D(aid) = PtlSrcCV%a_min  +(aid-1)*(PtlSrcCV%a_max-PtlSrcCV%a_min)/(PtlSrcCV%dim_a-1)
+         enddo
+         do gqid=1,PtlSrcCV%dim_gq
+            PtlSrcCV%gq_1D(gqid) = (gqid-1)*(2.0*pi)/(PtlSrcCV%dim_gq-1)
+         enddo
+         call Convert_a_arr_to_s_arr(PtlSrcCV%a_1D, PtlSrcCV%s_1D)
 
-         PtlSrcCV%Te0_eV_1D = SG%Te0_eV_1D
-         PtlSrcCV%Ti0_eV_1D = SG%Ti0_eV_1D
+         call Interpolate_SG_1D_Data_at_given_s_arr(SG%Te0_1D, PtlSrcCV%s_1D, PtlSrcCV%Te0_1D)
+         call Interpolate_SG_1D_Data_at_given_s_arr(SG%Ti0_1D, PtlSrcCV%s_1D, PtlSrcCV%Ti0_1D)
+         call Interpolate_SG_1D_Data_at_given_s_arr(SG%Te0_eV_1D, PtlSrcCV%s_1D, PtlSrcCV%Te0_eV_1D)
+         call Interpolate_SG_1D_Data_at_given_s_arr(SG%Ti0_eV_1D, PtlSrcCV%s_1D, PtlSrcCV%Ti0_eV_1D)
+         call Interpolate_SG_1D_Data_at_given_s_arr(SG%safety_q_1D, PtlSrcCV%s_1D, PtlSrcCV%safety_q_1D)
+
+
+         PtlSrcCV%da = PtlSrcCV%a_1D(2)-PtlSrcCV%a_1D(1)
+         PtlSrcCV%dgq = PtlSrcCV%gq_1D(2)-PtlSrcCV%gq_1D(1)
+
+         PtlSrcCV%inv_da = 1.0/PtlSrcCV%da
+         PtlSrcCV%inv_dgq = 1.0/PtlSrcCV%dgq
+         do aid=1,PtlSrcCV%dim_a
+            do gqid=1,PtlSrcCV%dim_gq
+               this_gq= PtlSrcCV%gq_1D(gqid)
+
+               this_da = min(PtlSrcCV%a_max,(PtlSrcCV%a_1D(aid)+0.5*PtlSrcCV%da)) - max(PtlSrcCV%a_min,PtlSrcCV%a_1D(aid)-0.5*PtlSrcCV%da)
+               this_a  = 0.5*(min(PtlSrcCV%a_max,(PtlSrcCV%a_1D(aid)+0.5*PtlSrcCV%da))+max(PtlSrcCV%a_min,PtlSrcCV%a_1D(aid)-0.5*PtlSrcCV%da))
+
+               PtlSrcCV%Cell_dV(gqid,aid) = Jacobian(this_a,this_gq)*this_da*PtlSrcCV%dgq*(zetamax-zetamin)
+            enddo
+         enddo
+
 
          PtlSrcCV%nstep = Ptl_Src_nstep
          allocate(PtlSrcCV%cum_E_para(dim_gq,dim_a,0:1), PtlSrcCV%mean_E_para(dim_gq,dim_a,0:1))
@@ -329,9 +367,9 @@ module Ptl_Src_Loss
          if(allocated(PtlSrcCV%Elec_dupara_per_nstep)) deallocate(PtlSrcCV%Elec_dupara_per_nstep,PtlSrcCV%Ion_dupara_per_nstep)
          if(allocated(PtlSrcCV%Elec_dupara_per_nstep_SM)) deallocate(PtlSrcCV%Elec_dupara_per_nstep_SM,PtlSrcCV%Ion_dupara_per_nstep_SM)
          if(allocated(PtlSrcCV%Elec_dErg_eV_per_nstep)) deallocate(PtlSrcCV%Elec_dErg_eV_per_nstep,PtlSrcCV%Ion_dErg_eV_per_nstep)
-         if(allocated(PtlSrcCV%a_1D)) deallocate(PtlSrcCV%a_1D,PtlSrcCV%gq_1D)
-         if(allocated(PtlSrcCV%Te0_eV_1D)) deallocate(PtlSrcCV%Te0_eV_1D, PtlSrcCV%Ti0_eV_1D)
-
+         if(allocated(PtlSrcCV%a_1D)) deallocate(PtlSrcCV%a_1D,PtlSrcCV%gq_1D,PtlSrcCV%s_1D)
+         if(allocated(PtlSrcCV%Te0_eV_1D)) deallocate(PtlSrcCV%Te0_1D, PtlSrcCV%Te0_eV_1D, PtlSrcCV%Ti0_1D, PtlSrcCV%Ti0_eV_1D, PtlSrcCV%safety_q_1D)
+         if(allocated(PtlSrcCV%Cell_dV)) deallocate(PtlSrcCV%Cell_dV)
 
          ! if(allocated(PtlSrcCV%cum_E_cov3)) deallocate(PtlSrcCV%cum_E_cov3, PtlSrcCV%mean_E_cov3)
       end subroutine Finalize_Ptl_Src_Loss
@@ -412,7 +450,7 @@ module Ptl_Src_Loss
          use Structured_Grid
          implicit none
          real(wp) dt_s,me_kg,mi_kg,qe_C,qi_C, vthe_mps, vthi_mps ! velocity unit (meter per second)
-         integer ss,qq,k
+         integer aa,qq,k
          real(wp) peak_before, peak_after
          integer Wsz_q, Wsz_a
 
@@ -428,12 +466,12 @@ module Ptl_Src_Loss
             stop
          else
 
-            do ss=1,SG%dim_s
-               vthe_mps = sqrt(abs(qe_C)*SG%Te0_eV_1D(ss)/(me_kg))
-               vthi_mps = sqrt(abs(qi_C)*SG%Ti0_eV_1D(ss)/(mi_kg))
+            do aa=1,PtlSrcCV%dim_a
+               vthe_mps = sqrt(abs(qe_C)*PtlSrcCV%Te0_eV_1D(aa)/(me_kg))
+               vthi_mps = sqrt(abs(qi_C)*PtlSrcCV%Ti0_eV_1D(aa)/(mi_kg))
 
-               PtlSrcCV%Elec_dupara_per_nstep(:,ss,:) = PtlSrcCV%nstep*abs(qe_C*PtlSrcCV%mean_E_para(:,ss,:)/me_kg)*dt_s/vthe_mps
-               PtlSrcCV%Ion_dupara_per_nstep(:,ss,:)  = PtlSrcCV%nstep*abs(qi_C*PtlSrcCV%mean_E_para(:,ss,:)/mi_kg)*dt_s/vthi_mps
+               PtlSrcCV%Elec_dupara_per_nstep(:,aa,:) = PtlSrcCV%nstep*abs(qe_C*PtlSrcCV%mean_E_para(:,aa,:)/me_kg)*dt_s/vthe_mps
+               PtlSrcCV%Ion_dupara_per_nstep(:,aa,:)  = PtlSrcCV%nstep*abs(qi_C*PtlSrcCV%mean_E_para(:,aa,:)/mi_kg)*dt_s/vthi_mps
             enddo
          endif
          ! PtlSrcCV%Elec_dupara_per_nstep_SM = PtlSrcCV%Elec_dupara_per_nstep
@@ -459,11 +497,11 @@ module Ptl_Src_Loss
 
          Wsz_q=10;
          Wsz_a=5;
-         do ss=1,SG%dim_s
-            do qq=1,SG%dim_gq
+         do aa=1,PtlSrcCV%dim_a
+            do qq=1,PtlSrcCV%dim_gq
                do k=0,1
-                  PtlSrcCV%Elec_dupara_per_nstep_SM(qq,ss,k) = maxval(PtlSrcCV%Elec_dupara_per_nstep(modulo([qq-Wsz_q:qq+Wsz_q]-1, SG%dim_gq)+1, max(1,ss-Wsz_a):min(SG%dim_s,ss+Wsz_a),k))
-                  PtlSrcCV%Ion_dupara_per_nstep_SM(qq,ss,k) = maxval(PtlSrcCV%Ion_dupara_per_nstep(modulo([qq-Wsz_q:qq+Wsz_q]-1, SG%dim_gq)+1, max(1,ss-Wsz_a):min(SG%dim_s,ss+Wsz_a),k))
+                  PtlSrcCV%Elec_dupara_per_nstep_SM(qq,aa,k) = maxval(PtlSrcCV%Elec_dupara_per_nstep(modulo([qq-Wsz_q:qq+Wsz_q]-1, PtlSrcCV%dim_gq)+1, max(1,aa-Wsz_a):min(PtlSrcCV%dim_a,aa+Wsz_a),k))
+                  PtlSrcCV%Ion_dupara_per_nstep_SM(qq,aa,k) = maxval(PtlSrcCV%Ion_dupara_per_nstep(modulo([qq-Wsz_q:qq+Wsz_q]-1, PtlSrcCV%dim_gq)+1, max(1,aa-Wsz_a):min(PtlSrcCV%dim_a,aa+Wsz_a),k))
                enddo
             enddo
          enddo
@@ -2637,7 +2675,7 @@ module Ptl_Src_Loss
             uperp_min = uperp_min_arr(loop); uperp_max = uperp_max_arr(loop); dim_uperp = 6
 
 
-            allocate(mesh_norm_dxdv(dim_upara,dim_uperp,SG%dim_a,SG%dim_gq,2))
+            allocate(mesh_norm_dxdv(dim_upara,dim_uperp,PtlSrcCV%dim_a,PtlSrcCV%dim_gq,2))
             allocate(tmp_upara(dim_upara),tmp_uperp(dim_uperp),tmp_gf(2))
 
             tmp_gf(1) = zetamin
@@ -2649,14 +2687,15 @@ module Ptl_Src_Loss
                tmp_uperp(i) = uperp_min + (i-1)*(uperp_max-uperp_min)/(dim_uperp-1)
             enddo
 
-            Nm = den*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
+
+            Nm = den*(PtlSrcCV%a_max-PtlSrcCV%a_min)*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
             if(mype==0) then
                write(stdout,'(3(A,I0))') "gen_SRC_vel Nm_i=",Nm,"; mi=", mi,"; mimax=",mimax
                call flush(stdout)
             endif
 
             call Measure_Global_SG_mesh_norm_dxdv_of_Ions(tmp_upara, tmp_uperp, mesh_norm_dxdv)
-            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
+            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,PtlSrcCV%a_1D,PtlSrcCV%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
 
 
             deallocate(tmp_upara,tmp_uperp,tmp_gf)
@@ -2716,7 +2755,7 @@ module Ptl_Src_Loss
          deallocate(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf)
       end subroutine Generate_Ions_beyond_PhysicalBoundary
 
-      subroutine Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid
+      subroutine Generate_Electrons_beyond_VelocityCutOff
          use global_parameters
          use particle_decomp
          use Structured_Grid
@@ -2739,9 +2778,11 @@ module Ptl_Src_Loss
          if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
             ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*0.5*pi*umax**2.0)
             dim_ur=5
-            dim_uq=10
+            dim_uq=8
+            ! dim_ur=3
+            ! dim_uq=5
             allocate(tmp_ur(dim_ur),tmp_uq(dim_uq),tmp_gf(2))
-            allocate(mesh_norm_dxdv(dim_ur,dim_uq,SG%dim_a,SG%dim_gq,2), mesh_MarkerDen(dim_ur,dim_uq,SG%dim_a,SG%dim_gq,2))
+            allocate(mesh_norm_dxdv(dim_ur,dim_uq,PtlSrcCV%dim_a,PtlSrcCV%dim_gq,2), mesh_MarkerDen(dim_ur,dim_uq,PtlSrcCV%dim_a,PtlSrcCV%dim_gq,2))
 
             tmp_gf(1) = zetamin
             tmp_gf(2) = zetamax
@@ -2751,43 +2792,32 @@ module Ptl_Src_Loss
             do i=1,dim_uq
                tmp_uq(i) = 0 + (i-1)*(pi)/(dim_uq-1)
             enddo
-            Nm = ini_Ne_marker_density*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*0.5*pi*(maxval(tmp_ur)**2.0-minval(tmp_ur)**2.0)
+            Nm = ini_Ne_marker_density*(PtlSrcCV%a_max-PtlSrcCV%a_min)*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*0.5*pi*(maxval(tmp_ur)**2.0-minval(tmp_ur)**2.0)
             if(mype==0) then
                write(stdout,'(3(A,I0))') "gen_SRC_vel_Polar Nm_e=",Nm,"; me=", me,"; memax=",memax
                call flush(stdout)
             endif
 
 
-            allocate(ur_bound(SG%dim_a,SG%dim_gq,size(tmp_gf),2))
-            ur_bound(:,:,:,1) = 1.0*umax
-            ! ur_bound(:,:,:,2) = 1.2*umax
-            ! ur_bound(:,:,:,2) = umax + PtlSrcCV%Elec_dupara_per_nstep_SM
-            do i=1,SG%dim_a
-               do j=1,SG%dim_gq
-                  ! Helical source
-                  ! ur_bound(i,j,1,2) = umax + max(0.1,(2*sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*(zetamin/SG%safety_q_1D(i)-SG%gq_1D(j)))))
-                  ! ur_bound(i,j,2,2) = umax + max(0.1,(2*sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*(zetamax/SG%safety_q_1D(i)-SG%gq_1D(j)))))
-                  ! ur_bound(i,j,:,:) = umax + max(0.1,(2*sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*2.0*pi*real(j)/SG%dim_gq)))
+            allocate(ur_bound(PtlSrcCV%dim_a,PtlSrcCV%dim_gq,size(tmp_gf),2))
 
-                  ! ur_bound(i,j,:,2) = umax + (1.0 + sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*2.0*pi*real(j)/SG%dim_gq))
-                  ! ur_bound(i,j,:,2) = umax + max(0.1,(2*sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*2.0*pi*real(j)/SG%dim_gq)))
-                  ! PtlSrcCV%Elec_dupara_per_nstep_SM(i,j,:) = 1.0 + sin(3*2.0*pi*real(i)/SG%dim_a)*sin(3*2.0*pi*real(j)/SG%dim_gq)
-                  ! ur_bound(i,j,:,2) = umax + max(0.05, 2.0*PtlSrcCV%Elec_dupara_per_nstep_SM(j,i,:))
-                  ! ur_bound(i,j,:,2) = umax + max(0.05, 2.0*PtlSrcCV%Elec_dupara_per_nstep_SM(j,i,:))
+            ur_bound(:,:,:,1) = umax
+            do i=1,PtlSrcCV%dim_a
+               do j=1,PtlSrcCV%dim_gq
                   ur_bound(i,j,:,2) = umax + PtlSrcCV%Elec_dupara_per_nstep_SM(j,i,:)
                enddo
-               ! ur_bound(i,:,:,2) = umax + 2.0*maxval(PtlSrcCV%Elec_dupara_per_nstep_SM(:,i,:))
             enddo
 
             ! call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord(tmp_ur, tmp_uq, mesh_norm_dxdv)
-            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
-            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, in_label_val=-2.0)
+            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,PtlSrcCV%a_1D,PtlSrcCV%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
+
+            ! call Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions([10,10],mesh_norm_dxdv)
+            ! call Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions([10,10],mesh_MarkerDen)
 
             call Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr(dim_ur,dim_uq,ur_bound, mesh_norm_dxdv, mesh_MarkerDen)
-            call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(SG%a_1D,SG%gq_1D,tmp_gf,ur_bound, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=-2.0)
-            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(SG%a_1D,SG%gq_1D,tmp_gf,ur_bound, in_label_val=-2.0)
-            ! Using MarkerDen is possible, but its accuracy could be low if total number of particles are not enough
-            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(SG%a_1D,SG%gq_1D,tmp_gf,ur_bound,mesh_occp_MarkerDen=mesh_MarkerDen, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=-2.0)
+            call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(PtlSrcCV%a_1D,PtlSrcCV%gq_1D,tmp_gf,ur_bound, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=-2.0)
+            ! ! Using MarkerDen is possible, but its accuracy could be low if total number of particles are not enough
+            ! call Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(PtlSrcCV%a_1D,PtlSrcCV%gq_1D,tmp_gf,ur_bound,mesh_occp_MarkerDen=mesh_MarkerDen, mesh5D_norm_occp_dxdv=mesh_norm_dxdv,in_label_val=-2.0)
 
             deallocate(ur_bound)
             deallocate(tmp_ur,tmp_uq,tmp_gf)
@@ -2813,7 +2843,7 @@ module Ptl_Src_Loss
                uperp_min = uperp_min_arr(loop); uperp_max = uperp_max_arr(loop);
 
 
-               allocate(mesh_norm_dxdv(dim_upara,dim_uperp,SG%dim_a,SG%dim_gq,2))
+               allocate(mesh_norm_dxdv(dim_upara,dim_uperp,PtlSrcCV%dim_a,PtlSrcCV%dim_gq,2))
                allocate(tmp_upara(dim_upara),tmp_uperp(dim_uperp),tmp_gf(2))
 
                tmp_gf(1) = zetamin
@@ -2825,14 +2855,14 @@ module Ptl_Src_Loss
                   tmp_uperp(i) = uperp_min + (i-1)*(uperp_max-uperp_min)/(dim_uperp-1)
                enddo
 
-                  Nm = ini_Ne_marker_density*(SG%a_1D(SG%dim_a)-SG%a_1D(1))*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
+                  Nm = ini_Ne_marker_density*(PtlSrcCV%a_max-PtlSrcCV%a_min)*(2.0*pi)*(tmp_gf(2)-tmp_gf(1))*(upara_max-upara_min)*(uperp_max-uperp_min)
                if(mype==0) then
                   write(stdout,'(3(A,I0))') "gen_SRC_vel Nm_e=",Nm,"; me=", me,"; memax=",memax
                   call flush(stdout)
                endif
 
                call Measure_Global_SG_mesh_norm_dxdv_of_Electrons(tmp_upara, tmp_uperp, mesh_norm_dxdv)
-               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,SG%a_1D,SG%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
+               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,PtlSrcCV%a_1D,PtlSrcCV%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
 
                deallocate(tmp_upara,tmp_uperp,tmp_gf)
                deallocate(mesh_norm_dxdv)
@@ -2841,7 +2871,7 @@ module Ptl_Src_Loss
          endif
 
 
-      end subroutine Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid
+      end subroutine Generate_Electrons_beyond_VelocityCutOff
 
       subroutine Generate_Electrons_beyond_PhysicalBoundary
          use global_parameters
@@ -2965,9 +2995,9 @@ module Ptl_Src_Loss
          enddo
 
          ! allocate a,gq,gf and copy SG information into
-         allocate(a_1D(SG%dim_a),gq(SG%dim_gq),gf(2))
-         a_1D=SG%a_1D
-         gq=SG%gq_1D
+         allocate(a_1D(PtlSrcCV%dim_a),gq(PtlSrcCV%dim_gq),gf(2))
+         a_1D=PtlSrcCV%a_1D
+         gq=PtlSrcCV%gq_1D
          gf(1)=zetamin
          gf(2)=zetamax
 
@@ -3036,20 +3066,20 @@ module Ptl_Src_Loss
          call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1, mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
          ! Normalize the results
-         do gqid=1,SG%dim_gq
-            do aid=1,SG%dim_a
+         do gqid=1,PtlSrcCV%dim_gq
+            do aid=1,PtlSrcCV%dim_a
                vthc = sqrt(temperature(a_1D(aid),gq(gqid)))
                do uperpid=1,dim_uperp
                   ! mesh_cell_vol = (cell spatial volume)*(dvpara)*integral(2*pi*vperp)_(v0-dv/2)_(v0+dv/2)
                   if(uperpid==1) then
                      ! integral(vperp)_v0_(v0+0.5dv) = 0.5*(v0*dv+0.25*dv^2)
-                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp+0.25*(duperp**2.0))*(vthc**2.0)
+                     mesh_cell_vol = PtlSrcCV%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp+0.25*(duperp**2.0))*(vthc**2.0)
                   elseif(uperpid==dim_uperp) then
                       ! integral(vperp)_(v0-0.5dv)_(v0) = 0.5*(v0*dv-0.25*dv^2)
-                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp-0.25*(duperp**2.0))*(vthc**2.0)
+                     mesh_cell_vol = PtlSrcCV%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp-0.25*(duperp**2.0))*(vthc**2.0)
                   else
                      ! integral(vperp)_(v0-0.5dv)_(v0+0.5dv) = (v0*dv)
-                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*(uperp(uperpid)*duperp)*(vthc**2.0)
+                     mesh_cell_vol = PtlSrcCV%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*(uperp(uperpid)*duperp)*(vthc**2.0)
                   endif
 
                   ! Normalize using Cell_dxdv
@@ -3149,9 +3179,9 @@ module Ptl_Src_Loss
          call esigetb(zeon,me,zeondim)   ! get B-->BB
 
          ! allocate a,gq,gf and copy SG information into
-         allocate(a_1D(SG%dim_a),gq(SG%dim_gq),gf(2))
-         a_1D=SG%a_1D
-         gq=SG%gq_1D
+         allocate(a_1D(PtlSrcCV%dim_a),gq(PtlSrcCV%dim_gq),gf(2))
+         a_1D=PtlSrcCV%a_1D
+         gq=PtlSrcCV%gq_1D
          gf(1)=zetamin
          gf(2)=zetamax
 
@@ -3222,20 +3252,20 @@ module Ptl_Src_Loss
          call MPI_SENDRECV(mesh_norm_dxdv(:,:,:,:,dim_gf),length,mpi_Rsize,right_pe,1, mesh_norm_dxdv(:,:,:,:,1),length,mpi_Rsize,left_pe,1,toroidal_comm,istatus,ierror)
 
          ! Normalize the results
-         do gqid=1,SG%dim_gq
-            do aid=1,SG%dim_a
+         do gqid=1,PtlSrcCV%dim_gq
+            do aid=1,PtlSrcCV%dim_a
                vthc = sqrt(temperature_e(a_1D(aid),gq(gqid))) ! Note that temperature_e gives the electron velocity not the energy. so not necessary to consider mass here
                do uperpid=1,dim_uperp
                   ! mesh_cell_vol = (cell spatial volume)*(dvpara)*integral(2*pi*vperp)_(v0-dv/2)_(v0+dv/2)
                   if(uperpid==1) then
                      ! integral(vperp)_v0_(v0+0.5dv) = 0.5*(v0*dv+0.25*dv^2)
-                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp+0.25*(duperp**2.0))*(vthc**2.0)
+                     mesh_cell_vol = PtlSrcCV%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp+0.25*(duperp**2.0))*(vthc**2.0)
                   elseif(uperpid==dim_uperp) then
                       ! integral(vperp)_(v0-0.5dv)_(v0) = 0.5*(v0*dv-0.25*dv^2)
-                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp-0.25*(duperp**2.0))*(vthc**2.0)
+                     mesh_cell_vol = PtlSrcCV%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*0.5*(uperp(uperpid)*duperp-0.25*(duperp**2.0))*(vthc**2.0)
                   else
                      ! integral(vperp)_(v0-0.5dv)_(v0+0.5dv) = (v0*dv)
-                     mesh_cell_vol = SG%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*(uperp(uperpid)*duperp)*(vthc**2.0)
+                     mesh_cell_vol = PtlSrcCV%Cell_dV(gqid,aid)*(dupara*vthc)*2.0*pi*(uperp(uperpid)*duperp)*(vthc**2.0)
                   endif
 
                   ! Normalize using Cell_dxdv
@@ -3337,7 +3367,7 @@ module Ptl_Src_Loss
          real(wp), external :: temperature_e
          real(wp) mesh_cell_vol ! 5-D mesh volume
          real(wp) time0,time1
-         real(wp), allocatable :: SG_Te0_1D(:), SG_Cell_dV(:,:)
+         real(wp), allocatable :: Te0_1D(:), Cell_dV(:,:)
 
          character(len=128) filename, gname
          integer(HID_T) file_id, gid
@@ -3365,9 +3395,9 @@ module Ptl_Src_Loss
 
 
          ! allocate a,gq,gf and copy SG information into
-         allocate(a_1D(SG%dim_a),gq(SG%dim_gq),gf(2))
-         a_1D=SG%a_1D
-         gq=SG%gq_1D
+         allocate(a_1D(PtlSrcCV%dim_a),gq(PtlSrcCV%dim_gq),gf(2))
+         a_1D=PtlSrcCV%a_1D
+         gq=PtlSrcCV%gq_1D
          gf(1)=zetamin
          gf(2)=zetamax
 
@@ -3424,10 +3454,10 @@ module Ptl_Src_Loss
          enddo
 
 
-         allocate(SG_Te0_1D(SG%dim_a),SG_Cell_dV(SG%dim_gq,SG%dim_a))
+         allocate(Te0_1D(PtlSrcCV%dim_a),Cell_dV(PtlSrcCV%dim_gq,PtlSrcCV%dim_a))
 
-         SG_Te0_1D = SG%Te0_1D
-         SG_Cell_dV = SG%Cell_dV
+         Te0_1D = PtlSrcCV%Te0_1D
+         Cell_dV = PtlSrcCV%Cell_dV
 
          ! allocate(cell_vol_5D(mdims(1),mdims(2),mdims(3),mdims(4),mdims(5)))
 
@@ -3444,11 +3474,11 @@ module Ptl_Src_Loss
             LL    = modulo((LL-1),dim_ur)+1
             urid  = LL
 
-            vthc = sqrt(SG_Te0_1D(aid)*m0ms)
+            vthc = sqrt(Te0_1D(aid)*m0ms)
                ! mesh_cell_vol = (cell spatial volume)*integral(2*pi*ur^2*sin(uq))
                !               = (cell spatial volume)*2*pi*integral(ur^2)_(ur0-dur/2)^(ur0+dur/2) * integral(sin(uq))_(uq0-duq/2)^(uq0+duq/2)
-            ! Cell_dVol_x3 = SG%Cell_dV(gqid,aid)
-            Cell_dVol_x3 = SG_Cell_dV(gqid,aid)
+            ! Cell_dVol_x3 = PtlSrcCV%Cell_dV(gqid,aid)
+            Cell_dVol_x3 = Cell_dV(gqid,aid)
 
                   if(uqid==1) then
                      ! integral(sin(uq))_(uq0)^(uq0+duq/2) = 2*sin(duq/4)*sin(uq0+duq/4)
@@ -3481,7 +3511,7 @@ module Ptl_Src_Loss
                ! cell_vol_5D(urid,uqid,aid,gqid,gfid) = mesh_cell_vol
             enddo
          enddo
-         deallocate(SG_Te0_1D,SG_Cell_dV)
+         deallocate(Te0_1D,Cell_dV)
 
          !$acc update self(mesh_norm_dxdv)
 
@@ -3585,7 +3615,7 @@ module Ptl_Src_Loss
          real(wp), allocatable :: tmp_mesh(:,:,:,:,:),cell_vol_5D(:,:,:,:,:), cell_area_5D(:,:,:,:,:)
          real(wp), allocatable :: sr(:), sq(:)
          real(wp), allocatable :: a_1D(:), gq(:), gf(:)
-         integer :: sid, tgt_aid, tgt_gqid, tgt_gfid, tgt_srid, tgt_sqid
+         integer :: tmp_aid, tgt_aid, tgt_gqid, tgt_gfid, tgt_srid, tgt_sqid
          real(wp) ptl_ur, ptl_sr, ptl_sq, ptl_ur_bound(2)
          real(wp) tgt_gq, ws0,ws1, P_safety_q
          real(wp) upara,uperp, Cell_dVol_x3, Cell_dVol_sr, Cell_dVol_sq
@@ -3599,7 +3629,7 @@ module Ptl_Src_Loss
          real(wp), external :: temperature_e
          real(wp) mesh_cell_vol, mesh_cell_area ! 5-D mesh volume and area of each mesh grid
          real(wp) time0,time1
-         real(wp), allocatable :: SG_Te0_1D(:), SG_Cell_dV(:,:)
+         real(wp), allocatable :: Te0_1D(:), Cell_dV(:,:)
 
          character(len=128) filename, gname
          integer(HID_T) file_id, gid
@@ -3627,10 +3657,10 @@ module Ptl_Src_Loss
 
 
          ! allocate a,gq,gf and copy SG information into
-         allocate(a_1D(SG%dim_a),gq(SG%dim_gq),gf(2))
+         allocate(a_1D(PtlSrcCV%dim_a),gq(PtlSrcCV%dim_gq),gf(2))
          allocate(sr(dim_sr),sq(dim_sq))
-         a_1D=SG%a_1D
-         gq=SG%gq_1D
+         a_1D=PtlSrcCV%a_1D
+         gq=PtlSrcCV%gq_1D
          gf(1)=zetamin
          gf(2)=zetamax
 
@@ -3666,10 +3696,10 @@ module Ptl_Src_Loss
             tgt_gfid = ceiling((zeon(3,m)-gf_min)*inv_dgf+0.5) ! Find nearst grid
 
             ! Interpolate safety factor
-            sid = max(1,min(int((zeon(7,m)-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-            ws1 = (zeon(7,m)-SG%s_1D(sid))*SG%inv_ds
+            tmp_aid = max(1,min(int((zeon(1,m)-PtlSrcCV%a_min)*PtlSrcCV%inv_da) +1,PtlSrcCV%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (zeon(1,m)-PtlSrcCV%a_1D(tmp_aid))*PtlSrcCV%inv_da
             ws0 = (1.0-ws1)
-            P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
+            P_safety_q = ws0*PtlSrcCV%safety_q_1D(tmp_aid) + ws1*PtlSrcCV%safety_q_1D(tmp_aid+1)
 
             tgt_gq = modulo(zeon(2,m) + (gf(tgt_gfid)-zeon(3,m))/P_safety_q, 2.0*pi)
             tgt_gqid = ceiling((tgt_gq-gq_min)*inv_dgq+0.5) ! Find nearst grid
@@ -3699,10 +3729,10 @@ module Ptl_Src_Loss
          enddo
 
 
-         allocate(SG_Te0_1D(SG%dim_a),SG_Cell_dV(SG%dim_gq,SG%dim_a))
+         allocate(Te0_1D(PtlSrcCV%dim_a),Cell_dV(PtlSrcCV%dim_gq,PtlSrcCV%dim_a))
 
-         SG_Te0_1D = SG%Te0_1D
-         SG_Cell_dV = SG%Cell_dV
+         Te0_1D = PtlSrcCV%Te0_1D
+         Cell_dV = PtlSrcCV%Cell_dV
 
 
 
@@ -3724,11 +3754,11 @@ module Ptl_Src_Loss
             LL    = modulo((LL-1),dim_sr)+1
             srid  = LL
 
-            vthc = sqrt(SG_Te0_1D(aid)*m0ms)
+            vthc = sqrt(Te0_1D(aid)*m0ms)
                ! mesh_cell_vol = (cell spatial volume)*integral(2*pi*sr^2*sin(sq))
                !               = (cell spatial volume)*2*pi*integral(sr^2)_(ur0-dsr/2)^(ur0+dsr/2) * integral(sin(sq))_(uq0-dsq/2)^(uq0+dsq/2)
-            ! Cell_dVol_x3 = SG%Cell_dV(gqid,aid)
-            Cell_dVol_x3 = SG_Cell_dV(gqid,aid)
+            ! Cell_dVol_x3 = PtlSrcCV%Cell_dV(gqid,aid)
+            Cell_dVol_x3 = Cell_dV(gqid,aid)
 
 
             sq0 = max(sq_min, sq(sqid)-0.5*dsq)
@@ -3746,7 +3776,7 @@ module Ptl_Src_Loss
             mesh_cell_vol = 2.0*pi*(vthc**3.0)*Cell_dVol_x3*Cell_dVol_sr*Cell_dVol_sq
 
             ! mesh_cell_area is without Jacobian by v_perp (2*pi*vperp) uspace
-            mesh_cell_area =  (min(a1,a_1D(aid)+0.5*da)-max(a0,a_1D(aid)-0.5*da))*dgq*dgf*0.5*(ur1**2.0-ur0**2.0)*(sq1-sq0)
+            mesh_cell_area =  (min(a_max,a_1D(aid)+0.5*da)-max(a_min,a_1D(aid)-0.5*da))*dgq*dgf*0.5*(ur1**2.0-ur0**2.0)*(sq1-sq0)
 
             ! Normalize using Cell_dxdv
             mesh_norm_dxdv(srid,sqid,aid,gqid,gfid) = mesh_norm_dxdv(srid,sqid,aid,gqid,gfid)/mesh_cell_vol
@@ -3754,7 +3784,7 @@ module Ptl_Src_Loss
             cell_vol_5D(srid,sqid,aid,gqid,gfid) = mesh_cell_vol
             cell_area_5D(srid,sqid,aid,gqid,gfid) = mesh_cell_area
          enddo
-         deallocate(SG_Te0_1D,SG_Cell_dV)
+         deallocate(Te0_1D,Cell_dV)
 
          !$acc update self(mesh_norm_dxdv,mesh_MarkerDen)
 
@@ -3877,6 +3907,134 @@ module Ptl_Src_Loss
          call flush(stdout)
 #endif
       end subroutine Measure_Global_SG_mesh_norm_dxdv_of_Electrons_PolarVelCoord_on_TgtUr
+
+
+      subroutine Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions(num_smooth_gq_a,tgt_mesh5D, Reference_Vol_2D_gq_a)
+         use global_parameters
+         implicit none
+
+         integer, intent(in) :: num_smooth_gq_a(:)
+         real(wp),intent(inout) :: tgt_mesh5D(:,:,:,:,:)
+         real(wp),optional:: Reference_Vol_2D_gq_a(PtlSrcCV%dim_gq, PtlSrcCV%dim_a)
+         real(wp) :: VV(PtlSrcCV%dim_gq, PtlSrcCV%dim_a)
+         integer :: smid,aid,qid,Na,Nq,Nsr,Nsq
+         real(wp), allocatable :: SM_Data5D(:,:,:,:,:),ori_SM_Data5D(:,:,:,:,:) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+         real(wp) :: SM_gq_Coeff(-1:1,0:PtlSrcCV%dim_a+1, 0:PtlSrcCV%dim_gq+1), SM_a_Coeff(-1:1,0:PtlSrcCV%dim_a+1, 0:PtlSrcCV%dim_gq+1)
+
+         Na = PtlSrcCV%dim_a
+         Nq = PtlSrcCV%dim_gq
+
+         Nsr = size(tgt_mesh5D,1)
+         Nsq = size(tgt_mesh5D,2)
+
+         if(Na/=size(tgt_mesh5D,3) .or. Nq/=size(tgt_mesh5D,4)) then
+            write(stdout,'((A,5I0,A))') "Error! tgt_mesh5D does not fit the PtlSrcCV!! dims(tgt_mesh5D)=(", size(tgt_mesh5D,1), size(tgt_mesh5D,2), size(tgt_mesh5D,3), size(tgt_mesh5D,4), size(tgt_mesh5D,5),")"
+            stop
+         endif
+
+         allocate(SM_Data5D(Nsr,Nsq,0:Na+1,0:Nq+1,2), ori_SM_Data5D(Nsr,Nsq,0:Na+1,0:Nq+1,2))
+
+         VV=1.0
+         if(present(Reference_Vol_2D_gq_a)) VV=Reference_Vol_2D_gq_a
+
+         ! Get Smooth Coeffs which conserves Volume Weighted Integration
+         call Get_Conserving_Smooth_Coeffs_on_PtlSrcCV(VV, SM_a_Coeff, SM_gq_Coeff)
+
+
+         if(size(num_smooth_gq_a)==1) then
+            SM_Data5D = 0.0
+            SM_Data5D(:,:,1:Na,1:Nq,:) = tgt_mesh5D
+            do smid=1,num_smooth_gq_a(1)
+               ! Set ghost cell periodic in theta direction
+               SM_Data5D(:,:,:,0,:)    = SM_Data5D(:,:,:,Nq-1,:)
+               SM_Data5D(:,:,:,Nq+1,:) = SM_Data5D(:,:,:,2,:)
+               ! Smooth in theta direction
+               ori_SM_Data5D = SM_Data5D
+               do aid=1,Na
+                  do qid=1,Nq
+                     SM_Data5D(:,:,aid,qid,:) = SM_gq_Coeff(-1,aid,qid)*ori_SM_Data5D(:,:,aid,qid-1,:) + SM_gq_Coeff(0,aid,qid)*ori_SM_Data5D(:,:,aid,qid,:) + SM_gq_Coeff(1,aid,qid)*ori_SM_Data5D(:,:,aid,qid+1,:)
+                  enddo
+               enddo
+               ! Smooth in radial direction
+               ori_SM_Data5D = SM_Data5D
+               do aid=1,Na
+                  do qid=1,Nq
+                     SM_Data5D(:,:,aid,qid,:) = SM_a_Coeff(-1,aid,qid)*ori_SM_Data5D(:,:,aid-1,qid,:) + SM_a_Coeff(0,aid,qid)*ori_SM_Data5D(:,:,aid,qid,:) + SM_a_Coeff(1,aid,qid)*ori_SM_Data5D(:,:,aid+1,qid,:)
+                  enddo
+               enddo
+            enddo
+            tgt_mesh5D = SM_Data5D(:,:,1:Na,1:Nq,:)
+         elseif(size(num_smooth_gq_a)==2) then
+            SM_Data5D = 0.0
+            SM_Data5D(:,:,1:Na,1:Nq,:) = tgt_mesh5D
+            do smid=1,num_smooth_gq_a(1)
+               ! Set ghost cell periodic in theta direction
+               SM_Data5D(:,:,:,0,:)    = SM_Data5D(:,:,:,Nq-1,:)
+               SM_Data5D(:,:,:,Nq+1,:) = SM_Data5D(:,:,:,2,:)
+               ! Smooth in theta direction
+               ori_SM_Data5D = SM_Data5D
+               do aid=1,Na
+                  do qid=1,Nq
+                     SM_Data5D(:,:,aid,qid,:) = SM_gq_Coeff(-1,aid,qid)*ori_SM_Data5D(:,:,aid,qid-1,:) + SM_gq_Coeff(0,aid,qid)*ori_SM_Data5D(:,:,aid,qid,:) + SM_gq_Coeff(1,aid,qid)*ori_SM_Data5D(:,:,aid,qid+1,:)
+                     ! SM_Data5D(:,:,aid,qid,:) = 0.25*ori_SM_Data5D(:,:,aid,qid-1,:) + 0.5*ori_SM_Data5D(:,:,aid,qid,:) + 0.25*ori_SM_Data5D(:,:,aid,qid+1,:)
+                  enddo
+               enddo
+            enddo
+            do smid=1,num_smooth_gq_a(2)
+               ! Smooth in radial direction
+               ori_SM_Data5D = SM_Data5D
+               do aid=1,Na
+                  do qid=1,Nq
+                     SM_Data5D(:,:,aid,qid,:) = SM_a_Coeff(-1,aid,qid)*ori_SM_Data5D(:,:,aid-1,qid,:) + SM_a_Coeff(0,aid,qid)*ori_SM_Data5D(:,:,aid,qid,:) + SM_a_Coeff(1,aid,qid)*ori_SM_Data5D(:,:,aid+1,qid,:)
+                     ! SM_Data5D(:,:,aid,qid,:) = 0.25*ori_SM_Data5D(:,:,aid-1,qid,:) + 0.5*ori_SM_Data5D(:,:,aid,qid,:) + 0.25*ori_SM_Data5D(:,:,aid+1,qid,:)
+                  enddo
+               enddo
+            enddo
+            tgt_mesh5D = SM_Data5D(:,:,1:Na,1:Nq,:)
+         else
+            write(stdout,*) "Error! Check num_smooth_gq_a = ",num_smooth_gq_a(:)
+            stop
+         endif
+
+         deallocate(SM_Data5D, ori_SM_Data5D)
+
+      end subroutine Smooth_PtlSrcCV_mesh5D_along_radial_and_poloidal_directions
+
+      subroutine Get_Conserving_Smooth_Coeffs_on_PtlSrcCV(in_VOLorAREA, SM_a_Coeff, SM_gq_Coeff)
+         implicit none
+
+         integer :: Na,Nq
+         real(wp), intent(in) :: in_VOLorAREA(PtlSrcCV%dim_a,PtlSrcCV%dim_gq) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+         real(wp) :: VV(0:PtlSrcCV%dim_a+1, 0:PtlSrcCV%dim_gq+1) ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
+         real(wp), intent(out):: SM_gq_Coeff(-1:1, 0:PtlSrcCV%dim_a+1,0:PtlSrcCV%dim_gq+1), SM_a_Coeff(-1:1, 0:PtlSrcCV%dim_a+1,0:PtlSrcCV%dim_gq+1)
+
+         Na = PtlSrcCV%dim_a
+         Nq = PtlSrcCV%dim_gq
+
+         VV = 0
+         VV(1:Na,1:Nq) = in_VOLorAREA
+
+         ! Note that theta direction is periodic
+         VV(:,0) = VV(:,Nq-1)
+         VV(:,Nq+1) = VV(:,2)
+
+         SM_gq_Coeff(-1,:,1:Nq) = 0.5*VV(:,0:Nq-1)/(VV(:,0:Nq-1) + VV(:,1:Nq)) ! Coeff_L = 0.5*VL/(VL+VC)
+         SM_gq_Coeff( 0,:,1:Nq) = 0.5*VV(:,1:Nq)*(VV(:,0:Nq-1)+2.0*VV(:,1:Nq)+VV(:,2:Nq+1))/((VV(:,0:Nq-1)+VV(:,1:Nq))*(VV(:,1:Nq)+VV(:,2:Nq+1))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+         SM_gq_Coeff( 1,:,1:Nq) = 0.5*VV(:,2:Nq+1)/(VV(:,2:Nq+1) + VV(:,1:Nq)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+         SM_a_Coeff(-1,1:Na,:) = 0.5*VV(0:Na-1,:)/(VV(0:Na-1,:) + VV(1:Na,:)) ! Coeff_L = 0.5*VL/(VL+VC)
+         SM_a_Coeff( 0,1:Na,:) = 0.5*VV(1:Na,:)*(VV(0:Na-1,:)+2.0*VV(1:Na,:)+VV(2:Na+1,:))/((VV(0:Na-1,:)+VV(1:Na,:))*(VV(1:Na,:)+VV(2:Na+1,:))) ! 0.5*VC*(VL+2*VC+VR)/((VL+VC)*(VC+VR))
+         SM_a_Coeff( 1,1:Na,:) = 0.5*VV(2:Na+1,:)/(VV(2:Na+1,:) + VV(1:Na,:)) ! Coeff_R = 0.5*VR/(VR+VC)
+
+         ! To remove NsN values at the raidal ghost cells
+         SM_gq_Coeff(:,0,:)   = 0
+         SM_gq_Coeff(:,Na+1,:)= 0
+         SM_a_Coeff(:,0,:)    = 0
+         SM_a_Coeff(:,Na+1,:) = 0
+
+      end subroutine Get_Conserving_Smooth_Coeffs_on_PtlSrcCV
+
+
 
 
       subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv, in_label_val)
@@ -4640,13 +4798,14 @@ module Ptl_Src_Loss
 
          real(wp) loc_max_ur, loc_min_ur, loc_Del_a, loc_Del_q, loc_Del_f, loc_gf_min, loc_gf_max
          real(wp) ptl_a, ptl_gq, ptl_sr,ptl_sq, ptl_ur, inv_da, inv_dgq,inv_dsr,inv_dsq, ws0,ws1
-         integer sid,k,ptl_aid,ptl_gqid, ptl_srid, ptl_sqid, Bid
+         integer tmp_aid,k,ptl_aid,ptl_gqid, ptl_srid, ptl_sqid, Bid
          real(wp) P_safety_q
          real(wp) ptl_ur_bound(2)
          integer, allocatable :: num_BLKs,BLKs_aid(:),BLKs_gqid(:),BLKs_gfid(:), BLKs_m0(:), BLKs_m1(:)
          integer, allocatable :: BLKs_Nsamp_mype(:), BLKs_Nsamp_npartd(:),BLKs_NnewP_mype(:), BLKs_NnewP_npartd(:)
          real(wp), allocatable :: BLKs_d3x(:), BLKs_d2u(:) ! spatial area and velocity area of each block
-         real(wp) occp_MarkerDen,amp_factor, mean_occp_MarkerNum, mean_norm_occp_dxdv
+         real(wp) occp_MarkerDen,amp_factor, mean_occp_MarkerDen, mean_norm_occp_dxdv
+         character(len=128) filename
 
          !$acc declare create(AdiabTerm)
 
@@ -4664,8 +4823,10 @@ module Ptl_Src_Loss
 
 
 
-         sr_min = 0.0; sr_max = 1.0; dim_sr = 6
-         sq_min = 0.0; sq_max = pi;  dim_sq = 10
+         ! sr_min = 0.0; sr_max = 1.0; dim_sr = 6
+         ! sq_min = 0.0; sq_max = pi;  dim_sq = 10
+         sr_min = 0.0; sr_max = 1.0;
+         sq_min = 0.0; sq_max = pi;
 
          if(present(mesh_occp_MarkerDen)) then
             dim_sr = size(mesh_occp_MarkerDen,1)
@@ -4740,6 +4901,11 @@ module Ptl_Src_Loss
             enddo
          enddo
 
+         if(Bid/=num_BLKs) then
+            write(stdout,'((A,I0,A,I0))') "Error!! Something is Wrong!! After finding block idices, Bid=", Bid, "; num_BLKs=", num_BLKs
+            stop
+         endif
+
          m0 = me+1
 
          do Bid=1,num_BLKs
@@ -4779,7 +4945,7 @@ module Ptl_Src_Loss
             BLKs_NnewP_mype(Bid) = 0
             do k=1,loc_Nsamp
                ptl_a  = a(aid) +loc_Del_a*sprng()
-               ptl_gq = gq(qid)+loc_Del_q*sprng()
+               ptl_gq = gq(qid)+loc_Del_q*sprng() ! NOTE!! This is gq value at either zeta=zetamin or zeta=zetamax
 
                ! ptl_aid  = aid+floor((ptl_a-a(aid))*inv_da+0.5) ! Find nearst grid
                ! ptl_gqid = qid+floor((ptl_gq-gq(qid))*inv_dgq+0.5) ! Find nearst grid
@@ -4836,34 +5002,39 @@ module Ptl_Src_Loss
                      ! endif
 
                      ! if(mype==0) then
-                     !    if(ur1<umax) then
+                     !    if(ptl_aid>0.85 ) then
                      !       write(stdout,'(3(A,ES10.4))') "tgt_cell_Nm=", tgt_cell_Nm, "; ini_MarkerDen_npartd=",ini_MarkerDen_npartd,"; mesh_MarkerDen=",mesh_occp_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
                      !       call flush(stdout)
                      !    endif
                      ! endif
 
-                     if(tgt_cell_Nm<20) then
+                     ! if(tgt_cell_Nm<1e-3) then
+                     if(.false.) then
                         ! if tgt_cell_Nm is too small, it needs some amplification for a more proper determination.
                         ! amp_factor =(min(dim_sr,ptl_srid+1)-max(1,ptl_srid-1)+1)*(min(dim_sq,ptl_sqid+1)-max(1,ptl_sqid-1)+1)*(min(dim_a,ptl_aid+3)-max(1,ptl_aid-3))*(min(dim_gq,ptl_gqid+6)- max(1,ptl_gqid-6))*dim_gf
                         ! amp_tgt_cell_Nm = amp_factor*tgt_cell_Nm
                         ! amp_occp_MarkerNum_mype = (1.0/npartdom)*sum(mesh_occp_MarkerNum_npartd(max(1,ptl_srid-1):min(dim_sr,ptl_srid+1), max(1,ptl_sqid-1):min(dim_sq,ptl_sqid+1), max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), :))
                         ! amp_factor =(min(dim_a,ptl_aid+3)-max(1,ptl_aid-3)+1)*(min(dim_gq,ptl_gqid+6)- max(1,ptl_gqid-6)+1)*dim_gf
-                        ! amp_tgt_cell_Nm = amp_factor*tgt_cell_Nm
+                        ! amp_tgt_cell_Nm = c*tgt_cell_Nm
                         ! amp_occp_MarkerNum_mype = (1.0/npartdom)*sum(mesh_occp_MarkerDen(ptl_srid, ptl_sqid, max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), :))
-                        amp_factor =(min(dim_a,ptl_aid+3)-max(1,ptl_aid-3)+1)*(min(dim_gq,ptl_gqid+6)- max(1,ptl_gqid-6)+1)*dim_gf
-                        mean_occp_MarkerNum = (1.0/amp_factor)*sum(mesh_occp_MarkerDen(ptl_srid, ptl_sqid, max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), :))
+                        ! amp_factor =(min(dim_a,ptl_aid+3)-max(1,ptl_aid-3)+1)*(min(dim_gq,ptl_gqid+6)- max(1,ptl_gqid-6)+1)
+                        ! mean_occp_MarkerDen = (1.0/amp_factor)*sum(mesh_occp_MarkerDen(ptl_srid, ptl_sqid, max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), fid))
+
+                        amp_factor =(min(dim_a,ptl_aid+5)-max(1,ptl_aid-5)+1)*(min(dim_gq,ptl_gqid+10)- max(1,ptl_gqid-10)+1)
+                        mean_occp_MarkerDen = (1.0/amp_factor)*sum(mesh_occp_MarkerDen(ptl_srid, ptl_sqid, max(1,ptl_aid-5):min(dim_a,ptl_aid+5), max(1,ptl_gqid-10):min(dim_gq,ptl_gqid+10), fid))
 
                         if(present(mesh5D_norm_occp_dxdv)) then
-                           mean_norm_occp_dxdv = (1.0/amp_factor)*sum(mesh5D_norm_occp_dxdv(ptl_srid, ptl_sqid, max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), :))
+                           ! mean_norm_occp_dxdv = (1.0/amp_factor)*sum(mesh5D_norm_occp_dxdv(ptl_srid, ptl_sqid, max(1,ptl_aid-3):min(dim_a,ptl_aid+3), max(1,ptl_gqid-6):min(dim_gq,ptl_gqid+6), fid))
+                           mean_norm_occp_dxdv = (1.0/amp_factor)*sum(mesh5D_norm_occp_dxdv(ptl_srid, ptl_sqid, max(1,ptl_aid-5):min(dim_a,ptl_aid+5), max(1,ptl_gqid-10):min(dim_gq,ptl_gqid+10), fid))
                            zeon0(6,me) = 1.0 -mean_norm_occp_dxdv
                         endif
 
-                        ! if(mype==0) then
-                        !    if(ur1<umax) then
-                        !       write(stdout,'(2(A,ES10.4))') "amp_tgt_cell_Nm=", amp_tgt_cell_Nm, "; amp_occp_MarkerNum_mype=",amp_occp_MarkerNum_mype
-                        !       call flush(stdout)
-                        !    endif
-                        ! endif
+                        if(mype==0) then
+                           if(ptl_a>0.85) then
+                              write(stdout,'(4(A,ES9.2))') "tgt_cell_Nm=", tgt_cell_Nm,"; amp_tgt_cell_Nm=", amp_factor*tgt_cell_Nm, "; dxdv=",mesh5D_norm_occp_dxdv(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid),"; mean_dxdv=", mean_norm_occp_dxdv
+                              call flush(stdout)
+                           endif
+                        endif
 
 
                         ! if(mype==0) then
@@ -4873,19 +5044,28 @@ module Ptl_Src_Loss
                         !    endif
                         ! endif
 
-                        if(sprng()*ini_MarkerDen_npartd < mean_occp_MarkerNum) then
+                        if(mean_occp_MarkerDen>0.95*ini_MarkerDen_npartd .and. mean_occp_MarkerDen<=ini_MarkerDen_npartd) then
+                           mean_occp_MarkerDen=0.95*ini_MarkerDen_npartd ! To prevent too close occp_MarkerDen~ini_MarkerDen which could be troublesome
+                        endif
+
+                        if(sprng()*ini_MarkerDen_npartd < mean_occp_MarkerDen) then
                            BLKs_NnewP_mype(Bid) = BLKs_NnewP_mype(Bid) -1
                            me=me-1
                            cycle ! reject this particle
                         endif
                         ! Note that denominator is always smaller than 1 otherwise it should be rejected by the previous checking routine
-                        zeon0(6,me) = zeon0(6,me)/(1.0-mean_occp_MarkerNum/ini_MarkerDen_npartd)
+                        zeon0(6,me) = zeon0(6,me)/(1.0-mean_occp_MarkerDen/ini_MarkerDen_npartd)
 
 
 
                      else
                         ! occp_MarkerDen = (1.0/npartdom)*mesh_occp_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
                         occp_MarkerDen = mesh_occp_MarkerDen(ptl_srid, ptl_sqid, ptl_aid, ptl_gqid, fid)
+
+                        if(occp_MarkerDen>0.95*ini_MarkerDen_npartd .and. occp_MarkerDen<=ini_MarkerDen_npartd) then
+                           occp_MarkerDen=0.95*ini_MarkerDen_npartd ! To prevent too close occp_MarkerDen~ini_MarkerDen which could be troublesome
+                        endif
+
                         if(sprng()*ini_MarkerDen_npartd <occp_MarkerDen) then
                            BLKs_NnewP_mype(Bid) = BLKs_NnewP_mype(Bid) -1
                            me=me-1
@@ -4900,15 +5080,15 @@ module Ptl_Src_Loss
                   zeon(1,me) = ptl_a
                   zeon(7,me) = D01AHF(0.0_wp,zeon(1,me),error_8,minpts,ac,dsda,-1,ifail)
 
-
-                  sid = max(1,min(int((zeon(7,me)-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-                  ws1 = (zeon(7,me)-SG%s_1D(sid))*SG%inv_ds
+                  ! Interpolate safety factor
+                  tmp_aid = max(1,min(int((zeon(1,me)-PtlSrcCV%a_min)*PtlSrcCV%inv_da) +1,PtlSrcCV%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
+                  ws1 = (zeon(1,me)-PtlSrcCV%a_1D(tmp_aid))*PtlSrcCV%inv_da
                   ws0 = (1.0-ws1)
-
-                  P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
+                  P_safety_q = ws0*PtlSrcCV%safety_q_1D(tmp_aid) + ws1*PtlSrcCV%safety_q_1D(tmp_aid+1)
 
                   zeon(3,me) = modulo(loc_gf_min + loc_Del_f*sprng(), 2.0*pi)
-                  zeon(2,me) = modulo(ptl_gq + (gf(fid)-zeon(3,me))/P_safety_q, 2.0*pi)
+                  ! zeon(2,me) = modulo(ptl_gq + (gf(fid)-zeon(3,me))/P_safety_q, 2.0*pi)
+                  zeon(2,me) = modulo(ptl_gq + (zeon(3,me)-gf(fid))/P_safety_q, 2.0*pi)
 
                   upara = (ptl_ur*cos(ptl_sq))
                   uperp = (ptl_ur*sin(ptl_sq))

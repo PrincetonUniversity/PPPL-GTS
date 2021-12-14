@@ -356,7 +356,7 @@ program GTS
 
             ! call Clear_newElectrons_beyond_Velocity_Boundary()
             call Clear_some_Electrons_beyond_Boundaries()
-            call Generate_Electrons_beyond_VelocityCutOff_Fixed_Grid()
+            call Generate_Electrons_beyond_VelocityCutOff()
             call Generate_Electrons_beyond_PhysicalBoundary()
 
             ! call Clear_newIons_beyond_Velocity_Boundary()
