@@ -757,8 +757,8 @@ module Ptl_Src_Loss
 
             vmax_mps = umax*vthe_mps
 
-            PSCV%Elec_dupara_per_nstep(:,ss,:) = abs(-vmax_mps + sqrt(vmax_mps**2.0 + abs(qe_C)*MarginFactor*PSCV%Elec_dErg_eV_per_nstep(:,ss,:)/me_kg))/(vthe_mps)
-            PSCV%Ion_dupara_per_nstep(:,ss,:)  = abs(-vmax_mps + sqrt(vmax_mps**2.0 + abs(qe_C)*MarginFactor*PSCV%Ion_dErg_eV_per_nstep(:,ss,:)/mi_kg))/(vthi_mps)
+            PSCV%Elec_dupara_per_nstep(:,ss,:) = max(MinimumVal, abs(-vmax_mps + sqrt(vmax_mps**2.0 + abs(qe_C)*MarginFactor*PSCV%Elec_dErg_eV_per_nstep(:,ss,:)/me_kg))/(vthe_mps))
+            PSCV%Ion_dupara_per_nstep(:,ss,:)  = max(MinimumVal, abs(-vmax_mps + sqrt(vmax_mps**2.0 + abs(qe_C)*MarginFactor*PSCV%Ion_dErg_eV_per_nstep(:,ss,:)/mi_kg))/(vthi_mps))
          enddo
 
          ! Wsz_q=5;
