@@ -340,6 +340,7 @@ contains
 #endif
       if(acc_newer_H_zeon) then
          !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         !$acc update device(elabels(:me))
          acc_newer_H_zeon=.false.
          acc_newer_D_zeon=.false.
       endif
@@ -398,15 +399,25 @@ contains
       if(Flag_Load_and_WeightDef==0) then
          !$acc parallel loop present(ptl_data)
          do m=1,me
-            ptl_data(:,m) = eNrNm*ptl_data(:,m)
+            !$acc loop seq
+            do k=1,num_eD
+               ptl_data(k,m) = eNrNm*ptl_data(k,m)
+            enddo
          enddo
       endif
 
-      !$acc parallel loop gang vector present(zeon,zeon0,ptl_data) private(ratio,qq,ss)
+      !$acc parallel loop gang vector present(zeon,zeon0,ptl_data,elabels) private(ratio,qq,ss)
       do m=1,me
          P_s = zeon(7,m)
+
+         if(elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+            ! Since this particle is outside the physical boundary, not need to calculate its contribution
+            cycle
+         endif
+
          P_gq = modulo(zeon(2,m),2*pi)
          P_gf = modulo(zeon(3,m),2*pi)
+         P_gf = max(SG%zetamin,min(SG%zetamax,P_gf))
 
          wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
          wgf0 = (1.0-wgf1)
@@ -572,6 +583,7 @@ contains
 
       if(acc_newer_H_zion) then
          !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         !$acc update device(ilabels(:mi))
          acc_newer_D_zion=.false.
          acc_newer_H_zion=.false.
       endif
@@ -628,17 +640,26 @@ contains
 
       ! Mulitplying coeff in the case of Flag_Load_and_WeightDef==0
       if(Flag_Load_and_WeightDef==0) then
-         !$acc parallel loop present(ptl_data)
+         !$acc parallel loop gang vector present(ptl_data)
          do m=1,mi
-            ptl_data(:,m) = iNrNm*ptl_data(:,m)
+            !$acc loop seq
+            do k=1,num_iD
+               ptl_data(k,m) = iNrNm*ptl_data(k,m)
+            enddo
          enddo
       endif
 
-      !$acc parallel loop gang vector present(zion,zion0,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit,gyro_over_sqrt_mu,ptl_data) private(intpl_gyro,ratio,qq,ss)
+      !$acc parallel loop gang vector present(zion,zion0,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit,gyro_over_sqrt_mu,ptl_data,ilabels) private(intpl_gyro,ratio,qq,ss)
       do m=1,mi
 
          ! Measure the intpl_gyro at the Guiding Center position
          P_s = zion(7,m)
+
+         if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            ! Since this particle is outside the physical boundary, not need to calculate its contribution
+            cycle
+         endif
+
          P_gq = modulo(zion(2,m),2*pi)
          P_gf = modulo(zion(3,m),2*pi)
 
