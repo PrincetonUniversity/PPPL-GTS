@@ -56,7 +56,8 @@ module Structured_Grid
    real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
    !$acc declare create(gyro_over_sqrt_mu)
 
-   real(wp) SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s
+   real(wp) SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds
+   integer :: SG_dim_s
    real(wp), allocatable ::  SG_s_1D(:), SG_gq_1D(:), SG_safety_q_1D(:), SG_phi_3D(:,:,:)
    !$acc declare create(SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
    !$acc declare create(SG_s_1D,SG_gq_1D,SG_safety_q_1D,SG_phi_3D)
@@ -894,7 +895,7 @@ contains
       dim = size(inout_s_1D)
 
       do i=1,dim
-         SG_sid = max(1,min(SG%dim_s-1, (inout_s_1D(i)-SG%s_1D(1))*SG%inv_ds))
+         SG_sid = max(1,min(SG%dim_s-1, int((inout_s_1D(i)-SG%s_1D(1))*SG%inv_ds)) )
 
          ws1 = (inout_s_1D(i)-SG%s_1D(SG_sid))*SG%inv_ds
          ws0 = 1.0-ws1
