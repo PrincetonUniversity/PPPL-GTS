@@ -829,7 +829,7 @@ subroutine snapshot_hdf5
       call h5gcreate_f(file_id, "DG/FLA/SM", gid_DG_FLA_SM, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "FP", gid_FP, h5err) ! Diagnostic Grid
       call h5gcreate_f(file_id, "FP/cum", gid_FP_cum, h5err) ! Diagnostic Grid
-      call h5gcreate_f(file_id, "PtlSrc", gid_PtlSrc, h5err) ! Particle Source
+      ! call h5gcreate_f(file_id, "PtlSrc", gid_PtlSrc, h5err) ! Particle Source
 
 
       !
@@ -1430,28 +1430,34 @@ subroutine snapshot_hdf5
 
       deallocate(intp_val_Arr)
 
-      h5dims(1)=1
-      call h5ltmake_dataset_f(gid_PtlSrc, "nstep",1,h5dims,H5T_NATIVE_INTEGER, PSCV%nstep,h5err)
-      h5dims(1)=PSCV%dim_a
-      call h5ltmake_dataset_f(gid_PtlSrc, "Te0_eV_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%Te0_eV_1D,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "Ti0_eV_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%Ti0_eV_1D,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "safety_q_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%safety_q_1D,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%a_1D,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%s_1D,h5err)
-      h5dims(1)=PSCV%dim_gq
-      call h5ltmake_dataset_f(gid_PtlSrc, "gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%gq_1D,h5err)
 
-      h5dims(1:2)=[PSCV%dim_gq, PSCV%dim_a]
-      call h5ltmake_dataset_f(gid_PtlSrc, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, PSCV%Cell_dV,h5err)
+      do k=1,size(PSCV_list)
+         write(cdum,'("PSCV",i1.1)') k
+         call h5gcreate_f(file_id, cdum, gid_PtlSrc, h5err) ! PVS(ProbeVelocitySpace)
+         PSCV=>PSCV_list(k)
+         h5dims(1)=1
+         call h5ltmake_dataset_f(gid_PtlSrc, "nstep",1,h5dims,H5T_NATIVE_INTEGER, PSCV%nstep,h5err)
+         h5dims(1)=PSCV%dim_a
+         call h5ltmake_dataset_f(gid_PtlSrc, "Te0_eV_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%Te0_eV_1D,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "Ti0_eV_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%Ti0_eV_1D,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "safety_q_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%safety_q_1D,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "a_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%a_1D,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "s_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%s_1D,h5err)
+         h5dims(1)=PSCV%dim_gq
+         call h5ltmake_dataset_f(gid_PtlSrc, "gq_1D",1,h5dims,H5T_NATIVE_DOUBLE, PSCV%gq_1D,h5err)
+         h5dims(1:2)=[PSCV%dim_gq, PSCV%dim_a]
+         call h5ltmake_dataset_f(gid_PtlSrc, "Cell_dV",2,h5dims,H5T_NATIVE_DOUBLE, PSCV%Cell_dV,h5err)
+         h5dims(1:3)=[PSCV%dim_gq, PSCV%dim_a, 2]
+         call h5ltmake_dataset_f(gid_PtlSrc, "mean_E_para",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%mean_E_para,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dupara_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Elec_dupara_per_nstep,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dupara_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Ion_dupara_per_nstep,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dupara_per_nstep_SM",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Elec_dupara_per_nstep_SM,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dupara_per_nstep_SM",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Ion_dupara_per_nstep_SM,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dErg_eV_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Elec_dErg_eV_per_nstep,h5err)
+         call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dErg_eV_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Ion_dErg_eV_per_nstep,h5err)
+         call h5gclose_f(gid_PtlSrc, h5err)
+      enddo
 
-      h5dims(1:3)=[PSCV%dim_gq, PSCV%dim_a, 2]
-      call h5ltmake_dataset_f(gid_PtlSrc, "mean_E_para",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%mean_E_para,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dupara_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Elec_dupara_per_nstep,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dupara_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Ion_dupara_per_nstep,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dupara_per_nstep_SM",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Elec_dupara_per_nstep_SM,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dupara_per_nstep_SM",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Ion_dupara_per_nstep_SM,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "Elec_dErg_eV_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Elec_dErg_eV_per_nstep,h5err)
-      call h5ltmake_dataset_f(gid_PtlSrc, "Ion_dErg_eV_per_nstep",3,h5dims,H5T_NATIVE_DOUBLE, PSCV%Ion_dErg_eV_per_nstep,h5err)
       ! h5dims(1:4)=[3, SG%dim_gq, SG%dim_a, 2]
       ! call h5ltmake_dataset_f(gid_PtlSrc, "mean_E_cov3",4,h5dims,H5T_NATIVE_DOUBLE, PtlSrcCV%mean_E_cov3,h5err)
 
@@ -2066,7 +2072,7 @@ subroutine snapshot_hdf5
       call h5gclose_f(gid_DG_FLA_SM, h5err)
       call h5gclose_f(gid_FP, h5err)
       call h5gclose_f(gid_FP_cum, h5err)
-      call h5gclose_f(gid_PtlSrc, h5err)
+      ! call h5gclose_f(gid_PtlSrc, h5err)
 
       call h5fclose_f(file_id, h5err)
       call h5close_f(h5err)

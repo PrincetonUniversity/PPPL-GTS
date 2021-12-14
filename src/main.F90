@@ -349,15 +349,13 @@ program GTS
          if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
             call timer(t0,dt,t0wc,dtwc)
 
-            ! call Cal_mean_E_para_and_Dump_cum_Epara
-            ! call Cal_dupara_per_dt_using_SG
-            call Cal_dErg_per_nstep_by_Potential_along_FieldLine
-            call Cal_dupara_per_dt_using_dErg_per_nstep
-
-            ! call Clear_newElectrons_beyond_Velocity_Boundary()
             call Clear_some_Electrons_beyond_Boundaries()
-            call Generate_Electrons_beyond_VelocityCutOff()
-            call Generate_Electrons_beyond_PhysicalBoundary()
+            do i=1,size(PSCV_list)
+               PSCV=>PSCV_list(i)
+               call Cal_dErg_per_nstep_by_Potential_along_FieldLine
+               call Cal_dupara_per_dt_using_dErg_per_nstep
+               call Generate_Electrons_beyond_VelocityCutOff()
+            enddo
 
             ! call Clear_newIons_beyond_Velocity_Boundary()
             call Clear_some_Ions_beyond_Boundaries()

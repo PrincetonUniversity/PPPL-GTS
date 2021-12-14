@@ -263,8 +263,8 @@ module Ptl_Src_Loss
    end type
 
    type(OutParticles) outION
-   type(Particle_Source_Control_Variables) PSCV
-
+   type(Particle_Source_Control_Variables), pointer :: PSCV
+   type(Particle_Source_Control_Variables), target :: PSCV_list(3) ! (1:Inside,  2: beyond BDY0, 3: beyond BDY1)
 
    contains
 
@@ -282,29 +282,30 @@ module Ptl_Src_Loss
          call Initialize_FootPrint(FP_BDY1,a1)
          call Initialize_FootPrint(cum_FP_BDY1,a1)
 
-         call Initialize_Particle_Source_Control_Variables
+         PSCV=>PSCV_list(1) ! Inside the domain
+         call Initialize_Particle_Source_Control_Variables(minval(SG%a_1D), maxval(SG%a_1D), Ptl_Src_dim_a, Ptl_Src_dim_gq)
+         PSCV=>PSCV_list(2) ! beyond inner boundary (BDY0)
+         call Initialize_Particle_Source_Control_Variables(minval(SG%a_1D)-0.05, minval(SG%a_1D), 10, Ptl_Src_dim_gq)
+         PSCV=>PSCV_list(3) ! beyond outer boundary (BDY1)
+         call Initialize_Particle_Source_Control_Variables(maxval(SG%a_1D), maxval(SG%a_1D)+0.05, 10, Ptl_Src_dim_gq)
 
       end subroutine Initialize_Ptl_Src_Loss
 
-      subroutine Initialize_Particle_Source_Control_Variables
+      subroutine Initialize_Particle_Source_Control_Variables(in_a_min, in_a_max, in_dim_a, in_dim_gq)
          use global_parameters
          use Structured_Grid
          use function_gg_module
          implicit none
+         real(wp),intent(in) :: in_a_min, in_a_max
+         integer, intent(in) :: in_dim_a, in_dim_gq
          integer :: dim_gq, dim_a, aid, gqid
          real(wp) :: this_a,this_da, this_gq
          real(wp), external :: Jacobian
 
-         PSCV%a_min = minval(SG%a_1D)
-         PSCV%a_max = maxval(SG%a_1D)
-
-         ! PtlSrcCV%dim_a  = SG%dim_a
-         ! PtlSrcCV%dim_gq = SG%dim_gq
-
-         PSCV%dim_a   = Ptl_Src_dim_a
-         PSCV%dim_gq  = Ptl_Src_dim_gq
-         ! PtlSrcCV%dim_a  = 50
-         ! PtlSrcCV%dim_gq = 50
+         PSCV%a_min = in_a_min
+         PSCV%a_max = in_a_max
+         PSCV%dim_a = in_dim_a
+         PSCV%dim_gq= in_dim_gq
 
 
          dim_a=PSCV%dim_a
@@ -361,15 +362,20 @@ module Ptl_Src_Loss
 
       subroutine Finalize_Ptl_Src_Loss
          implicit none
+         integer i
 
          if(allocated(outION%P)) deallocate(outION%P, outION%P0, outION%energy, outION%backT, outION%backf0,outION%labels)
-         if(allocated(PSCV%cum_E_para)) deallocate(PSCV%cum_E_para, PSCV%mean_E_para)
-         if(allocated(PSCV%Elec_dupara_per_nstep)) deallocate(PSCV%Elec_dupara_per_nstep,PSCV%Ion_dupara_per_nstep)
-         if(allocated(PSCV%Elec_dupara_per_nstep_SM)) deallocate(PSCV%Elec_dupara_per_nstep_SM,PSCV%Ion_dupara_per_nstep_SM)
-         if(allocated(PSCV%Elec_dErg_eV_per_nstep)) deallocate(PSCV%Elec_dErg_eV_per_nstep,PSCV%Ion_dErg_eV_per_nstep)
-         if(allocated(PSCV%a_1D)) deallocate(PSCV%a_1D,PSCV%gq_1D,PSCV%s_1D)
-         if(allocated(PSCV%Te0_eV_1D)) deallocate(PSCV%Te0_1D, PSCV%Te0_eV_1D, PSCV%Ti0_1D, PSCV%Ti0_eV_1D, PSCV%safety_q_1D)
-         if(allocated(PSCV%Cell_dV)) deallocate(PSCV%Cell_dV)
+
+         do i=1,size(PSCV_list)
+            PSCV=>PSCV_list(i)
+            if(allocated(PSCV%cum_E_para)) deallocate(PSCV%cum_E_para, PSCV%mean_E_para)
+            if(allocated(PSCV%Elec_dupara_per_nstep)) deallocate(PSCV%Elec_dupara_per_nstep,PSCV%Ion_dupara_per_nstep)
+            if(allocated(PSCV%Elec_dupara_per_nstep_SM)) deallocate(PSCV%Elec_dupara_per_nstep_SM,PSCV%Ion_dupara_per_nstep_SM)
+            if(allocated(PSCV%Elec_dErg_eV_per_nstep)) deallocate(PSCV%Elec_dErg_eV_per_nstep,PSCV%Ion_dErg_eV_per_nstep)
+            if(allocated(PSCV%a_1D)) deallocate(PSCV%a_1D,PSCV%gq_1D,PSCV%s_1D)
+            if(allocated(PSCV%Te0_eV_1D)) deallocate(PSCV%Te0_1D, PSCV%Te0_eV_1D, PSCV%Ti0_1D, PSCV%Ti0_eV_1D, PSCV%safety_q_1D)
+            if(allocated(PSCV%Cell_dV)) deallocate(PSCV%Cell_dV)
+         enddo
 
          ! if(allocated(PtlSrcCV%cum_E_cov3)) deallocate(PtlSrcCV%cum_E_cov3, PtlSrcCV%mean_E_cov3)
       end subroutine Finalize_Ptl_Src_Loss
@@ -2780,7 +2786,7 @@ module Ptl_Src_Loss
          real(wp) upara_min_arr(3), upara_max_arr(3)
          real(wp) uperp_min_arr(3), uperp_max_arr(3)
          real(wp), allocatable :: ur_bound(:,:,:,:)
-
+         real(wp) PSCV_mean_a
 
          if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
             ini_Ne_marker_density = ini_me/((a1-a0)*(2*pi)*(zetamax-zetamin)*0.5*pi*umax**2.0)
@@ -2808,11 +2814,17 @@ module Ptl_Src_Loss
 
             allocate(ur_bound(PSCV%dim_a,PSCV%dim_gq,size(tmp_gf),2))
 
-            ur_bound(:,:,:,1) = umax
+            PSCV_mean_a = 0.5*(PSCV%a_min+PSCV%a_max)
+
+            if( (PSCV_mean_a-a0)*(PSCV_mean_a-a1)<0) then
+               ! Inside the wall
+               ur_bound(:,:,:,1) = umax
+            else
+               ! Outside the wall
+               ur_bound(:,:,:,1) = 0.0
+            endif
+
             do i=1,PSCV%dim_a
-               if(PSCV%a_1D(i)>=a1 .or. PSCV%a_1D(i)<=a0) then
-                  ur_bound(i,:,:,1) = 0.0
-               endif
                do j=1,PSCV%dim_gq
                   ur_bound(i,j,:,2) = umax + PSCV%Elec_dupara_per_nstep_SM(j,i,:)
                enddo
@@ -3703,6 +3715,12 @@ module Ptl_Src_Loss
 
          !$acc parallel loop present(mesh_norm_dxdv,mesh_MarkerDen) private(ptl_ur_bound)
          do m=1,me
+
+            if( (zeon(1,m)-a_min)*(zeon(1,m)-a_max)>0 ) then
+               ! If the particle is outside the PSCV domain, cycle the loop
+               cycle
+            endif
+
             tgt_aid  = ceiling((zeon(1,m)-a_min)*inv_da+0.5) ! Find nearst grid
             tgt_gfid = ceiling((zeon(3,m)-gf_min)*inv_dgf+0.5) ! Find nearst grid
 
