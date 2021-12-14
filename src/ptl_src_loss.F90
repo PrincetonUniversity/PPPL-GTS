@@ -287,7 +287,8 @@ module Ptl_Src_Loss
          PSCV=>PSCV_list(2) ! beyond inner boundary (BDY0)
          call Initialize_Particle_Source_Control_Variables(minval(SG%a_1D)-0.05, minval(SG%a_1D), 10, Ptl_Src_dim_gq)
          PSCV=>PSCV_list(3) ! beyond outer boundary (BDY1)
-         call Initialize_Particle_Source_Control_Variables(maxval(SG%a_1D), maxval(SG%a_1D)+0.05, 10, Ptl_Src_dim_gq)
+         ! call Initialize_Particle_Source_Control_Variables(maxval(SG%a_1D), maxval(SG%a_1D)+0.05, 10, Ptl_Src_dim_gq)
+         call Initialize_Particle_Source_Control_Variables(maxval(SG%a_1D), maxval(SG%a_1D)+0.07, 20, Ptl_Src_dim_gq)
 
       end subroutine Initialize_Ptl_Src_Loss
 
@@ -562,14 +563,14 @@ module Ptl_Src_Loss
          ! Lc_track_threshold = 50 ! 50 m
 
          dgf = 2.0*pi/100.0
-         Elec_Lc_thold = PSCV%nstep*(2*umax*MM_vthce*tstep) ! electron travel distance (m) during nstep assuming 2*umax speed
-         Ion_Lc_thold  = PSCV%nstep*(2*umax*MM_vthci*tstep) ! ion travel distance (m) during nstep assuming 2*umax speed
+         Elec_Lc_thold = PSCV%nstep*(2.0*umax*MM_vthce*tstep) ! electron travel distance (m) during nstep assuming 2*umax speed
+         Ion_Lc_thold  = PSCV%nstep*(2.0*umax*MM_vthci*tstep) ! ion travel distance (m) during nstep assuming 2*umax speed
          Lc_track_threshold = max(Elec_Lc_thold, Ion_Lc_thold)
          max_step = ceiling(Lc_track_threshold/(MM_R_axis*dgf)) ! Changle Lc condition into approximate number of steps
 
 
          if(mype==0) then
-            write(stdout,*) "mype=",mype,"; Elec_Lc_thold=", Elec_Lc_thold, ", Ion_Lc_thold=", Ion_Lc_thold, "max_step=",max_step
+            write(stdout,'(A,I0,2(A,ES8.2),A,I0)') "mype=",mype,"; Elec_Lc_thold =", Elec_Lc_thold, " (m), Ion_Lc_thold=", Ion_Lc_thold, " (m); max_step=",max_step
             call flush(stdout)
          endif
 
@@ -747,8 +748,8 @@ module Ptl_Src_Loss
          qe_C = charge/2997924580.0
          qi_C = chargi/2997924580.0
 
-         MarginFactor = 1.2 ! Give 20% margin for more safety
-         MinimumVal = 0.02 ! du=0.02 for everywhere
+         MarginFactor = 1.1 ! Give 10% margin for more safety
+         MinimumVal = 0.05 ! du=0.05 everywhere
 
          do ss=1,PSCV%dim_a
             vthe_mps = sqrt(abs(qe_C)*PSCV%Te0_eV_1D(ss)/(me_kg))
@@ -762,8 +763,8 @@ module Ptl_Src_Loss
 
          ! Wsz_q=5;
          ! Wsz_a=3;
-         Wsz_q=max(1,ceiling(0.05*PSCV%dim_gq))
-         Wsz_a=max(1,ceiling(0.05*PSCV%dim_a))
+         Wsz_q=max(2,ceiling(0.05*PSCV%dim_gq))
+         Wsz_a=max(2,ceiling(0.05*PSCV%dim_a))
          do ss=1,PSCV%dim_a
             do qq=1,PSCV%dim_gq
                do k=0,1
