@@ -511,7 +511,7 @@ module Ptl_Src_Loss
 
       subroutine Cal_dErg_per_nstep_by_Potential_along_FieldLine
          use global_parameters
-         use Magnetic_Grid, only: B_cntv,grad_B_cntv,d23_B_cntv,TriCubic_Interpolation_of_Vec
+         use Magnetic_Grid, only: B_cntv,grad_B_cntv,d23_B_cntv,TriCubic_Interpolation_of_Vec, MG_a_1D=>a_1D
          use particle_decomp
          use mpi_defs
          use Structured_Grid
@@ -537,10 +537,14 @@ module Ptl_Src_Loss
          real(wp), allocatable :: FL_max_Elec_dErg_eV(:),FL_max_Ion_dErg_eV(:), recv_FL_max_dErg_eV(:) ! maximum energy change by potential along field line
          real(wp) Lc_track_threshold ! Determine how long the field line will be tracked (vmax*dt*nstep)
          real(wp) Elec_Lc_thold, Ion_Lc_thold
+         real(wp) MG_a_min, MG_a_max
 
 #ifdef _MGY_TIMER_
    Gt_start=MPI_WTIME()
 #endif
+
+         MG_a_min = minval(MG_a_1D)
+         MG_a_max = maxval(MG_a_1D)
 
          ! Prepare SG's phi_3D in case
          call Update_SG_phi_3D_by_gathering_SG_phi2D
@@ -680,7 +684,8 @@ module Ptl_Src_Loss
                      FL_max_Ion_dErg_eV(Fid) = dErg_eV
                   endif
 
-                  if(now_a<=PSCV%a_min .or. now_a>=PSCV%a_max) then
+                  ! if(now_a<=PSCV%a_min .or. now_a>=PSCV%a_max) then
+                  if(now_a<=MG_a_min+1e-2 .or. now_a>=MG_a_max-1e-2) then
                      exit
                   endif
                enddo ! end while(.true.)
