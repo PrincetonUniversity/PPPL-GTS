@@ -3660,7 +3660,7 @@ module Ptl_Src_Loss
          mesh_MarkerDen=0.0
          !$acc update device(mesh_norm_dxdv,mesh_MarkerDen)
 
-         !$acc parallel loop present(mesh_norm_dxdv,mesh_MarkerDen)
+         !$acc parallel loop present(mesh_norm_dxdv,mesh_MarkerDen) private(ptl_ur_bound)
          do m=1,me
             tgt_aid  = ceiling((zeon(1,m)-a_min)*inv_da+0.5) ! Find nearst grid
             tgt_gfid = ceiling((zeon(3,m)-gf_min)*inv_dgf+0.5) ! Find nearst grid
@@ -3711,7 +3711,7 @@ module Ptl_Src_Loss
 
          length=dim_sq*dim_sr*dim_a*dim_gq*dim_gf
          ! Normalize the results
-         !$acc parallel loop gang vector present(mesh_norm_dxdv,mesh_MarkerDen) private(LL,k)
+         !$acc parallel loop gang vector present(mesh_norm_dxdv,mesh_MarkerDen) private(LL,k,ptl_ur_bound)
          do k=1,length
             LL=k
             gfid  = int((LL-1)/(dim_sr*dim_sq*dim_a*dim_gq))+1
