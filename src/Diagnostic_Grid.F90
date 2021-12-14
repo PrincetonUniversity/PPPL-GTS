@@ -610,6 +610,7 @@ module Diagnostic_Grid
 
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            !$acc update self(elabels(:me))
             acc_newer_H_zeon=.false.
             acc_newer_D_zeon=.false.
          endif
@@ -720,7 +721,12 @@ module Diagnostic_Grid
             P_gf = modulo(zeon0(3,m),2*pi)
             P_s  = zeon0(7,m)
 
-            ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+            if( elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
+            ori_sid = max(0,min(mpsi-1,(P_s-s0)*ori_inv_ds)) ! s index of original full grid
             ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
             P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
             P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
@@ -771,8 +777,9 @@ module Diagnostic_Grid
                   vid=22; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0*KE_para(m)) ! Te_tot_para
                   vid=23; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(KE_perp(m)) ! Te_tot_perp
 
-                  if(elabels(m)==-1) then
-                     vid=19; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Markers from Walls
+
+                  if(elabels(m)==-1 .or. elabels(m)==-3) then
+                     vid=19; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Markers from Walls (-1 from left wall) (-3 from right wall)
                   elseif(elabels(m)==-2) then
                      vid=24;DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Markers from Velocity cut-off
                   endif
@@ -1038,6 +1045,7 @@ module Diagnostic_Grid
 
          if(acc_newer_D_zion) then
             !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            !$acc update self(ilabels(:mi))
             acc_newer_D_zion=.false.
             acc_newer_H_zion=.false.
          endif
@@ -1073,7 +1081,12 @@ module Diagnostic_Grid
             P_gf = modulo(zion0(3,m),2*pi)
             P_s  = zion0(7,m)
 
-            ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+            if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
+            ori_sid = max(0,min(mpsi-1,(P_s-s0)*ori_inv_ds)) ! s index of original full grid
             ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
             P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
             P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
@@ -1124,8 +1137,8 @@ module Diagnostic_Grid
                   vid=24; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0*KE_para(m)) ! Ti_tot_para
                   vid=25; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(KE_perp(m)) ! Ti_tot_perp
 
-                  if(ilabels(m)==-1) then
-                     vid=21; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Markers from Walls
+                  if(ilabels(m)==-1 .or. ilabels(m)==-3) then
+                     vid=21; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Markers from Walls (-1 from left wall) (-3 from right wall)
                   elseif(ilabels(m)==-2) then
                      vid=26; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Markers from velocity cut-off
                   endif
@@ -1251,9 +1264,14 @@ module Diagnostic_Grid
             enddo
          enddo
 
-         !$acc update self (zion_s_on_GyroOrbit(:,mi),zion_gq_on_GyroOrbit(:,mi))
+         !$acc update self (zion_s_on_GyroOrbit(:,:mi),zion_gq_on_GyroOrbit(:,:mi))
          do m=1,mi
             if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
+
+            if( ilabels(m)<0 .and. ((zion(7,m)-s0)*(zion(7,m)-s1)>0) ) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
 
             do larmor=1,larmor_num
                P_a  = zion0(1,m)
@@ -1445,6 +1463,7 @@ module Diagnostic_Grid
 
          if(acc_newer_H_zeon) then
             !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            !$acc update device(elabels(:me))
             acc_newer_H_zeon=.false.
             acc_newer_D_zeon=.false.
          endif
@@ -1454,10 +1473,16 @@ module Diagnostic_Grid
          eData1D=0.0
          ! in_P_data(2,:)= energy(:)
 
-         !$acc parallel loop present(zeon0,ptl_data,in_P_data,Full_da,ee_inv_grad_a,ghq,vpara_dve_a)
+         !$acc parallel loop present(zeon0,ptl_data,elabels, in_P_data,Full_da,ee_inv_grad_a,ghq,vpara_dve_a)
          do m=1,me
 
-            KE_para = 0.5*for_E*(zeon(4,m)*BB(m))**2.0
+            P_s=zeon0(7,m)
+            if(  elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
+            KE_para = 0.5*for_E*(zeon0(4,m)*BB(m))**2.0
             KE_perp = zeon(6,m)*zeon(6,m)*BB(m)
 
             ! Fluxes by Full Velocity
@@ -1501,12 +1526,17 @@ module Diagnostic_Grid
          endif
 
 
-         !$acc parallel loop gang vector present(zeon,zeon0,ptl_data)
+         !$acc parallel loop gang vector present(zeon,zeon0,ptl_data,elabels)
          do m=1,me
             P_s  = zeon0(7,m)
             sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
+
+            if( elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
 
             !$acc loop seq
             do vid=1,DG%num_eZD_1D
@@ -1569,6 +1599,7 @@ module Diagnostic_Grid
 
          if(acc_newer_H_zion) then
             !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            !$acc update device(ilabels(:mi))
             acc_newer_H_zion=.false.
             acc_newer_D_zion=.false.
          endif
@@ -1579,10 +1610,16 @@ module Diagnostic_Grid
 
          ! in_P_data(2,:)= energy(:)
 
-         !$acc parallel loop present(zion0,ptl_data,in_P_data,Full_da,ii_inv_grad_a,ghq,vpara_dvi_a)
+         !$acc parallel loop present(zion0,ptl_data,ilabels,in_P_data,Full_da,ii_inv_grad_a,ghq,vpara_dvi_a)
          do m=1,mi
 
-            KE_para = 0.5*(zion(4,m)*BB(m)-backu(m))**2.0
+            P_s=zion0(7,m)
+            if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
+            KE_para = 0.5*(zion0(4,m)*BB(m)-backu(m))**2.0
             KE_perp = zion(6,m)*zion(6,m)*BB(m)
 
             ! Fluxes by Full Velocity
@@ -1624,12 +1661,17 @@ module Diagnostic_Grid
             enddo
          endif
 
-         !$acc parallel loop gang vector present(zion0,ptl_data)
+         !$acc parallel loop gang vector present(zion0,ptl_data,ilabels)
          do m=1,mi
             P_s  = zion0(7,m)
             sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
+
+            if(  ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
 
             !$acc loop seq
             do vid=1,DG%num_iZD_1D
