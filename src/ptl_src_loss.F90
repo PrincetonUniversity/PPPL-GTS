@@ -2183,28 +2183,28 @@ module Ptl_Src_Loss
 
             !$acc parallel loop present(zeon,zeon0,elabels,back_f0_e)
             do m=m0,m1
-               if(elabels(m)>0) then
-                  if(Flag_Ptl_BC1_type==2 .and. zeon(1,m)>psimax)then
-                     ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
-                     ! zeon0(9,m) is f_0 (@ irk=1)
-                     ! TODO: check the definition of adiabterm outside the physical boundary
-                     ! Here, assume that f_AD is smooth across the physical boundary so that zeon(9,m) is unchanged
-                     integral_f0 = zeon0(6,m)*back_f0_e(m)
-                     zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
-                     zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
-                     zeon0(9,m) = integral_f0 ! f_0
-                     elabels(m) = -3.0
-                  elseif(Flag_Ptl_BC0_type==2 .and. zeon(1,m)<psimin)then
-                     ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
-                     ! zeon0(9,m) is f_0 (@ irk=1)
-                     ! TODO: check the definition of adiabterm outside the physical boundary
-                     ! Here, assume that f_AD is smooth across the physical boundary so that zeon(9,m) is unchanged
-                     integral_f0 = zeon0(6,m)*back_f0_e(m)
-                     zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
-                     zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
-                     zeon0(9,m) = integral_f0 ! f_0
-                     elabels(m) = -1.0
-                  endif
+               ! If particles get into the region beyond boundaries
+               ! reset their weights and labels properly while keeping their dxdv
+               if(Flag_Ptl_BC1_type==2 .and. zeon(1,m)>psimax)then
+                  ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+                  ! zeon0(9,m) is f_0 (@ irk=1)
+                  ! TODO: check the definition of adiabterm outside the physical boundary
+                  ! Here, assume that f_AD is smooth across the physical boundary so that zeon(9,m) is unchanged
+                  integral_f0 = zeon0(6,m)*back_f0_e(m)
+                  zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+                  zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
+                  zeon0(9,m) = integral_f0 ! f_0
+                  elabels(m) = -3.0
+               elseif(Flag_Ptl_BC0_type==2 .and. zeon(1,m)<psimin)then
+                  ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+                  ! zeon0(9,m) is f_0 (@ irk=1)
+                  ! TODO: check the definition of adiabterm outside the physical boundary
+                  ! Here, assume that f_AD is smooth across the physical boundary so that zeon(9,m) is unchanged
+                  integral_f0 = zeon0(6,m)*back_f0_e(m)
+                  zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+                  zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
+                  zeon0(9,m) = integral_f0 ! f_0
+                  elabels(m) = -1.0
                endif
             enddo
             acc_newer_D_zeon=.true.
@@ -2408,20 +2408,20 @@ module Ptl_Src_Loss
 
             !$acc parallel loop present(zion,zion0,ilabels,back_f0_i)
             do m=m0,m1
-               if(ilabels(m)>0) then
-                  if(Flag_Ptl_BC1_type==2 .and. zion(1,m)>psimax)then
-                     integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
-                     zion0(8,m) = integral_f0 ! full-f
-                     zion(5,m) = 0.0! df
-                     zion(8,m) = integral_f0 ! f_0
-                     ilabels(m) = -3.0
-                  elseif(Flag_Ptl_BC0_type==2 .and. zion(1,m)<psimin)then
-                     integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
-                     zion0(8,m) = integral_f0 ! full-f
-                     zion(5,m) = 0.0! df
-                     zion(8,m) = integral_f0 ! f_0
-                     ilabels(m) = -1.0
-                  endif
+               ! If particles get into the region beyond boundaries
+               ! reset their weights and labels properly while keeping their dxdv
+               if(Flag_Ptl_BC1_type==2 .and. zion(1,m)>psimax)then
+                  integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
+                  zion0(8,m) = integral_f0 ! full-f
+                  zion(5,m) = 0.0! df
+                  zion(8,m) = integral_f0 ! f_0
+                  ilabels(m) = -3.0
+               elseif(Flag_Ptl_BC0_type==2 .and. zion(1,m)<psimin)then
+                  integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
+                  zion0(8,m) = integral_f0 ! full-f
+                  zion(5,m) = 0.0! df
+                  zion(8,m) = integral_f0 ! f_0
+                  ilabels(m) = -1.0
                endif
             enddo
             acc_newer_D_zion=.true.
