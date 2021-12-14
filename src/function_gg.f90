@@ -332,6 +332,12 @@ module function_gg_module
                      E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
                      back_f0_i(i) = backn(i)*A_over_meanA*((inv_twopi/backT(i))**1.5)*exp(-E_over_T)
                   endif
+
+                  if(zion(1,i)<a0) then
+                     back_f0_i(i)  = Ptl_BC0_val*back_f0_i(i)
+                  elseif(zion(1,i)>a1) then
+                     back_f0_i(i)  = Ptl_BC1_val*back_f0_i(i)
+                  endif
                enddo
             elseif (Flag_Load_and_WeightDef==3) then
                !$acc parallel loop present(zion,backu,backT,back_f0_i,backn,back_flux_A)
@@ -345,6 +351,12 @@ module function_gg_module
                      A_over_meanA = exp(0.5*(back_U_para**2.0)/backT(i))/(back_flux_A(i))
                      E_over_T = (0.5*((vpara-back_U_para)**2.0+vperp**2.0))/backT(i)
                      back_f0_i(i) = backn(i)*A_over_meanA*((inv_twopi/backT(i))**1.5)*exp(-E_over_T)
+                  endif
+
+                  if(zion(1,i)<a0) then
+                     back_f0_i(i)  = Ptl_BC0_val*back_f0_i(i)
+                  elseif(zion(1,i)>a1) then
+                     back_f0_i(i)  = Ptl_BC1_val*back_f0_i(i)
                   endif
                enddo
             endif
@@ -575,6 +587,12 @@ module function_gg_module
                      E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
                      back_f0_e(i) = backne(i)*A_over_meanA*((msm0*inv_Te_norm*inv_twopi)**1.5)*exp(-E_over_T)
                   endif
+
+                  if(zeon(1,i)<a0) then
+                     back_f0_e(i)  = Ptl_BC0_val*back_f0_e(i)
+                  elseif(zeon(1,i)>a1) then
+                     back_f0_e(i)  = Ptl_BC1_val*back_f0_e(i)
+                  endif
                enddo
             elseif (Flag_Load_and_WeightDef==3) then
                !$acc parallel loop present(zeon,backne,backTe,back_f0_e,back_flux_A,omega_ui,backTi)
@@ -590,6 +608,12 @@ module function_gg_module
                      inv_Te_norm = 1.0/(backTe(i)*msm0)  ! normalized-Te=Te/E_0, the same unit as normalized Ti
                      E_over_T= (0.5*msm0*(vpara**2.0+vperp**2.0))*inv_Te_norm
                      back_f0_e(i) = backne(i)*A_over_meanA*((msm0*inv_Te_norm*inv_twopi)**1.5)*exp(-E_over_T)
+                  endif
+
+                  if(zeon(1,i)<a0) then
+                     back_f0_e(i)  = Ptl_BC0_val*back_f0_e(i)
+                  elseif(zeon(1,i)>a1) then
+                     back_f0_e(i)  = Ptl_BC1_val*back_f0_e(i)
                   endif
                enddo
             endif

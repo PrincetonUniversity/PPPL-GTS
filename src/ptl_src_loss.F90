@@ -253,6 +253,7 @@ module Ptl_Src_Loss
       real(wp), allocatable, dimension(:,:) :: Cell_dV
       real(wp) :: a_min, a_max, da, dgq, inv_da, inv_dgq
 
+      real(wp) :: ptl_label ! laberl of particles generated within each PSCV
       integer :: nstep, cum_num
       real(wp), allocatable, dimension(:,:,:) :: cum_E_para, mean_E_para
       real(wp), allocatable, dimension(:,:,:) :: Elec_dupara_per_nstep,Ion_dupara_per_nstep
@@ -282,23 +283,23 @@ module Ptl_Src_Loss
          call Initialize_FootPrint(FP_BDY1,a1)
          call Initialize_FootPrint(cum_FP_BDY1,a1)
 
-         PSCV=>PSCV_list(1) ! Inside the domain
-         call Initialize_Particle_Source_Control_Variables(minval(SG%a_1D), maxval(SG%a_1D), Ptl_Src_dim_a, Ptl_Src_dim_gq)
-         PSCV=>PSCV_list(2) ! beyond inner boundary (BDY0)
-         call Initialize_Particle_Source_Control_Variables(minval(SG%a_1D)-0.05, minval(SG%a_1D), 10, Ptl_Src_dim_gq)
+         PSCV=>PSCV_list(1) ! beyond inner boundary (BDY0)
+         call Initialize_Particle_Source_Control_Variables(minval(SG%a_1D)-0.05, minval(SG%a_1D), 10, Ptl_Src_dim_gq, -1.0)
+         PSCV=>PSCV_list(2) ! Inside the domain
+         call Initialize_Particle_Source_Control_Variables(minval(SG%a_1D), maxval(SG%a_1D), Ptl_Src_dim_a, Ptl_Src_dim_gq, -2.0)
          PSCV=>PSCV_list(3) ! beyond outer boundary (BDY1)
-         ! call Initialize_Particle_Source_Control_Variables(maxval(SG%a_1D), maxval(SG%a_1D)+0.05, 10, Ptl_Src_dim_gq)
-         call Initialize_Particle_Source_Control_Variables(maxval(SG%a_1D), maxval(SG%a_1D)+0.07, 20, Ptl_Src_dim_gq)
+         call Initialize_Particle_Source_Control_Variables(maxval(SG%a_1D), maxval(SG%a_1D)+0.07, 20, Ptl_Src_dim_gq, -3.0)
 
       end subroutine Initialize_Ptl_Src_Loss
 
-      subroutine Initialize_Particle_Source_Control_Variables(in_a_min, in_a_max, in_dim_a, in_dim_gq)
+      subroutine Initialize_Particle_Source_Control_Variables(in_a_min, in_a_max, in_dim_a, in_dim_gq, in_ptl_label)
          use global_parameters
          use Structured_Grid
          use function_gg_module
          implicit none
          real(wp),intent(in) :: in_a_min, in_a_max
          integer, intent(in) :: in_dim_a, in_dim_gq
+         real(wp),intent(in) :: in_ptl_label
          integer :: dim_gq, dim_a, aid, gqid
          real(wp) :: this_a,this_da, this_gq
          real(wp), external :: Jacobian
@@ -307,7 +308,7 @@ module Ptl_Src_Loss
          PSCV%a_max = in_a_max
          PSCV%dim_a = in_dim_a
          PSCV%dim_gq= in_dim_gq
-
+         PSCV%ptl_label = in_ptl_label
 
          dim_a=PSCV%dim_a
          dim_gq=PSCV%dim_gq
@@ -2236,22 +2237,18 @@ module Ptl_Src_Loss
                      ! zeon0(9,m) is f_0 (@ irk=1)
                      ! TODO: check the definition of adiabterm outside the physical boundary
                      ! Here, assume that f_AD is smooth across the physical boundary so that zeon(9,m) is unchanged
-                     integral_f0 = zeon0(6,m)*back_f0_e(m) ! f_0
-                     target_w_tot = Ptl_BC1_val*integral_f0
-
-                     zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+                     integral_f0 = zeon0(6,m)*back_f0_e(m)
+                     zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
                      zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
                      zeon0(9,m) = integral_f0 ! f_0
-                     elabels(m) = -1.0
+                     elabels(m) = -3.0
                   elseif(Flag_Ptl_BC0_type==2 .and. zeon(1,m)<psimin)then
                      ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
                      ! zeon0(9,m) is f_0 (@ irk=1)
                      ! TODO: check the definition of adiabterm outside the physical boundary
                      ! Here, assume that f_AD is smooth across the physical boundary so that zeon(9,m) is unchanged
-                     integral_f0 = zeon0(6,m)*back_f0_e(m) ! f_0
-                     target_w_tot = Ptl_BC0_val*integral_f0
-
-                     zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+                     integral_f0 = zeon0(6,m)*back_f0_e(m)
+                     zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
                      zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
                      zeon0(9,m) = integral_f0 ! f_0
                      elabels(m) = -1.0
@@ -2462,18 +2459,14 @@ module Ptl_Src_Loss
                if(ilabels(m)>0) then
                   if(Flag_Ptl_BC1_type==2 .and. zion(1,m)>psimax)then
                      integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
-                     target_w_tot = Ptl_BC1_val*integral_f0
-
-                     zion0(8,m) = target_w_tot ! full-f
-                     zion(5,m) = zion0(8,m)-integral_f0 ! df
+                     zion0(8,m) = integral_f0 ! full-f
+                     zion(5,m) = 0.0! df
                      zion(8,m) = integral_f0 ! f_0
-                     ilabels(m) = -1.0
+                     ilabels(m) = -3.0
                   elseif(Flag_Ptl_BC0_type==2 .and. zion(1,m)<psimin)then
                      integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
-                     target_w_tot = Ptl_BC0_val*integral_f0
-
-                     zion0(8,m) = target_w_tot ! full-f
-                     zion(5,m) = zion0(8,m)-integral_f0 ! df
+                     zion0(8,m) = integral_f0 ! full-f
+                     zion(5,m) = 0.0! df
                      zion(8,m) = integral_f0 ! f_0
                      ilabels(m) = -1.0
                   endif
@@ -2709,7 +2702,7 @@ module Ptl_Src_Loss
             endif
 
             call Measure_Global_SG_mesh_norm_dxdv_of_Ions(tmp_upara, tmp_uperp, mesh_norm_dxdv)
-            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,PSCV%a_1D,PSCV%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
+            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,PSCV%a_1D,PSCV%gq_1D,tmp_gf,Nm,mesh_norm_dxdv,-2.0)
 
 
             deallocate(tmp_upara,tmp_uperp,tmp_gf)
@@ -2747,7 +2740,7 @@ module Ptl_Src_Loss
                call flush(stdout)
             endif
 
-            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
+            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,in_label_val=-1.0)
          endif
 
          if(Flag_Ptl_BC1_type==1 .or. Flag_Ptl_BC1_type==2) then
@@ -2763,7 +2756,7 @@ module Ptl_Src_Loss
                call flush(stdout)
             endif
 
-            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC1_val, in_label_val=-1.0)
+            call Generate_Ions_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,in_label_val=-3.0)
          endif
 
          deallocate(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf)
@@ -2886,7 +2879,7 @@ module Ptl_Src_Loss
                endif
 
                call Measure_Global_SG_mesh_norm_dxdv_of_Electrons(tmp_upara, tmp_uperp, mesh_norm_dxdv)
-               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,PSCV%a_1D,PSCV%gq_1D,tmp_gf,Nm,0.0, mesh_norm_dxdv,-2.0)
+               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,PSCV%a_1D,PSCV%gq_1D,tmp_gf,Nm, mesh_norm_dxdv,-2.0)
 
                deallocate(tmp_upara,tmp_uperp,tmp_gf)
                deallocate(mesh_norm_dxdv)
@@ -2921,12 +2914,12 @@ module Ptl_Src_Loss
                tmp_ur = [0.0, 1.1*umax]
                tmp_uq = [0.0, pi]
                Nm = ini_Ne_marker_density*(0.5*pi*(tmp_ur(2)**2.0-tmp_ur(1)**2.0))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
-               call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
+               call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,tmp_a,tmp_gq,tmp_gf,Nm, in_label_val=-1.0)
             elseif(Flag_Load_and_WeightDef==3) then
                tmp_upara = [-1.1*umax, 1.1*umax]
                tmp_uperp = [0.0, 1.1*umax]
                Nm = ini_Ne_marker_density*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
-               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC0_val, in_label_val=-1.0)
+               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm, in_label_val=-1.0)
             endif
 
             if(mype==0) then
@@ -2944,12 +2937,12 @@ module Ptl_Src_Loss
                tmp_ur = [0.0, 1.1*umax]
                tmp_uq = [0.0, pi]
                Nm = ini_Ne_marker_density*(0.5*pi*(tmp_ur(2)**2.0-tmp_ur(1)**2.0))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
-               call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC1_val, in_label_val=-1.0)
+               call Generate_Electrons_in_given_Phase_Space_PolarVelCoord(tmp_ur,tmp_uq,tmp_a,tmp_gq,tmp_gf,Nm, in_label_val=-3.0)
             elseif(Flag_Load_and_WeightDef==3) then
                tmp_upara = [-1.1*umax, 1.1*umax]
                tmp_uperp = [0.0, 1.1*umax]
                Nm = ini_Ne_marker_density*(tmp_upara(2)-tmp_upara(1))*(tmp_uperp(2)-tmp_uperp(1))*(tmp_a(2)-tmp_a(1))*(tmp_gq(2)-tmp_gq(1))*(tmp_gf(2)-tmp_gf(1))
-               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm,Ptl_BC1_val, in_label_val=-1.0)
+               call Generate_Electrons_in_given_Phase_Space(tmp_upara,tmp_uperp,tmp_a,tmp_gq,tmp_gf,Nm, in_label_val=-3.0)
             endif
 
             if(mype==0) then
@@ -4101,7 +4094,7 @@ module Ptl_Src_Loss
 
 
 
-      subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv, in_label_val)
+      subroutine Generate_Ions_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP, mesh_norm_dxdv, in_label_val)
          use global_parameters
          use particle_array
          use field_array
@@ -4117,7 +4110,6 @@ module Ptl_Src_Loss
 
          real(wp), intent(in), dimension(:) :: upara,uperp,a,gq,gf
          integer, intent(in) :: this_N_newP
-         real(wp), intent(in) :: FluxFactor_over_f0
          real(wp), intent(in), optional :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (upara,uperp,a,gq,gf) normalized dxdv by pre-occupying particles
          real(wp), intent(in), optional :: in_label_val
 
@@ -4252,7 +4244,7 @@ module Ptl_Src_Loss
          do m=m0,mi
             zion0(6,m) = target_norm_phase_vol(m)/gi_val(m) ! Phase space volume
             integral_f0 = zion0(6,m)*back_f0_i(m) !f_0
-            target_w_tot = FluxFactor_over_f0*integral_f0
+            target_w_tot = integral_f0
 
             zion0(8,m) = target_w_tot ! full-f
             zion(5,m) = zion0(8,m)-integral_f0 ! df
@@ -4285,7 +4277,7 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Ions_in_given_Phase_Space
 
-      subroutine Generate_Electrons_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv,in_label_val)
+      subroutine Generate_Electrons_in_given_Phase_Space(upara,uperp,a,gq,gf,this_N_newP, mesh_norm_dxdv,in_label_val)
          use global_parameters
          use particle_array
          use field_array
@@ -4301,7 +4293,6 @@ module Ptl_Src_Loss
 
          real(wp), intent(in), dimension(:) :: upara,uperp,a,gq,gf
          integer, intent(in) :: this_N_newP
-         real(wp), intent(in) :: FluxFactor_over_f0
          real(wp), intent(in), optional :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (upara,uperp,a,gq,gf) normalized dxdv by pre-occupying particles
          real(wp), intent(in), optional :: in_label_val
 
@@ -4501,7 +4492,7 @@ module Ptl_Src_Loss
             zeon0(6,m) = target_norm_phase_vol(m)/ge_val(m) ! Phase space volume
             integral_f0 = zeon0(6,m)*back_f0_e(m) !f_0
 
-            target_w_tot = FluxFactor_over_f0*integral_f0
+            target_w_tot = integral_f0
 
             ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
             zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
@@ -4542,7 +4533,7 @@ module Ptl_Src_Loss
       end subroutine Generate_Electrons_in_given_Phase_Space
 
 
-      subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord(ur,uq,a,gq,gf,this_N_newP,FluxFactor_over_f0, mesh_norm_dxdv,in_label_val)
+      subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord(ur,uq,a,gq,gf,this_N_newP, mesh_norm_dxdv,in_label_val)
          use global_parameters
          use particle_array
          use field_array
@@ -4558,7 +4549,6 @@ module Ptl_Src_Loss
 
          real(wp), intent(in), dimension(:) :: ur,uq,a,gq,gf
          integer, intent(in) :: this_N_newP
-         real(wp), intent(in) :: FluxFactor_over_f0
          real(wp), intent(in), optional :: mesh_norm_dxdv(:,:,:,:,:) ! 5-D grid (ur,uq,a,gq,gf) normalized dxdv by pre-occupying particles
          real(wp), intent(in), optional :: in_label_val
 
@@ -4768,7 +4758,7 @@ module Ptl_Src_Loss
             zeon0(6,m) = target_norm_phase_vol(m)/ge_val(m) ! Phase space volume
             integral_f0 = zeon0(6,m)*back_f0_e(m) !f_0
 
-            target_w_tot = FluxFactor_over_f0*integral_f0
+            target_w_tot = integral_f0
 
             ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
             zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
@@ -4808,7 +4798,7 @@ module Ptl_Src_Loss
 
       end subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord
 
-      subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(a,gq,gf,tgt_ur_bound,mesh_occp_MarkerDen,mesh5D_norm_occp_dxdv,in_FluxFactor_over_f0,in_label_val)
+      subroutine Generate_Electrons_in_given_Phase_Space_PolarVelCoord_AdapTgtUr(a,gq,gf,tgt_ur_bound,mesh_occp_MarkerDen,mesh5D_norm_occp_dxdv,in_label_val)
          use global_parameters
          use particle_array
          use field_array
@@ -4826,9 +4816,7 @@ module Ptl_Src_Loss
          real(wp), intent(in), dimension(:) :: a,gq,gf
          real(wp), intent(in) :: tgt_ur_bound(:,:,:,:) ! (dim_a,dim_gq,dim_gf,2); upper ur and lower ur bound on 3-D grid (a,gq,gf)
          real(wp), intent(in), optional, dimension(:,:,:,:,:) :: mesh_occp_MarkerDen, mesh5D_norm_occp_dxdv ! 5-D grid (sr,sq,a,gq,gf) normalized MarkerDensity and dxdv (phase volume) occupied by present particles
-         real(wp), intent(in), optional :: in_FluxFactor_over_f0
          real(wp), intent(in), optional :: in_label_val
-         real(wp) FluxFactor_over_f0
          ! where sr (speed) refers normalized ur regarding tgt_ur_bound:
          ! s(sr,sq,a,gq,gf) = (u(sr,sq,a,gq,gf)-ur_LowerBound(a,gq,gf))/(ur_UpperBound(a,gq,gf)-ur_LowerBound(a,gq,gf))
          ! sr(radius) and sq(angle) are polar coordinates for velocity space
@@ -4878,8 +4866,6 @@ module Ptl_Src_Loss
          label_val=0
          if(present(in_label_val)) label_val = in_label_val
 
-         FluxFactor_over_f0=0.0
-         if(present(in_FluxFactor_over_f0)) FluxFactor_over_f0 = in_FluxFactor_over_f0
 
 #ifdef _MGY_TIMER_
          time0=MPI_WTIME()
@@ -5280,7 +5266,7 @@ module Ptl_Src_Loss
 
             integral_f0 = zeon0(6,m)*back_f0_e(m) !f_0
 
-            target_w_tot = FluxFactor_over_f0*integral_f0
+            target_w_tot = integral_f0
 
             ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
             zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
@@ -5529,13 +5515,37 @@ module Ptl_Src_Loss
                uperp = zion(6,m)*sqrt(2.0*BB(m)/backT(m))
                if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
                   if(sqrt(upara**2.0+uperp**2.0)>umax) then
-                     N_clear=N_clear+1
-                     clear_mid_arr(N_clear) = m
+                     if(ilabels(m)==-2.0) then
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     elseif(ilabels(m)==-1.0 .and. Ptl_BC0_val==0.0) then
+                        ! when the particle comes from PSCV_BDY0 (left boundary)
+                        ! and when f0(PSCV_BDY0)=0
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     elseif(ilabels(m)==-3.0 .and. Ptl_BC1_val==0.0) then
+                        ! when the particle comes from PSCV_BDY1 (right boundary)
+                        ! and when f0(PSCV_BDY1)=0
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     endif
                   endif
                elseif (Flag_Load_and_WeightDef==3) then
-               if(uperp>umax .or. abs(upara)>umax) then
-                  N_clear=N_clear+1
-                  clear_mid_arr(N_clear) = m
+                  if(uperp>umax .or. abs(upara)>umax) then
+                     if(ilabels(m)==-2.0) then
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     elseif(ilabels(m)==-1.0 .and. Ptl_BC0_val==0.0) then
+                        ! when the particle comes from PSCV_BDY0 (left boundary)
+                        ! and when f0(PSCV_BDY0)=0
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     elseif(ilabels(m)==-3.0 .and. Ptl_BC1_val==0.0) then
+                        ! when the particle comes from PSCV_BDY1 (right boundary)
+                        ! and when f0(PSCV_BDY1)=0
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     endif
                   endif
                endif
             endif
@@ -5816,13 +5826,37 @@ module Ptl_Src_Loss
                uperp = zeon_146_arr(3,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
                if(Flag_Load_and_WeightDef==1 .or. Flag_Load_and_WeightDef==2) then
                   if(sqrt(upara**2.0+uperp**2.0)>umax) then
-                     N_clear=N_clear+1
-                     clear_mid_arr(N_clear) = m
+                     if(elabels(m)==-2.0) then
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     elseif(elabels(m)==-1.0 .and. Ptl_BC0_val==0.0) then
+                        ! when the particle comes from PSCV_BDY0 (left boundary)
+                        ! and when f0(PSCV_BDY0)=0
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     elseif(elabels(m)==-3.0 .and. Ptl_BC1_val==0.0) then
+                        ! when the particle comes from PSCV_BDY1 (right boundary)
+                        ! and when f0(PSCV_BDY1)=0
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     endif
                   endif
                elseif (Flag_Load_and_WeightDef==3) then
-               if(uperp>umax .or. abs(upara)>umax) then
-                  N_clear=N_clear+1
-                  clear_mid_arr(N_clear) = m
+                  if(uperp>umax .or. abs(upara)>umax) then
+                     if(elabels(m)==-2.0) then
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     elseif(elabels(m)==-1.0 .and. Ptl_BC0_val==0.0) then
+                        ! when the particle comes from PSCV_BDY0 (left boundary)
+                        ! and when f0(PSCV_BDY0)=0
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     elseif(elabels(m)==-3.0 .and. Ptl_BC1_val==0.0) then
+                        ! when the particle comes from PSCV_BDY1 (right boundary)
+                        ! and when f0(PSCV_BDY1)=0
+                        N_clear=N_clear+1
+                        clear_mid_arr(N_clear) = m
+                     endif
                   endif
                endif
             endif
