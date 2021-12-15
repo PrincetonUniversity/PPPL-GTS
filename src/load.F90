@@ -654,6 +654,8 @@ subroutine load_uniform_MGY
    use esi_interface
    use control_parameters
    use function_gg_module
+   use Structured_Grid
+   use Ptl_Src_Loss
    implicit none
 
 #define SIMPLE_SPRNG
@@ -853,6 +855,11 @@ subroutine load_uniform_MGY
    enddo
    acc_newer_H_zion=.true.
 
+   ! To check whether some particles outside the boundary
+   ! If Ptl_BC_type=2, ion boundary checking considers the gyro-radius to determien whether it touches the wall
+   call treat_ions_out_of_boundary
+   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+
    wi_init  = zion(5,:)
    wi_vpara = 0
    wi_vperp = 0
@@ -1000,10 +1007,40 @@ subroutine load_uniform_MGY
       call n_T_u_group_e(flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
       !$acc update self(back_f0_e(:me))
 
+      ! Calculate Adiab term from initial potential phi
+      ! Prepare SG's phi_3D in case
+      call Update_SG_phi_3D_by_gathering_SG_phi2D
+
+      allocate(AdiabTerm(me))
+      !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+      do m=1,me
+         call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+
+         if(Flag_Def_dne_adiab==1) then
+            ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+            ! considering a conversion from V unit to GTS normalized unit
+            AdiabTerm(m)=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+         else
+            AdiabTerm(m)=-1e100
+            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+            STOP
+         endif
+      enddo
+
+
 
       if(Flag_Quiet_Start==1) then
-         zeon(5,1:me) = zion(5,1:me)
-         zeon(8,1:me) = zion0(8,1:me)
+         do m=1,me
+            integral_f0 = zeon0(6,m)*back_f0_e(m)
+
+            target_w_tot = zion0(8,m) ! same to ion's total weight
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
+            zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
+            zeon0(9,m) = integral_f0 ! f_0
+         enddo
       else
          ! Set initial weights of electrons
          do m=1,me
@@ -1013,8 +1050,15 @@ subroutine load_uniform_MGY
             ! zeon0(6,m) represents the phase volume (J(x,v)d5z) that preserves in the Hamiltonian system
             zeon0(6,m) = 1.0/ge_val(m)
             integral_f0 = zeon0(6,m)*back_f0_e(m)
-            zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
-            zeon(8,m) = integral_f0 + zeon(5,m)
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            zeon0(9,m) = integral_f0 ! f_0
+            zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
+
+            target_w_tot = integral_f0 + (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
+
+            zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
          enddo
       endif
       acc_newer_H_zeon=.true.

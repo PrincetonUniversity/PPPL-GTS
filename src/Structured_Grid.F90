@@ -654,12 +654,6 @@ contains
 
          ! Measure the intpl_gyro at the Guiding Center position
          P_s = zion(7,m)
-
-         if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
-            ! Since this particle is outside the physical boundary, not need to calculate its contribution
-            cycle
-         endif
-
          P_gq = modulo(zion(2,m),2*pi)
          P_gf = modulo(zion(3,m),2*pi)
 
@@ -683,9 +677,15 @@ contains
             zion_s_on_GyroOrbit(larmor,m) = zion(7,m) + zion(6,m)*intpl_gyro(1,larmor)
             zion_gq_on_GyroOrbit(larmor,m) =  modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
 
+            if( (zion_s_on_GyroOrbit(larmor,m)-s0)*(zion_s_on_GyroOrbit(larmor,m)-s1)>0) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
             P_s = max(s0,min(s1,zion_s_on_GyroOrbit(larmor,m)))
             P_gq = zion_gq_on_GyroOrbit(larmor,m)
             P_gf = modulo(zion(3,m) + zion(6,m)*intpl_gyro(3,larmor), 2.0*pi)
+            ! P_gf = modulo(zion(3,m),2.0*pi) + zion(6,m)*intpl_gyro(3,larmor)
             P_gf = max(zetamin,min(zetamax,P_gf))
 
             wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf

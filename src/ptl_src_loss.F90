@@ -2220,6 +2220,7 @@ module Ptl_Src_Loss
          use field_array
          use function_gg_module
          use Ptl_locators_partial
+         use Structured_Grid
          implicit none
 
          integer, optional, intent(in) :: m_start, m_end
@@ -2237,6 +2238,9 @@ module Ptl_Src_Loss
          real(wp) zion_a_arr(mi)
          real(wp), allocatable :: out_zion_BDY1(:,:), out_zion0_BDY1(:,:), out_ilabels_BDY1(:)
          real(wp) target_w_tot, integral_f0
+
+         real(wp) P_s,P_gq,P_gf,ws0,ws1,wgq0,wgq1,gyro_radius_in_s
+         integer :: sid,gqid
 
          m0=1
          m1=mi
@@ -2406,22 +2410,63 @@ module Ptl_Src_Loss
             ! and let them flow around near the boundary.
             ! This method could be beneficial to fill the phase-space more efficiently.
 
-            !$acc parallel loop present(zion,zion0,ilabels,back_f0_i)
+            !$acc parallel loop present(zion,zion0,gyro_over_sqrt_mu,ilabels,back_f0_i)
             do m=m0,m1
+               P_s = zion(7,m)
+               P_gq = modulo(zion(2,m),2*pi)
+
+               sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+               ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
+               ws0 = (1.0-ws1)
+               gqid = P_gq*SG%inv_dgq+1
+               wgq1 = (P_gq-SG%gq_1D(gqid))*SG%inv_dgq
+               wgq0 = 1.0-wgq1
+
+               ! Calculate radial gyro radius in s (not a)
+               gyro_radius_in_s  =  zion(6,m)*( ws0*(wgq0*gyro_over_sqrt_mu(1,1,gqid,sid)   + wgq1*gyro_over_sqrt_mu(1,1,gqid+1,sid)) &
+                                               +ws1*(wgq0*gyro_over_sqrt_mu(1,1,gqid,sid+1) + wgq1*gyro_over_sqrt_mu(1,1,gqid+1,sid+1)))
+
                ! If particles get into the region beyond boundaries
                ! reset their weights and labels properly while keeping their dxdv
-               if(Flag_Ptl_BC1_type==2 .and. zion(1,m)>psimax)then
-                  integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
-                  zion0(8,m) = integral_f0 ! full-f
-                  zion(5,m) = 0.0! df
-                  zion(8,m) = integral_f0 ! f_0
-                  ilabels(m) = -3.0
-               elseif(Flag_Ptl_BC0_type==2 .and. zion(1,m)<psimin)then
-                  integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
-                  zion0(8,m) = integral_f0 ! full-f
-                  zion(5,m) = 0.0! df
-                  zion(8,m) = integral_f0 ! f_0
-                  ilabels(m) = -1.0
+               if(Flag_Ptl_BC1_type==2) then
+                  if(Ptl_BC1_val==0) then
+                     ! If BDY1 is the wall condition, we should consider the gyroradius to determinte whether the gyro-orbit touches the wall
+                     P_s = P_s+gyro_radius_in_s
+                     if(zion(7,m)+gyro_radius_in_s>s1)then
+                        integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
+                        zion0(8,m) = 0.0 ! This is the wall condition, ftot=0 for the ion touching the wall (considering gyroradius)
+                        zion(5,m) = -integral_f0 ! ftot=f0+df=0 --> df=-f0
+                        zion(8,m) = integral_f0 ! f_0
+                        ilabels(m) = -3.0
+                     endif
+                  else
+                     if(zion(7,m)>s1)then
+                        integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
+                        zion0(8,m) = integral_f0 ! full-f
+                        zion(5,m) = 0.0! df
+                        zion(8,m) = integral_f0 ! f_0
+                        ilabels(m) = -3.0
+                     endif
+                  endif
+               elseif(Flag_Ptl_BC0_type==2) then
+                  if(Ptl_BC0_val==0) then
+                     ! If BDY0 is the wall condition, we should consider the gyroradius to determinte whether the gyro-orbit touches the wall
+                     if(zion(7,m)-gyro_radius_in_s<s0) then
+                        integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
+                        zion0(8,m) = 0.0 ! This is the wall condition, ftot=0 for the ion touching the wall (considering gyroradius)
+                        zion(5,m) = -integral_f0 ! ftot=f0+df=0 --> df=-f0
+                        zion(8,m) = integral_f0 ! f_0
+                        ilabels(m) = -1.0
+                     endif
+                  else
+                     if(zion(7,m)<s0) then
+                        integral_f0 = zion0(6,m)*back_f0_i(m) ! f_0
+                        zion0(8,m) = integral_f0 ! full-f
+                        zion(5,m) = 0.0! df
+                        zion(8,m) = integral_f0 ! f_0
+                        ilabels(m) = -1.0
+                     endif
+                  endif
                endif
             enddo
             acc_newer_D_zion=.true.
