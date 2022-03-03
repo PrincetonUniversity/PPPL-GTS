@@ -1062,10 +1062,7 @@ contains
       call MPI_SENDRECV(SG%grad_phi_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,right_pe,0, &
                         SG%grad_phi_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
 
-      if(mod(istep,msnap)==0) then
-         ! To get full 3D data for diagnostic purpose
-         call MPI_ALLGATHER(SG%grad_phi_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,SG%test_grad_phi_cov_3D,3*SG%dim_gq*SG%dim_s,mpi_Rsize,toroidal_comm,ierr)
-      endif
+
 
    end subroutine Cal_gradPhi_on_SG
 
