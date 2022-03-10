@@ -1282,3 +1282,121 @@ subroutine load_uniform_MGY
    call Print_Reference_ntracer_Information
 
 end subroutine load_uniform_MGY
+
+
+subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver)
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use particle_array
+   use field_array
+   use diagnosis_array
+   use esi_interface
+   use control_parameters
+   use function_gg_module
+   use Structured_Grid
+   use Ptl_Src_Loss
+   use solver_data_class
+   implicit none
+
+
+   type(solver_data) :: solver, masssolver
+   integer m,ierror
+   real(wp) :: AdiabTerm ! e*phi/T
+   real(wp) intp_SG_full_phi_V, integral_f0
+
+   if(Flag_Poisson3D_on_SG/=1) then
+      write(stdout,*) "Error!! Flag_Poisson3D_on_SG=",Flag_Poisson3D_on_SG, " is not defined in Adjust_electron_weight_for_initially_zero_potential!!"
+      STOP
+   endif
+
+
+   istep=1
+
+   call n_T_u_group
+   call n_T_u_group_e
+
+   call Measure_Ion_Density_on_SG(1)
+   call Measure_Electron_Density_on_SG(1)
+
+   call poisson(solver,masssolver)
+
+   call Update_SG_phi_3D_by_gathering_SG_phi2D
+
+
+   !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+   do m=1,me
+      call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+
+      if(Flag_Def_dne_adiab==1) then
+         ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+         ! considering a conversion from V unit to GTS normalized unit
+         AdiabTerm=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+      else
+         AdiabTerm=-1e100
+         write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+         STOP
+      endif
+
+      integral_f0 = zeon0(6,m)*back_f0_e(m)
+
+
+      ! if(mype==0 .and. m==1) then
+      !    write(stdout,*) 'Before adjustment, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
+      ! endif
+
+      zeon(9,m) = integral_f0*AdiabTerm ! f_AD
+
+      ! Change previous zeon(8,m) and zeon(5,m) to reduce the level of initial potential
+      zeon(8,m) = zeon(8,m) +int(ifelectron/2)*zeon(9,m) ! full-f (ifelectron<2) or full-h (ifelectron==2)
+      zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
+
+
+      ! if(mype==0 .and. m==1) then
+      !    write(stdout,*) 'After adjustment1, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
+      ! endif
+   enddo
+   acc_newer_D_zeon=.true.
+
+   call Measure_Electron_Density_on_SG(1)
+   call poisson(solver,masssolver)
+   call Update_SG_phi_3D_by_gathering_SG_phi2D
+
+   !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+   do m=1,me
+      call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+
+      if(Flag_Def_dne_adiab==1) then
+         ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+         ! considering a conversion from V unit to GTS normalized unit
+         AdiabTerm=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+      else
+         AdiabTerm=-1e100
+         write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+         STOP
+      endif
+
+      integral_f0 = zeon0(6,m)*back_f0_e(m)
+
+      zeon(9,m) = integral_f0*AdiabTerm ! f_AD
+
+      zeon0(9,m) = integral_f0*AdiabTerm + zeon(8,m) ! f_tot
+      zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
+
+      ! if(mype==0 .and. m==1) then
+      !    write(stdout,*) 'After adjustment2, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
+      ! endif
+   enddo
+   acc_newer_D_zeon=.true.
+
+
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_D_zeon=.false.
+      acc_newer_H_zeon=.false.
+   endif
+
+   istep=0
+
+end subroutine Adjust_electron_weight_for_initially_zero_potential

@@ -265,6 +265,11 @@ program GTS
    call Cumulate_SG_E_para
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
+
+   if(Flag_Load_and_WeightDef/=0) then
+      call Adjust_electron_weight_for_initially_zero_potential(solver1,masssolver)
+   endif
+
    ! call smooth(0)
 
    ! call smooth(1)
