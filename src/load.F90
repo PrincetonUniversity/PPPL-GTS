@@ -686,6 +686,10 @@ subroutine load_uniform_MGY
 
    real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio,gi_val(mi),ge_val(me), Rand !For Flag_Load_and_WeightDef==2 case.
 
+   real(wp) intp_SG_full_phi_V
+   real(wp), allocatable, dimension(:) :: AdiabTerm ! e*phi/T
+   real(wp) :: target_w_tot
+
    if(irun==0) ddT_da=0.0_wp
    if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
    if(irun /= 0)then
@@ -1268,6 +1272,8 @@ subroutine load_uniform_MGY
    call MPI_ALLREDUCE(ini_mi,ini_mi_npartd,1,MPI_INTEGER,MPI_SUM,partd_comm,ierror)
    call MPI_ALLREDUCE(ini_me,ini_me_npartd,1,MPI_INTEGER,MPI_SUM,partd_comm,ierror)
 
+
+   deallocate(AdiabTerm)
 
    ! write(stdout,'((A,I4,A,I8,A,I8))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_me=",ini_me
    write(stdout,'(5(A,I0))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_mi_npartd=",ini_mi_npartd, ", ini_me=",ini_me,", ini_me_npartd=",ini_me_npartd
