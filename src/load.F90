@@ -1043,24 +1043,25 @@ subroutine load_uniform_MGY
             zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
             zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
             zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
-            zeon0(9,m) = integral_f0 ! f_0
+            ! zeon0(9,m) = integral_f0 ! f_0
+            zeon0(9,m) = target_w_tot ! f_tot
          enddo
       else
          ! Set initial weights of electrons
          do m=1,me
             ! zeon(5,m) is "df"
-            ! zeon(8,m) is "f_tot"
+            ! zeon(8,m) is "full-f or full-h"
 
             ! zeon0(6,m) represents the phase volume (J(x,v)d5z) that preserves in the Hamiltonian system
             zeon0(6,m) = 1.0/ge_val(m)
             integral_f0 = zeon0(6,m)*back_f0_e(m)
 
             ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
-            zeon0(9,m) = integral_f0 ! f_0
             zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
 
             target_w_tot = integral_f0 + (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
 
+            zeon0(9,m) = target_w_tot ! f_tot
             zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
             zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
          enddo
