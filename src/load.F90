@@ -672,7 +672,7 @@ subroutine load_uniform_MGY
    real(wp) Te_norm(memax) !  normalized-Te=Te/E_0, the same unit as normalized Ti
    integer m,ip,i,j,ij,mstart,mend
    integer gid, Ngroup
-   real(wp), allocatable :: vangle_list(:),vabs_list(:)
+   real(wp), allocatable :: vangle_list(:),uabs_list(:)
    real(wp) jacobian,density
    real(wp) dpsi,zdum,tdum,pdum
    real(wp) integral_f0
@@ -1123,16 +1123,38 @@ subroutine load_uniform_MGY
          ! Set positions of trapped particles
 
          Ngroup=6
-         allocate(vangle_list(Ngroup),vabs_list(Ngroup))
-         vangle_list=[pi/6,pi/3,80*pi/180,pi/6,pi/3,80*pi/180] ! 30, 60, 80, degrees of angle
-         vabs_list=[1.0,1.0,1.0,2.5,2.5,2.5]
+         allocate(vangle_list(Ngroup),uabs_list(Ngroup))
+         ! vangle_list=[pi/6,pi/3,80*pi/180,pi/6,pi/3,80*pi/180] ! 30, 60, 80, degrees of angle
+         ! vangle_list=[30*pi/180,50*pi/180,60*pi/180,30*pi/180,50*pi/180,60*pi/180] ! 30, 50, 70, degrees of angle
+         ! uabs_list=[1.0,1.0,1.0,2.5,2.5,2.5]
+         ! do gid=1,Ngroup
+         !    mstart=(gid-1)*int(num_of_etracers/ngroup)+1
+         !    mend  =(gid)*int(num_of_etracers/ngroup)
+         !    do i=mstart,mend
+         !       m = (real(i)/(num_of_etracers+1.0)) * me
+         !       ! zeon(1,m) = 0.64 + 0.02*(i-mstart)/real(mend-mstart)
+         !       zeon(1,m) = 0.65 + 0.02*(i-mstart)/real(mend-mstart)
+         !       ! zeon(1,m) = 0.79 + 0.02*(i-mstart)/real(mend-mstart)
+         !       zeon(2,m) = 0.0
+         !       zeon(3,m) = 0.0
+         !       zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+         !    enddo
+         ! enddo
+         ! acc_newer_H_zeon=.true.
+         ! vangle_list=[30*pi/180,56*pi/180,63*pi/180,(180-30)*pi/180,(180-56)*pi/180,(180-63)*pi/180] ! 30, 56, 63, degrees of angle
+         ! uabs_list=[1.0,1.0,1.0,1.0,1.0,1.0]
+
+         ! vangle_list=[30*pi/180,56*pi/180,63*pi/180,(180-30)*pi/180,(180-56)*pi/180,(180-63)*pi/180] ! 30, 56, 63, degrees of angle
+         uabs_list=[2.0,4.0,6.0,8.0,10.0,12.0]
          do gid=1,Ngroup
             mstart=(gid-1)*int(num_of_etracers/ngroup)+1
             mend  =(gid)*int(num_of_etracers/ngroup)
             do i=mstart,mend
                m = (real(i)/(num_of_etracers+1.0)) * me
-               zeon(1,m) = 0.64 + 0.02*(i-mstart)/real(mend-mstart)
-               zeon(2,m) = 0.0
+               ! zeon(1,m) = 0.64 + 0.02*(i-mstart)/real(mend-mstart)
+               zeon(1,m) =0.876
+               ! zeon(1,m) = 0.79 + 0.02*(i-mstart)/real(mend-mstart)
+               zeon(2,m) = 0.314
                zeon(3,m) = 0.0
                zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
             enddo
@@ -1149,14 +1171,17 @@ subroutine load_uniform_MGY
             do i=mstart,mend
                m = (real(i)/(num_of_etracers+1.0)) * me
                Te_norm(m)= backTe(m)*msm0
-               vpara = vabs_list(gid)*sqrt(2*Te_norm(m)*m0ms)*cos(vangle_list(gid)) ! Most Probable Veclotiy vp = sqrt(2T/m)
-               vperp = vabs_list(gid)*sqrt(2*Te_norm(m)*m0ms)*sin(vangle_list(gid)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               vpara = uabs_list(gid)*sqrt(2*Te_norm(m)*m0ms)*cos(pi*(i-mstart)/real(mend-mstart)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               vperp = uabs_list(gid)*sqrt(2*Te_norm(m)*m0ms)*sin(pi*(i-mstart)/real(mend-mstart)) ! Most Probable Veclotiy vp = sqrt(2T/m)
                zeon(4,m) = msm0*vpara/(csc0*BB(m))
                zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
 
                zeon0(6,m) = 0.0
                zeon(8,m)  = 0.0
                zeon(5,m)  = 0.0
+               zeon0(8,m) = 0.0
+               zeon0(9,m) = 0.0
+
             enddo
          enddo
          acc_newer_H_zeon=.true.
@@ -1193,8 +1218,8 @@ subroutine load_uniform_MGY
             mend  =(gid)*int(num_of_itracers/Ngroup)
             do i=mstart,mend
                m = (real(i)/(num_of_itracers+1.0)) * mi
-               vpara = vabs_list(gid)*sqrt(2*backT(m))*cos(vangle_list(gid)) ! Most Probable Veclotiy vp = sqrt(2T/m)
-               vperp = vabs_list(gid)*sqrt(2*backT(m))*sin(vangle_list(gid)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               vpara = uabs_list(gid)*sqrt(2*backT(m))*cos(pi*(i-mstart)/real(mend-mstart)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               vperp = uabs_list(gid)*sqrt(2*backT(m))*sin(pi*(i-mstart)/real(mend-mstart)) ! Most Probable Veclotiy vp = sqrt(2T/m)
                zion(4,m) = vpara/(BB(m))
                zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
 
@@ -1208,7 +1233,7 @@ subroutine load_uniform_MGY
          call n_T_u_group(flag_backf0=.true.)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
          !$acc update self(back_f0_i(:mi))
 
-         deallocate(vangle_list,vabs_list)
+         deallocate(vangle_list,uabs_list)
 
       endif
    endif
