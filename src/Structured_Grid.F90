@@ -56,11 +56,11 @@ module Structured_Grid
    real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
    !$acc declare create(gyro_over_sqrt_mu)
 
-   real(wp) SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds
+   real(wp) SG_zetamin, SG_zetamax, SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds
    integer :: SG_dim_s
-   real(wp), allocatable ::  SG_s_1D(:), SG_gq_1D(:), SG_safety_q_1D(:), SG_phi_3D(:,:,:)
-   !$acc declare create(SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
-   !$acc declare create(SG_s_1D,SG_gq_1D,SG_safety_q_1D,SG_phi_3D)
+   real(wp), allocatable ::  SG_s_1D(:), SG_gq_1D(:), SG_safety_q_1D(:), SG_phi(:,:,:), SG_phi_3D(:,:,:)
+   !$acc declare create(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
+   !$acc declare create(SG_s_1D,SG_gq_1D,SG_safety_q_1D,SG_phi,SG_phi_3D)
 
 contains
 
@@ -94,8 +94,9 @@ contains
       Ns=SG%dim_s
       Nq=SG%dim_gq
 
+      SG_zetamin=SG%zetamin; SG_zetamax=SG%zetamax;
       SG_inv_dgf=SG%inv_dgf; SG_inv_dgq=SG%inv_dgq; SG_dgf=SG%dgf; SG_inv_ds=SG%inv_ds; SG_dim_s = SG%dim_s;
-      !$acc update device(SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
+      !$acc update device(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
 
       allocate(SG%gq_1D(Nq))
       allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%Ti0_eV_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
@@ -292,6 +293,7 @@ contains
 
 
       allocate(SG_s_1D(Ns), SG_gq_1D(Ns), SG_safety_q_1D(Ns))
+      allocate(SG_phi(Nq,Ns,0:2)) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
       allocate(SG_phi_3D(Nq,Ns,mzetamax))
 
       SG_s_1D  = SG%s_1D
@@ -1084,6 +1086,7 @@ contains
 
 
    subroutine Get_Intp_phi_on_SG(P_s, P_gq, P_gf, out_phi)
+      !$acc routine seq
       use precision
       use global_parameters
 
@@ -1092,56 +1095,39 @@ contains
       real(wp), intent(out):: out_phi
       real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
       integer sid,gqid
+      real(wp) pii
+
+      pii = acos(-1.0_wp) ! pi
 
       out_phi = 0.0
 
-      wgf1 = abs(modulo(P_gf,2.0*pi)-SG%zetamin)*SG%inv_dgf
+      wgf1 = abs(modulo(P_gf,2.0*pii)-SG_zetamin)*SG_inv_dgf
       wgf0 = (1.0-wgf1)
 
-      if(wgf0<0 .or. wgf1<0) then
-         write(stdout,*) "Err! (wgf0,wgf1)=",wgf0,wgf1,"; P_gf=",P_gf,"; zetamin=",zetamin, "; zetamax=",zetamax
-         call flush(stdout)
-         stop
-      endif
-
-      sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-      ws1 = max(0.0, min(1.0, (P_s-SG%s_1D(sid))*SG%inv_ds))
+      sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+      ws1 = max(0.0, min(1.0, (P_s-SG_s_1D(sid))*SG_inv_ds))
       ws0 = (1.0-ws1)
 
-      if(ws1<0 .or. ws0<0) then
-         write(stdout,*) "Err! (ws0,ws1)=",ws0,ws1
-         call flush(stdout)
-      endif
-
-      inv_P_safety_q = 1.0/(ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1))
+      inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
 
       ! Cal contributions from phi at zetamin to the particle
-      target_gf = SG%zetamin
-      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-      gqid  = target_gq*SG%inv_dgq+1
-      wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+      target_gf = SG_zetamin
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
+      gqid  = target_gq*SG_inv_dgq+1
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
-      if(wgq0<0 .or. wgq1<0) then
-         write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
-         call flush(stdout)
-      endif
 
-      out_phi = wgf0*(ws0*(wgq0*SG%phi(gqid,sid,1) + wgq1*SG%phi(gqid+1,sid,1)) + ws1*(wgq0*SG%phi(gqid,sid+1,1) + wgq1*SG%phi(gqid+1,sid+1,1)))
+      out_phi = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
 
       ! Add contributions from phi at zetamax to the particle
-      target_gf = SG%zetamax
-      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-      gqid  = target_gq*SG%inv_dgq+1
-      wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+      target_gf = SG_zetamax
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
+      gqid  = target_gq*SG_inv_dgq+1
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
-      if(wgq0<0 .or. wgq1<0) then
-         write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
-         call flush(stdout)
-      endif
-
-      out_phi = out_phi + wgf1*(ws0*(wgq0*SG%phi(gqid,sid,2) + wgq1*SG%phi(gqid+1,sid,2)) + ws1*(wgq0*SG%phi(gqid,sid+1,2) + wgq1*SG%phi(gqid+1,sid+1,2)))
+      out_phi = out_phi + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
 
    end subroutine Get_Intp_phi_on_SG
 

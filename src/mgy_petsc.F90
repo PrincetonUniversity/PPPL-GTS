@@ -437,6 +437,10 @@ subroutine Solve_Poisson3D_on_SG()
                      SG%phi(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
 
 
+   ! Copy SG%phi to SG_phi that will be used on GPU side
+   SG_phi = SG%phi
+   !$acc update device(SG_phi)
+
    if(mod(istep,msnap)==0) then
       ! To get full 3D data for diagnostic purpose
       call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
@@ -597,6 +601,10 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
    call MPI_SENDRECV(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,&
                      SG%phi(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
 
+
+   ! Copy SG%phi to SG_phi that will be used on GPU side
+   SG_phi = SG%phi
+   !$acc update device(SG_phi)
 
 
    if(mod(istep,msnap)==0) then
