@@ -36,7 +36,7 @@ ifeq ($(F90),ftn)
              SPRNG_INC:=-I${SPRNG_DIR}/include
              PSPLINE_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/INTEL_cori
              PSPLINE_INC:=-I${PSPLINE_DIR}/mod
-             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline -L${NETCDF_DIR}/lib -lnetcdf
+             PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline #-L${NETCDF_DIR}/lib -lnetcdf
            #1PETSC_DIR=/global/project/projectdirs/mp288/jinchen/PETSC/petsc-3.7.7
            #1PETSC_ARCH=cori-hsw-intel1903199-mpich776
            #2PETSC_DIR=/global/project/projectdirs/mp288/jinchen/PETSC/petsc-3.8.4
@@ -50,7 +50,8 @@ ifeq ($(F90),ftn)
            #1PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lHYPRE -lflapack -lfblas -lscalapack -lsuperlu -lsuperlu_dist -lcmumps -ldmumps -lsmumps -lzmumps -lmumps_common -lpord -lparmetis -lmetis -ldl -lstdc++
             #PETSC_FLIB:=-L${PETSC_DIR}/$(PETSC_ARCH)/lib -lpetsc -lHYPRE -lflapack -lfblas -lscalapack -ldl -lstdc++ -ldmapp
 	    #PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220107/cori-hsw-intel6010-mpich7719-real-nomkl/lib -L/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220107/cori-hsw-intel6010-mpich7719-real-nomkl/lib -lpetsc -lHYPRE -lscalapack -lflapack -lfblas -lquadmath -ldl
-	     PETSC_FLIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220107/cori-hsw-intel6010-mpich7719-real-nomkl-netcdf/lib -L/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220107/cori-hsw-intel6010-mpich7719-real-nomkl-netcdf/lib -lpetsc -lHYPRE -lscalapack -lflapack -lfblas -lnetcdf -lhdf5_hl -lhdf5 -lz -lquadmath -ldl
+#PETSC_FLIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220107/cori-hsw-intel6010-mpich7719-real-nomkl-netcdf/lib -L/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220107/cori-hsw-intel6010-mpich7719-real-nomkl-netcdf/lib -lpetsc -lHYPRE -lscalapack -lflapack -lfblas -lnetcdf -lhdf5_hl -lhdf5 -lz -lquadmath -ldl
+	     PETSC_FLIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220107/cori-hsw-intel6010-mpich7719-real-nomkl-netcdf/lib -L/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220107/cori-hsw-intel6010-mpich7719-real-nomkl-netcdf/lib -lpetsc -lHYPRE -lnetcdf -lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5 -lz -lquadmath -ldl
           else  # Using the CRAY compiler (cce)
              #initialize array to zero: -e0 -ez
              #check all array bound:-m2 -R bcsp, but too slow, so not used unless debug code
