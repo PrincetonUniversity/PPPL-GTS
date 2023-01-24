@@ -86,7 +86,7 @@ module global_parameters
    character(128) :: Er_data_name,profile_data_name,eq_data_name
 
    ! the following vaiables and arrays are used for diagnosis of distribution function
-   integer,parameter :: nprobe=3
+   integer,parameter :: nprobe=4
    real(wp)  rprobe(nprobe),tprobe(nprobe),uflow(nprobe),vthprobe(nprobe),vthprobe_e(nprobe),  &
       sn_box(nprobe),density_in_box(nprobe), &
       Ti_box(nprobe),Te_box(nprobe)
@@ -171,6 +171,8 @@ module global_parameters
    integer :: Flag_Recycling=0 ! Default=0 (no Recycling), can be set = 1 (Recycling of Ion at outer wall)
    integer :: Flag_Weight_dfh=0 ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight)
    integer :: Ptl_Src_nstep=50 ! Generate src from boundaires at every Ptl_Src_nstep (default=50 steps)
+   integer :: Ptl_Src_dim_a=50 ! radial dimension of PtlSrcCV system
+   integer :: Ptl_Src_dim_gq=50 ! poloidal dimension of PtlSrcCV system
 
    integer :: MaxLoopNum_Adiab_Weight_Update=1 ! Default=1 (number of loop for updating adiabatic weight evolution)
 
