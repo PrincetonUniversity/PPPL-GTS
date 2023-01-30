@@ -363,7 +363,7 @@ subroutine Solve_Poisson3D_on_SG()
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
       ! val=RHS_leading_coeff*1e6*(SG%dni(qq,ss,1)-SG%dne(qq,ss,1))
-      val=RHS_leading_coeff*1e6*(SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
+         val=RHS_leading_coeff*1e6*(SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
@@ -403,6 +403,19 @@ subroutine Solve_Poisson3D_on_SG()
    enddo
    SG%phi(SG%dim_gq,:,1)=SG%phi(1,:,1)
    deallocate(xVec_mype, xVec_partd)
+
+   ! SG%phi(:,1:35,:) = 0.0
+   ! do i=35,60
+   !    SG%phi(:,i,:) = (i-35)*(1e4)/25.0
+   ! enddo
+   ! SG%phi(:,61:SG%dim_s-11,:) = 1e4
+   ! do i=SG%dim_s-10,SG%dim_s
+   !    SG%phi(:,i,:) = 1e4 -(i-(SG%dim_s-10))*(1e4)/10.0
+   ! enddo
+
+   ! do j=1,SG%dim_gq
+   !    SG%phi(j,:,:) = SG%phi(j,:,:)*(1.0+0.5*cos(3*(j-1)/real(SG%dim_gq-1)*2.0*pi))
+   ! enddo
 
 
    ! Copy bVec (source) to the SG%test_src vector
@@ -445,7 +458,6 @@ subroutine Solve_Poisson3D_on_SG()
       ! To get full 3D data for diagnostic purpose
       call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
       call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-      call MPI_ALLGATHER(SG%test_res_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_res_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
    endif
 
 end subroutine Solve_Poisson3D_on_SG
@@ -486,7 +498,11 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
          ss=mapG2P(Gid)%aid
 
          ! RHS of the Poisson Equation (src term): e(ni0+dni-dne)
-         src0 = ELEMENT_CHARGE*1e6*(SG%n0_1D(ss)+SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
+         if(Flag_Weight_dfh==3) then
+            src0 = ELEMENT_CHARGE*1e6*(SG%n0_1D(ss)+SG%zion58_hybrid(qq,ss)-SG%zeon58_hybrid(qq,ss))
+         else
+            src0 = ELEMENT_CHARGE*1e6*(SG%n0_1D(ss)+SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
+         endif
          call VecSetValues(srcVec,1,Gid,src0,INSERT_VALUES,ierr); CHKERRQ(ierr)
 
          ! Second term of Fvec: e*ne0*exp(e*phi/Te0)
@@ -637,10 +653,6 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       deallocate(ResVec_mype, ResVec_partd)
 
 
-      ! To get full 3D data for diagnostic purpose
-      call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-      call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-      call MPI_ALLGATHER(SG%test_res_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_res_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
    endif
 
 end subroutine Solve_Nonlinear_Poisson3D_on_SG
@@ -802,15 +814,79 @@ subroutine Solve_test_Poisson3D_on_SG()
    deallocate(ResVec_mype, ResVec_partd)
 
 
-   if(mod(istep,msnap)==0) then
-      ! To get full 3D data for diagnostic purpose
-      call MPI_ALLGATHER(SG%test_phi_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-      call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-      call MPI_ALLGATHER(SG%test_res_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_res_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
-   endif
 
 end subroutine Solve_test_Poisson3D_on_SG
 
+
+subroutine Cal_IonPolarDensity_and_RealCharge
+   use precision, only:wp
+   use global_parameters
+   use field_array
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   PetscScalar, pointer :: ptr_Vec(:)
+   PetscReal, allocatable :: Vec_mype(:), Vec_partd(:)
+   integer Lid,Gid
+   Vec RHS_Vec ! Right Hand Side of Amat*xVec
+   PetscErrorCode ierr
+
+   call VecCreate(PETSC_COMM_WORLD,RHS_Vec,ierr); CHKERRQ(ierr)
+   call VecSetSizes(RHS_Vec,Lsize,Gsize,ierr); CHKERRQ(ierr)
+   call VecSetFromOptions(RHS_Vec,ierr); CHKERRQ(ierr)
+
+   allocate(Vec_mype(Lsize), Vec_partd(sum_Lsize_partd))
+
+
+   ! Calculate LHS of the pure Poission Equation (not GK one) to get the real charge density
+   ! Note that xVec is the potential calculated already from other routine
+   ! Here, RHS vector is the Real Charge Density (including Ion Polarization Density) = ni_GC+ni_Pol-ne
+   call Update_Amat_Coeffs(1) ! For Pure Poisson Equation
+   call MatMult(Amat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
+   call VecGetArrayReadF90(RHS_Vec,ptr_Vec,ierr)
+   Vec_mype(:)=ptr_Vec(1:Lsize)
+   call VecRestoreArrayReadF90(RHS_Vec,ptr_Vec,ierr)
+   call MPI_ALLGATHERV(Vec_mype,Lsize,mpi_Rsize,Vec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%RealCharge_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = Vec_partd(Lid)
+   enddo
+   SG%RealCharge_2D(SG%dim_gq,:)=SG%RealCharge_2D(1,:)
+
+
+   ! Calculate Ion Polarization Density operator
+   ! Note the signs of the equation
+   ! niPol=(nabla*Pol_T*nabla*phi)/e=(-Amat*xVec)/e
+   ! Here, RHS is the Ion Polarization Density
+   call Update_Amat_Coeffs(2) ! For Ion Polarization Density
+   call MatMult(Amat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
+   call VecGetArrayReadF90(RHS_Vec,ptr_Vec,ierr)
+   Vec_mype(:)=ptr_Vec(1:Lsize)
+   call VecRestoreArrayReadF90(RHS_Vec,ptr_Vec,ierr)
+   call MPI_ALLGATHERV(Vec_mype,Lsize,mpi_Rsize,Vec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%niPol_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = Vec_partd(Lid)
+   enddo
+   SG%niPol_2D(SG%dim_gq,:)=SG%niPol_2D(1,:)
+   SG%niPol_2D=SG%niPol_2D/(-1.602176634e-19) ! Convert from charge denstiy to particle density
+
+   ! Free the pointer and array
+   call VecDestroy(RHS_Vec,ierr); CHKERRQ(ierr)
+   deallocate(Vec_mype,Vec_partd)
+
+   if(mod(istep,msnap)==0) then
+      ! To get full 3D data for diagnostic purpose
+      call MPI_ALLGATHER(SG%RealCharge_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%RealCharge_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+      call MPI_ALLGATHER(SG%niPol_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%niPol_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   endif
+
+
+   ! Recover original Amat (which is for GK Poisson Equation)
+   call Update_Amat_Coeffs(0)
+
+end subroutine Cal_IonPolarDensity_and_RealCharge
 
 subroutine test_Laplacian_2D()
 #include <petsc/finclude/petsc.h>
@@ -984,7 +1060,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    ! Note that there are ghost cells for easier indexing
    allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   call Determine_GK_PoissonTensors_on_Structured_Grid()
+   call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
    max_nnz=19 ! maximum number of non-zero values per each row
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
@@ -1155,7 +1231,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    ! Note that there are ghost cells for easier indexing
    allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   call Determine_GK_PoissonTensors_on_Structured_Grid()
+   call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
    max_nnz=19 ! maximum number of non-zero values per each row
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
@@ -1354,7 +1430,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
-subroutine Update_Amat_Coeffs
+subroutine Update_Amat_Coeffs(In_Flag_WhichLHS)
 
    use Structured_Grid
    use particle_decomp
@@ -1362,20 +1438,55 @@ subroutine Update_Amat_Coeffs
    use field_array, only:FLA_Te0
    implicit none
 
+   integer,intent(in),optional :: In_Flag_WhichLHS
+   integer :: Flag_WhichLHS
    PetscInt Lid,Gid,qq,ss,ff,tnum
    real tt0, tt1
    PetscReal inv_Jacob
    PetscErrorCode ierr
-   integer :: dim_gq, dim_a
+   integer :: dim_gq, dim_a, i
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
    real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
 
+
+   Flag_WhichLHS=0 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
+   if(present(In_Flag_WhichLHS)) Flag_WhichLHS = In_Flag_WhichLHS
+
+   if(Flag_WhichLHS==0 .or. Flag_WhichLHS==1 .or. Flag_WhichLHS==2) then
+   else
+      write(stdout,*) "Error!! In Update_Amat_Coeffs, Flag_WhichLHS=",Flag_WhichLHS
+      call flush(stdout)
+      stop
+   endif
+
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
-   call Determine_GK_PoissonTensors_on_Structured_Grid()
+   ! Calculate dn
+   if(Flag_Weight_dfh==0) then
+      SG%dne_SM = SG%dne(:,:,1)
+      SG%dni_SM = SG%dni(:,:,1)
+   elseif(Flag_Weight_dfh==1) then
+      do i=1,SG%dim_s
+         SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
+         SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
+      enddo
+   elseif(Flag_Weight_dfh==2 .or. Flag_Weight_dfh==3) then
+      ! dn = Hybrid_Density - n0
+      ! where Hybrid_Density = hyb_ratio*(full_f or full_h) + (1-hyb_ratio)*(delta_f or delta_h)
+      do i=1,SG%dim_s
+         SG%dne_SM(:,i) = SG%hyb_ratio_e(:,i)*SG%ne_by_fh(:,i,1)+(1.0-SG%hyb_ratio_e(:,i))*(SG%dne(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
+         SG%dni_SM(:,i) = SG%hyb_ratio_i(:,i)*SG%ni_by_ff(:,i,1)+(1.0-SG%hyb_ratio_i(:,i))*(SG%dni(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
+      enddo
+   endif
 
+   ! Then, smooth them
+   call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
+   call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
+
+
+   call Determine_GK_PoissonTensors_on_Structured_Grid(Flag_WhichLHS)
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
    tarVal=0.0
@@ -1461,7 +1572,11 @@ subroutine Update_Amat_Coeffs
 
    enddo
    call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
-   call Determine_Adiabatic_Contribution_to_Amat
+
+
+   if(Flag_WhichLHS==0) then
+      call Determine_Adiabatic_Contribution_to_Amat
+   endif
 
 
    ! Set Mat Values using the non-zero information calculated from above
@@ -1483,20 +1598,24 @@ subroutine Update_Amat_Coeffs
 
 end subroutine Update_Amat_Coeffs
 
-subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
+subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
    use precision, only:wp
    use global_parameters, only:stdout,mype,ifelectron,mzetamax,msm0,amasse,amassi
    use Structured_Grid
    use particle_decomp
    implicit none
 
-   integer sid,gqid,i,j
+   integer, intent(in), optional :: In_Flag_WhichTerm
+   integer Flag_WhichTerm
+   integer sid,gqid,i,j,ierr
    real(wp) invBsq,tmp ! 1/(B^2)
    real(wp), external :: density
    real(wp) inv_du(3)
    integer istatus(MPI_STATUS_SIZE), icount, ierror
    real(wp) ne_tot(SG%dim_gq,SG%dim_s), ni_tot(SG%dim_gq,SG%dim_s)
 
+   Flag_WhichTerm=2 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
+   if(present(In_Flag_WhichTerm)) Flag_WhichTerm = In_Flag_WhichTerm
 
    ! Metric Tensor is based on the static equilibrium magnetic field (PEST coordinate)
    do sid=1,SG%dim_a
@@ -1567,8 +1686,20 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid()
    Polar_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
    Polar_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
-   ! Construct Epsilon Tensor ( eps=eps_0*Metric_T + Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2)) )
-   Eps_T(:,:,:,:,0)=8.8541878128e-12*Metric_T+Polar_T
+   if(Flag_WhichTerm==0) then
+      ! Construct Epsilon Tensor ( eps=eps_0*Metric_T + Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2)) )
+      Eps_T(:,:,:,:,0)=8.8541878128e-12*Metric_T+Polar_T
+   elseif(Flag_WhichTerm==1) then
+      ! Eps=eps_0*Metric_T
+      Eps_T(:,:,:,:,0)=8.8541878128e-12*Metric_T
+   elseif(Flag_WhichTerm==2) then
+      ! Eps=Polar_T
+      Eps_T(:,:,:,:,0)=Polar_T
+   else
+      write(stdout,*) "Error!! Flag_WhichTerm=", Flag_WhichTerm
+      call flush(stdout)
+      stop
+   endif
 
    ! Communicate Eps_T with neighboring left and right planes.
    ! So, Eps_T(:,:,:,:,tid) ==>  tid=-1(left plane), tid=0(my plane), tid=1(right plane)
@@ -1613,6 +1744,7 @@ subroutine Determine_Adiabatic_Contribution_to_Amat
    integer Lid,Gid,qq,ss
    real(wp), external :: density, Te0_eV
    real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
+   real(wp) AD_coeff
 
 
    !In the case of delta-h electron simulation,
@@ -1625,7 +1757,46 @@ subroutine Determine_Adiabatic_Contribution_to_Amat
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
             ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+
+            AD_coeff= (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+
+
+            tarVal(1,Lid)=tarVal(1,Lid) + AD_coeff! 1 (Center)
+
+            ! Adiabatic Density is not only determined by the phi on that node but also affected by neighboring phi
+            ! (See a note "The Poisson equation regarding the electron adiabatic density")
+            ! Determine tarVal corresponding to the integral coefficients of the shape function
+            if(ss==1) then
+               ! ! Left Half case
+               ! AD_coeff=AD_coeff/18.0
+               ! tarVal(1,Lid)=tarVal(1,Lid) + 8*AD_coeff ! 1 (Center)
+               ! tarVal(2,Lid)=tarVal(2,Lid) + 2*AD_coeff ! 2 (qq-1)
+               ! tarVal(3,Lid)=tarVal(3,Lid) + 2*AD_coeff ! 3 (qq+1)
+               ! tarVal(5,Lid)=tarVal(5,Lid) + 4*AD_coeff ! 5 (ss+1)
+               ! tarVal(8,Lid)=tarVal(8,Lid) + 1*AD_coeff ! 8 (ss+1,qq+1)
+               ! tarVal(10,Lid)=tarVal(10,Lid) + 1*AD_coeff ! 10 (ss+1,qq-1)
+            elseif(ss==SG%dim_s) then
+               ! ! Right Half case
+               ! AD_coeff=AD_coeff/18.0
+               ! tarVal(1,Lid)=tarVal(1,Lid) + 8*AD_coeff ! 1 (Center)
+               ! tarVal(2,Lid)=tarVal(2,Lid) + 2*AD_coeff ! 2 (qq-1)
+               ! tarVal(3,Lid)=tarVal(3,Lid) + 2*AD_coeff ! 3 (qq+1)
+               ! tarVal(4,Lid)=tarVal(4,Lid) + 4*AD_coeff ! 4 (ss-1)
+               ! tarVal(9,Lid)=tarVal(9,Lid) + 1*AD_coeff ! 9 (ss-1,qq-1)
+               ! tarVal(11,Lid)=tarVal(11,Lid) + 1*AD_coeff ! 11 (ss-1,qq+1)
+            else
+               ! ! Full case
+               ! AD_coeff=AD_coeff/36.0
+               ! tarVal(1,Lid)=tarVal(1,Lid) + 16*AD_coeff! 1 (Center)
+               ! tarVal(2,Lid)=tarVal(2,Lid) + 4*AD_coeff ! 2 (qq-1)
+               ! tarVal(3,Lid)=tarVal(3,Lid) + 4*AD_coeff ! 3 (qq+1)
+               ! tarVal(4,Lid)=tarVal(4,Lid) + 4*AD_coeff ! 4 (ss-1)
+               ! tarVal(5,Lid)=tarVal(5,Lid) + 4*AD_coeff ! 5 (ss+1)
+               ! tarVal(8,Lid)=tarVal(8,Lid) + 1*AD_coeff ! 8 (ss+1,qq+1)
+               ! tarVal(9,Lid)=tarVal(9,Lid) + 1*AD_coeff ! 9 (ss-1,qq-1)
+               ! tarVal(10,Lid)=tarVal(10,Lid) + 1*AD_coeff ! 10 (ss+1,qq-1)
+               ! tarVal(11,Lid)=tarVal(11,Lid) + 1*AD_coeff ! 11 (ss-1,qq+1)
+            endif
          enddo
       elseif(Flag_Def_dne_adiab==2) then
          ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
