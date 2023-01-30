@@ -1396,7 +1396,31 @@ subroutine snapshot_hdf5
       deallocate(intp_val_Arr)
 
 
-
+      !===========================
+      ! Original GTS grid information
+      !==========================
+      allocate(gq_mgrid(0:1,mgrid),a_mgrid(0:1,mgrid))
+      do i=0,mpsi
+         do j=0,mtheta(i)
+            ij=igrid(i)+j
+            a_mgrid(:,ij) = a0+i*(a1-a0)/(mpsi)
+            gq_mgrid(0,ij)=real(j,wp)*deltat(i)+(zetamin)*qtinv(i)
+            gq_mgrid(1,ij)=real(j,wp)*deltat(i)+(zetamax)*qtinv(i)
+         enddo
+      enddo
+      h5dims(1)=1
+      call h5ltmake_dataset_f(file_id, "mgrid",1,h5dims,H5T_NATIVE_INTEGER, mgrid,h5err)
+      h5dims(1)=mpsi+1
+      call h5ltmake_dataset_f(file_id, "igrid",1,h5dims,H5T_NATIVE_INTEGER, igrid,h5err)
+      call h5ltmake_dataset_f(file_id, "mtheta",1,h5dims,H5T_NATIVE_INTEGER, mtheta,h5err)
+      call h5ltmake_dataset_f(file_id, "itran",1,h5dims,H5T_NATIVE_INTEGER, itran,h5err)
+      h5dims(1:2)=(/2,mgrid/)
+      call h5ltmake_dataset_f(file_id, "phi_mgrid",2,h5dims,H5T_NATIVE_DOUBLE, ((E_00*c)/(charg0*1e8))*phi,h5err)
+      call h5ltmake_dataset_f(file_id, "gq_mgrid",2,h5dims,H5T_NATIVE_DOUBLE, gq_mgrid,h5err)
+      call h5ltmake_dataset_f(file_id, "a_mgrid",2,h5dims,H5T_NATIVE_DOUBLE, a_mgrid,h5err)
+      h5dims(1:3)=(/3,2,mgrid/)
+      call h5ltmake_dataset_f(file_id, "dE_cov_mgrid",3,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*dE_cov3,h5err)
+      deallocate(gq_mgrid,a_mgrid)
 
       !===========================
       !3D data  (vector data on 2D grids)
