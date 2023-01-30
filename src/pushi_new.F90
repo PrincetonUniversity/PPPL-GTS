@@ -1515,6 +1515,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
    use function_gg_module
    use Ptl_Src_Loss
    use Diagnostic_Grid
+   use Structured_Grid
    implicit none
    integer, intent(in):: irk_i,nrk
    integer i,ip,m,ij,ierr,ierror,j
@@ -2026,7 +2027,8 @@ subroutine pushion_wEvol3(irk_i,nrk)
    !$acc parallel loop present(zion,zion0,back_f0_i)
    do m=1,mi
       new_f0 = zion0(6,m)*back_f0_i(m)
-      zion(5,m) = zion0(5,m) - (new_f0-zion(8,m))
+      ! zion(5,m) = zion0(5,m) - (new_f0-zion(8,m))
+      zion(5,m) = zion0(8,m) - new_f0
       ! zion0(8,m) is conserved
    enddo
 
