@@ -23,6 +23,9 @@ subroutine collision_eon
 
             ! Update needed particle information from DEVICE to HOST
             !$acc update self(backne(:me),backTe(:me))
+            if(acc_newer_D_zeon) then
+               !$acc update self(zeon(:,:me))
+            endif
 
             call esigetb(zeon,me,zeondim)   ! get B-->BB
 
@@ -33,6 +36,9 @@ subroutine collision_eon
 
             call CTPandCELL_eon
 
+            !$acc update device(zeon(:,:me))
+
+            call n_T_u_group_e ! To update back_f0_e
             !  make sure output backu=omega_t after exit this subroutine
             !           backu(1:mi)=backu(1:mi)*BB(1:mi)/F(1:mi) ! =omega_t
 

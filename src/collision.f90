@@ -23,6 +23,9 @@ subroutine collision
 
             ! Update needed particle information from DEVICE to HOST
             !$acc update self(backn(:mi),backu(:mi),backT(:mi))
+            if(acc_newer_D_zion) then
+               !$acc update self(zion(:,:mi))
+            endif
 
             !           call esigetb(zion(1,:),zion(2,:),mi)   ! get B
             !           call esigetb(zion,mi)   ! get B-->BB
@@ -36,7 +39,11 @@ subroutine collision
             !  make sure output backu=omega_t after exit this subroutine
             backu(1:mi)=backu(1:mi)*BB(1:mi)/F(1:mi) ! =omega_t
 
-         end if
+
+            !$acc update device(zion(:,:mi),backu(:mi))
+            call n_T_u_group ! Update back_f0_i
+
+          end if
       end if
    end if
 
