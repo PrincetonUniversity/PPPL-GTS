@@ -133,8 +133,6 @@ program GTS
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    call Do_FieldLineFollowing_for_Poincare_Plot_parallelized
    if(myrank_partd==nproc_partd-1) then
-      call Do_FieldLineFollowing_for_Poincare_Plot
-      ! call Construct_gPPI_for_FieldLineAverage
       call Construct_gPPI_for_FieldLineAverage_Parallelized
    endif
 
