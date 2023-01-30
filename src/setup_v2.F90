@@ -2318,6 +2318,8 @@ Subroutine setup
    w2_eon0=1.0_wp
 
 
+   Fac_Volt2GTS = (charg0*1e8)/(E_00*c)
+
 end subroutine setup
 
 !=============================================================================
