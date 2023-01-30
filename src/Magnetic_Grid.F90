@@ -122,22 +122,13 @@ contains
       call h5ltread_dataset_f(file_id, "FMap3D/Max_BB0_CW", H5T_NATIVE_DOUBLE, FM%Max_BB0_CW, h5dims(1:3), h5err)
       call h5ltread_dataset_f(file_id, "FMap3D/Max_BB0_CCW", H5T_NATIVE_DOUBLE, FM%Max_BB0_CCW, h5dims(1:3), h5err)
       call h5ltread_dataset_f(file_id, "FMap3D/BB0", H5T_NATIVE_DOUBLE, FM%BB0, h5dims(1:3), h5err)
+      call h5ltread_dataset_f(file_id, "FMap3D/M_eff", H5T_NATIVE_DOUBLE, FM%Mirror_Ratio, h5dims(1:3), h5err)
       call h5close_f(h5err)
 
       FM%inv_da = 1.0/(FM%a_1D(2)-FM%a_1D(1))
       FM%inv_dgq= 1.0/(FM%gq_1D(2)-FM%gq_1D(1))
       FM%inv_dgf= 1.0/(FM%gf_1D(2)-FM%gf_1D(1))
 
-      do k=1,Nf
-         do j=1,Na
-            do i=1,Nq
-               FMap3D%Mirror_Ratio(i,j,k) = min(FM%Max_BB0_CCW(i,j,k),FM%Max_BB0_CW(i,j,k))/(FM%BB0(i,j,k))
-               if(ieee_is_nan(FMap3D%Mirror_Ratio(i,j,k))) then
-                  FMap3D%Mirror_Ratio(i,j,k)=-1.0
-               endif
-            enddo
-         enddo
-      enddo
 
       if(mype==0) write(stdout,'(3(A,ES12.4))') "MG; FMap3D inv_da=",FMap3D%inv_da, "; inv_dgq=",FMap3D%inv_dgq, "; inv_dgf=",FMap3D%inv_dgf
       call flush(stdout)
