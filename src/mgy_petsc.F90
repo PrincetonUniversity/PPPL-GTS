@@ -498,11 +498,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
          ss=mapG2P(Gid)%aid
 
          ! RHS of the Poisson Equation (src term): e(ni0+dni-dne)
-         if(Flag_Weight_dfh==3) then
-            src0 = ELEMENT_CHARGE*1e6*(SG%n0_1D(ss)+SG%zion58_hybrid(qq,ss)-SG%zeon58_hybrid(qq,ss))
-         else
-            src0 = ELEMENT_CHARGE*1e6*(SG%n0_1D(ss)+SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
-         endif
+         src0 = ELEMENT_CHARGE*1e6*(SG%n0_1D(ss)+SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
          call VecSetValues(srcVec,1,Gid,src0,INSERT_VALUES,ierr); CHKERRQ(ierr)
 
          ! Second term of Fvec: e*ne0*exp(e*phi/Te0)

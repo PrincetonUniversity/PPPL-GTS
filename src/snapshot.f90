@@ -1516,8 +1516,6 @@ subroutine snapshot_hdf5
 
       call h5ltmake_dataset_f(gid_SG, "hyb_ratio_e",2,h5dims,H5T_NATIVE_DOUBLE, SG%hyb_ratio_e,h5err)
       call h5ltmake_dataset_f(gid_SG, "hyb_ratio_i",2,h5dims,H5T_NATIVE_DOUBLE, SG%hyb_ratio_i,h5err)
-      call h5ltmake_dataset_f(gid_SG, "zion58_hybrid",2,h5dims,H5T_NATIVE_DOUBLE, SG%zion58_hybrid,h5err)
-      call h5ltmake_dataset_f(gid_SG, "zeon58_hybrid",2,h5dims,H5T_NATIVE_DOUBLE, SG%zeon58_hybrid,h5err)
 
 
       call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)
