@@ -136,6 +136,8 @@ program GTS
       call Construct_gPPI_for_FieldLineAverage_Parallelized
    endif
 
+   call Read_FMap3D_on_MG
+
    call MPI_Bcast(FLA_Te0,2*mgrid,MPI_Rsize,nproc_partd-1,partd_comm,ierror)
    ! solver
    ! which solver to use
@@ -206,6 +208,8 @@ program GTS
 #endif
    endif
 
+   call Initialize_Structured_Grid
+   ! SG%phi(:,1:SG%dim_s-10,:) =1e4
    ! initialize particle position and velocity
    if(Flag_Load_and_WeightDef==0) then
       call load
@@ -225,7 +229,7 @@ program GTS
    call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 
 
-   call Initialize_Structured_Grid
+   ! call Initialize_Structured_Grid
    ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
    ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
@@ -239,13 +243,13 @@ program GTS
    irk=2
    idiag=1
    if(Flag_Poisson3D_on_SG==1) then
-      call Measure_Ion_Density_on_SG(0)
+      call Measure_Ion_Density_on_SG(1)
    else
       call charge_ion
    endif
 
    if(Flag_Poisson3D_on_SG==1) then
-      if(ifelectron/=0) call Measure_Electron_Density_on_SG(0)
+      if(ifelectron/=0) call Measure_Electron_Density_on_SG(1)
    else
       if(ifelectron/=0) call charge_eon
    endif
@@ -258,15 +262,13 @@ program GTS
       else
          call poisson( solver1, masssolver  )
       endif
+      if(Flag_Load_and_WeightDef/=0) then
+         call Adjust_electron_weight_for_initially_zero_potential(solver1,masssolver)
+      endif
    endif
-   call Cal_E_para_on_SG
-   call Cumulate_SG_E_para
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
 
-   if(Flag_Load_and_WeightDef/=0) then
-      call Adjust_electron_weight_for_initially_zero_potential(solver1,masssolver)
-   endif
 
    ! call smooth(0)
 
@@ -353,24 +355,25 @@ program GTS
             call timer(t0,dt,t0wc,dtwc)
 
             call Clear_some_Electrons_beyond_Boundaries()
+            call Clear_some_Ions_beyond_Boundaries()
             do i=1,size(PSCV_list)
                PSCV=>PSCV_list(i)
                call Cal_dErg_per_nstep_by_Potential_along_FieldLine
                call Cal_dupara_per_dt_using_dErg_per_nstep
                call Generate_Electrons_beyond_Boundaries_using_Adaptive_PSCV()
+               call Generate_Ions_beyond_Boundaries_using_Adaptive_PSCV()
             enddo
 
             ! call Clear_newIons_beyond_Velocity_Boundary()
-            call Clear_some_Ions_beyond_Boundaries()
-            call Generate_Ions_beyond_VelocityCutOff_Fixed_Grid()
-            call Generate_Ions_beyond_PhysicalBoundary()
+            ! call Clear_some_Ions_beyond_Boundaries()
+            ! call Generate_Ions_beyond_VelocityCutOff_Fixed_Grid()
+            ! call Generate_Ions_beyond_PhysicalBoundary()
 
             call timer(t0,dt,t0wc,dtwc)
             time(16)=time(16)+dt
             timewc(16)=timewc(16)+dtwc
          endif
       endif
-
 
       do irk=1,nrk
 
@@ -432,7 +435,11 @@ program GTS
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
          ! in PUSHI for calculating electric force on ions
          if(Flag_Poisson3D_on_SG==1) then
-            call Measure_Ion_Density_on_SG(0)
+            if(Flag_Weight_dfh==3 .and. irk==nrk) then
+               call Measure_Ion_Density_on_SG(1)
+            else
+               call Measure_Ion_Density_on_SG(0)
+            endif
          else
             call charge_ion
          endif
@@ -474,7 +481,8 @@ program GTS
                   time(11)=time(11)+dt
                   timewc(11)=timewc(11)+dtwc
                else
-                  call pusheon_wEvol3(solver1, masssolver, irk, nrk)
+                  ! call pusheon_wEvol3(solver1, masssolver, irk, nrk)
+                  call pusheon_wEvol4(solver1, masssolver, irk, nrk)
                   call timer(t0,dt,t0wc,dtwc)
                   time(10)=time(10)+dt
                   timewc(10)=timewc(10)+dtwc
@@ -544,7 +552,11 @@ program GTS
             ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
             ! for calculating gamma_e
             if(Flag_Poisson3D_on_SG==1) then
-               call Measure_Electron_Density_on_SG(0)
+               if(Flag_Weight_dfh==3 .and. irk==nrk) then
+                  call Measure_Electron_Density_on_SG(1)
+               else
+                  call Measure_Electron_Density_on_SG(0)
+               endif
             else
                call charge_eon
             endif
@@ -606,13 +618,11 @@ program GTS
       ! profile snapshots, write particle information to restart file
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
-      call Cal_E_para_on_SG
-      call Cumulate_SG_E_para
 
       if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
-         if(mod(istep,Ptl_Src_nstep)==0) then
+         if(istep==istart .or. mod(istep,Ptl_Src_nstep)==0) then
             call timer(t0,dt,t0wc,dtwc)
-            call Generate_Particles_from_Boundaries_with_LoadBalancing(2*tstep*utime)
+            call Generate_Particles_from_Boundaries_with_LoadBalancing(Ptl_Src_nstep*tstep*utime)
             call timer(t0,dt,t0wc,dtwc)
             time(16)=time(16)+dt
             timewc(16)=timewc(16)+dtwc
@@ -621,7 +631,7 @@ program GTS
       ! call load_electrons_In_or_Out_Flux(100,tstep*utime)
       ! call load_electrons_In_or_Out_Flux(10,tstep)
 
-      if(mod(istep,msnap) .eq. 0) then
+      if( mod(istep,msnap) .eq. 0) then
 
          call Update_Most_Particle_Information_to_HOST()
 
@@ -632,6 +642,10 @@ program GTS
 
          call Measure_Electron_Density_on_SG(1) !Input flag=1 for diagnostic purpose
          call Measure_Ion_Density_on_SG(1) !Input flag=1 for diagnostic purpose
+
+         ! call Cal_dupara_per_dt_using_SG
+
+         if(Flag_Poisson==1 .and. Flag_Poisson3D_on_SG==1) call Cal_IonPolarDensity_and_RealCharge
 
          call MPI_Reduce_FootPrints_of_Electrons_and_Ions(FP_BDY1,numberpe-1)
          call Cumulate_FP_to_cumFP(FP_BDY1,cum_FP_BDY1)
