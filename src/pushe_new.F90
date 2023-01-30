@@ -2413,7 +2413,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
    integer, intent(in) :: irk_e, nrk
    integer i,ip,m,ij,ierr
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(me),da(me),dgq(me),dgf(me),gradPhi(3,me),wpi(3,me),Er_particle(me)
+   real(wp) dgr(me),da(me),dgq(me),dgf(me),gradPhi(3,me),wpi(5,me),Er_particle(me)
    real(wp) ga(me),wga(3,me), gat(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
@@ -2490,6 +2490,8 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
    if(irk_e==1) then
       !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
+         wpi(4,m) = zeon(5,m)-zeon0(5,m) ! Change of dh during the last one step
+         wpi(5,m) = zeon(8,m)-zeon0(8,m) ! Change of full-h during the last one step
          !$acc loop seq
          do i=1,5
             zeon0(i,m)=zeon(i,m)
