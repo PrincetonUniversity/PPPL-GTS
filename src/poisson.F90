@@ -10,6 +10,7 @@ subroutine poisson( solver, masssolver )
    !use linear_system
    use solver_data_class
    use Structured_Grid
+   use MGY_PETSc_Interface_Data
    implicit none
    !
    type(solver_data) :: solver, masssolver
@@ -147,9 +148,25 @@ subroutine poisson( solver, masssolver )
 
       if(Flag_Poisson3D_on_SG>=1) then
 
-         ! Smooth SG densities
-         SG%dne_SM = SG%dne(:,:,1)
-         SG%dni_SM = SG%dni(:,:,1)
+         ! Calculate dn
+         if(Flag_Weight_dfh==0) then
+            SG%dne_SM = SG%dne(:,:,1)
+            SG%dni_SM = SG%dni(:,:,1)
+         elseif(Flag_Weight_dfh==1) then
+            do i=1,SG%dim_s
+               SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
+               SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
+            enddo
+         elseif(Flag_Weight_dfh==2) then
+            ! dn = Hybrid_Density - n0
+            ! where Hybrid_Density = hyb_ratio*(full_f or full_h) + (1-hyb_ratio)*(delta_f or delta_h)
+            do i=1,SG%dim_s
+               SG%dne_SM(:,i) = SG%hyb_ratio_e(:,i)*SG%ne_by_fh(:,i,1)+(1.0-SG%hyb_ratio_e(:,i))*(SG%dne(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
+               SG%dni_SM(:,i) = SG%hyb_ratio_i(:,i)*SG%ni_by_ff(:,i,1)+(1.0-SG%hyb_ratio_i(:,i))*(SG%dni(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
+            enddo
+         endif
+
+         ! Then, smooth them
          call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
          call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
 
@@ -159,6 +176,7 @@ subroutine poisson( solver, masssolver )
          ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
+         call Cal_gradPhi_on_SG
 
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
@@ -179,6 +197,11 @@ subroutine poisson( solver, masssolver )
          else
             phi(0,:)=recvl
          endif
+
+         ! poloidal BC
+         do i=0,mpsi
+            phi(:,igrid(i)) = phi(:,igrid(i)+mtheta(i))
+         enddo
 
          ! flux surface average and normalization
          adum=0.0_wp
@@ -389,10 +412,25 @@ subroutine poisson( solver, masssolver )
 
       if(Flag_Poisson3D_on_SG>=1) then
 
+         ! Calculate dn
+         if(Flag_Weight_dfh==0) then
+            SG%dne_SM = SG%dne(:,:,1)
+            SG%dni_SM = SG%dni(:,:,1)
+         elseif(Flag_Weight_dfh==1) then
+            do i=1,SG%dim_s
+               SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
+               SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
+            enddo
+         elseif(Flag_Weight_dfh==2) then
+            ! dn = Hybrid_Density - n0
+            ! where Hybrid_Density = hyb_ratio*(full_f or full_h) + (1-hyb_ratio)*(delta_f or delta_h)
+            do i=1,SG%dim_s
+               SG%dne_SM(:,i) = SG%hyb_ratio_e(:,i)*SG%ne_by_fh(:,i,1)+(1.0-SG%hyb_ratio_e(:,i))*(SG%dne(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
+               SG%dni_SM(:,i) = SG%hyb_ratio_i(:,i)*SG%ni_by_ff(:,i,1)+(1.0-SG%hyb_ratio_i(:,i))*(SG%dni(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
+            enddo
+         endif
 
-         ! Smooth SG densities
-         SG%dne_SM = SG%dne(:,:,1)
-         SG%dni_SM = SG%dni(:,:,1)
+         ! and smooth them
          call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
          call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
 
@@ -419,7 +457,7 @@ subroutine poisson( solver, masssolver )
          ! ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
          ! ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)
          ! call Solve_Poisson3D_on_SG
-         ! call Cal_gradPhi_on_SG
+         call Cal_gradPhi_on_SG
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)
          ! Therefore, a unit conversion is needed afther the interpolation
          ! call Interpolate_SG_into_GTSmgrid(SG%test_phi_2D,phi(1,:))
@@ -437,6 +475,11 @@ subroutine poisson( solver, masssolver )
          else
             phi(0,:)=recvl
          endif
+
+         ! poloidal BC
+         do i=0,mpsi
+            phi(:,igrid(i)) = phi(:,igrid(i)+mtheta(i))
+         enddo
 
          ! flux surface average and normalization
          adum=0.0_wp

@@ -108,10 +108,9 @@ Subroutine setup
    if(ifneoclassical==1) Er_from_GTC_Neo=0   ! no need to import any equilibrium Er
 
    if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases
-   zeondim=7
-   if(ifdphi>=2) zeondim=8
-   ziondim=7
-   if(Flag_Recycling==1) ziondim=8 ! 8-th value is for the phase space volume of the particle
+   zeondim=8
+   if(ifdphi>=2) zeondim=9
+   ziondim=8
    !  r0=rmajor    !wx  normalized
    !  b0=b_axis    !wx  normalized
 
@@ -143,6 +142,8 @@ Subroutine setup
 
    ! make sure that mzetamax is a multiple of ntoroidal
    mzetamax=ntoroidal*max(1,int(real(mzetamax)/real(ntoroidal)+0.5_wp))
+
+   !$acc update device(mzetamax)
 
    ! Domain decomposition in toroidal direction.
    zetamin=2.0_wp*pi*real(toroidal_domain_location)/real(ntoroidal)
@@ -210,6 +211,7 @@ Subroutine setup
    !  a0=a0*a                  ! inner boundary, unit=R_0
    !  a1=a1*a                  ! outer boundary, unit=R_0
 
+   !$acc update device(a0,a1)
    if(mype==0)then
       write(0,*) 'a1=',a1, 'a0=', a0, 'a=',a
    end if
@@ -502,6 +504,8 @@ Subroutine setup
    error_8=1.0e-5_wp
    IFAIL=1
    s1=D01AHF(0.0_wp,a1,error_8,minpts,acc,dsda,-1,IFAIL)
+
+   !$acc update device(s0)
 
    if(mype==0) write(0,*) 'Tc=', Tc*Tem_00,  'in KeV', backnc, &
       ' a_ref=',a_ref,'  vthc=',vthc,'  s0=',s0,'  s1=',s1
@@ -1913,21 +1917,9 @@ Subroutine setup
    endif
    if(ifelectron/=0) then
 
-      if(Flag_RK4==1) then
-         if(ifdphi==3) then
-            ! 8th element stores cumulative weight increase due to partial derivative of dphidt
-            allocate(RK_cum_zeon(8,memax))
-         else
-            allocate(RK_cum_zeon(7,memax))
-         endif
-         RK_cum_zeon=0.0
-      endif
-
-      if(ifdphi>=2) then   ! use direct dphi/dt when ifelectron==2
-         allocate (zeon(8,memax),zeon0(8,memax),zeon00(8,memax))
-      else
-         allocate (zeon(7,memax),zeon0(7,memax),zeon00(7,memax))
-      end if
+      allocate(RK_cum_zeon(zeondim,memax))
+      RK_cum_zeon=0.0
+      allocate (zeon(zeondim,memax),zeon0(zeondim,memax),zeon00(zeondim,memax))
 
       allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
          wteon0(memax),wteon1(memax),markere(mgrid),&
@@ -2326,6 +2318,8 @@ Subroutine setup
    w2_eon0=1.0_wp
 
 
+   Fac_Volt2GTS = (charg0*1e8)/(E_00*c)
+
 end subroutine setup
 
 !=============================================================================
@@ -2438,6 +2432,7 @@ Subroutine read_input_params
    use profile_array
    use FieldLineFollowing
    use MGY_PETSc_Interface_Data
+   use Diagnostic_Grid
 
    implicit none
    integer :: max_EMP_num = 20, k
@@ -2464,12 +2459,17 @@ Subroutine read_input_params
       Flag_Def_dne_adiab, & ! Default=0 (OFF), can be set =1(ON) by INPUT.d
       Flag_w_Evol, &   ! Default=0 (OFF), can be set =1(Transformed WeightEvol Equation) by INPUT.d
       Flag_w_Threshold,   &
+      Flag_v_Threshold,   &
       Flag_Load_and_WeightDef, & ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
       Flag_Quiet_Start,   &   ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
-      Flag_Ptl_BC_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+      Flag_Ptl_BC0_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+      Ptl_BC0_val,        &   ! Default value of Particle Flux Generating at both edge (0.0=loss boundary at outer edge; 1.0=flux from original n0+dne_adiab at inner edge)
+      Flag_Ptl_BC1_type,   &   ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+      Ptl_BC1_val,        &   ! Default value of Particle Flux Generating at both edge (0.0=loss boundary at outer edge; 1.0=flux from original n0+dne_adiab at inner edge)
       Flag_Update_Pol_Shielding, & ! Default=0 (Not Update), can be set=1(Update) Polarization Shielding Term in Poisson3D equation over time
       Flag_DK_Ion,        &   ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
       Flag_Measure_Ptl_FootPrint, & ! Default=0(Not Meausre), can be set =1 (Do Measure)
+      Flag_Weight_dfh,    &   ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight0
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
@@ -2558,11 +2558,21 @@ Subroutine read_input_params
       larmor_num,         &    !how many points are used to do something on gyro orbit
       FLF_max_tor_num,    &    ! For FieldLineFollowing routine, Maximum toroidal rotation in each direction (+,-)
       gPPI_max_tor_num,   &    ! For gPPI routine, Maximum toroidal rotation in each direction (+,-)
+      Ptl_Src_nstep,      &    ! Generate src from boundaires at every Ptl_Src_nstep
+      Ptl_Src_dim_a,      &    ! radial dimension of PtlSrcCV system
+      Ptl_Src_dim_gq,     &    ! poloidal dimension of PtlSrcCV system
       BC0_type,           &    ! type of BC0 (inner boundary; s=s0) (type=0: Dirichelt, type=1: Neumann)
       BC0_value,          &    ! value of BC0 (inner boundary; s=s0)
       BC1_type,           &    ! type of BC1 (outer boundary; s=s1) (type=0: Dirichelt, type=1: Neumann)
       BC1_value,          &    ! value of BC1 (outer boundary; s=s1)
-      MaxLoopNum_Adiab_Weight_Update ! Default=1 (number of loop for updating adiabatic weight evolution)
+      MaxLoopNum_Adiab_Weight_Update, &! Default=1 (number of loop for updating adiabatic weight evolution)
+      num_of_PVS,         &
+      PVS_max_v,          &
+      PVS_nv,             &
+      PVS_a0,             &
+      PVS_a1,             &
+      PVS_gq0,            &
+      PVS_gq1
 
    namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
       its,                &   ! number of iteration used for superLU interation in poisson solver
@@ -2608,12 +2618,17 @@ Subroutine read_input_params
       write(0,*) 'Flag_Def_dne_adiab=', Flag_Def_dne_adiab
       write(0,*) 'Flag_w_Evol=', Flag_w_Evol
       write(0,*) 'Flag_w_Threshold=', Flag_w_Threshold
+      write(0,*) 'Flag_v_Threshold=', Flag_v_Threshold
       write(0,*) 'Flag_Load_and_WeightDef=', Flag_Load_and_WeightDef
       write(0,*) 'Flag_Quiet_Start=', Flag_Quiet_Start
-      write(0,*) 'Flag_Ptl_BC_type=', Flag_Ptl_BC_type
+      write(0,*) 'Flag_Ptl_BC0_type=', Flag_Ptl_BC0_type
+      write(0,*) 'Ptl_BC0_val=', Ptl_BC0_val
+      write(0,*) 'Flag_Ptl_BC1_type=', Flag_Ptl_BC1_type
+      write(0,*) 'Ptl_BC1_val=', Ptl_BC1_val
       write(0,*) 'Flag_Update_Pol_Shielding=', Flag_Update_Pol_Shielding
       write(0,*) 'Flag_DK_Ion=', Flag_DK_Ion
       write(0,*) 'Flag_Measure_Ptl_FootPrint=', Flag_Measure_Ptl_FootPrint
+      write(0,*) 'Flag_Weight_dfh=', Flag_Weight_dfh
       write(0,*) 'w_Thold_min=', w_Thold_min
       write(0,*) 'w_Thold_max=', w_Thold_max
       write(0,*) 'tstep=', tstep
@@ -2649,6 +2664,7 @@ Subroutine read_input_params
       write(0,*) 'FLF_max_tor_num=', FLF_max_tor_num,', gPPI_max_tor_num=',gPPI_max_tor_num
       write(0,*) 'BC0_type=', BC0_type,', BC0_value=',BC0_value
       write(0,*) 'BC1_type=', BC1_type,', BC1_value=',BC1_value
+      write(0,*) 'Ptl_Src_nstep=', Ptl_Src_nstep
 
    endif
 

@@ -14,18 +14,23 @@ end module precision
 module global_parameters
    use precision
    integer,parameter :: ihistory=22,snapout=33
-   integer micell,mi,mimax,me,ini_me, ini_mi, memax,mgrid,mpsi,mthetamax,& ! ,mzeta
+   integer micell,mi,mimax,me,ini_me,ini_mi,ini_me_npartd, ini_mi_npartd, memax,mgrid,mpsi,mthetamax,& ! ,mzeta
       mzetamax,istep,ndiag,istart,movie_3D_h5,ntracer,msnap,mstep,mstepall,&
       stdout,mype,numberpe,mode00,nbound,irun,iload,irk,&
       idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,maintnT,&
-      nelectron,ntracer_e,ntracer00,me00,idiag_e
+      nelectron,ntracer_e,ntracer00,me00,idiag_e,ierrr
    integer :: nbound_inner=-100, nbound_outer=-100
+   real(wp) Gt_start, Gt_end ! for measuring the elpased time for something
    real(wp) misum,mesum  !Total number of ions and electrons can be >2 billion
    real(wp) nonlinear,a0,a1,a,q0,q1,q2,pi,twopi,inv_twopi,tstep,kappati,kappate,&
       kappan,flow0,flow1,flow2,ulength,utime,E_00,gyroradius,deltar,&
       deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,&
       uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
       s0,s1,B_0,R_0,Cs   ! B_0=normalized on-axis B, R_0=normalized major radius
+   !$acc declare create(a0,a1)
+   !$acc declare create(s0,mzetamax)
+
+   real(wp) Fac_Volt2GTS ! Conversion Factor from Volt to GTS unit
    real(wp) MM_Cs, MM_Lc_over_vthci, MM_LcTi, MM_LcTe, MM_Lcn, MM_Lcu, MM_vthci, MM_vthce, MM_R_axis, MM_B_axis ! Variables for MeasureMent
    integer,dimension(:),allocatable :: mtheta
    real(wp),dimension(:),allocatable :: deltat
@@ -50,6 +55,7 @@ module global_parameters
    ! Default values are  w_min=-50 (df/f=-0.9803892168), w_max=0.9803921568 (df/f=50)
    ! These values can be controlled in INPUT.d file
    integer :: Flag_w_Threshold = 0 ! Default=0 (OFF), can be turned on (=1;ON) via INPUT.d, (=2: Abandon abnormal particles)
+   integer :: Flag_v_Threshold = 0 ! Default=0 (OFF), can be turned on (=1;ON: Abandon abnormal particles)
    real(wp) :: w_Thold_min = -50.0, w_Thold_max = 1.0
 
    integer jr
@@ -81,12 +87,18 @@ module global_parameters
    character(128) :: Er_data_name,profile_data_name,eq_data_name
 
    ! the following vaiables and arrays are used for diagnosis of distribution function
-   integer,parameter :: nprobe=3
+   integer,parameter :: nprobe=4
    real(wp)  rprobe(nprobe),tprobe(nprobe),uflow(nprobe),vthprobe(nprobe),vthprobe_e(nprobe),  &
       sn_box(nprobe),density_in_box(nprobe), &
       Ti_box(nprobe),Te_box(nprobe)
    integer   nv
    real(wp)  dradius, dtheta, delta_v
+
+   ! Diagnostic Grid, PVS information
+   integer :: num_of_PVS=0
+   integer :: PVS_max_v=4, PVS_nv=20
+   real(wp):: PVS_a0(100), PVS_a1(100), PVS_gq0(100), PVS_gq1(100) ! at zetamax (temporal storage here)
+
 
    ! The following input parameters are specified in setup for radial boundary layers with damping
    real(wp) lmin, lmax, rmin, rmax
@@ -150,12 +162,18 @@ module global_parameters
    integer :: Flag_GC_Solver=1 ! Default=1 (Vector form GC equation), can be set =0(Matrix form GC equation)
    integer :: Flag_Load_and_WeightDef=0 ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
    integer :: Flag_Quiet_Start=1 ! Default=1 (Quiet Start), can be set =0 (Non-Quiet Start)
-   integer :: Flag_Ptl_BC_type=0 ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+   integer :: Flag_Ptl_BC0_type=0 ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+   integer :: Flag_Ptl_BC1_type=0 ! Default=0 (Original reflecting particle boundary), can be set =1 (Delete particles when hit the boundary)
+   real(wp) :: Ptl_BC0_val=1.0, Ptl_BC1_val=0.0 ! Default value of Particle Flux Generating at both edge (0.0=loss boundary; 1.0=flux from original n0+dne_adiab)
    integer :: Flag_Update_Pol_Shielding=0 ! Default=0 (Not updating Polarization Shielding over time)
    integer :: Flag_DK_Ion=0 ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
    integer :: Flag_Measure_Ptl_FootPrint=0 ! Default=0(Not Meausre), can be set =1 (Do Measure)
    integer :: Flag_noExB=0 ! Default=0 (ExB is considered), can be set =1 (noExB)
    integer :: Flag_Recycling=0 ! Default=0 (no Recycling), can be set = 1 (Recycling of Ion at outer wall)
+   integer :: Flag_Weight_dfh=0 ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight)
+   integer :: Ptl_Src_nstep=50 ! Generate src from boundaires at every Ptl_Src_nstep (default=50 steps)
+   integer :: Ptl_Src_dim_a=50 ! radial dimension of PtlSrcCV system
+   integer :: Ptl_Src_dim_gq=50 ! poloidal dimension of PtlSrcCV system
 
    integer :: MaxLoopNum_Adiab_Weight_Update=1 ! Default=1 (number of loop for updating adiabatic weight evolution)
 
@@ -165,8 +183,9 @@ module global_parameters
    ! (1) shifte, (2) charge_eon, (3) poisson, (4) Smooth_Phi (5) Diagnostics
    real(wp) time_in_Pushe(5), timewc_in_Pushe(5)
    ! To measure the elapsed times of the following routines in the Pushion
-   ! (1) Diagnostics
-   real(wp) time_in_Pushi(1), timewc_in_Pushi(1)
+   ! (1) Diagnostics, (2) shifti (in the case of pushion_wEvol3)
+   real(wp) time_in_Pushi(2), timewc_in_Pushi(2)
+
 
 end module global_parameters
 
@@ -178,7 +197,7 @@ module FieldLineFollowing
       real(wp) target_normalized_gf  ! target_zeta in [0,...,2*pi]
       real(wp) s, a, gq, gf
       real(wp) R, Z
-      real(wp) dl, inv_B
+      real(wp) dl, inv_B, B
       real(wp) ini_FLabel ! FLabel_Function will be used to estimate modified flux-surface labels
    end type
 

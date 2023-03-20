@@ -13,7 +13,7 @@ module Structured_Grid
       real(wp) ds,inv_ds   ! ds is constant since this is the structured grid on (s-gq-gf) coordinate.
 
       real(wp),allocatable,dimension(:) :: a_1D,ori_sid,s_1D,dsda_1D,gq_1D
-      real(wp),allocatable,dimension(:) :: safety_q_1D,n0_1D,Te0_1D,Te0_eV_1D,Ti0_1D ! some equilibrium 1D profile information
+      real(wp),allocatable,dimension(:) :: safety_q_1D,n0_1D,Te0_1D,Te0_eV_1D,Ti0_1D,Ti0_eV_1D ! some equilibrium 1D profile information
       real(wp),allocatable,dimension(:,:) :: a_2D,s_2D,dsda_2D,gq_2D
       real(wp),allocatable,dimension(:,:) :: Cell_dV,inv_Cell_dV ! Cell Volume and its inverse
       real(wp),allocatable,dimension(:,:) :: Cell_dS_s,inv_Cell_dS_s,Cell_dS_gq,inv_Cell_dS_gq,Cell_dS_gf,inv_Cell_dS_gf ! Node_Surface in each direction
@@ -28,6 +28,10 @@ module Structured_Grid
       real(wp),allocatable,dimension(:,:) :: g_ss_cntv,g_sq_cntv,g_ss_cov,g_sq_cov,Jacob_sqf
       real(wp),allocatable,dimension(:,:,:) :: B0_cntv3_sqf
 
+
+      real(wp),allocatable,dimension(:,:,:,:) :: dB_cntv3
+      real(wp),allocatable,dimension(:,:,:) :: E_para
+
       ! Gyro-Orbit positioning information
       ! real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
 
@@ -35,13 +39,17 @@ module Structured_Grid
       real(wp),allocatable, dimension(:,:,:) :: dni,dTi ! dimension: (dim_gq, dim_s, 0:1)
       real(wp),allocatable, dimension(:,:,:) :: dne,dTe
       real(wp),allocatable, dimension(:,:) :: dni_SM, dne_SM ! Smoothed Densities for Poisson3D equation and updating Polarization Shielding Components
-      real(wp),allocatable, dimension(:,:,:) :: ne,ni ! These are total electron density and ion density including equilibrium density (So, f=f0+df)
+      real(wp),allocatable, dimension(:,:,:) :: ne_by_fh,ni_by_ff ! These are total electron density and ion density including equilibrium density (So, f=f0+df)
+      real(wp),allocatable, dimension(:,:) :: hyb_ratio_e, hyb_ratio_i ! hybrid_ratio_e (=abs(dne)/(abs(dne)+abs(ne_by_fh))) and hybrid_ratio_i (=abs(dni)/(abs(dni)+abs(ni)))
 
       real(wp), allocatable, dimension(:,:,:) :: phi ! dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
       real(wp), allocatable, dimension(:,:,:,:) :: grad_phi_cov
       ! Test 2D phi calculated by solving 3D Poission equation
       real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D, test_res_2D
-      real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D, test_res_3D
+      real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D
+
+      real(wp), allocatable, dimension(:,:) :: RealCharge_2D, niPol_2D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
+      real(wp), allocatable, dimension(:,:,:) :: RealCharge_3D, niPol_3D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
 
    end type
 
@@ -50,6 +58,12 @@ module Structured_Grid
    ! Gyro-Orbit positioning information
    real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
    !$acc declare create(gyro_over_sqrt_mu)
+
+   real(wp) SG_zetamin, SG_zetamax, SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds
+   integer :: SG_dim_s
+   real(wp), allocatable ::  SG_s_1D(:), SG_gq_1D(:), SG_safety_q_1D(:), SG_phi(:,:,:), SG_phi_3D(:,:,:)
+   !$acc declare create(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
+   !$acc declare create(SG_s_1D,SG_gq_1D,SG_safety_q_1D,SG_phi,SG_phi_3D)
 
 contains
 
@@ -60,9 +74,10 @@ contains
 
       integer i,j,k,sid,gqid,ij,Ns,Nq
       real(wp), external :: dsda
-      real(wp) tmp, this_ds
+      real(wp) tmp, this_ds, this_s, this_Jacob
       integer larmor,ss,qq
       real(wp) gyro_phase,coeff,dR_du(3,2)
+      real(wp) :: tmp_ga, tmp_grad_ga(3), tmp_dga0dt
 
       SG%dim_s=(mpsi+1)/SG%s_jump
       SG%dim_a=SG%dim_s
@@ -82,8 +97,12 @@ contains
       Ns=SG%dim_s
       Nq=SG%dim_gq
 
+      SG_zetamin=SG%zetamin; SG_zetamax=SG%zetamax;
+      SG_inv_dgf=SG%inv_dgf; SG_inv_dgq=SG%inv_dgq; SG_dgf=SG%dgf; SG_inv_ds=SG%inv_ds; SG_dim_s = SG%dim_s;
+      !$acc update device(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
+
       allocate(SG%gq_1D(Nq))
-      allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
+      allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%Ti0_eV_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
       allocate(SG%a_2D(Nq,Ns),SG%dsda_2D(Nq,Ns),SG%gq_2D(Nq,Ns),SG%Cell_dV(Nq,Ns),SG%inv_Cell_dV(Nq,Ns))
       allocate(SG%Cell_dS_s(Nq,Ns),SG%inv_Cell_dS_s(Nq,Ns),SG%Cell_dS_gq(Nq,Ns),SG%inv_Cell_dS_gq(Nq,Ns),SG%Cell_dS_gf(Nq,Ns),SG%inv_Cell_dS_gf(Nq,Ns))
 
@@ -100,6 +119,7 @@ contains
          SG%safety_q_1D(k)=q_grid(i)
          k=k+1
       enddo
+      SG%Ti0_eV_1D=1e3*Tem_00*SG%Ti0_1D
 
       do i=1,Nq
          SG%gq_1D(i)=(2.0*pi)/(Nq-1)*(i-1)
@@ -123,7 +143,10 @@ contains
       allocate(SG%dne(Nq,Ns,0:1),SG%dni(Nq,Ns,0:1))
       allocate(SG%dne_SM(Nq,Ns),SG%dni_SM(Nq,Ns))
       allocate(SG%dTe(Nq,Ns,0:1),SG%dTi(Nq,Ns,0:1))
-      allocate(SG%ne(Nq,Ns,0:1),SG%ni(Nq,Ns,0:1))
+      allocate(SG%ne_by_fh(Nq,Ns,0:1),SG%ni_by_ff(Nq,Ns,0:1))
+      allocate(SG%hyb_ratio_e(Nq,Ns),SG%hyb_ratio_i(Nq,Ns))
+      SG%hyb_ratio_e=0.0 ! Default vale that means use delta-fh rather than full-fh
+      SG%hyb_ratio_i=0.0 !
 
       call esiget2dthese_more(SG%F,SG%dFda,SG%dgFda,SG%dgYda,SG%R,SG%dRda,SG%dRdgq,SG%Z,SG%dZda,SG%dZdgq,SG%BB,SG%dBBda,SG%dBBdgq,SG%P,SG%T,SG%a_2D,SG%gq_2D,Nq*Ns)
 
@@ -175,6 +198,28 @@ contains
       SG%j0_cov3(3,:,:)=SG%g_ff_cov*SG%j0_cntv3(3,:,:)
 
 
+      allocate(SG%dB_cntv3(3,SG%dim_gq,SG%dim_s,0:1))
+      if(electromagnetic==1 .and. num_of_EMP>0) then
+         do ss=1,SG%dim_s
+            do qq=1,SG%dim_gq
+
+               ! At zeta=zetamin
+               call Get_MP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamin, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
+               SG%dB_cntv3(1,qq,ss,0) = tmp_ga*SG%j0_cntv3(1,qq,ss) + (tmp_grad_ga(2)*SG%B0_cov3(3,qq,ss) - tmp_grad_ga(3)*SG%B0_cov3(2,qq,ss))/SG%Jacobian(qq,ss)
+               SG%dB_cntv3(2,qq,ss,0) = tmp_ga*SG%j0_cntv3(2,qq,ss) + (tmp_grad_ga(3)*SG%B0_cov3(1,qq,ss) - tmp_grad_ga(1)*SG%B0_cov3(3,qq,ss))/SG%Jacobian(qq,ss)
+               SG%dB_cntv3(3,qq,ss,0) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)
+
+               ! At zeta=zetamax
+               call Get_MP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamax, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
+               SG%dB_cntv3(1,qq,ss,1) = tmp_ga*SG%j0_cntv3(1,qq,ss) + (tmp_grad_ga(2)*SG%B0_cov3(3,qq,ss) - tmp_grad_ga(3)*SG%B0_cov3(2,qq,ss))/SG%Jacobian(qq,ss)
+               SG%dB_cntv3(2,qq,ss,1) = tmp_ga*SG%j0_cntv3(2,qq,ss) + (tmp_grad_ga(3)*SG%B0_cov3(1,qq,ss) - tmp_grad_ga(1)*SG%B0_cov3(3,qq,ss))/SG%Jacobian(qq,ss)
+               SG%dB_cntv3(3,qq,ss,1) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)
+            enddo
+         enddo
+      else
+         SG%dB_cntv3 = 0.0
+      endif
+
 
       ! Calculate gyro-radius information
       ! gyro-orbit position = GC_position + (gyro_over_sqrt_mu)*sqrt(mu)
@@ -214,17 +259,22 @@ contains
       !        For higher accuracy, a Weighted Volume by considering helical particle shape and varying da is required
 
       do sid=1,Ns
-         if(sid==1 .or. sid==Ns) then
-            this_ds=0.5*SG%ds
-         else
-            this_ds=SG%ds
-         endif
-
          do gqid=1,Nq
-            SG%Cell_dV(gqid,sid)=SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgq*SG%dgf
-            SG%Cell_dS_s(gqid,sid)=sqrt(SG%g_aa_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*SG%dgq*SG%dgf
-            SG%Cell_dS_gq(gqid,sid)=sqrt(SG%g_qq_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgf
-            SG%Cell_dS_gf(gqid,sid)=sqrt(SG%g_ff_cntv(gqid,sid))*SG%Jacob_sqf(gqid,sid)*this_ds*SG%dgq
+            if(sid==1) then
+               this_Jacob = 0.5*(SG%Jacob_sqf(gqid,1)+SG%Jacob_sqf(gqid,2))
+               this_ds=0.5*SG%ds
+            elseif(sid==Ns) then
+               this_Jacob = 0.5*(SG%Jacob_sqf(gqid,Ns-1)+SG%Jacob_sqf(gqid,Ns))
+               this_ds=0.5*SG%ds
+            else
+               this_Jacob = SG%Jacob_sqf(gqid,sid)
+               this_ds=SG%ds
+            endif
+
+            SG%Cell_dV(gqid,sid)=this_Jacob*this_ds*SG%dgq*SG%dgf
+            SG%Cell_dS_s(gqid,sid)=sqrt(SG%g_aa_cntv(gqid,sid))*this_Jacob*SG%dgq*SG%dgf
+            SG%Cell_dS_gq(gqid,sid)=sqrt(SG%g_qq_cntv(gqid,sid))*this_Jacob*this_ds*SG%dgf
+            SG%Cell_dS_gf(gqid,sid)=sqrt(SG%g_ff_cntv(gqid,sid))*this_Jacob*this_ds*SG%dgq
          enddo
       enddo
       SG%inv_Cell_dV=1.0/SG%Cell_dV
@@ -239,8 +289,21 @@ contains
       allocate(SG%grad_phi_cov(3,Nq,Ns,0:1))
 
       allocate(SG%test_phi_2D(Nq,Ns),SG%test_src_2D(Nq,Ns),SG%test_res_2D(Nq,Ns))
-      allocate(SG%test_phi_3D(Nq,Ns,mzetamax),SG%test_src_3D(Nq,Ns,mzetamax),SG%test_res_3D(Nq,Ns,mzetamax))
+      allocate(SG%test_phi_3D(Nq,Ns,mzetamax),SG%test_src_3D(Nq,Ns,mzetamax))
+      allocate(SG%RealCharge_2D(Nq,Ns),SG%niPol_2D(Nq,Ns))
+      allocate(SG%RealCharge_3D(Nq,Ns,mzetamax),SG%niPol_3D(Nq,Ns,mzetamax))
 
+
+
+
+      allocate(SG_s_1D(Ns), SG_gq_1D(Ns), SG_safety_q_1D(Ns))
+      allocate(SG_phi(Nq,Ns,0:2)) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
+      allocate(SG_phi_3D(Nq,Ns,mzetamax))
+
+      SG_s_1D  = SG%s_1D
+      SG_gq_1D = SG%gq_1D
+      SG_safety_q_1D = SG%safety_q_1D
+      !$acc update device(SG_s_1D,SG_gq_1D,SG_safety_q_1D)
 
    end subroutine Initialize_Structured_Grid
 
@@ -283,13 +346,18 @@ contains
 #endif
       if(acc_newer_H_zeon) then
          !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         !$acc update device(elabels(:me))
          acc_newer_H_zeon=.false.
          acc_newer_D_zeon=.false.
       endif
 
       select case(flagT)
          case(0) ! Default; only zeon(5,m)
-            num_eD=1
+            if(Flag_Weight_dfh==2) then ! When hybrid
+               num_eD=2
+            else
+               num_eD=1
+            endif
          case(1) ! Diagnostic purpose
             num_eD=2
          case default
@@ -307,15 +375,28 @@ contains
 
       select case(flagT)
          case(0)
+            if(Flag_Weight_dfh==0) then ! Using delta weight
             !$acc parallel loop present(zeon)
             do m=1,me
                ptl_data(1,m) = zeon(5,m)
             enddo
+            elseif(Flag_Weight_dfh==1) then ! Using full weight
+               !$acc parallel loop present(zeon)
+               do m=1,me
+                  ptl_data(1,m) = zeon(8,m)
+               enddo
+            elseif(Flag_Weight_dfh==2) then ! Using hybrid weight
+               !$acc parallel loop present(zeon,ptl_data)
+               do m=1,me
+                  ptl_data(1,m) = zeon(5,m)
+                  ptl_data(2,m) = zeon(8,m)
+               enddo
+            endif
          case(1)
-            !$acc parallel loop present(zeon,zeon0,ptl_data,backTe)
+            !$acc parallel loop present(zeon,ptl_data)
             do m=1,me
                ptl_data(1,m) = zeon(5,m)
-               ptl_data(2,m) = zeon0(6,m)
+               ptl_data(2,m) = zeon(8,m)
             enddo
       end select
 
@@ -324,15 +405,25 @@ contains
       if(Flag_Load_and_WeightDef==0) then
          !$acc parallel loop present(ptl_data)
          do m=1,me
-            ptl_data(:,m) = eNrNm*ptl_data(:,m)
+            !$acc loop seq
+            do k=1,num_eD
+               ptl_data(k,m) = eNrNm*ptl_data(k,m)
+            enddo
          enddo
       endif
 
-      !$acc parallel loop gang vector present(zeon,zeon0,ptl_data) private(ratio,qq,ss)
+      !$acc parallel loop gang vector present(zeon,zeon0,ptl_data,elabels) private(ratio,qq,ss)
       do m=1,me
          P_s = zeon(7,m)
+
+         if(elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+            ! Since this particle is outside the physical boundary, not need to calculate its contribution
+            cycle
+         endif
+
          P_gq = modulo(zeon(2,m),2*pi)
          P_gf = modulo(zeon(3,m),2*pi)
+         P_gf = max(SG%zetamin,min(SG%zetamax,P_gf))
 
          wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
          wgf0 = (1.0-wgf1)
@@ -412,23 +503,46 @@ contains
          eData(vid,:,:,1) = eData(vid,:,:,1)*SG%inv_Cell_dV
       enddo
 
-      ! Artificial damping near the both inner and outer boundary
-      do sid=1,1+nbound_inner
-         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(1),0.0,SG%s_1D(1+nbound_inner),1.0)
-         eData(:,:,sid,:) = tmp*eData(:,:,sid,:)
-      enddo
-      do sid=SG%dim_s-nbound_outer,SG%dim_s
-         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(SG%dim_s-nbound_outer),1.0,SG%s_1D(SG%dim_s),0.0)
-         eData(:,:,sid,:) = tmp*eData(:,:,sid,:)
-      enddo
+      ! ! Artificial damping near the both inner and outer boundary
+      ! do sid=1,1+nbound_inner
+      !    tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(1),0.0,SG%s_1D(1+nbound_inner),1.0)
+      !    eData(:,:,sid,:) = tmp*eData(:,:,sid,:)
+      ! enddo
+      ! do sid=SG%dim_s-nbound_outer,SG%dim_s
+      !    tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(SG%dim_s-nbound_outer),1.0,SG%s_1D(SG%dim_s),0.0)
+      !    eData(:,:,sid,:) = tmp*eData(:,:,sid,:)
+      ! enddo
 
       select case(flagT)
          case(0) ! Default; only zeon(5,m)
-            SG%dne = eData(1,:,:,:)
+            if(Flag_Weight_dfh==0) then
+               SG%dne = eData(1,:,:,:)
+            elseif(Flag_Weight_dfh==1) then
+               SG%ne_by_fh = eData(1,:,:,:)
+            elseif(Flag_Weight_dfh==2) then
+               SG%dne = eData(1,:,:,:)
+               SG%ne_by_fh  = eData(2,:,:,:)
+            endif
          case(1) ! Diagnostic purpose
             SG%dne = eData(1,:,:,:)
-            SG%ne  = eData(2,:,:,:)
+            SG%ne_by_fh  = eData(2,:,:,:)
       end select
+
+      ! Artificial damping of delta-n near the both inner and outer boundary
+      do sid=1,1+nbound_inner
+         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(1),0.0,SG%s_1D(1+nbound_inner),1.0)
+         SG%dne(:,sid,:) = tmp*SG%dne(:,sid,:)
+         SG%ne_by_fh(:,sid,:) = tmp*(SG%ne_by_fh(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
+      enddo
+      do sid=SG%dim_s-nbound_outer,SG%dim_s
+         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(SG%dim_s-nbound_outer),1.0,SG%s_1D(SG%dim_s),0.0)
+         SG%dne(:,sid,:) = tmp*SG%dne(:,sid,:)
+         SG%ne_by_fh(:,sid,:) = tmp*(SG%ne_by_fh(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
+      enddo
+
+      if(Flag_Weight_dfh==2) then
+         SG%hyb_ratio_e = min(1.0,abs(SG%dne(:,:,1))/(abs(SG%dne(:,:,1))+abs(SG%ne_by_fh(:,:,1))))
+      endif
 
       deallocate(eData,tmp_eData)
       deallocate(ptl_data)
@@ -479,6 +593,7 @@ contains
 
       if(acc_newer_H_zion) then
          !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+         !$acc update device(ilabels(:mi))
          acc_newer_D_zion=.false.
          acc_newer_H_zion=.false.
       endif
@@ -486,7 +601,11 @@ contains
 
      select case(flagT)
          case(0) ! Default; only zion(5,m)
-            num_iD=1
+            if(Flag_Weight_dfh==2) then ! When hybrid
+               num_iD=2
+            else
+               num_iD=1
+            endif
          case(1) ! Diagnostic purpose
             num_iD=2
          case default
@@ -503,28 +622,44 @@ contains
 
       select case(flagT)
          case(0)
-            !$acc parallel loop present(zion)
-            do m=1,mi
-               ptl_data(1,m) = zion(5,m)
-            enddo
+            if(Flag_Weight_dfh==0) then ! Using delta weight
+               !$acc parallel loop present(zion)
+               do m=1,mi
+                  ptl_data(1,m) = zion(5,m)
+               enddo
+            elseif(Flag_Weight_dfh==1) then ! Using full weight
+               !$acc parallel loop present(zion)
+               do m=1,mi
+                  ptl_data(1,m) = zion0(8,m)
+               enddo
+            elseif(Flag_Weight_dfh==2) then ! Using hybrid weight
+               !$acc parallel loop present(zion,zion0,ptl_data)
+               do m=1,mi
+                  ptl_data(1,m) = zion(5,m)
+                  ptl_data(2,m) = zion0(8,m)
+               enddo
+            endif
          case(1)
             !$acc parallel loop present(zion,zion0,ptl_data)
             do m=1,mi
                ptl_data(1,m) = zion(5,m)
-               ptl_data(2,m) = zion0(6,m)
+               ptl_data(2,m) = zion0(8,m)
             enddo
       end select
 
 
       ! Mulitplying coeff in the case of Flag_Load_and_WeightDef==0
       if(Flag_Load_and_WeightDef==0) then
-         !$acc parallel loop present(ptl_data)
+         !$acc parallel loop gang vector present(ptl_data)
          do m=1,mi
-            ptl_data(:,m) = iNrNm*ptl_data(:,m)
+            !$acc loop seq
+            do k=1,num_iD
+               ptl_data(k,m) = iNrNm*ptl_data(k,m)
+            enddo
          enddo
       endif
 
-      !$acc parallel loop gang vector present(zion,zion0,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit,gyro_over_sqrt_mu,ptl_data) private(intpl_gyro,ratio,qq,ss)
+      !$acc parallel loop gang vector present(zion,zion0,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit,gyro_over_sqrt_mu,ptl_data,ilabels) private(intpl_gyro,ratio,qq,ss)
       do m=1,mi
 
          ! Measure the intpl_gyro at the Guiding Center position
@@ -552,9 +687,15 @@ contains
             zion_s_on_GyroOrbit(larmor,m) = zion(7,m) + zion(6,m)*intpl_gyro(1,larmor)
             zion_gq_on_GyroOrbit(larmor,m) =  modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
 
+            if( (zion_s_on_GyroOrbit(larmor,m)-s0)*(zion_s_on_GyroOrbit(larmor,m)-s1)>0) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
             P_s = max(s0,min(s1,zion_s_on_GyroOrbit(larmor,m)))
             P_gq = zion_gq_on_GyroOrbit(larmor,m)
             P_gf = modulo(zion(3,m) + zion(6,m)*intpl_gyro(3,larmor), 2.0*pi)
+            ! P_gf = modulo(zion(3,m),2.0*pi) + zion(6,m)*intpl_gyro(3,larmor)
             P_gf = max(zetamin,min(zetamax,P_gf))
 
             wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
@@ -635,25 +776,49 @@ contains
       enddo
 
 
-      ! Artificial damping near the both inner and outer boundary
-      do sid=1,1+nbound_inner
-         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(1),0.0,SG%s_1D(1+nbound_inner),1.0)
-         iData(:,:,sid,:) = tmp*iData(:,:,sid,:)
-      enddo
-      do sid=SG%dim_s-nbound_outer,SG%dim_s
-         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(SG%dim_s-nbound_outer),1.0,SG%s_1D(SG%dim_s),0.0)
-         iData(:,:,sid,:) = tmp*iData(:,:,sid,:)
-      enddo
+      ! ! Artificial damping near the both inner and outer boundary
+      ! do sid=1,1+nbound_inner
+      !    tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(1),0.0,SG%s_1D(1+nbound_inner),1.0)
+      !    iData(:,:,sid,:) = tmp*iData(:,:,sid,:)
+      ! enddo
+      ! do sid=SG%dim_s-nbound_outer,SG%dim_s
+      !    tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(SG%dim_s-nbound_outer),1.0,SG%s_1D(SG%dim_s),0.0)
+      !    iData(:,:,sid,:) = tmp*iData(:,:,sid,:)
+      ! enddo
 
 
 
       select case(flagT)
          case(0) ! Default; only zion(5,m)
-            SG%dni = iData(1,:,:,:)
+            if(Flag_Weight_dfh==0) then
+               SG%dni = iData(1,:,:,:)
+            elseif(Flag_Weight_dfh==1) then
+               SG%ni_by_ff = iData(1,:,:,:)
+            elseif(Flag_Weight_dfh==2) then
+               SG%dni = iData(1,:,:,:)
+               SG%ni_by_ff = iData(2,:,:,:)
+            endif
          case(1) ! Diagnostic purpose
             SG%dni = iData(1,:,:,:)
-            SG%ni  = iData(2,:,:,:)
+            SG%ni_by_ff  = iData(2,:,:,:)
       end select
+
+      ! Artificial damping of delta-n near the both inner and outer boundary
+      do sid=1,1+nbound_inner
+         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(1),0.0,SG%s_1D(1+nbound_inner),1.0)
+         SG%dni(:,sid,:) = tmp*SG%dni(:,sid,:)
+         SG%ni_by_ff(:,sid,:) = tmp*(SG%ni_by_ff(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
+      enddo
+      do sid=SG%dim_s-nbound_outer,SG%dim_s
+         tmp = SmootherStep(SG%s_1D(sid),SG%s_1D(SG%dim_s-nbound_outer),1.0,SG%s_1D(SG%dim_s),0.0)
+         SG%dni(:,sid,:) = tmp*SG%dni(:,sid,:)
+         SG%ni_by_ff(:,sid,:) = tmp*(SG%ni_by_ff(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
+      enddo
+
+
+      if(Flag_Weight_dfh==2) then
+         SG%hyb_ratio_i = abs(SG%dni(:,:,1))/(abs(SG%dni(:,:,1))+abs(SG%ni_by_ff(:,:,1)))
+      endif
 
       deallocate(iData,tmp_iData)
       deallocate(ptl_data)
@@ -763,6 +928,29 @@ contains
 
    end subroutine Get_Conserving_Smooth_Coeffs_on_SG
 
+
+   subroutine Interpolate_SG_1D_Data_at_given_s_arr(SG_Data_1D, inout_s_1D, out_IntpData_1D)
+
+      implicit none
+      real(wp), intent(in) :: SG_Data_1D(:)
+      real(wp), intent(inout) :: inout_s_1D(:)
+      real(wp), intent(out) :: out_IntpData_1D(:)
+      integer :: i, dim, SG_sid
+      real(wp) ws0,ws1
+
+      dim = size(inout_s_1D)
+
+      do i=1,dim
+         SG_sid = max(1,min(SG%dim_s-1, int((inout_s_1D(i)-SG%s_1D(1))*SG%inv_ds)) )
+
+         ws1 = (inout_s_1D(i)-SG%s_1D(SG_sid))*SG%inv_ds
+         ws0 = 1.0-ws1
+
+         out_IntpData_1D(i) = ws0*SG_Data_1D(SG_sid)+ws1*SG_Data_1D(SG_sid+1)
+      enddo
+
+   end subroutine Interpolate_SG_1D_Data_at_given_s_arr
+
    subroutine Interpolate_OriGridData_into_SG(oriData_1D, out_IntpData_2D)
 
       use precision
@@ -839,6 +1027,8 @@ contains
       implicit none
 
       integer sid,gqid,istatus(MPI_STATUS_SIZE),ierr
+      integer target_gqid
+      real(wp) phi_left, phi_right, target_gq,wgq0,wgq1,delta_gq
 
       ! Calculate grad_phi_cov at zetamax (so, the last index is 1)
       ! radial direction
@@ -849,21 +1039,464 @@ contains
       SG%grad_phi_cov(1,:,SG%dim_s,1) = SG%inv_ds*(SG%phi(:,SG%dim_s,1)-SG%phi(:,SG%dim_s-1,1))
 
       ! theta direction with the periodic condition
-      SG%grad_phi_cov(2,1,:,1) = SG%inv_dgq*(SG%phi(2,:,1)-SG%phi(SG%dim_gq-1,:,1))
+      SG%grad_phi_cov(2,1,:,1) = 0.5*SG%inv_dgq*(SG%phi(2,:,1)-SG%phi(SG%dim_gq-1,:,1))
       do gqid=2,SG%dim_gq-1
          SG%grad_phi_cov(2,gqid,:,1) = 0.5*SG%inv_dgq*(SG%phi(gqid+1,:,1)-SG%phi(gqid-1,:,1))
       enddo
       SG%grad_phi_cov(2,SG%dim_gq,:,1) = SG%grad_phi_cov(2,1,:,1)
 
-      ! toroidal direction
-      SG%grad_phi_cov(3,:,:,1) = 0.5*SG%inv_dgf*(SG%phi(:,:,2)-SG%phi(:,:,0))
+      ! ! toroidal direction
+      ! SG%grad_phi_cov(3,:,:,1) = 0.5*SG%inv_dgf*(SG%phi(:,:,2)-SG%phi(:,:,0))
+
+      ! Get phi along a field line at a given r surface
+      do sid=1,SG%dim_s
+         delta_gq = deltaz/SG%safety_q_1D(sid)
+         do gqid=1,SG%dim_gq
+
+            ! get phi from the right plane
+            target_gq = modulo(SG%gq_1D(gqid) + delta_gq, 2.0*pi)
+            target_gqid = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+            phi_right = wgq0*SG%phi(target_gqid,sid,2) + wgq1*SG%phi(target_gqid+1,sid,2)
+
+            ! get phi from the left plane
+            target_gq = modulo(SG%gq_1D(gqid) - delta_gq, 2.0*pi)
+            target_gqid = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+            phi_left = wgq0*SG%phi(target_gqid,sid,0) + wgq1*SG%phi(target_gqid+1,sid,0)
+
+            ! d(phi)/dzeta = d(phi)/dl - 1/q*d(phi)/dtheta
+            SG%grad_phi_cov(3,gqid,sid,1) =  (phi_right-phi_left)/(2.0*deltaz) - SG%grad_phi_cov(2,gqid,sid,1)/SG%safety_q_1D(sid)
+         enddo
+      enddo
 
 
       ! Communicate in toroidal direction so that get grad_phi_cov at zetamin (grad_phi_cov(:,:,:,0)) at from the left poloidal plane
       call MPI_SENDRECV(SG%grad_phi_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,right_pe,0, &
                         SG%grad_phi_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
 
+
+
    end subroutine Cal_gradPhi_on_SG
+
+
+   subroutine Get_Intp_phi_on_SG(P_s, P_gq, P_gf, out_phi)
+      !$acc routine seq
+      use precision
+      use global_parameters
+
+      implicit none
+      real(wp), intent(in) :: P_s, P_gq, P_gf
+      real(wp), intent(out):: out_phi
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer sid,gqid
+      real(wp) pii
+
+      pii = acos(-1.0_wp) ! pi
+
+      out_phi = 0.0
+
+      wgf1 = abs(modulo(P_gf,2.0*pii)-SG_zetamin)*SG_inv_dgf
+      wgf0 = (1.0-wgf1)
+
+      sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+      ws1 = max(0.0, min(1.0, (P_s-SG_s_1D(sid))*SG_inv_ds))
+      ws0 = (1.0-ws1)
+
+      inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+      ! Cal contributions from phi at zetamin to the particle
+      target_gf = SG_zetamin
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
+      gqid  = target_gq*SG_inv_dgq+1
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+      wgq0 = 1.0-wgq1
+
+
+      out_phi = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
+
+      ! Add contributions from phi at zetamax to the particle
+      target_gf = SG_zetamax
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
+      gqid  = target_gq*SG_inv_dgq+1
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+      wgq0 = 1.0-wgq1
+
+      out_phi = out_phi + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
+
+   end subroutine Get_Intp_phi_on_SG
+
+
+   subroutine Update_SG_phi_3D_by_gathering_SG_phi2D
+      use particle_decomp
+      implicit none
+      integer ierr
+      call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+      !$acc update device(SG_phi_3D)
+   end subroutine Update_SG_phi_3D_by_gathering_SG_phi2D
+
+   subroutine Get_Intp_global_phi3D_on_SG(P_s, P_gq, P_gf, out_phi)
+      !$acc routine seq
+      use precision
+      use global_parameters
+
+      implicit none
+      real(wp), intent(in) :: P_s, P_gq, P_gf
+      real(wp), intent(out):: out_phi
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer sid,gqid,gfid, mod_gfid
+      real(wp) pii
+
+      pii = acos(-1.0_wp)
+
+      out_phi = 0.0
+
+      P_gf = modulo(P_gf,2.0*pii)
+      gfid = floor(P_gf*SG_inv_dgf)+1
+
+      wgf1 = abs(P_gf-(gfid-1)*SG_dgf)*SG_inv_dgf
+      wgf0 = (1.0-wgf1)
+
+      ! if(wgf0<0 .or. wgf1<0) then
+      !    write(stdout,*) "Err! (wgf0,wgf1)=",wgf0,wgf1,"; P_gf=",P_gf,"gfid=",gfid
+      !    call flush(stdout)
+      !    stop
+      ! endif
+
+      sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+      ws1 = max(0.0, min(1.0, (P_s-SG_s_1D(sid))*SG_inv_ds))
+      ws0 = (1.0-ws1)
+
+      ! if(ws1<0 .or. ws0<0) then
+      !    write(stdout,*) "Err! (ws0,ws1)=",ws0,ws1
+      !    call flush(stdout)
+      ! endif
+
+      inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+      ! Cal contributions from phi at zetamin to the particle
+      target_gf = (gfid-1)*SG_dgf
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
+      gqid  = target_gq*SG_inv_dgq+1
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+      wgq0 = 1.0-wgq1
+
+      ! if(wgq0<0 .or. wgq1<0) then
+      !    write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
+      !    call flush(stdout)
+      ! endif
+
+      out_phi = wgf0*(ws0*(wgq0*SG_phi_3D(gqid,sid,gfid) + wgq1*SG_phi_3D(gqid+1,sid,gfid)) + ws1*(wgq0*SG_phi_3D(gqid,sid+1,gfid) + wgq1*SG_phi_3D(gqid+1,sid+1,gfid)))
+
+      ! Add contributions from phi at zetamax to the particle
+      target_gf = (gfid)*SG_dgf
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
+      gqid  = target_gq*SG_inv_dgq+1
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+      wgq0 = 1.0-wgq1
+
+      ! if(wgq0<0 .or. wgq1<0) then
+      !    write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
+      !    call flush(stdout)
+      ! endif
+
+      mod_gfid = modulo(gfid-1,mzetamax)+1 ! In case gfid=(mzetamax+1)
+      out_phi = out_phi + wgf1*(ws0*(wgq0*SG_phi_3D(gqid,sid,mod_gfid) + wgq1*SG_phi_3D(gqid+1,sid,mod_gfid)) + ws1*(wgq0*SG_phi_3D(gqid,sid+1,mod_gfid) + wgq1*SG_phi_3D(gqid+1,sid+1,mod_gfid)))
+
+   end subroutine Get_Intp_global_phi3D_on_SG
+
+
+  subroutine Get_Phi_at_zeon(out_Phi_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+      real(wp), intent(out):: out_Phi_arr(memax)
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer m,sid,gqid
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+
+      out_Phi_arr = 0.0
+
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop present(zeon,out_Phi_arr)
+      do m=1,me
+         P_s = max(s0,min(s1,zeon(7,m)))
+         P_gq = modulo(zeon(2,m),2.0*pi)
+         P_gf = modulo(zeon(3,m),2.0*pi)
+
+         wgf1 = abs(modulo(P_gf,2.0*pi)-SG_zetamin)*SG_inv_dgf
+         wgf0 = (1.0-wgf1)
+
+         if(wgf0<0 .or. wgf1<0) then
+            write(stdout,*) "Err! (wgf0,wgf1)=",wgf0,wgf1
+            ! call flush(stdout)
+         endif
+
+         sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+         ws0 = (1.0-ws1)
+
+         ! if(ws1<0 .or. ws0<0) then
+         !    write(stdout,*) "Err! (ws0,ws1)=",ws0,ws1
+         !    call flush(stdout)
+         ! endif
+
+         inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+         ! Cal contributions from phi at zetamin to the particle
+         target_gf = SG_zetamin
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid  = target_gq*SG_inv_dgq+1
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+
+         if(wgq0<0 .or. wgq1<0) then
+            write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
+            ! call flush(stdout)
+         endif
+
+         out_Phi_arr(m) = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,0)) + ws1*(wgq0*SG_phi(gqid,sid+1,0) + wgq1*SG_phi(gqid+1,sid+1,0)))
+
+         ! Add contributions from phi at zetamax to the particle
+         target_gf = SG_zetamax
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid  = target_gq*SG_inv_dgq+1
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+
+
+         if(wgq0<0 .or. wgq1<0) then
+            write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
+            ! call flush(stdout)
+         endif
+
+         out_Phi_arr(m) = out_Phi_arr(m) + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
+
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,*) "Get_Phi_at_zeon takes ",tt1-tt0," secs"
+      endif
+      call flush(stdout)
+#endif
+
+   end subroutine Get_Phi_at_zeon
+
+
+  subroutine Get_Phi_and_gradPhi_at_zeon(out_Phi_arr, out_gradPhi_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+      real(wp), intent(out):: out_Phi_arr(memax), out_gradPhi_arr(3,me)
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1)
+      integer m,sid,gqid,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+
+      SG_gradPhi = SG%grad_phi_cov
+      out_Phi_arr = 0.0
+      out_gradPhi_arr = 0.0
+
+
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+
+      !$acc parallel loop gang vector present(zeon,out_Phi_arr,out_gradPhi_arr)
+      do m=1,me
+         P_s = max(s0,min(s1,zeon(7,m)))
+         P_gq = modulo(zeon(2,m),2.0*pi)
+         P_gf = zeon(3,m)
+         P_gf = max(zetamin,min(zetamax,P_gf))
+
+
+         wgf1 = abs(modulo(P_gf,2.0*pi)-SG_zetamin)*SG_inv_dgf
+         wgf0 = (1.0-wgf1)
+
+      ! if(wgf0<0 .or. wgf1<0) then
+         ! write(stdout,'((A,2ES12.5,3(A,ES12.5)))') "Err! (wgf0,wgf1)=",wgf0,wgf1, "; P_s=",P_s,"; SG_zetamin=",SG_zetamin,"; SG_inv_dgf=",SG_inv_dgf
+         ! call flush(stdout)
+      ! endif
+
+         sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+         ws0 = (1.0-ws1)
+
+
+      ! if(ws1<0 .or. ws0<0) then
+      !    write(stdout,*) "Err! (ws0,ws1)=",ws0,ws1,"; P_s=",P_s, "; sid=",sid,"; SG_s_1D(sid)=",SG_s_1D(sid), "; SG_inv_ds=",SG_inv_ds
+      !    call flush(stdout)
+      ! endif
+
+         inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+         ! Cal contributions from phi at zetamin to the particle
+         target_gf = SG_zetamin
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid  = target_gq*SG_inv_dgq+1
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+      if(wgq0<0 .or. wgq1<0) then
+         write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
+         ! call flush(stdout)
+      endif
+
+         out_Phi_arr(m) = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,0)) + ws1*(wgq0*SG_phi(gqid,sid+1,0) + wgq1*SG_phi(gqid+1,sid+1,0)))
+         do k=1,3
+            out_gradPhi_arr(k,m) = wgf0*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,0) + wgq1*SG_gradPhi(k,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,0) + wgq1*SG_gradPhi(k,gqid+1,sid+1,0)))
+         enddo
+         ! Add contributions from phi at zetamax to the particle
+         target_gf = SG_zetamax
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid  = target_gq*SG_inv_dgq+1
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+      if(wgq0<0 .or. wgq1<0) then
+         write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
+         ! call flush(stdout)
+      endif
+
+         out_Phi_arr(m) = out_Phi_arr(m) + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
+
+         do k=1,3
+            out_gradPhi_arr(k,m) = out_gradPhi_arr(k,m) + wgf1*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,1) + wgq1*SG_gradPhi(k,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,1) + wgq1*SG_gradPhi(k,gqid+1,sid+1,1)))
+         enddo
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,*) "Get_Phi_and_gradPhi_at_zeon takes ",tt1-tt0," secs"
+      endif
+      call flush(stdout)
+#endif
+   end subroutine Get_Phi_and_gradPhi_at_zeon
+
+
+   subroutine Get_gradPhi_at_zion(out_gradPhi_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+
+      real(wp), intent(out):: out_gradPhi_arr(3,mi)
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1)
+      integer m,sid,gqid,larmor,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) :: intpl_gyro(3,larmor_num)
+      real(wp) tt0,tt1
+
+
+      SG_gradPhi = SG%grad_phi_cov
+
+
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zion,out_gradPhi_arr,gyro_over_sqrt_mu) private(intpl_gyro)
+      do m=1,mi
+         ! Following 3 lines are the Guiding Center position
+         P_s  = max(s0,min(s1, zion(7,m)))
+         P_gq = modulo(zion(2,m),2.0*pi)
+         P_gf = zion(3,m)
+         P_gf = max(zetamin,min(zetamax,P_gf))
+
+
+         wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+         wgf0 = (1.0-wgf1)
+
+         sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+         ws0 = (1.0-ws1)
+         gqid = P_gq*SG_inv_dgq+1
+         wgq1 = (P_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+         !$acc loop seq
+         do larmor=1,larmor_num
+            intpl_gyro(:,larmor) = ws0*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid)) &
+                                  +ws1*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid+1) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid+1))
+         enddo
+
+         out_gradPhi_arr(:,m)=0.0
+         ! Using the intpl_gyro, calculate Larmor orbit positions and project them to the nearby poloidal planes
+         !$acc loop seq
+         do larmor=1,larmor_num
+            ! intpl_gyro(:) = ws0*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid)) &
+            !                +ws1*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid+1) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid+1))
+
+            P_s  = max(s0,min(s1, zion(7,m)+zion(6,m)*intpl_gyro(1,larmor)))
+            P_gq = modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
+            P_gf = zion(3,m) + zion(6,m)*intpl_gyro(3,larmor)
+            P_gf = max(zetamin,min(zetamax,P_gf))
+
+            wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+            wgf0 = (1.0-wgf1)
+
+            sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+            ws0 = (1.0-ws1)
+
+            inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+            ! Cal contributions from phi at zetamin to the particle
+            target_gf = SG_zetamin
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid  = target_gq*SG_inv_dgq+1
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf0*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,0) + wgq1*SG_gradPhi(:,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,0) + wgq1*SG_gradPhi(:,gqid+1,sid+1,0)))
+
+
+
+            ! Add contributions from phi at zetamax to the particle
+            target_gf = SG_zetamax
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid  = target_gq*SG_inv_dgq+1
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf1*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,1) + wgq1*SG_gradPhi(:,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,1) + wgq1*SG_gradPhi(:,gqid+1,sid+1,1)))
+         enddo
+
+         ! Take larmor radius average
+         out_gradPhi_arr(:,m) = inv_larmor_num*out_gradPhi_arr(:,m)
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,*) "Get_gradPhi_at_zion takes ",tt1-tt0," secs"
+      endif
+      ! call flush(stdout)
+#endif
+
+
+   end subroutine Get_gradPhi_at_zion
+
 
 
 end module Structured_Grid

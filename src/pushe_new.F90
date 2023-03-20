@@ -295,7 +295,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
          end if
 
          E_f=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0
-         if(irk_e==1) zeon0(8,m)=E_f    ! e*delta_phi/Te at electron beginning position
+         if(irk_e==1) zeon0(9,m)=E_f    ! e*delta_phi/Te at electron beginning position
 
 
 
@@ -432,21 +432,21 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
 
          if(Flag_w_Evol==1) then
-            zeon(8,m) = wdot  ! To deliver wdot driving force after shifte in delta-h case
+            zeon(9,m) = wdot  ! To deliver wdot driving force after shifte in delta-h case
          else
             if(wimcompressibility==1) then
-               zeon(8,m) = avw           ! save average weight avw at electrons
+               zeon(9,m) = avw           ! save average weight avw at electrons
             else
-               zeon(8,m) = zeon(5,m)     ! save w
+               zeon(9,m) = zeon(5,m)     ! save w
             end if
          endif
          !     zeon(5,m) = zeon0(5,m)+dtime*wdot
 
          !     zeon(5,m) = 1.0_wp-(1.0_wp-zeon0(5,m))*exp(-dtime*wdot)
 
-         !    two cases below are unified by the replacement using zeon(8,m) in the formula
-         !!!!zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(5,m))*wdot-fdamp*zeon(5,m))*dtime  ! weight advanced w/o including dphi/dt term yet
-         !!!!zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*avw)*wdot-fdamp*zeon(5,m))*dtime
+         !    two cases below are unified by the replacement using zeon(9,m) in the formula
+         !!!!zeon(5,m) = zeon0(5,m)+((zeon0(8,m)-nonlinear*zeon(5,m))*wdot-fdamp*zeon(5,m))*dtime  ! weight advanced w/o including dphi/dt term yet
+         !!!!zeon(5,m) = zeon0(5,m)+((zeon0(8,m)-nonlinear*avw)*wdot-fdamp*zeon(5,m))*dtime
 
          !  if(zeon0(1,m).gt.psi_grid(mpsi-nbound-1))  then
          !     wfix=1.0_wp
@@ -460,10 +460,10 @@ subroutine pusheon(solver1, masssolver, irk_e)
             ! the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
             ! NOTE this scheme is beneficial for nonlinear case only (dw/dt=(1-w)*F).
             ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
-            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-wdot*dtime))
+            zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-wdot*dtime))
          else
-            !  zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot-fdamp*zeon(5,m))*dtime*wfix  ! weight advanced w/o including dphi/dt term yet
-            zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(8,m))*wdot*fip-fdamp*zeon(5,m))*dtime       ! weight advanced w/o including dphi/dt term yet
+            !  zeon(5,m) = zeon0(5,m)+((zeon0(8,m)-nonlinear*zeon(9,m))*wdot-fdamp*zeon(5,m))*dtime*wfix  ! weight advanced w/o including dphi/dt term yet
+            zeon(5,m) = zeon0(5,m)+((zeon0(8,m)-nonlinear*zeon(9,m))*wdot*fip-fdamp*zeon(5,m))*dtime       ! weight advanced w/o including dphi/dt term yet
             ! unified expression April, 2013
          endif
 
@@ -590,7 +590,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
          end if
 
          wdphidt=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0   ! e*delta_phi/Te at electron new positions, but with unchanged delta_phi
-         wdphidt=(wdphidt-zeon0(8,m))/dtime  ! d(e*delta_phi/Te)/dt purely due to change of electron position
+         wdphidt=(wdphidt-zeon0(9,m))/dtime  ! d(e*delta_phi/Te)/dt purely due to change of electron position
 
          !  if(zeon0(1,m).gt.psi_grid(mpsi-nbound-1))  then
          !     wfix=1.0_wp
@@ -613,11 +613,11 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
          if(Flag_w_Evol==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the total driving force (Here, wdot+wdphidt)
-            wdot = zeon(8,m)
-            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*dtime))
+            wdot = zeon(9,m)
+            zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*dtime))
          else
-            !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
-            zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
+            !  zeon(5,m) = zeon00(8,m)+(zeon0(8,m)-nonlinear*zeon(9,m))*wdphidt*dtime*wfix  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
+            zeon(5,m) = zeon00(8,m)+(zeon0(8,m)-nonlinear*zeon(9,m))*wdphidt*fip*dtime  ! d(e*delta_phi/Te)/dt term added to weight,  but with delta_phi not advanced
          endif
 
 
@@ -672,7 +672,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
          end if
 
          wdphidt=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0  ! e*delta_phi/Te at electron new positions, but with advanced delta_phi
-         wdphidt=(wdphidt-zeon0(8,m))/dtime ! d(e*delta_phi/Te)/dt with correction of time derivative of delta_phi
+         wdphidt=(wdphidt-zeon0(9,m))/dtime ! d(e*delta_phi/Te)/dt with correction of time derivative of delta_phi
 
          !  if(zeon0(1,m).gt.psi_grid(mpsi-nbound-1))  then
          !     wfix=1.0_wp
@@ -695,26 +695,26 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
          if(Flag_w_Evol==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the total driving force (Here, wdot+wdphidt)
-            wdot = zeon(8,m)
-            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*dtime))
+            wdot = zeon(9,m)
+            zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*dtime))
          else
-            !  zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
-            zeon(5,m) = zeon00(8,m)+(zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
+            !  zeon(5,m) = zeon00(8,m)+(zeon0(8,m)-nonlinear*zeon(9,m))*wdphidt*dtime*wfix ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
+            zeon(5,m) = zeon00(8,m)+(zeon0(8,m)-nonlinear*zeon(9,m))*wdphidt*fip*dtime ! d(e*delta_phi/Te)/dt term added to weight, with delta_phi advanced
          endif
 
          !==================================================
          !MGYOO(01/14/2019)
          ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
          if(irk_e==2) then
-            we_adiab(m) = we_adiab(m) + (zeon0(6,m)-nonlinear*zeon(8,m))*wdphidt*fip*dtime
+            we_adiab(m) = we_adiab(m) + (zeon0(8,m)-nonlinear*zeon(9,m))*wdphidt*fip*dtime
          endif
          !=================================================
 
 
 
          ! if (mype ==0 .AND. MOD(m,(me/10))==0) then
-         !   write(stdout,*) 'my_rank= ',mype, ' zeon(5,m=',m,')= ',zeon(5,m), ' zeon0(5,m=',m,')= ',zeon0(5,m), ' avw= ',avw , ' zeon(8,m=',m,')= ',zeon(8,m), ' zeon00(8,m=',m,')= ',zeon00(8,m)
-         !   write(stdout,*) 'zeon(6,m=',m,')= ',zeon(6,m), ' zeon0(6,m=',m,')= ',zeon0(6,m) , ' wdphidt= ', wdphidt
+         !   write(stdout,*) 'my_rank= ',mype, ' zeon(5,m=',m,')= ',zeon(5,m), ' zeon0(5,m=',m,')= ',zeon0(5,m), ' avw= ',avw , ' zeon(9,m=',m,')= ',zeon(9,m), ' zeon00(8,m=',m,')= ',zeon00(8,m)
+         !   write(stdout,*) 'zeon(6,m=',m,')= ',zeon(6,m), ' zeon0(8,m=',m,')= ',zeon0(8,m) , ' wdphidt= ', wdphidt
          ! endif
 
          !       E_f=E_f+zeon(5,m)
@@ -991,12 +991,12 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
          if(Flag_w_Evol==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-wdot*dtime))
+            zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-wdot*dtime))
          else
             if(wimcompressibility==1) then     ! for weight imcompressibility
-               zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*avw)*wdot*fip-fdamp*zeon(5,m))*dtime
+               zeon(5,m) = zeon0(5,m)+((zeon0(8,m)-nonlinear*avw)*wdot*fip-fdamp*zeon(5,m))*dtime
             else
-               zeon(5,m) = zeon0(5,m)+((zeon0(6,m)-nonlinear*zeon(5,m))*wdot*fip-fdamp*zeon(5,m))*dtime
+               zeon(5,m) = zeon0(5,m)+((zeon0(8,m)-nonlinear*zeon(5,m))*wdot*fip-fdamp*zeon(5,m))*dtime
             end if
          endif
 
@@ -1197,9 +1197,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
       !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
-         ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity
-         ! zeon0(8,m) is the adiabatic term in the weight evolution @ t={n}, x={n}
-         ! zeon(8,m) is a kind of temporary pouch to bring wdot term during shifte
+         ! Note that zeon0(8,m) does not mean "mu", this is reserved for the other quantity
+         ! zeon0(9,m) is the adiabatic term in the weight evolution @ t={n}, x={n}
+         ! zeon(9,m) is a kind of temporary pouch to bring wdot term during shifte
 
          !$acc loop seq
          do i=1,5
@@ -1476,9 +1476,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          if(irk_e==1) then
             !======================================================
             ! MGYOO(05/10/2019) :
-            ! Please note that zeon0(8,m) is the adiabatic term
-            ! zeon0(8,m)  = (q*dphi_NZ/Te) @ t{n}, x{n}
-            zeon0(8,m) = E_f
+            ! Please note that zeon0(9,m) is the adiabatic term
+            ! zeon0(9,m)  = (q*dphi_NZ/Te) @ t{n}, x{n}
+            zeon0(9,m) = E_f
             !======================================================
          endif
 
@@ -1610,7 +1610,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             zeon(3,m) = zeon0(3,m)+RK_adv_coeff*tstep*dgf(m)
             zeon(4,m) = zeon0(4,m)+RK_adv_coeff*tstep*dgr(m)
             ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
-            ! zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +zeon(8,m))*fip-fdamp*zeon(5,m))
+            ! zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*now_w)*(wdot +zeon(9,m))*fip-fdamp*zeon(5,m))
             zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
 
          else if(irk_e==4) then !irk_i==4
@@ -1639,7 +1639,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          endif
 
          ! MGYOO(05/06/2019) : To pass wdot information which are needed in the following for m=1:me routines after shift
-         zeon(8,m) = wdot
+         zeon(9,m) = wdot
 
       enddo
 
@@ -1725,6 +1725,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
          !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
          !$acc update self(elabels(:me))
+         !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
+         !$acc update self(back_f0_e(:me))
+         !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
             acc_newer_D_zeon=.false.
@@ -1826,11 +1829,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             fdamp=0.0_wp
          end if
 
-         wdot = zeon(8,m)
+         wdot = zeon(9,m)
 
          !======================================================
-         ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
-         ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
+         ! MGYOO(05/10/2019): Here, zeon0(9,m) differs from that of the irk_e=1 stage of pusheon
+         ! zeon0(9,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
          !======================================================
          ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
          ! MGYOO (12/30/2019):
@@ -1839,10 +1842,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          ! More exact form is the following:
          ! dz/dt= d(-ln(f0))/dt + d(-ln(|1-E_f|))/dt
          ! wdphidt = d(-ln(|1-E_f|))/dt
-         wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(8,m))))/(RK_adv_coeff*tstep)
+         wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(9,m))))/(RK_adv_coeff*tstep)
 
          if(Flag_Def_dne_adiab==3) then
-            wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
+            wdphidt = (E_f-zeon0(9,m))/(RK_adv_coeff*tstep)
          endif
 
          ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
@@ -1853,9 +1856,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
             ! Note that this scheme is beneficial for nonlinear case only (dw/dt=(1-w)*F).
             ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
-            zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
+            zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
          else
-            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
       enddo
 
@@ -1974,11 +1977,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                   fdamp=0.0_wp
                end if
 
-               wdot = zeon(8,m)
+               wdot = zeon(9,m)
 
                !======================================================
-               ! MGYOO(05/10/2019): Here, zeon0(8,m) differs from that of the irk_e=1 stage of pusheon
-               ! zeon0(8,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
+               ! MGYOO(05/10/2019): Here, zeon0(9,m) differs from that of the irk_e=1 stage of pusheon
+               ! zeon0(9,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
                !======================================================
                ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
                ! MGYOO (12/30/2019):
@@ -1987,10 +1990,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                ! More exact form is the following:
                ! dz/dt= d(-ln(f0))/dt + d(-ln(|1-E_f|))/dt
                ! wdphidt = d(-ln(|1-E_f|))/dt
-               wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(8,m))))/(RK_adv_coeff*tstep)
+               wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(9,m))))/(RK_adv_coeff*tstep)
 
                if(Flag_Def_dne_adiab==3) then
-                  wdphidt = (E_f-zeon0(8,m))/(RK_adv_coeff*tstep)
+                  wdphidt = (E_f-zeon0(9,m))/(RK_adv_coeff*tstep)
                endif
 
                ! Advance particle information for the next RK step
@@ -1999,11 +2002,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
                if(Flag_w_Evol==1) then
                   ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-                  ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
+                  ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
                   ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
                   RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +(wdot+wdphidt)*(RK_cum_coeff*tstep)
                else
-                  RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+                  RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +RK_cum_coeff*tstep*((zeon0(8,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
                endif
 
                ! Advance particle information for the next RK step
@@ -2011,14 +2014,14 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                   ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
                   if(Flag_w_Evol==1) then
                      !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-                     zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
+                     zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
                   else
-                     zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+                     zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
                   endif
                else if(irk_e==4) then !irk_i==4
                   if(Flag_w_Evol==1) then
                      ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
-                     zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
+                     zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
                   else
                      ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
                      zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
@@ -2030,7 +2033,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
                if(irk_e==4)then
                   if(loop==MaxLoopNum_Adiab_Weight_Update) then
-                     we_adiab(m) = we_adiab(m) + tstep*(zeon0(6,m)-nonlinear*tmp_zeon5(m))*wdphidt
+                     we_adiab(m) = we_adiab(m) + tstep*(zeon0(8,m)-nonlinear*tmp_zeon5(m))*wdphidt
                   endif
                endif
             enddo
@@ -2169,11 +2172,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          if(Flag_w_Evol==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
+            ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
             ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
             RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(wdot)*(RK_cum_coeff*tstep)
          else
-            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
+            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(8,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
          endif
          ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
 
@@ -2191,9 +2194,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
             if(Flag_w_Evol==1) then
                !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-(wdot)*(RK_adv_coeff*tstep)))
+               zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot)*(RK_adv_coeff*tstep)))
             else
-               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
+               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
             endif
          else if(irk_e==4) then !irk_i==4
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
@@ -2207,7 +2210,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
             if(Flag_w_Evol==1) then
                ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
-               zeon(5,m) = zeon0(5,m) +(zeon0(6,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
+               zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
             else
                ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
                zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
@@ -2358,7 +2361,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          !$acc update self(elabels(:me))
          !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
          !$acc update self(back_f0_e(:me))
-
+         !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
             acc_newer_D_zeon=.false.
@@ -2376,6 +2379,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          tt1=MPI_WTIME()
          time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
          timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Electrons_on_Diagnostic_Grid takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
       endif
 
 
@@ -2384,6 +2393,1220 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
 end subroutine pusheon_RK4
 
+
+subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
+   use precision
+   use global_parameters
+   use particle_array
+   use mpi_defs
+   use field_array
+   use esi_interface
+   use solver_data_class
+   use Structured_Grid
+   use Diagnostic_Grid
+   use Ptl_Src_Loss
+   use function_gg_module
+   implicit none
+
+   type(solver_data) :: solver1, masssolver
+
+   integer, intent(in) :: irk_e, nrk
+   integer i,ip,m,ij,ierr
+   real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
+   real(wp) dgr(me),da(me),dgq(me),dgf(me),gradPhi(3,me),wpi(5,me),Er_particle(me)
+   real(wp) ga(me),wga(3,me), gat(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
+   real(wp) tt0,tt1,cput0,cput1 ! For timer
+   real(wp) timef,dela,r,fip
+   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
+   real(wp) mu,Te_inverse,vpara,energy
+   real(wp) AD ! Adiabatic term: AD=e*phi/Te0  ! Note that e here is the elementary charge which is the same as abs(qe)
+   real(wp) e1,e2,e3,Ea_00
+   real(wp) wz0,wz1,wp0,wt00,wt10,wp1,wt01,wt11,inv_ds
+   real(wp) new_f0, new_f_AD
+   real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
+   real(wp) prev_phi00(0:mpsi),phi00_convergency
+   integer loop
+
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,ga,wga,gat)
+
+
+   ! if(ifneoclassical/=1 .or. Flag_w_Evol/=3) then
+   !    write(stdout,*) "Error!! pusheon_wEvol3 is only available with ifneoclassical=1 .and. Flag_w_Evol=3"
+   !    call flush(stdout)
+   !    stop
+   ! endif
+
+
+   inv_ds = real(mpsi)/(s1-s0)
+
+
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   if(istep==istart .and. irk_e==1) then
+      time_in_Pushe =0
+      timewc_in_Pushe =0
+   endif
+
+   ! Set RK_cum_coeff and RK_adv_coeff
+   if(nrk==4) then
+      select case (irk_e)
+         case(1)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = (1.0/6.0)
+         case(2)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = (1.0/3.0)
+         case(3)
+            RK_adv_coeff = 1.0
+            RK_cum_coeff = (1.0/3.0)
+         case(4)
+            RK_adv_coeff = 1.0
+            RK_cum_coeff = (1.0/6.0)
+         case default
+            write(stdout,'((A,I3,A,I3))') "Error!! irk_e=",irk_e,"!! ikr_e must be between 1 and nrk=",nrk
+            call flush(stdout)
+            STOP
+      end select
+   elseif(nrk==2) then
+      select case (irk_e)
+         case(1)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = 0.0
+         case(2)
+            RK_cum_coeff = 1.0
+            RK_adv_coeff = 1.0
+         case default
+            write(stdout,'((A,I3,A,I3))') "Error!! irk_e=",irk_e,"!! ikr_e must be between 1 and nrk=",nrk
+            call flush(stdout)
+            STOP
+      end select
+   endif
+
+   ! Update zeon0 if irk_e==1
+   if(irk_e==1) then
+      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
+      do m=1,me
+         wpi(4,m) = zeon(5,m)-zeon0(5,m) ! Change of dh during the last one step
+         wpi(5,m) = zeon(8,m)-zeon0(8,m) ! Change of full-h during the last one step
+         !$acc loop seq
+         do i=1,5
+            zeon0(i,m)=zeon(i,m)
+         enddo
+         zeon0(7,m)=zeon(7,m)
+         zeon0(8,m)=zeon(8,m) ! full_f or full-h
+
+         !$acc loop seq
+         do i=1,size(RK_cum_zeon,1)
+            RK_cum_zeon(i,m)=0.0
+         enddo
+      enddo
+      acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
+   endif
+
+
+   call electron_locator
+
+   !$acc parallel loop present(zeon,zeon0)
+   do m=1,me
+      wz1=wzeon(m)
+      wz0=1.0_wp-wz1
+
+      ij=jteon0(m)
+      wp0=1.0_wp-wpeon(m)
+      wt00=1.0_wp-wteon0(m)
+      e1=wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+      e2=wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+      e3=wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+      ij=ij+1
+      wt10=1.0_wp-wt00
+      e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+      e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+      e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+      ij=jteon1(m)
+      wp1=1.0_wp-wp0
+      wt01=1.0_wp-wteon1(m)
+      e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+      e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+      e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+      ij=ij+1
+      wt11=1.0_wp-wt01
+      e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+      e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+      e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+      gradPhi(1,m)=e1
+      gradPhi(2,m)=e2
+      gradPhi(3,m)=e3
+   enddo
+
+
+#ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+#endif
+   !$acc parallel loop present(zeon,ga,wga,gat)
+   do m=1,me
+      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+   enddo
+#ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude_arr_at_zeon", tt1-tt0," secs"
+   call flush(stdout)
+#endif
+
+
+   timef=1.0_wp
+   Er401_bp=Er401_bp0*timef
+   Er_grid=Er_grid0*timef
+   dela=1.0_wp/Ydr
+   !$acc parallel loop present(zeon,zeon0)
+   do m=1,me
+      r=zeon(1,m)-a0
+      r=r*dela
+      ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
+      fip=r-real(ip,wp)
+      Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
+   enddo
+   !  ------------------------------------------------------------
+
+
+#ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+#endif
+   if(electromagnetic == 1)then
+      if(Flag_GC_Solver==0) then
+         m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,gradPhi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+      elseif(Flag_GC_Solver==1) then
+         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,gradPhi,ga,wga,gat,Er_particle,nonlinear,1,me,zeondim)
+      else
+         write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
+         call flush(stdout)
+         STOP
+      endif
+   else
+      m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
+   endif
+#ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"
+   call flush(stdout)
+#endif
+
+
+   call Ti_at_electrons ! NOTE: array backT is borrowed to store Ti_at_electrons;
+
+
+   !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;
+   !             ghq(:)=da/dt|_EXB;  Ta(:)=dtheta/dt|_EXB;  Pa(:)=drho/dt|_EXB;
+   !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;
+   !             gha(:)=1/|grad a|   F(:) =F
+   !             wpi(3,:)=dphi/dzeta (NO change); no change for: zeon(1,2,4,:), wpi(1,2,:) and mu;
+
+
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+   !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+   do m=1,me
+      Te_inverse=1.0/(backTe(m)*msm0)
+      mu=zeon(6,m)**2.0 ! normalized mu of electrons
+      vpara = m0ms*csc0*BB(m)*zeon(4,m)
+      energy = 0.5*msm0*vpara**2.0+mu*BB(m)
+
+
+      if(irk_e==1) then
+         ! Calculate Adiabatic term at irk_e=1 (so @(t_n,x_n) level)
+         ! and save the value intto zeon0(8,m)
+         wz1=wzeon(m)
+         wz0=1.0_wp-wz1
+
+         ij=jteon0(m)
+         wp0=1.0_wp-wpeon(m)
+         wt00=1.0_wp-wteon0(m)
+         e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+         ij=ij+1
+         wt10=1.0_wp-wt00
+         e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+         ij=jteon1(m)
+         wp1=1.0_wp-wp0
+         wt01=1.0_wp-wteon1(m)
+         e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+         ij=ij+1
+         wt11=1.0_wp-wt01
+         e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+         ! calculate <phi> at electrons (no FLR effect -- x=R)
+         r=zeon(7,m)-s0       ! in radial coordinator s
+         r=r*inv_ds
+         ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+         fip=r-real(ip,wp)
+         Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+
+         if ( Flag_Def_dne_adiab==0 ) then
+            AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
+         elseif(Flag_Def_dne_adiab==1) then
+            ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+            AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
+         elseif(Flag_Def_dne_adiab==3) then
+            AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
+         else
+            AD=-1e100
+            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+            STOP
+         endif
+
+
+         ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+         ! zeon0(9,m) is f_0 (@ irk=1)
+         zeon(9,m)  = zeon0(6,m)*back_f0_e(m)*AD
+         zeon0(9,m) = zeon0(6,m)*back_f0_e(m)
+      endif
+
+
+      ! =============================================================================================
+      ! Cumulate (x,v,w) for preparing the final RK push&evolution
+      RK_cum_zeon(1,m) = RK_cum_zeon(1,m) +RK_cum_coeff*tstep*da(m)
+      RK_cum_zeon(2,m) = RK_cum_zeon(2,m) +RK_cum_coeff*tstep*dgq(m)
+      RK_cum_zeon(3,m) = RK_cum_zeon(3,m) +RK_cum_coeff*tstep*dgf(m)
+      RK_cum_zeon(4,m) = RK_cum_zeon(4,m) +RK_cum_coeff*tstep*dgr(m)
+      RK_cum_zeon(7,m) = RK_cum_zeon(7,m) +RK_cum_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+
+      ! Advacne particles (x,v,w) for the next RK step
+      if(irk_e<nrk) then
+         zeon(1,m) = zeon0(1,m) +RK_adv_coeff*tstep*da(m)
+         zeon(2,m) = zeon0(2,m) +RK_adv_coeff*tstep*dgq(m)
+         zeon(3,m) = zeon0(3,m) +RK_adv_coeff*tstep*dgf(m)
+         zeon(4,m) = zeon0(4,m) +RK_adv_coeff*tstep*dgr(m)
+         zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+      else if(irk_e==nrk) then
+         !$acc loop seq
+         do i=1,4
+            zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
+         enddo
+         zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
+      endif
+
+      zeon(2,m)=modulo(zeon(2,m),twopi)
+      zeon(3,m)=modulo(zeon(3,m),twopi)
+
+      ! store GC information for flux measurements
+      wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
+      wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
+      wpi(3,m)=mu*BB(m)       ! normalizd electron perpendicular energy
+
+
+      if(irk_e==nrk) then
+         UnNorm_theta_e(m) = UnNorm_theta_e(m) +RK_cum_zeon(2,m)
+         UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +RK_cum_zeon(3,m)
+      endif
+      !
+      ! =============================================================================================
+   enddo
+   acc_newer_D_zeon=.true.
+
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
+      call flush(stdout)
+#endif
+
+
+   !   fluxes diagnose
+   if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
+
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+      !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
+      !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+      !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+      !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+      !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
+
+
+      if(acc_newer_D_zeon) then
+         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         acc_newer_D_zeon=.false.
+         acc_newer_H_zeon=.false.
+      endif
+
+
+      !$omp parallel do private(m)
+      do m=1,me
+         wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
+      end do
+
+      call get_fluxes_e(wpi)
+
+      if(mod(istep,ndiag)==0) then
+         call get_Te_fluctuation(wpi(2,:))
+      end if
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+      timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+
+   endif
+
+   if(irk_e==1) then
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      call Measure_and_Cumulate_eZonData_on_DG(wpi,da)
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+      timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Cumulate_eFlux_a1D takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
+   endif
+
+   !Another Diagnostics on DG (Diagnostic Grid)
+   if(irk_e==1 .and. mod(istep,msnap)==0) then
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+      !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
+      !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+      !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+      !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+      !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
+      !$acc update self(elabels(:me))
+      !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
+      !$acc update self(back_f0_e(:me))
+      !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
+
+      if(acc_newer_D_zeon) then
+         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         acc_newer_D_zeon=.false.
+         acc_newer_H_zeon=.false.
+      endif
+
+      do m=1,me
+         FullVelocity_da_dgq_dgf(1,m) = da(m)
+         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+      enddo
+      call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+      timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Electrons_on_Diagnostic_Grid takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
+   endif
+
+
+   call cpu_time(cput0)
+   tt0=MPI_WTIME()
+   call shifte
+   call cpu_time(cput1)
+   tt1=MPI_WTIME()
+   time_in_Pushe(1) = time_in_Pushe(1) + (cput1-cput0)
+   timewc_in_Pushe(1) = timewc_in_Pushe(1) + (tt1-tt0)
+
+   call electron_locator
+   call n_T_u_group_e
+
+
+   if(Flag_Poisson==0) then
+      !$acc parallel loop present(zeon,zeon0,back_f0_e)
+      do m=1,me
+         AD=0.0 ! Because phi=0 (no Poisson)
+
+         ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+         ! zeon0(9,m) is f_0 (@ irk=1)
+         new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
+         new_f0 = zeon0(6,m)*back_f0_e(m)
+
+         zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(9,m)) - (new_f_AD-zeon(9,m)) ! df or dh
+         zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
+      enddo
+      acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
+   elseif(Flag_Poisson==1) then
+      do loop=1,MaxLoopNum_Adiab_Weight_Update
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+            if(Flag_Poisson3D_on_SG==1) then
+               call Measure_Electron_Density_on_SG(0)
+            else
+               call charge_eon
+            endif
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(2) = time_in_Pushe(2) + (cput1-cput0)
+         timewc_in_Pushe(2) = timewc_in_Pushe(2) + (tt1-tt0)
+
+         prev_phi00=phi00
+
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+         call poisson(solver1, masssolver)
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
+         timewc_in_Pushe(3) = timewc_in_Pushe(3) + (tt1-tt0)
+
+         phi00_convergency = sum(sqrt((phi00 - prev_phi00)**2.0))/sum(sqrt(prev_phi00**2.0))
+
+         if (mype == 0) then
+            open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
+            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, (E_00*c)/(charg0*1e8)*phi00(:)
+            call flush(200903)
+            close(200903)
+         endif
+
+
+         !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+         do m=1,me
+            Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+            ! Cal new phi at new position (i.e. phi @ (t_(n+1), x_(n+1)))
+            wz1=wzeon(m)
+            wz0=1.0_wp-wz1
+
+            ij=jteon0(m)
+            wp0=1.0_wp-wpeon(m)
+            wt00=1.0_wp-wteon0(m)
+            e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=ij+1
+            wt10=1.0_wp-wt00
+            e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=jteon1(m)
+            wp1=1.0_wp-wp0
+            wt01=1.0_wp-wteon1(m)
+            e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=ij+1
+            wt11=1.0_wp-wt01
+            e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+            ! calculate <phi> at electrons (no FLR effect -- x=R)
+            r=zeon(7,m)-s0       ! in radial coordinator s
+            r=r*inv_ds
+            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            fip=r-real(ip,wp)
+            Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+
+
+            if ( Flag_Def_dne_adiab==0 ) then
+               AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
+            elseif(Flag_Def_dne_adiab==1) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+               AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==3) then
+               AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
+            else
+               AD=-1e100
+               write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+               STOP
+            endif
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            ! zeon0(9,m) is f_0 (@ irk=1)
+            new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
+            new_f0 = zeon0(6,m)*back_f0_e(m)
+
+            zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(9,m)) - (new_f_AD-zeon(9,m)) ! df or dh
+            zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
+         enddo
+         acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
+      enddo
+   endif
+
+
+   if(irk_e==nrk)then
+      if(Flag_Measure_Ptl_FootPrint==1) then
+         !$acc update self(wpi(:,:me))
+         call Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
+      endif
+      call treat_electrons_out_of_boundary
+      call Cumulate_e_lost_num
+   endif
+
+
+end subroutine pusheon_wEvol3
+
+
+
+subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
+   use precision
+   use global_parameters
+   use particle_array
+   use mpi_defs
+   use field_array
+   use esi_interface
+   use solver_data_class
+   use Structured_Grid
+   use Diagnostic_Grid
+   use Ptl_Src_Loss
+   use function_gg_module
+   implicit none
+
+   type(solver_data) :: solver1, masssolver
+
+   integer, intent(in) :: irk_e, nrk
+   integer i,ip,m,ij,ierr
+   real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
+   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),wpi(5,me),Er_particle(me)
+   real(wp) ga(me),wga(3,me), gat(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
+   real(wp) tt0,tt1,cput0,cput1 ! For timer
+   real(wp) timef,dela,r,fip
+   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
+   real(wp) mu,Te_inverse,vpara,energy
+   real(wp) AD ! Adiabatic term: AD=e*phi/Te0  ! Note that e here is the elementary charge which is the same as abs(qe)
+   real(wp) e1,e2,e3,Ea_00
+   real(wp) wz0,wz1,wp0,wt00,wt10,wp1,wt01,wt11,inv_ds
+   real(wp) new_f0, new_f_AD
+   real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
+   real(wp) prev_phi00(0:mpsi),phi00_convergency
+   integer loop
+
+   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,wpi,Er_particle,ga,wga,gat)
+
+
+   ! if(ifneoclassical/=1 .or. Flag_w_Evol/=3) then
+   !    write(stdout,*) "Error!! pusheon_wEvol3 is only available with ifneoclassical=1 .and. Flag_w_Evol=3"
+   !    call flush(stdout)
+   !    stop
+   ! endif
+
+
+   inv_ds = real(mpsi)/(s1-s0)
+
+
+   if(acc_newer_H_zeon) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   if(istep==istart .and. irk_e==1) then
+      time_in_Pushe =0
+      timewc_in_Pushe =0
+   endif
+
+   ! Set RK_cum_coeff and RK_adv_coeff
+   if(nrk==4) then
+      select case (irk_e)
+         case(1)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = (1.0/6.0)
+         case(2)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = (1.0/3.0)
+         case(3)
+            RK_adv_coeff = 1.0
+            RK_cum_coeff = (1.0/3.0)
+         case(4)
+            RK_adv_coeff = 1.0
+            RK_cum_coeff = (1.0/6.0)
+         case default
+            write(stdout,'((A,I3,A,I3))') "Error!! irk_e=",irk_e,"!! ikr_e must be between 1 and nrk=",nrk
+            call flush(stdout)
+            STOP
+      end select
+   elseif(nrk==2) then
+      select case (irk_e)
+         case(1)
+            RK_adv_coeff = 0.5
+            RK_cum_coeff = 0.0
+         case(2)
+            RK_cum_coeff = 1.0
+            RK_adv_coeff = 1.0
+         case default
+            write(stdout,'((A,I3,A,I3))') "Error!! irk_e=",irk_e,"!! ikr_e must be between 1 and nrk=",nrk
+            call flush(stdout)
+            STOP
+      end select
+   endif
+
+   ! Update zeon0 if irk_e==1
+   if(irk_e==1) then
+      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
+      do m=1,me
+         wpi(4,m) = zeon(5,m)-zeon0(5,m) ! Change of dh during the last one step
+         wpi(5,m) = zeon(8,m)-zeon0(8,m) ! Change of full-h during the last one step
+         !$acc loop seq
+         do i=1,5
+            zeon0(i,m)=zeon(i,m)
+         enddo
+         zeon0(7,m)=zeon(7,m)
+         zeon0(8,m)=zeon(8,m) ! full_f or full-h
+
+         !$acc loop seq
+         do i=1,size(RK_cum_zeon,1)
+            RK_cum_zeon(i,m)=0.0
+         enddo
+      enddo
+      acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
+   endif
+
+   ! m=1000
+   ! zeon(1,m) = SG%s_1D(20)
+   ! zeon(7,m) = SG%s_1D(20)
+   ! zeon(2,m) = SG%gq_1D(10)
+   ! zeon(3,m) = zetamin+1e-10
+   ! zeon0(1,m) = SG%s_1D(20)
+   ! zeon0(7,m) = SG%s_1D(20)
+   ! zeon0(2,m) = SG%gq_1D(10)
+   ! zeon0(3,m) = zetamin+1e-10
+   !  !$acc update device(zeon(:,m),zeon0(:,m))
+
+
+
+
+
+   ! call electron_locator
+
+   ! !$acc parallel loop present(zeon,zeon0)
+   ! do m=1,me
+   !    wz1=wzeon(m)
+   !    wz0=1.0_wp-wz1
+
+   !    ij=jteon0(m)
+   !    wp0=1.0_wp-wpeon(m)
+   !    wt00=1.0_wp-wteon0(m)
+   !    e1=wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+   !    e2=wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+   !    e3=wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+   !    ij=ij+1
+   !    wt10=1.0_wp-wt00
+   !    e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+   !    e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+   !    e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+   !    ij=jteon1(m)
+   !    wp1=1.0_wp-wp0
+   !    wt01=1.0_wp-wteon1(m)
+   !    e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+   !    e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+   !    e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+   !    ij=ij+1
+   !    wt11=1.0_wp-wt01
+   !    e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
+   !    e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
+   !    e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+
+   !    gradPhi(1,m)=e1
+   !    gradPhi(2,m)=e2
+   !    gradPhi(3,m)=e3
+   ! enddo
+
+
+
+
+
+   ! !$acc update self(gradPhi(:,:))
+   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "Ori gradPhi(1:3,1000)=",gradPhi(:,1000), gradPhi(:,2000)
+   ! call flush(stdout)
+
+   call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
+
+   !$acc parallel loop present(Phi_at_zeon,gradPhi) gang vector
+   do m=1,me
+      Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
+      gradPhi(:,m) = Fac_Volt2GTS*gradPhi(:,m)
+   enddo
+
+   ! !$acc update self(gradPhi(:,:),Phi_at_zeon(:))
+   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "New gradPhi(1:3,1000)=",gradPhi(:,1000), gradPhi(:,2000)
+   ! call flush(stdout)
+   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "New Phi(1000,2000)=",Phi_at_zeon(1000), Phi_at_zeon(2000)
+   ! call flush(stdout)
+   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "zeon(1:3,1000), zeon(7,1000)", zeon(1:3,1000), zeon(7,1000)
+   ! call flush(stdout)
+   ! if(mype==0) write(stdout,'(2(A,ES12.5))') "SG%s_1D(20)=", SG%s_1D(20), "; SG%gq_1D(10)=",SG%gq_1D(10)
+   ! call flush(stdout)
+   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "SG%phi(10,20,0:2)=", ((charg0*1e8)/(E_00*c))*SG%phi(10,20,0:2)
+   ! call flush(stdout)
+   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "SG%grad_phi_cov(:,10,20,0)=", ((charg0*1e8)/(E_00*c))*SG%grad_phi_cov(:,10,20,0)
+   ! call flush(stdout)
+   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "SG%grad_phi_cov(:,10,20,1)=", ((charg0*1e8)/(E_00*c))*SG%grad_phi_cov(:,10,20,1)
+   ! call flush(stdout)
+
+#ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+#endif
+   !$acc parallel loop present(zeon,ga,wga,gat)
+   do m=1,me
+      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+   enddo
+#ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude_arr_at_zeon", tt1-tt0," secs"
+   call flush(stdout)
+#endif
+
+
+
+   timef=1.0_wp
+   Er401_bp=Er401_bp0*timef
+   Er_grid=Er_grid0*timef
+   dela=1.0_wp/Ydr
+   !$acc parallel loop present(zeon,zeon0)
+   do m=1,me
+      r=zeon(1,m)-a0
+      r=r*dela
+      ip=max(0,min(je-1,int(r)))      ! ip [0,je-1]
+      fip=r-real(ip,wp)
+      Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
+   enddo
+   !  ------------------------------------------------------------
+
+
+
+#ifdef _MGY_TIMER_
+   tt0=MPI_WTIME()
+#endif
+   if(electromagnetic == 1)then
+      if(Flag_GC_Solver==0) then
+         m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,gradPhi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+      elseif(Flag_GC_Solver==1) then
+         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,gradPhi,ga,wga,gat,Er_particle,nonlinear,1,me,zeondim)
+         ! call eon_GC_FullMotion_vec_form(dgr,da,dgq,dgf,gradPhi,Er_particle,gat)
+      else
+         write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
+         call flush(stdout)
+         STOP
+      endif
+   else
+      m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
+   endif
+#ifdef _MGY_TIMER_
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"
+   call flush(stdout)
+#endif
+
+
+
+   call Ti_at_electrons ! NOTE: array backT is borrowed to store Ti_at_electrons;
+
+
+
+   !     OUTPUT: dgr=drho/dt;        da=da/dt or dx/dt;     dgq=dtheta/dt or dy/dt;    dgf=dzeta/dt;
+   !             ghq(:)=da/dt|_EXB;  Ta(:)=dtheta/dt|_EXB;  Pa(:)=drho/dt|_EXB;
+   !             BB(:)=B;            Ba(:)=dB/da;           Bq(:)=dB/dtheta;
+   !             gha(:)=1/|grad a|   F(:) =F
+   !             wpi(3,:)=dphi/dzeta (NO change); no change for: zeon(1,2,4,:), wpi(1,2,:) and mu;
+
+
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+   !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+   do m=1,me
+      Te_inverse=1.0/(backTe(m)*msm0)
+      mu=zeon(6,m)**2.0 ! normalized mu of electrons
+      vpara = m0ms*csc0*BB(m)*zeon(4,m)
+      energy = 0.5*msm0*vpara**2.0+mu*BB(m)
+
+
+      if(irk_e==1) then
+         ! Calculate Adiabatic term at irk_e=1 (so @(t_n,x_n) level)
+         ! and save the value intto zeon0(8,m)
+         ! wz1=wzeon(m)
+         ! wz0=1.0_wp-wz1
+
+         ! ij=jteon0(m)
+         ! wp0=1.0_wp-wpeon(m)
+         ! wt00=1.0_wp-wteon0(m)
+         ! e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+         ! ij=ij+1
+         ! wt10=1.0_wp-wt00
+         ! e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+         ! ij=jteon1(m)
+         ! wp1=1.0_wp-wp0
+         ! wt01=1.0_wp-wteon1(m)
+         ! e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+         ! ij=ij+1
+         ! wt11=1.0_wp-wt01
+         ! e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+         ! if(mype==0 .and. m==1000) write(stdout,'((A,9ES13.5,A,3ES13.5))') "Ori phi(1000)=",e1, phi(:,jteon0(m)),phi(:,jteon0(m)+1),phi(:,jteon1(m)),phi(:,jteon1(m)+1), "zeon(1:3,1000)=",zeon(1:3,1000)
+         ! if(mype==0 .and. m==1000) write(stdout,'((A,ES13.5,A,3ES13.5))') "New phi(1000)=",Phi_at_zeon(1000),"; zeon(1:3,1000)=",zeon(1:3,1000)
+
+
+         ! ! calculate <phi> at electrons (no FLR effect -- x=R)
+         ! r=zeon(7,m)-s0       ! in radial coordinator s
+         ! r=r*inv_ds
+         ! ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+         ! fip=r-real(ip,wp)
+         ! Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+
+         ! if ( Flag_Def_dne_adiab==0 ) then
+         !    AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
+         ! elseif(Flag_Def_dne_adiab==1) then
+         !    ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+         !    AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
+         ! elseif(Flag_Def_dne_adiab==3) then
+         !    AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
+         ! else
+         !    AD=-1e100
+         !    write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+         !    STOP
+         ! endif
+
+
+
+         AD = Phi_at_zeon(m)*Te_inverse*abs(csc0)
+
+
+         ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+         ! zeon0(9,m) is f_0 (@ irk=1)
+         zeon(9,m)  = zeon0(6,m)*back_f0_e(m)*AD
+         zeon0(9,m) = zeon0(8,m)+zeon(9,m)
+
+
+         ! zeon0(9,m) = zeon0(6,m)*back_f0_e(m)
+
+         new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
+         new_f0 = zeon0(6,m)*back_f0_e(m)
+
+
+
+
+         zeon(5,m) = zeon0(9,m) - (new_f0+int(ifelectron/2)*new_f_AD) ! df or dh
+         zeon(8,m) = zeon0(9,m) - (int(ifelectron/2)*new_f_AD) ! full-f or full-h
+
+
+         if(mype==0 .and. m==1) then
+            write(stdout,*) 'new_f_AD=', new_f_AD, '; zeon(9,m)=', zeon(9,m),'; zeon0(8)+zeon(9)=', zeon0(8,m)+zeon(9,m)
+            write(stdout,*) 'zeon0(8,m)=',zeon0(8,m), '; ori_zeon(8,m)=', zeon0(8,m) - (new_f_AD-zeon(9,m))
+            write(stdout,*) 'zeon0(9,m)=',zeon0(9,m), '; new_zeon(8,m)=', zeon0(9,m) - (int(ifelectron/2)*new_f_AD)
+         endif
+
+      endif
+
+
+      ! =============================================================================================
+      ! Cumulate (x,v,w) for preparing the final RK push&evolution
+      RK_cum_zeon(1,m) = RK_cum_zeon(1,m) +RK_cum_coeff*tstep*da(m)
+      RK_cum_zeon(2,m) = RK_cum_zeon(2,m) +RK_cum_coeff*tstep*dgq(m)
+      RK_cum_zeon(3,m) = RK_cum_zeon(3,m) +RK_cum_coeff*tstep*dgf(m)
+      RK_cum_zeon(4,m) = RK_cum_zeon(4,m) +RK_cum_coeff*tstep*dgr(m)
+      RK_cum_zeon(7,m) = RK_cum_zeon(7,m) +RK_cum_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+
+      ! Advacne particles (x,v,w) for the next RK step
+      if(irk_e<nrk) then
+         zeon(1,m) = zeon0(1,m) +RK_adv_coeff*tstep*da(m)
+         zeon(2,m) = zeon0(2,m) +RK_adv_coeff*tstep*dgq(m)
+         zeon(3,m) = zeon0(3,m) +RK_adv_coeff*tstep*dgf(m)
+         zeon(4,m) = zeon0(4,m) +RK_adv_coeff*tstep*dgr(m)
+         zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
+      else if(irk_e==nrk) then
+         !$acc loop seq
+         do i=1,4
+            zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
+         enddo
+         zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
+      endif
+
+      zeon(2,m)=modulo(zeon(2,m),twopi)
+      zeon(3,m)=modulo(zeon(3,m),twopi)
+
+      ! store GC information for flux measurements
+      wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB
+      wpi(2,m)=energy    ! normalized electron energy with u//=0 in Jan.09
+      wpi(3,m)=mu*BB(m)       ! normalizd electron perpendicular energy
+
+
+      if(irk_e==nrk) then
+         UnNorm_theta_e(m) = UnNorm_theta_e(m) +RK_cum_zeon(2,m)
+         UnNorm_zeta_e(m)  = UnNorm_zeta_e(m)  +RK_cum_zeon(3,m)
+      endif
+      !
+      ! =============================================================================================
+   enddo
+   acc_newer_D_zeon=.true.
+
+
+
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
+      call flush(stdout)
+#endif
+
+
+   !   fluxes diagnose
+   if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
+
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+
+      call electron_locator()
+
+
+      !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+      !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
+      !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+      !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+      !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+      !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
+
+
+      if(acc_newer_D_zeon) then
+         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         acc_newer_D_zeon=.false.
+         acc_newer_H_zeon=.false.
+      endif
+
+
+      !$omp parallel do private(m)
+      do m=1,me
+         wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
+      end do
+
+      call get_fluxes_e(wpi)
+
+
+
+      if(mod(istep,ndiag)==0) then
+         call get_Te_fluctuation(wpi(2,:))
+      end if
+
+
+
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+      timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+
+   endif
+
+   if(irk_e==1) then
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+
+      call Measure_and_Cumulate_eZonData_on_DG(wpi,da)
+
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+      timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Cumulate_eFlux_a1D takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
+   endif
+
+   !Another Diagnostics on DG (Diagnostic Grid)
+   if(irk_e==1 .and. mod(istep,msnap)==0) then
+      call cpu_time(cput0)
+      tt0=MPI_WTIME()
+
+      call electron_locator()
+
+      !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
+      !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
+      !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
+      !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
+      !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
+      !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
+      !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
+      !$acc update self(elabels(:me))
+      !$acc update self(backTe(:me), dlnTdae(:me), backne(:me), dlnndae(:me))
+      !$acc update self(back_f0_e(:me))
+      !$acc update self(jteon0(:me),jteon1(:me),wzeon(:me),wpeon(:me),wteon0(:me),wteon1(:me))
+
+      if(acc_newer_D_zeon) then
+         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+         acc_newer_D_zeon=.false.
+         acc_newer_H_zeon=.false.
+      endif
+
+      do m=1,me
+         FullVelocity_da_dgq_dgf(1,m) = da(m)
+         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+      enddo
+
+
+      call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
+
+      call cpu_time(cput1)
+      tt1=MPI_WTIME()
+      time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
+      timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
+#ifdef _MGY_TIMER_
+      if(mype==0) then
+         write(stdout,*) "Measure_Electrons_on_Diagnostic_Grid takes", tt1-tt0," secs"
+         call flush(stdout)
+      endif
+#endif
+   endif
+
+
+   call cpu_time(cput0)
+   tt0=MPI_WTIME()
+   call shifte
+   call cpu_time(cput1)
+   tt1=MPI_WTIME()
+   time_in_Pushe(1) = time_in_Pushe(1) + (cput1-cput0)
+   timewc_in_Pushe(1) = timewc_in_Pushe(1) + (tt1-tt0)
+
+   ! call electron_locator
+   call n_T_u_group_e
+
+
+   ! !$acc update self(wzeon,wteon0,wteon1,jteon0,jteon1)
+   ! do m=1,me
+   !    if(wzeon(m)<0.0 .or. wzeon(m) >1.0) then
+   !      write(0,'((A,I4,A,ES12.4,A,I8,A,10ES12.4))') "11 mype=",mype,"; wzeon(m)=",wzeon(m), "; m=",m,"; zeon(:,m)=",zeon(:,m)
+   !    endif
+   !    if(jteon0(m)==20050 .or. jteon1(m)==20050)then
+   !      write(0,'((A,I4,A,I4,A,I8,A,I4))') "11 mype=",mype,"; jteon0(m)=",jteon0(m), "; m=",m,"; jteon1(m)=",jteon1(m)
+   !    endif
+   !    if(wteon0(m)<0.0 .or. wteon0(m)>1.0 .or. wteon1(m)<0.0 .or. wteon1(m)>1.0) then
+   !      write(0,'((A,I4,A,ES12.4,A,I8,A,10ES12.4))') "11 mype=",mype,"; wteon0(m)=",wteon0(m), "; m=",m,"; wteon1(m)=",wteon1(m)
+   !    endif
+
+   ! enddo
+
+   if(Flag_Poisson==0) then
+      !$acc parallel loop present(zeon,zeon0,back_f0_e)
+      do m=1,me
+         AD=0.0 ! Because phi=0 (no Poisson)
+
+         ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+         ! zeon0(9,m) is f_0 (@ irk=1)
+         new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
+         new_f0 = zeon0(6,m)*back_f0_e(m)
+
+         ! zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(9,m)) - (new_f_AD-zeon(9,m)) ! df or dh
+         ! zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
+         zeon(5,m) = zeon0(9,m) - (new_f0+int(ifelectron/2)*new_f_AD) ! df or dh
+         zeon(8,m) = zeon0(9,m) - (int(ifelectron/2)*new_f_AD) ! full-f or full-h
+      enddo
+      acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
+   elseif(Flag_Poisson==1) then
+      do loop=1,MaxLoopNum_Adiab_Weight_Update
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+            if(Flag_Poisson3D_on_SG==1) then
+               call Measure_Electron_Density_on_SG(0)
+            else
+               call charge_eon
+            endif
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(2) = time_in_Pushe(2) + (cput1-cput0)
+         timewc_in_Pushe(2) = timewc_in_Pushe(2) + (tt1-tt0)
+
+         prev_phi00=phi00
+
+         call cpu_time(cput0)
+         tt0=MPI_WTIME()
+         call poisson(solver1, masssolver)
+         call cpu_time(cput1)
+         tt1=MPI_WTIME()
+         time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
+         timewc_in_Pushe(3) = timewc_in_Pushe(3) + (tt1-tt0)
+
+         phi00_convergency = sum(sqrt((phi00 - prev_phi00)**2.0))/sum(sqrt(prev_phi00**2.0))
+
+         if (mype == 0) then
+            open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
+            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, (E_00*c)/(charg0*1e8)*phi00(:)
+            call flush(200903)
+            close(200903)
+         endif
+
+
+         call Get_Phi_at_zeon(Phi_at_zeon)
+         !$acc parallel loop present(Phi_at_zeon)
+         do m=1,me
+            Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
+         enddo
+
+
+         !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+         do m=1,me
+            Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+            AD = Phi_at_zeon(m)*Te_inverse*abs(csc0)
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            ! zeon0(9,m) is f_0 (@ irk=1)
+            new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
+            new_f0 = zeon0(6,m)*back_f0_e(m)
+
+            if(mype==0 .and. m==1) then
+               write(stdout,*) 'new_f_AD=', new_f_AD, '; zeon(9,m)=', zeon(9,m),'; zeon0(8)+zeon(9)=', zeon0(8,m)+zeon(9,m)
+               write(stdout,*) 'zeon0(8,m)=',zeon0(8,m), '; ori_zeon(8,m)=', zeon0(8,m) - (new_f_AD-zeon(9,m))
+               write(stdout,*) 'zeon0(9,m)=',zeon0(9,m), '; new_zeon(8,m)=', zeon0(9,m) - (int(ifelectron/2)*new_f_AD)
+            endif
+
+            ! zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(9,m)) - (new_f_AD-zeon(9,m)) ! df or dh
+            ! zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
+            zeon(5,m) = zeon0(9,m) - (new_f0+int(ifelectron/2)*new_f_AD) ! df or dh
+            zeon(8,m) = zeon0(9,m) - (int(ifelectron/2)*new_f_AD) ! full-f or full-h
+
+            ! zeon(5,m) = zeon0(5,m)
+            ! zeon(8,m) = zeon0(8,m)
+         enddo
+         acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
+      enddo
+   endif
+
+
+   if(irk_e==nrk)then
+      if(Flag_Measure_Ptl_FootPrint==1) then
+         !$acc update self(wpi(:,:me))
+         call Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
+      endif
+      call treat_electrons_out_of_boundary
+      call Cumulate_e_lost_num
+   endif
+
+
+end subroutine pusheon_wEvol4
 
 
 
@@ -2455,7 +3678,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
 
 
    if(irk_e==1) then
-      !This function call calculates zeon0(8,m)
+      !This function call calculates zeon0(9,m)
       !Note that this function must be called before zeon0 update in the next following (irk_e==1) part
       call Cal_Current_AdiabaticTerm_at_PrevPosition
    endif
@@ -2466,7 +3689,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
       RK_cum_coeff =(1.0/6.0)
       RK_adv_coeff =0.5
       do m=1,me
-         ! Note that zeon0(6,m) does not mean "mu", this is reserved for the other quantity
+         ! Note that zeon0(8,m) does not mean "mu", this is reserved for the other quantity
          zeon0(1:5,m)=zeon(1:5,m)
          zeon0(7,m)=zeon(7,m)
       enddo
@@ -2680,10 +3903,10 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
          if(irk_e==1) then
             !======================================================
             ! MGYOO(05/22/2019) :
-            ! Please note the definition of zeon(8,m) and zeon0(8,m)
-            ! zeon(8,m)  = (q*dphi_NZ/Te) @ t{n}, x{n}
-            ! zeon0(8,m) = (q*dphi_NZ/Te) @ t{n}, x{n-1} ,(this was calculated at the first section of pusheon_RK4_ifdphi3)
-            zeon(8,m) = E_f
+            ! Please note the definition of zeon(9,m) and zeon0(9,m)
+            ! zeon(9,m)  = (q*dphi_NZ/Te) @ t{n}, x{n}
+            ! zeon0(9,m) = (q*dphi_NZ/Te) @ t{n}, x{n-1} ,(this was calculated at the first section of pusheon_RK4_ifdphi3)
+            zeon(9,m) = E_f
             !======================================================
          endif
 
@@ -2694,7 +3917,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
          ! i.e. (T_inv @ t{n-1},x{n+k}) = (T_inv @ t{n},x{n+k})
          old_E_f=(old_e1-real(1-ZF_SEPARATION,wp)*old_Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
          ! Let's calculate wdphidt_partial, which is the partial time derivative of d(AdiabaticTerm)/dt
-         ! Note that E_f differs from zeon(8,m) when irk_e!=1
+         ! Note that E_f differs from zeon(9,m) when irk_e!=1
          wdphidt_partial = (E_f-old_E_f)/tstep
 
 
@@ -2734,11 +3957,11 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
          ! ! f'(t+k) = (h/(k*(h+k)))*f(t+k) +(1/h-1/k)*f(t) -(k/(h*(h+k)))*f(t-h)
          ! ! where h=tstep, and k size corresponds to the RK step (k=0.5*tstep for irk_e=2or3, k=tstep for irk_e=4)
          ! if(irk_e==1) then
-         !   wdphidt_convective = (zeon(8,m)-zeon0(8,m))/tstep !1st order 2-points backward differencing @ x{n}
+         !   wdphidt_convective = (zeon(9,m)-zeon0(9,m))/tstep !1st order 2-points backward differencing @ x{n}
          ! elseif(irk_e<4) then ! irk_e=2 or irk_e=3
-         !   wdphidt_convective = (4.0*E_f -3.0*zeon(8,m)-zeon0(8,m))/(3.0*tstep) !2nd order 3-points central differencing @ x{n+0.5}
+         !   wdphidt_convective = (4.0*E_f -3.0*zeon(9,m)-zeon0(9,m))/(3.0*tstep) !2nd order 3-points central differencing @ x{n+0.5}
          ! else ! irk_e=4
-         !   wdphidt_convective = (E_f - zeon0(8,m))/(2.0*tstep) !2nd order 3-points central differencing @ x{n+1}
+         !   wdphidt_convective = (E_f - zeon0(9,m))/(2.0*tstep) !2nd order 3-points central differencing @ x{n+1}
          ! endif
 
          !========================================================
@@ -2747,17 +3970,17 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
          ! f'(t+k) = (k/(h*(h+k)))*f(t-h) -(h+k)/(h*k)*f(t) +(h+2*k)/(k*(h+k))*f(t+k)
          ! where h=tstep, and k size corresponds to the RK step (k=0.5*tstep for irk_e=2or3, k=tstep for irk_e=1)
          if(irk_e==1) then
-            wdphidt_convective = (zeon(8,m)-zeon0(8,m))/tstep !1st order 2-points backward differencing @ x{n}
+            wdphidt_convective = (zeon(9,m)-zeon0(9,m))/tstep !1st order 2-points backward differencing @ x{n}
          elseif(irk_e<4) then ! irk_e=2 or irk_e=3
-            wdphidt_convective = (8.0*E_f -9.0*zeon(8,m)+1.0*zeon0(8,m))/(3.0*tstep) !2nd order 3-points backward differencing @ x{n+0.5}
+            wdphidt_convective = (8.0*E_f -9.0*zeon(9,m)+1.0*zeon0(9,m))/(3.0*tstep) !2nd order 3-points backward differencing @ x{n+0.5}
          else ! irk_e=4
-            wdphidt_convective = (1.5*E_f -2.0*zeon(8,m)+0.5*zeon0(8,m))/tstep !2nd order 3-points backward differencing @ x{n+1}
+            wdphidt_convective = (1.5*E_f -2.0*zeon(9,m)+0.5*zeon0(9,m))/tstep !2nd order 3-points backward differencing @ x{n+1}
          endif
 
 
 
          if(elabels(m) == etracers_labels((num_of_etracers/2))) then
-            write(stdout,*) "istep=",istep, ",irk_e=",irk_e,",zeon0(8,m)=", zeon0(8,m),",zeon(8,m)=", zeon(8,m),",E_f=",E_f,",old_E_f=",old_E_f
+            write(stdout,*) "istep=",istep, ",irk_e=",irk_e,",zeon0(9,m)=", zeon0(9,m),",zeon(9,m)=", zeon(9,m),",E_f=",E_f,",old_E_f=",old_E_f
             write(stdout,*) "wdot=",wdot,"wdphidt_convective=",wdphidt_convective, "wdphidt_partial=",wdphidt_partial
             call flush(stdout)
          endif
@@ -2863,9 +4086,9 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
          !=====================================================
          ! MGYOO(05/22/2019) : This is very important part!
          ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
-         ! Note that RK_cum_zeon(8,m) is for estimating the weight evolution due to wdphidt_partial term only.
-         RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +wdphidt_convective +wdphidt_partial)*fip-fdamp*zeon(5,m))
-         RK_cum_zeon(8,m) = RK_cum_zeon(8,m) +RK_cum_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdphidt_partial)*fip-fdamp*zeon(5,m))
+         ! Note that RK_cum_zeon(9,m) is for estimating the weight evolution due to wdphidt_partial term only.
+         RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(8,m)-nonlinear*now_w)*(wdot +wdphidt_convective +wdphidt_partial)*fip-fdamp*zeon(5,m))
+         RK_cum_zeon(9,m) = RK_cum_zeon(9,m) +RK_cum_coeff*tstep*((zeon0(8,m)-nonlinear*now_w)*(wdphidt_partial)*fip-fdamp*zeon(5,m))
          !=====================================================
 
          ! Advance particle position for the next RK step
@@ -2878,7 +4101,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
             zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
 
             ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
-            zeon(5,m) = zeon0(5,m)+RK_adv_coeff*tstep*((zeon0(6,m)-nonlinear*now_w)*(wdot +wdphidt_convective +wdphidt_partial)*fip-fdamp*zeon(5,m))
+            zeon(5,m) = zeon0(5,m)+RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*now_w)*(wdot +wdphidt_convective +wdphidt_partial)*fip-fdamp*zeon(5,m))
 
          else if(irk_e==4) then !irk_i==4
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
@@ -3043,7 +4266,7 @@ end subroutine electron_locator
 
 
 subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
-   ! This function calculates zeon0(8,m) = e*phi_NZ{t^n,x^(n-1)}/Te0{x^(n-1)}
+   ! This function calculates zeon0(9,m) = e*phi_NZ{t^n,x^(n-1)}/Te0{x^(n-1)}
    ! This value will be needed to calculate central differencing of convective adiabatic driving term
    use precision
    use field_array
@@ -3182,7 +4405,7 @@ subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
          Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
       end if
 
-      zeon0(8,m)=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+      zeon0(9,m)=(e1-real(1-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
 
    enddo !m=1,me
 
@@ -3195,7 +4418,7 @@ end subroutine Cal_Current_AdiabaticTerm_at_PrevPosition
 
 
 subroutine Get_AdiabaticTerm_at_specific_Pos_Time(input_phi, input_phi00, input_zeon_arr, out_val_arr)
-   ! This function calculates zeon0(8,m) = e*phi_NZ{t^n,x^(n-1)}/Te0{x^(n-1)}
+   ! This function calculates zeon0(9,m) = e*phi_NZ{t^n,x^(n-1)}/Te0{x^(n-1)}
    ! This value will be needed to calculate central differencing of convective adiabatic driving term
    use precision
    use field_array
@@ -3398,13 +4621,13 @@ subroutine Update_ElectronWeights_using_New_wdphidt_partial
 
       if(elabels(m) == etracers_labels((num_of_etracers/2))) then
          write(stdout,*) "istep=",istep,"At update Update_ElectronWeights_using_New_wdphidt_partial"
-         write(stdout,*) "zeon(5,m)=",zeon(5,m),"zeon0(5,m)=",zeon0(5,m),"RK_cum_zeon(8,m)=",RK_cum_zeon(8,m),"new_dw=",tstep*((zeon0(6,m)-nonlinear*zeon0(5,m))*new_wdphidt_partial(m)*fip -fdamp*zeon0(5,m))
+         write(stdout,*) "zeon(5,m)=",zeon(5,m),"zeon0(5,m)=",zeon0(5,m),"RK_cum_zeon(9,m)=",RK_cum_zeon(9,m),"new_dw=",tstep*((zeon0(8,m)-nonlinear*zeon0(5,m))*new_wdphidt_partial(m)*fip -fdamp*zeon0(5,m))
          call flush(stdout)
       endif
       ! Subtract the weight evolution due to predicted partial derivative term
-      ! (This is RK_cum_zeon(8,m) due to wdphidt_partial in pushe_RK4_ifdphi3)
+      ! (This is RK_cum_zeon(9,m) due to wdphidt_partial in pushe_RK4_ifdphi3)
       ! After that, evolve again using new_wdphidt_partial
-      zeon(5,m) = zeon(5,m) - RK_cum_zeon(8,m) +tstep*((zeon0(6,m)-nonlinear*zeon0(5,m))*new_wdphidt_partial(m)*fip -fdamp*zeon0(5,m))
+      zeon(5,m) = zeon(5,m) - RK_cum_zeon(9,m) +tstep*((zeon0(8,m)-nonlinear*zeon0(5,m))*new_wdphidt_partial(m)*fip -fdamp*zeon0(5,m))
 
 
    enddo

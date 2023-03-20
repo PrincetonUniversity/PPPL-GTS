@@ -18,6 +18,7 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:,:,:) :: eScaData, iScaData!
       real(wp), allocatable, dimension(:,:,:,:,:) :: eVecData,iVecData ! Flux..
       real(wp), allocatable, dimension(:,:) :: dne_adiab ! Electron adiabatic density for diagnostic purpose
+      real(wp), allocatable, dimension(:) :: ZON_dne_adiab,mean_ZON_dne_adiab ! Zonal adiabatic density (surface averaged)
       real(wp), allocatable, dimension(:,:,:) :: FLabel_Function
       real(wp), allocatable, dimension(:,:,:) :: FLA_Denominator, FLA_FLabel, FLA_psi0
       real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_psi0
@@ -92,7 +93,7 @@ module Diagnostic_Grid
          real(wp), external :: temperature, temperature_e, density, Cal_FLabel_Function, dsda
 
          ! approximated delta_a and delta_gf for approximated calculation of the weighted cell volume
-         real(wp) approx_da, approx_dgf, tmp
+         real(wp) approx_da, approx_dgf, tmp, this_Jacob
          real(wp), allocatable, dimension(:,:,:) :: tmp_DG_Data1, tmp_DG_Data2
          integer ierror, istatus(MPI_STATUS_SIZE)
          real(wp) uvec_B_cov(3), uvec_N_cov(3), uvec_BxN_cov(3)
@@ -100,14 +101,14 @@ module Diagnostic_Grid
 
          DG%dim_a  = (mpsi+1)/DG%a_jump
          DG%dim_gq = mtheta(ipsi)/DG%gq_jump +1
-         DG%num_eSD = 6 +6 +6 +1 +4 +1 !23
+         DG%num_eSD = 32
          DG%num_eVD = 5
 
-         DG%num_iSD = 8 +6 +6 +1 +4 +1! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
+         DG%num_iSD = 32! 2 additional dni_Larmor, dTi_Larmor by considering larmor orbit of ions
          DG%num_iVD = 5+4 ! 4 additional energy, particle flows (total and only ExB)
 
-         DG%num_eZD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
-         DG%num_iZD_1D = 8 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_eZD_1D = 32 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
+         DG%num_iZD_1D = 29 ! Particle and Energy fluxes (Total; ExB; streaming) + Particle Density + Energy Density
 
          DG%dgq   = 2.0*pi/(DG%dim_gq-1)
          DG%inv_dgq = 1.0/DG%dgq
@@ -124,6 +125,7 @@ module Diagnostic_Grid
          allocate(DG%a_2D(Nq,Na))
          allocate(DG%n0_2D(Nq,Na),DG%Te0_2D(Nq,Na),DG%Ti0_2D(Nq,Na))
          allocate(DG%gq_2D(Nq,Na), DG%Cell_dV(Nq,Na), DG%inv_Cell_dV(Nq,Na), DG%dne_adiab(Nq,Na))
+         allocate(DG%ZON_dne_adiab(Na),DG%mean_ZON_dne_adiab(Na))
          allocate(DG%Cell_dS_a(Nq,Na), DG%inv_Cell_dS_a(Nq,Na), DG%Cell_dS_gq(Nq,Na), DG%inv_Cell_dS_gq(Nq,Na), DG%Cell_dS_gf(Nq,Na), DG%inv_Cell_dS_gf(Nq,Na))
          allocate(DG%FLabel_Function(Nq,Na,0:1))
          allocate(DG%FLA_Denominator(Nq,Na,0:1), DG%FLA_FLabel(Nq,Na,0:1), DG%FLA_psi0(Nq,Na,0:1))
@@ -237,19 +239,22 @@ module Diagnostic_Grid
          !        For higher accuracy, a Weighted Volume by considering hellical particle shape and varying da is required
          approx_dgf=zetamax-zetamin
          do aid=1,Na
-            if(aid==1) then
-               approx_da=0.5*(DG%a_1D(2)-DG%a_1D(1))    ! half cell
-            else if(aid==Na) then
-               approx_da=0.5*(DG%a_1D(Na)-DG%a_1D(Na-1)) ! half cell
-            else
-               approx_da=0.5*(DG%a_1D(aid+1)-DG%a_1D(aid-1))  ! full cell
-            endif
-
             do gqid=1,Nq
-               DG%Cell_dV(gqid,aid)=DG%Jacobian(gqid,aid)*approx_da*DG%dgq*approx_dgf
-               DG%Cell_dS_a(gqid,aid) = sqrt(DG%g_aa_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*DG%dgq*approx_dgf
-               DG%Cell_dS_gq(gqid,aid) = sqrt(DG%g_qq_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*approx_dgf
-               DG%Cell_dS_gf(gqid,aid) = sqrt(DG%g_ff_cntv(gqid,aid))*DG%Jacobian(gqid,aid)*approx_da*DG%dgq
+               if(aid==1) then
+                  approx_da=0.5*(DG%a_1D(2)-DG%a_1D(1))    ! half cell
+                  this_Jacob = 0.5*(DG%Jacobian(gqid,1)+DG%Jacobian(gqid,2))
+               else if(aid==Na) then
+                  approx_da=0.5*(DG%a_1D(Na)-DG%a_1D(Na-1)) ! half cell
+                  this_Jacob = 0.5*(DG%Jacobian(gqid,Na-1)+DG%Jacobian(gqid,Na))
+               else
+                  approx_da=0.5*(DG%a_1D(aid+1)-DG%a_1D(aid-1))  ! full cell
+                  this_Jacob = DG%Jacobian(gqid,aid)
+               endif
+
+               DG%Cell_dV(gqid,aid)=this_Jacob*approx_da*DG%dgq*approx_dgf
+               DG%Cell_dS_a(gqid,aid) = sqrt(DG%g_aa_cntv(gqid,aid))*this_Jacob*DG%dgq*approx_dgf
+               DG%Cell_dS_gq(gqid,aid) = sqrt(DG%g_qq_cntv(gqid,aid))*this_Jacob*approx_da*approx_dgf
+               DG%Cell_dS_gf(gqid,aid) = sqrt(DG%g_ff_cntv(gqid,aid))*this_Jacob*approx_da*DG%dgq
             enddo
          enddo
          DG%inv_Cell_dV=1.0/DG%Cell_dV
@@ -262,24 +267,24 @@ module Diagnostic_Grid
 
          ! Set PVS (ProbeVelocitySpace) parameters
 
-         nPVS = nprobe
+         nPVS = num_of_PVS
          allocate(PVS(0:nPVS)) ! 0-index PVS will be used to measure particles in a whole poloidal section.
 
          ! Set location and size of probes
          PVS(0)%a  = 0.5*(a0+a1)
          PVS(0)%gq = 0
-         PVS(0)%gf = 0.5*(zetamax+zetamin)
+         PVS(0)%gf = zetamax
          PVS(0)%L_a  = a1-a0  !To deal with a whole poloidal section
          PVS(0)%L_gq = 2.0*pi
-         PVS(0)%L_gf = zetamax-zetamin
+         PVS(0)%L_gf = 2.0*(zetamax-zetamin)
 
          do pbid=1,nPVS
-            PVS(pbid)%a  = rprobe(pbid)
-            PVS(pbid)%gq = tprobe(pbid)
-            PVS(pbid)%gf = 0.5*(zetamax+zetamin)
-            PVS(pbid)%L_a  = dradius
-            PVS(pbid)%L_gq = dtheta
-            PVS(pbid)%L_gf = zetamax-zetamin
+            PVS(pbid)%a  = 0.5*(PVS_a0(pbid)+PVS_a1(pbid))
+            PVS(pbid)%gq = 0.5*(PVS_gq0(pbid)+PVS_gq1(pbid))
+            PVS(pbid)%gf = zetamax
+            PVS(pbid)%L_a  = PVS_a1(pbid)-PVS_a0(pbid)
+            PVS(pbid)%L_gq = PVS_gq1(pbid)-PVS_gq0(pbid)
+            PVS(pbid)%L_gf = 2.0*(zetamax-zetamin)
          enddo
 
          ! Set other information
@@ -292,16 +297,16 @@ module Diagnostic_Grid
             PVS(pbid)%inv_Ti0 = 1.0/PVS(pbid)%Ti0
             PVS(pbid)%inv_Te0 = 1.0/PVS(pbid)%Te0
 
-            PVS(pbid)%nv  = nv
-            PVS(pbid)%dv  = delta_v
+            PVS(pbid)%nv  = PVS_nv
+            PVS(pbid)%dv  = real(PVS_max_v)/real(PVS_nv)
             PVS(pbid)%inv_dv = 1.0/PVS(pbid)%dv
             PVS(pbid)%max_norm_v = PVS(pbid)%nv*PVS(pbid)%dv ! or just use umax parameters (ex. 1.2*umax)
 
             PVS(pbid)%dim_vpara = 2*PVS(pbid)%nv+1
             PVS(pbid)%dim_vperp = PVS(pbid)%nv+1
 
-            PVS(pbid)%num_of_fi  = 5
-            PVS(pbid)%num_of_fe  = 5
+            PVS(pbid)%num_of_fi  = 7
+            PVS(pbid)%num_of_fe  = 8
 
             allocate(PVS(pbid)%vpara_1D(-PVS(pbid)%nv:PVS(pbid)%nv))
             allocate(PVS(pbid)%vperp_1D(0:PVS(pbid)%nv))
@@ -501,8 +506,7 @@ module Diagnostic_Grid
          g_ff_cntv_=1.0_wp/R_**2                 ! gradphi^2
          g_aq_cntv_=(-dRda_*dRdgq_-dZda_*dZdgq_)/D_**2  ! gradagradtheta
 
-
-         ori_sid = (in_s-s0)*ori_inv_ds ! s index of original full grid
+         ori_sid = max(0,min(mpsi-1,int((in_s-s0)*ori_inv_ds))) ! s index of original full grid
          ff  = (in_s-s_grid(ori_sid))*ori_inv_ds
          safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
          sid = max(1,min(int((in_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
@@ -571,7 +575,7 @@ module Diagnostic_Grid
          use particle_array
          use particle_decomp
          use esi_interface
-
+         use Magnetic_Grid, MG_BB=>BB
          implicit none
 
          real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
@@ -581,16 +585,16 @@ module Diagnostic_Grid
          real(wp) P_s, P_safety_q !safety factor
          real(wp) P_a, P_gq, P_gf
 
-         real(wp) delta_f(me), f_tot(me) ! delta_f and f_tot (f_tot=f0+delta_f)
+         real(wp) delta_f(me), ff_or_fh(me) ! delta_f and f_tot (f_tot=f0+delta_f)
 
          real(wp) target_gq ! projected gq at nearby poloidal plane following the B0 field
          integer :: ori_sid !sid of original full grid
          real(wp) ori_inv_ds,ori_inv_dgf, P_inv_ori_dgq ! inv_ds of original full grid
          real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
          real(wp) target_zeta
-         integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
+         integer :: i,m, j,k, aid, sid, vid, gqid,gfid, qq, ss
          integer ::pbid,vxid,vyid,fid
-         real(wp):: norm_vpara, norm_vperp, rvx,rvy ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
+         real(wp):: norm_vpara, norm_vperp, rvx,rvy,inv_vth ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
          real(wp),allocatable, dimension(:,:,:) :: tmp_PVS_fe
          integer :: length, istatus(MPI_STATUS_SIZE),ierror
 
@@ -599,10 +603,14 @@ module Diagnostic_Grid
          real(wp) :: intpl_FLA_Te0(DG%dim_gq,DG%dim_a)
          real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
+         integer :: ij,ip
+         real(wp) :: Te_inverse, r,fip,wz0,wz1,wp0,wp1,wt00,wt10,wt01,wt11,e1,Ea_00,AD,fe0(me),fe_AD(me)
+         real(wp) :: Mirror_Ratio(me),ptl_weight
 
 
          if(acc_newer_D_zeon) then
             !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            !$acc update self(elabels(:me))
             acc_newer_H_zeon=.false.
             acc_newer_D_zeon=.false.
          endif
@@ -617,8 +625,16 @@ module Diagnostic_Grid
          ori_inv_dgf= 1.0/(zetamax-zetamin)
 
          energy(:) = in_P_data(2,:)
-         KE_para = 0.5*for_E*(zeon(4,1:me)*BB(1:me))**2.0
+         KE_para = 0.5*for_E*(zeon0(4,1:me)*BB(1:me))**2.0
          KE_perp = zeon(6,1:me)*zeon(6,1:me)*BB(1:me)
+
+         do m=1,me
+            aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+            gqid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+            gfid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
+            Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
+         enddo
+
 
          ! Calculate dne_adiabatic by interpolating dphi on original grids
          call Interpolate_OriGridData_into_DG(phi(1,:), intpl_dphi)
@@ -647,13 +663,61 @@ module Diagnostic_Grid
             enddo
          endif
 
+         do m=1,me
+            Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+            ! Cal new phi at new position (i.e. phi @ (t_(n+1), x_(n+1)))
+            wz1=wzeon(m)
+            wz0=1.0_wp-wz1
+
+            ij=jteon0(m)
+            wp0=1.0_wp-wpeon(m)
+            wt00=1.0_wp-wteon0(m)
+            e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=ij+1
+            wt10=1.0_wp-wt00
+            e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=jteon1(m)
+            wp1=1.0_wp-wp0
+            wt01=1.0_wp-wteon1(m)
+            e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ij=ij+1
+            wt11=1.0_wp-wt01
+            e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+            ! calculate <phi> at electrons (no FLR effect -- x=R)
+            r=zeon0(7,m)-s0       ! in radial coordinator s
+            r=r*ori_inv_ds
+            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            fip=r-real(ip,wp)
+            Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+
+            if ( Flag_Def_dne_adiab==0 ) then
+               AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
+            elseif(Flag_Def_dne_adiab==1) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+               AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==3) then
+               AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
+            else
+               AD=-1e100
+               write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in Measure Electrons_on_DG!!"
+               STOP
+            endif
+
+            fe0(m)    = zeon0(6,m)*back_f0_e(m)
+            fe_AD(m)  = zeon0(6,m)*back_f0_e(m)*AD
+         enddo
 
          if(Flag_Load_and_WeightDef==0)then
             delta_f(:) = zeon0(5,1:me)*eNrNm
-            f_tot(:)   = eNrNm
+            ff_or_fh(:)   = eNrNm
          else
             delta_f(:) = zeon0(5,1:me)
-            f_tot(:)   = zeon0(6,1:me)
+            ff_or_fh(:)   = zeon0(8,1:me)
          endif
 
          do m=1,me
@@ -665,7 +729,12 @@ module Diagnostic_Grid
             P_gf = modulo(zeon0(3,m),2*pi)
             P_s  = zeon0(7,m)
 
-            ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+            if( elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
+            ori_sid = max(0,min(mpsi-1,int((P_s-s0)*ori_inv_ds))) ! s index of original full grid
             ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
             P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
             P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
@@ -708,18 +777,42 @@ module Diagnostic_Grid
                   vid=2; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m)-backTe(m)*msm0)*delta_f(m) !Temperature definition 1
                   vid=3; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*delta_f(m) !
                   vid=4; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Marker Distribution
-                  vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m) ! Integrating f_tot, so n_tot
-                  vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
+                  vid=5; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ff_or_fh(m) ! Integrating f_tot, so n_tot
+                  vid=6; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ff_or_fh(m)*(2.0/3.0*energy(m)) ! Integrating f_tot*energy, so Te_tot
 
                   vid=20; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0*KE_para(m))*delta_f(m) !
                   vid=21; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(KE_perp(m))*delta_f(m) !
-                  vid=22; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0*KE_para(m)) ! Te_tot_para
-                  vid=23; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*f_tot(m)*(KE_perp(m)) ! Te_tot_perp
+                  vid=22; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ff_or_fh(m)*(2.0*KE_para(m)) ! Te_tot_para
+                  vid=23; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ff_or_fh(m)*(KE_perp(m)) ! Te_tot_perp
 
-                  if(elabels(m)==-1) then
-                     vid=19; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Negative df Markers from Walls
-                  elseif(elabels(m)==1) then
-                     vid=24;DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Negative df Markers from Walls
+                  vid=25; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*fe0(m)! fe0 reconstruced by particles
+                  vid=26; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*fe_AD(m) ! Adiabatic response reconstruced by particles
+
+                  ptl_weight = ff_or_fh(m) + fe_AD(m)
+                  inv_vth = 1.0/sqrt(backTe(m))  ! vth = sqrt(Te/me) = sqrt(backTe); Note that backTe is defined as Te/me
+                  norm_vpara = zeon0(4,m)*csc0*BB(m)*m0ms*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
+                  norm_vperp = zeon(6,m)*sqrt(2.0*BB(m)*m0ms)*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
+
+
+
+                  ! if(norm_vperp>abs(norm_vpara)*tan(asin(sqrt(1.0/Mirror_Ratio(m))))) then ! Magnetically trapped particle
+                  if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
+                     vid=27; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
+                     vid=28; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
+                  else
+                     vid=29; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
+                     vid=30; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                  endif
+
+                  if( sqrt(norm_vpara**2.0+norm_vperp**2.0)<umax ) then
+                        vid=31; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*zeon0(6,m) ! Phase Volume occupied by particles
+                  endif
+                  vid=32; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*zeon0(9,m) ! f_tot
+
+                  if(elabels(m)==-1 .or. elabels(m)==-3) then
+                     vid=19; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Markers from Walls (-1 from left wall) (-3 from right wall)
+                  elseif(elabels(m)==-2) then
+                     vid=24;DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio ! Markers from Velocity cut-off
                   endif
 
                   ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
@@ -792,15 +885,15 @@ module Diagnostic_Grid
                   rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
                   rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
 
-                  ! Do not calculate any contribution from "too" outside of our probe boudnary
-                  ! "too" outside means that even over the ghost cells around the probe boundary
-                  if(vxid< -PVS(pbid)%nv-1) then
-                     continue
-                  elseif(vxid>=PVS(pbid)%nv+1) then
-                     continue
-                  elseif(vyid>=PVS(pbid)%nv+1) then
-                     continue
-                  endif
+                  ! ! Do not calculate any contribution from "too" outside of our probe boudnary
+                  ! ! "too" outside means that even over the ghost cells around the probe boundary
+                  ! if(vxid< -PVS(pbid)%nv-1) then
+                  !    continue
+                  ! elseif(vxid>=PVS(pbid)%nv+1) then
+                  !    continue
+                  ! elseif(vyid>=PVS(pbid)%nv+1) then
+                  !    continue
+                  ! endif
 
                   if(vxid< -PVS(pbid)%nv) then
                      vxid= -PVS(pbid)%nv
@@ -834,8 +927,12 @@ module Diagnostic_Grid
                      fid=1; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*delta_f(m) ! Density
                      fid=2; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*delta_f(m)*(2.0/3.0*energy(m)-backT(m)) ! Temperature definition
                      fid=3; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio ! Marker Density
-                     fid=4; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*f_tot(m) ! f_tot
-                     fid=5; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+                     fid=4; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*ff_or_fh(m) ! f_tot
+                     fid=5; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*ff_or_fh(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+
+                     fid=6; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*fe0(m) ! f0 sampled by markers
+                     fid=7; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*fe_AD(m) ! by adiabatic response
+                     fid=8; PVS(pbid)%fe(qq,ss,fid) = PVS(pbid)%fe(qq,ss,fid) + ratio*zeon0(6,m)/PVS(pbid)%L_a! Normalized Phase Volume
                   enddo
                endif
             enddo
@@ -862,6 +959,10 @@ module Diagnostic_Grid
             deallocate(tmp_PVS_fe)
          endif
 
+         ! Normalize PVS
+         do pbid=0,nPVS
+            PVS(pbid)%fe=PVS(pbid)%fe/(PVS(pbid)%dv**2.0)
+         enddo
 
          ! Match poloidal end cell
          ! (gq=0 and gq=2pi is the same position physically
@@ -895,8 +996,8 @@ module Diagnostic_Grid
 
          ! Calculate hybrid particle and energy density
          DG%w_dne(:,:) = abs(DG%eScaData(:,:,1,1))/(abs(DG%eScaData(:,:,1,1))+abs(DG%eScaData(:,:,5,1))) ! wdne=abs(snap.DG.dne_tot)./(abs(snap.DG.ne_tot)+abs(snap.DG.dne_tot));
-         DG%ne_tot_hybrid = DG%w_dne*DG%eScaData(:,:,5,1) + (1.0-DG%w_dne)*(DG%eScaData(:,:,1,1)+DG%n0_2D + int(ifelectron/2)*DG%dne_adiab) ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
-         DG%Te_hybrid  = DG%w_dne*DG%eScaData(:,:,6,1) + (1.0-DG%w_dne)*(DG%eScaData(:,:,3,1) +DG%Te0_2D*(DG%n0_2D+int(ifelectron/2)*DG%dne_adiab)) ! (hybrid (2/3)*energy_density, then will be divded by n_hybrid to get T_hybrid)
+         DG%ne_tot_hybrid = DG%w_dne*DG%eScaData(:,:,5,1) + (1.0-DG%w_dne)*(DG%n0_2D+DG%eScaData(:,:,1,1)) + int(ifelectron/2)*DG%dne_adiab ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
+         DG%Te_hybrid  = DG%w_dne*DG%eScaData(:,:,6,1) + (1.0-DG%w_dne)*(DG%eScaData(:,:,3,1) +DG%Te0_2D*DG%n0_2D) +DG%Te0_2D*int(ifelectron/2)*DG%dne_adiab ! (hybrid (2/3)*energy_density, then will be divded by n_hybrid to get T_hybrid)
          DG%Te_hybrid  = DG%Te_hybrid / DG%ne_tot_hybrid
 
          ! Calculate inverse of tot density (including dne_adiabatic in the case of delta-h electron (ifelectron==2))
@@ -908,9 +1009,18 @@ module Diagnostic_Grid
          DG%eScaData(:,:,3,1) = (DG%eScaData(:,:,3,1)-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne !delta_T = (2/3*dEnergy - T0*dn)/(n0+dn_h+dne_adiab)]
          DG%eScaData(:,:,20,1) = (DG%eScaData(:,:,20,1)-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne ! delta_T_para
          DG%eScaData(:,:,21,1) = (DG%eScaData(:,:,21,1)-DG%Te0_2D*DG%eScaData(:,:,1,1))*inv_tot_ne ! delta_T_perp
-         DG%eScaData(:,:,6,1) = DG%eScaData(:,:,6,1)/DG%eScaData(:,:,5,1)! Te_tot = Energy_tot/Density_tot
-         DG%eScaData(:,:,22,1) = DG%eScaData(:,:,22,1)/DG%eScaData(:,:,5,1)! Te_tot_para
-         DG%eScaData(:,:,23,1) = DG%eScaData(:,:,23,1)/DG%eScaData(:,:,5,1)! Te_tot_perp
+
+         ! Following 6,22,23 variables are Temperatures estimated by full-h particles and adiabatic density addition
+         ! Calculate inverse of tot density (n_tot = n(full-h) + n_AD)
+         inv_tot_ne = 1.0/(DG%eScaData(:,:,5,1) + int(ifelectron/2)*DG%dne_adiab) ! smoothed total density using full-h + adiabatic density
+
+         DG%eScaData(:,:,6,1)  = (DG%eScaData(:,:,6,1) +int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D)*inv_tot_ne ! Te = ((2/3)*Erg_fullh + n_AD*Te0)/(n_fullh + n_AD)
+         DG%eScaData(:,:,22,1) = (DG%eScaData(:,:,22,1)+int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D)*inv_tot_ne ! Te_para = (2*Erg_para_fullh + n_AD*Te0)/(n_fullh + n_AD)
+         DG%eScaData(:,:,23,1) = (DG%eScaData(:,:,23,1)+int(ifelectron/2)*DG%dne_adiab*DG%Te0_2D)*inv_tot_ne ! Te_perp = (Erg_perp_fullh + n_AD*Te0)/(n_fullh + n_AD)
+
+         DG%eScaData(:,:,28,1) = DG%eScaData(:,:,28,1)/DG%eScaData(:,:,27,1) ! Te_trap = (Erg_trap)/(n_trap) ! NOTE: Adiabatic contribution included
+         DG%eScaData(:,:,30,1) = DG%eScaData(:,:,30,1)/DG%eScaData(:,:,29,1) ! Te_pass = (Erg_pass)/(n_pass) ! NOTE: Adiabatic contribution included
+
 
 
          ! Get Flux Density by dividing Area in each direction
@@ -939,7 +1049,7 @@ module Diagnostic_Grid
          use particle_array
          use particle_decomp
          use esi_interface
-
+         use Magnetic_Grid, MG_BB=>BB
          implicit none
 
          real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
@@ -956,9 +1066,9 @@ module Diagnostic_Grid
          real(wp) ori_inv_ds,ori_inv_dgf, P_inv_ori_dgq ! inv_ds of original full grid
          real(wp) ff, ws0,ws1, wgq0,wgq1, wgf,ratio ! ratios along each dimension
          real(wp) target_zeta
-         integer :: i,m, j,k, aid, sid, vid, gqid, qq, ss
+         integer :: i,m, j,k, aid, sid, vid, gqid,gfid,qq, ss
          integer ::pbid,vxid,vyid,fid
-         real(wp):: norm_vpara, norm_vperp, rvx,rvy ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
+         real(wp):: norm_vpara, norm_vperp, rvx,rvy,inv_vth ! norm_vpara=vpara/vth, norm_vperp=vperp/vth, where vth=sqrt(T/m)
          real(wp),allocatable, dimension(:,:,:) :: tmp_PVS_fi
          integer :: length, istatus(MPI_STATUS_SIZE),ierror
          integer :: larmor
@@ -967,9 +1077,11 @@ module Diagnostic_Grid
 
          real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
+         real(wp) :: Mirror_Ratio(mi),ptl_weight
 
          if(acc_newer_D_zion) then
             !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            !$acc update self(ilabels(:mi))
             acc_newer_D_zion=.false.
             acc_newer_H_zion=.false.
          endif
@@ -984,8 +1096,15 @@ module Diagnostic_Grid
          ori_inv_ds = real(mpsi)/(s1-s0)
          ori_inv_dgf= 1.0/(zetamax-zetamin)
 
+         do m=1,mi
+            aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+            gqid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+            gfid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
+            Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
+         enddo
+
          energy(:) = in_P_data(2,:)
-         KE_para = 0.5*(zion(4,1:mi)*BB(1:mi)-backu(1:mi))**2.0
+         KE_para = 0.5*(zion0(4,1:mi)*BB(1:mi)-backu(1:mi))**2.0
          KE_perp = zion(6,1:mi)*zion(6,1:mi)*BB(1:mi)
 
          if(Flag_Load_and_WeightDef==0)then
@@ -993,7 +1112,7 @@ module Diagnostic_Grid
             f_tot(:)   = iNrNm
          else
             delta_f(:) = zion0(5,1:mi)
-            f_tot(:)   = zion0(6,1:mi)
+            f_tot(:)   = zion0(8,1:mi)
          endif
 
          do m=1,mi
@@ -1005,7 +1124,12 @@ module Diagnostic_Grid
             P_gf = modulo(zion0(3,m),2*pi)
             P_s  = zion0(7,m)
 
-            ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+            if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
+            ori_sid = max(0,min(mpsi-1,int((P_s-s0)*ori_inv_ds))) ! s index of original full grid
             ff  = (P_s-s_grid(ori_sid))*ori_inv_ds
             P_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
             P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
@@ -1056,10 +1180,32 @@ module Diagnostic_Grid
                   vid=24; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(2.0*KE_para(m)) ! Ti_tot_para
                   vid=25; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*f_tot(m)*(KE_perp(m)) ! Ti_tot_perp
 
-                  if(ilabels(m)==-1) then
-                     vid=21; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Negative df Markers from Walls
-                  elseif(ilabels(m)==1) then
-                     vid=26; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio !  Negative df Markers from Walls
+
+                  vid=27; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*back_f0_i(m)*zion0(6,m) ! f0 sampled by markers
+
+                  ptl_weight = f_tot(m)
+                  inv_vth = 1.0/sqrt(backT(m))  ! vth = sqrt(T/m)
+                  norm_vpara = zion0(4,m)*BB(m)*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
+                  norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
+                  ! if(norm_vperp>abs(norm_vpara)*tan(asin(sqrt(1.0/Mirror_Ratio(m))))) then ! Magnetically trapped particle
+                  if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
+                     vid=28; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
+                     vid=29; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
+                  else
+                     vid=30; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
+                     vid=31; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                  endif
+
+
+                  if( sqrt(norm_vpara**2.0+norm_vperp**2.0)<umax ) then
+                     vid=32; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*zion0(6,m) !  Phase volume by markers
+                  endif
+
+
+                  if(ilabels(m)==-1 .or. ilabels(m)==-3) then
+                     vid=21; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Markers from Walls (-1 from left wall) (-3 from right wall)
+                  elseif(ilabels(m)==-2) then
+                     vid=26; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio ! Markers from velocity cut-off
                   endif
 
                   ! Volumetric delta-f Partcle Flux (=df*v_tot) (#/(m^2*s)) along tangential, normal, binormal directions, respectively
@@ -1132,15 +1278,15 @@ module Diagnostic_Grid
                   rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
                   rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
 
-                  ! Do not calculate any contribution from "too" outside of our probe boudnary
-                  ! "too" outside means that even over the ghost cells around the probe boundary
-                  if(vxid< -PVS(pbid)%nv-1) then
-                     continue
-                  elseif(vxid>=PVS(pbid)%nv+1) then
-                     continue
-                  elseif(vyid>=PVS(pbid)%nv+1) then
-                     continue
-                  endif
+                  ! ! Do not calculate any contribution from "too" outside of our probe boudnary
+                  ! ! "too" outside means that even over the ghost cells around the probe boundary
+                  ! if(vxid< -PVS(pbid)%nv-1) then
+                  !    continue
+                  ! elseif(vxid>=PVS(pbid)%nv+1) then
+                  !    continue
+                  ! elseif(vyid>=PVS(pbid)%nv+1) then
+                  !    continue
+                  ! endif
 
                   if(vxid< -PVS(pbid)%nv) then
                      vxid= -PVS(pbid)%nv
@@ -1176,14 +1322,22 @@ module Diagnostic_Grid
                      fid=3; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio ! Marker Density
                      fid=4; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*f_tot(m) ! f_tot
                      fid=5; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*f_tot(m)*(2.0/3.0*energy(m)) ! f_tot*energy
+
+                     fid=6; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*back_f0_i(m)*zion0(6,m) ! f0 sampled by markers
+                     fid=7; PVS(pbid)%fi(qq,ss,fid) = PVS(pbid)%fi(qq,ss,fid) + ratio*zion0(6,m)/PVS(pbid)%L_a ! Normalized Phase Volume
                   enddo
                endif
             enddo
          enddo
 
-         !$acc update self (zion_s_on_GyroOrbit(:,mi),zion_gq_on_GyroOrbit(:,mi))
+         !$acc update self (zion_s_on_GyroOrbit(:,:mi),zion_gq_on_GyroOrbit(:,:mi))
          do m=1,mi
             if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
+
+            if( ilabels(m)<0 .and. ((zion(7,m)-s0)*(zion(7,m)-s1)>0) ) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
 
             do larmor=1,larmor_num
                P_a  = zion0(1,m)
@@ -1276,6 +1430,11 @@ module Diagnostic_Grid
             deallocate(tmp_PVS_fi)
          endif
 
+        ! Normalize PVS
+         do pbid=0,nPVS
+            PVS(pbid)%fi=PVS(pbid)%fi/(PVS(pbid)%dv**2.0)
+         enddo
+
 
          ! Match poloidal end cell
          ! (gq=0 and gq=2pi is the same position physically
@@ -1325,6 +1484,9 @@ module Diagnostic_Grid
          DG%iScaData(:,:,24,1) = DG%iScaData(:,:,24,1)/(DG%iScaData(:,:,5,1))! Ti_tot_para
          DG%iScaData(:,:,25,1) = DG%iScaData(:,:,25,1)/(DG%iScaData(:,:,5,1))! Ti_tot_perp
 
+         DG%iScaData(:,:,29,1) = DG%iScaData(:,:,29,1)/(DG%iScaData(:,:,28,1))! Ti_trap = (Erg_trap)/(n_trap)
+         DG%iScaData(:,:,31,1) = DG%iScaData(:,:,31,1)/(DG%iScaData(:,:,30,1))! Ti_pass = (Erg_pass)/(n_pass)
+
          ! Get Flux Density by dividing Cell Volume
          do vid=1,4
             do j=1,3
@@ -1355,20 +1517,34 @@ module Diagnostic_Grid
          use particle_array
          use particle_decomp
          use esi_interface
+         use Magnetic_Grid, MG_BB=>BB
+         use Structured_Grid
 
          implicit none
 
-         real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
+         real(wp), intent(in) :: in_P_data(5,me) ! additional particle data from input
          real(wp), intent(in) :: Full_da(me)
          real(wp) ws0,ws1,tmp,P_s
          real(wp) eData1D(DG%num_eZD_1D,DG%dim_a)
          real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
+         real(wp) KE_para, KE_perp
+         integer :: aid,qid,fid
+         real(wp) Mirror_Ratio,norm_vpara,norm_vperp,inv_vth
+         real(wp) tmp_FMap3D_MirrorRatio(FMap3D%dim_gq,FMap3D%dim_a,FMap3D%dim_gf)
+         real(wp) :: Te_inverse, r,fip,wz0,wz1,wp0,wp1,wt00,wt10,wt01,wt11,e1,Ea_00,AD,fe0,fe_AD,ptl_weight
+         real(wp) :: ori_inv_ds
+         integer :: ij,ip
+         real(wp) intp_phi_V ! interpolated phi in GTS unit
 
          !$acc declare create(ptl_data)
+         tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+
+         ori_inv_ds = real(mpsi)/(s1-s0)
 
          if(acc_newer_H_zeon) then
             !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+            !$acc update device(elabels(:me))
             acc_newer_H_zeon=.false.
             acc_newer_D_zeon=.false.
          endif
@@ -1378,8 +1554,75 @@ module Diagnostic_Grid
          eData1D=0.0
          ! in_P_data(2,:)= energy(:)
 
-         !$acc parallel loop present(zeon0,ptl_data,in_P_data,Full_da,ee_inv_grad_a,ghq,vpara_dve_a)
+         !$acc parallel loop present(zeon0,ptl_data,elabels, in_P_data,Full_da,ee_inv_grad_a,ghq,vpara_dve_a)
          do m=1,me
+
+            P_s=zeon0(7,m)
+            if(  elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
+            KE_para = 0.5*for_E*(zeon0(4,m)*BB(m))**2.0
+            KE_perp = zeon(6,m)*zeon(6,m)*BB(m)
+
+
+            Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
+
+
+
+            ! ! Cal new phi at new position (i.e. phi @ (t_(n+1), x_(n+1)))
+            ! wz1=wzeon(m)
+            ! wz0=1.0_wp-wz1
+
+            ! ij=jteon0(m)
+            ! wp0=1.0_wp-wpeon(m)
+            ! wt00=1.0_wp-wteon0(m)
+            ! e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ! ij=ij+1
+            ! wt10=1.0_wp-wt00
+            ! e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ! ij=jteon1(m)
+            ! wp1=1.0_wp-wp0
+            ! wt01=1.0_wp-wteon1(m)
+            ! e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
+
+            ! ij=ij+1
+            ! wt11=1.0_wp-wt01
+            ! e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+
+            ! ! calculate <phi> at electrons (no FLR effect -- x=R)
+            ! r=zeon0(7,m)-s0       ! in radial coordinator s
+            ! r=r*ori_inv_ds
+            ! ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            ! fip=r-real(ip,wp)
+            ! Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
+
+            ! if ( Flag_Def_dne_adiab==0 ) then
+            !    AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
+            ! elseif(Flag_Def_dne_adiab==1) then
+            !    ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+            !    AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
+            ! elseif(Flag_Def_dne_adiab==3) then
+            !    AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
+            ! else
+            !    AD=-1e100
+            !    write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in Measure Electrons_on_DG!!"
+            !    STOP
+            ! endif
+
+
+            call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi_V)
+
+            AD = (Fac_Volt2GTS*intp_phi_V)*Te_inverse*abs(csc0)
+
+
+            fe0    = zeon0(6,m)*back_f0_e(m)
+            fe_AD  = zeon0(6,m)*back_f0_e(m)*AD
+
+
             ! Fluxes by Full Velocity
             ptl_data(1,m) = zeon0(5,m)*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
             ptl_data(2,m) = ptl_data(1,m)*in_P_data(2,m) ! Energy Flux
@@ -1395,6 +1638,94 @@ module Diagnostic_Grid
             ! Particle Density and Energy Density
             ptl_data(7,m) = zeon0(5,m) ! Particle Density
             ptl_data(8,m) = zeon0(5,m)*in_P_data(2,m) ! Energy Density
+
+            ! Belows are using full-h electron information
+            ! Particle Density and Energy Density
+            ptl_data(9,m) = zeon0(8,m) ! Particle Density
+            ptl_data(10,m) = zeon0(8,m)*in_P_data(2,m) ! Energy Density
+            ! Fluxes by Full Velocity
+            ptl_data(11,m) = zeon0(8,m)*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
+            ptl_data(12,m) = ptl_data(11,m)*in_P_data(2,m) ! Energy Flux
+
+
+            ! KE_para and KE_perp by delta-f
+            ptl_data(13,m) = zeon0(5,m)*KE_para
+            ptl_data(14,m) = zeon0(5,m)*KE_perp
+
+            ! KE_para and KE_perp by full-h
+            ptl_data(15,m) = zeon0(8,m)*KE_para
+            ptl_data(16,m) = zeon0(8,m)*KE_perp
+
+            ! Fluxes by ExB contribution by full-h
+            ptl_data(17,m) = zeon0(8,m)*(ghq(m)-vpara_dve_a(m))*ee_inv_grad_a(m) ! Particle Flux by ExB only
+            ptl_data(18,m) = ptl_data(17,m)*in_P_data(2,m) ! Energy Flux by ExB only
+
+            ! Fluxes by Streaming contribution by full-h
+            ptl_data(19,m) = zeon0(8,m)*(vpara_dve_a(m))*ee_inv_grad_a(m) ! Particle Flux by streaming only
+            ptl_data(20,m) = ptl_data(19,m)*in_P_data(2,m) ! Energy Flux by streaming only
+
+            ! A higher order term of Particle Flux Contribution by weight change
+            ptl_data(21,m) = in_P_data(4,m)  ! Particle Flux by Adiabatic part
+            ptl_data(22,m) = in_P_data(5,m) ! Energy Flux by Adiabatic part
+
+            ptl_data(23,m) = 0.5*(in_P_data(5,m)*Full_da(m)*ee_inv_grad_a(m)) ! by full-f or ull-h
+
+
+            aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+            qid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+            fid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
+            ! Mirror_Ratio = min(FMap3D%Max_BB0_CCW(qid,aid,fid),FMap3D%Max_BB0_CW(qid,aid,fid))/(BB(m))
+            ! if(aid>200 .or. aid<1 .or. qid>300 .or. qid<1 .or. fid>100 .or. fid<1) then
+            !    ! write(stdout,*) "zeon(1,m)=",zeon(1,m),"FMap3D%a_1D(1)=",FMap3D%a_1D(1),FMap3D%gq_1D(1),FMap3D%gf_1D(1)
+            !    write(stdout,*) "FMap3D%inv_da=",FMap3D%inv_da,FMap3D%inv_dgq,FMap3D%inv_dgf
+            !    write(stdout,*) "In eZon Measure; (aid,qid,fid)=", aid, qid, fid
+            ! endif
+            ! Mirror_Ratio = FMap3D%Mirror_Ratio(qid,aid,fid)
+            inv_vth = 1.0/sqrt(backTe(m))  ! vth = sqrt(Te/me) = sqrt(backTe); Note that backTe is defined as Te/me
+            norm_vpara = zeon0(4,m)*csc0*BB(m)*m0ms*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
+            norm_vperp = zeon(6,m)*sqrt(2.0*BB(m)*m0ms)*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
+
+
+            Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
+            ! Mirror_Ratio = 1
+            if(Mirror_Ratio>0) then
+
+               ptl_weight = zeon0(8,m) + fe_AD
+               ! if(norm_vperp>abs(norm_vpara)*tan(asin(sqrt(1.0/Mirror_Ratio)))) then ! Magnetically trapped particle
+               if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio-1.0)) then ! Magnetically trapped particle
+
+                  ! Belows are using full-h electron information
+                  ! Particle Density and Energy Density
+                  ptl_data(24,m) = ptl_weight ! Particle Density
+                  ptl_data(25,m) = ptl_weight*in_P_data(2,m) ! Energy Density
+                  ! Fluxes by Full Velocity
+                  ptl_data(26,m) = ptl_weight*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
+                  ptl_data(27,m) = ptl_data(26,m)*in_P_data(2,m) ! Energy Flux
+
+                  ptl_data(28:31,m) = 0.0 ! Not passing particle
+               else ! Magnetically passing particle
+                  ! Belows are using full-h electron information
+                  ! Particle Density and Energy Density
+
+
+                  ptl_data(24:27,m) = 0.0 ! Not trapped particle
+
+                  ptl_data(28,m) = ptl_weight ! Particle Density
+                  ptl_data(29,m) = ptl_weight*in_P_data(2,m) ! Energy Density
+                  ! Fluxes by Full Velocity
+                  ptl_data(30,m) = ptl_weight*Full_da(m)*ee_inv_grad_a(m)  ! Particle Flux
+                  ptl_data(31,m) = ptl_data(30,m)*in_P_data(2,m) ! Energy Flux
+               endif
+            else
+               ptl_data(24:31,m) = 0.0 ! The particle resides at the closed magnetic surfaces, which is not our interest
+            endif
+
+            if( sqrt(norm_vpara**2.0+norm_vperp**2.0)<umax ) then
+               ptl_data(32,m) = zeon0(6,m) ! Phase Volume
+            else
+               ptl_data(32,m) = 0.0
+            endif
+
          enddo
          if(Flag_Load_and_WeightDef==0)then
             !$acc parallel loop present(ptl_data)
@@ -1404,12 +1735,17 @@ module Diagnostic_Grid
          endif
 
 
-         !$acc parallel loop gang vector present(zeon,zeon0,ptl_data)
+         !$acc parallel loop gang vector present(zeon,zeon0,ptl_data,elabels)
          do m=1,me
             P_s  = zeon0(7,m)
             sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
+
+            if( elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
 
             !$acc loop seq
             do vid=1,DG%num_eZD_1D
@@ -1457,7 +1793,7 @@ module Diagnostic_Grid
          use particle_array
          use particle_decomp
          use esi_interface
-
+         use Magnetic_Grid, MG_BB=>BB
          implicit none
 
          real(wp), intent(in) :: in_P_data(3,mi) ! additional particle data from input
@@ -1466,23 +1802,45 @@ module Diagnostic_Grid
          real(wp) iData1D(DG%num_iZD_1D,DG%dim_a)
          real(wp), allocatable, dimension(:,:) ::ptl_data
          integer :: sid,vid,m,size,ierr
-
+         real(wp) KE_para, KE_perp
+         real(wp) Mirror_Ratio,norm_vpara,norm_vperp,ptl_weight,inv_vth
+         integer :: aid,qid,fid
+         real(wp) tmp_FMap3D_MirrorRatio(FMap3D%dim_gq,FMap3D%dim_a,FMap3D%dim_gf)
+         real(wp) :: ori_inv_ds
          !$acc declare create(ptl_data)
+
+         tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+
+
 
          if(acc_newer_H_zion) then
             !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            !$acc update device(ilabels(:mi))
             acc_newer_H_zion=.false.
             acc_newer_D_zion=.false.
          endif
 
 
+
          allocate(ptl_data(DG%num_iZD_1D,mi))
          iData1D=0.0
 
+
+
          ! in_P_data(2,:)= energy(:)
 
-         !$acc parallel loop present(zion0,ptl_data,in_P_data,Full_da,ii_inv_grad_a,ghq,vpara_dvi_a)
+         !$acc parallel loop present(zion0,ptl_data,ilabels,in_P_data,Full_da,ii_inv_grad_a,ghq,vpara_dvi_a)
          do m=1,mi
+
+            P_s=zion0(7,m)
+            if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
+
+            KE_para = 0.5*(zion0(4,m)*BB(m)-backu(m))**2.0
+            KE_perp = zion(6,m)*zion(6,m)*BB(m)
+
             ! Fluxes by Full Velocity
             ptl_data(1,m) = zion0(5,m)*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
             ptl_data(2,m) = ptl_data(1,m)*in_P_data(2,m) ! Energy Flux
@@ -1498,6 +1856,80 @@ module Diagnostic_Grid
             ! Particle Density and Energy Density
             ptl_data(7,m) = zion0(5,m) ! Particle Density
             ptl_data(8,m) = zion0(5,m)*in_P_data(2,m) ! Energy Density
+
+            ! Belows are using full-f markers(zion(8,m))
+            ! Particle Density and Energy Density
+            ptl_data(9,m) = zion0(8,m) ! Particle Density
+            ptl_data(10,m) = zion0(8,m)*in_P_data(2,m) ! Energy Density
+            ! Fluxes by Full Velocity
+            ptl_data(11,m) = zion0(8,m)*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
+            ptl_data(12,m) = ptl_data(11,m)*in_P_data(2,m) ! Energy Flux
+
+            ! KE_para and KE_perp by delta-f
+            ptl_data(13,m) = zion0(5,m)*KE_para
+            ptl_data(14,m) = zion0(5,m)*KE_perp
+
+            ! KE_para and KE_perp by full-f
+            ptl_data(15,m) = zion0(8,m)*KE_para
+            ptl_data(16,m) = zion0(8,m)*KE_perp
+
+            ! Fluxes by ExB contribution by full-f
+            ptl_data(17,m) = zion0(8,m)*(ghq(m)-vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by ExB only
+            ptl_data(18,m) = ptl_data(3,m)*in_P_data(2,m) ! Energy Flux by ExB only
+
+            ! Fluxes by Streaming contribution by full-f
+            ptl_data(19,m) = zion0(8,m)*(vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by streaming only
+            ptl_data(20,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming only
+
+            aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+            qid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+            fid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
+
+            inv_vth = 1.0/sqrt(backT(m))  ! vth = sqrt(T/m)
+            norm_vpara = zion0(4,m)*BB(m)*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
+            norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
+
+            Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
+
+
+
+            if(Mirror_Ratio>0) then
+               ptl_weight = zion0(8,m)
+
+
+               ! if(norm_vperp>abs(norm_vpara)*tan(asin(sqrt(1.0/Mirror_Ratio)))) then ! Magnetically trapped particle
+               if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio-1.0)) then ! Magnetically trapped particle
+                  ! Particle Density and Energy Density
+                  ptl_data(21,m) = ptl_weight ! Particle Density
+                  ptl_data(22,m) = ptl_weight*in_P_data(2,m) ! Energy Density
+                  ! Fluxes by Full Velocity
+                  ptl_data(23,m) = ptl_weight*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
+                  ptl_data(24,m) = ptl_data(23,m)*in_P_data(2,m) ! Energy Flux
+
+                  ptl_data(25:28,m) = 0.0 ! Not passing particle
+               else ! Magnetically passing particle
+                  ! Particle Density and Energy Density
+
+                  ptl_data(21:24,m) = 0.0 ! Not trapped particle
+
+                  ptl_data(25,m) = ptl_weight ! Particle Density
+                  ptl_data(26,m) = ptl_weight*in_P_data(2,m) ! Energy Density
+                  ! Fluxes by Full Velocity
+                  ptl_data(27,m) = ptl_weight*Full_da(m)*ii_inv_grad_a(m)  ! Particle Flux
+                  ptl_data(28,m) = ptl_data(27,m)*in_P_data(2,m) ! Energy Flux
+               endif
+            else
+               ptl_data(21:28,m) = 0.0 ! The particle resides at the closed magnetic surfaces, which is not our interest
+            endif
+
+
+            if( sqrt(norm_vpara**2.0+norm_vperp**2.0)<umax ) then
+               ptl_data(29,m) = zion0(6,m) ! Phase Volume
+            else
+               ptl_data(29,m) = 0.0
+            endif
+
+
          enddo
          if(Flag_Load_and_WeightDef==0)then
             !$acc parallel loop present(ptl_data)
@@ -1506,12 +1938,17 @@ module Diagnostic_Grid
             enddo
          endif
 
-         !$acc parallel loop gang vector present(zion0,ptl_data)
+         !$acc parallel loop gang vector present(zion0,ptl_data,ilabels)
          do m=1,mi
             P_s  = zion0(7,m)
             sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
+
+            if(  ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+               ! Since this particle is outside the physical boundary, not need to calculate its contribution
+               cycle
+            endif
 
             !$acc loop seq
             do vid=1,DG%num_iZD_1D
@@ -1523,9 +1960,12 @@ module Diagnostic_Grid
          enddo
 
 
+
+
          ! Cumulate Zonal Data
          DG%iZonData_1D = iData1D
          DG%cum_iZonData_1D = DG%cum_iZonData_1D + iData1D
+
 
 
          ! Communicate between Ranks and Normalize the data, when they are needed
@@ -1546,6 +1986,7 @@ module Diagnostic_Grid
                DG%cum_iZonData_1D(vid,:) = DG%cum_iZonData_1D(vid,:)*DG%inv_Anulus_dV
             enddo
          endif
+
 
          deallocate(ptl_data)
 

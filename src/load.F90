@@ -251,7 +251,7 @@ subroutine load
    !  call esigetb(zion,mi)   ! get B-->BB
    call n_T_u_group                       ! get T, n and omega_t
    !$acc update self(backu(:mi),backT(:mi))
-   call esigetbf(zion,mi,7)   ! get B-->BB, I-->F  12/07
+   call esigetbf(zion,mi,ziondim)   ! get B-->BB, I-->F  12/07
    !  output backu from call n_T_u_group is omega_t
    backu(1:mi)=backu(1:mi)*F(1:mi)/BB(1:mi) ! =u_//=I*omega_t/B
 
@@ -302,7 +302,7 @@ subroutine load
    !$acc update device(ilabels(:mi))
 
    if(iload==0)then
-      ! for arbitrary loading according to a distribution function g_0(x,v), then zion0(6,*)=f_0/g_0
+      ! for arbitrary loading according to a distribution function g_0(x,v), then zion0(8,*)=f_0/g_0
       !         where f_0 is equilibrium distribution with delta_f=f-f_0.
       !         Here g_0 contains density <n(r,theta)> rather than n(r,theta), so
       !         f_0/g_0=exp(u^2/2T)/<exp(u^2/2T)>.
@@ -317,15 +317,15 @@ subroutine load
          ip=max(0,min(jr-1,int(r)))      ! ip [0,jr-1]
          fip=r-real(ip,wp)
          ave0=fip*flux_A(ip+1)+(1.0_wp-fip)*flux_A(ip)       ! ave0=<exp(u^2/2T)> at particles
-         zion0(6,m)=exp(backu(m)**2/(2.0*backT(m)))/ave0     ! =1 if u_//=0 (no rotation)
+         zion0(8,m)=exp(backu(m)**2/(2.0*backT(m)))/ave0     ! =1 if u_//=0 (no rotation)
       end do
       acc_newer_H_zion=.true.
 
       !!! the following print may hang forever when using large number of processors Jan, 2011
-      ! print*, 'f_0/g_0=', zion0(6,mi/2), mype
+      ! print*, 'f_0/g_0=', zion0(8,mi/2), mype
 
       ! realistic nonuniform loading
-      !     zion0(6,1:mi)=1.0
+      !     zion0(8,1:mi)=1.0
 
    else
       !    what else artificial loading, for example uniform loading -- to be added when needed
@@ -399,8 +399,8 @@ subroutine load
          zeon(3,m)=zion(3,m)
          zeon(5,m)=zion(5,m)
          zeon(7,m)=zion(7,m)
-         !        zeon0(6,m)=zion0(6,m)
-         zeon0(6,m)=1.0_wp
+         !        zeon0(8,m)=zion0(8,m)
+         zeon0(8,m)=1.0_wp
       enddo
       acc_newer_H_zeon=.true.
 
@@ -446,16 +446,16 @@ subroutine load
          !        zeon(5,ntracer_e)=0.0_wp
          zeon(5,ntracer_e)=zeon(5,ntracer)
          zeon(6,ntracer_e)=sqrt(msm0*pdum/(2.0_wp*B_0)) ! using v_per=v_th for tracer electron
-         if(ifdphi==2) zeon(8,ntracer_e)=0.0_wp
+         if(ifdphi==2) zeon(9,ntracer_e)=0.0_wp
 
          !!!!!!!!!TEST electron tracer using me/mi=1!!!!!!!!!!!!!!!!!!
          !        zeon(:,ntracer_e)=zion(:,ntracer)
 
          zeon0(1:5,ntracer_e)=zeon(1:5,ntracer_e)
          zeon0(7,ntracer_e)=zeon(7,ntracer_e)
-         !        zeon0(6,ntracer_e)=zion0(6,ntracer)
-         zeon0(6,ntracer_e)=1.0_wp
-         if(ifdphi==2) zeon0(8,ntracer_e)=0.0_wp
+         !        zeon0(8,ntracer_e)=zion0(8,ntracer)
+         zeon0(8,ntracer_e)=1.0_wp
+         if(ifdphi==2) zeon0(9,ntracer_e)=0.0_wp
 
          print*,'ntracer_e=',ntracer_e,zeon(1,ntracer_e),zeon(2,ntracer_e),zeon(3,ntracer_e),&
             zeon(4,ntracer_e),zeon(5,ntracer_e),zeon(6,ntracer_e),zeon(7,ntracer_e)
@@ -654,6 +654,8 @@ subroutine load_uniform_MGY
    use esi_interface
    use control_parameters
    use function_gg_module
+   use Structured_Grid
+   use Ptl_Src_Loss
    implicit none
 
 #define SIMPLE_SPRNG
@@ -668,7 +670,9 @@ subroutine load_uniform_MGY
    real(wp) inv_Nm,Nm ! inverse of total number of Marker particles for each speceis (actually, they are the same)
    real(wp) each_ptl_d6z ! d6z(=da*dgq*dgf*dvpara*dvperp) is the micro phase space volume which each particle occupies
    real(wp) Te_norm(memax) !  normalized-Te=Te/E_0, the same unit as normalized Ti
-   integer m,ip,i,j,ij
+   integer m,ip,i,j,ij,mstart,mend
+   integer gid, Ngroup
+   real(wp), allocatable :: vangle_list(:),uabs_list(:)
    real(wp) jacobian,density
    real(wp) dpsi,zdum,tdum,pdum
    real(wp) integral_f0
@@ -678,8 +682,13 @@ subroutine load_uniform_MGY
    real(kind=8) rand_5d(5,mi) ! can be sobol quasi random numbers, or can be sprng() numbers
    real(wp) inv_ds, ff, P_s, P_q  !inv_ds is uniform by definition of s_grids
    integer:: sid ! index for s_grid
+   integer:: Flag_tracers_at_specific_position=0
 
    real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio,gi_val(mi),ge_val(me), Rand !For Flag_Load_and_WeightDef==2 case.
+
+   real(wp) intp_SG_full_phi_V
+   real(wp), allocatable, dimension(:) :: AdiabTerm ! e*phi/T
+   real(wp) :: target_w_tot
 
    if(irun==0) ddT_da=0.0_wp
    if(irun==0) sumfluxpsi=0.0_wp      ! sumfluxpsi(a)=int[I(a)dt]
@@ -730,22 +739,22 @@ subroutine load_uniform_MGY
    ! Ion Part
    ! =================================================
 
-   ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
-   ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
-   ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
-   sobol_seed = 1 + mype*mi
-   do m=1,mi
-      call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
-   enddo
+   ! ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
+   ! ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
+   ! ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
+   ! sobol_seed = 1 + mype*mi
+   ! do m=1,mi
+   !    call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
+   ! enddo
 
    ! Follwoing part is to prepare random numbers using sprng
-   ! do m=1,mi
-   !    rand_5d(1,m)=sprng()
-   !    rand_5d(2,m)=sprng()
-   !    rand_5d(3,m)=sprng()
-   !    rand_5d(4,m)=sprng()
-   !    rand_5d(5,m)=sprng()
-   ! enddo
+   do m=1,mi
+      rand_5d(1,m)=sprng()
+      rand_5d(2,m)=sprng()
+      rand_5d(3,m)=sprng()
+      rand_5d(4,m)=sprng()
+      rand_5d(5,m)=sprng()
+   enddo
 
    do m=1,mi
       zion(1,m) = a0+ rand_5d(1,m)*(a1-a0)
@@ -784,6 +793,11 @@ subroutine load_uniform_MGY
          ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
          v_abs = umax*sqrt(backT(m))*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
          v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+         vpara=v_abs*cos(v_theta)
+         vperp=v_abs*sin(v_theta)
+         ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
+         gi_val(m) = Nm/((a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m))/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
+
       elseif(Flag_Load_and_WeightDef==2) then
          ! First, get v_abs using rand_5d(4,m)
          vmax=umax*sqrt(backT(m))
@@ -807,16 +821,16 @@ subroutine load_uniform_MGY
          c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
          Rand = rand_5d(5,m)
          v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
+         vpara=v_abs*cos(v_theta)
+         vperp=v_abs*sin(v_theta)
 
+         ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
          if(v_abs<vc) then
-            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
+            gi_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
          else
-            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zion(1,m),zion(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
+            gi_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zion(1,m),zion(2,m))*2.0*pi*vperp)
          endif
       endif
-
-      vpara=v_abs*cos(v_theta)
-      vperp=v_abs*sin(v_theta)
 
       zion(4,m) = vpara/BB(m)
       if(ifelectron/=0) zeon(4,m)=zion(4,m)  ! This is for the quiet start..
@@ -835,24 +849,20 @@ subroutine load_uniform_MGY
    ! Set initial weights of ions
    do m=1,mi
       ! zion(5,m) is "df"
-      ! zion0(6,m) is "f_tot"
+      ! zion0(8,m) is "f_tot"
 
-
-      if(Flag_Load_and_WeightDef==1) then
-         !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-         ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
-         each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*backT(m)
-         integral_f0 = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z*back_f0_i(m)
-         zion0(8,m) = Jacobian(zion(1,m),zion(2,m))*each_ptl_d6z
-      elseif(Flag_Load_and_WeightDef==2)then
-         integral_f0 = back_f0_i(m)/gi_val(m)
-         zion0(8,m)  = 1.0/gi_val(m) ! Phase space volume occupied by each particle
-      endif
-
+      ! zion0(6,m) represents the phase volume (J(x,v)d5z) that preserves in the Hamiltonian system
+      zion0(6,m) = 1.0/gi_val(m)
+      integral_f0 = zion0(6,m)*back_f0_i(m)
       zion(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zion(2,m)))*w_initial_in*integral_f0
-      zion0(6,m) = integral_f0 + zion(5,m)
+      zion0(8,m) = integral_f0 + zion(5,m)
    enddo
    acc_newer_H_zion=.true.
+
+   ! To check whether some particles outside the boundary
+   ! If Ptl_BC_type=2, ion boundary checking considers the gyro-radius to determien whether it touches the wall
+   call treat_ions_out_of_boundary
+   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
 
    wi_init  = zion(5,:)
    wi_vpara = 0
@@ -860,27 +870,35 @@ subroutine load_uniform_MGY
    wi_accel = 0
    wi_fdamp = 0
 
+   if(mype==0) then
+      open(unit=1212,file='test_zion_load.dat',action='write')
+      do m=1,mi,100
+         write(1212,'(I10,4(ES20.12,1x))') m, zion0(6,m), zion0(8,m), zion0(6,m)*back_f0_i(m), zion(5,m)
+      enddo
+      call flush(1212)
+      close(1212)
+   endif
 
    ! =================================================
    ! Electron Part
    ! =================================================
 
-   ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
-   ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
-   ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
-   sobol_seed = 1 + mype*me
-   do m=1,me
-      call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
-   enddo
+   ! ! Prepare sobol random numbers covering a whole device within a half-circle velocity space
+   ! ! (a=(a0-a1), gq&gf=(0-2pi), v_abs=(0-umax)*sqrt(T/m), v_theta=(0-pi))
+   ! ! Particles will be distributed into appropriate MPI ranks at the end of the initialization.
+   ! sobol_seed = 1 + mype*me
+   ! do m=1,me
+   !    call i8_sobol(sobol_dim_num, sobol_seed, rand_5d(:,m))
+   ! enddo
 
    ! Follwoing part is to prepare random numbers using sprng
-   ! do m=1,me
-   !    rand_5d(1,m)=sprng()
-   !    rand_5d(2,m)=sprng()
-   !    rand_5d(3,m)=sprng()
-   !    rand_5d(4,m)=sprng()
-   !    rand_5d(5,m)=sprng()
-   ! enddo
+   do m=1,me
+      rand_5d(1,m)=sprng()
+      rand_5d(2,m)=sprng()
+      rand_5d(3,m)=sprng()
+      rand_5d(4,m)=sprng()
+      rand_5d(5,m)=sprng()
+   enddo
 
    if(ifelectron/=0) then
       if(Flag_Quiet_Start==1) then
@@ -923,6 +941,10 @@ subroutine load_uniform_MGY
          do m=1,me
             zeon(4,m)=zion(4,m)*sqrt(msm0)*c0cs*sqrt(Te_norm(m)/backT(m))  !checked; neglect electron rotation
             zeon(6,m)=zion(6,m)*sqrt(Te_norm(m)/backT(m))     ! =sqrt(mu_e)
+
+            ! Phase space volume
+            ! The power 1.5 is because of (v_abs^2) in area of velocity domain and (v_perp) of velocity Jacobian
+            zeon0(6,m)=zion0(6,m)*(Te_norm(m)*m0ms/backT(m))**1.5
          enddo
       else
          do m=1,me
@@ -938,6 +960,11 @@ subroutine load_uniform_MGY
                ! Find sampling points uniformly distributed within a half circle in the poloar coordinates (vpara,vperp)
                v_abs = umax*sqrt(Te_norm(m)*m0ms)*sqrt(rand_5d(4,m)) ! v_r = amax*sqrt(Rand)
                v_theta = pi*rand_5d(5,m) ! For half-circle, theta should be 0<theta<2pi
+               vpara=v_abs*cos(v_theta)
+               vperp=v_abs*sin(v_theta)
+               ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
+               ge_val(m) = Nm/((a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
+
             elseif(Flag_Load_and_WeightDef==2) then
                ! First, get v_abs using rand_5d(4,m)
                vmax=umax*sqrt(Te_norm(m)*m0ms)
@@ -960,16 +987,20 @@ subroutine load_uniform_MGY
                c6=(1.0-ratio)/((1.0+ratio)*(0.5*pi)**2)
                Rand = rand_5d(5,m)
                v_theta = 0.5*pi + sign(1.0_wp,Rand-0.5)*((c5-sqrt(c5**2-2*c6*abs(Rand-0.5)))/c6);
+               vpara=v_abs*cos(v_theta)
+               vperp=v_abs*sin(v_theta)
 
+               ! Get Marker Distribution function (g_val) at particle position considering Jacobian in the phase space
                if(v_abs<vc) then
-                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
+                  ge_val(m) = Nm*(c1*v_abs+c2)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
                else
-                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(Jacobian(zeon(1,m),zeon(2,m))*v_abs)/((a1-a0)*4.0*pi*pi)
+                  ge_val(m) = Nm*(c3*v_abs+c4)*(c5-c6*abs(v_theta-0.5*pi))/(v_abs)/((a1-a0)*4.0*pi*pi)/(Jacobian(zeon(1,m),zeon(2,m))*2.0*pi*vperp)
                endif
+            else
+               write(stdout,*) "Error!! Unknown Flag; Flag_Load_and_WeightDef=",Flag_Load_and_WeightDef
+               call flush(stdout)
+               stop
             endif
-
-            vpara=v_abs*cos(v_theta)
-            vperp=v_abs*sin(v_theta)
 
             zeon(4,m) = msm0*vpara/(csc0*BB(m))
             zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
@@ -980,29 +1011,72 @@ subroutine load_uniform_MGY
       call n_T_u_group_e(flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
       !$acc update self(back_f0_e(:me))
 
+      ! Calculate Adiab term from initial potential phi
+      ! Prepare SG's phi_3D in case
+      call Update_SG_phi_3D_by_gathering_SG_phi2D
+
+      allocate(AdiabTerm(me))
+      !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+      do m=1,me
+         call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+
+         if(Flag_Def_dne_adiab==1) then
+            ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+            ! considering a conversion from V unit to GTS normalized unit
+            AdiabTerm(m)=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+         else
+            AdiabTerm(m)=-1e100
+            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+            STOP
+         endif
+      enddo
+
+
 
       if(Flag_Quiet_Start==1) then
-         zeon(5,1:me) = zion(5,1:me)
-         zeon0(6,1:me) = zion0(6,1:me)
+         do m=1,me
+            integral_f0 = zeon0(6,m)*back_f0_e(m)
+
+            target_w_tot = zion0(8,m) ! same to ion's total weight
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
+            zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
+            ! zeon0(9,m) = integral_f0 ! f_0
+            zeon0(9,m) = target_w_tot ! f_tot
+         enddo
       else
          ! Set initial weights of electrons
          do m=1,me
             ! zeon(5,m) is "df"
-            ! zeon0(6,m) is "f_tot"
+            ! zeon(8,m) is "full-f or full-h"
 
-            if(Flag_Load_and_WeightDef==1) then
-               !Following line is for the half-circle sampling in the polar coordinates (vpara, vperp)
-               ! inv_Nm * (a1-a0) * (2pi) * (2pi) * (0.5*pi*v_abs_max^2)
-               each_ptl_d6z = inv_Nm*(a1-a0)*4.0*pi*pi*0.5*pi*umax*umax*Te_norm(m)*m0ms
-               integral_f0 = Jacobian(zeon(1,m),zeon(2,m))*each_ptl_d6z*back_f0_e(m)
-            elseif(Flag_Load_and_WeightDef==2)then
-               integral_f0 = back_f0_e(m)/ge_val(m)
-            endif
-            zeon(5,m)  = (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
-            zeon0(6,m) = integral_f0 + zeon(5,m)
+            ! zeon0(6,m) represents the phase volume (J(x,v)d5z) that preserves in the Hamiltonian system
+            zeon0(6,m) = 1.0/ge_val(m)
+            integral_f0 = zeon0(6,m)*back_f0_e(m)
+
+            ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
+            zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
+
+            target_w_tot = integral_f0 + (2.0*sprng()-1.0)*(1.0+cos(zeon(2,m)))*w_initial_in*integral_f0
+
+            zeon0(9,m) = target_w_tot ! f_tot
+            zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
+            zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
          enddo
       endif
       acc_newer_H_zeon=.true.
+
+      if(mype==0) then
+
+         open(unit=1213,file='test_zeon_load.dat',action='write')
+         do m=1,me,100
+            write(1213,'(I10,4(ES20.12,1x))') m, zeon0(6,m), zeon(8,m), zeon0(6,m)*back_f0_e(m), zeon(5,m)
+         enddo
+         call flush(1213)
+         close(1213)
+      endif
 
       we_init(:)  = zeon(5,:)
       we_vpara = 0
@@ -1040,6 +1114,128 @@ subroutine load_uniform_MGY
          m = 0.5*me
          write(stdout,*) m,"-th electron's each_ptl_d6z=", inv_Nm*((a1-a0)*4.0*pi*pi*2.0*umax*sqrt(2.0)*umax*Te_norm(m)*m0ms),  ", back_f0_e(m)=",back_f0_e(m)
          call flush(stdout)
+      endif
+
+
+      Flag_tracers_at_specific_position=1
+      if(Flag_tracers_at_specific_position==1) then
+
+         ! Set test etracers
+         ! Set positions of trapped particles
+
+         Ngroup=6
+         allocate(vangle_list(Ngroup),uabs_list(Ngroup))
+         ! vangle_list=[pi/6,pi/3,80*pi/180,pi/6,pi/3,80*pi/180] ! 30, 60, 80, degrees of angle
+         ! vangle_list=[30*pi/180,50*pi/180,60*pi/180,30*pi/180,50*pi/180,60*pi/180] ! 30, 50, 70, degrees of angle
+         ! uabs_list=[1.0,1.0,1.0,2.5,2.5,2.5]
+         ! do gid=1,Ngroup
+         !    mstart=(gid-1)*int(num_of_etracers/ngroup)+1
+         !    mend  =(gid)*int(num_of_etracers/ngroup)
+         !    do i=mstart,mend
+         !       m = (real(i)/(num_of_etracers+1.0)) * me
+         !       ! zeon(1,m) = 0.64 + 0.02*(i-mstart)/real(mend-mstart)
+         !       zeon(1,m) = 0.65 + 0.02*(i-mstart)/real(mend-mstart)
+         !       ! zeon(1,m) = 0.79 + 0.02*(i-mstart)/real(mend-mstart)
+         !       zeon(2,m) = 0.0
+         !       zeon(3,m) = 0.0
+         !       zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+         !    enddo
+         ! enddo
+         ! acc_newer_H_zeon=.true.
+         ! vangle_list=[30*pi/180,56*pi/180,63*pi/180,(180-30)*pi/180,(180-56)*pi/180,(180-63)*pi/180] ! 30, 56, 63, degrees of angle
+         ! uabs_list=[1.0,1.0,1.0,1.0,1.0,1.0]
+
+         ! vangle_list=[30*pi/180,56*pi/180,63*pi/180,(180-30)*pi/180,(180-56)*pi/180,(180-63)*pi/180] ! 30, 56, 63, degrees of angle
+         uabs_list=[2.0,4.0,6.0,8.0,10.0,12.0]
+         do gid=1,Ngroup
+            mstart=(gid-1)*int(num_of_etracers/ngroup)+1
+            mend  =(gid)*int(num_of_etracers/ngroup)
+            do i=mstart,mend
+               m = (real(i)/(num_of_etracers+1.0)) * me
+               ! zeon(1,m) = 0.64 + 0.02*(i-mstart)/real(mend-mstart)
+               zeon(1,m) =0.876
+               ! zeon(1,m) = 0.79 + 0.02*(i-mstart)/real(mend-mstart)
+               zeon(2,m) = 0.314
+               zeon(3,m) = 0.0
+               zeon(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zeon(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+            enddo
+         enddo
+         acc_newer_H_zeon=.true.
+
+         call n_T_u_group_e   ! get Te, note that back_f0_e cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backTe(:me))
+         call esigetb(zeon,me,zeondim)
+
+         do gid=1,Ngroup
+            mstart=(gid-1)*int(num_of_etracers/Ngroup)+1
+            mend  =(gid)*int(num_of_etracers/Ngroup)
+            do i=mstart,mend
+               m = (real(i)/(num_of_etracers+1.0)) * me
+               Te_norm(m)= backTe(m)*msm0
+               vpara = uabs_list(gid)*sqrt(2*Te_norm(m)*m0ms)*cos(pi*(i-mstart)/real(mend-mstart)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               vperp = uabs_list(gid)*sqrt(2*Te_norm(m)*m0ms)*sin(pi*(i-mstart)/real(mend-mstart)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               zeon(4,m) = msm0*vpara/(csc0*BB(m))
+               zeon(6,m) = vperp*sqrt(msm0/(2.0*BB(m)))
+
+               zeon0(6,m) = 0.0
+               zeon(8,m)  = 0.0
+               zeon(5,m)  = 0.0
+               zeon0(8,m) = 0.0
+               zeon0(9,m) = 0.0
+
+            enddo
+         enddo
+         acc_newer_H_zeon=.true.
+
+         call n_T_u_group_e(flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
+         !$acc update self(back_f0_e(:me))
+
+
+
+
+         ! Set itracers
+         do gid=1,Ngroup
+            mstart=(gid-1)*int(num_of_itracers/Ngroup)+1
+            mend  =(gid)*int(num_of_itracers/Ngroup)
+            do i=mstart,mend
+               m = (real(i)/(num_of_itracers+1.0)) * mi
+               zion(1,m) = 0.64 + 0.02*(i-mstart)/real(mend-mstart)
+               zion(2,m) = 0.0
+               zion(3,m) = 0.0
+               zion(7,m)=min(s1,max(s0,D01AHF(0.0_wp,zion(1,m),error_8,minpts,acc,dsda,-1,ifail)))
+            enddo
+         enddo
+         acc_newer_H_zion=.true.
+
+
+         call n_T_u_group   ! get Ti, note that back_f0_i cannot be calculated here because it requires zion(4) and zion(6)
+         !$acc update self(backT(:mi))
+         call esigetb(zion,mi,ziondim)
+
+
+
+         do gid=1,Ngroup
+            mstart=(gid-1)*int(num_of_itracers/Ngroup)+1
+            mend  =(gid)*int(num_of_itracers/Ngroup)
+            do i=mstart,mend
+               m = (real(i)/(num_of_itracers+1.0)) * mi
+               vpara = uabs_list(gid)*sqrt(2*backT(m))*cos(pi*(i-mstart)/real(mend-mstart)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               vperp = uabs_list(gid)*sqrt(2*backT(m))*sin(pi*(i-mstart)/real(mend-mstart)) ! Most Probable Veclotiy vp = sqrt(2T/m)
+               zion(4,m) = vpara/(BB(m))
+               zion(6,m) = vperp*sqrt(1.0/(2.0*BB(m)))
+
+               zion0(6,m) = 0.0
+               zion(8,m)  = 0.0
+               zion(5,m)  = 0.0
+            enddo
+         enddo
+         acc_newer_H_zion=.true.
+
+         call n_T_u_group(flag_backf0=.true.)   ! This is to get back_f0_i inside. (which requires zion(4) and zion(6))
+         !$acc update self(back_f0_i(:mi))
+
+         deallocate(vangle_list,uabs_list)
+
       endif
    endif
 
@@ -1098,9 +1294,135 @@ subroutine load_uniform_MGY
    ini_mi=mi
    ini_me=me
 
-   write(stdout,'((A,I4,A,I8,A,I8))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_me=",ini_me
+
+   call MPI_ALLREDUCE(ini_mi,ini_mi_npartd,1,MPI_INTEGER,MPI_SUM,partd_comm,ierror)
+   call MPI_ALLREDUCE(ini_me,ini_me_npartd,1,MPI_INTEGER,MPI_SUM,partd_comm,ierror)
+
+
+   deallocate(AdiabTerm)
+
+   ! write(stdout,'((A,I4,A,I8,A,I8))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_me=",ini_me
+   write(stdout,'(5(A,I0))') "In load_uniform_MGY, I'm=",mype, ", ini_mi=", ini_mi, ", ini_mi_npartd=",ini_mi_npartd, ", ini_me=",ini_me,", ini_me_npartd=",ini_me_npartd
    call flush(stdout)
 
    call Print_Reference_ntracer_Information
 
 end subroutine load_uniform_MGY
+
+
+subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver)
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use particle_array
+   use field_array
+   use diagnosis_array
+   use esi_interface
+   use control_parameters
+   use function_gg_module
+   use Structured_Grid
+   use Ptl_Src_Loss
+   use solver_data_class
+   implicit none
+
+
+   type(solver_data) :: solver, masssolver
+   integer m,ierror
+   real(wp) :: AdiabTerm ! e*phi/T
+   real(wp) intp_SG_full_phi_V, integral_f0
+
+   if(Flag_Poisson3D_on_SG/=1) then
+      write(stdout,*) "Error!! Flag_Poisson3D_on_SG=",Flag_Poisson3D_on_SG, " is not defined in Adjust_electron_weight_for_initially_zero_potential!!"
+      STOP
+   endif
+
+
+   istep=1
+
+   call n_T_u_group
+   call n_T_u_group_e
+
+   call Measure_Ion_Density_on_SG(1)
+   call Measure_Electron_Density_on_SG(1)
+
+   call poisson(solver,masssolver)
+
+   call Update_SG_phi_3D_by_gathering_SG_phi2D
+
+
+   !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+   do m=1,me
+      call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+
+      if(Flag_Def_dne_adiab==1) then
+         ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+         ! considering a conversion from V unit to GTS normalized unit
+         AdiabTerm=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+      else
+         AdiabTerm=-1e100
+         write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+         STOP
+      endif
+
+      integral_f0 = zeon0(6,m)*back_f0_e(m)
+
+
+      ! if(mype==0 .and. m==1) then
+      !    write(stdout,*) 'Before adjustment, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
+      ! endif
+
+      zeon(9,m) = integral_f0*AdiabTerm ! f_AD
+
+      ! Change previous zeon(8,m) and zeon(5,m) to reduce the level of initial potential
+      zeon(8,m) = zeon(8,m) +int(ifelectron/2)*zeon(9,m) ! full-f (ifelectron<2) or full-h (ifelectron==2)
+      zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
+
+
+      ! if(mype==0 .and. m==1) then
+      !    write(stdout,*) 'After adjustment1, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
+      ! endif
+   enddo
+   acc_newer_D_zeon=.true.
+
+   call Measure_Electron_Density_on_SG(1)
+   call poisson(solver,masssolver)
+   call Update_SG_phi_3D_by_gathering_SG_phi2D
+
+   !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+   do m=1,me
+      call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+
+      if(Flag_Def_dne_adiab==1) then
+         ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+         ! considering a conversion from V unit to GTS normalized unit
+         AdiabTerm=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+      else
+         AdiabTerm=-1e100
+         write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+         STOP
+      endif
+
+      integral_f0 = zeon0(6,m)*back_f0_e(m)
+
+      zeon(9,m) = integral_f0*AdiabTerm ! f_AD
+
+      zeon0(9,m) = integral_f0*AdiabTerm + zeon(8,m) ! f_tot
+      zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
+
+      ! if(mype==0 .and. m==1) then
+      !    write(stdout,*) 'After adjustment2, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
+      ! endif
+   enddo
+   acc_newer_D_zeon=.true.
+
+
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_D_zeon=.false.
+      acc_newer_H_zeon=.false.
+   endif
+
+   istep=0
+
+end subroutine Adjust_electron_weight_for_initially_zero_potential

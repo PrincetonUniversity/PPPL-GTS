@@ -25,6 +25,8 @@ program GTS
    use Structured_Grid
    use particle_decomp
    use Diagnostic_Grid
+   use function_gg_module
+   use MGY_PETSc_Interface_Data
    use Magnetic_Grid
 #ifdef _ACCEL
    use accel_lib
@@ -40,7 +42,7 @@ program GTS
    character buffer1(MAX_PACKED_LENGTH)
 
    integer i,ierror,rng_type
-   integer,parameter :: nc=18
+   integer,parameter :: nc=19
    real(doubleprec) program_start_t0, program_start_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc
    real(doubleprec) tmp_time(nc), tmp_timewc(nc), loop_start_time,loop_start_timewc, mainloop_time, mainloop_timewc
    character(len=16) ic(nc)
@@ -109,8 +111,9 @@ program GTS
    ic(13)='check_tracers'
    ic(14)='snapshot'
    ic(15)='diagnostics'
-   ic(16)='Main_Loop'
-   ic(17)='others'
+   ic(16)='gen_SRC'
+   ic(17)='Main_Loop'
+   ic(18)='others'
    ic(nc)='TOTAL'
 
    if(irun==0) then      !  SPRNG initialize
@@ -130,10 +133,10 @@ program GTS
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    call Do_FieldLineFollowing_for_Poincare_Plot_parallelized
    if(myrank_partd==nproc_partd-1) then
-      call Do_FieldLineFollowing_for_Poincare_Plot
-      ! call Construct_gPPI_for_FieldLineAverage
       call Construct_gPPI_for_FieldLineAverage_Parallelized
    endif
+
+   call Read_FMap3D_on_MG
 
    call MPI_Bcast(FLA_Te0,2*mgrid,MPI_Rsize,nproc_partd-1,partd_comm,ierror)
    ! solver
@@ -205,6 +208,8 @@ program GTS
 #endif
    endif
 
+   call Initialize_Structured_Grid
+   ! SG%phi(:,1:SG%dim_s-10,:) =1e4
    ! initialize particle position and velocity
    if(Flag_Load_and_WeightDef==0) then
       call load
@@ -224,7 +229,7 @@ program GTS
    call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 
 
-   call Initialize_Structured_Grid
+   ! call Initialize_Structured_Grid
    ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
    ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
    ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
@@ -238,13 +243,13 @@ program GTS
    irk=2
    idiag=1
    if(Flag_Poisson3D_on_SG==1) then
-      call Measure_Ion_Density_on_SG(0)
+      call Measure_Ion_Density_on_SG(1)
    else
       call charge_ion
    endif
 
    if(Flag_Poisson3D_on_SG==1) then
-      if(ifelectron/=0) call Measure_Electron_Density_on_SG(0)
+      if(ifelectron/=0) call Measure_Electron_Density_on_SG(1)
    else
       if(ifelectron/=0) call charge_eon
    endif
@@ -257,8 +262,13 @@ program GTS
       else
          call poisson( solver1, masssolver  )
       endif
+      if(Flag_Load_and_WeightDef/=0) then
+         call Adjust_electron_weight_for_initially_zero_potential(solver1,masssolver)
+      endif
    endif
    !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
+
+
 
    ! call smooth(0)
 
@@ -280,6 +290,11 @@ program GTS
    call Init_Diagnostic_Grid
    if(irun==0) then
       istep=0
+
+      call n_T_u_group(flag_backf0=.true.)
+      call n_T_u_group_e(flag_backf0=.true.)
+      call Update_Most_Particle_Information_to_HOST()
+
       ! call get_Te_fluctuation_DirectlyFromParticles
       ! call get_Ti_fluctuation_DirectlyFromParticles
       call SetZeros_Cumulative_Variables
@@ -328,9 +343,38 @@ program GTS
    !           MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP ----- MAIN TIME LOOP
    do istep=istart,mstep
       if(mype==0) then
-         write(stdout,'(a,I8)')'istep=',istep
+         write(stdout,'(a,I8,a,I8,a,I8)')'MainLoop istep=',istep, '; mi=',mi, '; me=',me
          call flush(stdout)
       endif
+
+
+      ! if(istep==istart .or. mod(istep,msnap) .eq. 0) then
+      if(istep==istart .or. mod(istep,Ptl_Src_nstep) .eq. 0) then
+
+         if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
+            call timer(t0,dt,t0wc,dtwc)
+
+            call Clear_some_Electrons_beyond_Boundaries()
+            call Clear_some_Ions_beyond_Boundaries()
+            do i=1,size(PSCV_list)
+               PSCV=>PSCV_list(i)
+               call Cal_dErg_per_nstep_by_Potential_along_FieldLine
+               call Cal_dupara_per_dt_using_dErg_per_nstep
+               call Generate_Electrons_beyond_Boundaries_using_Adaptive_PSCV()
+               call Generate_Ions_beyond_Boundaries_using_Adaptive_PSCV()
+            enddo
+
+            ! call Clear_newIons_beyond_Velocity_Boundary()
+            ! call Clear_some_Ions_beyond_Boundaries()
+            ! call Generate_Ions_beyond_VelocityCutOff_Fixed_Grid()
+            ! call Generate_Ions_beyond_PhysicalBoundary()
+
+            call timer(t0,dt,t0wc,dtwc)
+            time(16)=time(16)+dt
+            timewc(16)=timewc(16)+dtwc
+         endif
+      endif
+
       do irk=1,nrk
 
          if(Flag_Poisson==1 .and. Flag_Poisson3D_on_SG==1 .and. Flag_Update_Pol_Shielding==1 ) then
@@ -351,15 +395,29 @@ program GTS
          timewc(8)=timewc(8)+dtwc
 
          ! push ion
-         if(Flag_RK4==1) then
-            call pushion_RK4(irk)
-         else
-            call pushion
-         endif
-         call timer(t0,dt,t0wc,dtwc)
-         time(1)=time(1)+dt
-         timewc(1)=timewc(1)+dtwc
+         if(Flag_w_Evol/=3) then
+            if(Flag_RK4==1) then
+               call pushion_RK4(irk)
+            else
+               call pushion
+            endif
+            call timer(t0,dt,t0wc,dtwc)
+            time(1)=time(1)+dt
+            timewc(1)=timewc(1)+dtwc
 
+            ! redistribute ion across PEs
+            call shifti
+            call timer(t0,dt,t0wc,dtwc)
+            time(2)=time(2)+dt
+            timewc(2)=timewc(2)+dtwc
+         else
+            call pushion_wEvol3(irk,nrk)
+            call timer(t0,dt,t0wc,dtwc)
+            time(1)=time(1)+dt
+            timewc(1)=timewc(1)+dtwc
+            ! Note that pushion_wEvol3 does not need shifti in the main.F90
+            ! because it calls the shifti inside of the push routine
+         endif
 
          if(istep==mstep) then
             if(mype==0) then
@@ -367,13 +425,8 @@ program GTS
             endif
          endif
          call timer(t0,dt,t0wc,dtwc)
-         time(17)=time(17)+dt
-         timewc(17)=timewc(17)+dtwc
-         ! redistribute ion across PEs
-         call shifti
-         call timer(t0,dt,t0wc,dtwc)
-         time(2)=time(2)+dt
-         timewc(2)=timewc(2)+dtwc
+         time(18)=time(18)+dt
+         timewc(18)=timewc(18)+dtwc
 
          ! Calculate ion weight damping
          if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
@@ -382,7 +435,11 @@ program GTS
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
          ! in PUSHI for calculating electric force on ions
          if(Flag_Poisson3D_on_SG==1) then
-            call Measure_Ion_Density_on_SG(0)
+            if(Flag_Weight_dfh==3 .and. irk==nrk) then
+               call Measure_Ion_Density_on_SG(1)
+            else
+               call Measure_Ion_Density_on_SG(0)
+            endif
          else
             call charge_ion
          endif
@@ -408,20 +465,31 @@ program GTS
                time(9)=time(9)+dt
                timewc(9)=timewc(9)+dtwc
 
-               !     CALL PUSHE(irk)
-               if(Flag_RK4==1) then
-                  call pusheon_RK4(solver1, masssolver, irk)
-               else
-                  call pusheon(solver1, masssolver, irk)
-               endif
-               call timer(t0,dt,t0wc,dtwc)
-               time(10)=time(10)+dt
-               timewc(10)=timewc(10)+dtwc
+                  !  CALL PUSHE(irk)
+               if(Flag_w_Evol/=3) then
+                  if(Flag_RK4==1) then
+                     call pusheon_RK4(solver1, masssolver, irk)
+                  else
+                     call pusheon(solver1, masssolver, irk)
+                  endif
+                  call timer(t0,dt,t0wc,dtwc)
+                  time(10)=time(10)+dt
+                  timewc(10)=timewc(10)+dtwc
 
-               call shifte
-               call timer(t0,dt,t0wc,dtwc)
-               time(11)=time(11)+dt
-               timewc(11)=timewc(11)+dtwc
+                  call shifte
+                  call timer(t0,dt,t0wc,dtwc)
+                  time(11)=time(11)+dt
+                  timewc(11)=timewc(11)+dtwc
+               else
+                  ! call pusheon_wEvol3(solver1, masssolver, irk, nrk)
+                  call pusheon_wEvol4(solver1, masssolver, irk, nrk)
+                  call timer(t0,dt,t0wc,dtwc)
+                  time(10)=time(10)+dt
+                  timewc(10)=timewc(10)+dtwc
+                  ! Note that pusheon_wEvol3 does not need shifte in the main.F90
+                  ! because it calls the shifte inside of the push routine
+               endif
+
 
             else
                ! Note that Following Subelectron routines are only valid for RK2 scheme
@@ -484,7 +552,11 @@ program GTS
             ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
             ! for calculating gamma_e
             if(Flag_Poisson3D_on_SG==1) then
-               call Measure_Electron_Density_on_SG(0)
+               if(Flag_Weight_dfh==3 .and. irk==nrk) then
+                  call Measure_Electron_Density_on_SG(1)
+               else
+                  call Measure_Electron_Density_on_SG(0)
+               endif
             else
                call charge_eon
             endif
@@ -547,15 +619,19 @@ program GTS
       !  phi_tmp(:)=phi_tmp(:)+phi(1,:) ! a time average
       call Cumulate_Some_Variables_for_Measure
 
-      if(Flag_Ptl_BC_type==1) then
-         if(mod(istep,2)==0) then
-            call Do_Generate_Particles_from_Boundaries_with_ParticleLoadBalancing(2*tstep*utime)
+      if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
+         if(istep==istart .or. mod(istep,Ptl_Src_nstep)==0) then
+            call timer(t0,dt,t0wc,dtwc)
+            call Generate_Particles_from_Boundaries_with_LoadBalancing(Ptl_Src_nstep*tstep*utime)
+            call timer(t0,dt,t0wc,dtwc)
+            time(16)=time(16)+dt
+            timewc(16)=timewc(16)+dtwc
          endif
       endif
       ! call load_electrons_In_or_Out_Flux(100,tstep*utime)
       ! call load_electrons_In_or_Out_Flux(10,tstep)
 
-      if(mod(istep,msnap) .eq. 0) then
+      if( mod(istep,msnap) .eq. 0) then
 
          call Update_Most_Particle_Information_to_HOST()
 
@@ -566,6 +642,10 @@ program GTS
 
          call Measure_Electron_Density_on_SG(1) !Input flag=1 for diagnostic purpose
          call Measure_Ion_Density_on_SG(1) !Input flag=1 for diagnostic purpose
+
+         ! call Cal_dupara_per_dt_using_SG
+
+         if(Flag_Poisson==1 .and. Flag_Poisson3D_on_SG==1) call Cal_IonPolarDensity_and_RealCharge
 
          call MPI_Reduce_FootPrints_of_Electrons_and_Ions(FP_BDY1,numberpe-1)
          call Cumulate_FP_to_cumFP(FP_BDY1,cum_FP_BDY1)
@@ -582,6 +662,9 @@ program GTS
       timewc(14)=timewc(14)+dtwc
 
       if(mod(istep,nstep_for_tracer_record)==0) then
+
+         call n_T_u_group(flag_backf0=.true.)
+         call n_T_u_group_e(flag_backf0=.true.)
 
          if(mod(istep,msnap)/=0) then
             call Update_Most_Particle_Information_to_HOST()
@@ -604,8 +687,8 @@ program GTS
       call timer(t0,dt,t0wc,dtwc)
       time(nc)=t0-program_start_t0
       timewc(nc)=t0wc-program_start_t0wc
-      time(16)=t0-loop_start_time
-      timewc(16)=t0wc-loop_start_timewc
+      time(17)=t0-loop_start_time
+      timewc(17)=t0wc-loop_start_timewc
       ! Print Elapsed Times
       if(mype==0 .and. mod(istep,1)==0) then
 
@@ -613,6 +696,7 @@ program GTS
          tmp_timewc  = timewc
 
          tmp_time(1)  = tmp_time(1)  - sum(time_in_Pushi) ! pushion
+         tmp_time(2)  = tmp_time(2)  + time_in_Pushi(2)   ! shifti
          tmp_time(4)  = tmp_time(4)  + time_in_Pushe(3)   ! Poisson
          tmp_time(5)  = tmp_time(5)  + time_in_Pushe(4)   ! smooth
          tmp_time(10) = tmp_time(10) - sum(time_in_Pushe) ! pusheon
@@ -621,6 +705,7 @@ program GTS
          tmp_time(15) = tmp_time(15) + time_in_Pushe(5) +time_in_Pushi(1) ! diagnostics in push routines
 
          tmp_timewc(1)  = tmp_timewc(1)  - sum(timewc_in_Pushi) ! pushion
+         tmp_timewc(2)  = tmp_timewc(2)  + timewc_in_Pushi(2)   ! shifti
          tmp_timewc(4)  = tmp_timewc(4)  + timewc_in_Pushe(3)   ! Poisson
          tmp_timewc(5)  = tmp_timewc(5)  + timewc_in_Pushe(4)   ! smooth
          tmp_timewc(10) = tmp_timewc(10) - sum(timewc_in_Pushe) ! pusheon
@@ -634,7 +719,7 @@ program GTS
          do i=1,nc
             write(190515,'(a16,2f16.6, f16.4)',advance="no")ic(i),tmp_time(i),tmp_timewc(i), tmp_timewc(i)/tmp_timewc(nc)*100
             if(i/=7 .and. i<nc-1) then
-               write(190515,'(f16.4)') tmp_timewc(i)/tmp_timewc(16)*100
+               write(190515,'(f16.4)') tmp_timewc(i)/tmp_timewc(17)*100
             else
                write(190515,*) ' '
             endif
@@ -657,8 +742,8 @@ program GTS
    call timer(t0,dt,t0wc,dtwc)
    time(nc)=t0-program_start_t0
    timewc(nc)=t0wc-program_start_t0wc
-   time(16)=t0-loop_start_time
-   timewc(16)=t0wc-loop_start_timewc
+   time(17)=t0-loop_start_time
+   timewc(17)=t0wc-loop_start_timewc
 
    if(mype==0)then
 
@@ -666,6 +751,7 @@ program GTS
       tmp_timewc  = timewc
 
       tmp_time(1)  = tmp_time(1)  - sum(time_in_Pushi) ! pushion
+      tmp_time(2)  = tmp_time(2)  + time_in_Pushi(2)   ! shifti
       tmp_time(4)  = tmp_time(4)  + time_in_Pushe(3)   ! Poisson
       tmp_time(5)  = tmp_time(5)  + time_in_Pushe(4)   ! smooth
       tmp_time(10) = tmp_time(10) - sum(time_in_Pushe) ! pusheon
@@ -686,7 +772,7 @@ program GTS
       do i=1,nc
          write(stdout,'(a16,2f16.6, f16.4)',advance="no")ic(i),tmp_time(i),tmp_timewc(i), tmp_timewc(i)/tmp_timewc(nc)*100
          if(i/=7 .and. i<nc-1) then
-            write(stdout,'(f16.4)') tmp_timewc(i)/tmp_timewc(16)*100
+            write(stdout,'(f16.4)') tmp_timewc(i)/tmp_timewc(17)*100
          else
             write(stdout,*) ' '
          endif
@@ -706,6 +792,8 @@ program GTS
          call destroy_solver( solver_dphi_dt )
       endif
    endif
+
+   call Finalize_Ptl_Src_Loss
 
    !free all allocated arrays
    !  call GTS_finalize(ierror)

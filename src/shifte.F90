@@ -49,10 +49,13 @@ subroutine shifte
    loop=0
    do while(1)
       loop = loop +1
-      if(loop>ntoroidal)then
-         write(0,*)'endless EON shift loop at PE=',mype
-         call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-      endif
+      ! if(loop>ntoroidal)then
+      !    !$acc update self(zeon)
+      !    write(0,*) 'mype=',mype,'; zeon=',zeon()
+
+      !    write(0,*)'endless EON shift loop at PE=',mype
+      !    call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+      ! endif
       ! find send_counts and related information
       send_L_count=0
       send_R_count=0
@@ -68,6 +71,11 @@ subroutine shifte
          normalized_zeta =  modulo(zeon_zeta_arr(m),2.0*pi)
 
          if( (normalized_zeta-zetamax)*(normalized_zeta-zetamin) >0 ) then
+
+            if(loop>ntoroidal) then
+               write(0,'(2(A,I4),A,I8, 2(A,ES12.4))') 'LOOP=',loop, ',mype=',mype,'; m=',m,', zeon_zeta_arr(m)=',zeon_zeta_arr(m),'; normal_zeta=',normalized_zeta
+            endif
+
             send_num=send_num+1
             send_mid_arr(send_num) = m
 
@@ -85,6 +93,18 @@ subroutine shifte
 
 
       call MPI_ALLREDUCE(send_num,tot_send_num,1,MPI_INTEGER,MPI_SUM,toroidal_comm,ierr)
+      if(loop>ntoroidal)then
+         !$acc update self(zeon)
+         write(0,'(2(A,I4),A,2I8,A,2ES12.4,2(A,I8))') 'LOOP=',loop, ',mype=',mype,'; m0,me=',m0,me,'; zetamin,max=',zetamin,zetamax,'; send_L_count=', send_L_count, '; send_R_count=',send_R_count
+         write(0,'(2(A,I4),3(A,I8))') 'LOOP=',loop,',mype=',mype,'; S1=',send_mid_arr(1),'; R1=',right_mid_arr(1),'; L1=',left_mid_arr(1)
+         write(0,'(2(A,I4),A,ES12.4,A,10ES12.4)') 'LOOP=',loop,',mype=',mype,'; zeon_zeta(L1)=',zeon_zeta_arr(left_mid_arr(1)),'; zeon(L1)=',zeon(:,left_mid_arr(1))
+         write(0,'(2(A,I4),A,ES12.4,A,10ES12.4)') 'LOOP=',loop,',mype=',mype,'; zeon_zeta(R1)=',zeon_zeta_arr(right_mid_arr(1)),'; zeon(R1)=',zeon(:,right_mid_arr(1))
+         write(0,'(2(A,I4))')'endless EON shift loop at PE=',mype ,'; LOOP=',loop
+         if(loop>2*ntoroidal) then
+            call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+         endif
+      endif
+
       if(tot_send_num==0) then
          if(loop>1) then
             acc_newer_D_zeon=.true.
@@ -116,9 +136,14 @@ subroutine shifte
 
 
       allocate(send_Ptls(dim_Ptl_package, send_num), recv_Ptls(dim_Ptl_package, recv_num))
+      send_Ptls=0.0
+      recv_Ptls=0.0
+
+      !$acc enter data create(send_Ptls, recv_Ptls)
+
 
       ! copy all information of sending particles into tor_send_Ptls
-      !$acc parallel loop copyin(left_mid_arr(:send_L_count),right_mid_arr(:send_R_count))
+      !$acc parallel loop present(send_Ptls) copyin(left_mid_arr(:send_L_count),right_mid_arr(:send_R_count))
       do i=1, send_num
 
          if (i<=send_L_count) then
@@ -156,11 +181,37 @@ subroutine shifte
          send_Ptls(k+9, i) =  UnNorm_zeta_e(m)
       enddo
 
+      if(send_num>0) then
+         !$acc update self(send_Ptls(:,:send_num))
+      endif
+
+#ifdef _MGY_DEBUG_
+      if(loop>ntoroidal)then
+         write(0,'(2(A,I4),2(A,3I8))') 'LOOP=',loop, ',mype=',mype,'; send_num,L,R=', send_num, send_L_count, send_R_count, '; recv_num,L,R=', recv_num, recv_L_count, recv_R_count
+      endif
+#endif
+
       ! Send to Left
       call MPI_SENDRECV(send_Ptls(:,1:send_L_count),send_L_count,MPI_Ptl_type,left_pe,0, recv_Ptls(:,1+recv_L_count:recv_num),recv_R_count,MPI_Ptl_type,right_pe ,0,toroidal_comm,istatus,ierr)
       ! Send to Right
       call MPI_SENDRECV(send_Ptls(:,1+send_L_count:send_num),send_R_count,MPI_Ptl_type,right_pe,0, recv_Ptls(:,1:recv_L_count),recv_L_count,MPI_Ptl_type,left_pe ,0,toroidal_comm,istatus,ierr)
 
+
+      if(recv_num>0) then
+         !$acc update device(recv_Ptls(:,:recv_num))
+      endif
+
+
+#ifdef _MGY_DEBUG_
+      if(loop>ntoroidal)then
+         if(send_num>0) then
+            write(0,'(2(A,I4),A,5ES12.4)') 'LOOP=',loop, ',mype=',mype,'; send_Ptls(3,1:5)=', send_Ptls(3,1:5)
+         endif
+         if(recv_num>0) then
+            write(0,'(2(A,I4),A,5ES12.4)') 'LOOP=',loop, ',mype=',mype,'; recv_Ptls(3,1:5)=', recv_Ptls(3,1:5)
+         endif
+      endif
+#endif
 
       ! fill holes
       mtop = me
@@ -211,8 +262,16 @@ subroutine shifte
          endif
       enddo
 
+#ifdef _MGY_DEBUG_
+      if(loop>ntoroidal)then
+         if(recv_num>0) then
+            write(0,'(2(A,I4),A,5ES12.4)') 'AA LOOP=',loop, ',mype=',mype,'; recv_Ptls(3,1:5)=', recv_Ptls(3,1:5)
+         endif
+      endif
+#endif
+
       ! append recv particles
-      !$acc parallel loop
+      !$acc parallel loop present(recv_Ptls)
       do i=1, recv_num
          k=0
          !$acc loop seq
@@ -243,13 +302,28 @@ subroutine shifte
          UnNorm_zeta_e(me+i) = recv_Ptls(k+9, i)
       enddo
       me = me + recv_num
+      m0=me-recv_num+1  ! new starting index of next loop
+
+
+#ifdef _MGY_DEBUG_
+      if(loop>ntoroidal)then
+         if(recv_num>0) then
+            write(0,'(3(A,I4),A,5ES12.4)') 'BB LOOP=',loop, ',mype=',mype,', recv_num=',recv_num,'; recv_Ptls(3,1:5)=', recv_Ptls(3,1:5)
+         endif
+
+         !$acc update self(zeon)
+         write(0,'(2(A,I4),A,2I8,A,12ES12.4)') 'BB LOOP=',loop, ',mype=',mype,'; m0,me=',m0,me,'; zeon(3,m0:m0+5)=',zeon(3,m0:m0+5)
+      endif
+#endif
+
+      !$acc exit data delete(send_Ptls,recv_Ptls)
 
       if(allocated(send_Ptls)) deallocate(send_Ptls)
       if(allocated(recv_Ptls)) deallocate(recv_Ptls)
       if(allocated(fill_mid_arr)) deallocate(fill_mid_arr)
 
 
-      m0=me-recv_num+1  ! new starting index of next loop
+      ! m0=me-recv_num+1  ! new starting index of next loop
    enddo
 
 end subroutine shifte
