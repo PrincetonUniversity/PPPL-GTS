@@ -1227,6 +1227,7 @@ subroutine load_uniform_MGY
                zion0(6,m) = 0.0
                zion(8,m)  = 0.0
                zion(5,m)  = 0.0
+               zion0(8,m) = 0.0 ! Full-f Ni=0, otherwise this can make error in the case of Flag_w_Evol=3
             enddo
          enddo
          acc_newer_H_zion=.true.
