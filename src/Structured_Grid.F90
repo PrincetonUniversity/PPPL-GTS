@@ -429,16 +429,16 @@ contains
          wgf0 = (1.0-wgf1)
 
          sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-         ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
+         ws1 = (P_s-SG_s_1D(sid))*SG%inv_ds
          ws0 = (1.0-ws1)
 
-         P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
+         P_safety_q = ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1)
 
          ! Scatter particle to zetamin plane first
          target_gf = zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
          gqid  = target_gq*SG%inv_dgq+1
-         wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
          ratio(1)=wgf0*ws0*wgq0; qq(1)=gqid;    ss(1)=sid;
@@ -458,7 +458,7 @@ contains
          target_gf = zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
          gqid  = target_gq*SG%inv_dgq+1
-         wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
 
@@ -668,10 +668,10 @@ contains
          P_gf = modulo(zion(3,m),2*pi)
 
          sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-         ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
+         ws1 = (P_s-SG_s_1D(sid))*SG%inv_ds
          ws0 = (1.0-ws1)
          gqid = P_gq*SG%inv_dgq+1
-         wgq1 = (P_gq-SG%gq_1D(gqid))*SG%inv_dgq
+         wgq1 = (P_gq-SG_gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
          !$acc loop seq
          do larmor=1,larmor_num
@@ -702,16 +702,16 @@ contains
             wgf0 = (1.0-wgf1)
 
             sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-            ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
+            ws1 = (P_s-SG_s_1D(sid))*SG%inv_ds
             ws0 = (1.0-ws1)
 
-            P_safety_q = ws0*SG%safety_q_1D(sid) + ws1*SG%safety_q_1D(sid+1)
+            P_safety_q = ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1)
 
             ! Scatter particle to zetamin plane first
             target_gf = zetamin
             target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
             gqid  = target_gq*SG%inv_dgq+1
-            wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
 
 
@@ -732,7 +732,7 @@ contains
             target_gf = zetamax
             target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
             gqid  = target_gq*SG%inv_dgq+1
-            wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
 
             ratio(1)=inv_larmor_num*wgf1*ws0*wgq0; qq(1)=gqid;    ss(1)=sid;

@@ -2388,10 +2388,10 @@ module Ptl_Src_Loss
                P_gq = modulo(zion(2,m),2*pi)
 
                sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-               ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
+               ws1 = (P_s-SG_s_1D(sid))*SG%inv_ds
                ws0 = (1.0-ws1)
                gqid = P_gq*SG%inv_dgq+1
-               wgq1 = (P_gq-SG%gq_1D(gqid))*SG%inv_dgq
+               wgq1 = (P_gq-SG_gq_1D(gqid))*SG%inv_dgq
                wgq0 = 1.0-wgq1
 
                ! Calculate radial gyro radius in s (not a)
