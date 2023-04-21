@@ -3134,10 +3134,13 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
    call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
 
-   !$acc parallel loop present(Phi_at_zeon,gradPhi) gang vector
+   !$acc parallel loop present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-      gradPhi(:,m) = Fac_Volt2GTS*gradPhi(:,m)
+      !$acc loop seq
+      do i=1,3
+         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
+      enddo
    enddo
 
    ! !$acc update self(gradPhi(:,:),Phi_at_zeon(:))

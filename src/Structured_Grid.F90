@@ -287,6 +287,7 @@ contains
       allocate(SG%phi(Nq,Ns,0:2)) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
       SG%phi=0.0
       allocate(SG%grad_phi_cov(3,Nq,Ns,0:1))
+      SG%grad_phi_cov=0.0
 
       allocate(SG%test_phi_2D(Nq,Ns),SG%test_src_2D(Nq,Ns),SG%test_res_2D(Nq,Ns))
       allocate(SG%test_phi_3D(Nq,Ns,mzetamax),SG%test_src_3D(Nq,Ns,mzetamax))
@@ -304,6 +305,11 @@ contains
       SG_gq_1D = SG%gq_1D
       SG_safety_q_1D = SG%safety_q_1D
       !$acc update device(SG_s_1D,SG_gq_1D,SG_safety_q_1D)
+
+      SG_phi=0.0
+      SG_phi_3D=0.0
+      !$acc update device(SG_phi,SG_phi_3D)
+ 
 
    end subroutine Initialize_Structured_Grid
 
