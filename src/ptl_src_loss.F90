@@ -2036,7 +2036,7 @@ module Ptl_Src_Loss
                   !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
                   zeon(7,m)=zeon0(7,m)
 
-                  if(Flag_w_Evol==3) zeon(8,m)=zeon0(8,m)
+                  if(Flag_w_Evol>=3) zeon(8,m)=zeon0(8,m)
                elseif(Flag_Ptl_BC0_type==0 .and. zeon(1,m) < psimin)then
                   zeon(1,m)=psimin
                   zeon(2,m)=2.0_wp*pi-zeon0(2,m)
@@ -2046,7 +2046,7 @@ module Ptl_Src_Loss
                   !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
                   !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
                   zeon(7,m)=zeon0(7,m)
-                  if(Flag_w_Evol==3) zeon(8,m)=zeon0(8,m)
+                  if(Flag_w_Evol>=3) zeon(8,m)=zeon0(8,m)
                endif
             enddo
             acc_newer_D_zeon=.true.
