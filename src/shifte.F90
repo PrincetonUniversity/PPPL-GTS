@@ -121,7 +121,7 @@ subroutine shifte
 
 #ifdef _MGY_DEBUG_
          if(mype==0) then
-            write(stdout,*) "In shifte, istep=",istep," irk=",irk, ", loop=",loop
+            write(stdout,'(3(A,I8))') "In shifte, istep=",istep," irk=",irk, ", loop=",loop
             call flush(stdout)
          endif
 #endif
