@@ -2027,9 +2027,10 @@ module Ptl_Src_Loss
             !$acc parallel loop present(zeon,zeon0)
             do m=m0,m1
                if(Flag_Ptl_BC1_type==0 .and. zeon(1,m) > psimax)then
-                  zeon(1,m)=psimax
+                  zeon(1,m)=zeon0(1,m)
                   zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-                  zeon(3,m)=zeon0(3,m)
+                  ! Do not reset zeon(3,m) or toroidal angle !!
+                  ! This is to ensure that this particle is in the same toroidal rank.
                   zeon(4,m)=zeon0(4,m)
                   zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                   !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
@@ -2038,9 +2039,10 @@ module Ptl_Src_Loss
 
                   if(Flag_w_Evol>=3) zeon(8,m)=zeon0(8,m)
                elseif(Flag_Ptl_BC0_type==0 .and. zeon(1,m) < psimin)then
-                  zeon(1,m)=psimin
+                  zeon(1,m)=zeon0(1,m)
                   zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-                  zeon(3,m)=zeon0(3,m)
+                  ! Do not reset zeon(3,m) or toroidal angle !!
+                  ! This is to ensure that this particle is in the same toroidal rank.
                   zeon(4,m)=zeon0(4,m)
                   zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                   !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
@@ -2236,18 +2238,20 @@ module Ptl_Src_Loss
             !$acc parallel loop present(zion,zion0)
             do m=m0,m1
                if(Flag_Ptl_BC1_type==0 .and. zion(1,m) > psimax)then
-                  zion(1,m)=psimax
+                  zion(1,m)=zion0(1,m)
                   zion(2,m)=2.0_wp*pi-zion0(2,m)
-                  zion(3,m)=zion0(3,m)
+                  ! Do not reset zion(3,m) or toroidal angle !!
+                  ! This is to ensure that this particle is in the same toroidal rank.
                   zion(4,m)=zion0(4,m)
                   zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                   !   zion(5,m)=-zion0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
                   !   zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
                   zion(7,m)=zion0(7,m)
                elseif(Flag_Ptl_BC0_type==0 .and. zion(1,m) < psimin)then
-                  zion(1,m)=psimin
+                  zion(1,m)=zion0(1,m)
                   zion(2,m)=2.0_wp*pi-zion0(2,m)
-                  zion(3,m)=zion0(3,m)
+                  ! Do not reset zion(3,m) or toroidal angle !!
+                  ! This is to ensure that this particle is in the same toroidal rank.
                   zion(4,m)=zion0(4,m)
                   zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                   !   zion(5,m)=-zion0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
