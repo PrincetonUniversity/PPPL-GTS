@@ -422,7 +422,7 @@ contains
       do m=1,me
          P_s = zeon(7,m)
 
-         if(elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+         if(((P_s-s0)*(P_s-s1)>0) ) then
             ! Since this particle is outside the physical boundary, not need to calculate its contribution
             cycle
          endif

@@ -736,7 +736,7 @@ module Diagnostic_Grid
             P_gf = modulo(zeon0(3,m),2*pi)
             P_s  = zeon0(7,m)
 
-            if( elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            if( (P_s-s0)*(P_s-s1)>0) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1131,7 +1131,7 @@ module Diagnostic_Grid
             P_gf = modulo(zion0(3,m),2*pi)
             P_s  = zion0(7,m)
 
-            if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            if( (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1341,7 +1341,7 @@ module Diagnostic_Grid
          do m=1,mi
             if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
 
-            if( ilabels(m)<0 .and. ((zion(7,m)-s0)*(zion(7,m)-s1)>0) ) then
+            if(  (zion(7,m)-s0)*(zion(7,m)-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1565,7 +1565,7 @@ module Diagnostic_Grid
          do m=1,me
 
             P_s=zeon0(7,m)
-            if(  elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+            if(  (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1749,7 +1749,7 @@ module Diagnostic_Grid
             ws1 = (P_s-DG_s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
-            if( elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            if( (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1840,7 +1840,7 @@ module Diagnostic_Grid
          do m=1,mi
 
             P_s=zion0(7,m)
-            if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+            if(  (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1952,7 +1952,7 @@ module Diagnostic_Grid
             ws1 = (P_s-DG_s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
-            if(  ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            if(  (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
