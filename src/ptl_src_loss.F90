@@ -3679,13 +3679,13 @@ module Ptl_Src_Loss
          !$acc parallel loop present(mesh_norm_dxdv,mesh_MarkerDen) private(ptl_ur_bound)
          do m=1,mi
 
-            if( (zion(1,m)-a_min)*(zion(1,m)-a_max)>0 ) then
+            if( (zion(1,m)-a_min)*(zion(1,m)-a_max)>=0 ) then
                ! If the particle is outside the PSCV domain, cycle the loop
                cycle
             endif
 
-            tgt_aid  = ceiling((zion(1,m)-a_min)*inv_da+0.5) ! Find nearst grid
-            tgt_gfid = ceiling((zion(3,m)-gf_min)*inv_dgf+0.5) ! Find nearst grid
+            tgt_aid  = max(1,min(dim_a, ceiling((zion(1,m)-a_min)*inv_da+0.5)))! Find nearst grid
+            tgt_gfid = max(1,min(dim_gf,ceiling((zion(3,m)-gf_min)*inv_dgf+0.5))) ! Find nearst grid
 
             ! Interpolate safety factor
             tmp_aid = max(1,min(int((zion(1,m)-PSCV%a_min)*PSCV%inv_da) +1,PSCV%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
@@ -4012,13 +4012,13 @@ module Ptl_Src_Loss
          !$acc parallel loop present(mesh_norm_dxdv,mesh_MarkerDen) private(ptl_ur_bound)
          do m=1,me
 
-            if( (zeon(1,m)-a_min)*(zeon(1,m)-a_max)>0 ) then
+            if( (zeon(1,m)-a_min)*(zeon(1,m)-a_max)>=0 ) then
                ! If the particle is outside the PSCV domain, cycle the loop
                cycle
             endif
 
-            tgt_aid  = ceiling((zeon(1,m)-a_min)*inv_da+0.5) ! Find nearst grid
-            tgt_gfid = ceiling((zeon(3,m)-gf_min)*inv_dgf+0.5) ! Find nearst grid
+            tgt_aid  = max(1,min(dim_a, ceiling((zeon(1,m)-a_min)*inv_da+0.5)))! Find nearst grid
+            tgt_gfid = max(1,min(dim_gf,ceiling((zeon(3,m)-gf_min)*inv_dgf+0.5))) ! Find nearst grid
 
             ! Interpolate safety factor
             tmp_aid = max(1,min(int((zeon(1,m)-PSCV%a_min)*PSCV%inv_da) +1,PSCV%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
