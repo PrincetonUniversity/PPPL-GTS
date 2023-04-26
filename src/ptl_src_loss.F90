@@ -3697,7 +3697,8 @@ module Ptl_Src_Loss
             tgt_gqid = ceiling((tgt_gq-gq_min)*inv_dgq+0.5) ! Find nearst grid
 
             ! Find ur bound of the particle
-            ptl_ur_bound = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,:)
+            ptl_ur_bound(1) = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,1)
+            ptl_ur_bound(2) = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,2)
 
             ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
             ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
@@ -3758,7 +3759,8 @@ module Ptl_Src_Loss
 
             sr0 = max(sr_min, sr(srid)-0.5*dsr)
             sr1 = min(sr_max, sr(srid)+0.5*dsr)
-            ptl_ur_bound = tgt_ur_bound(aid,gqid,gfid,:)
+            ptl_ur_bound(1) = tgt_ur_bound(aid,gqid,gfid,1)
+            ptl_ur_bound(2) = tgt_ur_bound(aid,gqid,gfid,2)
             ur0 = ptl_ur_bound(1) + sr0*(ptl_ur_bound(2)-ptl_ur_bound(1))
             ur1 = ptl_ur_bound(1) + sr1*(ptl_ur_bound(2)-ptl_ur_bound(1))
             Cell_dVol_sr = (ur1**3.0-ur0**3.0)/3.0
@@ -4028,7 +4030,8 @@ module Ptl_Src_Loss
             tgt_gqid = ceiling((tgt_gq-gq_min)*inv_dgq+0.5) ! Find nearst grid
 
             ! Find ur bound of the particle
-            ptl_ur_bound = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,:)
+            ptl_ur_bound(1) = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,1)
+            ptl_ur_bound(2) = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,2)
 
             ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
             ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
@@ -4091,7 +4094,8 @@ module Ptl_Src_Loss
 
             sr0 = max(sr_min, sr(srid)-0.5*dsr)
             sr1 = min(sr_max, sr(srid)+0.5*dsr)
-            ptl_ur_bound = tgt_ur_bound(aid,gqid,gfid,:)
+            ptl_ur_bound(1) = tgt_ur_bound(aid,gqid,gfid,1)
+            ptl_ur_bound(2) = tgt_ur_bound(aid,gqid,gfid,2)
             ur0 = ptl_ur_bound(1) + sr0*(ptl_ur_bound(2)-ptl_ur_bound(1))
             ur1 = ptl_ur_bound(1) + sr1*(ptl_ur_bound(2)-ptl_ur_bound(1))
             Cell_dVol_sr = (ur1**3.0-ur0**3.0)/3.0
