@@ -73,8 +73,6 @@ module Diagnostic_Grid
    type(Probe_Velocity_Space), allocatable, dimension(:) :: PVS
    integer :: nPVS
 
-   real(wp), allocatable :: DG_s_1D(:)
-   !$acc declare create(DG_s_1D)
 
    contains
 
@@ -458,11 +456,6 @@ module Diagnostic_Grid
          do k=1,3
             DG%uvec_grad_FL_cov(k,:,:,:) = DG%grad_FLA_SM_FLabel(k,:,:,:)/(DG%mag_grad_FLA_SM_FLabel)
          enddo
-
-
-         allocate(DG_s_1D(Na))
-         DG_s_1D = DG%s_1D
-         !$acc update device(DG_s_1D)
 
       end subroutine Init_Diagnostic_Grid
 
@@ -1359,7 +1352,7 @@ module Diagnostic_Grid
                P_inv_ori_dgq = 1.0/(ff*deltat(ori_sid+1)+(1.0-ff)*deltat(ori_sid))
 
                sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
-               ws1 = (P_s-DG_s_1D(sid))*DG%inv_ds
+               ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
                ws0 = 1.0-ws1
 
                do k=0,1
@@ -1746,7 +1739,7 @@ module Diagnostic_Grid
          do m=1,me
             P_s  = zeon0(7,m)
             sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
-            ws1 = (P_s-DG_s_1D(sid))*DG%inv_ds
+            ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
             if( (P_s-s0)*(P_s-s1)>0 ) then
@@ -1949,7 +1942,7 @@ module Diagnostic_Grid
          do m=1,mi
             P_s  = zion0(7,m)
             sid = max(1,min(int((P_s-s0)*DG%inv_ds) +1,DG%dim_a-1)) ! +1 is due to Fortran's default index starting from 1
-            ws1 = (P_s-DG_s_1D(sid))*DG%inv_ds
+            ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
             if(  (P_s-s0)*(P_s-s1)>0 ) then
