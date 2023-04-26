@@ -23,6 +23,7 @@ Subroutine setup
       a_ref,zeta_ref,psiout,pdum,totalv,inv_jaco,munstable,nunstable,gradth,&
       munstable1,nunstable1,inv_grada,Lc,Lci,Lce,Lcn,Lcu,Tcc,backnc,Tau,Tau_e,vthc_e,dela,fip
    integer intgral,ninbin,i_itera
+   integer const_mtheta
 
    integer, external :: metric_elements
 
@@ -981,6 +982,16 @@ Subroutine setup
 #else
       mtheta(i)=max(2,2*int(plenth(i)/tdum/2.0_wp+0.5_wp)) !even # poloidal grid
 #endif
+   enddo
+
+   const_mtheta = ceiling(sum(mtheta)/real(mpsi+1)) ! average
+   const_mtheta = 400
+
+   do i=0,mpsi
+
+      if(Flag_Ptl_BC0_type>0 .or. Flag_Ptl_BC1_type>0) then
+         mtheta(i)= const_mtheta
+      endif
       deltat(i)=2.0_wp*pi/real(mtheta(i),wp)
 
       k=max(k,mtheta(i))
@@ -1206,6 +1217,11 @@ Subroutine setup
 
    mimax=mi+50*ceiling(sqrt(real(mi,wp))) !particle array upper bound
    memax=me+50*ceiling(sqrt(real(me,wp))) !particle array upper bound
+
+   if(Flag_Ptl_BC0_type>0 .or. Flag_Ptl_BC1_type>0) then
+      mimax=1.5*mi
+      memax=1.5*me
+   endif
 
    ! temperature and density on the grid, T_i=n_0=1 at mid-radius
    rtemi=1.0_wp
