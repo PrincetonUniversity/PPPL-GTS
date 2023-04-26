@@ -297,7 +297,7 @@ contains
 
 
 
-      allocate(SG_s_1D(Ns), SG_gq_1D(Ns), SG_safety_q_1D(Ns))
+      allocate(SG_s_1D(Ns), SG_gq_1D(Nq), SG_safety_q_1D(Ns))
       allocate(SG_phi(Nq,Ns,0:2)) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
       allocate(SG_phi_3D(Nq,Ns,mzetamax))
 
