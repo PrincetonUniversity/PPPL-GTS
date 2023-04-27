@@ -859,10 +859,6 @@ subroutine load_uniform_MGY
    enddo
    acc_newer_H_zion=.true.
 
-   ! To check whether some particles outside the boundary
-   ! If Ptl_BC_type=2, ion boundary checking considers the gyro-radius to determien whether it touches the wall
-   call treat_ions_out_of_boundary
-   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi),ilabels(:mi))
 
    wi_init  = zion(5,:)
    wi_vpara = 0
@@ -1254,6 +1250,11 @@ subroutine load_uniform_MGY
 
    call MPI_BCAST(etracers_labels,num_of_etracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
    call MPI_BCAST(itracers_labels,num_of_itracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+
+   ! To check whether some particles outside the boundary
+   ! If Ptl_BC_type=2, ion boundary checking considers the gyro-radius to determien whether it touches the wall
+   call treat_ions_out_of_boundary
+   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi),ilabels(:mi))
 
 
    ntracer=0

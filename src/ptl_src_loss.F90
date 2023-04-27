@@ -2200,7 +2200,7 @@ module Ptl_Src_Loss
          integer, optional, intent(in) :: m_start, m_end
          integer m0, m1
 
-         integer m,i,j
+         integer m,i,j,k,is_this_trc
          real(wp) psimax,psimin
          integer lost_mid_arr(mimax) ! index of loss particles
          integer lost_mid_arr_BDY1(mimax)
@@ -2413,7 +2413,18 @@ module Ptl_Src_Loss
                         zion0(8,m) = 0.0 ! This is the wall condition, ftot=0 for the ion touching the wall (considering gyroradius)
                         zion(5,m) = -integral_f0 ! ftot=f0+df=0 --> df=-f0
                         zion(8,m) = integral_f0 ! f_0
+
+                        is_this_trc=0
+                        !$acc loop seq
+                        do k=1,num_of_itracers
+                           if (ilabels(m) == itracers_labels(k)) then
+                              is_this_trc=1 ! this is one of tracers
+                              exit
+                           endif
+                        enddo
+                        if(is_this_trc==0) then
                         ilabels(m) = -3.0
+                     endif
                      endif
                   else
                      if(zion(7,m)>s1)then
@@ -2421,8 +2432,19 @@ module Ptl_Src_Loss
                         zion0(8,m) = integral_f0 ! full-f
                         zion(5,m) = 0.0! df
                         zion(8,m) = integral_f0 ! f_0
+                        
+                        is_this_trc=0
+                        !$acc loop seq
+                        do k=1,num_of_itracers
+                           if (ilabels(m) == itracers_labels(k)) then
+                              is_this_trc=1 ! this is one of tracers
+                              exit
+                           endif
+                        enddo
+                        if(is_this_trc==0) then
                         ilabels(m) = -3.0
                      endif
+                  endif
                   endif
                elseif(Flag_Ptl_BC0_type==2) then
                   if(Ptl_BC0_val==0) then
@@ -2432,7 +2454,18 @@ module Ptl_Src_Loss
                         zion0(8,m) = 0.0 ! This is the wall condition, ftot=0 for the ion touching the wall (considering gyroradius)
                         zion(5,m) = -integral_f0 ! ftot=f0+df=0 --> df=-f0
                         zion(8,m) = integral_f0 ! f_0
-                        ilabels(m) = -1.0
+                        
+                        is_this_trc=0
+                        !$acc loop seq
+                        do k=1,num_of_itracers
+                           if (ilabels(m) == itracers_labels(k)) then
+                              is_this_trc=1 ! this is one of tracers
+                              exit
+                           endif
+                        enddo
+                        if(is_this_trc==0) then
+                           ilabels(m) = -1.0
+                        endif
                      endif
                   else
                      if(zion(7,m)<s0) then
@@ -2440,7 +2473,18 @@ module Ptl_Src_Loss
                         zion0(8,m) = integral_f0 ! full-f
                         zion(5,m) = 0.0! df
                         zion(8,m) = integral_f0 ! f_0
-                        ilabels(m) = -1.0
+
+                        is_this_trc=0
+                        !$acc loop seq
+                        do k=1,num_of_itracers
+                           if (ilabels(m) == itracers_labels(k)) then
+                              is_this_trc=1 ! this is one of tracers
+                              exit
+                           endif
+                        enddo
+                        if(is_this_trc==0) then
+                           ilabels(m) = -1.0
+                        endif
                      endif
                   endif
                endif
