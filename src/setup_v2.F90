@@ -1237,14 +1237,6 @@ Subroutine setup
 
    phi=0.0
 
-   allocate(test_src(mgrid))
-   test_src=0.0
-   do i=20,30
-      do j=0,mtheta(i)
-         ij=igrid(i)+j
-         test_src(ij) = sin(6*modulo(real(j,wp)*deltat(i)+zetamax*qtinv(i),2.0*pi) - 4*zetamax)
-      enddo
-   enddo
 
    if(ifdphi==3) then
       allocate(old_phi(0:1,mgrid),tmp_old_phi(0:1,mgrid))

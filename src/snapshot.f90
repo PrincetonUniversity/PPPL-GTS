@@ -1134,16 +1134,6 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "mean_full_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dphi", "unit", "V", h5err)
 
-      do i=0,mpsi
-         do j=1,mtheta(i)
-            ij=igrid(i)+j
-            tmp_vec_mgrid_size(ij) = test_src(ij)*density(psi_grid(i),0)
-         enddo
-      enddo
-
-      call Interpolate_Data_into_Coarser_Grids(tmp_vec_mgrid_size,gq_jump,a_jump,intp_val_Arr)
-      call h5ltmake_dataset_f(file_id, "test_src",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
-      call h5ltset_attribute_string_f(file_id, "test_src", "unit", "/#^3", h5err)
 
       if(ifelectron==1) then
          tmp_vec_mgrid_size=0.0

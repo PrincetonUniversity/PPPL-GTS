@@ -277,7 +277,6 @@ module field_array
    real(wp),dimension(:,:),allocatable :: Weighted_Vol
    real(wp),dimension(:),allocatable :: Node_simple_Vol
    real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
-   real(wp),dimension(:),allocatable :: test_src ! test charge src in ratio ((ni-ne)/n0)
    real(wp),dimension(:,:),allocatable :: old_phi, tmp_old_phi ! phi at previous time step
    real(wp),dimension(:),allocatable :: old_phi00, tmp_old_phi00 ! phi00 at previous time step
    real(wp),dimension(:),allocatable :: cum_phi00, cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ
