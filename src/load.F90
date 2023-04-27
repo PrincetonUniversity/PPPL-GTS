@@ -862,7 +862,7 @@ subroutine load_uniform_MGY
    ! To check whether some particles outside the boundary
    ! If Ptl_BC_type=2, ion boundary checking considers the gyro-radius to determien whether it touches the wall
    call treat_ions_out_of_boundary
-   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi),ilabels(:mi))
 
    wi_init  = zion(5,:)
    wi_vpara = 0
