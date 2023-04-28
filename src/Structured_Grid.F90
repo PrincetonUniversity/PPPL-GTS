@@ -1160,7 +1160,7 @@ contains
       out_phi = 0.0
 
       P_gf = modulo(P_gf,2.0*pii)
-      gfid = floor(P_gf*SG_inv_dgf)+1
+      gfid = max(1,min(mzetamax,floor(P_gf*SG_inv_dgf)+1))
 
       wgf1 = abs(P_gf-(gfid-1)*SG_dgf)*SG_inv_dgf
       wgf0 = (1.0-wgf1)
@@ -1208,7 +1208,7 @@ contains
       !    call flush(stdout)
       ! endif
 
-      mod_gfid = modulo(gfid-1,mzetamax)+1 ! In case gfid=(mzetamax+1)
+      mod_gfid = modulo(gfid,mzetamax)+1 ! In case mod_gfid=gfid+1=(mzetamax+1) --> mod_gfid=1
       out_phi = out_phi + wgf1*(ws0*(wgq0*SG_phi_3D(gqid,sid,mod_gfid) + wgq1*SG_phi_3D(gqid+1,sid,mod_gfid)) + ws1*(wgq0*SG_phi_3D(gqid,sid+1,mod_gfid) + wgq1*SG_phi_3D(gqid+1,sid+1,mod_gfid)))
 
    end subroutine Get_Intp_global_phi3D_on_SG
