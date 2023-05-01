@@ -653,13 +653,18 @@ module Ptl_Src_Loss
          do Fid=1,Gsize
             PSCV%Elec_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
          enddo
+#ifdef _MGY_TIMER_
+         if(mype==0) write(stdout,'(2(A,I0),2(A,ES11.3),A)') "I'm=",mype,", Ptl_Src_nstep=",Ptl_Src_nstep,", PSCV_mean_a=",0.5*(PSCV%a_min+PSCV%a_max),", max Elec_dErg_eV_per_nstep=", maxval(recv_FL_max_dErg_eV)," eV"
+#endif
 
          ! Gather Ion max_dErg
          call MPI_Allgatherv(FL_max_Ion_dErg_eV, Lsize, MPI_Rsize, recv_FL_max_dErg_eV, recv_counts_Lsize, recv_displs_Lsize, MPI_Rsize, partd_comm, ierr)
          do Fid=1,Gsize
             PSCV%Ion_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
          enddo
-
+#ifdef _MGY_TIMER_
+         if(mype==0) write(stdout,'(2(A,I0),2(A,ES11.3),A)') "I'm=",mype,", Ptl_Src_nstep=",Ptl_Src_nstep,", PSCV_mean_a=",0.5*(PSCV%a_min+PSCV%a_max),", max Ion_dErg_eV_per_nstep=", maxval(recv_FL_max_dErg_eV)," eV"
+#endif
          !toroidal communication
          length = PSCV%dim_a*PSCV%dim_gq
          call MPI_SENDRECV(PSCV%Elec_dErg_eV_per_nstep(:,:,1),length,mpi_Rsize,left_pe,1, PSCV%Elec_dErg_eV_per_nstep(:,:,0),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
