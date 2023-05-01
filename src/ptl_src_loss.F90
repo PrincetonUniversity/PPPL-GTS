@@ -1993,7 +1993,7 @@ module Ptl_Src_Loss
 
          integer, optional, intent(in) :: m_start, m_end
          integer m0,m1
-         integer m,i,j
+         integer m,i,j,k,is_this_trc
          real(wp) psimax,psimin
          integer lost_mid_arr(memax) ! index of loss particles
          integer lost_num ! number of loss particles across boundary
@@ -2168,7 +2168,18 @@ module Ptl_Src_Loss
                   zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
                   zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
                   zeon0(9,m) = integral_f0 ! f_tot
-                  elabels(m) = -3.0
+
+                  is_this_trc=0
+                  !$acc loop seq
+                  do k=1,num_of_etracers
+                     if (elabels(m) == etracers_labels(k)) then
+                        is_this_trc=1 ! this is one of tracers
+                        exit
+                     endif
+                  enddo
+                  if(is_this_trc==0) then
+                     elabels(m) = -3.0 ! change elables value only if this is not a tracer
+                  endif
                elseif(Flag_Ptl_BC0_type==2 .and. zeon(1,m)<psimin)then
                   ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
                   ! zeon0(9,m) is f_tot
@@ -2178,7 +2189,18 @@ module Ptl_Src_Loss
                   zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
                   zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
                   zeon0(9,m) = integral_f0 ! f_tot
-                  elabels(m) = -1.0
+
+                  is_this_trc=0
+                  !$acc loop seq
+                  do k=1,num_of_etracers
+                     if (elabels(m) == etracers_labels(k)) then
+                        is_this_trc=1 ! this is one of tracers
+                        exit
+                     endif
+                  enddo
+                  if(is_this_trc==0) then
+                     elabels(m) = -1.0 ! change elables value only if this is not a tracer
+                  endif
                endif
             enddo
             acc_newer_D_zeon=.true.
