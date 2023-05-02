@@ -19,9 +19,9 @@ module MGY_PETSc_Interface_Data
    PetscInt, allocatable, dimension(:) :: recv_Lsize_partd, displs_Lsize_partd
    PetscInt, allocatable, dimension(:) :: recv_mapL2G_partd
    PetscInt Gid_start, Gid_end
-   Mat PMat
+   Mat PMat ! GK Poisson equation's LHS matrix
    Vec bVec, xVec, ResVec
-   KSP ksp
+   KSP ksp_P ! ksp for GK Poisson equation
 
    ! Follolwing (Jmat, yVec) are for solving nonlinear Poisson equation in the case of Flag_dne_adiab==3
    !Jacobian Matrix (PMat + (ne0*e^2/Te0)*exp(e*phi/Te0)), in the case of Flag_dne_adiab==3 (nonlinear adiabatic response)
@@ -354,12 +354,12 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
 
    ! Construct KSP
    tt0=MPI_WTIME()
-   call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,PMat,PMat,ierr); CHKERRQ(ierr)
-   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-   call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+   call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_P,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,*) "ksp_P (GK Poisson) Create takes ",tt1-tt0," secs"
    call flush(stdout)
 
 
@@ -409,19 +409,19 @@ subroutine Solve_Poisson3D_on_SG()
 
    ! Solve the linear system
    tt0=MPI_WTIME()
-   call KSPSolve(ksp,bVec,xVec,ierr); CHKERRQ(ierr)
+   call KSPSolve(ksp_P,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+   ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
    call MatMult(PMat,xVec,ResVec,ierr); CHKERRQ(ierr)
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
    if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
@@ -587,7 +587,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
 
       ! Solve the linear system (J*y=b; so y=J^(-1)*b)
       tt0=MPI_WTIME()
-      call KSPSolve(ksp,bVec,yVec,ierr); CHKERRQ(ierr)
+      call KSPSolve(ksp_P,bVec,yVec,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
       if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
       call flush(stdout)
@@ -597,7 +597,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
       call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
       call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-      call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+      call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
       if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Solving y=J^(-1)*F; Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
       call flush(stdout)
 
@@ -787,19 +787,19 @@ subroutine Solve_test_Poisson3D_on_SG()
 
    ! Solve the linear system
    tt0=MPI_WTIME()
-   call KSPSolve(ksp,bVec,xVec,ierr); CHKERRQ(ierr)
+   call KSPSolve(ksp_P,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+   ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
    call MatMult(PMat,xVec,ResVec,ierr); CHKERRQ(ierr)
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
    if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
@@ -926,7 +926,7 @@ subroutine test_Laplacian_2D()
 
    Vec x,b,u
    Mat PMat
-   KSP ksp
+   KSP ksp_P
    PetscReal val,x_norm2
    PetscInt :: gid, fGidx, MGidx_start, MGidx_end, VGidx_start, VGidx_end, nx=30,ny=30, neq, idxm, num_its
    PetscErrorCode ierr
@@ -1025,17 +1025,17 @@ subroutine test_Laplacian_2D()
 
 
    tt0=MPI_WTIME()
-   call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,PMat,PMat,ierr); CHKERRQ(ierr)
-   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-   call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+   call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_P,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
 
    tt0=MPI_WTIME()
    ! Solve the linear system
-   call KSPSolve(ksp,b,x,ierr); CHKERRQ(ierr)
+   call KSPSolve(ksp_P,b,x,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
@@ -1045,7 +1045,7 @@ subroutine test_Laplacian_2D()
    ! Check solution and error
    call VecAXPY(x,-1.0,u,ierr); CHKERRQ(ierr)
    call VecNorm(x,NORM_2,x_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
 
    if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", x_norm2, ", iterations=",num_its
 
@@ -1053,7 +1053,7 @@ subroutine test_Laplacian_2D()
    write(stdout,"(A,I8,A,(I8,A,I8),A,(I8,A,I8),A)")"mype=",mype,", idx_start_(M,V)=(",MGidx_start,",",VGidx_start,"), idx_end_(M,V)=(",MGidx_end,",",VGidx_end,")"
    call flush(stdout)
 
-   call KSPDestroy(ksp,ierr); CHKERRQ(ierr)
+   call KSPDestroy(ksp_P,ierr); CHKERRQ(ierr)
    call VecDestroy(u,ierr); CHKERRQ(ierr)
    call VecDestroy(x,ierr); CHKERRQ(ierr)
    call VecDestroy(b,ierr); CHKERRQ(ierr)
@@ -1222,10 +1222,10 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
    ! Construct KSP
    tt0=MPI_WTIME()
-   call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,PMat,PMat,ierr); CHKERRQ(ierr)
-   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-   call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+   call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_P,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
@@ -1436,21 +1436,21 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    if(Flag_Def_dne_adiab==3) then
       ! Construct KSP
       tt0=MPI_WTIME()
-      call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-      ! call KSPSetOperators(ksp,Jmat,Jmat,ierr); CHKERRQ(ierr)
-      call KSPSetOperators(ksp,Jmat,pre_Jmat,ierr); CHKERRQ(ierr)
-      ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-      call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+      call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+      ! call KSPSetOperators(ksp_P,Jmat,Jmat,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp_P,Jmat,pre_Jmat,ierr); CHKERRQ(ierr)
+      ! call KSPSetTolerances(ksp_P,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+      call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
       call flush(stdout)
    else
       ! Construct KSP
       tt0=MPI_WTIME()
-      call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-      call KSPSetOperators(ksp,PMat,PMat,ierr); CHKERRQ(ierr)
-      ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-      call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+      call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+      ! call KSPSetTolerances(ksp_P,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+      call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
       call flush(stdout)
