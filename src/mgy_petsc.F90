@@ -19,12 +19,12 @@ module MGY_PETSc_Interface_Data
    PetscInt, allocatable, dimension(:) :: recv_Lsize_partd, displs_Lsize_partd
    PetscInt, allocatable, dimension(:) :: recv_mapL2G_partd
    PetscInt Gid_start, Gid_end
-   Mat Amat
+   Mat PMat
    Vec bVec, xVec, ResVec
    KSP ksp
 
    ! Follolwing (Jmat, yVec) are for solving nonlinear Poisson equation in the case of Flag_dne_adiab==3
-   !Jacobian Matrix (Amat + (ne0*e^2/Te0)*exp(e*phi/Te0)), in the case of Flag_dne_adiab==3 (nonlinear adiabatic response)
+   !Jacobian Matrix (PMat + (ne0*e^2/Te0)*exp(e*phi/Te0)), in the case of Flag_dne_adiab==3 (nonlinear adiabatic response)
    Mat Jmat, pre_Jmat !pre_Jamt is a preconditioner of Jmat which will be updated occasionaly to reduce the computational time
    ! F vector (a system of equations) for Newton-Raphson method
    Vec yVec ! yVec = (Jmat)^(-1)*(FVec)
@@ -36,7 +36,7 @@ module MGY_PETSc_Interface_Data
    integer, allocatable :: o_nnz(:), d_nnz(:) !o_nnz and d_nnz are number of off-diagonal or diagonal nonzero terms
    integer max_nnz ! maximum number of nonzero compoentns per each row
 
-   ! Following Tensors will be used to determine Amat components (Poisson equation)
+   ! Following Tensors will be used to determine PMat components (Poisson equation)
    ! Note that they are composed with the contravariant components
    ! Metric_T:  contravariant Metrics; g^(ij)=e^i*e^j, where e is covariant vector on the PEST coordinate
    ! Polar_T: Polarization shielding tensor. (n_s*m_s/B^2)*(I_tensor-b*b), where b is unit vector of the magnetic field
@@ -151,7 +151,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
 
    ! write(stdout,"(2(A,I8),1x,I8,A,I8)") "Gsize=",Gsize,", Lsize=",Lsize, 7*Lsize, ", sum(d_nnz+o_nnz)=",sum(d_nnz+o_nnz)
    ! call flush(stdout)
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
    if(mype==0) then
       open(unit=200205,file="mapG2P.dat",action='write')
@@ -322,28 +322,28 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
       enddo
    enddo
 
-   ! Construct Matrix (Amat)
-   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
-   call MatSetSizes(Amat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
-   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
    ! Preallocate the memory using o_nnz and d_nnz
-   call MatMPIAIJSetPreallocation(Amat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
    ! Set Mat Values using the non-zero information calculated from above
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
 
    ! Assembly Matrix
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
    call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
@@ -355,7 +355,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    ! Construct KSP
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp,PMat,PMat,ierr); CHKERRQ(ierr)
    ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
    call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
@@ -417,7 +417,7 @@ subroutine Solve_Poisson3D_on_SG()
    ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
-   call MatMult(Amat,xVec,ResVec,ierr); CHKERRQ(ierr)
+   call MatMult(PMat,xVec,ResVec,ierr); CHKERRQ(ierr)
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
@@ -545,9 +545,9 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
       call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
 
-      ! Calculate bVec = Amat*xVec+bVec
+      ! Calculate bVec = PMat*xVec+bVec
       ! So, bVec = A*phi-e(n0*(1-exp(AD)+dni-dne)
-      call MatMultAdd(Amat,xVec,bVec,bVec,ierr); CHKERRQ(ierr)
+      call MatMultAdd(PMat,xVec,bVec,bVec,ierr); CHKERRQ(ierr)
       call Apply_BC_to_GK_Poisson_RHS_Coeffs
       call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
       call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
@@ -556,8 +556,8 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
 
 
       ! Update Jmat
-      ! Set Amat value as the first term
-      call MatCopy(Amat,Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
+      ! Set PMat value as the first term
+      call MatCopy(PMat,Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
       ! Add another term from the nonlinear adiabatic response
       do Lid=1,Lsize
          Gid=mapL2G(Lid)
@@ -747,8 +747,8 @@ subroutine Solve_test_Poisson3D_on_SG()
       source(:,aid) = 1e6*density(SG%a_1D(aid),0.0)*source(:,aid)
    enddo
 
-   !add the adiabatic electron response term in the LHS (Amat)
-   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   !add the adiabatic electron response term in the LHS (PMat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
    if(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
       ! To mimic GTS Way
       if(adiab > 0.0_wp) then
@@ -795,7 +795,7 @@ subroutine Solve_test_Poisson3D_on_SG()
    ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
-   call MatMult(Amat,xVec,ResVec,ierr); CHKERRQ(ierr)
+   call MatMult(PMat,xVec,ResVec,ierr); CHKERRQ(ierr)
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
@@ -859,7 +859,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
    PetscScalar, pointer :: ptr_Vec(:)
    PetscReal, allocatable :: Vec_mype(:), Vec_partd(:)
    integer Lid,Gid
-   Vec RHS_Vec ! Right Hand Side of Amat*xVec
+   Vec RHS_Vec ! Right Hand Side of PMat*xVec
    PetscErrorCode ierr
 
    call VecCreate(PETSC_COMM_WORLD,RHS_Vec,ierr); CHKERRQ(ierr)
@@ -873,7 +873,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
    ! Note that xVec is the potential calculated already from other routine
    ! Here, RHS vector is the Real Charge Density (including Ion Polarization Density) = ni_GC+ni_Pol-ne
    call Update_GK_Poisson_LHS_Coeffs(1) ! For Pure Poisson Equation
-   call MatMult(Amat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
+   call MatMult(PMat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
    call VecGetArrayReadF90(RHS_Vec,ptr_Vec,ierr)
    Vec_mype(:)=ptr_Vec(1:Lsize)
    call VecRestoreArrayReadF90(RHS_Vec,ptr_Vec,ierr)
@@ -887,10 +887,10 @@ subroutine Cal_IonPolarDensity_and_RealCharge
 
    ! Calculate Ion Polarization Density operator
    ! Note the signs of the equation
-   ! niPol=(nabla*Pol_T*nabla*phi)/e=(-Amat*xVec)/e
+   ! niPol=(nabla*Pol_T*nabla*phi)/e=(-PMat*xVec)/e
    ! Here, RHS is the Ion Polarization Density
    call Update_GK_Poisson_LHS_Coeffs(2) ! For Ion Polarization Density
-   call MatMult(Amat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
+   call MatMult(PMat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
    call VecGetArrayReadF90(RHS_Vec,ptr_Vec,ierr)
    Vec_mype(:)=ptr_Vec(1:Lsize)
    call VecRestoreArrayReadF90(RHS_Vec,ptr_Vec,ierr)
@@ -913,7 +913,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
    endif
 
 
-   ! Recover original Amat (which is for GK Poisson Equation)
+   ! Recover original PMat (which is for GK Poisson Equation)
    call Update_GK_Poisson_LHS_Coeffs(0)
 
 end subroutine Cal_IonPolarDensity_and_RealCharge
@@ -925,7 +925,7 @@ subroutine test_Laplacian_2D()
    implicit none
 
    Vec x,b,u
-   Mat Amat
+   Mat PMat
    KSP ksp
    PetscReal val,x_norm2
    PetscInt :: gid, fGidx, MGidx_start, MGidx_end, VGidx_start, VGidx_end, nx=30,ny=30, neq, idxm, num_its
@@ -948,12 +948,12 @@ subroutine test_Laplacian_2D()
    if(mype==0) write(stdout,*) "numberpe=",numberpe
    call flush(stdout)
 
-   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
-   call MatSetSizes(Amat,PETSC_DECIDE,PETSC_DECIDE,neq,neq,ierr); CHKERRQ(ierr)
-   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,PETSC_DECIDE,PETSC_DECIDE,neq,neq,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
    ! Note that the following d_nz=5, o_nz=5 are not optimized values.
-   call MatMPIAIJSetPreallocation(Amat,5,PETSC_NULL_INTEGER,5,PETSC_NULL_INTEGER,ierr); CHKERRQ(ierr)
-   call MatGetOwnershipRange(Amat,MGidx_start,MGidx_end,ierr); CHKERRQ(ierr)
+   call MatMPIAIJSetPreallocation(PMat,5,PETSC_NULL_INTEGER,5,PETSC_NULL_INTEGER,ierr); CHKERRQ(ierr)
+   call MatGetOwnershipRange(PMat,MGidx_start,MGidx_end,ierr); CHKERRQ(ierr)
 
    MGidx_end=MGidx_end-1 !Note that this is an global index of the last local row more proper for Fortran do loop
 
@@ -963,40 +963,40 @@ subroutine test_Laplacian_2D()
 
       ! do gid=0,neq-1
       !    idxm=gid-1; val=-1.0
-      !    if(idxm>=0) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      !    if(idxm>=0) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       !    idxm=gid+1; val=-1.0
-      !    if(idxm<=neq-1) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      !    if(idxm<=neq-1) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       !    idxm=gid-ny; val=-1.0
-      !    if(idxm>=0) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      !    if(idxm>=0) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       !    idxm=gid+ny; val=-1.0
-      !    if(idxm<=neq-1) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      !    if(idxm<=neq-1) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
 
       !    idxm=gid; val=4.0
-      !    call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr)
+      !    call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr)
       ! enddo
 
    do gid=MGidx_start,MGidx_end
       idxm=gid-1; val=-1.0
-      if(idxm>=0) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      if(idxm>=0) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       idxm=gid+1; val=-1.0
-      if(idxm<=neq-1) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      if(idxm<=neq-1) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       idxm=gid-ny; val=-1.0
-      if(idxm>=0) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      if(idxm>=0) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       idxm=gid+ny; val=-1.0
-      if(idxm<=neq-1) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      if(idxm<=neq-1) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
 
       idxm=gid; val=4.0
-      call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr)
+      call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr)
    enddo
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
    call PetscLogStagePop(ierr); CHKERRQ(ierr)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
    tt0=MPI_WTIME()
    call VecCreate(PETSC_COMM_WORLD,u,ierr); CHKERRQ(ierr)
@@ -1018,7 +1018,7 @@ subroutine test_Laplacian_2D()
    ! call VecView(u,PETSC_VIEWER_STDOUT_WORLD,ierr);CHKERRQ(ierr)
 
    tt0=MPI_WTIME()
-   call MatMult(Amat,u,b,ierr); CHKERRQ(ierr)
+   call MatMult(PMat,u,b,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "MatMult takes ",tt1-tt0," secs"
    call flush(stdout)
@@ -1026,7 +1026,7 @@ subroutine test_Laplacian_2D()
 
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp,PMat,PMat,ierr); CHKERRQ(ierr)
    ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
    call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
@@ -1057,7 +1057,7 @@ subroutine test_Laplacian_2D()
    call VecDestroy(u,ierr); CHKERRQ(ierr)
    call VecDestroy(x,ierr); CHKERRQ(ierr)
    call VecDestroy(b,ierr); CHKERRQ(ierr)
-   call MatDestroy(Amat,ierr); CHKERRQ(ierr)
+   call MatDestroy(PMat,ierr); CHKERRQ(ierr)
 
    ! call PetscFinalize(ierr)
 
@@ -1191,27 +1191,27 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    enddo
 
 
-   ! Construct Matrix (Amat)
-   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
-   call MatSetSizes(Amat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
-   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
    ! Preallocate the memory using o_nnz and d_nnz
-   call MatMPIAIJSetPreallocation(Amat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
    ! Set Mat Values using the non-zero information calculated from above
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
    ! Assembly Matrix
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
@@ -1223,7 +1223,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    ! Construct KSP
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp,PMat,PMat,ierr); CHKERRQ(ierr)
    ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
    call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
@@ -1372,27 +1372,27 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    enddo
 
 
-   ! Construct Matrix (Amat)
-   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
-   call MatSetSizes(Amat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
-   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
    ! Preallocate the memory using o_nnz and d_nnz
-   call MatMPIAIJSetPreallocation(Amat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
    ! Set Mat Values using the non-zero information calculated from above
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
    ! Assembly Matrix
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "Amat Assembly takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,*) "PMat Assembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
@@ -1403,8 +1403,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    if(Flag_Def_dne_adiab==3) then
 
-      ! Set Amat value as the first term
-      call MatDuplicate(Amat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
+      ! Set PMat value as the first term
+      call MatDuplicate(PMat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
 
       ! Add another term from the nonlinear adiabatic response
       do Lid=1,Lsize
@@ -1448,7 +1448,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
       ! Construct KSP
       tt0=MPI_WTIME()
       call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-      call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp,PMat,PMat,ierr); CHKERRQ(ierr)
       ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
       call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
@@ -1612,18 +1612,18 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
    ! Set Mat Values using the non-zero information calculated from above
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
    ! Assembly Matrix
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,*) "PMat Assembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
 end subroutine Update_GK_Poisson_LHS_Coeffs
@@ -1759,8 +1759,8 @@ subroutine Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
 
 
    !In the case of delta-h electron simulation,
-   !add the adiabatic electron response term in the LHS (Amat)
-   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   !add the adiabatic electron response term in the LHS (PMat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
    ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
    if(ifelectron==2) then
       if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
