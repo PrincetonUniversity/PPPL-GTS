@@ -1367,7 +1367,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    enddo
    call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
-   call Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
+   call Add_Adiabatic_Term_to_GK_Poisson_LHS
 
 
 
@@ -1620,7 +1620,7 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
 
 
    if(Flag_WhichLHS==0) then
-      call Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
+      call Add_Adiabatic_Term_to_GK_Poisson_LHS
    endif
 
 
@@ -1759,7 +1759,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
 end subroutine Determine_GK_PoissonTensors_on_Structured_Grid
 
 
-subroutine Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
+subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
    use precision
    use Structured_Grid
@@ -1855,7 +1855,7 @@ subroutine Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
    endif
 
 
-end subroutine Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
+end subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
 
 subroutine Apply_BC_to_GK_Poisson_LHS_Coeffs
