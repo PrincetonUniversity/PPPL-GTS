@@ -184,6 +184,8 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
    endif
 
 
+   call Construct_Metric_Tensor_on_Structured_Grid
+
 end subroutine Initialize_MGY_PETSc_Interface_Data
 
 subroutine Finalize_MGY_PETSc_Interface_Data
@@ -194,10 +196,42 @@ subroutine Finalize_MGY_PETSc_Interface_Data
    deallocate(recv_mapL2G_partd)
    deallocate(d_nnz, o_nnz)
 
-   if(allocated(Metric_T)) deallocate(Metric_T, Polar_T, Eps_T)
+   if(allocated(Metric_T)) deallocate(Metric_T)
+   if(allocated(Polar_T)) deallocate(Polar_T, Eps_T) ! for GK Poisson Equation
    if(allocated(CT)) deallocate(CT)
 
 end subroutine Finalize_MGY_PETSc_Interface_Data
+
+
+subroutine Construct_Metric_Tensor_on_Structured_Grid
+   use precision, only:wp
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   integer sid,gqid,i,j,ierr
+
+   if(.not.allocated(Metric_T)) allocate(Metric_T(3,3,0:SG%dim_gq,0:SG%dim_a+1))
+
+   ! Metric Tensor is based on the static equilibrium magnetic field (PEST coordinate)
+   do sid=1,SG%dim_a
+      do gqid=1,SG%dim_gq
+         Metric_T(:,:,gqid,sid)=0.0
+         Metric_T(1,1,gqid,sid)=SG%g_ss_cntv(gqid,sid)
+         Metric_T(2,1,gqid,sid)=SG%g_sq_cntv(gqid,sid)
+         Metric_T(1,2,gqid,sid)=SG%g_sq_cntv(gqid,sid)
+         Metric_T(2,2,gqid,sid)=SG%g_qq_cntv(gqid,sid)
+         Metric_T(3,3,gqid,sid)=SG%g_ff_cntv(gqid,sid)
+      enddo
+   enddo
+
+   ! Fill ghost nodes of Metric_T
+   Metric_T(:,:,SG%dim_gq,:)=Metric_T(:,:,1,:)
+   Metric_T(:,:,0,:)        =Metric_T(:,:,SG%dim_gq-1,:)
+   Metric_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   Metric_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+
+end subroutine Construct_Metric_Tensor_on_Structured_Grid
 
 
 subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
@@ -1054,7 +1088,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
-   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
@@ -1225,7 +1259,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
-   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
@@ -1612,25 +1646,6 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
 
    Flag_WhichTerm=2 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
    if(present(In_Flag_WhichTerm)) Flag_WhichTerm = In_Flag_WhichTerm
-
-   ! Metric Tensor is based on the static equilibrium magnetic field (PEST coordinate)
-   do sid=1,SG%dim_a
-      do gqid=1,SG%dim_gq
-         Metric_T(:,:,gqid,sid)=0.0
-         Metric_T(1,1,gqid,sid)=SG%g_ss_cntv(gqid,sid)
-         Metric_T(2,1,gqid,sid)=SG%g_sq_cntv(gqid,sid)
-         Metric_T(1,2,gqid,sid)=SG%g_sq_cntv(gqid,sid)
-         Metric_T(2,2,gqid,sid)=SG%g_qq_cntv(gqid,sid)
-         Metric_T(3,3,gqid,sid)=SG%g_ff_cntv(gqid,sid)
-      enddo
-   enddo
-
-   ! Fill ghost nodes of Metric_T
-   Metric_T(:,:,SG%dim_gq,:)=Metric_T(:,:,1,:)
-   Metric_T(:,:,0,:)        =Metric_T(:,:,SG%dim_gq-1,:)
-   Metric_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-   Metric_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-
 
    if(Flag_Def_dne_adiab==1) then
       do sid=1,SG%dim_s
