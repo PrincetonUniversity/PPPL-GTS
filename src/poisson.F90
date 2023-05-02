@@ -172,7 +172,7 @@ subroutine poisson( solver, masssolver )
 
          ! if(Flag_Update_Pol_Shielding==1) then
          !    ! Update Polarization Shielding Term of Amat coefficients
-         !    call Update_Amat_Coeffs
+         !    call Update_GK_Poisson_LHS_Coeffs
          ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
@@ -437,9 +437,9 @@ subroutine poisson( solver, masssolver )
          ! if(Flag_Update_Pol_Shielding==1) then
          !    ! Update Polarization Shielding Term of Amat coefficients
          !    tt0=MPI_WTIME()
-         !    call Update_Amat_Coeffs
+         !    call Update_GK_Poisson_LHS_Coeffs
          !    tt1=MPI_WTIME()
-         !    if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; Update_Amat_Coeffs takes ",tt1-tt0," secs"
+         !    if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; Update_GK_Poisson_LHS_Coeffs takes ",tt1-tt0," secs"
          !    call flush(stdout)
 
          ! endif

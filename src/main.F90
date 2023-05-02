@@ -258,7 +258,7 @@ program GTS
       if(Flag_Poisson3D_on_SG==1) then
          call Construct_GK_Poisson3D_Solver_with_Extremal_Method
          call poisson( solver1, masssolver  )
-         call Update_Amat_Coeffs
+         call Update_GK_Poisson_LHS_Coeffs
       else
          call poisson( solver1, masssolver  )
       endif
@@ -380,7 +380,7 @@ program GTS
          if(Flag_Poisson==1 .and. Flag_Poisson3D_on_SG==1 .and. Flag_Update_Pol_Shielding==1 ) then
             if(irk==1) then
                !Update Polarization Shielding Term in Poisson3D equation
-               call Update_Amat_Coeffs
+               call Update_GK_Poisson_LHS_Coeffs
             endif
          endif
 
