@@ -1138,7 +1138,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
    enddo
 
-   call Apply_BC_to_Amat_Coeffs
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs
 
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
@@ -1317,7 +1317,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
 
    enddo
-   call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
    call Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
 
 
@@ -1567,7 +1567,7 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
 
    enddo
-   call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
 
    if(Flag_WhichLHS==0) then
@@ -1828,7 +1828,7 @@ subroutine Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
 end subroutine Determine_Adiabatic_Contribution_to_GK_Poisson_LHS
 
 
-subroutine Apply_BC_to_Amat_Coeffs
+subroutine Apply_BC_to_GK_Poisson_LHS_Coeffs
    use Structured_Grid
    use global_parameters, only:mzetamax,stdout,mype
    implicit none
@@ -2021,7 +2021,7 @@ subroutine Apply_BC_to_Amat_Coeffs
       endif
    endif
 
-end subroutine Apply_BC_to_Amat_Coeffs
+end subroutine Apply_BC_to_GK_Poisson_LHS_Coeffs
 
 subroutine Apply_BC_to_bVec_Coeffs
    use Structured_Grid
