@@ -367,7 +367,7 @@ subroutine Solve_Poisson3D_on_SG()
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
-   call Apply_BC_to_bVec_Coeffs
+   call Apply_BC_to_GK_Poisson_RHS_Coeffs
 
 
    call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
@@ -514,7 +514,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       ! Calculate bVec = Amat*xVec+bVec
       ! So, bVec = A*phi-e(n0*(1-exp(AD)+dni-dne)
       call MatMultAdd(Amat,xVec,bVec,bVec,ierr); CHKERRQ(ierr)
-      call Apply_BC_to_bVec_Coeffs
+      call Apply_BC_to_GK_Poisson_RHS_Coeffs
       call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
       call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
       call VecAssemblyBegin(srcVec,ierr); CHKERRQ(ierr)
@@ -741,7 +741,7 @@ subroutine Solve_test_Poisson3D_on_SG()
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
-   call Apply_BC_to_bVec_Coeffs
+   call Apply_BC_to_GK_Poisson_RHS_Coeffs
 
 
 
@@ -2023,7 +2023,7 @@ subroutine Apply_BC_to_GK_Poisson_LHS_Coeffs
 
 end subroutine Apply_BC_to_GK_Poisson_LHS_Coeffs
 
-subroutine Apply_BC_to_bVec_Coeffs
+subroutine Apply_BC_to_GK_Poisson_RHS_Coeffs
    use Structured_Grid
    use global_parameters, only:mzetamax,stdout,mype
    implicit none
@@ -2128,6 +2128,6 @@ subroutine Apply_BC_to_bVec_Coeffs
    call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
 
 
-end subroutine Apply_BC_to_bVec_Coeffs
+end subroutine Apply_BC_to_GK_Poisson_RHS_Coeffs
 
 end module MGY_PETSc_Interface_Data
