@@ -256,6 +256,7 @@ program GTS
 
    if(Flag_Poisson==1) then
       if(Flag_Poisson3D_on_SG==1) then
+         call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
          call Construct_GK_Poisson3D_Solver_with_Extremal_Method
          call poisson( solver1, masssolver  )
          call Update_GK_Poisson_LHS_Coeffs

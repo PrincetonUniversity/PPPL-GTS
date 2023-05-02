@@ -212,7 +212,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    PetscErrorCode ierr
    real, external:: dsda
 
-   call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
+   ! call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
 
    max_nnz=7
    allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
@@ -1050,7 +1050,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
-   call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
+   ! call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
 
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
@@ -1221,7 +1221,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
-   call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
+   ! call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
 
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
