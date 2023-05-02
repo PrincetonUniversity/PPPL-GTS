@@ -20,8 +20,10 @@ module MGY_PETSc_Interface_Data
    PetscInt, allocatable, dimension(:) :: recv_mapL2G_partd
    PetscInt Gid_start, Gid_end
    Mat PMat ! GK Poisson equation's LHS matrix
+   Mat AMat ! GK Ampere equation's LHS matrix
    Vec bVec, xVec, ResVec
    KSP ksp_P ! ksp for GK Poisson equation
+   KSP ksp_A ! ksp for GK Ampere equation
 
    ! Follolwing (Jmat, yVec) are for solving nonlinear Poisson equation in the case of Flag_dne_adiab==3
    !Jacobian Matrix (PMat + (ne0*e^2/Te0)*exp(e*phi/Te0)), in the case of Flag_dne_adiab==3 (nonlinear adiabatic response)
@@ -43,9 +45,22 @@ module MGY_PETSc_Interface_Data
    ! Eps_T: Metric_T + Polar_T
    ! CT: Jacobian*Eps_T/(dui*duj)
 
-   real(wp), allocatable, dimension(:,:,:,:) :: Metric_T, Polar_T ! On the poloidal plane (PEST structured coordinate)
-   real(wp), allocatable, dimension(:,:,:,:,:) :: Eps_T, CT ! Including neighboring left and right poloidal planes
+   ! Metric_T is static once it is set on a given PEST structred coordinate
+   ! Metric_T is used for solving both GK Poisson and GK Ampere equation
+   ! Metric_T(i,j) = g^ij 
+   real(wp), allocatable, dimension(:,:,:,:) :: Metric_T! On the poloidal plane (PEST structured coordinate)
 
+   ! Polar_T and Eps_T are used only for the GK Poisson equation
+   ! Polar_T = Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2))
+   ! Eps_T=eps0*Metric_T+Polar_T (Flag=0) or Eps_T=eps0*Metric_T (Flag=1) or Eps_T=Polar_T (Flag=2)
+   real(wp), allocatable :: Polar_T(:,:,:,:), Eps_T(:,:,:,:,:) 
+
+
+   ! CT is Coefficient Tensor that is needed to solve laplacian-like operator (nabla_perp*nabla_perp) in GK Poisson or GK Ampere equations 
+   ! For GK Poisson equation, CT = J*Eps_T(i,j)/(du^i*du^j), where J is jacobian
+   ! For GK Ampere equation, CT= J*(Metric_T(i,j)-B^i*B^j/B^2)/(du^i*du^j)
+   ! CT values are updated at every time when solving either GK Poisson or GK Ampere equation
+   real(wp), allocatable, dimension(:,:,:,:,:) :: CT ! LHS coefficient tensor including neighboring left and right poloidal planes
 
 
 contains
