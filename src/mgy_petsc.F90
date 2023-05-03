@@ -201,6 +201,14 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
 
    call Construct_Metric_Tensor_on_Structured_Grid
 
+
+   ! Create vectors (bVec, xVec, ResVec) for future use
+   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
+   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
+   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
+
 end subroutine Initialize_MGY_PETSc_Interface_Data
 
 subroutine Finalize_MGY_PETSc_Interface_Data
@@ -359,12 +367,6 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    call flush(stdout)
 
    ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
-
-   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
-   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
-   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
 
 
    ! Construct KSP
@@ -1229,12 +1231,6 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
-   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
-   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
-   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
-
    ! Construct KSP
    tt0=MPI_WTIME()
    call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
@@ -1410,11 +1406,6 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
-   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
-   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
-   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
 
    if(Flag_Def_dne_adiab==3) then
 
