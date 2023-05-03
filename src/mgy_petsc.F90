@@ -2322,6 +2322,155 @@ subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
 
 end subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
 
+subroutine Update_GK_Ampere_LHS_Coeffs
+
+   use Structured_Grid
+   use particle_decomp
+   use global_parameters
+   use field_array, only:FLA_Te0
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   real tt0, tt1
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   integer :: dim_gq, dim_a, i
+   PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
+   real(wp), external :: Te0_eV, Ti0_eV, density
+   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+
+   ! Calculate dn
+   if(Flag_Weight_dfh==0) then
+      SG%dne_SM = SG%dne(:,:,1)
+      SG%dni_SM = SG%dni(:,:,1)
+   elseif(Flag_Weight_dfh==1) then
+      do i=1,SG%dim_s
+         SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
+         SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
+      enddo
+   elseif(Flag_Weight_dfh==2 .or. Flag_Weight_dfh==3) then
+      ! dn = Hybrid_Density - n0
+      ! where Hybrid_Density = hyb_ratio*(full_f or full_h) + (1-hyb_ratio)*(delta_f or delta_h)
+      do i=1,SG%dim_s
+         SG%dne_SM(:,i) = SG%hyb_ratio_e(:,i)*SG%ne_by_fh(:,i,1)+(1.0-SG%hyb_ratio_e(:,i))*(SG%dne(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
+         SG%dni_SM(:,i) = SG%hyb_ratio_i(:,i)*SG%ni_by_ff(:,i,1)+(1.0-SG%hyb_ratio_i(:,i))*(SG%dni(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
+      enddo
+   endif
+
+   ! Then, smooth them
+   call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
+   call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
+
+   call Determine_GK_AmpereTensors_on_Structured_Grid
+
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   tarVal=0.0
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
+
+      ! 2 (gqid-1) & 3 (gqid+1)
+      AntiSym1 = 0.5*(CT(1,2,qq+1,ss,0)-CT(1,2,qq-1,ss,0))
+      AntiSym2 = 0.5*(CT(3,2,qq+1,ss,0)-CT(3,2,qq-1,ss,0))
+      tarGid(2 ,Lid) = mapP2G(qq-1,ss,ff)
+      tarVal(2 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq-1,ss,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(3 ,Lid) = mapP2G(qq+1,ss,ff)
+      tarVal(3 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq+1,ss,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 4 (sid-1) & 5 (sid+1)
+      AntiSym1 = 0.5*(CT(2,1,qq,ss+1,0)-CT(2,1,qq,ss-1,0))
+      AntiSym2 = 0.5*(CT(3,1,qq,ss+1,0)-CT(3,1,qq,ss-1,0))
+      tarGid(4 ,Lid) = mapP2G(qq,ss-1,ff)
+      tarVal(4 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss-1,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(5 ,Lid) = mapP2G(qq,ss+1,ff)
+      tarVal(5 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss+1,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 6 (gfid-1) & 7 (gfid+1)
+      AntiSym1 = 0.5*(CT(1,3,qq,ss,+1)-CT(1,3,qq,ss,-1))
+      AntiSym2 = 0.5*(CT(2,3,qq,ss,+1)-CT(2,3,qq,ss,-1))
+      tarGid(6 ,Lid) = mapP2G(qq,ss,ff-1)
+      tarVal(6 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,-1)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(7 ,Lid) = mapP2G(qq,ss,ff+1)
+      tarVal(7 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,+1)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      Sym1 = 0.25*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+      ! 8 (sid+1,qid+1) & 9 (sid-1,qid-1)
+      tarGid(8 ,Lid) = mapP2G(qq+1,ss+1,ff)
+      tarVal(8 ,Lid) = +Sym1
+      tarGid(9 ,Lid) = mapP2G(qq-1,ss-1,ff)
+      tarVal(9 ,Lid) = +Sym1
+      ! 10 (sid+1,qid-1) & 11 (sid-1,qid+1)
+      tarGid(10,Lid) = mapP2G(qq-1,ss+1,ff)
+      tarVal(10,Lid) = -Sym1
+      tarGid(11,Lid) = mapP2G(qq+1,ss-1,ff)
+      tarVal(11,Lid) = -Sym1
+
+      Sym1 = 0.25*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+      ! 12 (sid+1,gfid+1) & 13 (sid-1,gfid-1)
+      tarGid(12,Lid) = mapP2G(qq,ss+1,ff+1)
+      tarVal(12,Lid) = +Sym1
+      tarGid(13,Lid) = mapP2G(qq,ss-1,ff-1)
+      tarVal(13,Lid) = +Sym1
+      ! 14 (sid+1,gfid-1) & 15 (sid-1,gfid+1)
+      tarGid(14,Lid) = mapP2G(qq,ss+1,ff-1)
+      tarVal(14,Lid) = -Sym1
+      tarGid(15,Lid) = mapP2G(qq,ss-1,ff+1)
+      tarVal(15,Lid) = -Sym1
+
+
+      Sym1 = 0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+      ! 16 (gqid+1,gfid+1) & 17  (gqid-1, gfid-1)
+      tarGid(16,Lid) = mapP2G(qq+1,ss,ff+1)
+      tarVal(16,Lid) = +Sym1
+      tarGid(17,Lid) = mapP2G(qq-1,ss,ff-1)
+      tarVal(17,Lid) = +Sym1
+      ! 18 (gqid+1,gfid-1) & 18 (gqid-1, gfid+1)
+      tarGid(18,Lid) = mapP2G(qq+1,ss,ff-1)
+      tarVal(18,Lid) = -Sym1
+      tarGid(19,Lid) = mapP2G(qq-1,ss,ff+1)
+      tarVal(19,Lid) = -Sym1
+
+      ! 1 (gqid,sid,gfid)
+      tarGid(1,Lid)=mapP2G(qq,ss,ff)
+      tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+
+      ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+      ! so make sure that target coefficient values represent (-nabla*(Metric_T-B^i*B^j/B^2)*nabla*Ah_para))
+      tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+   enddo
+   call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
+   call Add_Skin_Term_to_GK_Ampere_LHS
+
+
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(AMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(AMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(AMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "AMat Assembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call MatView(AMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+end subroutine Update_GK_Ampere_LHS_Coeffs
+
+
 
 subroutine Determine_GK_AmpereTensors_on_Structured_Grid
    use precision, only:wp
