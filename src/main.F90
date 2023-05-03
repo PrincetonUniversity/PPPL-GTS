@@ -436,11 +436,7 @@ program GTS
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
          ! in PUSHI for calculating electric force on ions
          if(Flag_Poisson3D_on_SG==1) then
-            if(Flag_Weight_dfh==3 .and. irk==nrk) then
-               call Measure_Ion_Density_on_SG(1)
-            else
-               call Measure_Ion_Density_on_SG(0)
-            endif
+            call Measure_Ion_Density_on_SG(0)
          else
             call charge_ion
          endif
@@ -556,11 +552,7 @@ program GTS
             ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
             ! for calculating gamma_e
             if(Flag_Poisson3D_on_SG==1) then
-               if(Flag_Weight_dfh==3 .and. irk==nrk) then
-                  call Measure_Electron_Density_on_SG(1)
-               else
-                  call Measure_Electron_Density_on_SG(0)
-               endif
+               call Measure_Electron_Density_on_SG(0)
             else
                call charge_eon
             endif

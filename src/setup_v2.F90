@@ -2477,7 +2477,7 @@ Subroutine read_input_params
       Flag_Update_Pol_Shielding, & ! Default=0 (Not Update), can be set=1(Update) Polarization Shielding Term in Poisson3D equation over time
       Flag_DK_Ion,        &   ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
       Flag_Measure_Ptl_FootPrint, & ! Default=0(Not Meausre), can be set =1 (Do Measure)
-      Flag_Weight_dfh,    &   ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight0
+      Flag_Weight_dfh,    &   ! Default=0 (delta-f), can be set = 1(full-f or full-h)
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
