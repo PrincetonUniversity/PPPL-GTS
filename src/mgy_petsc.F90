@@ -428,7 +428,7 @@ subroutine Solve_Poisson3D_on_SG()
    tt0=MPI_WTIME()
    call KSPSolve(ksp_P,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+   if(mype==0 .or. mype==1) write(stdout,*) "In Solve_Poisson3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
    ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
@@ -439,7 +439,7 @@ subroutine Solve_Poisson3D_on_SG()
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
    call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
-   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "In Solve_Poisson3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
    ! Copy xVec (solution) to the SG%test_phi vector
@@ -606,7 +606,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       tt0=MPI_WTIME()
       call KSPSolve(ksp_P,bVec,yVec,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
-      if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+      if(mype==0 .or. mype==1) write(stdout,*) "In Solve_Nonlinear_Poisson3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
       call flush(stdout)
 
       ! Check the residual error and number of the iterations
@@ -630,15 +630,15 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       call VecNorm(srcVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
       RelErr=res_norm2/src_norm2
       if(mype==0) then
-         write(stdout,"(A,I4,A,ES16.8)") "loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
-         write(stdout,"(A,I4,A,ES16.8)") "loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
+         write(stdout,"(A,I4,A,ES16.8)") "In Solve_Nonlinear_Poisson3D_on_SG, loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
+         write(stdout,"(A,I4,A,ES16.8)") "In Solve_Nonlinear_Poisson3D_on_SG, loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
          call flush(stdout)
       endif
 
       if(RelErr<1e-9 .or. delta_Phi_norm2/ori_Phi_norm2<1e-7) then
          if(mype==0) then
-            write(stdout,"(A,I4,A,ES16.8)") "last_loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
-            write(stdout,"(A,I4,A,ES16.8)") "last_loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
+            write(stdout,"(A,I4,A,ES16.8)") "In Solve_Nonlinear_Poisson3D_on_SG, last_loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
+            write(stdout,"(A,I4,A,ES16.8)") "In Solve_Nonlinear_Poisson3D_on_SG, last_loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
             call flush(stdout)
          endif
          exit
