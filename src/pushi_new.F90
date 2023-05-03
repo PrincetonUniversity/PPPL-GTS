@@ -20,7 +20,7 @@ subroutine pushion
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
       xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,thetatmp,&
-      zetatmp,rhoi,e1,e2,e3,wpi(3,mi),ga(mi),wga(3,mi),gat(mi),rdel, &
+      zetatmp,rhoi,e1,e2,e3,wpi(3,mi),gaE(mi),wgaE(3,mi),gatE(mi),rdel, &
       dgr(mi),da(mi),dgq(mi),dgf(mi),mu, &
       Er_particle(mi),dela,fip,weqflow,T_inverse,&
       B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
@@ -35,8 +35,6 @@ subroutine pushion
 
    !  integer ip_index(mimax)   !wx
 
-   real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
-   real(wp) MP_phase ! MP_phase(x,t) : time-varying phase angle of given Magnetic Perturbation at specific position in radian unit.
 
    integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
 
@@ -143,7 +141,7 @@ subroutine pushion
 
 
       !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, ga(m), wga(1:3,m), gat(m))
+      call Get_MP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
 
 
 
@@ -203,11 +201,11 @@ subroutine pushion
    !!  m=gcmotion(dgr,da,dgq,dgf,zion(4,:),zion(1,:),zion(2,:),mu,wpi(1,:),wpi(2,:),wpi(3,:),Er_particle,nonlinear,mi)
 
    if(electromagnetic == 1) then
-      !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
+      !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi);
       if(Flag_GC_Solver==0) then
-         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
+         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim);
+         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,1,mi,ziondim);
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
@@ -479,9 +477,9 @@ subroutine pushion
       !  endif
 
       if(Flag_w_Evol==1) then
-         ! From the definition of the transformed weight z=-ln(ga-w), where ga=zion0(8,m)
-         ! the weight increase becomes delta_w = (ga-w0)*[1-exp(-F*dt)], where F is the driving force
-         ! NOTE This scheme is beneficial for nonlinear case only (dw/dt=(ga-w)*F).
+         ! From the definition of the transformed weight z=-ln(gaE-w), where gaE=zion0(8,m)
+         ! the weight increase becomes delta_w = (gaE-w0)*[1-exp(-F*dt)], where F is the driving force
+         ! NOTE This scheme is beneficial for nonlinear case only (dw/dt=(gaE-w)*F).
          ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
          zion(5,m) = zion0(5,m)+(zion0(8,m)-zion0(5,m))*(1.0-exp(-wdot*dtime))
       else
@@ -757,7 +755,7 @@ subroutine pushion_RK4(irk_i)
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
       xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,thetatmp,&
-      zetatmp,rhoi,e1,e2,e3,wpi(3,mi),ga(mi),wga(3,mi),gat(mi),rdel, &
+      zetatmp,rhoi,e1,e2,e3,wpi(3,mi),gaE(mi),wgaE(3,mi),gatE(mi),rdel, &
       dgr(mi),da(mi),dgq(mi),dgf(mi),mu, &
       Er_particle(mi),dela,fip,weqflow,T_inverse,&
       B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
@@ -770,8 +768,6 @@ subroutine pushion_RK4(irk_i)
    real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis.
    !(gf component is 0 due to the toroidal axisymmetric assumption )
 
-   real(wp) ga_amplitude  !ga_amplitude: ga(t) is a time-varying amplitude of Magnetic perturbation, only depends on the time in this version.
-   real(wp) MP_phase ! MP_phase(x,t) : time-varying phase angle of given Magnetic Perturbation at specific position in radian unit.
 
    integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
 
@@ -791,7 +787,7 @@ subroutine pushion_RK4(irk_i)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
-   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
+   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,gaE,wgaE,gatE)
 
    if(acc_newer_H_zion) then
       !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -911,9 +907,9 @@ subroutine pushion_RK4(irk_i)
    tt0=MPI_WTIME()
 #endif
    !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-   !$acc parallel loop present(zion,ga,wga,gat)
+   !$acc parallel loop present(zion,gaE,wgaE,gatE)
    do m=1,mi
-      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -952,11 +948,11 @@ subroutine pushion_RK4(irk_i)
    tt0=MPI_WTIME()
 #endif
    if(electromagnetic == 1) then
-      !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi);
+      !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi);
       if(Flag_GC_Solver==0) then
-         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
+         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim);
+         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,1,mi,ziondim);
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
@@ -1521,7 +1517,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
    integer i,ip,m,ij,ierr,ierror,j
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
    real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),wpi(3,mi),Er_particle(mi)
-   real(wp) ga(mi),wga(3,mi), gat(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
+   real(wp) gaE(mi),wgaE(3,mi), gatE(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
    real(wp) adum(0:mpsi),adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
@@ -1534,7 +1530,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
    real(wp) vdrenergy,new_f0
    integer larmor, loop
 
-   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,ga,wga,gat)
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE)
 
    if(acc_newer_H_zion) then
       !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -1666,9 +1662,9 @@ subroutine pushion_wEvol3(irk_i,nrk)
    tt0=MPI_WTIME()
 #endif
    !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-   !$acc parallel loop present(zion,ga,wga,gat)
+   !$acc parallel loop present(zion,gaE,wgaE,gatE)
    do m=1,mi
-      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -1696,9 +1692,9 @@ subroutine pushion_wEvol3(irk_i,nrk)
 #endif
    if(electromagnetic == 1) then
       if(Flag_GC_Solver==0) then
-         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
+         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,gradPhi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim);
+         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,1,mi,ziondim);
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
