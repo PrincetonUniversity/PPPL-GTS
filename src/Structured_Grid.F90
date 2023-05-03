@@ -204,7 +204,7 @@ contains
 
 
       allocate(SG%dB_cntv3(3,SG%dim_gq,SG%dim_s,0:1))
-      if(electromagnetic==1 .and. num_of_EMP>0) then
+      if(electromagnetic>=1 .and. num_of_EMP>0) then
          do ss=1,SG%dim_s
             do qq=1,SG%dim_gq
 
@@ -299,13 +299,14 @@ contains
       allocate(SG%RealCharge_2D(Nq,Ns),SG%niPol_2D(Nq,Ns))
       allocate(SG%RealCharge_3D(Nq,Ns,mzetamax),SG%niPol_3D(Nq,Ns,mzetamax))
 
-      allocate(SG%AparaH(Nq,Ns,0:2))
-      SG%AparaH=0.0
-      allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
-      SG%grad_gaH_cov=0.0
-      allocate(SG%AparaS(Nq,Ns))
-      SG%AparaS=0.0
-
+      if(electromagnetic==2) then
+         allocate(SG%AparaH(Nq,Ns,0:2))
+         SG%AparaH=0.0
+         allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
+         SG%grad_gaH_cov=0.0
+         allocate(SG%AparaS(Nq,Ns))
+         SG%AparaS=0.0
+      endif
 
 
       allocate(SG_s_1D(Ns), SG_gq_1D(Nq), SG_safety_q_1D(Ns))

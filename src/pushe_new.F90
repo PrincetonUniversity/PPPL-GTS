@@ -169,7 +169,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
    !  tt0=rtc()
    ! call cpu_time(cput0)
 
-   if(electromagnetic == 1)then
+   if(electromagnetic >= 1)then
       !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
@@ -1313,7 +1313,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic == 1)then
+   if(electromagnetic >= 1)then
       !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
@@ -2575,7 +2575,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic == 1)then
+   if(electromagnetic >= 1)then
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
@@ -3189,7 +3189,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic == 1)then
+   if(electromagnetic >= 1)then
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
@@ -3781,7 +3781,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
    !  ------------------------------------------------------------
 
 
-   if(electromagnetic == 1)then
+   if(electromagnetic >= 1)then
       !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)

@@ -200,7 +200,7 @@ subroutine pushion
 
    !!  m=gcmotion(dgr,da,dgq,dgf,zion(4,:),zion(1,:),zion(2,:),mu,wpi(1,:),wpi(2,:),wpi(3,:),Er_particle,nonlinear,mi)
 
-   if(electromagnetic == 1) then
+   if(electromagnetic >= 1) then
       !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi);
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
@@ -947,7 +947,7 @@ subroutine pushion_RK4(irk_i)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic == 1) then
+   if(electromagnetic >= 1) then
       !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi);
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
@@ -1690,7 +1690,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic == 1) then
+   if(electromagnetic >= 1) then
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then

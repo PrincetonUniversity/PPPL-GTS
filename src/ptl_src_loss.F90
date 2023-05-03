@@ -1512,7 +1512,7 @@ module Ptl_Src_Loss
             Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
          enddo
 
-         if(electromagnetic == 1)then
+         if(electromagnetic >= 1)then
             !$acc parallel loop present(zeon,gaE,wgaE,gatE)
             do m=m0,me
                call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
@@ -1868,7 +1868,7 @@ module Ptl_Src_Loss
             Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
          enddo
 
-         if(electromagnetic == 1)then
+         if(electromagnetic >= 1)then
             !$acc parallel loop present(zion,gaE,wgaE,gatE)
             do m=m0,mi
                call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
