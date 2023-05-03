@@ -1110,7 +1110,8 @@ contains
       use global_parameters
 
       implicit none
-      real(wp), intent(in) :: P_s, P_gq, P_gf
+      real(wp), intent(in) :: P_s, P_gq
+      real(wp) P_gf
       real(wp), intent(out):: out_phi
       real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
       integer sid,gqid,gfid, mod_gfid
