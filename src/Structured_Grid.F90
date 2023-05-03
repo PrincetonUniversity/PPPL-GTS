@@ -43,7 +43,7 @@ module Structured_Grid
       real(wp),allocatable, dimension(:,:) :: hyb_ratio_e, hyb_ratio_i ! hybrid_ratio_e (=abs(dne)/(abs(dne)+abs(ne_by_fh))) and hybrid_ratio_i (=abs(dni)/(abs(dni)+abs(ni)))
 
       real(wp), allocatable, dimension(:,:,:) :: phi ! dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
-      real(wp), allocatable, dimension(:,:,:,:) :: grad_phi_cov
+      real(wp), allocatable, dimension(:,:,:,:) :: grad_phi_cov ! dimension (dim_gq, dim_s, 0:1) my plane and right poloidal plane
       ! Test 2D phi calculated by solving 3D Poission equation
       real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D, test_res_2D
       real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D
@@ -51,6 +51,11 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:) :: RealCharge_2D, niPol_2D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
       real(wp), allocatable, dimension(:,:,:) :: RealCharge_3D, niPol_3D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
 
+      ! for electromagneitc=2 simulation (solving GK Ampere equation)
+      real(wp), allocatable, dimension(:,:,:) :: AparaH ! A_parallel^h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
+      real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (dim_gq, dim_s, 0:1) my plane and right poloidal plane
+      real(wp), allocatable, dimension(:,:) :: AparaS ! A_parallel^s; dimension (dim_gq, dim_s), just my poloidal plane 
+      
    end type
 
    type(Grid_Info) :: SG ! Structure Grid
@@ -294,6 +299,12 @@ contains
       allocate(SG%RealCharge_2D(Nq,Ns),SG%niPol_2D(Nq,Ns))
       allocate(SG%RealCharge_3D(Nq,Ns,mzetamax),SG%niPol_3D(Nq,Ns,mzetamax))
 
+      allocate(SG%AparaH(Nq,Ns,0:2))
+      SG%AparaH=0.0
+      allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
+      SG%grad_gaH_cov=0.0
+      allocate(SG%AparaS(Nq,Ns))
+      SG%AparaS=0.0
 
 
 
