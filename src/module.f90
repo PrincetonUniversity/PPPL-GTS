@@ -170,7 +170,7 @@ module global_parameters
    integer :: Flag_Measure_Ptl_FootPrint=0 ! Default=0(Not Meausre), can be set =1 (Do Measure)
    integer :: Flag_noExB=0 ! Default=0 (ExB is considered), can be set =1 (noExB)
    integer :: Flag_Recycling=0 ! Default=0 (no Recycling), can be set = 1 (Recycling of Ion at outer wall)
-   integer :: Flag_Weight_dfh=0 ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight)
+   integer :: Flag_Weight_dfh=0 ! Default=0 (delta-f), can be set = 1(full-f or full-h)
    integer :: Ptl_Src_nstep=50 ! Generate src from boundaires at every Ptl_Src_nstep (default=50 steps)
    integer :: Ptl_Src_dim_a=50 ! radial dimension of PtlSrcCV system
    integer :: Ptl_Src_dim_gq=50 ! poloidal dimension of PtlSrcCV system

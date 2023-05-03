@@ -1468,13 +1468,6 @@ subroutine Update_Amat_Coeffs(In_Flag_WhichLHS)
          SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
          SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
       enddo
-   elseif(Flag_Weight_dfh==2 .or. Flag_Weight_dfh==3) then
-      ! dn = Hybrid_Density - n0
-      ! where Hybrid_Density = hyb_ratio*(full_f or full_h) + (1-hyb_ratio)*(delta_f or delta_h)
-      do i=1,SG%dim_s
-         SG%dne_SM(:,i) = SG%hyb_ratio_e(:,i)*SG%ne_by_fh(:,i,1)+(1.0-SG%hyb_ratio_e(:,i))*(SG%dne(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
-         SG%dni_SM(:,i) = SG%hyb_ratio_i(:,i)*SG%ni_by_ff(:,i,1)+(1.0-SG%hyb_ratio_i(:,i))*(SG%dni(:,i,1)+SG%n0_1D(i)) -SG%n0_1D(i)
-      enddo
    endif
 
    ! Then, smooth them
