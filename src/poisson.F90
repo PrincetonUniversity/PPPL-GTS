@@ -423,7 +423,6 @@ subroutine poisson( solver, masssolver )
          endif
 
 
-         ! call Measure_Electron_Density_on_SG
          ! call Measure_Ion_Density_on_SG
          ! ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
          ! ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)

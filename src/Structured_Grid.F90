@@ -41,6 +41,11 @@ module Structured_Grid
       real(wp),allocatable, dimension(:,:) :: dni_SM, dne_SM ! Smoothed Densities for Poisson3D equation and updating Polarization Shielding Components
       real(wp),allocatable, dimension(:,:,:) :: ne_by_fh,ni_by_ff ! These are total electron density and ion density including equilibrium density (So, f=f0+df)
 
+      ! If electromagnetic<=1, this is parallel current using ve_para or vi_para
+      ! If electromagnetic==2, theis is calculated using veH=ve_para+qs*B0/ms*alphaH or rhoH=rho_para+alphaH
+      real(wp),allocatable, dimension(:,:,:) :: dje_para, dji_para ! dimension: (dim_gq, dim_s, 0:1);
+      real(wp),allocatable, dimension(:,:,:) :: je_para_by_fh, ji_para_by_ff ! using total weight; dimension: (dim_gq, dim_s, 0:1);
+
       real(wp), allocatable, dimension(:,:,:) :: phi ! dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
       real(wp), allocatable, dimension(:,:,:,:) :: grad_phi_cov ! dimension (dim_gq, dim_s, 0:1) my plane and right poloidal plane
       ! Test 2D phi calculated by solving 3D Poission equation
@@ -74,6 +79,7 @@ contains
    subroutine Initialize_Structured_Grid
       use field_array
       use esi_interface
+      use global_parameters, only:electromagnetic
       implicit none
 
       integer i,j,k,sid,gqid,ij,Ns,Nq
@@ -148,6 +154,13 @@ contains
       allocate(SG%dne_SM(Nq,Ns),SG%dni_SM(Nq,Ns))
       allocate(SG%dTe(Nq,Ns,0:1),SG%dTi(Nq,Ns,0:1))
       allocate(SG%ne_by_fh(Nq,Ns,0:1),SG%ni_by_ff(Nq,Ns,0:1))
+
+      allocate(SG%dje_para(Nq,Ns,0:1), SG%dji_para(Nq,Ns,0:1))
+      SG%dje_para=0.0
+      SG%dji_para=0.0
+      allocate(SG%je_para_by_fh(Nq,Ns,0:1), SG%ji_para_by_ff(Nq,Ns,0:1))
+      SG%je_para_by_fh=0.0
+      SG%ji_para_by_ff=0.0
 
       call esiget2dthese_more(SG%F,SG%dFda,SG%dgFda,SG%dgYda,SG%R,SG%dRda,SG%dRdgq,SG%Z,SG%dZda,SG%dZdgq,SG%BB,SG%dBBda,SG%dBBdgq,SG%P,SG%T,SG%a_2D,SG%gq_2D,Nq*Ns)
 
@@ -321,13 +334,14 @@ contains
 
    end subroutine Initialize_Structured_Grid
 
-   subroutine Measure_Electron_Density_on_SG(flag_which_target)
+   subroutine Measure_Electron_Density_Current_on_SG(flag_which_target)
       use precision
-      use global_parameters,only:me
+      use global_parameters,only:me, electromagnetic
       use particle_array,only:zeon,zeon0
       use particle_decomp
       use function_gg_module
       use mpi_defs
+      use esi_interface, only:BB
 
       implicit none
 
@@ -343,6 +357,7 @@ contains
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_eD ! num of eData (First Dimension)
       real(wp) tt0,tt1,tmp
+      real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
 
 
       !$acc declare create(ptl_data)
@@ -367,11 +382,12 @@ contains
 
       select case(flagT)
          case(0) ! Default; only zeon(5,m)
-               num_eD=1
+            num_eD=1
+            if (electromagnetic==2) num_eD=2 ! for parallel current dj_para_H or j_para_H
          case(1) ! Diagnostic purpose
-            num_eD=2
+            num_eD=4 ! (dne, ne_by_fh, dje_para, je_para_by_fh) for diagnostic purpose
          case default
-            write(stdout,*) "Error!! flagT=",flagT," in Measure_Electron_Density_on_SG"
+            write(stdout,*) "Error!! flagT=",flagT," in Measure_Electron_Density_Current_on_SG"
             call flush(stdout)
             STOP
       end select
@@ -386,21 +402,34 @@ contains
       select case(flagT)
          case(0)
             if(Flag_Weight_dfh==0) then ! Using delta weight
-               !$acc parallel loop present(zeon)
+               !$acc parallel loop present(zeon,BB)
                do m=1,me
                   ptl_data(1,m) = zeon(5,m)
+                  if(electromagnetic==2) then
+                     ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+                     ptl_data(2,m) = zeon(5,m)*zeon(4,m)*BB(m)*csc0*m0ms  
+                  endif
                enddo
             elseif(Flag_Weight_dfh==1) then ! Using full weight
-               !$acc parallel loop present(zeon)
+               !$acc parallel loop present(zeon,BB)
                do m=1,me
                   ptl_data(1,m) = zeon(8,m)
+                  if(electromagnetic==2) then
+                     ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+                     ptl_data(2,m) = zeon(8,m)*zeon(4,m)*BB(m)*csc0*m0ms  
+                  endif
                enddo
             endif
          case(1)
-            !$acc parallel loop present(zeon,ptl_data)
+            !$acc parallel loop present(zeon,BB,ptl_data)
             do m=1,me
                ptl_data(1,m) = zeon(5,m)
                ptl_data(2,m) = zeon(8,m)
+
+               ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+               vH = zeon(4,m)*BB(m)*csc0*m0ms   
+               ptl_data(3,m) = zeon(5,m)*vH
+               ptl_data(4,m) = zeon(8,m)*vH
             enddo
       end select
 
@@ -521,12 +550,16 @@ contains
          case(0) ! Default; only zeon(5,m)
             if(Flag_Weight_dfh==0) then
                SG%dne = eData(1,:,:,:)
+               if(electromagnetic==2) SG%dje_para = eData(2,:,:,:)
             elseif(Flag_Weight_dfh==1) then
                SG%ne_by_fh = eData(1,:,:,:)
+               if(electromagnetic==2) SG%je_para_by_fh = eData(2,:,:,:)
             endif
          case(1) ! Diagnostic purpose
             SG%dne = eData(1,:,:,:)
             SG%ne_by_fh  = eData(2,:,:,:)
+            SG%dje_para = eData(3,:,:,:)
+            SG%je_para_by_fh = eData(4,:,:,:)
       end select
 
       ! Artificial damping of delta-n near the both inner and outer boundary
@@ -546,11 +579,11 @@ contains
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Electron_Density_on_SG takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,*) "Measure_Electron_Density_Current_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
-   end subroutine Measure_Electron_Density_on_SG
+   end subroutine Measure_Electron_Density_Current_on_SG
 
    subroutine Measure_Ion_Density_on_SG(flag_which_target)
       use precision

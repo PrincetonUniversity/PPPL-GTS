@@ -249,7 +249,7 @@ program GTS
    endif
 
    if(Flag_Poisson3D_on_SG==1) then
-      if(ifelectron/=0) call Measure_Electron_Density_on_SG(1)
+      if(ifelectron/=0) call Measure_Electron_Density_Current_on_SG(1)
    else
       if(ifelectron/=0) call charge_eon
    endif
@@ -301,7 +301,7 @@ program GTS
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
       call SetZeros_cum_Radial_FluxData_a1D_on_DG
-      call Measure_Electron_Density_on_SG(1)
+      call Measure_Electron_Density_Current_on_SG(1)
       call Measure_Ion_Density_on_SG(1)
       call snapshot_hdf5
       call snapshot_Magnetic_Information
@@ -552,7 +552,7 @@ program GTS
             ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
             ! for calculating gamma_e
             if(Flag_Poisson3D_on_SG==1) then
-               call Measure_Electron_Density_on_SG(0)
+               call Measure_Electron_Density_Current_on_SG(0)
             else
                call charge_eon
             endif
@@ -636,7 +636,7 @@ program GTS
          call ion_locator_at_larmor_points
          call electron_locator
 
-         call Measure_Electron_Density_on_SG(1) !Input flag=1 for diagnostic purpose
+         call Measure_Electron_Density_Current_on_SG(1) !Input flag=1 for diagnostic purpose
          call Measure_Ion_Density_on_SG(1) !Input flag=1 for diagnostic purpose
 
          ! call Cal_dupara_per_dt_using_SG

@@ -625,7 +625,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 
       if(Flag_Poisson==1) then
          if(Flag_Poisson3D_on_SG==1) then
-            call Measure_Electron_Density_on_SG(0)
+            call Measure_Electron_Density_Current_on_SG(0)
          else
             call charge_eon
          endif
@@ -1870,7 +1870,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             call cpu_time(cput0)
             tt0=MPI_WTIME()
             if(Flag_Poisson3D_on_SG==1) then
-               call Measure_Electron_Density_on_SG(0)
+               call Measure_Electron_Density_Current_on_SG(0)
             else
                call charge_eon
             endif
@@ -2851,7 +2851,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
          call cpu_time(cput0)
          tt0=MPI_WTIME()
             if(Flag_Poisson3D_on_SG==1) then
-               call Measure_Electron_Density_on_SG(0)
+               call Measure_Electron_Density_Current_on_SG(0)
             else
                call charge_eon
             endif
@@ -3529,7 +3529,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
          call cpu_time(cput0)
          tt0=MPI_WTIME()
             if(Flag_Poisson3D_on_SG==1) then
-               call Measure_Electron_Density_on_SG(0)
+               call Measure_Electron_Density_Current_on_SG(0)
             else
                call charge_eon
             endif
