@@ -1345,7 +1345,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    call n_T_u_group
    call n_T_u_group_e
 
-   call Measure_Ion_Density_on_SG(1)
+   call Measure_Ion_Density_Current_on_SG(1)
    call Measure_Electron_Density_Current_on_SG(1)
 
    call poisson(solver,masssolver)

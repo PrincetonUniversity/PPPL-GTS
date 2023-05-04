@@ -585,13 +585,14 @@ contains
 
    end subroutine Measure_Electron_Density_Current_on_SG
 
-   subroutine Measure_Ion_Density_on_SG(flag_which_target)
+   subroutine Measure_Ion_Density_Current_on_SG(flag_which_target)
       use precision
       use global_parameters,only:mi
       use particle_array,only:zion,zion0
       use particle_decomp
       use function_gg_module
       use mpi_defs
+      use esi_interface,only:BB
 
       implicit none
 
@@ -607,6 +608,7 @@ contains
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_iD ! num_of iData (First dimension)
       real(wp) :: intpl_gyro(3,larmor_num)
+      real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
 
       !$acc declare create(ptl_data)
 
@@ -631,11 +633,12 @@ contains
 
      select case(flagT)
          case(0) ! Default; only zion(5,m)
-               num_iD=1
+            num_iD=1
+            if(electromagnetic==2) num_iD=2! for parallel current dj_para_H or j_para_H 
          case(1) ! Diagnostic purpose
-            num_iD=2
+            num_iD=4 ! (dni, ni_by_ff, dji_para, ji_para_by_ff) for diagnostic purpose
          case default
-            write(stdout,*) "Error!! flagT=",flagT," in Measure_Ion_Density_on_SG"
+            write(stdout,*) "Error!! flagT=",flagT," in Measure_Ion_Density_Current_on_SG"
             call flush(stdout)
             STOP
       end select
@@ -649,14 +652,22 @@ contains
       select case(flagT)
          case(0)
             if(Flag_Weight_dfh==0) then ! Using delta weight
-               !$acc parallel loop present(zion)
+               !$acc parallel loop present(zion,BB)
                do m=1,mi
                   ptl_data(1,m) = zion(5,m)
+                  if(electromagnetic==2) then
+                     ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+                     ptl_data(2,m) = zion(5,m)*zion(4,m)*BB(m)
+                  endif
                enddo
             elseif(Flag_Weight_dfh==1) then ! Using full weight
-               !$acc parallel loop present(zion)
+               !$acc parallel loop present(zion,zion0,BB)
                do m=1,mi
                   ptl_data(1,m) = zion0(8,m)
+                  if(electromagnetic==2) then
+                     ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+                     ptl_data(2,m) = zion0(8,m)*zion(4,m)*BB(m)
+                  endif
                enddo
             endif
          case(1)
@@ -664,6 +675,10 @@ contains
             do m=1,mi
                ptl_data(1,m) = zion(5,m)
                ptl_data(2,m) = zion0(8,m)
+
+               vH = zion(4,m)*BB(m)
+               ptl_data(3,m) = zion(5,m)*vH
+               ptl_data(4,m) = zion0(8,m)*vH
             enddo
       end select
 
@@ -812,12 +827,16 @@ contains
          case(0) ! Default; only zion(5,m)
             if(Flag_Weight_dfh==0) then
                SG%dni = iData(1,:,:,:)
+               if(electromagnetic==2) SG%dji_para = iData(2,:,:,:)
             elseif(Flag_Weight_dfh==1) then
                SG%ni_by_ff = iData(1,:,:,:)
+               if(electromagnetic==2) SG%ji_para_by_ff = iData(2,:,:,:)
             endif
          case(1) ! Diagnostic purpose
             SG%dni = iData(1,:,:,:)
             SG%ni_by_ff  = iData(2,:,:,:)
+            SG%dji_para = iData(3,:,:,:)
+            SG%ji_para_by_ff = iData(4,:,:,:)
       end select
 
       ! Artificial damping of delta-n near the both inner and outer boundary
@@ -837,10 +856,10 @@ contains
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Ion_Density_on_SG takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,*) "Measure_Ion_Density_Current_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
-   end subroutine Measure_Ion_Density_on_SG
+   end subroutine Measure_Ion_Density_Current_on_SG
 
    subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Reference_Data2D)
 

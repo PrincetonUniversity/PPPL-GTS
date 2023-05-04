@@ -1505,6 +1505,8 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
 
       call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),SG%Cell_dV)
@@ -1512,12 +1514,16 @@ subroutine snapshot_hdf5
       call Smooth_SG_Data_2D([2,2],SG%ne_by_fh(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%dje_para(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%je_para_by_fh(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%dji_para(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%ji_para_by_ff(:,:,1),SG%Cell_dV)
       call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
 
       call h5ltmake_dataset_f(gid_SG, "phi",2,h5dims,H5T_NATIVE_DOUBLE, SG%phi(:,:,1),h5err)
 

@@ -243,7 +243,7 @@ program GTS
    irk=2
    idiag=1
    if(Flag_Poisson3D_on_SG==1) then
-      call Measure_Ion_Density_on_SG(1)
+      call Measure_Ion_Density_Current_on_SG(1)
    else
       call charge_ion
    endif
@@ -302,7 +302,7 @@ program GTS
       call Cumulate_Some_Variables_for_Measure
       call SetZeros_cum_Radial_FluxData_a1D_on_DG
       call Measure_Electron_Density_Current_on_SG(1)
-      call Measure_Ion_Density_on_SG(1)
+      call Measure_Ion_Density_Current_on_SG(1)
       call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
@@ -436,7 +436,7 @@ program GTS
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
          ! in PUSHI for calculating electric force on ions
          if(Flag_Poisson3D_on_SG==1) then
-            call Measure_Ion_Density_on_SG(0)
+            call Measure_Ion_Density_Current_on_SG(0)
          else
             call charge_ion
          endif
@@ -637,7 +637,7 @@ program GTS
          call electron_locator
 
          call Measure_Electron_Density_Current_on_SG(1) !Input flag=1 for diagnostic purpose
-         call Measure_Ion_Density_on_SG(1) !Input flag=1 for diagnostic purpose
+         call Measure_Ion_Density_Current_on_SG(1) !Input flag=1 for diagnostic purpose
 
          ! call Cal_dupara_per_dt_using_SG
 
