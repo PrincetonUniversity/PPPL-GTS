@@ -260,6 +260,10 @@ program GTS
          call Construct_GK_Poisson3D_Solver_with_Extremal_Method
          call poisson( solver1, masssolver  )
          call Update_GK_Poisson_LHS_Coeffs
+         if(electromagnetic==2) then
+            call Construct_GK_Ampere_3D_Solver_with_Extremal_Method
+            call Solve_GK_Ampere_3D_on_SG
+         endif
       else
          call poisson( solver1, masssolver  )
       endif
@@ -382,6 +386,7 @@ program GTS
             if(irk==1) then
                !Update Polarization Shielding Term in Poisson3D equation
                call Update_GK_Poisson_LHS_Coeffs
+               if(electromagnetic==2) call Update_GK_Ampere_LHS_Coeffs
             endif
          endif
 
@@ -564,6 +569,7 @@ program GTS
 
          ! solve GK Poisson equation using adiabatic electron
          if(Flag_Poisson==1) call poisson( solver1, masssolver )
+         if(electromagnetic==2) call Solve_GK_Ampere_3D_on_SG
          !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
          if (mype == 0) then
