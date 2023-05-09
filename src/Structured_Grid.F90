@@ -1123,6 +1123,63 @@ contains
       enddo
    end subroutine
 
+   subroutine Cal_grad_gaH_cov_on_SG
+      use precision
+      use global_parameters
+      use field_array
+      use mpi_defs
+      use particle_decomp
+      implicit none
+
+      integer sid,gqid,istatus(MPI_STATUS_SIZE),ierr
+      integer target_gqid
+      real(wp) gaH_left, gaH_right, target_gq,wgq0,wgq1,delta_gq
+
+      ! Calculate grad_phi_cov at zetamax (so, the last index is 1)
+      ! radial direction
+      SG%grad_gaH_cov(1,:,1,1) = SG%inv_ds*(SG%gaH(:,2,1)-SG%gaH(:,1,1))
+      do sid=2,SG%dim_s-1
+         SG%grad_gaH_cov(1,:,sid,1) = 0.5*SG%inv_ds*(SG%gaH(:,sid+1,1)-SG%gaH(:,sid-1,1))
+      enddo
+      SG%grad_gaH_cov(1,:,SG%dim_s,1) = SG%inv_ds*(SG%gaH(:,SG%dim_s,1)-SG%gaH(:,SG%dim_s-1,1))
+
+      ! theta direction with the periodic condition
+      SG%grad_gaH_cov(2,1,:,1) = 0.5*SG%inv_dgq*(SG%gaH(2,:,1)-SG%gaH(SG%dim_gq-1,:,1))
+      do gqid=2,SG%dim_gq-1
+         SG%grad_gaH_cov(2,gqid,:,1) = 0.5*SG%inv_dgq*(SG%gaH(gqid+1,:,1)-SG%gaH(gqid-1,:,1))
+      enddo
+      SG%grad_gaH_cov(2,SG%dim_gq,:,1) = SG%grad_gaH_cov(2,1,:,1)
+
+      ! Get gaH along a field line at a given r surface
+      do sid=1,SG%dim_s
+         delta_gq = deltaz/SG%safety_q_1D(sid)
+         do gqid=1,SG%dim_gq
+
+            ! get gaH from the right plane
+            target_gq = modulo(SG%gq_1D(gqid) + delta_gq, 2.0*pi)
+            target_gqid = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+            gaH_right = wgq0*SG%gaH(target_gqid,sid,2) + wgq1*SG%gaH(target_gqid+1,sid,2)
+
+            ! get gaH from the left plane
+            target_gq = modulo(SG%gq_1D(gqid) - delta_gq, 2.0*pi)
+            target_gqid = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+            gaH_left = wgq0*SG%gaH(target_gqid,sid,0) + wgq1*SG%gaH(target_gqid+1,sid,0)
+
+            ! d(gaH)/dzeta = d(gaH)/dl - 1/q*d(gaH)/dtheta
+            SG%grad_gaH_cov(3,gqid,sid,1) =  (gaH_right-gaH_left)/(2.0*deltaz) - SG%grad_gaH_cov(2,gqid,sid,1)/SG%safety_q_1D(sid)
+         enddo
+      enddo
+
+      ! Communicate in toroidal direction so that get grad_gaH_cov at zetamin (grad_gaH_cov(:,:,:,0)) at from the left poloidal plane
+      call MPI_SENDRECV(SG%grad_gaH_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,right_pe,0, &
+                        SG%grad_gaH_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+
+   end subroutine Cal_grad_gaH_cov_on_SG   
+
    subroutine Get_Intp_phi_on_SG(P_s, P_gq, P_gf, out_phi)
       !$acc routine seq
       use precision
