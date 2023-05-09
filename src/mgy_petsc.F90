@@ -272,7 +272,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    ! call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
 
    max_nnz=7
-   allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
    do Lid=1,Lsize
@@ -331,7 +331,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    enddo
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
-   allocate(d_nnz(Lsize), o_nnz(Lsize))
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
    d_nnz=0; o_nnz=0;
    do Lid=1,Lsize
       do tnum=1,max_nnz
@@ -1110,7 +1110,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
    max_nnz=19 ! maximum number of non-zero values per each row
-   allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
    do Lid=1,Lsize
@@ -1193,7 +1193,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
-   allocate(d_nnz(Lsize), o_nnz(Lsize))
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
    d_nnz=0; o_nnz=0;
    do Lid=1,Lsize
       do tnum=1,max_nnz
@@ -1275,7 +1275,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
    max_nnz=19 ! maximum number of non-zero values per each row
-   allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
    tarVal=0.0
@@ -1368,7 +1368,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
-   allocate(d_nnz(Lsize), o_nnz(Lsize))
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
    d_nnz=0; o_nnz=0;
    do Lid=1,Lsize
       do tnum=1,max_nnz
@@ -2176,7 +2176,7 @@ subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
    call Determine_GK_AmpereTensors_on_Structured_Grid
 
    max_nnz=19 ! maximum number of non-zero values per each row
-   allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
    tarVal=0.0
@@ -2262,7 +2262,7 @@ subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
    call Add_Skin_Term_to_GK_Ampere_LHS
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
-   allocate(d_nnz(Lsize), o_nnz(Lsize))
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
    d_nnz=0; o_nnz=0;
    do Lid=1,Lsize
       do tnum=1,max_nnz
