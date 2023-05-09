@@ -1114,6 +1114,14 @@ contains
 
    end subroutine Cal_gradPhi_on_SG
 
+   subroutine Cal_gaH_from_AparaH_on_SG
+      implicit none
+      integer k
+
+      do k=0,2
+         SG%gaH(:,:,k) = SG%AparaH(:,:,k)/SG%BB
+      enddo
+   end subroutine
 
    subroutine Get_Intp_phi_on_SG(P_s, P_gq, P_gf, out_phi)
       !$acc routine seq
