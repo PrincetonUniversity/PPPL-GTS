@@ -60,7 +60,7 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:,:) :: gaH ! alpha_h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
       real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       real(wp), allocatable, dimension(:,:) :: AparaS ! A_para^s; dimension (dim_gq, dim_s)
-      real(wp), allocatable, dimension(:,:) :: old_AparaS, old_para_grad_phi ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
+      real(wp), allocatable, dimension(:,:) :: old_AparaS, RK_cum_AparaS, old_para_grad_phi ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
      
       real(wp), allocatable, dimension(:,:) :: Ampere_RHS ! RHS of Ampere's equation
    end type
@@ -321,8 +321,9 @@ contains
          SG%gaH=0.0
          allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
          SG%grad_gaH_cov=0.0
-         allocate(SG%old_AparaS(Nq,Ns),SG%old_para_grad_phi(Nq,Ns))
+         allocate(SG%old_AparaS(Nq,Ns),SG%RK_cum_AparaS(Nq,Ns),SG%old_para_grad_phi(Nq,Ns))
          SG%old_AparaS=0.0
+         SG%RK_cum_AparaS=0.0
          SG%old_para_grad_phi=0.0
       endif
 
@@ -1195,18 +1196,72 @@ contains
       
    end subroutine Set_old_Apara_and_old_para_grad_phi_at_irk1
 
-   subroutine Update_SG_AparaS_by_integrating_minus_grad_phi_cov
+   subroutine Update_SG_AparaS(in_irk,in_nrk)
       use particle_decomp
       use mpi_defs
       implicit none
+      integer,intent(in) :: in_irk, in_nrk ! input irk and nrk
       real(wp) dt_s ! time step size in second unit
+      real(wp) RK_cum_coeff, RK_adv_coeff
+      real(wp) para_grad_Phi(SG%dim_gq,SG%dim_s) ! (b0*grad(Phi))
 
-      dt_s = tstep*utime
 
-      ! AparaS(t2)=AparaS(t1) +integral(from t1 to t2)[-b0*grad(phi)]
-      !           =AparaS(t1) -0.5*()
-      SG%AparaS = SG%old_AparaS -0.5*dt_s*(SG%old_para_grad_phi+sum(SG%B0_cntv3*SG%grad_phi_cov(:,:,:,1),dim=1)/SG%BB) 
-   end subroutine Update_SG_AparaS_by_integrating_minus_grad_phi_cov 
+      ! This routine sovles the differntial equation of pd(AparaS)/pdt = -b0*grad(Phi) = -para_grad_Phi
+      ! For the numerical scheme, RK2 and RK4 are currently implemented. 
+
+
+   ! Set RK_cum_coeff and RK_adv_coeff
+      if(in_nrk==4) then
+         select case (in_irk)
+            case(1)
+               RK_adv_coeff = 0.5; RK_cum_coeff = (1.0/6.0)
+            case(2)
+               RK_adv_coeff = 0.5; RK_cum_coeff = (1.0/3.0)
+            case(3)
+               RK_adv_coeff = 1.0; RK_cum_coeff = (1.0/3.0)
+            case(4)
+               RK_adv_coeff = 1.0; RK_cum_coeff = (1.0/6.0)
+            case default
+               write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! in_irk=",in_irk,"!! irk must be between 1 and in_nrk=",in_nrk
+               call flush(stdout)
+               STOP
+         end select
+      elseif(in_nrk==2) then
+         select case (in_irk)
+            case(1)
+               RK_adv_coeff = 0.5; RK_cum_coeff = 0.0
+            case(2)
+               RK_adv_coeff = 1.0; RK_cum_coeff = 1.0
+            case default
+               write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! in_irk=",in_irk,"!! irk must be between 1 and in_nrk=",in_nrk
+               call flush(stdout)
+               STOP
+         end select
+      else
+         write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! Incorrect in_nrk=",in_nrk
+         call flush(stdout)
+         STOP
+      endif
+
+      ! Initialize RK_cum_AparaS when in_irk=1
+      if(in_irk==1) then
+         SG%RK_cum_AparaS = 0.0
+      endif
+
+      dt_s = tstep*utime ! We should use timestep in second unit to be compatible with AparaS that is in SI unit.
+      para_grad_Phi = sum(SG%B0_cntv3*SG%grad_phi_cov(:,:,:,1),dim=1)/SG%BB
+
+
+      ! accumulate RK_cum_AparaS
+      SG%RK_cum_AparaS = SG%RK_cum_AparaS + dt_s*RK_cum_coeff*(-para_grad_Phi)
+
+      if(in_irk<in_nrk) then
+         SG%AparaS = SG%old_AparaS + dt_s*RK_adv_coeff*(-para_grad_Phi)
+      elseif(in_irk==in_nrk) then
+         SG%AparaS = SG%old_AparaS + SG%RK_cum_AparaS
+      endif
+
+   end subroutine Update_SG_AparaS 
 
    subroutine Get_Intp_phi_on_SG(P_s, P_gq, P_gf, out_phi)
       !$acc routine seq

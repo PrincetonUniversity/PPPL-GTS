@@ -2966,6 +2966,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    use Diagnostic_Grid
    use Ptl_Src_Loss
    use function_gg_module
+   use MGY_PETSc_Interface_Data
    implicit none
 
    type(solver_data) :: solver1, masssolver
@@ -3557,6 +3558,11 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
             close(200903)
          endif
 
+
+         if(electromagnetic==2) then
+            call Update_SG_AparaS(irk_e,nrk)
+            call Solve_GK_Ampere_3D_on_SG
+         endif
 
          call Get_Phi_at_zeon(Phi_at_zeon)
          !$acc parallel loop present(Phi_at_zeon)
