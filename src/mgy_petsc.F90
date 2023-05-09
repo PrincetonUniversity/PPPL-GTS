@@ -21,6 +21,7 @@ module MGY_PETSc_Interface_Data
    PetscInt Gid_start, Gid_end
    Mat PMat ! GK Poisson equation's LHS matrix
    Mat AMat ! GK Ampere equation's LHS matrix
+   Mat PerpLapMat ! perpendicular laplacian (nabla_perp*nabla_perp)
    Vec bVec, xVec, ResVec
    KSP ksp_P ! ksp for GK Poisson equation
    KSP ksp_A ! ksp for GK Ampere equation
@@ -200,8 +201,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
 
 
    call Construct_Metric_Tensor_on_Structured_Grid
-
-
+   call Construct_Perp_Laplacian_Matrix
    ! Create vectors (bVec, xVec, ResVec) for future use
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
    call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
@@ -256,6 +256,146 @@ subroutine Construct_Metric_Tensor_on_Structured_Grid
 
 end subroutine Construct_Metric_Tensor_on_Structured_Grid
 
+subroutine Construct_Perp_Laplacian_Matrix
+   use Structured_Grid
+   implicit none
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
+   real tt0, tt1
+
+   integer :: dim_gq, dim_a
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+   ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
+   ! Note that there are ghost cells for easier indexing
+   if(.not. allocated(CT)) then
+      allocate( CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   endif
+
+   call Determine_GK_AmpereTensors_on_Structured_Grid   
+
+   max_nnz=19 ! maximum number of non-zero values per each row
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   tarVal=0.0
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
+
+      ! 2 (gqid-1) & 3 (gqid+1)
+      AntiSym1 = 0.5*(CT(1,2,qq+1,ss,0)-CT(1,2,qq-1,ss,0))
+      AntiSym2 = 0.5*(CT(3,2,qq+1,ss,0)-CT(3,2,qq-1,ss,0))
+      tarGid(2 ,Lid) = mapP2G(qq-1,ss,ff)
+      tarVal(2 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq-1,ss,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(3 ,Lid) = mapP2G(qq+1,ss,ff)
+      tarVal(3 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq+1,ss,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 4 (sid-1) & 5 (sid+1)
+      AntiSym1 = 0.5*(CT(2,1,qq,ss+1,0)-CT(2,1,qq,ss-1,0))
+      AntiSym2 = 0.5*(CT(3,1,qq,ss+1,0)-CT(3,1,qq,ss-1,0))
+      tarGid(4 ,Lid) = mapP2G(qq,ss-1,ff)
+      tarVal(4 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss-1,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(5 ,Lid) = mapP2G(qq,ss+1,ff)
+      tarVal(5 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss+1,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 6 (gfid-1) & 7 (gfid+1)
+      AntiSym1 = 0.5*(CT(1,3,qq,ss,+1)-CT(1,3,qq,ss,-1))
+      AntiSym2 = 0.5*(CT(2,3,qq,ss,+1)-CT(2,3,qq,ss,-1))
+      tarGid(6 ,Lid) = mapP2G(qq,ss,ff-1)
+      tarVal(6 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,-1)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(7 ,Lid) = mapP2G(qq,ss,ff+1)
+      tarVal(7 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,+1)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      Sym1 = 0.25*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+      ! 8 (sid+1,qid+1) & 9 (sid-1,qid-1)
+      tarGid(8 ,Lid) = mapP2G(qq+1,ss+1,ff)
+      tarVal(8 ,Lid) = +Sym1
+      tarGid(9 ,Lid) = mapP2G(qq-1,ss-1,ff)
+      tarVal(9 ,Lid) = +Sym1
+      ! 10 (sid+1,qid-1) & 11 (sid-1,qid+1)
+      tarGid(10,Lid) = mapP2G(qq-1,ss+1,ff)
+      tarVal(10,Lid) = -Sym1
+      tarGid(11,Lid) = mapP2G(qq+1,ss-1,ff)
+      tarVal(11,Lid) = -Sym1
+
+      Sym1 = 0.25*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+      ! 12 (sid+1,gfid+1) & 13 (sid-1,gfid-1)
+      tarGid(12,Lid) = mapP2G(qq,ss+1,ff+1)
+      tarVal(12,Lid) = +Sym1
+      tarGid(13,Lid) = mapP2G(qq,ss-1,ff-1)
+      tarVal(13,Lid) = +Sym1
+      ! 14 (sid+1,gfid-1) & 15 (sid-1,gfid+1)
+      tarGid(14,Lid) = mapP2G(qq,ss+1,ff-1)
+      tarVal(14,Lid) = -Sym1
+      tarGid(15,Lid) = mapP2G(qq,ss-1,ff+1)
+      tarVal(15,Lid) = -Sym1
+
+
+      Sym1 = 0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+      ! 16 (gqid+1,gfid+1) & 17  (gqid-1, gfid-1)
+      tarGid(16,Lid) = mapP2G(qq+1,ss,ff+1)
+      tarVal(16,Lid) = +Sym1
+      tarGid(17,Lid) = mapP2G(qq-1,ss,ff-1)
+      tarVal(17,Lid) = +Sym1
+      ! 18 (gqid+1,gfid-1) & 18 (gqid-1, gfid+1)
+      tarGid(18,Lid) = mapP2G(qq+1,ss,ff-1)
+      tarVal(18,Lid) = -Sym1
+      tarGid(19,Lid) = mapP2G(qq-1,ss,ff+1)
+      tarVal(19,Lid) = -Sym1
+
+      ! 1 (gqid,sid,gfid)
+      tarGid(1,Lid)=mapP2G(qq,ss,ff)
+      tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+   enddo
+   ! call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
+
+   ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
+   d_nnz=0; o_nnz=0;
+   do Lid=1,Lsize
+      do tnum=1,max_nnz
+         if(tarGid(tnum,Lid)>=0) then
+            if(tarGid(tnum,Lid)<Gid_start .or. tarGid(tnum,Lid)>Gid_end) then
+               o_nnz(Lid)=o_nnz(Lid)+1
+            else
+               d_nnz(Lid)=d_nnz(Lid)+1
+            endif
+         endif
+      enddo
+   enddo
+
+
+   ! Construct Matrix (PerpLapMat)
+   call MatCreate(PETSC_COMM_WORLD,PerpLapMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PerpLapMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PerpLapMat,ierr); CHKERRQ(ierr)
+   ! Preallocate the memory using o_nnz and d_nnz
+   call MatMPIAIJSetPreallocation(PerpLapMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(PerpLapMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(PerpLapMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PerpLapMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "PerpLapMat Assembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+   
+end subroutine Construct_Perp_Laplacian_Matrix
 
 subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    use Structured_Grid
@@ -1106,7 +1246,8 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
-   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
    max_nnz=19 ! maximum number of non-zero values per each row
@@ -1271,7 +1412,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
-   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
    max_nnz=19 ! maximum number of non-zero values per each row
@@ -2737,21 +2879,52 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    real(wp) tt0,tt1
    real(wp) AD ! Adiabatic Factor = e*phi/Te0
    integer :: i,j,ij
+   Vec AparaS,mu0_j_para 
 
    real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
 
 
    RHS_leading_coeff=1e4*1.602176634e-19*uveloci*PERMEABILITY ! factor 1e4 is for (m^-2)
 
+   call VecDuplicate(bVec,AparaS,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,mu0_j_para,ierr); CHKERRQ(ierr)
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
       val=RHS_leading_coeff*(SG%dji_para(qq,ss,1)+SG%dje_para(qq,ss,1))
-      !TODO: 여기에 nabla_perp^2(SG%AparaS) 계산해서 더해줘야 함.
-      call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call VecSetValues(mu0_j_para,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call VecSetValues(AparaS,1,Gid,SG%AparaS(qq,ss),INSERT_VALUES,ierr);CHKERRQ(ierr) 
    enddo
+
+   ! Calculate bVec = PerpLapMat*AparaS + mu0_j_para
+   tt0=MPI_WTIME()
+   call MatMultAdd(PerpLapMat,AparaS,mu0_j_para,bVec,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "MatMultAdd in Solve_GK_Ampere_3D_on_SG takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+
+   if(mod(istep,msnap)==0) then
+      ! Copy bVec (source) to the SG%test_src vector
+      allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
+      call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
+      bVec_mype(:)=ptr_bVec(1:Lsize)
+      call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
+      call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+      do Lid=1,sum_Lsize_partd
+         Gid=recv_mapL2G_partd(Lid)
+         SG%Ampere_RHS(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
+      enddo
+      SG%Ampere_RHS(SG%dim_gq,:)=SG%Ampere_RHS(1,:)
+      deallocate(bVec_mype, bVec_partd)
+   endif
+
+   call VecDestroy(AparaS,ierr); CHKERRQ(ierr)
+   call VecDestroy(mu0_j_para,ierr); CHKERRQ(ierr)
+
+
 
    call Apply_BC_to_GK_Ampere_RHS_Coeffs
 

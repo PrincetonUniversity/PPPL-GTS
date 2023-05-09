@@ -1511,6 +1511,7 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_SG, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
          call h5ltmake_dataset_f(gid_SG, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
          call h5ltmake_dataset_f(gid_SG, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "Ampere_RHS",2,h5dims,H5T_NATIVE_DOUBLE, SG%Ampere_RHS,h5err)
       endif
 
       call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)

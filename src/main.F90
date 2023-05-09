@@ -386,7 +386,10 @@ program GTS
             if(irk==1) then
                !Update Polarization Shielding Term in Poisson3D equation
                call Update_GK_Poisson_LHS_Coeffs
-               if(electromagnetic==2) call Update_GK_Ampere_LHS_Coeffs
+               if(electromagnetic==2) then
+                  call Set_old_Apara_and_old_para_grad_phi_at_irk1
+                  call Update_GK_Ampere_LHS_Coeffs
+               endif
             endif
          endif
 
@@ -569,7 +572,10 @@ program GTS
 
          ! solve GK Poisson equation using adiabatic electron
          if(Flag_Poisson==1) call poisson( solver1, masssolver )
-         if(electromagnetic==2) call Solve_GK_Ampere_3D_on_SG
+         if(electromagnetic==2) then
+            call Update_SG_AparaS_by_integrating_minus_grad_phi_cov
+            call Solve_GK_Ampere_3D_on_SG
+         endif
          !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
          if (mype == 0) then

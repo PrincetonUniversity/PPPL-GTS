@@ -60,7 +60,9 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:,:) :: gaH ! alpha_h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
       real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       real(wp), allocatable, dimension(:,:) :: AparaS ! A_para^s; dimension (dim_gq, dim_s)
-      
+      real(wp), allocatable, dimension(:,:) :: old_AparaS, old_para_grad_phi ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
+     
+      real(wp), allocatable, dimension(:,:) :: Ampere_RHS ! RHS of Ampere's equation
    end type
 
    type(Grid_Info) :: SG ! Structure Grid
@@ -312,12 +314,16 @@ contains
       if(electromagnetic==2) then
          allocate(SG%AparaH(Nq,Ns,0:2))
          SG%AparaH=0.0
-         allocate(SG%AparaS(Nq,Ns))
+         allocate(SG%AparaS(Nq,Ns),SG%Ampere_RHS(Nq,Ns))
          SG%AparaS=0.0
+         SG%Ampere_RHS=0.0
          allocate(SG%gaH(Nq,Ns,0:2))
          SG%gaH=0.0
          allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
          SG%grad_gaH_cov=0.0
+         allocate(SG%old_AparaS(Nq,Ns),SG%old_para_grad_phi(Nq,Ns))
+         SG%old_AparaS=0.0
+         SG%old_para_grad_phi=0.0
       endif
 
 
@@ -1180,6 +1186,27 @@ contains
                         SG%grad_gaH_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
 
    end subroutine Cal_grad_gaH_cov_on_SG   
+
+   subroutine Set_old_Apara_and_old_para_grad_phi_at_irk1
+      implicit none
+     
+      SG%old_AparaS = SG%AparaS
+      SG%old_para_grad_phi = sum(SG%B0_cntv3*SG%grad_phi_cov(:,:,:,1),dim=1)/SG%BB
+      
+   end subroutine Set_old_Apara_and_old_para_grad_phi_at_irk1
+
+   subroutine Update_SG_AparaS_by_integrating_minus_grad_phi_cov
+      use particle_decomp
+      use mpi_defs
+      implicit none
+      real(wp) dt_s ! time step size in second unit
+
+      dt_s = tstep*utime
+
+      ! AparaS(t2)=AparaS(t1) +integral(from t1 to t2)[-b0*grad(phi)]
+      !           =AparaS(t1) -0.5*()
+      SG%AparaS = SG%old_AparaS -0.5*dt_s*(SG%old_para_grad_phi+sum(SG%B0_cntv3*SG%grad_phi_cov(:,:,:,1),dim=1)/SG%BB) 
+   end subroutine Update_SG_AparaS_by_integrating_minus_grad_phi_cov 
 
    subroutine Get_Intp_phi_on_SG(P_s, P_gq, P_gf, out_phi)
       !$acc routine seq
