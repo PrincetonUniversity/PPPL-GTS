@@ -1509,7 +1509,7 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
       if(electromagnetic==2) then
          call h5ltmake_dataset_f(gid_SG, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
-         call h5ltmake_dataset_f(gid_SG, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
          call h5ltmake_dataset_f(gid_SG, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
       endif
 
@@ -1522,7 +1522,7 @@ subroutine snapshot_hdf5
       call Smooth_SG_Data_2D([2,2],SG%dji_para(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%ji_para_by_ff(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%AparaH(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%AparaS(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%AparaS,SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%gaH(:,:,1),SG%Cell_dV)
       call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
@@ -1534,7 +1534,7 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG_SM, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
       if(electromagnetic==2) then
          call h5ltmake_dataset_f(gid_SG_SM, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
-         call h5ltmake_dataset_f(gid_SG_SM, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG_SM, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
          call h5ltmake_dataset_f(gid_SG_SM, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
       endif
 
