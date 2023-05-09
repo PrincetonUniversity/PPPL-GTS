@@ -2714,4 +2714,139 @@ subroutine Apply_BC_to_GK_Ampere_RHS_Coeffs
 
 end subroutine Apply_BC_to_GK_Ampere_RHS_Coeffs
 
+
+
+subroutine Solve_GK_Ampere_3D_on_SG()
+   use precision, only:wp
+   ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
+   use global_parameters
+   use field_array
+
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
+   PetscInt Lid,Gid,num_its, gqid,gfid,aid
+   PetscInt ss,qq,ff
+   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
+   PetscErrorCode ierr
+   integer istatus(MPI_STATUS_SIZE)
+   PetscReal source(SG%dim_gq,SG%dim_a)
+   PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
+   real(wp) tt0,tt1
+   real(wp) AD ! Adiabatic Factor = e*phi/Te0
+   integer :: i,j,ij
+
+   real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
+
+   RHS_leading_coeff=1e6*1.602176634e-19*uveloci*PERMEABILITY
+   ! Assign and Assemble bVec (source term)
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      qq=mapG2P(Gid)%gqid
+      ss=mapG2P(Gid)%aid
+      val=RHS_leading_coeff*(SG%dji_para(qq,ss)+SG%dje_para(qq,ss))
+      !TODO: 여기에 nabla_perp^2(SG%AparaS) 계산해서 더해줘야 함.
+      call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   call Apply_BC_to_GK_Ampere_RHS_Coeffs
+
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+   ! Solve the linear system
+   tt0=MPI_WTIME()
+   call KSPSolve(ksp_A,bVec,xVec,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0 .or. mype==1) write(stdout,*) "In Solve_GK_Ampere_3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+
+   ! Check the residual error and number of the iterations
+   call MatMult(AMat,xVec,ResVec,ierr); CHKERRQ(ierr)
+   call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
+   call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
+   call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
+   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "In Solve_GK_Ampere_3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   call flush(stdout)
+
+   ! Copy xVec (solution) to the SG%test_phi vector
+   allocate(xVec_mype(Lsize), xVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(xVec,ptr_xVec,ierr)
+   xVec_mype(:)=ptr_xVec(1:Lsize)
+   call VecRestoreArrayReadF90(xVec,ptr_xVec,ierr)
+   call MPI_ALLGATHERV(xVec_mype,Lsize,mpi_Rsize,xVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%AparaH(mapG2P(Gid)%gqid,mapG2P(Gid)%aid,1) = xVec_partd(Lid)
+   enddo
+   SG%AparaH(SG%dim_gq,:,1)=SG%AparaH(1,:,1)
+   deallocate(xVec_mype, xVec_partd)
+
+   ! SG%AparaH(:,1:35,:) = 0.0
+   ! do i=35,60
+   !    SG%AparaH(:,i,:) = (i-35)*(1e4)/25.0
+   ! enddo
+   ! SG%AparaH(:,61:SG%dim_s-11,:) = 1e4
+   ! do i=SG%dim_s-10,SG%dim_s
+   !    SG%AparaH(:,i,:) = 1e4 -(i-(SG%dim_s-10))*(1e4)/10.0
+   ! enddo
+
+   ! do j=1,SG%dim_gq
+   !    SG%AparaH(j,:,:) = SG%AparaH(j,:,:)*(1.0+0.5*cos(3*(j-1)/real(SG%dim_gq-1)*2.0*pi))
+   ! enddo
+
+
+   ! Copy bVec (source) to the SG%test_src vector
+   allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
+   bVec_mype(:)=ptr_bVec(1:Lsize)
+   call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
+   call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%test_src_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
+   enddo
+   SG%test_src_2D(SG%dim_gq,:)=SG%test_src_2D(1,:)
+   deallocate(bVec_mype, bVec_partd)
+
+   ! Copy ResVec (residual=A*x-b) to the SG%test_res vector
+   allocate(ResVec_mype(Lsize), ResVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(ResVec,ptr_ResVec,ierr)
+   ResVec_mype(:)=ptr_ResVec(1:Lsize)
+   call VecRestoreArrayReadF90(ResVec,ptr_ResVec,ierr)
+   call MPI_ALLGATHERV(ResVec_mype,Lsize,mpi_Rsize,ResVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%test_res_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = ResVec_partd(Lid)
+   enddo
+   SG%test_res_2D(SG%dim_gq,:)=SG%test_res_2D(1,:)
+   deallocate(ResVec_mype, ResVec_partd)
+
+   call MPI_SENDRECV(SG%AparaH(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,&
+                     SG%AparaH(:,:,0),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+   call MPI_SENDRECV(SG%AparaH(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,&
+                     SG%AparaH(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
+
+
+   call Cal_gaH_from_AparaH_on_SG
+   call Cal_grad_gaH_cov_on_SG
+
+   !!! Copy SG%AparaH to SG_phi that will be used on GPU side
+   !!! SG_phi = SG%AparaH
+   !!! $acc update device(SG_phi)
+
+   ! if(mod(istep,msnap)==0) then
+   !    ! To get full 3D data for diagnostic purpose
+   !    call MPI_ALLGATHER(SG%AparaH(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   !    call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   ! endif
+
+end subroutine Solve_GK_Ampere_3D_on_SG
+
+
 end module MGY_PETSc_Interface_Data
