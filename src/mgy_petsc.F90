@@ -2740,7 +2740,9 @@ subroutine Solve_GK_Ampere_3D_on_SG()
 
    real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
 
-   RHS_leading_coeff=1e6*1.602176634e-19*uveloci*PERMEABILITY
+
+   RHS_leading_coeff=1e4*1.602176634e-19*uveloci*PERMEABILITY ! factor 1e4 is for (m^-2)
+
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
