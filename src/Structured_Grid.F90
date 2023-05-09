@@ -56,9 +56,9 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:,:) :: RealCharge_3D, niPol_3D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
 
       ! for electromagneitc=2 simulation (solving GK Ampere equation)
-      real(wp), allocatable, dimension(:,:,:) :: AparaH ! A_parallel^h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
-      real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (dim_gq, dim_s, 0:1) my plane and right poloidal plane
-      real(wp), allocatable, dimension(:,:) :: AparaS ! A_parallel^s; dimension (dim_gq, dim_s), just my poloidal plane 
+      real(wp), allocatable, dimension(:,:,:) :: AparaH, AparaS ! A_para^h and A_para^s; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
+      real(wp), allocatable, dimension(:,:,:) :: gaH ! alpha_h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
+      real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       
    end type
 
@@ -311,10 +311,12 @@ contains
       if(electromagnetic==2) then
          allocate(SG%AparaH(Nq,Ns,0:2))
          SG%AparaH=0.0
+         allocate(SG%AparaS(Nq,Ns,0:2))
+         SG%AparaS=0.0
+         allocate(SG%gaH(Nq,Ns,0:2))
+         SG%gaH=0.0
          allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
          SG%grad_gaH_cov=0.0
-         allocate(SG%AparaS(Nq,Ns))
-         SG%AparaS=0.0
       endif
 
 
