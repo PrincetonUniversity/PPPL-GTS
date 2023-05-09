@@ -60,7 +60,7 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:,:) :: gaH ! alpha_h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
       real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       real(wp), allocatable, dimension(:,:) :: AparaS ! A_para^s; dimension (dim_gq, dim_s)
-      real(wp), allocatable, dimension(:,:) :: old_AparaS, RK_cum_AparaS, old_para_grad_phi ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
+      real(wp), allocatable, dimension(:,:) :: old_AparaS, RK_cum_AparaS  ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
      
       real(wp), allocatable, dimension(:,:) :: Ampere_RHS ! RHS of Ampere's equation
    end type
@@ -321,10 +321,9 @@ contains
          SG%gaH=0.0
          allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
          SG%grad_gaH_cov=0.0
-         allocate(SG%old_AparaS(Nq,Ns),SG%RK_cum_AparaS(Nq,Ns),SG%old_para_grad_phi(Nq,Ns))
+         allocate(SG%old_AparaS(Nq,Ns),SG%RK_cum_AparaS(Nq,Ns))
          SG%old_AparaS=0.0
          SG%RK_cum_AparaS=0.0
-         SG%old_para_grad_phi=0.0
       endif
 
 
@@ -1188,13 +1187,12 @@ contains
 
    end subroutine Cal_grad_gaH_cov_on_SG   
 
-   subroutine Set_old_Apara_and_old_para_grad_phi_at_irk1
+   subroutine Set_old_Apara_at_irk1
       implicit none
      
       SG%old_AparaS = SG%AparaS
-      SG%old_para_grad_phi = sum(SG%B0_cntv3*SG%grad_phi_cov(:,:,:,1),dim=1)/SG%BB
       
-   end subroutine Set_old_Apara_and_old_para_grad_phi_at_irk1
+   end subroutine Set_old_Apara_at_irk1
 
    subroutine Update_SG_AparaS(in_irk,in_nrk)
       use particle_decomp

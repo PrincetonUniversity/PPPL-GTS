@@ -387,7 +387,7 @@ program GTS
                !Update Polarization Shielding Term in Poisson3D equation
                call Update_GK_Poisson_LHS_Coeffs
                if(electromagnetic==2) then
-                  call Set_old_Apara_and_old_para_grad_phi_at_irk1
+                  call Set_old_Apara_at_irk1
                   call Update_GK_Ampere_LHS_Coeffs
                endif
             endif
