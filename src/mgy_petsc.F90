@@ -2746,7 +2746,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
       Gid=mapL2G(Lid)
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
-      val=RHS_leading_coeff*(SG%dji_para(qq,ss)+SG%dje_para(qq,ss))
+      val=RHS_leading_coeff*(SG%dji_para(qq,ss,1)+SG%dje_para(qq,ss,1))
       !TODO: 여기에 nabla_perp^2(SG%AparaS) 계산해서 더해줘야 함.
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
