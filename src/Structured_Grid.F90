@@ -634,7 +634,7 @@ contains
          enddo
       endif
 
-      !$acc parallel loop gang vector present(zion,zion0,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit,gyro_over_sqrt_mu,ptl_data,ilabels) private(intpl_gyro,ratio,qq,ss)
+      !$acc parallel loop gang vector present(zion,zion0,ionLarmor_s,ionLarmor_gq,gyro_over_sqrt_mu,ptl_data,ilabels) private(intpl_gyro,ratio,qq,ss)
       do m=1,mi
 
          ! Measure the intpl_gyro at the Guiding Center position
@@ -659,16 +659,16 @@ contains
          !$acc loop seq
          do larmor=1,larmor_num
 
-            zion_s_on_GyroOrbit(larmor,m) = zion(7,m) + zion(6,m)*intpl_gyro(1,larmor)
-            zion_gq_on_GyroOrbit(larmor,m) =  modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
+            ionLarmor_s(larmor,m) = zion(7,m) + zion(6,m)*intpl_gyro(1,larmor)
+            ionLarmor_gq(larmor,m) =  modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
 
-            if( (zion_s_on_GyroOrbit(larmor,m)-s0)*(zion_s_on_GyroOrbit(larmor,m)-s1)>0) then
+            if( (ionLarmor_s(larmor,m)-s0)*(ionLarmor_s(larmor,m)-s1)>0) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
 
-            P_s = max(s0,min(s1,zion_s_on_GyroOrbit(larmor,m)))
-            P_gq = zion_gq_on_GyroOrbit(larmor,m)
+            P_s = max(s0,min(s1,ionLarmor_s(larmor,m)))
+            P_gq = ionLarmor_gq(larmor,m)
             P_gf = modulo(zion(3,m) + zion(6,m)*intpl_gyro(3,larmor), 2.0*pi)
             ! P_gf = modulo(zion(3,m),2.0*pi) + zion(6,m)*intpl_gyro(3,larmor)
             P_gf = max(zetamin,min(zetamax,P_gf))
