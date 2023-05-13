@@ -1917,7 +1917,7 @@ Subroutine setup
 
    allocate (zion(ziondim,mimax),zion0(ziondim,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
       wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers),&
-      ionLarmor_s(larmor_num,mimax),ionLarmor_gq(larmor_num,mimax))
+      ionLarmor_s(larmor_num,mimax),ionLarmor_gq(larmor_num,mimax),ionLarmor_gf(larmor_num,mimax))
 
    if(Flag_RK4==1) then
       allocate(RK_cum_zion(ziondim,mimax))

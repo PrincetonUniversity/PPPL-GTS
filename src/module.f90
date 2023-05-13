@@ -218,8 +218,8 @@ module particle_array
    real(wp),dimension(:,:),allocatable :: wpion,wtion0,wtion1
    !$acc declare create(jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    !$acc declare create(jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
-   real(wp),dimension(:,:),allocatable :: ionLarmor_s, ionLarmor_gq
-   !$acc declare create(ionLarmor_s,ionLarmor_gq)
+   real(wp),dimension(:,:),allocatable :: ionLarmor_s, ionLarmor_gq, ionLarmor_gf
+   !$acc declare create(ionLarmor_s,ionLarmor_gq,ionLarmor_gf)
    ! Here we declare zion,zion0,zeon and zeon0 as array pointers
    ! so that we can pass them as dummy arguments to a subroutine and be allowed
    ! to reallocate them inside that subroutine if needed.

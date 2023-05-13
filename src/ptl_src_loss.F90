@@ -209,6 +209,71 @@ module Ptl_locators_partial
       end subroutine ion_locator_at_larmor_points_partial
 
 
+      subroutine Cal_ionLarmor_s_gq_gf_using_SG(m_start,  m_end)
+         use precision
+         use global_parameters
+         use particle_array, only: zion
+         use Structured_Grid
+         use mpi_defs
+         implicit none
+
+         integer, optional, intent(in) :: m_start, m_end
+         integer m,m0,m1
+         integer sid,gqid,larmor
+         real(wp) ws0,ws1,wgq0,wgq1
+         real(wp) P_s,P_gq,P_gf
+         real(wp) :: intpl_gyro(3,larmor_num)
+         real(wp) tt0,tt1
+
+         m0=1
+         m1=mi
+         if(present(m_start)) m0=m_start
+         if(present(m_end))   m1=m_end
+
+#ifdef _MGY_TIMER_
+         tt0=MPI_WTIME()
+#endif         
+
+         if(acc_newer_H_zion) then
+            !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+            !$acc update device(ilabels(:mi))
+            acc_newer_D_zion=.false.
+            acc_newer_H_zion=.false.
+         endif
+
+         !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,gyro_over_sqrt_mu,SG_s_1D,SG_gq_1D) private(intpl_gyro) 
+         do m=m0,m1
+            ! Measure the intpl_gyro at the Guiding Center position
+            P_s = zion(7,m)
+            P_gq = modulo(zion(2,m),2*pi)
+            P_gf = modulo(zion(3,m),2*pi)
+   
+            sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+            ws0 = (1.0-ws1)
+            gqid = P_gq*SG_inv_dgq+1
+            wgq1 = (P_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+
+            !Using the intpl_gyro, calculate Larmor orbit positions and project them to the nearby poloidal planes
+            !$acc loop seq
+            do larmor=1,larmor_num
+               intpl_gyro(:,larmor) = ws0*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid)) &
+                                     +ws1*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid+1) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid+1))
+
+               ionLarmor_s(larmor,m) = zion(7,m) + zion(6,m)*intpl_gyro(1,larmor)
+               ionLarmor_gq(larmor,m) =  modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
+               ionLarmor_gf(larmor,m) = modulo(zion(3,m) + zion(6,m)*intpl_gyro(3,larmor), 2.0*pi)
+            enddo
+         enddo
+         
+#ifdef _MGY_TIMER_
+         tt1=MPI_WTIME()
+         if(mype==0) write(stdout,*) "Cal_ionLarmor_s_gq_gf_using_SG takes", tt1-tt0, " secs"
+         call flush(stdout)
+#endif
+      end subroutine Cal_ionLarmor_s_gq_gf_using_SG
+
 end module Ptl_locators_partial
 
 module Ptl_Src_Loss
