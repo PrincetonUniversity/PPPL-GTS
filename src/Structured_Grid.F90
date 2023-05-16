@@ -1594,6 +1594,83 @@ contains
 #endif
    end subroutine Get_Phi_and_gradPhi_at_zeon
 
+   subroutine Get_Phi_gradPhi_grad_gaH_at_zeon(out_Phi_arr, out_gradPhi_arr, out_grad_gaH_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+      real(wp), intent(out):: out_Phi_arr(memax), out_gradPhi_arr(3,me), out_grad_gaH_arr(3,me)
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1)
+      integer m,sid,gqid,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+
+      !#TODO Check if SG_gradPhi and SG_grad_gaH are really needed.. Can we just use SG%grad_... without performance degradation?
+      SG_gradPhi = SG%grad_phi_cov
+      SG_grad_gaH = SG%grad_gaH_cov
+      out_Phi_arr = 0.0
+      out_gradPhi_arr = 0.0
+      out_grad_gaH_arr = 0.0
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zeon,out_Phi_arr,out_gradPhi_arr)
+      do m=1,me
+         P_s = max(s0,min(s1,zeon(7,m)))
+         P_gq = modulo(zeon(2,m),2.0*pi)
+         P_gf = zeon(3,m)
+         P_gf = max(zetamin,min(zetamax,P_gf))
+
+         wgf1 = abs(modulo(P_gf,2.0*pi)-SG_zetamin)*SG_inv_dgf
+         wgf0 = (1.0-wgf1)
+
+         sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+         ws0 = (1.0-ws1)
+
+         inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+         ! Cal contributions from phi at zetamin to the particle
+         target_gf = SG_zetamin
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid  = target_gq*SG_inv_dgq+1
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+
+         out_Phi_arr(m) = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,0)) + ws1*(wgq0*SG_phi(gqid,sid+1,0) + wgq1*SG_phi(gqid+1,sid+1,0)))
+         do k=1,3
+            out_gradPhi_arr(k,m) = wgf0*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,0) + wgq1*SG_gradPhi(k,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,0) + wgq1*SG_gradPhi(k,gqid+1,sid+1,0)))
+            out_grad_gaH_arr(k,m) = wgf0*(ws0*(wgq0*SG_grad_gaH(k,gqid,sid,0) + wgq1*SG_grad_gaH(k,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaH(k,gqid,sid+1,0) + wgq1*SG_grad_gaH(k,gqid+1,sid+1,0)))
+         enddo
+         ! Add contributions from phi at zetamax to the particle
+         target_gf = SG_zetamax
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid  = target_gq*SG_inv_dgq+1
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+
+         out_Phi_arr(m) = out_Phi_arr(m) + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
+
+         do k=1,3
+            out_gradPhi_arr(k,m) = out_gradPhi_arr(k,m) + wgf1*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,1) + wgq1*SG_gradPhi(k,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,1) + wgq1*SG_gradPhi(k,gqid+1,sid+1,1)))
+            out_grad_gaH_arr(k,m) = out_grad_gaH_arr(k,m) + wgf1*(ws0*(wgq0*SG_grad_gaH(k,gqid,sid,1) + wgq1*SG_grad_gaH(k,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaH(k,gqid,sid+1,1) + wgq1*SG_grad_gaH(k,gqid+1,sid+1,1)))
+         enddo
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,*) "Get_Phi_gradPhi_grad_gaH_at_zeon takes ",tt1-tt0," secs"
+      endif
+      call flush(stdout)
+#endif
+   end subroutine Get_Phi_gradPhi_grad_gaH_at_zeon
 
    subroutine Get_gradPhi_at_zion(out_gradPhi_arr)
       use mpi_defs
@@ -1668,6 +1745,83 @@ contains
 
    end subroutine Get_gradPhi_at_zion
 
+   subroutine Get_gradPhi_gradgaH_at_zion(out_gradPhi_arr, out_grad_gaH_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+
+      real(wp), intent(out):: out_gradPhi_arr(3,mi), out_grad_gaH_arr(3,mi)
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1)
+      integer m,sid,gqid,larmor,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+
+      !#TODO Check if SG_gradPhi and SG_grad_gaH are really needed.. Can we just use SG%grad_... without performance degradation?
+      SG_gradPhi = SG%grad_phi_cov
+      SG_grad_gaH = SG%grad_gaH_cov
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,out_gradPhi_arr)
+      do m=1,mi
+         out_gradPhi_arr(:,m)=0.0
+         out_grad_gaH_arr(:,m)=0.0
+         !$acc loop seq
+         do larmor=1,larmor_num
+            P_s  = max(s0,min(s1, ionLarmor_s(larmor,m)))
+            P_gq = modulo(ionLarmor_gq(larmor,m), 2.0*pi)
+            P_gf = max(zetamin,min(zetamax,ionLarmor_gf(larmor,m)))
+
+            wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+            wgf0 = (1.0-wgf1)
+
+            sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+            ws0 = (1.0-ws1)
+
+            inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+            ! Cal contributions from phi at zetamin to the particle
+            target_gf = SG_zetamin
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid  = target_gq*SG_inv_dgq+1
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf0*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,0) + wgq1*SG_gradPhi(:,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,0) + wgq1*SG_gradPhi(:,gqid+1,sid+1,0)))
+            out_grad_gaH_arr(:,m) = out_grad_gaH_arr(:,m) + wgf0*(ws0*(wgq0*SG_grad_gaH(:,gqid,sid,0) + wgq1*SG_grad_gaH(:,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaH(:,gqid,sid+1,0) + wgq1*SG_grad_gaH(:,gqid+1,sid+1,0)))
+
+            ! Add contributions from phi at zetamax to the particle
+            target_gf = SG_zetamax
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid  = target_gq*SG_inv_dgq+1
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf1*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,1) + wgq1*SG_gradPhi(:,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,1) + wgq1*SG_gradPhi(:,gqid+1,sid+1,1)))
+            out_grad_gaH_arr(:,m) = out_grad_gaH_arr(:,m) + wgf1*(ws0*(wgq0*SG_grad_gaH(:,gqid,sid,1) + wgq1*SG_grad_gaH(:,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaH(:,gqid,sid+1,1) + wgq1*SG_grad_gaH(:,gqid+1,sid+1,1)))
+         enddo
+
+         ! Take larmor radius average
+         out_gradPhi_arr(:,m) = inv_larmor_num*out_gradPhi_arr(:,m)
+         out_grad_gaH_arr(:,m) = inv_larmor_num*out_grad_gaH_arr(:,m)
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,*) "Get_gradPhi_gradgaH_at_zion takes ",tt1-tt0," secs"
+      endif
+      ! call flush(stdout)
+#endif
+
+
+   end subroutine Get_gradPhi_gradgaH_at_zion
 
 
 end module Structured_Grid
