@@ -2157,7 +2157,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic == 1) then
+   if(electromagnetic >= 1) then
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
