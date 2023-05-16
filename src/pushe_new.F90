@@ -3444,8 +3444,14 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
 
          if(electromagnetic==2) then
+            call cpu_time(cput0)
+            tt0=MPI_WTIME()
             call Update_SG_AparaS(irk_e,nrk)
             call Solve_GK_Ampere_3D_on_SG
+            call cpu_time(cput1)
+            tt1=MPI_WTIME()
+            time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
+            timewc_in_Pushe(3) = timewc_in_Pushe(3) + (tt1-tt0)
          endif
 
          call Get_Phi_at_zeon(Phi_at_zeon)
