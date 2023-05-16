@@ -1509,7 +1509,7 @@ contains
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,*) "Get_Phi_at_zeon takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_Phi_at_zeon takes ",tt1-tt0," secs"
       endif
       call flush(stdout)
 #endif
@@ -1588,7 +1588,7 @@ contains
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,*) "Get_Phi_and_gradPhi_at_zeon takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_Phi_and_gradPhi_at_zeon takes ",tt1-tt0," secs"
       endif
       call flush(stdout)
 #endif
@@ -1620,7 +1620,7 @@ contains
       tt0=MPI_WTIME()
 #endif
 
-      !$acc parallel loop gang vector present(zeon,out_Phi_arr,out_gradPhi_arr)
+      !$acc parallel loop gang vector present(zeon,out_Phi_arr,out_gradPhi_arr,out_grad_gaH_arr)
       do m=1,me
          P_s = max(s0,min(s1,zeon(7,m)))
          P_gq = modulo(zeon(2,m),2.0*pi)
@@ -1666,7 +1666,7 @@ contains
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,*) "Get_Phi_gradPhi_grad_gaH_at_zeon takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_Phi_gradPhi_grad_gaH_at_zeon takes ",tt1-tt0," secs"
       endif
       call flush(stdout)
 #endif
@@ -1737,7 +1737,7 @@ contains
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,*) "Get_gradPhi_at_zion takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_gradPhi_at_zion takes ",tt1-tt0," secs"
       endif
       ! call flush(stdout)
 #endif
@@ -1769,7 +1769,7 @@ contains
       tt0=MPI_WTIME()
 #endif
 
-      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,out_gradPhi_arr)
+      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,out_gradPhi_arr,out_grad_gaH_arr)
       do m=1,mi
          out_gradPhi_arr(:,m)=0.0
          out_grad_gaH_arr(:,m)=0.0
@@ -1815,7 +1815,7 @@ contains
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,*) "Get_gradPhi_gradgaH_at_zion takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_gradPhi_gradgaH_at_zion takes ",tt1-tt0," secs"
       endif
       ! call flush(stdout)
 #endif
