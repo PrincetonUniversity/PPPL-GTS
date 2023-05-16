@@ -2938,14 +2938,14 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    if(mype==0 .or. mype==1) write(stdout,'(A,I0,A,ES11.3,A)') "In Solve_GK_Ampere_3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+   ! call KSPView(ksp_A,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
    call MatMult(AMat,xVec,ResVec,ierr); CHKERRQ(ierr)
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp_A,num_its,ierr); CHKERRQ(ierr)
    if(mype==0) write(stdout,"(A,ES12.4,A,I0)") "In Solve_GK_Ampere_3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
