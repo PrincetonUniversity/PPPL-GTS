@@ -2108,7 +2108,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
       enddo
    endif
 
-   call Cal_ionLarmor_s_gq_gf_using_SG
+   call Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
    call Get_gradPhi_at_zion(gradPhi)
 
    !$acc parallel loop present(gradPhi)
