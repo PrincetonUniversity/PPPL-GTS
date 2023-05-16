@@ -1624,16 +1624,16 @@ contains
 #endif
    end subroutine Get_Phi_and_gradPhi_at_zeon
 
-   subroutine Get_Phi_gradPhi_grad_gaH_at_zeon(out_Phi_arr, out_gradPhi_arr, out_grad_gaH_arr)
+   subroutine Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(out_Phi_arr, out_gradPhi_arr, out_gaHS, out_grad_gaH_arr, out_grad_gaS_arr)
       use mpi_defs
       use precision
       use global_parameters
       use particle_array
 
       implicit none
-      real(wp), intent(out):: out_Phi_arr(memax), out_gradPhi_arr(3,me), out_grad_gaH_arr(3,me)
+      real(wp), intent(out):: out_Phi_arr(memax), out_gradPhi_arr(3,me), out_gaHS(me), out_grad_gaH_arr(3,me), out_grad_gaS_arr(3,me)
       real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
-      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1)
+      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_gaHS(SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaS(3,SG%dim_gq,SG%dim_s,0:1)
       integer m,sid,gqid,k
       real(wp) P_s,P_gq,P_gf
       real(wp) tt0,tt1
@@ -1641,10 +1641,15 @@ contains
 
       !#TODO Check if SG_gradPhi and SG_grad_gaH are really needed.. Can we just use SG%grad_... without performance degradation?
       SG_gradPhi = SG%grad_phi_cov
+      SG_gaHS = SG%gaH(:,:,0:1) + SG%gaS(:,:,0:1)
       SG_grad_gaH = SG%grad_gaH_cov
+      SG_grad_gaS = SG%grad_gaS_cov
+
       out_Phi_arr = 0.0
+      out_gaHS = 0.0
       out_gradPhi_arr = 0.0
       out_grad_gaH_arr = 0.0
+      out_grad_gaS_arr = 0.0
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
@@ -1674,9 +1679,11 @@ contains
          wgq0 = 1.0-wgq1
 
          out_Phi_arr(m) = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,0)) + ws1*(wgq0*SG_phi(gqid,sid+1,0) + wgq1*SG_phi(gqid+1,sid+1,0)))
+         out_gaHS(m) = wgf0*(ws0*(wgq0*SG_gaHS(gqid,sid,0) + wgq1*SG_gaHS(gqid+1,sid,0)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,0) + wgq1*SG_gaHS(gqid+1,sid+1,0)))
          do k=1,3
             out_gradPhi_arr(k,m) = wgf0*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,0) + wgq1*SG_gradPhi(k,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,0) + wgq1*SG_gradPhi(k,gqid+1,sid+1,0)))
             out_grad_gaH_arr(k,m) = wgf0*(ws0*(wgq0*SG_grad_gaH(k,gqid,sid,0) + wgq1*SG_grad_gaH(k,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaH(k,gqid,sid+1,0) + wgq1*SG_grad_gaH(k,gqid+1,sid+1,0)))
+            out_grad_gaS_arr(k,m) = wgf0*(ws0*(wgq0*SG_grad_gaS(k,gqid,sid,0) + wgq1*SG_grad_gaS(k,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaS(k,gqid,sid+1,0) + wgq1*SG_grad_gaS(k,gqid+1,sid+1,0)))
          enddo
          ! Add contributions from phi at zetamax to the particle
          target_gf = SG_zetamax
@@ -1686,21 +1693,22 @@ contains
          wgq0 = 1.0-wgq1
 
          out_Phi_arr(m) = out_Phi_arr(m) + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
-
+         out_gaHS(m) = out_gaHS(m) + wgf1*(ws0*(wgq0*SG_gaHS(gqid,sid,1) + wgq1*SG_gaHS(gqid+1,sid,1)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,1) + wgq1*SG_gaHS(gqid+1,sid+1,1)))
          do k=1,3
             out_gradPhi_arr(k,m) = out_gradPhi_arr(k,m) + wgf1*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,1) + wgq1*SG_gradPhi(k,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,1) + wgq1*SG_gradPhi(k,gqid+1,sid+1,1)))
             out_grad_gaH_arr(k,m) = out_grad_gaH_arr(k,m) + wgf1*(ws0*(wgq0*SG_grad_gaH(k,gqid,sid,1) + wgq1*SG_grad_gaH(k,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaH(k,gqid,sid+1,1) + wgq1*SG_grad_gaH(k,gqid+1,sid+1,1)))
+            out_grad_gaS_arr(k,m) = out_grad_gaS_arr(k,m) + wgf1*(ws0*(wgq0*SG_grad_gaS(k,gqid,sid,1) + wgq1*SG_grad_gaS(k,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaS(k,gqid,sid+1,1) + wgq1*SG_grad_gaS(k,gqid+1,sid+1,1)))
          enddo
       enddo
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,'(A,ES11.3,A)') "Get_Phi_gradPhi_grad_gaH_at_zeon takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon takes ",tt1-tt0," secs"
       endif
       call flush(stdout)
 #endif
-   end subroutine Get_Phi_gradPhi_grad_gaH_at_zeon
+   end subroutine Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon
 
    subroutine Get_gradPhi_at_zion(out_gradPhi_arr)
       use mpi_defs

@@ -2974,7 +2974,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    integer, intent(in) :: irk_e, nrk
    integer i,ip,m,ij,ierr
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),grad_gaH(3,me),wpi(5,me),Er_particle(me)
+   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),gaHS(me),grad_gaH(3,me),grad_gaS(3,me),wpi(5,me),Er_particle(me)
    real(wp) gaE(me),wgaE(3,me), gatE(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
@@ -2988,7 +2988,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    real(wp) prev_phi00(0:mpsi),phi00_convergency
    integer loop
 
-   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,grad_gaH,wpi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,gaHS,grad_gaH,grad_gaS,wpi,Er_particle,gaE,wgaE,gatE)
 
 
    ! if(ifneoclassical/=1 .or. Flag_w_Evol/=3) then
@@ -3070,7 +3070,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
    
    if(electromagnetic==2) then
-      call Get_Phi_gradPhi_grad_gaH_at_zeon(Phi_at_zeon, gradPhi, grad_gaH)
+      call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaHS, grad_gaH, grad_gaS)
    else
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
