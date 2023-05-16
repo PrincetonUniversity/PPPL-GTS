@@ -221,13 +221,13 @@ contains
             do qq=1,SG%dim_gq
 
                ! At zeta=zetamin
-               call Get_MP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamin, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
+               call Get_extMP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamin, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
                SG%dB_cntv3(1,qq,ss,0) = tmp_ga*SG%j0_cntv3(1,qq,ss) + (tmp_grad_ga(2)*SG%B0_cov3(3,qq,ss) - tmp_grad_ga(3)*SG%B0_cov3(2,qq,ss))/SG%Jacobian(qq,ss)
                SG%dB_cntv3(2,qq,ss,0) = tmp_ga*SG%j0_cntv3(2,qq,ss) + (tmp_grad_ga(3)*SG%B0_cov3(1,qq,ss) - tmp_grad_ga(1)*SG%B0_cov3(3,qq,ss))/SG%Jacobian(qq,ss)
                SG%dB_cntv3(3,qq,ss,0) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)
 
                ! At zeta=zetamax
-               call Get_MP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamax, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
+               call Get_extMP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamax, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
                SG%dB_cntv3(1,qq,ss,1) = tmp_ga*SG%j0_cntv3(1,qq,ss) + (tmp_grad_ga(2)*SG%B0_cov3(3,qq,ss) - tmp_grad_ga(3)*SG%B0_cov3(2,qq,ss))/SG%Jacobian(qq,ss)
                SG%dB_cntv3(2,qq,ss,1) = tmp_ga*SG%j0_cntv3(2,qq,ss) + (tmp_grad_ga(3)*SG%B0_cov3(1,qq,ss) - tmp_grad_ga(1)*SG%B0_cov3(3,qq,ss))/SG%Jacobian(qq,ss)
                SG%dB_cntv3(3,qq,ss,1) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)

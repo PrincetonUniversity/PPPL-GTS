@@ -130,7 +130,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
       wpi(3,m)=e3
 
       !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
 
    enddo
 
@@ -1276,11 +1276,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 #endif
    !$acc parallel loop present(zeon,gaE,wgaE,gatE)
    do m=1,me
-      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_extMP_alpha_amplitude", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -2548,7 +2548,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 #endif
    !$acc parallel loop present(zeon,gaE,wgaE,gatE)
    do m=1,me
-      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -3091,7 +3091,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 #endif
    !$acc parallel loop present(zeon,gaE,wgaE,gatE)
    do m=1,me
-      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -3641,7 +3641,7 @@ subroutine pusheon_RK4_ifdphi3(irk_e)
       ! (MGYOO: 05/01/2019)
       ! For RK4 method, the time here must be updated as well.
       !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
 
    enddo
 

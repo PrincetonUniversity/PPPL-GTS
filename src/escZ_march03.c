@@ -5377,7 +5377,7 @@ int esiget2dthese_more(REAL *Fj,  REAL *Faj, REAL *gFaj, REAL *gYaj, REAL *rj,
 	return(0);
 }
 
-void get_mp_alpha_amplitude_(REAL *in_a, REAL *in_theta, REAL *in_zeta, REAL *in_time, REAL *out_ga, REAL *out_grad_gaE, REAL *out_partial_dg0dt);
+void get_extmp_alpha_amplitude_(REAL *in_a, REAL *in_theta, REAL *in_zeta, REAL *in_time, REAL *out_ga, REAL *out_grad_gaE, REAL *out_partial_dg0dt);
 
 int esiget_Intp_B_vec_contravariant(REAL *in_a, REAL *in_gq, REAL *in_gf, REAL *in_time, REAL *out_B_cntv3)
 {
@@ -5553,7 +5553,7 @@ int esiget_Intp_B_vec_contravariant(REAL *in_a, REAL *in_gq, REAL *in_gf, REAL *
 
 
 	REAL gaE, grad_gaE[3], partial_dgaE0dt;
-	get_mp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &gaE, grad_gaE, &partial_dgaE0dt);
+	get_extmp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &gaE, grad_gaE, &partial_dgaE0dt);
 
 	dB_cntv[0] = gaE*j0_cntv[0] + (B_cov3[2]*grad_gaE[1] - B_cov3[1]*grad_gaE[2] )/Jacobian;
 	dB_cntv[1] = gaE*j0_cntv[1] + (B_cov3[0]*grad_gaE[2] - B_cov3[2]*grad_gaE[0] )/Jacobian;
@@ -5734,7 +5734,7 @@ int esiget_Intp_B_vec_cov_and_cntv(REAL *in_a, REAL *in_gq, REAL *in_gf, REAL *i
 
 
 	REAL gaE, grad_gaE[3], partial_dgaE0dt;
-	get_mp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &gaE, grad_gaE, &partial_dgaE0dt);
+	get_extmp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &gaE, grad_gaE, &partial_dgaE0dt);
 
 	dB_cntv[0] = gaE*j0_cntv[0] + (B_cov3[2]*grad_gaE[1] - B_cov3[1]*grad_gaE[2] )/Jacobian;
 	dB_cntv[1] = gaE*j0_cntv[1] + (B_cov3[0]*grad_gaE[2] - B_cov3[2]*grad_gaE[0] )/Jacobian;

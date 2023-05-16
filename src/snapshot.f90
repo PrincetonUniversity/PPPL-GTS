@@ -2403,7 +2403,7 @@ subroutine snapshot_Magnetic_Information
       if(electromagnetic>=1)then
          ! Get initial magnetic perturbation information
          do k=1,size(a_)
-            call Get_MP_alpha_amplitude(a_(k), gq_(k),modulo(zetamax,2.0*pi),0.0, ini_ga_(k), ini_grad_ga_cov3_(1:3,k), ini_dga0dt_(k))
+            call Get_extMP_alpha_amplitude(a_(k), gq_(k),modulo(zetamax,2.0*pi),0.0, ini_ga_(k), ini_grad_ga_cov3_(1:3,k), ini_dga0dt_(k))
          enddo
 
          ini_dB_cntv3_(1,:) = ini_ga_*j0_cntv3_(1,:) + (ini_grad_ga_cov3_(2,:)*B0_cov3_(3,:) - ini_grad_ga_cov3_(3,:)*B0_cov3_(2,:))/Jacobian_

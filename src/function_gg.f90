@@ -600,7 +600,7 @@ module function_gg_module
       end subroutine n_T_u_group_e
 
 
-      subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt) bind (C, name="get_mp_alpha_amplitude_")
+      subroutine Get_extMP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt) bind (C, name="get_extmp_alpha_amplitude_")
          !$acc routine seq
          use iso_c_binding, only : c_double
          use global_parameters
@@ -654,7 +654,7 @@ module function_gg_module
             endif
          endif
 
-      end subroutine Get_MP_alpha_amplitude
+      end subroutine Get_extMP_alpha_amplitude
 
 
       subroutine Convert_a_to_s(in_a, out_s)
@@ -1824,7 +1824,7 @@ end function temperature_e
 
 
 
-subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+subroutine Get_extMP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
 
    use iso_c_binding, only : c_double
    use global_parameters
@@ -1887,9 +1887,9 @@ subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_
 
       enddo
    endif
-end subroutine Get_MP_alpha_amplitude_arr_at_zion
+end subroutine Get_extMP_alpha_amplitude_arr_at_zion
 
-subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+subroutine Get_extMP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
 
    use iso_c_binding, only : c_double
    use global_parameters
@@ -1952,7 +1952,7 @@ subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_
 
       enddo
    endif
-end subroutine Get_MP_alpha_amplitude_arr_at_zeon
+end subroutine Get_extMP_alpha_amplitude_arr_at_zeon
 
 subroutine Generate_FLabel_piecewise_radial_base_function
 
