@@ -128,7 +128,7 @@ program GTS
 
    call Init_Magnetic_Grid
 
-   call Cal_FootPrint_of_MagneticFieldLine
+   if(electromagnetic>0 .and. num_of_EMP>0) call Cal_FootPrint_of_MagneticFieldLine
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    call Do_FieldLineFollowing_for_Poincare_Plot_parallelized
