@@ -1317,7 +1317,7 @@ module Diagnostic_Grid
             enddo
          enddo
 
-         !$acc update self (zion_s_on_GyroOrbit(:,:mi),zion_gq_on_GyroOrbit(:,:mi))
+         !$acc update self (ionLarmor_s(:,:mi),ionLarmor_gq(:,:mi))
          do m=1,mi
             if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
 
@@ -1328,9 +1328,9 @@ module Diagnostic_Grid
 
             do larmor=1,larmor_num
                P_a  = zion0(1,m)
-               P_gq = modulo(zion_gq_on_GyroOrbit(larmor,m),2*pi)
+               P_gq = modulo(ionLarmor_gq(larmor,m),2*pi)
                P_gf = modulo(zion0(3,m),2*pi)
-               P_s  = zion_s_on_GyroOrbit(larmor,m)
+               P_s  = ionLarmor_s(larmor,m)
 
                ! ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
                ori_sid = max(0,min(int((P_s-s0)*ori_inv_ds),mpsi-1)) ! To avoid segmentation fault

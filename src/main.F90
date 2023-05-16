@@ -420,7 +420,11 @@ program GTS
             time(2)=time(2)+dt
             timewc(2)=timewc(2)+dtwc
          else
-            call pushion_wEvol3(irk,nrk)
+            if(Flag_w_Evol==3) then
+               call pushion_wEvol3(irk,nrk)
+            elseif(Flag_w_Evol==4) then
+               call pushion_wEvol4(irk,nrk)
+            endif
             call timer(t0,dt,t0wc,dtwc)
             time(1)=time(1)+dt
             timewc(1)=timewc(1)+dtwc

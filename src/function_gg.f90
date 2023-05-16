@@ -702,6 +702,54 @@ module function_gg_module
          endif
       end subroutine Convert_a_arr_to_s_arr
 
+      subroutine Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, i_RK, N_RK)
+         use global_parameters, only: stdout
+         use precision
+         implicit none
+         real(wp),intent(inout) :: RK_adv_coeff, RK_cum_coeff
+         integer, intent(in) :: i_RK, N_RK         
+
+         ! Set RK_cum_coeff and RK_adv_coeff
+         if(N_RK==4) then
+            select case (i_RK)
+               case(1)
+                  RK_adv_coeff = 0.5
+                  RK_cum_coeff = (1.0/6.0)
+               case(2)
+                  RK_adv_coeff = 0.5
+                  RK_cum_coeff = (1.0/3.0)
+               case(3)
+                  RK_adv_coeff = 1.0
+                  RK_cum_coeff = (1.0/3.0)
+               case(4)
+                  RK_adv_coeff = 1.0
+                  RK_cum_coeff = (1.0/6.0)
+               case default
+                  write(stdout,'((A,I3,A,I3))') "Error in Determine_RK_coefficients!! i_RK=",i_RK,"!! i_RK must be between 1 and N_RK=",N_RK
+                  call flush(stdout)
+                  STOP
+            end select
+         elseif(N_RK==2) then
+            select case (i_RK)
+               case(1)
+                  RK_adv_coeff = 0.5
+                  RK_cum_coeff = 0.0
+               case(2)
+                  RK_adv_coeff = 1.0
+                  RK_cum_coeff = 1.0
+               case default
+                  write(stdout,'((A,I3,A,I3))') "Error in Determine_RK_coefficients!! i_RK=",i_RK,"!! i_RK must be between 1 and N_RK=",N_RK
+                  call flush(stdout)
+                  STOP
+            end select
+         else
+            write(stdout,'((A,I3))') "Error in Determine_RK_coefficients!! wrong N_RK=",N_RK
+            call flush(stdout)
+            STOP            
+         endif
+
+      end subroutine Determine_RK_coefficients 
+
 end module function_gg_module
 
 function metric_elements(pdum,tdum,zdum)

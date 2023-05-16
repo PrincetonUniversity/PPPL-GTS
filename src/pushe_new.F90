@@ -3068,66 +3068,6 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
    endif
 
-   ! m=1000
-   ! zeon(1,m) = SG%s_1D(20)
-   ! zeon(7,m) = SG%s_1D(20)
-   ! zeon(2,m) = SG%gq_1D(10)
-   ! zeon(3,m) = zetamin+1e-10
-   ! zeon0(1,m) = SG%s_1D(20)
-   ! zeon0(7,m) = SG%s_1D(20)
-   ! zeon0(2,m) = SG%gq_1D(10)
-   ! zeon0(3,m) = zetamin+1e-10
-   !  !$acc update device(zeon(:,m),zeon0(:,m))
-
-
-
-
-
-   ! call electron_locator
-
-   ! !$acc parallel loop present(zeon,zeon0)
-   ! do m=1,me
-   !    wz1=wzeon(m)
-   !    wz0=1.0_wp-wz1
-
-   !    ij=jteon0(m)
-   !    wp0=1.0_wp-wpeon(m)
-   !    wt00=1.0_wp-wteon0(m)
-   !    e1=wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-   !    e2=wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-   !    e3=wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-   !    ij=ij+1
-   !    wt10=1.0_wp-wt00
-   !    e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-   !    e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-   !    e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-   !    ij=jteon1(m)
-   !    wp1=1.0_wp-wp0
-   !    wt01=1.0_wp-wteon1(m)
-   !    e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-   !    e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-   !    e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-   !    ij=ij+1
-   !    wt11=1.0_wp-wt01
-   !    e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-   !    e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-   !    e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-   !    gradPhi(1,m)=e1
-   !    gradPhi(2,m)=e2
-   !    gradPhi(3,m)=e3
-   ! enddo
-
-
-
-
-
-   ! !$acc update self(gradPhi(:,:))
-   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "Ori gradPhi(1:3,1000)=",gradPhi(:,1000), gradPhi(:,2000)
-   ! call flush(stdout)
 
    call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
 
@@ -3140,21 +3080,6 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       enddo
    enddo
 
-   ! !$acc update self(gradPhi(:,:),Phi_at_zeon(:))
-   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "New gradPhi(1:3,1000)=",gradPhi(:,1000), gradPhi(:,2000)
-   ! call flush(stdout)
-   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "New Phi(1000,2000)=",Phi_at_zeon(1000), Phi_at_zeon(2000)
-   ! call flush(stdout)
-   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "zeon(1:3,1000), zeon(7,1000)", zeon(1:3,1000), zeon(7,1000)
-   ! call flush(stdout)
-   ! if(mype==0) write(stdout,'(2(A,ES12.5))') "SG%s_1D(20)=", SG%s_1D(20), "; SG%gq_1D(10)=",SG%gq_1D(10)
-   ! call flush(stdout)
-   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "SG%phi(10,20,0:2)=", ((charg0*1e8)/(E_00*c))*SG%phi(10,20,0:2)
-   ! call flush(stdout)
-   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "SG%grad_phi_cov(:,10,20,0)=", ((charg0*1e8)/(E_00*c))*SG%grad_phi_cov(:,10,20,0)
-   ! call flush(stdout)
-   ! if(mype==0) write(stdout,'((A,6(ES12.5,1x)))') "SG%grad_phi_cov(:,10,20,1)=", ((charg0*1e8)/(E_00*c))*SG%grad_phi_cov(:,10,20,1)
-   ! call flush(stdout)
 
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
@@ -3165,7 +3090,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude_arr_at_zeon", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon_wEvol4, Get_MP_alpha_amplitude_arr_at_zeon", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -3206,7 +3131,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    endif
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon_wEvol4, electron gcmotion takes", tt1-tt0, " secs"
    call flush(stdout)
 #endif
 
@@ -3239,52 +3164,6 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       if(irk_e==1) then
          ! Calculate Adiabatic term at irk_e=1 (so @(t_n,x_n) level)
          ! and save the value intto zeon0(8,m)
-         ! wz1=wzeon(m)
-         ! wz0=1.0_wp-wz1
-
-         ! ij=jteon0(m)
-         ! wp0=1.0_wp-wpeon(m)
-         ! wt00=1.0_wp-wteon0(m)
-         ! e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ! ij=ij+1
-         ! wt10=1.0_wp-wt00
-         ! e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ! ij=jteon1(m)
-         ! wp1=1.0_wp-wp0
-         ! wt01=1.0_wp-wteon1(m)
-         ! e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ! ij=ij+1
-         ! wt11=1.0_wp-wt01
-         ! e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-
-         ! if(mype==0 .and. m==1000) write(stdout,'((A,9ES13.5,A,3ES13.5))') "Ori phi(1000)=",e1, phi(:,jteon0(m)),phi(:,jteon0(m)+1),phi(:,jteon1(m)),phi(:,jteon1(m)+1), "zeon(1:3,1000)=",zeon(1:3,1000)
-         ! if(mype==0 .and. m==1000) write(stdout,'((A,ES13.5,A,3ES13.5))') "New phi(1000)=",Phi_at_zeon(1000),"; zeon(1:3,1000)=",zeon(1:3,1000)
-
-
-         ! ! calculate <phi> at electrons (no FLR effect -- x=R)
-         ! r=zeon(7,m)-s0       ! in radial coordinator s
-         ! r=r*inv_ds
-         ! ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-         ! fip=r-real(ip,wp)
-         ! Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-
-         ! if ( Flag_Def_dne_adiab==0 ) then
-         !    AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
-         ! elseif(Flag_Def_dne_adiab==1) then
-         !    ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-         !    AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
-         ! elseif(Flag_Def_dne_adiab==3) then
-         !    AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
-         ! else
-         !    AD=-1e100
-         !    write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
-         !    STOP
-         ! endif
-
-
 
          AD = Phi_at_zeon(m)*Te_inverse*abs(csc0)
 
@@ -3292,7 +3171,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
          ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
          ! zeon0(9,m) is f_0 (@ irk=1)
          zeon(9,m)  = zeon0(6,m)*back_f0_e(m)*AD
-         zeon0(9,m) = zeon0(8,m)+zeon(9,m)
+         zeon0(9,m) = zeon0(8,m)+zeon(9,m) ! #TODO : IMPORTANT! checky why this re-normalization is needed. 
 
 
          ! zeon0(9,m) = zeon0(6,m)*back_f0_e(m)

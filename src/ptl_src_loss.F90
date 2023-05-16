@@ -115,7 +115,7 @@ module Ptl_locators_partial
             acc_newer_H_zion=.false.
             acc_newer_D_zion=.false.
          endif
-         !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit) private(intpl_pgyro,intpl_tgyro)
+         !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,ionLarmor_s,ionLarmor_gq) private(intpl_pgyro,intpl_tgyro)
          do m=m0,m1
             !psitmp=zion(1,m)   ! =a
             psitmp=zion(7,m)   ! =s
@@ -176,7 +176,7 @@ module Ptl_locators_partial
             do larmor=1, larmor_num
                !  MODIFIED for FINITE GYRORADIUS CASE
                pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
-               zion_s_on_GyroOrbit(larmor,m)=psitmp+rhoi*intpl_pgyro(larmor)
+               ionLarmor_s(larmor,m)=psitmp+rhoi*intpl_pgyro(larmor)
                rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
                ii=max(0,min(mpsi-1,int(rdum)))
                !        wp1=rdum-real(ii)
@@ -186,7 +186,7 @@ module Ptl_locators_partial
 
                ! particle position in theta
                tflr=thetatmp+rhoi*intpl_tgyro(larmor)
-               zion_gq_on_GyroOrbit(larmor,m)=modulo(tflr,2.0*pi)
+               ionLarmor_gq(larmor,m)=modulo(tflr,2.0*pi)
 
                ! inner flux surface
                im=ii
@@ -207,6 +207,7 @@ module Ptl_locators_partial
          enddo
 
       end subroutine ion_locator_at_larmor_points_partial
+
 
 
 end module Ptl_locators_partial
