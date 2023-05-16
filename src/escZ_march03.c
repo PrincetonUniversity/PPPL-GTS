@@ -4732,6 +4732,9 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
 		REAL *gaE_array,
 		REAL *wgaE_array,
 		REAL *gatE_array,
+      REAL *gaHS_array,
+      REAL *wgaH_array,
+      REAL *wgaS_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
       int  *m_start,
@@ -4765,7 +4768,9 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
 	REAL y,Y,yy,YY;
 	REAL Xgr,Xa,Xgq,Xgm;
 	REAL gradPhi[3];
-	REAL gaE, gaEa, gaEq, gaEz;
+   REAL gaHS; // gaHS = gaH + gaS 
+   REAL grad_gaH[3], grad_gaS[3]; // gradient of gaH and gaS
+	REAL gaE, grad_gaE[3];
 
 	int myid;
 	double tt0,tt1;
@@ -4786,20 +4791,22 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
 
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,Er_particle) private(gradPhi)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaHS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
          Xgr = *(particle_array+k*(*zeondim)+3);  /* particle_array[k][3] */
          Xgm = *(particle_array+k*(*zeondim)+5);  /* particle_array[k][5] */
          Xgm = Xgm*Xgm;      /* mu = zion(6,k+1)**2 on Fortran side */
-         gradPhi[0] = *(wpi_array+3*k);      /* wpi[k][0] */
-         gradPhi[1] = *(wpi_array+3*k+1);    /* wpi[k][1] */
-         gradPhi[2] = *(wpi_array+3*k+2);    /* wpi[k][2] */
-         gaEa = *(wgaE_array + 3 * k);     /* wgaE[k][0] */
-         gaEq = *(wgaE_array + 3 * k + 1); /* wgaE[k][1] */
-         gaEz = *(wgaE_array + 3 * k + 2); /* wgaE[k][2] */
+         #pragma acc loop seq
+         for(int i=0;i<3;++i){
+            gradPhi[i] = *(wpi_array +3*k +i);
+            grad_gaE[i] = *(wgaE_array +3*k +i);    
+            grad_gaH[i] = *(wgaH_array +3*k +i);
+            grad_gaS[i] = *(wgaS_array +3*k +i);
+         }
          gaE = *(gaE_array + k);           /* gaE[k] */
+         gaHS = *(gaHS_array + k);
          a   =Xa;
          if(a < 1e-100){
             a =0.;
@@ -4960,11 +4967,29 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
          const REAL B0_cntv3[3]  = {0.0, -gYa/Jacobian, FI/(major_R*major_R)};
          const REAL j0_cntv3[3]   = {0.0, -dFda/Jacobian, P+T/(major_R*major_R)};
 
+         REAL gradPhi_dot_B0,para_gradPhi_cov3[3];
+
+         gradPhi_dot_B0=0.0;
+         #pragma acc loop seq
+         for(i=0;i<3;++i){
+            gradPhi_dot_B0 += B0_cntv3[i]*gradPhi[i]; 
+         }
+         #pragma acc loop seq
+         for(i=0;i<3;++i){
+            para_gradPhi_cov3[i] = gradPhi_dot_B0*B0_cov3[i]/(BB*BB); 
+         }
+
          const REAL B0star_cntv3[3] = {B0_cntv3[0]+Xgr*j0_cntv3[0], B0_cntv3[1]+Xgr*j0_cntv3[1], B0_cntv3[2]+Xgr*j0_cntv3[2]};
 
-         const REAL dB_cntv3[3]   = { gaE*j0_cntv3[0] + (gaEq*B0_cov3[2]-gaEz*B0_cov3[1])/Jacobian,
-            gaE*j0_cntv3[1] + (gaEz*B0_cov3[0]-gaEa*B0_cov3[2])/Jacobian,
-            gaE*j0_cntv3[2] + (gaEa*B0_cov3[1]-gaEq*B0_cov3[0])/Jacobian};
+         const REAL gaT = gaE+gaHS; // Total magnetic perturbation
+         const REAL grad_gaT[3] = { grad_gaE[0]+grad_gaH[0]+grad_gaS[0],
+                                    grad_gaE[1]+grad_gaH[1]+grad_gaS[1],
+                                    grad_gaE[2]+grad_gaH[2]+grad_gaS[2]};
+
+
+         const REAL dB_cntv3[3]   = {  gaT*j0_cntv3[0] + (grad_gaT[1]*B0_cov3[2]-grad_gaT[2]*B0_cov3[1])/Jacobian,
+                                       gaT*j0_cntv3[1] + (grad_gaT[2]*B0_cov3[0]-grad_gaT[0]*B0_cov3[2])/Jacobian,
+                                       gaT*j0_cntv3[2] + (grad_gaT[0]*B0_cov3[1]-grad_gaT[1]*B0_cov3[0])/Jacobian};
 
 
          const REAL totB_cntv3[3]  = {B0_cntv3[0]+dB_cntv3[0], B0_cntv3[1]+dB_cntv3[1], B0_cntv3[2]+dB_cntv3[2]};
@@ -4974,9 +4999,9 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
          const REAL g_gqgq = rq*rq+zq*zq;
          const REAL g_gfgf = major_R*major_R;
 
-         const REAL totB_cov3[3] = { g_aa*totB_cntv3[0]+g_agq*totB_cntv3[1],
-            g_agq*totB_cntv3[0]+g_gqgq*totB_cntv3[1],
-            g_gfgf*totB_cntv3[2]};
+         const REAL totB_cov3[3] = {   g_aa*totB_cntv3[0]+g_agq*totB_cntv3[1],
+                                       g_agq*totB_cntv3[0]+g_gqgq*totB_cntv3[1],
+                                       g_gfgf*totB_cntv3[2]};
 
 
          REAL Coeff = 0.0;
@@ -4986,9 +5011,9 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
          }
          Coeff = c0cs/Coeff;
 
-         REAL B0_cross_gradH0_cntv[3] = {(B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
-            (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian,
-            (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
+         REAL B0_cross_gradH0_cntv[3] = { (B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
+                                          (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian,
+                                          (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
          if((*Flag_noExB)==1){
             B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-csc0*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-csc0*gradPhi[1]))/Jacobian;
@@ -4997,17 +5022,20 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
          }
 
          // Calculate Full Velocity and acceleration of Guiding Center
-         dXgr[k] = 0.0;
-         #pragma acc loop seq
-         for(i=0;i<3;++i) {
-            dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
-         }
-         dXgr[k] = Coeff*dXgr[k] -gatE_array[k];
-
+         // Note that Full velocities has to be calculated before calculating dXgr (rho_para) term
          dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
          dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
          dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
 
+         dXgr[k] = 0.0;
+         #pragma acc loop seq
+         for(i=0;i<3;++i) {
+            dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]+ csc0*para_gradPhi_cov3[i]);
+         }
+         dXgr[k] = Coeff*dXgr[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+
+
+         // TODO : Check if the following turbulence terms are still valid in this electromagnetic==2 case.
 
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
