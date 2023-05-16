@@ -602,6 +602,7 @@ contains
       use function_gg_module
       use mpi_defs
       use esi_interface,only:BB
+      use Ptl_locators_partial,only:Cal_ionLarmor_s_gq_gf_using_SG
 
       implicit none
 
@@ -616,7 +617,6 @@ contains
       real(wp), allocatable, dimension(:,:,:,:) :: iData, tmp_iData
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_iD ! num_of iData (First dimension)
-      real(wp) :: intpl_gyro(3,larmor_num)
       real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
 
       !$acc declare create(ptl_data)
@@ -703,44 +703,21 @@ contains
          enddo
       endif
 
-      !$acc parallel loop gang vector present(zion,zion0,ionLarmor_s,ionLarmor_gq,gyro_over_sqrt_mu,ptl_data,ilabels) private(intpl_gyro,ratio,qq,ss)
+      call Cal_ionLarmor_s_gq_gf_using_SG
+
+      !$acc parallel loop gang vector present(zion,zion0,ionLarmor_s,ionLarmor_gq,ptl_data,ilabels) private(ratio,qq,ss)
       do m=1,mi
 
-         ! Measure the intpl_gyro at the Guiding Center position
-         P_s = zion(7,m)
-         P_gq = modulo(zion(2,m),2*pi)
-         P_gf = modulo(zion(3,m),2*pi)
-
-         sid = max(1,min(int((P_s-s0)*SG%inv_ds) +1,SG%dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-         ws1 = (P_s-SG%s_1D(sid))*SG%inv_ds
-         ws0 = (1.0-ws1)
-         gqid = P_gq*SG%inv_dgq+1
-         wgq1 = (P_gq-SG%gq_1D(gqid))*SG%inv_dgq
-         wgq0 = 1.0-wgq1
          !$acc loop seq
          do larmor=1,larmor_num
-            intpl_gyro(:,larmor) = ws0*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid)) &
-                                  +ws1*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid+1) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid+1))
-         enddo
-
-
-         ! Using the intpl_gyro, calculate Larmor orbit positions and project them to the nearby poloidal planes
-         !$acc loop seq
-         do larmor=1,larmor_num
-
-            ionLarmor_s(larmor,m) = zion(7,m) + zion(6,m)*intpl_gyro(1,larmor)
-            ionLarmor_gq(larmor,m) =  modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
-
             if( (ionLarmor_s(larmor,m)-s0)*(ionLarmor_s(larmor,m)-s1)>0) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
 
             P_s = max(s0,min(s1,ionLarmor_s(larmor,m)))
-            P_gq = ionLarmor_gq(larmor,m)
-            P_gf = modulo(zion(3,m) + zion(6,m)*intpl_gyro(3,larmor), 2.0*pi)
-            ! P_gf = modulo(zion(3,m),2.0*pi) + zion(6,m)*intpl_gyro(3,larmor)
-            P_gf = max(zetamin,min(zetamax,P_gf))
+            P_gq = modulo(ionLarmor_gq(larmor,m), 2.0*pi)
+            P_gf = max(zetamin,min(zetamax,ionLarmor_gf(larmor,m)))
 
             wgf1 = abs(P_gf-SG%zetamin)*SG%inv_dgf
             wgf0 = (1.0-wgf1)
@@ -1513,20 +1490,9 @@ contains
          wgf1 = abs(modulo(P_gf,2.0*pi)-SG_zetamin)*SG_inv_dgf
          wgf0 = (1.0-wgf1)
 
-      ! if(wgf0<0 .or. wgf1<0) then
-         ! write(stdout,'((A,2ES12.5,3(A,ES12.5)))') "Err! (wgf0,wgf1)=",wgf0,wgf1, "; P_s=",P_s,"; SG_zetamin=",SG_zetamin,"; SG_inv_dgf=",SG_inv_dgf
-         ! call flush(stdout)
-      ! endif
-
          sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
          ws0 = (1.0-ws1)
-
-
-      ! if(ws1<0 .or. ws0<0) then
-      !    write(stdout,*) "Err! (ws0,ws1)=",ws0,ws1,"; P_s=",P_s, "; sid=",sid,"; SG_s_1D(sid)=",SG_s_1D(sid), "; SG_inv_ds=",SG_inv_ds
-      !    call flush(stdout)
-      ! endif
 
          inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
 
@@ -1536,10 +1502,6 @@ contains
          gqid  = target_gq*SG_inv_dgq+1
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
-      if(wgq0<0 .or. wgq1<0) then
-         write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
-         ! call flush(stdout)
-      endif
 
          out_Phi_arr(m) = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,0)) + ws1*(wgq0*SG_phi(gqid,sid+1,0) + wgq1*SG_phi(gqid+1,sid+1,0)))
          do k=1,3
@@ -1551,10 +1513,6 @@ contains
          gqid  = target_gq*SG_inv_dgq+1
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
-      if(wgq0<0 .or. wgq1<0) then
-         write(stdout,*) "Err! (wgq0,wgq1)=",wgq0,wgq1
-         ! call flush(stdout)
-      endif
 
          out_Phi_arr(m) = out_Phi_arr(m) + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
 
@@ -1586,53 +1544,24 @@ contains
       real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1)
       integer m,sid,gqid,larmor,k
       real(wp) P_s,P_gq,P_gf
-      real(wp) :: intpl_gyro(3,larmor_num)
       real(wp) tt0,tt1
 
 
       SG_gradPhi = SG%grad_phi_cov
 
 
-
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
 
-      !$acc parallel loop gang vector present(zion,out_gradPhi_arr,gyro_over_sqrt_mu) private(intpl_gyro)
+      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,out_gradPhi_arr)
       do m=1,mi
-         ! Following 3 lines are the Guiding Center position
-         P_s  = max(s0,min(s1, zion(7,m)))
-         P_gq = modulo(zion(2,m),2.0*pi)
-         P_gf = zion(3,m)
-         P_gf = max(zetamin,min(zetamax,P_gf))
-
-
-         wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
-         wgf0 = (1.0-wgf1)
-
-         sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
-         ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
-         ws0 = (1.0-ws1)
-         gqid = P_gq*SG_inv_dgq+1
-         wgq1 = (P_gq-SG_gq_1D(gqid))*SG_inv_dgq
-         wgq0 = 1.0-wgq1
-         !$acc loop seq
-         do larmor=1,larmor_num
-            intpl_gyro(:,larmor) = ws0*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid)) &
-                                  +ws1*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid+1) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid+1))
-         enddo
-
          out_gradPhi_arr(:,m)=0.0
-         ! Using the intpl_gyro, calculate Larmor orbit positions and project them to the nearby poloidal planes
          !$acc loop seq
          do larmor=1,larmor_num
-            ! intpl_gyro(:) = ws0*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid)) &
-            !                +ws1*(wgq0*gyro_over_sqrt_mu(:,larmor,gqid,sid+1) + wgq1*gyro_over_sqrt_mu(:,larmor,gqid+1,sid+1))
-
-            P_s  = max(s0,min(s1, zion(7,m)+zion(6,m)*intpl_gyro(1,larmor)))
-            P_gq = modulo(zion(2,m) + zion(6,m)*intpl_gyro(2,larmor), 2.0*pi)
-            P_gf = zion(3,m) + zion(6,m)*intpl_gyro(3,larmor)
-            P_gf = max(zetamin,min(zetamax,P_gf))
+            P_s  = max(s0,min(s1, ionLarmor_s(larmor,m)))
+            P_gq = modulo(ionLarmor_gq(larmor,m), 2.0*pi)
+            P_gf = max(zetamin,min(zetamax,ionLarmor_gf(larmor,m)))
 
             wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
             wgf0 = (1.0-wgf1)
@@ -1650,8 +1579,6 @@ contains
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf0*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,0) + wgq1*SG_gradPhi(:,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,0) + wgq1*SG_gradPhi(:,gqid+1,sid+1,0)))
-
-
 
             ! Add contributions from phi at zetamax to the particle
             target_gf = SG_zetamax

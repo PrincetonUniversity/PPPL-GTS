@@ -2108,7 +2108,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
       enddo
    endif
 
-
+   call Cal_ionLarmor_s_gq_gf_using_SG
    call Get_gradPhi_at_zion(gradPhi)
 
    !$acc parallel loop present(gradPhi)
@@ -2234,8 +2234,8 @@ subroutine pushion_wEvol4(irk_i,nrk)
 
    if(irk_i==nrk)then
       if(Flag_Measure_Ptl_FootPrint==1) then
-      !$acc update self(wpi(:,:mi))
-      call Measure_and_Cumulate_Ion_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
+         !$acc update self(wpi(:,:mi))
+         call Measure_and_Cumulate_Ion_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
       endif
       call treat_ions_out_of_boundary
       call Cumulate_i_lost_num
