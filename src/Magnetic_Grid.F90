@@ -805,7 +805,7 @@ contains
       implicit none
 
       real(wp) a,gq,gf
-      real(wp) ga,grad_ga_cov(3),gat
+      real(wp) gaE,grad_ga_cov(3),gatE
       integer aa,qq,ff
 
 
@@ -816,10 +816,10 @@ contains
             do qq=1,dim_gq
                gq=gq_1D(qq)
 
-               call Get_MP_alpha_amplitude(a,gq,gf,0.0,ga,grad_ga_cov,gat)
-               dB_cntv(1,qq,aa,ff) = ga*j0_cntv(1,qq,aa,ff) + (grad_ga_cov(2)*B0_cov(3,qq,aa,ff)-grad_ga_cov(3)*B0_cov(2,qq,aa,ff))/Jacobian_3D(qq,aa,ff)
-               dB_cntv(2,qq,aa,ff) = ga*j0_cntv(2,qq,aa,ff) + (grad_ga_cov(3)*B0_cov(1,qq,aa,ff)-grad_ga_cov(1)*B0_cov(3,qq,aa,ff))/Jacobian_3D(qq,aa,ff)
-               dB_cntv(3,qq,aa,ff) = ga*j0_cntv(3,qq,aa,ff) + (grad_ga_cov(1)*B0_cov(2,qq,aa,ff)-grad_ga_cov(2)*B0_cov(1,qq,aa,ff))/Jacobian_3D(qq,aa,ff)
+               call Get_MP_alpha_amplitude(a,gq,gf,0.0,gaE,grad_ga_cov,gatE)
+               dB_cntv(1,qq,aa,ff) = gaE*j0_cntv(1,qq,aa,ff) + (grad_ga_cov(2)*B0_cov(3,qq,aa,ff)-grad_ga_cov(3)*B0_cov(2,qq,aa,ff))/Jacobian_3D(qq,aa,ff)
+               dB_cntv(2,qq,aa,ff) = gaE*j0_cntv(2,qq,aa,ff) + (grad_ga_cov(3)*B0_cov(1,qq,aa,ff)-grad_ga_cov(1)*B0_cov(3,qq,aa,ff))/Jacobian_3D(qq,aa,ff)
+               dB_cntv(3,qq,aa,ff) = gaE*j0_cntv(3,qq,aa,ff) + (grad_ga_cov(1)*B0_cov(2,qq,aa,ff)-grad_ga_cov(2)*B0_cov(1,qq,aa,ff))/Jacobian_3D(qq,aa,ff)
             enddo
          enddo
       enddo

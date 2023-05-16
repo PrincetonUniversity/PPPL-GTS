@@ -2083,7 +2083,7 @@ int gcmotion_em(REAL *dXgr,
 	REAL y,Y,yy,YY;
 	REAL D,Dhh;
 	REAL bgr, Xgr,Xa,Xgq,Xgm,wpi1,wpi2,wpi3;
-	REAL ga, gaa, gaq, gaz, dXgf1;
+	REAL gaE, gaEa, gaEq, gaEz, dXgf1;
 	REAL rD,Gatheta,DD;
 
 	int myid;
@@ -2104,7 +2104,7 @@ int gcmotion_em(REAL *dXgr,
 	/*                    Pa[k]=r (i.e., major radius R), added Aug. 2011     */
 	/*                    T[k]=1/|grad(theta)|            added Aug. 2012     */
 	/*                    T[k]=poloidal velocity          changed Oct. 2012   */
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,rD,Gatheta,DD,dXgf1)
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,gaE,gaEa,gaEq,gaEz,rD,Gatheta,DD,dXgf1)
 	for(k=0; k < n; k++){
 		Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
 		Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
@@ -2114,11 +2114,11 @@ int gcmotion_em(REAL *dXgr,
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
 		wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
-		gaa = *(wga_array + 3 * k);     /* wga[k][0] */
-		gaq = *(wga_array + 3 * k + 1); /* wga[k][1] */
-		gaz = *(wga_array + 3 * k + 2); /* wga[k][2] */
-		ga = *(ga_array + k);           /* ga[k] */
-		bgr = Xgr + ga;    /* rhohat = rho + alpha */
+		gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
+		gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
+		gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
+		gaE = *(ga_array + k);           /* gaE[k] */
+		bgr = Xgr + gaE;    /* rhohat = rho + alpha */
 		a	=Xa;
 		if(a < 1e-100){
 			a	=0.;
@@ -2327,28 +2327,28 @@ int gcmotion_em(REAL *dXgr,
 		/*    BBa  =BBa+Er_particle[k];  */
 		BBq	*=-r;
 		/*  add EXB drift and magnetic perturbations */
-		BBa	 += *nonlinear*wpi1 - BB * gaa;         /* =dH/da      */
+		BBa	 += *nonlinear*wpi1 - BB * gaEa;         /* =dH/da      */
 		BBa   =BBa+Er_particle[k];          /* =dH/da, adding E_r0XB drift */
-		BBq	 +=-*nonlinear*wpi2 + BB * gaq;         /* =-dH/dtheta */
-		Bf	 =-*nonlinear*wpi3 + BB * gaz;             /* =-dH/dphi   */
+		BBq	 +=-*nonlinear*wpi2 + BB * gaEq;         /* =-dH/dtheta */
+		Bf	 =-*nonlinear*wpi3 + BB * gaEz;             /* =-dH/dphi   */
 		dXgr[k]	=a22*BBq-a12*Bf;            /* = ddt(rhohat) */
 		dXgf[k]	=-a12*BB+a11*BBa+D*BBq;
 		dXa[k]	=-a21*BBq+a11*Bf;
 		dXgq[k]	=a22*BB-a21*BBa-D*Bf;
 
-		dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
+		dXgr[k] -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
 
 		ghq[k]	=-a21*(-wpi2)+a11*(-wpi3);     /* da/dt|_EXB, no e and m dependence */
 		Ta[k]       =-a21*wpi1-D*(-wpi3);          /* dtheta/dt|_EXB, no e and m dependence */
 		P[k]        =a22*(-wpi2)-a12*(-wpi3);      /* drho/dt|_EXB, no e and m dependence */
 		T[k]        =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
 		dXgf1  = a11 * wpi1 + D * (-wpi2);
-		//P[k]      -= gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1; // C.H.Ma's initial modification
+		//P[k]      -= gaEa * ghq[k] + gaEq * Ta[k] + gaEz * dXgf1; // C.H.Ma's initial modification
 
 		//================================================================================
-		// MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(ga))
+		// MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(gaE)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(gaE))
 		// This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.
-		P[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+		P[k]   -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
 		//==============================================================================
 
 
@@ -2416,7 +2416,7 @@ int gcmotion_em_MGY(REAL *dXgr,
 	REAL y,Y,yy,YY;
 	REAL D,Dhh;
 	REAL bgr, Xgr,Xa,Xgq,Xgm,wpi1,wpi2,wpi3;
-	REAL ga, gaa, gaq, gaz, dXgf1;
+	REAL gaE, gaEa, gaEq, gaEz, dXgf1;
 	REAL rD,Gatheta,DD;
 
 	int myid;
@@ -2437,7 +2437,7 @@ int gcmotion_em_MGY(REAL *dXgr,
 	/*                    Pa[k]=r (i.e., major radius R), added Aug. 2011     */
 	/*                    T[k]=1/|grad(theta)|            added Aug. 2012     */
 	/*                    T[k]=poloidal velocity          changed Oct. 2012   */
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,rD,Gatheta,DD,dXgf1)
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,gaE,gaEa,gaEq,gaEz,rD,Gatheta,DD,dXgf1)
 	for(k=0; k < n; k++){
 		Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
 		Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
@@ -2447,11 +2447,11 @@ int gcmotion_em_MGY(REAL *dXgr,
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
 		wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
-		gaa = *(wga_array + 3 * k);     /* wga[k][0] */
-		gaq = *(wga_array + 3 * k + 1); /* wga[k][1] */
-		gaz = *(wga_array + 3 * k + 2); /* wga[k][2] */
-		ga = *(ga_array + k);           /* ga[k] */
-		bgr = Xgr + ga;    /* rhohat = rho + alpha */
+		gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
+		gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
+		gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
+		gaE = *(ga_array + k);           /* gaE[k] */
+		bgr = Xgr + gaE;    /* rhohat = rho + alpha */
 		a	=Xa;
 		if(a < 1e-100){
 			a	=0.;
@@ -2655,10 +2655,10 @@ int gcmotion_em_MGY(REAL *dXgr,
 
 		//============================================
 		// MGYOO(01/17/2019)
-		// Calculate MP term (ga*j0) in a12 and a22 coefficients, which should be considered as the perturbed motions due to MP
+		// Calculate MP term (gaE*j0) in a12 and a22 coefficients, which should be considered as the perturbed motions due to MP
 		// Please note that these terms were missed in previous versions.
-		a12_MPterm = r*major_R*(za*rq-zq*ra)*(PP+TT/(major_R*major_R))*ga; // (1/(-J*(B0^2+...))* Jacob * (jgf_cntv) * ga  :This is a "-1*ga*jgf_cntv" term.
-		a22_MPterm = r*dFda*ga;  // 1/(-J*(B0^2+...))*(Jacob*(-jgq_cntv))*ga   :This is a "ga*jgq_cntv" term.
+		a12_MPterm = r*major_R*(za*rq-zq*ra)*(PP+TT/(major_R*major_R))*gaE; // (1/(-J*(B0^2+...))* Jacob * (jgf_cntv) * gaE  :This is a "-1*gaE*jgf_cntv" term.
+		a22_MPterm = r*dFda*gaE;  // 1/(-J*(B0^2+...))*(Jacob*(-jgq_cntv))*gaE   :This is a "gaE*jgq_cntv" term.
 		// ============================================
 
 		/*    qq	=-gFa/gYa;   */
@@ -2678,10 +2678,10 @@ int gcmotion_em_MGY(REAL *dXgr,
 		BBq	*=r;
 		dHdgq = BBq;
 		/*  add EXB drift and magnetic perturbations */
-		dHda	 += *nonlinear*wpi1 - dHdgr * gaa;         /* =dH/da      */
+		dHda	 += *nonlinear*wpi1 - dHdgr * gaEa;         /* =dH/da      */
 		dHda   += Er_particle[k];          /* =dH/da, adding E_r0XB drift */
-		dHdgq	 += *nonlinear*wpi2 - dHdgr * gaq;         /* =dH/dtheta */
-		dHdgf	 = *nonlinear*wpi3 - dHdgr * gaz;             /* =dH/dphi   */
+		dHdgq	 += *nonlinear*wpi2 - dHdgr * gaEq;         /* =dH/dtheta */
+		dHdgf	 = *nonlinear*wpi3 - dHdgr * gaEz;             /* =dH/dphi   */
 
 
 		dXgr[k]	=a22*(-dHdgq)-a12*(-dHdgf);            /* = ddt(rhohat) */
@@ -2690,24 +2690,24 @@ int gcmotion_em_MGY(REAL *dXgr,
 		dXgf[k]	=-a12*dHdgr+a11*dHda+D*(-dHdgq);
 
 		// transfromation from rho_hat to rho
-		dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
+		dXgr[k] -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
 
 
 		if((*Flag_Streaming)==1){
          // including the streaming term and perturbed mirror force
-         P[k]      = a22*(-(wpi2-dHdgr*gaq)) +a22_MPterm*(-BBq) -a12*(-(wpi3-dHdgr*gaz));      /* drho/dt|_EXB, no e and m dependence */
-         ghq[k]    =-a21*(-(wpi2-dHdgr*gaq)) +a11*(-(wpi3-dHdgr*gaz));     /* da/dt|_EXB, no e and m dependence */
-         Ta[k]     = a22_MPterm*dHdgr -a21*(wpi1-dHdgr*gaa) -D*(-(wpi3-dHdgr*gaz));          /* dtheta/dt|_EXB, no e and m dependence */
-         dvi_gf[k] =-a12_MPterm*dHdgr +a11*(wpi1-dHdgr*gaa) +D*(-(wpi2-dHdgr*gaq));
+         P[k]      = a22*(-(wpi2-dHdgr*gaEq)) +a22_MPterm*(-BBq) -a12*(-(wpi3-dHdgr*gaEz));      /* drho/dt|_EXB, no e and m dependence */
+         ghq[k]    =-a21*(-(wpi2-dHdgr*gaEq)) +a11*(-(wpi3-dHdgr*gaEz));     /* da/dt|_EXB, no e and m dependence */
+         Ta[k]     = a22_MPterm*dHdgr -a21*(wpi1-dHdgr*gaEa) -D*(-(wpi3-dHdgr*gaEz));          /* dtheta/dt|_EXB, no e and m dependence */
+         dvi_gf[k] =-a12_MPterm*dHdgr +a11*(wpi1-dHdgr*gaEa) +D*(-(wpi2-dHdgr*gaEq));
          T[k]      =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/Pa[k];      /*  poloidal velocity in general geometry -- see note */
-         vpara_dvi_a[k]  = dHdgr*(-a21*gaq +a11*gaz );
-         vpara_dvi_gq[k] = dHdgr*(a22_MPterm +a21*gaa -D*gaz);
-         vpara_dvi_gf[k] = dHdgr*(-a12_MPterm -a11*gaa +D*gaq) ;
+         vpara_dvi_a[k]  = dHdgr*(-a21*gaEq +a11*gaEz );
+         vpara_dvi_gq[k] = dHdgr*(a22_MPterm +a21*gaEa -D*gaEz);
+         vpara_dvi_gf[k] = dHdgr*(-a12_MPterm -a11*gaEa +D*gaEq) ;
 
          //MGYOO(08/23/2019):
          // In the case of Flag_Streaming=1 (yes streaming, yes perturbed mirror force)
-         // rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga))
-         P[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+         // rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(gaE))
+         P[k]   -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
       }
       else{
          // (no streaming ,no perturbed mirror force, only ExB and electric force along perturbed field line)
@@ -2722,8 +2722,8 @@ int gcmotion_em_MGY(REAL *dXgr,
 
          //MGYOO(08/23/2019):
          // In the case of Flag_Streaming=0 (no streaming ,no perturbed mirror force)
-         // rho_dot_1 transform must only use the perturbed velocity term due to ExB (v_EXB*grad(ga))
-         P[k]   -= gaa*ghq[k] + gaq*Ta[k] + gaz*dvi_gf[k];
+         // rho_dot_1 transform must only use the perturbed velocity term due to ExB (v_EXB*grad(gaE))
+         P[k]   -= gaEa*ghq[k] + gaEq*Ta[k] + gaEz*dvi_gf[k];
       }
 
 
@@ -2793,7 +2793,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 
 	REAL Xgr,Xa,Xgq,Xgm;
 	REAL gradPhi[3];
-	REAL ga, gaa, gaq, gaz;
+	REAL gaE, gaEa, gaEq, gaEz;
 
 	int myid;
 	double tt0,tt1;
@@ -2809,7 +2809,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 	/*                    Ta[k]=dtheta/dt|_EXB          */
 	/*                    P[k]=drho/dt|_EXB            */
 	/*                    gha[k]=1/|grad a|             */
-// #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,ga,gaa,gaq,gaz)
+// #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,TT,PP, f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,gaE,gaEa,gaEq,gaEz)
    #pragma acc data copyin(gq[:Np1],sa[:Na1],aF[:Na1],daF[:Na1],dgF[:Na1],d2gF[:Na1],dgY[:Na1],d2gY[:Na1],aT[:Na1],daT[:Na1],aP[:Na1],daP[:Na1],\
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
    {
@@ -2823,10 +2823,10 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
          gradPhi[0] = *(wpi_array+3*k);      /* wpi[k][0] */
          gradPhi[1] = *(wpi_array+3*k+1);    /* wpi[k][1] */
          gradPhi[2] = *(wpi_array+3*k+2);    /* wpi[k][2] */
-         gaa = *(wga_array + 3 * k);     /* wga[k][0] */
-         gaq = *(wga_array + 3 * k + 1); /* wga[k][1] */
-         gaz = *(wga_array + 3 * k + 2); /* wga[k][2] */
-         ga = *(ga_array + k);           /* ga[k] */
+         gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
+         gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
+         gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
+         gaE = *(ga_array + k);           /* gaE[k] */
          a   =Xa;
          if(a < 1e-100){
             a =0.;
@@ -2985,9 +2985,9 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 
          const REAL B0star_cntv3[3] = {B0_cntv3[0]+Xgr*j0_cntv3[0], B0_cntv3[1]+Xgr*j0_cntv3[1], B0_cntv3[2]+Xgr*j0_cntv3[2]};
 
-         const REAL dB_cntv3[3]   = { ga*j0_cntv3[0] + (gaq*B0_cov3[2]-gaz*B0_cov3[1])/Jacobian,
-            ga*j0_cntv3[1] + (gaz*B0_cov3[0]-gaa*B0_cov3[2])/Jacobian,
-            ga*j0_cntv3[2] + (gaa*B0_cov3[1]-gaq*B0_cov3[0])/Jacobian};
+         const REAL dB_cntv3[3]   = { gaE*j0_cntv3[0] + (gaEq*B0_cov3[2]-gaEz*B0_cov3[1])/Jacobian,
+            gaE*j0_cntv3[1] + (gaEz*B0_cov3[0]-gaEa*B0_cov3[2])/Jacobian,
+            gaE*j0_cntv3[2] + (gaEa*B0_cov3[1]-gaEq*B0_cov3[0])/Jacobian};
 
 
          const REAL totB_cntv3[3]  = {B0_cntv3[0]+dB_cntv3[0], B0_cntv3[1]+dB_cntv3[1], B0_cntv3[2]+dB_cntv3[2]};
@@ -3746,7 +3746,7 @@ int gcmotion_eon_em(REAL *dXgr,
 	REAL y,Y,yy,YY;
 	REAL D,Dhh;
 	REAL bgr, Xgr,Xa,Xgq,Xgm,wpi1,wpi2,wpi3;
-	REAL ga, gaa, gaq, gaz, dXgf1;
+	REAL gaE, gaEa, gaEq, gaEz, dXgf1;
 
 	int myid;
 	double tt0,tt1;
@@ -3762,7 +3762,7 @@ int gcmotion_eon_em(REAL *dXgr,
 	/*                    Ta[k]=dtheta/dt|_EXB          */
 	/*                    Pa[k]=drho/dt|_EXB            */
 	/*                    gha[k]=1/|grad a|             */
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,dXgf1)
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,gaE,gaEa,gaEq,gaEz,dXgf1)
 	for(k=0; k < n; k++){
 		Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
 		Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
@@ -3772,11 +3772,11 @@ int gcmotion_eon_em(REAL *dXgr,
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
 		wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
-		gaa = *(wga_array + 3 * k);     /* wga[k][0] */
-		gaq = *(wga_array + 3 * k + 1); /* wga[k][1] */
-		gaz = *(wga_array + 3 * k + 2); /* wga[k][2] */
-		ga = *(ga_array + k);           /* ga[k] */
-		bgr = Xgr + ga;    /* rhohat = rho + alpha */
+		gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
+		gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
+		gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
+		gaE = *(ga_array + k);           /* gaE[k] */
+		bgr = Xgr + gaE;    /* rhohat = rho + alpha */
 		a   =Xa;
 		if(a < 1e-100){
 			a =0.;
@@ -3971,10 +3971,10 @@ int gcmotion_eon_em(REAL *dXgr,
 		/*    BBa  =BBa+Er_particle[k];  */
 		BBq *=-r;
 		/*  add EXB drift and magnetic perturbations */
-		BBa  += *nonlinear*wpi1*csc0 - BB * gaa;         /* =dH/da      */
+		BBa  += *nonlinear*wpi1*csc0 - BB * gaEa;         /* =dH/da      */
 		BBa  =BBa+Er_particle[k]*csc0;           /* =dH/da, adding E_r0XB drift */
-		BBq  +=-*nonlinear*wpi2*csc0 + BB * gaq;         /* =-dH/dtheta */
-		Bf   =-*nonlinear*wpi3*csc0 + BB * gaz;             /* =-dH/dphi   */
+		BBq  +=-*nonlinear*wpi2*csc0 + BB * gaEq;         /* =-dH/dtheta */
+		Bf   =-*nonlinear*wpi3*csc0 + BB * gaEz;             /* =-dH/dphi   */
 		dXgr[k]     =a22*BBq-a12*Bf;
 		dXgf[k]     =-a12*BB+a11*BBa+D*BBq;
 		dXa[k]      =-a21*BBq+a11*Bf;
@@ -3983,7 +3983,7 @@ int gcmotion_eon_em(REAL *dXgr,
 		Ta[k]       =-a21*wpi1-D*(-wpi3);          /* dtheta/dt|_EXB, no e and m dependence */
 		Pa[k]       =a22*(-wpi2)-a12*(-wpi3);      /* drho/dt|_EXB, no e and m dependence */
 		dXgf1       =a11 * wpi1 + D * (-wpi2);
-		//Pa[k]      -= gaa * ghq[k] + gaq * Ta[k] + gaz * dXgf1; //C.H.Ma's initial modification
+		//Pa[k]      -= gaEa * ghq[k] + gaEq * Ta[k] + gaEz * dXgf1; //C.H.Ma's initial modification
 
 
 
@@ -3992,11 +3992,11 @@ int gcmotion_eon_em(REAL *dXgr,
 		dXa[k]     *=c0cs;
 		dXgq[k]    *=c0cs;
 
-		dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
+		dXgr[k] -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
 		//================================================================================
-		// MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(ga))
+		// MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(gaE)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(gaE))
 		// This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.
-		Pa[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+		Pa[k]   -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
 		//================================================================================
 
 
@@ -4063,7 +4063,7 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 	REAL y,Y,yy,YY;
 	REAL D,Dhh;
 	REAL bgr, Xgr,Xa,Xgq,Xgm,wpi1,wpi2,wpi3;
-	REAL ga, gaa, gaq, gaz, dXgf1;
+	REAL gaE, gaEa, gaEq, gaEz, dXgf1;
 
 	int myid;
 	double tt0,tt1;
@@ -4079,7 +4079,7 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 	/*                    Ta[k]=dtheta/dt|_EXB          */
 	/*                    Pa[k]=drho/dt|_EXB            */
 	/*                    gha[k]=1/|grad a|             */
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,ga,gaa,gaq,gaz,dXgf1)
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,bgr,Xgm,wpi1,wpi2,wpi3,gaE,gaEa,gaEq,gaEz,dXgf1)
 	for(k=0; k < n; k++){
 		Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
 		Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
@@ -4089,11 +4089,11 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
 		wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
-		gaa = *(wga_array + 3 * k);     /* wga[k][0] */
-		gaq = *(wga_array + 3 * k + 1); /* wga[k][1] */
-		gaz = *(wga_array + 3 * k + 2); /* wga[k][2] */
-		ga = *(ga_array + k);           /* ga[k] */
-		bgr = Xgr + ga;    /* rhohat = rho + alpha */
+		gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
+		gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
+		gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
+		gaE = *(ga_array + k);           /* gaE[k] */
+		bgr = Xgr + gaE;    /* rhohat = rho + alpha */
 		a   =Xa;
 		if(a < 1e-100){
 			a =0.;
@@ -4280,10 +4280,10 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 
 		//============================================
 		// MGYOO(01/17/2019)
-		// Calculate MP term (ga*j0) in a12 and a22 coefficients, which should be considered as the perturbed motions due to MP
+		// Calculate MP term (gaE*j0) in a12 and a22 coefficients, which should be considered as the perturbed motions due to MP
 		// Please note that these terms were missed in previous versions.
-		a12_MPterm = r*major_R*(za*rq-zq*ra)*(P+T/(major_R*major_R))*ga; // (1/(-J*(B0^2+...))* Jacob * (jgf_cntv) * ga  :This is a "-1*ga*jgf_cntv" term.
-		a22_MPterm = r*dFda*ga;  // 1/(-J*(B0^2+...))*(Jacob*(-jgq_cntv))*ga   :This is a "ga*jgq_cntv" term.
+		a12_MPterm = r*major_R*(za*rq-zq*ra)*(P+T/(major_R*major_R))*gaE; // (1/(-J*(B0^2+...))* Jacob * (jgf_cntv) * gaE  :This is a "-1*gaE*jgf_cntv" term.
+		a22_MPterm = r*dFda*gaE;  // 1/(-J*(B0^2+...))*(Jacob*(-jgq_cntv))*gaE   :This is a "gaE*jgq_cntv" term.
 		// ============================================
 
 
@@ -4305,10 +4305,10 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		BBq *=r;
 		dHdgq = BBq;
 		/*  add EXB drift and magnetic perturbations */
-		dHda  += *nonlinear*wpi1*csc0 - dHdgr * gaa;         /* =dH/da      */
+		dHda  += *nonlinear*wpi1*csc0 - dHdgr * gaEa;         /* =dH/da      */
 		dHda  += Er_particle[k]*csc0;           /* =dH/da, adding E_r0XB drift */
-		dHdgq  +=*nonlinear*wpi2*csc0 - dHdgr * gaq;         /* =-dH/dtheta */
-		dHdgf   =*nonlinear*wpi3*csc0 - dHdgr * gaz;             /* =-dH/dphi   */
+		dHdgq  +=*nonlinear*wpi2*csc0 - dHdgr * gaEq;         /* =-dH/dtheta */
+		dHdgf   =*nonlinear*wpi3*csc0 - dHdgr * gaEz;             /* =-dH/dphi   */
 		dXgr[k]	=a22*(-dHdgq)-a12*(-dHdgf);            /* = ddt(rhohat) */
 		dXa[k]	=-a21*(-dHdgq)+a11*(-dHdgf);
 		dXgq[k]	=a22*dHdgr-a21*dHda-D*(-dHdgf);
@@ -4320,23 +4320,23 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		dXgq[k]    *=c0cs;
 
 		// transfromation from rho_hat to rho
-		dXgr[k] -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k]; /* = ddt(rho) */
+		dXgr[k] -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
 
 
       if((*Flag_Streaming)==1){
           // including the streaming term and perturbed mirror force (and ExB and electric force along perturbed field line)
-         Pa[k]       = a22*(-(wpi2-c0cs*dHdgr*gaq)) +a22_MPterm*(-c0cs*BBq) -a12*(-(wpi3-c0cs*dHdgr*gaz));
-         ghq[k]      =-a21*(-(wpi2-c0cs*dHdgr*gaq)) +a11*(-(wpi3-c0cs*dHdgr*gaz));
-         Ta[k]       = a22_MPterm*c0cs*dHdgr -a21*(wpi1-c0cs*dHdgr*gaa) -D*(-(wpi3-c0cs*dHdgr*gaz));
-         dve_gf[k]   =-a12_MPterm*c0cs*dHdgr +a11*(wpi1-c0cs*dHdgr*gaa) +D*(-(wpi2-c0cs*dHdgr*gaq));
-         vpara_dve_a[k]  = c0cs*dHdgr*(-a21*gaq +a11*gaz);
-         vpara_dve_gq[k] = c0cs*dHdgr*(a22_MPterm +a21*gaa -D*gaz);
-         vpara_dve_gf[k] = c0cs*dHdgr*(-a12_MPterm -a11*gaa +D*gaq);
+         Pa[k]       = a22*(-(wpi2-c0cs*dHdgr*gaEq)) +a22_MPterm*(-c0cs*BBq) -a12*(-(wpi3-c0cs*dHdgr*gaEz));
+         ghq[k]      =-a21*(-(wpi2-c0cs*dHdgr*gaEq)) +a11*(-(wpi3-c0cs*dHdgr*gaEz));
+         Ta[k]       = a22_MPterm*c0cs*dHdgr -a21*(wpi1-c0cs*dHdgr*gaEa) -D*(-(wpi3-c0cs*dHdgr*gaEz));
+         dve_gf[k]   =-a12_MPterm*c0cs*dHdgr +a11*(wpi1-c0cs*dHdgr*gaEa) +D*(-(wpi2-c0cs*dHdgr*gaEq));
+         vpara_dve_a[k]  = c0cs*dHdgr*(-a21*gaEq +a11*gaEz);
+         vpara_dve_gq[k] = c0cs*dHdgr*(a22_MPterm +a21*gaEa -D*gaEz);
+         vpara_dve_gf[k] = c0cs*dHdgr*(-a12_MPterm -a11*gaEa +D*gaEq);
 
          //MGYOO(08/23/2019):
          // In the case of Flag_Streaming=1 (yes streaming, yes perturbed mirror force)
-         // rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(ga))
-         Pa[k]   -= gat_array[k] + gaa * dXa[k] + gaq * dXgq[k] + gaz * dXgf[k];
+         // rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(gaE))
+         Pa[k]   -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
       }
       else{
          // (no streaming ,no perturbed mirror force), only (ExB and electric force along perturbed field line)
@@ -4350,8 +4350,8 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 
          //MGYOO(08/23/2019):
          // In the case of Flag_Streaming=0 (no streaming ,no perturbed mirror force)
-         // rho_dot_1 transform must only use the perturbed velocity term due to ExB (v_EXB*grad(ga))
-         Pa[k]   -=  gaa*ghq[k] + gaq*Ta[k] + gaz*dve_gf[k];
+         // rho_dot_1 transform must only use the perturbed velocity term due to ExB (v_EXB*grad(gaE))
+         Pa[k]   -=  gaEa*ghq[k] + gaEq*Ta[k] + gaEz*dve_gf[k];
       }
 
 
@@ -4419,7 +4419,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 	REAL y,Y,yy,YY;
 	REAL Xgr,Xa,Xgq,Xgm;
 	REAL gradPhi[3];
-	REAL ga, gaa, gaq, gaz;
+	REAL gaE, gaEa, gaEq, gaEz;
 
 	int myid;
 	double tt0,tt1;
@@ -4435,7 +4435,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 	/*                    Ta[k]=dtheta/dt|_EXB          */
 	/*                    Pa[k]=drho/dt|_EXB            */
 	/*                    gha[k]=1/|grad a|             */
-// #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,ga,gaa,gaq,gaz)
+// #pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,gaE,gaEa,gaEq,gaEz)
    #pragma acc data copyin(gq[:Np1],sa[:Na1],aF[:Na1],daF[:Na1],dgF[:Na1],d2gF[:Na1],dgY[:Na1],d2gY[:Na1],aT[:Na1],daT[:Na1],aP[:Na1],daP[:Na1],\
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
 
@@ -4450,10 +4450,10 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
          gradPhi[0] = *(wpi_array+3*k);      /* wpi[k][0] */
          gradPhi[1] = *(wpi_array+3*k+1);    /* wpi[k][1] */
          gradPhi[2] = *(wpi_array+3*k+2);    /* wpi[k][2] */
-         gaa = *(wga_array + 3 * k);     /* wga[k][0] */
-         gaq = *(wga_array + 3 * k + 1); /* wga[k][1] */
-         gaz = *(wga_array + 3 * k + 2); /* wga[k][2] */
-         ga = *(ga_array + k);           /* ga[k] */
+         gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
+         gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
+         gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
+         gaE = *(ga_array + k);           /* gaE[k] */
          a   =Xa;
          if(a < 1e-100){
             a =0.;
@@ -4616,9 +4616,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 
          const REAL B0star_cntv3[3] = {B0_cntv3[0]+Xgr*j0_cntv3[0], B0_cntv3[1]+Xgr*j0_cntv3[1], B0_cntv3[2]+Xgr*j0_cntv3[2]};
 
-         const REAL dB_cntv3[3]   = { ga*j0_cntv3[0] + (gaq*B0_cov3[2]-gaz*B0_cov3[1])/Jacobian,
-            ga*j0_cntv3[1] + (gaz*B0_cov3[0]-gaa*B0_cov3[2])/Jacobian,
-            ga*j0_cntv3[2] + (gaa*B0_cov3[1]-gaq*B0_cov3[0])/Jacobian};
+         const REAL dB_cntv3[3]   = { gaE*j0_cntv3[0] + (gaEq*B0_cov3[2]-gaEz*B0_cov3[1])/Jacobian,
+            gaE*j0_cntv3[1] + (gaEz*B0_cov3[0]-gaEa*B0_cov3[2])/Jacobian,
+            gaE*j0_cntv3[2] + (gaEa*B0_cov3[1]-gaEq*B0_cov3[0])/Jacobian};
 
 
          const REAL totB_cntv3[3]  = {B0_cntv3[0]+dB_cntv3[0], B0_cntv3[1]+dB_cntv3[1], B0_cntv3[2]+dB_cntv3[2]};
@@ -5377,7 +5377,7 @@ int esiget2dthese_more(REAL *Fj,  REAL *Faj, REAL *gFaj, REAL *gYaj, REAL *rj,
 	return(0);
 }
 
-void get_mp_alpha_amplitude_(REAL *in_a, REAL *in_theta, REAL *in_zeta, REAL *in_time, REAL *out_ga, REAL *out_grad_ga, REAL *out_partial_dg0dt);
+void get_mp_alpha_amplitude_(REAL *in_a, REAL *in_theta, REAL *in_zeta, REAL *in_time, REAL *out_ga, REAL *out_grad_gaE, REAL *out_partial_dg0dt);
 
 int esiget_Intp_B_vec_contravariant(REAL *in_a, REAL *in_gq, REAL *in_gf, REAL *in_time, REAL *out_B_cntv3)
 {
@@ -5552,12 +5552,12 @@ int esiget_Intp_B_vec_contravariant(REAL *in_a, REAL *in_gq, REAL *in_gf, REAL *
 	j0_cntv[2] = P + T/(R*R);
 
 
-	REAL ga, grad_ga[3], partial_dga0dt;
-	get_mp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &ga, grad_ga, &partial_dga0dt);
+	REAL gaE, grad_gaE[3], partial_dgaE0dt;
+	get_mp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &gaE, grad_gaE, &partial_dgaE0dt);
 
-	dB_cntv[0] = ga*j0_cntv[0] + (B_cov3[2]*grad_ga[1] - B_cov3[1]*grad_ga[2] )/Jacobian;
-	dB_cntv[1] = ga*j0_cntv[1] + (B_cov3[0]*grad_ga[2] - B_cov3[2]*grad_ga[0] )/Jacobian;
-	dB_cntv[2] = ga*j0_cntv[2] + (B_cov3[1]*grad_ga[0] - B_cov3[0]*grad_ga[1] )/Jacobian;
+	dB_cntv[0] = gaE*j0_cntv[0] + (B_cov3[2]*grad_gaE[1] - B_cov3[1]*grad_gaE[2] )/Jacobian;
+	dB_cntv[1] = gaE*j0_cntv[1] + (B_cov3[0]*grad_gaE[2] - B_cov3[2]*grad_gaE[0] )/Jacobian;
+	dB_cntv[2] = gaE*j0_cntv[2] + (B_cov3[1]*grad_gaE[0] - B_cov3[0]*grad_gaE[1] )/Jacobian;
 
 
 	int k;
@@ -5733,12 +5733,12 @@ int esiget_Intp_B_vec_cov_and_cntv(REAL *in_a, REAL *in_gq, REAL *in_gf, REAL *i
 	j0_cntv[2] = P + T/(R*R);
 
 
-	REAL ga, grad_ga[3], partial_dga0dt;
-	get_mp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &ga, grad_ga, &partial_dga0dt);
+	REAL gaE, grad_gaE[3], partial_dgaE0dt;
+	get_mp_alpha_amplitude_(in_a, in_gq, in_gf, in_time, &gaE, grad_gaE, &partial_dgaE0dt);
 
-	dB_cntv[0] = ga*j0_cntv[0] + (B_cov3[2]*grad_ga[1] - B_cov3[1]*grad_ga[2] )/Jacobian;
-	dB_cntv[1] = ga*j0_cntv[1] + (B_cov3[0]*grad_ga[2] - B_cov3[2]*grad_ga[0] )/Jacobian;
-	dB_cntv[2] = ga*j0_cntv[2] + (B_cov3[1]*grad_ga[0] - B_cov3[0]*grad_ga[1] )/Jacobian;
+	dB_cntv[0] = gaE*j0_cntv[0] + (B_cov3[2]*grad_gaE[1] - B_cov3[1]*grad_gaE[2] )/Jacobian;
+	dB_cntv[1] = gaE*j0_cntv[1] + (B_cov3[0]*grad_gaE[2] - B_cov3[2]*grad_gaE[0] )/Jacobian;
+	dB_cntv[2] = gaE*j0_cntv[2] + (B_cov3[1]*grad_gaE[0] - B_cov3[0]*grad_gaE[1] )/Jacobian;
 
 
 	int k;

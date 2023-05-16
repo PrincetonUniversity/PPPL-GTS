@@ -718,13 +718,18 @@ module Ptl_Src_Loss
          do Fid=1,Gsize
             PSCV%Elec_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
          enddo
+#ifdef _MGY_TIMER_
+         if(mype==0) write(stdout,'(2(A,I0),2(A,ES11.3),A)') "I'm=",mype,", Ptl_Src_nstep=",Ptl_Src_nstep,", PSCV_mean_a=",0.5*(PSCV%a_min+PSCV%a_max),", max Elec_dErg_eV_per_nstep=", maxval(recv_FL_max_dErg_eV)," eV"
+#endif
 
          ! Gather Ion max_dErg
          call MPI_Allgatherv(FL_max_Ion_dErg_eV, Lsize, MPI_Rsize, recv_FL_max_dErg_eV, recv_counts_Lsize, recv_displs_Lsize, MPI_Rsize, partd_comm, ierr)
          do Fid=1,Gsize
             PSCV%Ion_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
          enddo
-
+#ifdef _MGY_TIMER_
+         if(mype==0) write(stdout,'(2(A,I0),2(A,ES11.3),A)') "I'm=",mype,", Ptl_Src_nstep=",Ptl_Src_nstep,", PSCV_mean_a=",0.5*(PSCV%a_min+PSCV%a_max),", max Ion_dErg_eV_per_nstep=", maxval(recv_FL_max_dErg_eV)," eV"
+#endif
          !toroidal communication
          length = PSCV%dim_a*PSCV%dim_gq
          call MPI_SENDRECV(PSCV%Elec_dErg_eV_per_nstep(:,:,1),length,mpi_Rsize,left_pe,1, PSCV%Elec_dErg_eV_per_nstep(:,:,0),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
@@ -1349,8 +1354,8 @@ module Ptl_Src_Loss
          real(wp) P_s,ff,P_q,inv_ds
          real(wp), allocatable ::Te_norm(:), ge_val(:)
 
-         real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
-         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
+         real(wp), allocatable :: wpi(:,:),gaE(:),wgaE(:,:),gatE(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
+         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,gaE,wgaE,gatE)
          real(wp) fip,r,dela
          real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
          real(wp) intp_phi, intp_FLA_Te0, intp_phi00
@@ -1488,7 +1493,7 @@ module Ptl_Src_Loss
 
 
 
-         allocate(wpi(3,me),ga(me),wga(3,me),gat(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
+         allocate(wpi(3,me),gaE(me),wgaE(3,me),gatE(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
          allocate(AdiabTerm(m0:me))
 
 
@@ -1572,16 +1577,16 @@ module Ptl_Src_Loss
             Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
          enddo
 
-         if(electromagnetic == 1)then
-            !$acc parallel loop present(zeon,ga,wga,gat)
+         if(electromagnetic >= 1)then
+            !$acc parallel loop present(zeon,gaE,wgaE,gatE)
             do m=m0,me
-               call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+               call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
             enddo
 
             if(Flag_GC_Solver==0) then
-               m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+               m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
             elseif(Flag_GC_Solver==1) then
-               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,m0,me,zeondim)
+               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,m0,me,zeondim)
             else
                write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
                call flush(stdout)
@@ -1692,7 +1697,7 @@ module Ptl_Src_Loss
 
          deallocate(Te_norm)
          deallocate(ge_val)
-         deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
+         deallocate(wpi,gaE,wgaE,gatE,dgr,da,dgq,dgf,Er_particle)
          deallocate(AdiabTerm)
 
       end subroutine load_electrons_In_or_Out_Flux
@@ -1732,8 +1737,8 @@ module Ptl_Src_Loss
          real(wp) P_s,ff,P_q,inv_ds
          real(wp), allocatable :: gi_val(:)
 
-         real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
-         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
+         real(wp), allocatable :: wpi(:,:),gaE(:),wgaE(:,:),gatE(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
+         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,gaE,wgaE,gatE)
          real(wp) fip,r,dela
          real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
          integer ip,ij,larmor
@@ -1868,7 +1873,7 @@ module Ptl_Src_Loss
 
 
 
-         allocate(wpi(3,mi),ga(mi),wga(3,mi),gat(mi),dgr(mi),da(mi),dgq(mi),dgf(mi),Er_particle(mi))
+         allocate(wpi(3,mi),gaE(mi),wgaE(3,mi),gatE(mi),dgr(mi),da(mi),dgq(mi),dgf(mi),Er_particle(mi))
 
 
 
@@ -1928,16 +1933,16 @@ module Ptl_Src_Loss
             Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
          enddo
 
-         if(electromagnetic == 1)then
-            !$acc parallel loop present(zion,ga,wga,gat)
+         if(electromagnetic >= 1)then
+            !$acc parallel loop present(zion,gaE,wgaE,gatE)
             do m=m0,mi
-               call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+               call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
             enddo
 
             if(Flag_GC_Solver==0) then
-               m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim)
+               m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim)
             elseif(Flag_GC_Solver==1) then
-               m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,m0,mi,ziondim)
+               m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,m0,mi,ziondim)
             else
                write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
                call flush(stdout)
@@ -2042,7 +2047,7 @@ module Ptl_Src_Loss
          call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
          deallocate(gi_val)
-         deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
+         deallocate(wpi,gaE,wgaE,gatE,dgr,da,dgq,dgf,Er_particle)
 
       end subroutine load_ions_In_or_Out_Flux
 

@@ -163,10 +163,6 @@ subroutine poisson( solver, masssolver )
          call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
          call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
 
-         ! if(Flag_Update_Pol_Shielding==1) then
-         !    ! Update Polarization Shielding Term of Amat coefficients
-         !    call Update_Amat_Coeffs
-         ! endif
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
          call Cal_gradPhi_on_SG
@@ -420,17 +416,6 @@ subroutine poisson( solver, masssolver )
          call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
          call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
 
-         ! if(Flag_Update_Pol_Shielding==1) then
-         !    ! Update Polarization Shielding Term of Amat coefficients
-         !    tt0=MPI_WTIME()
-         !    call Update_Amat_Coeffs
-         !    tt1=MPI_WTIME()
-         !    if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; Update_Amat_Coeffs takes ",tt1-tt0," secs"
-         !    call flush(stdout)
-
-         ! endif
-         ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
-
          if(Flag_Def_dne_adiab==3) then
             call Solve_Nonlinear_Poisson3D_on_SG()
          else
@@ -438,7 +423,6 @@ subroutine poisson( solver, masssolver )
          endif
 
 
-         ! call Measure_Electron_Density_on_SG
          ! call Measure_Ion_Density_on_SG
          ! ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
          ! ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)

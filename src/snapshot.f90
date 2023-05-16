@@ -1503,15 +1503,41 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "dne_SM",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne_SM(:,:),h5err)
       call h5ltmake_dataset_f(gid_SG, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err) ! 1e4 is the factor for (m^-2)
+      call h5ltmake_dataset_f(gid_SG, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
+      if(electromagnetic==2) then
+         call h5ltmake_dataset_f(gid_SG, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
+         call h5ltmake_dataset_f(gid_SG, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "Ampere_RHS",2,h5dims,H5T_NATIVE_DOUBLE, SG%Ampere_RHS,h5err)
+      endif
 
       call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%ni_by_ff(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%ne_by_fh(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%dje_para(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%je_para_by_fh(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%dji_para(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%ji_para_by_ff(:,:,1),SG%Cell_dV)
       call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
+      if(electromagnetic==2) then
+         call Smooth_SG_Data_2D([2,2],SG%AparaH(:,:,1),SG%Cell_dV)
+         call Smooth_SG_Data_2D([2,2],SG%AparaS,SG%Cell_dV)
+         call Smooth_SG_Data_2D([2,2],SG%gaH(:,:,1),SG%Cell_dV)
+         call h5ltmake_dataset_f(gid_SG_SM, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG_SM, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
+         call h5ltmake_dataset_f(gid_SG_SM, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
+      endif
 
       call h5ltmake_dataset_f(gid_SG, "phi",2,h5dims,H5T_NATIVE_DOUBLE, SG%phi(:,:,1),h5err)
 
@@ -1520,13 +1546,14 @@ subroutine snapshot_hdf5
       h5dims(1:3)=(/3,SG%dim_gq,SG%dim_s/)
       call h5ltmake_dataset_f(gid_SG, "B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%B0_cov3,h5err)
       call h5ltmake_dataset_f(gid_SG, "grad_phi_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_phi_cov(:,:,:,1),h5err)
+      if(electromagnetic==2) call h5ltmake_dataset_f(gid_SG, "grad_gaH_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_gaH_cov(:,:,:,1),h5err)
 
 
       call h5ltmake_dataset_f(gid_SG, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, SG%B0_cntv3,h5err)
 
 
 
-      if(electromagnetic==1) then
+      if(electromagnetic>=1) then
          h5dims(1:4)=(/3,SG%dim_gq,SG%dim_s,2/)
          call h5ltmake_dataset_f(gid_SG, "dB_cntv",4,h5dims,H5T_NATIVE_DOUBLE, SG%dB_cntv3,h5err)
       endif
@@ -2321,7 +2348,7 @@ subroutine snapshot_Magnetic_Information
       allocate(uvec_B_cov(3,Naq), uvec_N_cov(3,Naq), uvec_BxN_cov(3,Naq))
       allocate(uvec_B_cntv(3,Naq), uvec_N_cntv(3,Naq), uvec_BxN_cntv(3,Naq))
 
-      if(electromagnetic==1) then
+      if(electromagnetic>=1) then
          allocate(ini_ga_(Naq),ini_dga0dt_(Naq))
          allocate(ini_dB_cov3_(3,Naq),ini_dB_cntv3_(3,Naq), ini_grad_ga_cov3_(3,Naq))
       endif
@@ -2373,7 +2400,7 @@ subroutine snapshot_Magnetic_Information
          call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(a_(k), gq_(k), zetamax,s_(k),uvec_B_cov(:,k),uvec_B_cntv(:,k),uvec_N_cov(:,k),uvec_N_cntv(:,k),uvec_BxN_cov(:,k),uvec_BxN_cntv(:,k))
       enddo
 
-      if(electromagnetic==1)then
+      if(electromagnetic>=1)then
          ! Get initial magnetic perturbation information
          do k=1,size(a_)
             call Get_MP_alpha_amplitude(a_(k), gq_(k),modulo(zetamax,2.0*pi),0.0, ini_ga_(k), ini_grad_ga_cov3_(1:3,k), ini_dga0dt_(k))
@@ -2457,7 +2484,7 @@ subroutine snapshot_Magnetic_Information
 
 
 
-      if(electromagnetic==1) then
+      if(electromagnetic>=1) then
          call h5gcreate_f(file_id, "iniMP", gid_MP, h5err)
          ! 2D data
          h5dims(1:2)=(/dim_gq, dim_a/)
@@ -2534,7 +2561,7 @@ subroutine snapshot_Magnetic_Information
       deallocate(B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_)
       deallocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
       deallocate(uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv)
-      if(electromagnetic==1)then
+      if(electromagnetic>=1)then
          deallocate(ini_ga_,ini_dga0dt_)
          deallocate(ini_dB_cov3_,ini_dB_cntv3_, ini_grad_ga_cov3_)
       endif

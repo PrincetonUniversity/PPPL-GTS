@@ -1970,7 +1970,7 @@ subroutine Generate_FLabel_piecewise_radial_base_function
    real(wp) tmp_pcws_a(200), tmp_pcws_y(200)
    integer :: pcws_id=0
 
-   if(electromagnetic/=1 .or. num_of_EMP==0) then
+   if(electromagnetic==0 .or. num_of_EMP==0) then
       return
    endif
 
@@ -2157,7 +2157,7 @@ function Cal_FLabel_Function(in_a,in_gq,in_gf) result(out_val)
       call Generate_FLabel_piecewise_radial_base_function
    endif
 
-   if(electromagnetic/=1 .or. num_of_EMP==0) then
+   if(electromagnetic==0 .or. num_of_EMP==0) then
       out_val = in_a
       return
    endif

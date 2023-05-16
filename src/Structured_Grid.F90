@@ -41,8 +41,13 @@ module Structured_Grid
       real(wp),allocatable, dimension(:,:) :: dni_SM, dne_SM ! Smoothed Densities for Poisson3D equation and updating Polarization Shielding Components
       real(wp),allocatable, dimension(:,:,:) :: ne_by_fh,ni_by_ff ! These are total electron density and ion density including equilibrium density (So, f=f0+df)
 
+      ! If electromagnetic<=1, this is parallel current using ve_para or vi_para
+      ! If electromagnetic==2, theis is calculated using veH=ve_para+qs*B0/ms*alphaH or rhoH=rho_para+alphaH
+      real(wp),allocatable, dimension(:,:,:) :: dje_para, dji_para ! dimension: (dim_gq, dim_s, 0:1);
+      real(wp),allocatable, dimension(:,:,:) :: je_para_by_fh, ji_para_by_ff ! using total weight; dimension: (dim_gq, dim_s, 0:1);
+
       real(wp), allocatable, dimension(:,:,:) :: phi ! dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
-      real(wp), allocatable, dimension(:,:,:,:) :: grad_phi_cov
+      real(wp), allocatable, dimension(:,:,:,:) :: grad_phi_cov ! dimension (dim_gq, dim_s, 0:1) my plane and right poloidal plane
       ! Test 2D phi calculated by solving 3D Poission equation
       real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D, test_res_2D
       real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D
@@ -50,6 +55,14 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:) :: RealCharge_2D, niPol_2D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
       real(wp), allocatable, dimension(:,:,:) :: RealCharge_3D, niPol_3D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
 
+      ! for electromagneitc=2 simulation (solving GK Ampere equation)
+      real(wp), allocatable, dimension(:,:,:) :: AparaH ! A_para^h and A_para^s; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes  
+      real(wp), allocatable, dimension(:,:,:) :: gaH ! alpha_h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
+      real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
+      real(wp), allocatable, dimension(:,:) :: AparaS ! A_para^s; dimension (dim_gq, dim_s)
+      real(wp), allocatable, dimension(:,:) :: old_AparaS, RK_cum_AparaS  ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
+     
+      real(wp), allocatable, dimension(:,:) :: Ampere_RHS ! RHS of Ampere's equation
    end type
 
    type(Grid_Info) :: SG ! Structure Grid
@@ -69,6 +82,7 @@ contains
    subroutine Initialize_Structured_Grid
       use field_array
       use esi_interface
+      use global_parameters, only:electromagnetic
       implicit none
 
       integer i,j,k,sid,gqid,ij,Ns,Nq
@@ -144,6 +158,13 @@ contains
       allocate(SG%dTe(Nq,Ns,0:1),SG%dTi(Nq,Ns,0:1))
       allocate(SG%ne_by_fh(Nq,Ns,0:1),SG%ni_by_ff(Nq,Ns,0:1))
 
+      allocate(SG%dje_para(Nq,Ns,0:1), SG%dji_para(Nq,Ns,0:1))
+      SG%dje_para=0.0
+      SG%dji_para=0.0
+      allocate(SG%je_para_by_fh(Nq,Ns,0:1), SG%ji_para_by_ff(Nq,Ns,0:1))
+      SG%je_para_by_fh=0.0
+      SG%ji_para_by_ff=0.0
+
       call esiget2dthese_more(SG%F,SG%dFda,SG%dgFda,SG%dgYda,SG%R,SG%dRda,SG%dRdgq,SG%Z,SG%dZda,SG%dZdgq,SG%BB,SG%dBBda,SG%dBBdgq,SG%P,SG%T,SG%a_2D,SG%gq_2D,Nq*Ns)
 
       SG%Jacobian=SG%R*(SG%dZda*SG%dRdgq-SG%dZdgq*SG%dRda)
@@ -195,7 +216,7 @@ contains
 
 
       allocate(SG%dB_cntv3(3,SG%dim_gq,SG%dim_s,0:1))
-      if(electromagnetic==1 .and. num_of_EMP>0) then
+      if(electromagnetic>=1 .and. num_of_EMP>0) then
          do ss=1,SG%dim_s
             do qq=1,SG%dim_gq
 
@@ -290,7 +311,20 @@ contains
       allocate(SG%RealCharge_2D(Nq,Ns),SG%niPol_2D(Nq,Ns))
       allocate(SG%RealCharge_3D(Nq,Ns,mzetamax),SG%niPol_3D(Nq,Ns,mzetamax))
 
-
+      if(electromagnetic==2) then
+         allocate(SG%AparaH(Nq,Ns,0:2))
+         SG%AparaH=0.0
+         allocate(SG%AparaS(Nq,Ns),SG%Ampere_RHS(Nq,Ns))
+         SG%AparaS=0.0
+         SG%Ampere_RHS=0.0
+         allocate(SG%gaH(Nq,Ns,0:2))
+         SG%gaH=0.0
+         allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
+         SG%grad_gaH_cov=0.0
+         allocate(SG%old_AparaS(Nq,Ns),SG%RK_cum_AparaS(Nq,Ns))
+         SG%old_AparaS=0.0
+         SG%RK_cum_AparaS=0.0
+      endif
 
 
       allocate(SG_s_1D(Ns), SG_gq_1D(Nq), SG_safety_q_1D(Ns))
@@ -309,13 +343,14 @@ contains
 
    end subroutine Initialize_Structured_Grid
 
-   subroutine Measure_Electron_Density_on_SG(flag_which_target)
+   subroutine Measure_Electron_Density_Current_on_SG(flag_which_target)
       use precision
-      use global_parameters,only:me
+      use global_parameters,only:me, electromagnetic
       use particle_array,only:zeon,zeon0
       use particle_decomp
       use function_gg_module
       use mpi_defs
+      use esi_interface, only:BB
 
       implicit none
 
@@ -331,6 +366,7 @@ contains
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_eD ! num of eData (First Dimension)
       real(wp) tt0,tt1,tmp
+      real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
 
 
       !$acc declare create(ptl_data)
@@ -355,11 +391,12 @@ contains
 
       select case(flagT)
          case(0) ! Default; only zeon(5,m)
-               num_eD=1
+            num_eD=1
+            if (electromagnetic==2) num_eD=2 ! for parallel current dj_para_H or j_para_H
          case(1) ! Diagnostic purpose
-            num_eD=2
+            num_eD=4 ! (dne, ne_by_fh, dje_para, je_para_by_fh) for diagnostic purpose
          case default
-            write(stdout,*) "Error!! flagT=",flagT," in Measure_Electron_Density_on_SG"
+            write(stdout,*) "Error!! flagT=",flagT," in Measure_Electron_Density_Current_on_SG"
             call flush(stdout)
             STOP
       end select
@@ -374,21 +411,34 @@ contains
       select case(flagT)
          case(0)
             if(Flag_Weight_dfh==0) then ! Using delta weight
-               !$acc parallel loop present(zeon)
+               !$acc parallel loop present(zeon,BB)
                do m=1,me
                   ptl_data(1,m) = zeon(5,m)
+                  if(electromagnetic==2) then
+                     ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+                     ptl_data(2,m) = zeon(5,m)*zeon(4,m)*BB(m)*csc0*m0ms  
+                  endif
                enddo
             elseif(Flag_Weight_dfh==1) then ! Using full weight
-               !$acc parallel loop present(zeon)
+               !$acc parallel loop present(zeon,BB)
                do m=1,me
                   ptl_data(1,m) = zeon(8,m)
+                  if(electromagnetic==2) then
+                     ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+                     ptl_data(2,m) = zeon(8,m)*zeon(4,m)*BB(m)*csc0*m0ms  
+                  endif
                enddo
             endif
          case(1)
-            !$acc parallel loop present(zeon,ptl_data)
+            !$acc parallel loop present(zeon,BB,ptl_data)
             do m=1,me
                ptl_data(1,m) = zeon(5,m)
                ptl_data(2,m) = zeon(8,m)
+
+               ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+               vH = zeon(4,m)*BB(m)*csc0*m0ms   
+               ptl_data(3,m) = zeon(5,m)*vH
+               ptl_data(4,m) = zeon(8,m)*vH
             enddo
       end select
 
@@ -509,12 +559,16 @@ contains
          case(0) ! Default; only zeon(5,m)
             if(Flag_Weight_dfh==0) then
                SG%dne = eData(1,:,:,:)
+               if(electromagnetic==2) SG%dje_para = eData(2,:,:,:)
             elseif(Flag_Weight_dfh==1) then
                SG%ne_by_fh = eData(1,:,:,:)
+               if(electromagnetic==2) SG%je_para_by_fh = eData(2,:,:,:)
             endif
          case(1) ! Diagnostic purpose
             SG%dne = eData(1,:,:,:)
             SG%ne_by_fh  = eData(2,:,:,:)
+            SG%dje_para = eData(3,:,:,:)
+            SG%je_para_by_fh = eData(4,:,:,:)
       end select
 
       ! Artificial damping of delta-n near the both inner and outer boundary
@@ -534,19 +588,20 @@ contains
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Electron_Density_on_SG takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,*) "Measure_Electron_Density_Current_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
-   end subroutine Measure_Electron_Density_on_SG
+   end subroutine Measure_Electron_Density_Current_on_SG
 
-   subroutine Measure_Ion_Density_on_SG(flag_which_target)
+   subroutine Measure_Ion_Density_Current_on_SG(flag_which_target)
       use precision
       use global_parameters,only:mi
       use particle_array,only:zion,zion0
       use particle_decomp
       use function_gg_module
       use mpi_defs
+      use esi_interface,only:BB
 
       implicit none
 
@@ -562,6 +617,7 @@ contains
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_iD ! num_of iData (First dimension)
       real(wp) :: intpl_gyro(3,larmor_num)
+      real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
 
       !$acc declare create(ptl_data)
 
@@ -586,11 +642,12 @@ contains
 
      select case(flagT)
          case(0) ! Default; only zion(5,m)
-               num_iD=1
+            num_iD=1
+            if(electromagnetic==2) num_iD=2! for parallel current dj_para_H or j_para_H 
          case(1) ! Diagnostic purpose
-            num_iD=2
+            num_iD=4 ! (dni, ni_by_ff, dji_para, ji_para_by_ff) for diagnostic purpose
          case default
-            write(stdout,*) "Error!! flagT=",flagT," in Measure_Ion_Density_on_SG"
+            write(stdout,*) "Error!! flagT=",flagT," in Measure_Ion_Density_Current_on_SG"
             call flush(stdout)
             STOP
       end select
@@ -604,14 +661,22 @@ contains
       select case(flagT)
          case(0)
             if(Flag_Weight_dfh==0) then ! Using delta weight
-               !$acc parallel loop present(zion)
+               !$acc parallel loop present(zion,BB)
                do m=1,mi
                   ptl_data(1,m) = zion(5,m)
+                  if(electromagnetic==2) then
+                     ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+                     ptl_data(2,m) = zion(5,m)*zion(4,m)*BB(m)
+                  endif
                enddo
             elseif(Flag_Weight_dfh==1) then ! Using full weight
-               !$acc parallel loop present(zion)
+               !$acc parallel loop present(zion,zion0,BB)
                do m=1,mi
                   ptl_data(1,m) = zion0(8,m)
+                  if(electromagnetic==2) then
+                     ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
+                     ptl_data(2,m) = zion0(8,m)*zion(4,m)*BB(m)
+                  endif
                enddo
             endif
          case(1)
@@ -619,6 +684,10 @@ contains
             do m=1,mi
                ptl_data(1,m) = zion(5,m)
                ptl_data(2,m) = zion0(8,m)
+
+               vH = zion(4,m)*BB(m)
+               ptl_data(3,m) = zion(5,m)*vH
+               ptl_data(4,m) = zion0(8,m)*vH
             enddo
       end select
 
@@ -767,12 +836,16 @@ contains
          case(0) ! Default; only zion(5,m)
             if(Flag_Weight_dfh==0) then
                SG%dni = iData(1,:,:,:)
+               if(electromagnetic==2) SG%dji_para = iData(2,:,:,:)
             elseif(Flag_Weight_dfh==1) then
                SG%ni_by_ff = iData(1,:,:,:)
+               if(electromagnetic==2) SG%ji_para_by_ff = iData(2,:,:,:)
             endif
          case(1) ! Diagnostic purpose
             SG%dni = iData(1,:,:,:)
             SG%ni_by_ff  = iData(2,:,:,:)
+            SG%dji_para = iData(3,:,:,:)
+            SG%ji_para_by_ff = iData(4,:,:,:)
       end select
 
       ! Artificial damping of delta-n near the both inner and outer boundary
@@ -792,10 +865,10 @@ contains
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Ion_Density_on_SG takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,*) "Measure_Ion_Density_Current_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
-   end subroutine Measure_Ion_Density_on_SG
+   end subroutine Measure_Ion_Density_Current_on_SG
 
    subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Reference_Data2D)
 
@@ -1048,6 +1121,145 @@ contains
 
    end subroutine Cal_gradPhi_on_SG
 
+   subroutine Cal_gaH_from_AparaH_on_SG
+      implicit none
+      integer k
+
+      do k=0,2
+         SG%gaH(:,:,k) = SG%AparaH(:,:,k)/SG%BB
+      enddo
+   end subroutine
+
+   subroutine Cal_grad_gaH_cov_on_SG
+      use precision
+      use global_parameters
+      use field_array
+      use mpi_defs
+      use particle_decomp
+      implicit none
+
+      integer sid,gqid,istatus(MPI_STATUS_SIZE),ierr
+      integer target_gqid
+      real(wp) gaH_left, gaH_right, target_gq,wgq0,wgq1,delta_gq
+
+      ! Calculate grad_phi_cov at zetamax (so, the last index is 1)
+      ! radial direction
+      SG%grad_gaH_cov(1,:,1,1) = SG%inv_ds*(SG%gaH(:,2,1)-SG%gaH(:,1,1))
+      do sid=2,SG%dim_s-1
+         SG%grad_gaH_cov(1,:,sid,1) = 0.5*SG%inv_ds*(SG%gaH(:,sid+1,1)-SG%gaH(:,sid-1,1))
+      enddo
+      SG%grad_gaH_cov(1,:,SG%dim_s,1) = SG%inv_ds*(SG%gaH(:,SG%dim_s,1)-SG%gaH(:,SG%dim_s-1,1))
+
+      ! theta direction with the periodic condition
+      SG%grad_gaH_cov(2,1,:,1) = 0.5*SG%inv_dgq*(SG%gaH(2,:,1)-SG%gaH(SG%dim_gq-1,:,1))
+      do gqid=2,SG%dim_gq-1
+         SG%grad_gaH_cov(2,gqid,:,1) = 0.5*SG%inv_dgq*(SG%gaH(gqid+1,:,1)-SG%gaH(gqid-1,:,1))
+      enddo
+      SG%grad_gaH_cov(2,SG%dim_gq,:,1) = SG%grad_gaH_cov(2,1,:,1)
+
+      ! Get gaH along a field line at a given r surface
+      do sid=1,SG%dim_s
+         delta_gq = deltaz/SG%safety_q_1D(sid)
+         do gqid=1,SG%dim_gq
+
+            ! get gaH from the right plane
+            target_gq = modulo(SG%gq_1D(gqid) + delta_gq, 2.0*pi)
+            target_gqid = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+            gaH_right = wgq0*SG%gaH(target_gqid,sid,2) + wgq1*SG%gaH(target_gqid+1,sid,2)
+
+            ! get gaH from the left plane
+            target_gq = modulo(SG%gq_1D(gqid) - delta_gq, 2.0*pi)
+            target_gqid = target_gq*SG%inv_dgq+1
+            wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
+            wgq0 = 1.0-wgq1
+            gaH_left = wgq0*SG%gaH(target_gqid,sid,0) + wgq1*SG%gaH(target_gqid+1,sid,0)
+
+            ! d(gaH)/dzeta = d(gaH)/dl - 1/q*d(gaH)/dtheta
+            SG%grad_gaH_cov(3,gqid,sid,1) =  (gaH_right-gaH_left)/(2.0*deltaz) - SG%grad_gaH_cov(2,gqid,sid,1)/SG%safety_q_1D(sid)
+         enddo
+      enddo
+
+      ! Communicate in toroidal direction so that get grad_gaH_cov at zetamin (grad_gaH_cov(:,:,:,0)) at from the left poloidal plane
+      call MPI_SENDRECV(SG%grad_gaH_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,right_pe,0, &
+                        SG%grad_gaH_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+
+   end subroutine Cal_grad_gaH_cov_on_SG   
+
+   subroutine Set_old_Apara_at_irk1
+      implicit none
+     
+      SG%old_AparaS = SG%AparaS
+      
+   end subroutine Set_old_Apara_at_irk1
+
+   subroutine Update_SG_AparaS(in_irk,in_nrk)
+      use particle_decomp
+      use mpi_defs
+      implicit none
+      integer,intent(in) :: in_irk, in_nrk ! input irk and nrk
+      real(wp) dt_s ! time step size in second unit
+      real(wp) RK_cum_coeff, RK_adv_coeff
+      real(wp) para_grad_Phi(SG%dim_gq,SG%dim_s) ! (b0*grad(Phi))
+
+
+      ! This routine sovles the differntial equation of pd(AparaS)/pdt = -b0*grad(Phi) = -para_grad_Phi
+      ! For the numerical scheme, RK2 and RK4 are currently implemented. 
+
+
+   ! Set RK_cum_coeff and RK_adv_coeff
+      if(in_nrk==4) then
+         select case (in_irk)
+            case(1)
+               RK_adv_coeff = 0.5; RK_cum_coeff = (1.0/6.0)
+            case(2)
+               RK_adv_coeff = 0.5; RK_cum_coeff = (1.0/3.0)
+            case(3)
+               RK_adv_coeff = 1.0; RK_cum_coeff = (1.0/3.0)
+            case(4)
+               RK_adv_coeff = 1.0; RK_cum_coeff = (1.0/6.0)
+            case default
+               write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! in_irk=",in_irk,"!! irk must be between 1 and in_nrk=",in_nrk
+               call flush(stdout)
+               STOP
+         end select
+      elseif(in_nrk==2) then
+         select case (in_irk)
+            case(1)
+               RK_adv_coeff = 0.5; RK_cum_coeff = 0.0
+            case(2)
+               RK_adv_coeff = 1.0; RK_cum_coeff = 1.0
+            case default
+               write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! in_irk=",in_irk,"!! irk must be between 1 and in_nrk=",in_nrk
+               call flush(stdout)
+               STOP
+         end select
+      else
+         write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! Incorrect in_nrk=",in_nrk
+         call flush(stdout)
+         STOP
+      endif
+
+      ! Initialize RK_cum_AparaS when in_irk=1
+      if(in_irk==1) then
+         SG%RK_cum_AparaS = 0.0
+      endif
+
+      dt_s = tstep*utime ! We should use timestep in second unit to be compatible with AparaS that is in SI unit.
+      para_grad_Phi = sum(SG%B0_cntv3*SG%grad_phi_cov(:,:,:,1),dim=1)/SG%BB
+
+
+      ! accumulate RK_cum_AparaS
+      SG%RK_cum_AparaS = SG%RK_cum_AparaS + dt_s*RK_cum_coeff*(-para_grad_Phi)
+
+      if(in_irk<in_nrk) then
+         SG%AparaS = SG%old_AparaS + dt_s*RK_adv_coeff*(-para_grad_Phi)
+      elseif(in_irk==in_nrk) then
+         SG%AparaS = SG%old_AparaS + SG%RK_cum_AparaS
+      endif
+
+   end subroutine Update_SG_AparaS 
 
    subroutine Get_Intp_phi_on_SG(P_s, P_gq, P_gf, out_phi)
       !$acc routine seq

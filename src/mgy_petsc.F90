@@ -19,12 +19,15 @@ module MGY_PETSc_Interface_Data
    PetscInt, allocatable, dimension(:) :: recv_Lsize_partd, displs_Lsize_partd
    PetscInt, allocatable, dimension(:) :: recv_mapL2G_partd
    PetscInt Gid_start, Gid_end
-   Mat Amat
+   Mat PMat ! GK Poisson equation's LHS matrix
+   Mat AMat ! GK Ampere equation's LHS matrix
+   Mat PerpLapMat ! perpendicular laplacian (nabla_perp*nabla_perp)
    Vec bVec, xVec, ResVec
-   KSP ksp
+   KSP ksp_P ! ksp for GK Poisson equation
+   KSP ksp_A ! ksp for GK Ampere equation
 
    ! Follolwing (Jmat, yVec) are for solving nonlinear Poisson equation in the case of Flag_dne_adiab==3
-   !Jacobian Matrix (Amat + (ne0*e^2/Te0)*exp(e*phi/Te0)), in the case of Flag_dne_adiab==3 (nonlinear adiabatic response)
+   !Jacobian Matrix (PMat + (ne0*e^2/Te0)*exp(e*phi/Te0)), in the case of Flag_dne_adiab==3 (nonlinear adiabatic response)
    Mat Jmat, pre_Jmat !pre_Jamt is a preconditioner of Jmat which will be updated occasionaly to reduce the computational time
    ! F vector (a system of equations) for Newton-Raphson method
    Vec yVec ! yVec = (Jmat)^(-1)*(FVec)
@@ -36,16 +39,29 @@ module MGY_PETSc_Interface_Data
    integer, allocatable :: o_nnz(:), d_nnz(:) !o_nnz and d_nnz are number of off-diagonal or diagonal nonzero terms
    integer max_nnz ! maximum number of nonzero compoentns per each row
 
-   ! Following Tensors will be used to determine Amat components (Poisson equation)
+   ! Following Tensors will be used to determine PMat components (Poisson equation)
    ! Note that they are composed with the contravariant components
    ! Metric_T:  contravariant Metrics; g^(ij)=e^i*e^j, where e is covariant vector on the PEST coordinate
    ! Polar_T: Polarization shielding tensor. (n_s*m_s/B^2)*(I_tensor-b*b), where b is unit vector of the magnetic field
    ! Eps_T: Metric_T + Polar_T
    ! CT: Jacobian*Eps_T/(dui*duj)
 
-   real(wp), allocatable, dimension(:,:,:,:) :: Metric_T, Polar_T ! On the poloidal plane (PEST structured coordinate)
-   real(wp), allocatable, dimension(:,:,:,:,:) :: Eps_T, CT ! Including neighboring left and right poloidal planes
+   ! Metric_T is static once it is set on a given PEST structred coordinate
+   ! Metric_T is used for solving both GK Poisson and GK Ampere equation
+   ! Metric_T(i,j) = g^ij 
+   real(wp), allocatable, dimension(:,:,:,:) :: Metric_T! On the poloidal plane (PEST structured coordinate)
 
+   ! Polar_T and Eps_T are used only for the GK Poisson equation
+   ! Polar_T = Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2))
+   ! Eps_T=eps0*Metric_T+Polar_T (Flag=0) or Eps_T=eps0*Metric_T (Flag=1) or Eps_T=Polar_T (Flag=2)
+   real(wp), allocatable :: Polar_T(:,:,:,:), Eps_T(:,:,:,:,:) 
+
+
+   ! CT is Coefficient Tensor that is needed to solve laplacian-like operator (nabla_perp*nabla_perp) in GK Poisson or GK Ampere equations 
+   ! For GK Poisson equation, CT = J*Eps_T(i,j)/(du^i*du^j), where J is jacobian
+   ! For GK Ampere equation, CT= J*(Metric_T(i,j)-B^i*B^j/B^2)/(du^i*du^j)
+   ! CT values are updated at every time when solving either GK Poisson or GK Ampere equation
+   real(wp), allocatable, dimension(:,:,:,:,:) :: CT ! LHS coefficient tensor including neighboring left and right poloidal planes
 
 
 contains
@@ -151,7 +167,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
 
    ! write(stdout,"(2(A,I8),1x,I8,A,I8)") "Gsize=",Gsize,", Lsize=",Lsize, 7*Lsize, ", sum(d_nnz+o_nnz)=",sum(d_nnz+o_nnz)
    ! call flush(stdout)
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
    if(mype==0) then
       open(unit=200205,file="mapG2P.dat",action='write')
@@ -184,6 +200,15 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
    endif
 
 
+   call Construct_Metric_Tensor_on_Structured_Grid
+   call Construct_Perp_Laplacian_Matrix
+   ! Create vectors (bVec, xVec, ResVec) for future use
+   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
+   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
+   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
+
 end subroutine Initialize_MGY_PETSc_Interface_Data
 
 subroutine Finalize_MGY_PETSc_Interface_Data
@@ -194,11 +219,183 @@ subroutine Finalize_MGY_PETSc_Interface_Data
    deallocate(recv_mapL2G_partd)
    deallocate(d_nnz, o_nnz)
 
-   if(allocated(Metric_T)) deallocate(Metric_T, Polar_T, Eps_T)
+   if(allocated(Metric_T)) deallocate(Metric_T)
+   if(allocated(Polar_T)) deallocate(Polar_T, Eps_T) ! for GK Poisson Equation
    if(allocated(CT)) deallocate(CT)
 
 end subroutine Finalize_MGY_PETSc_Interface_Data
 
+
+subroutine Construct_Metric_Tensor_on_Structured_Grid
+   use precision, only:wp
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   integer sid,gqid,i,j,ierr
+
+   if(.not.allocated(Metric_T)) allocate(Metric_T(3,3,0:SG%dim_gq,0:SG%dim_a+1))
+
+   ! Metric Tensor is based on the static equilibrium magnetic field (PEST coordinate)
+   do sid=1,SG%dim_a
+      do gqid=1,SG%dim_gq
+         Metric_T(:,:,gqid,sid)=0.0
+         Metric_T(1,1,gqid,sid)=SG%g_ss_cntv(gqid,sid)
+         Metric_T(2,1,gqid,sid)=SG%g_sq_cntv(gqid,sid)
+         Metric_T(1,2,gqid,sid)=SG%g_sq_cntv(gqid,sid)
+         Metric_T(2,2,gqid,sid)=SG%g_qq_cntv(gqid,sid)
+         Metric_T(3,3,gqid,sid)=SG%g_ff_cntv(gqid,sid)
+      enddo
+   enddo
+
+   ! Fill ghost nodes of Metric_T
+   Metric_T(:,:,SG%dim_gq,:)=Metric_T(:,:,1,:)
+   Metric_T(:,:,0,:)        =Metric_T(:,:,SG%dim_gq-1,:)
+   Metric_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   Metric_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+
+end subroutine Construct_Metric_Tensor_on_Structured_Grid
+
+subroutine Construct_Perp_Laplacian_Matrix
+   use Structured_Grid
+   implicit none
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
+   real tt0, tt1
+
+   integer :: dim_gq, dim_a
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+   ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
+   ! Note that there are ghost cells for easier indexing
+   if(.not. allocated(CT)) then
+      allocate( CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   endif
+
+   call Determine_GK_AmpereTensors_on_Structured_Grid   
+
+   max_nnz=19 ! maximum number of non-zero values per each row
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   tarVal=0.0
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
+
+      ! 2 (gqid-1) & 3 (gqid+1)
+      AntiSym1 = 0.5*(CT(1,2,qq+1,ss,0)-CT(1,2,qq-1,ss,0))
+      AntiSym2 = 0.5*(CT(3,2,qq+1,ss,0)-CT(3,2,qq-1,ss,0))
+      tarGid(2 ,Lid) = mapP2G(qq-1,ss,ff)
+      tarVal(2 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq-1,ss,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(3 ,Lid) = mapP2G(qq+1,ss,ff)
+      tarVal(3 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq+1,ss,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 4 (sid-1) & 5 (sid+1)
+      AntiSym1 = 0.5*(CT(2,1,qq,ss+1,0)-CT(2,1,qq,ss-1,0))
+      AntiSym2 = 0.5*(CT(3,1,qq,ss+1,0)-CT(3,1,qq,ss-1,0))
+      tarGid(4 ,Lid) = mapP2G(qq,ss-1,ff)
+      tarVal(4 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss-1,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(5 ,Lid) = mapP2G(qq,ss+1,ff)
+      tarVal(5 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss+1,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 6 (gfid-1) & 7 (gfid+1)
+      AntiSym1 = 0.5*(CT(1,3,qq,ss,+1)-CT(1,3,qq,ss,-1))
+      AntiSym2 = 0.5*(CT(2,3,qq,ss,+1)-CT(2,3,qq,ss,-1))
+      tarGid(6 ,Lid) = mapP2G(qq,ss,ff-1)
+      tarVal(6 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,-1)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(7 ,Lid) = mapP2G(qq,ss,ff+1)
+      tarVal(7 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,+1)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      Sym1 = 0.25*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+      ! 8 (sid+1,qid+1) & 9 (sid-1,qid-1)
+      tarGid(8 ,Lid) = mapP2G(qq+1,ss+1,ff)
+      tarVal(8 ,Lid) = +Sym1
+      tarGid(9 ,Lid) = mapP2G(qq-1,ss-1,ff)
+      tarVal(9 ,Lid) = +Sym1
+      ! 10 (sid+1,qid-1) & 11 (sid-1,qid+1)
+      tarGid(10,Lid) = mapP2G(qq-1,ss+1,ff)
+      tarVal(10,Lid) = -Sym1
+      tarGid(11,Lid) = mapP2G(qq+1,ss-1,ff)
+      tarVal(11,Lid) = -Sym1
+
+      Sym1 = 0.25*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+      ! 12 (sid+1,gfid+1) & 13 (sid-1,gfid-1)
+      tarGid(12,Lid) = mapP2G(qq,ss+1,ff+1)
+      tarVal(12,Lid) = +Sym1
+      tarGid(13,Lid) = mapP2G(qq,ss-1,ff-1)
+      tarVal(13,Lid) = +Sym1
+      ! 14 (sid+1,gfid-1) & 15 (sid-1,gfid+1)
+      tarGid(14,Lid) = mapP2G(qq,ss+1,ff-1)
+      tarVal(14,Lid) = -Sym1
+      tarGid(15,Lid) = mapP2G(qq,ss-1,ff+1)
+      tarVal(15,Lid) = -Sym1
+
+
+      Sym1 = 0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+      ! 16 (gqid+1,gfid+1) & 17  (gqid-1, gfid-1)
+      tarGid(16,Lid) = mapP2G(qq+1,ss,ff+1)
+      tarVal(16,Lid) = +Sym1
+      tarGid(17,Lid) = mapP2G(qq-1,ss,ff-1)
+      tarVal(17,Lid) = +Sym1
+      ! 18 (gqid+1,gfid-1) & 18 (gqid-1, gfid+1)
+      tarGid(18,Lid) = mapP2G(qq+1,ss,ff-1)
+      tarVal(18,Lid) = -Sym1
+      tarGid(19,Lid) = mapP2G(qq-1,ss,ff+1)
+      tarVal(19,Lid) = -Sym1
+
+      ! 1 (gqid,sid,gfid)
+      tarGid(1,Lid)=mapP2G(qq,ss,ff)
+      tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+   enddo
+   ! call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
+
+   ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
+   d_nnz=0; o_nnz=0;
+   do Lid=1,Lsize
+      do tnum=1,max_nnz
+         if(tarGid(tnum,Lid)>=0) then
+            if(tarGid(tnum,Lid)<Gid_start .or. tarGid(tnum,Lid)>Gid_end) then
+               o_nnz(Lid)=o_nnz(Lid)+1
+            else
+               d_nnz(Lid)=d_nnz(Lid)+1
+            endif
+         endif
+      enddo
+   enddo
+
+
+   ! Construct Matrix (PerpLapMat)
+   call MatCreate(PETSC_COMM_WORLD,PerpLapMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PerpLapMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PerpLapMat,ierr); CHKERRQ(ierr)
+   ! Preallocate the memory using o_nnz and d_nnz
+   call MatMPIAIJSetPreallocation(PerpLapMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(PerpLapMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(PerpLapMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PerpLapMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "PerpLapMat Assembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+   
+end subroutine Construct_Perp_Laplacian_Matrix
 
 subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    use Structured_Grid
@@ -212,10 +409,10 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    PetscErrorCode ierr
    real, external:: dsda
 
-   call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
+   ! call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
 
    max_nnz=7
-   allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
    do Lid=1,Lsize
@@ -274,7 +471,7 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
    enddo
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
-   allocate(d_nnz(Lsize), o_nnz(Lsize))
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
    d_nnz=0; o_nnz=0;
    do Lid=1,Lsize
       do tnum=1,max_nnz
@@ -288,44 +485,38 @@ subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
       enddo
    enddo
 
-   ! Construct Matrix (Amat)
-   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
-   call MatSetSizes(Amat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
-   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
    ! Preallocate the memory using o_nnz and d_nnz
-   call MatMPIAIJSetPreallocation(Amat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
    ! Set Mat Values using the non-zero information calculated from above
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
 
    ! Assembly Matrix
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
-
-   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
-   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
-   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
    ! Construct KSP
    tt0=MPI_WTIME()
-   call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-   call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+   call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_P,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,*) "ksp_P (GK Poisson) Create takes ",tt1-tt0," secs"
    call flush(stdout)
 
 
@@ -367,7 +558,7 @@ subroutine Solve_Poisson3D_on_SG()
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
-   call Apply_BC_to_bVec_Coeffs
+   call Apply_BC_to_GK_Poisson_RHS_Coeffs
 
 
    call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
@@ -375,20 +566,20 @@ subroutine Solve_Poisson3D_on_SG()
 
    ! Solve the linear system
    tt0=MPI_WTIME()
-   call KSPSolve(ksp,bVec,xVec,ierr); CHKERRQ(ierr)
+   call KSPSolve(ksp_P,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+   if(mype==0 .or. mype==1) write(stdout,*) "In Solve_Poisson3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+   ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
-   call MatMult(Amat,xVec,ResVec,ierr); CHKERRQ(ierr)
+   call MatMult(PMat,xVec,ResVec,ierr); CHKERRQ(ierr)
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
-   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
+   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "In Solve_Poisson3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
    ! Copy xVec (solution) to the SG%test_phi vector
@@ -511,10 +702,10 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
       call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
 
-      ! Calculate bVec = Amat*xVec+bVec
+      ! Calculate bVec = PMat*xVec+bVec
       ! So, bVec = A*phi-e(n0*(1-exp(AD)+dni-dne)
-      call MatMultAdd(Amat,xVec,bVec,bVec,ierr); CHKERRQ(ierr)
-      call Apply_BC_to_bVec_Coeffs
+      call MatMultAdd(PMat,xVec,bVec,bVec,ierr); CHKERRQ(ierr)
+      call Apply_BC_to_GK_Poisson_RHS_Coeffs
       call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
       call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
       call VecAssemblyBegin(srcVec,ierr); CHKERRQ(ierr)
@@ -522,8 +713,8 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
 
 
       ! Update Jmat
-      ! Set Amat value as the first term
-      call MatCopy(Amat,Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
+      ! Set PMat value as the first term
+      call MatCopy(PMat,Jmat,SAME_NONZERO_PATTERN,ierr); CHKERRQ(ierr)
       ! Add another term from the nonlinear adiabatic response
       do Lid=1,Lsize
          Gid=mapL2G(Lid)
@@ -553,9 +744,9 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
 
       ! Solve the linear system (J*y=b; so y=J^(-1)*b)
       tt0=MPI_WTIME()
-      call KSPSolve(ksp,bVec,yVec,ierr); CHKERRQ(ierr)
+      call KSPSolve(ksp_P,bVec,yVec,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
-      if(mype==0 .or. mype==1) write(stdout,*) "mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+      if(mype==0 .or. mype==1) write(stdout,*) "In Solve_Nonlinear_Poisson3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
       call flush(stdout)
 
       ! Check the residual error and number of the iterations
@@ -563,7 +754,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
       call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
       call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-      call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+      call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
       if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Solving y=J^(-1)*F; Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
       call flush(stdout)
 
@@ -579,15 +770,15 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       call VecNorm(srcVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
       RelErr=res_norm2/src_norm2
       if(mype==0) then
-         write(stdout,"(A,I4,A,ES16.8)") "loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
-         write(stdout,"(A,I4,A,ES16.8)") "loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
+         write(stdout,"(A,I4,A,ES16.8)") "In Solve_Nonlinear_Poisson3D_on_SG, loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
+         write(stdout,"(A,I4,A,ES16.8)") "In Solve_Nonlinear_Poisson3D_on_SG, loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
          call flush(stdout)
       endif
 
       if(RelErr<1e-9 .or. delta_Phi_norm2/ori_Phi_norm2<1e-7) then
          if(mype==0) then
-            write(stdout,"(A,I4,A,ES16.8)") "last_loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
-            write(stdout,"(A,I4,A,ES16.8)") "last_loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
+            write(stdout,"(A,I4,A,ES16.8)") "In Solve_Nonlinear_Poisson3D_on_SG, last_loop=",loop, "; Relative Error(|Res|/|Src|)=", RelErr
+            write(stdout,"(A,I4,A,ES16.8)") "In Solve_Nonlinear_Poisson3D_on_SG, last_loop=",loop, "; evolving phi ratio=", delta_Phi_norm2/ori_Phi_norm2
             call flush(stdout)
          endif
          exit
@@ -713,8 +904,8 @@ subroutine Solve_test_Poisson3D_on_SG()
       source(:,aid) = 1e6*density(SG%a_1D(aid),0.0)*source(:,aid)
    enddo
 
-   !add the adiabatic electron response term in the LHS (Amat)
-   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   !add the adiabatic electron response term in the LHS (PMat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
    if(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
       ! To mimic GTS Way
       if(adiab > 0.0_wp) then
@@ -741,7 +932,7 @@ subroutine Solve_test_Poisson3D_on_SG()
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
-   call Apply_BC_to_bVec_Coeffs
+   call Apply_BC_to_GK_Poisson_RHS_Coeffs
 
 
 
@@ -753,19 +944,19 @@ subroutine Solve_test_Poisson3D_on_SG()
 
    ! Solve the linear system
    tt0=MPI_WTIME()
-   call KSPSolve(ksp,bVec,xVec,ierr); CHKERRQ(ierr)
+   call KSPSolve(ksp_P,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+   ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
-   call MatMult(Amat,xVec,ResVec,ierr); CHKERRQ(ierr)
+   call MatMult(PMat,xVec,ResVec,ierr); CHKERRQ(ierr)
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
    if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
@@ -825,7 +1016,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
    PetscScalar, pointer :: ptr_Vec(:)
    PetscReal, allocatable :: Vec_mype(:), Vec_partd(:)
    integer Lid,Gid
-   Vec RHS_Vec ! Right Hand Side of Amat*xVec
+   Vec RHS_Vec ! Right Hand Side of PMat*xVec
    PetscErrorCode ierr
 
    call VecCreate(PETSC_COMM_WORLD,RHS_Vec,ierr); CHKERRQ(ierr)
@@ -838,8 +1029,8 @@ subroutine Cal_IonPolarDensity_and_RealCharge
    ! Calculate LHS of the pure Poission Equation (not GK one) to get the real charge density
    ! Note that xVec is the potential calculated already from other routine
    ! Here, RHS vector is the Real Charge Density (including Ion Polarization Density) = ni_GC+ni_Pol-ne
-   call Update_Amat_Coeffs(1) ! For Pure Poisson Equation
-   call MatMult(Amat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
+   call Update_GK_Poisson_LHS_Coeffs(1) ! For Pure Poisson Equation
+   call MatMult(PMat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
    call VecGetArrayReadF90(RHS_Vec,ptr_Vec,ierr)
    Vec_mype(:)=ptr_Vec(1:Lsize)
    call VecRestoreArrayReadF90(RHS_Vec,ptr_Vec,ierr)
@@ -853,10 +1044,10 @@ subroutine Cal_IonPolarDensity_and_RealCharge
 
    ! Calculate Ion Polarization Density operator
    ! Note the signs of the equation
-   ! niPol=(nabla*Pol_T*nabla*phi)/e=(-Amat*xVec)/e
+   ! niPol=(nabla*Pol_T*nabla*phi)/e=(-PMat*xVec)/e
    ! Here, RHS is the Ion Polarization Density
-   call Update_Amat_Coeffs(2) ! For Ion Polarization Density
-   call MatMult(Amat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
+   call Update_GK_Poisson_LHS_Coeffs(2) ! For Ion Polarization Density
+   call MatMult(PMat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
    call VecGetArrayReadF90(RHS_Vec,ptr_Vec,ierr)
    Vec_mype(:)=ptr_Vec(1:Lsize)
    call VecRestoreArrayReadF90(RHS_Vec,ptr_Vec,ierr)
@@ -879,8 +1070,8 @@ subroutine Cal_IonPolarDensity_and_RealCharge
    endif
 
 
-   ! Recover original Amat (which is for GK Poisson Equation)
-   call Update_Amat_Coeffs(0)
+   ! Recover original PMat (which is for GK Poisson Equation)
+   call Update_GK_Poisson_LHS_Coeffs(0)
 
 end subroutine Cal_IonPolarDensity_and_RealCharge
 
@@ -891,8 +1082,8 @@ subroutine test_Laplacian_2D()
    implicit none
 
    Vec x,b,u
-   Mat Amat
-   KSP ksp
+   Mat PMat
+   KSP ksp_P
    PetscReal val,x_norm2
    PetscInt :: gid, fGidx, MGidx_start, MGidx_end, VGidx_start, VGidx_end, nx=30,ny=30, neq, idxm, num_its
    PetscErrorCode ierr
@@ -914,12 +1105,12 @@ subroutine test_Laplacian_2D()
    if(mype==0) write(stdout,*) "numberpe=",numberpe
    call flush(stdout)
 
-   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
-   call MatSetSizes(Amat,PETSC_DECIDE,PETSC_DECIDE,neq,neq,ierr); CHKERRQ(ierr)
-   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,PETSC_DECIDE,PETSC_DECIDE,neq,neq,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
    ! Note that the following d_nz=5, o_nz=5 are not optimized values.
-   call MatMPIAIJSetPreallocation(Amat,5,PETSC_NULL_INTEGER,5,PETSC_NULL_INTEGER,ierr); CHKERRQ(ierr)
-   call MatGetOwnershipRange(Amat,MGidx_start,MGidx_end,ierr); CHKERRQ(ierr)
+   call MatMPIAIJSetPreallocation(PMat,5,PETSC_NULL_INTEGER,5,PETSC_NULL_INTEGER,ierr); CHKERRQ(ierr)
+   call MatGetOwnershipRange(PMat,MGidx_start,MGidx_end,ierr); CHKERRQ(ierr)
 
    MGidx_end=MGidx_end-1 !Note that this is an global index of the last local row more proper for Fortran do loop
 
@@ -929,40 +1120,40 @@ subroutine test_Laplacian_2D()
 
       ! do gid=0,neq-1
       !    idxm=gid-1; val=-1.0
-      !    if(idxm>=0) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      !    if(idxm>=0) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       !    idxm=gid+1; val=-1.0
-      !    if(idxm<=neq-1) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      !    if(idxm<=neq-1) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       !    idxm=gid-ny; val=-1.0
-      !    if(idxm>=0) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      !    if(idxm>=0) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       !    idxm=gid+ny; val=-1.0
-      !    if(idxm<=neq-1) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      !    if(idxm<=neq-1) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
 
       !    idxm=gid; val=4.0
-      !    call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr)
+      !    call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr)
       ! enddo
 
    do gid=MGidx_start,MGidx_end
       idxm=gid-1; val=-1.0
-      if(idxm>=0) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      if(idxm>=0) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       idxm=gid+1; val=-1.0
-      if(idxm<=neq-1) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      if(idxm<=neq-1) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       idxm=gid-ny; val=-1.0
-      if(idxm>=0) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      if(idxm>=0) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       idxm=gid+ny; val=-1.0
-      if(idxm<=neq-1) call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      if(idxm<=neq-1) call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
 
       idxm=gid; val=4.0
-      call MatSetValues(Amat,1,gid,1,idxm,val,INSERT_VALUES,ierr)
+      call MatSetValues(PMat,1,gid,1,idxm,val,INSERT_VALUES,ierr)
    enddo
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
    call PetscLogStagePop(ierr); CHKERRQ(ierr)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
    tt0=MPI_WTIME()
    call VecCreate(PETSC_COMM_WORLD,u,ierr); CHKERRQ(ierr)
@@ -984,24 +1175,24 @@ subroutine test_Laplacian_2D()
    ! call VecView(u,PETSC_VIEWER_STDOUT_WORLD,ierr);CHKERRQ(ierr)
 
    tt0=MPI_WTIME()
-   call MatMult(Amat,u,b,ierr); CHKERRQ(ierr)
+   call MatMult(PMat,u,b,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "MatMult takes ",tt1-tt0," secs"
    call flush(stdout)
 
 
    tt0=MPI_WTIME()
-   call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-   call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+   call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_P,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
 
    tt0=MPI_WTIME()
    ! Solve the linear system
-   call KSPSolve(ksp,b,x,ierr); CHKERRQ(ierr)
+   call KSPSolve(ksp_P,b,x,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
@@ -1011,7 +1202,7 @@ subroutine test_Laplacian_2D()
    ! Check solution and error
    call VecAXPY(x,-1.0,u,ierr); CHKERRQ(ierr)
    call VecNorm(x,NORM_2,x_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp,num_its,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
 
    if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "Norm of error=", x_norm2, ", iterations=",num_its
 
@@ -1019,11 +1210,11 @@ subroutine test_Laplacian_2D()
    write(stdout,"(A,I8,A,(I8,A,I8),A,(I8,A,I8),A)")"mype=",mype,", idx_start_(M,V)=(",MGidx_start,",",VGidx_start,"), idx_end_(M,V)=(",MGidx_end,",",VGidx_end,")"
    call flush(stdout)
 
-   call KSPDestroy(ksp,ierr); CHKERRQ(ierr)
+   call KSPDestroy(ksp_P,ierr); CHKERRQ(ierr)
    call VecDestroy(u,ierr); CHKERRQ(ierr)
    call VecDestroy(x,ierr); CHKERRQ(ierr)
    call VecDestroy(b,ierr); CHKERRQ(ierr)
-   call MatDestroy(Amat,ierr); CHKERRQ(ierr)
+   call MatDestroy(PMat,ierr); CHKERRQ(ierr)
 
    ! call PetscFinalize(ierr)
 
@@ -1050,16 +1241,17 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
-   call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
+   ! call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
 
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
-   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
-   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
    max_nnz=19 ! maximum number of non-zero values per each row
-   allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
    do Lid=1,Lsize
@@ -1138,11 +1330,11 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
    enddo
 
-   call Apply_BC_to_Amat_Coeffs
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs
 
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
-   allocate(d_nnz(Lsize), o_nnz(Lsize))
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
    d_nnz=0; o_nnz=0;
    do Lid=1,Lsize
       do tnum=1,max_nnz
@@ -1157,41 +1349,35 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    enddo
 
 
-   ! Construct Matrix (Amat)
-   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
-   call MatSetSizes(Amat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
-   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
    ! Preallocate the memory using o_nnz and d_nnz
-   call MatMPIAIJSetPreallocation(Amat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
    ! Set Mat Values using the non-zero information calculated from above
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
    ! Assembly Matrix
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
-
-   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
-   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
-   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
 
    ! Construct KSP
    tt0=MPI_WTIME()
-   call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-   call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-   ! call KSPSetTolerances(ksp,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-   call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+   call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_P,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
    call flush(stdout)
@@ -1221,16 +1407,17 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
-   call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
+   ! call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
 
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
-   allocate(Metric_T(3,3,0:dim_gq,0:dim_a+1), Polar_T(3,3,0:dim_gq,0:dim_a+1))
-   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1), CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid(0)
 
    max_nnz=19 ! maximum number of non-zero values per each row
-   allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
    tarVal=0.0
@@ -1317,13 +1504,13 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
 
    enddo
-   call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
-   call Determine_Adiabatic_Contribution_to_Amat
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
+   call Add_Adiabatic_Term_to_GK_Poisson_LHS
 
 
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
-   allocate(d_nnz(Lsize), o_nnz(Lsize))
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
    d_nnz=0; o_nnz=0;
    do Lid=1,Lsize
       do tnum=1,max_nnz
@@ -1338,39 +1525,34 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    enddo
 
 
-   ! Construct Matrix (Amat)
-   call MatCreate(PETSC_COMM_WORLD,Amat,ierr); CHKERRQ(ierr)
-   call MatSetSizes(Amat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
-   call MatSetFromOptions(Amat,ierr); CHKERRQ(ierr)
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
    ! Preallocate the memory using o_nnz and d_nnz
-   call MatMPIAIJSetPreallocation(Amat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
    ! Set Mat Values using the non-zero information calculated from above
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
    ! Assembly Matrix
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "Amat Assembly takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,*) "PMat Assembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
-   call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
-   call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
-   call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
 
    if(Flag_Def_dne_adiab==3) then
 
-      ! Set Amat value as the first term
-      call MatDuplicate(Amat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
+      ! Set PMat value as the first term
+      call MatDuplicate(PMat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
 
       ! Add another term from the nonlinear adiabatic response
       do Lid=1,Lsize
@@ -1402,21 +1584,21 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    if(Flag_Def_dne_adiab==3) then
       ! Construct KSP
       tt0=MPI_WTIME()
-      call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-      ! call KSPSetOperators(ksp,Jmat,Jmat,ierr); CHKERRQ(ierr)
-      call KSPSetOperators(ksp,Jmat,pre_Jmat,ierr); CHKERRQ(ierr)
-      ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-      call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+      call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+      ! call KSPSetOperators(ksp_P,Jmat,Jmat,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp_P,Jmat,pre_Jmat,ierr); CHKERRQ(ierr)
+      ! call KSPSetTolerances(ksp_P,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+      call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
       call flush(stdout)
    else
       ! Construct KSP
       tt0=MPI_WTIME()
-      call KSPCreate(PETSC_COMM_WORLD,ksp,ierr); CHKERRQ(ierr)
-      call KSPSetOperators(ksp,Amat,Amat,ierr); CHKERRQ(ierr)
-      ! call KSPSetTolerances(ksp,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
-      call KSPSetFromOptions(ksp,ierr); CHKERRQ(ierr)
+      call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+      ! call KSPSetTolerances(ksp_P,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+      call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
       call flush(stdout)
@@ -1426,7 +1608,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
-subroutine Update_Amat_Coeffs(In_Flag_WhichLHS)
+subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
 
    use Structured_Grid
    use particle_decomp
@@ -1451,7 +1633,7 @@ subroutine Update_Amat_Coeffs(In_Flag_WhichLHS)
 
    if(Flag_WhichLHS==0 .or. Flag_WhichLHS==1 .or. Flag_WhichLHS==2) then
    else
-      write(stdout,*) "Error!! In Update_Amat_Coeffs, Flag_WhichLHS=",Flag_WhichLHS
+      write(stdout,*) "Error!! In Update_GK_Poisson_LHS_Coeffs, Flag_WhichLHS=",Flag_WhichLHS
       call flush(stdout)
       stop
    endif
@@ -1560,32 +1742,32 @@ subroutine Update_Amat_Coeffs(In_Flag_WhichLHS)
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
 
    enddo
-   call Apply_BC_to_Amat_Coeffs ! Apply Boundary Condition to Amt Coeffs
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
 
    if(Flag_WhichLHS==0) then
-      call Determine_Adiabatic_Contribution_to_Amat
+      call Add_Adiabatic_Term_to_GK_Poisson_LHS
    endif
 
 
    ! Set Mat Values using the non-zero information calculated from above
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
-      call MatSetValues(Amat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
    ! Assembly Matrix
    tt0=MPI_WTIME()
-   call MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
-   call MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,*) "PMat Assembly takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call MatView(Amat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
-end subroutine Update_Amat_Coeffs
+end subroutine Update_GK_Poisson_LHS_Coeffs
 
 subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
    use precision, only:wp
@@ -1605,25 +1787,6 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
 
    Flag_WhichTerm=2 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
    if(present(In_Flag_WhichTerm)) Flag_WhichTerm = In_Flag_WhichTerm
-
-   ! Metric Tensor is based on the static equilibrium magnetic field (PEST coordinate)
-   do sid=1,SG%dim_a
-      do gqid=1,SG%dim_gq
-         Metric_T(:,:,gqid,sid)=0.0
-         Metric_T(1,1,gqid,sid)=SG%g_ss_cntv(gqid,sid)
-         Metric_T(2,1,gqid,sid)=SG%g_sq_cntv(gqid,sid)
-         Metric_T(1,2,gqid,sid)=SG%g_sq_cntv(gqid,sid)
-         Metric_T(2,2,gqid,sid)=SG%g_qq_cntv(gqid,sid)
-         Metric_T(3,3,gqid,sid)=SG%g_ff_cntv(gqid,sid)
-      enddo
-   enddo
-
-   ! Fill ghost nodes of Metric_T
-   Metric_T(:,:,SG%dim_gq,:)=Metric_T(:,:,1,:)
-   Metric_T(:,:,0,:)        =Metric_T(:,:,SG%dim_gq-1,:)
-   Metric_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-   Metric_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
-
 
    if(Flag_Def_dne_adiab==1) then
       do sid=1,SG%dim_s
@@ -1722,7 +1885,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
 end subroutine Determine_GK_PoissonTensors_on_Structured_Grid
 
 
-subroutine Determine_Adiabatic_Contribution_to_Amat
+subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
    use precision
    use Structured_Grid
@@ -1737,8 +1900,8 @@ subroutine Determine_Adiabatic_Contribution_to_Amat
 
 
    !In the case of delta-h electron simulation,
-   !add the adiabatic electron response term in the LHS (Amat)
-   ! NOTE: The following line must locate after "call Apply_BC_to_Amat_Coeffs"
+   !add the adiabatic electron response term in the LHS (PMat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
    ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
    if(ifelectron==2) then
       if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
@@ -1818,10 +1981,10 @@ subroutine Determine_Adiabatic_Contribution_to_Amat
    endif
 
 
-end subroutine Determine_Adiabatic_Contribution_to_Amat
+end subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
 
-subroutine Apply_BC_to_Amat_Coeffs
+subroutine Apply_BC_to_GK_Poisson_LHS_Coeffs
    use Structured_Grid
    use global_parameters, only:mzetamax,stdout,mype
    implicit none
@@ -2014,9 +2177,9 @@ subroutine Apply_BC_to_Amat_Coeffs
       endif
    endif
 
-end subroutine Apply_BC_to_Amat_Coeffs
+end subroutine Apply_BC_to_GK_Poisson_LHS_Coeffs
 
-subroutine Apply_BC_to_bVec_Coeffs
+subroutine Apply_BC_to_GK_Poisson_RHS_Coeffs
    use Structured_Grid
    use global_parameters, only:mzetamax,stdout,mype
    implicit none
@@ -2121,6 +2284,744 @@ subroutine Apply_BC_to_bVec_Coeffs
    call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
 
 
-end subroutine Apply_BC_to_bVec_Coeffs
+end subroutine Apply_BC_to_GK_Poisson_RHS_Coeffs
+
+
+subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
+
+   use Structured_Grid
+   use particle_decomp
+   use global_parameters
+   use field_array, only:FLA_Te0
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   real tt0, tt1
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   real, external:: dsda
+   integer :: dim_gq, dim_a
+   PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
+   real(wp), external :: Te0_eV, Ti0_eV, density
+   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
+   real(wp) tmp
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+   ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
+   ! Note that there are ghost cells for easier indexing
+   if(.not. allocated(CT)) then
+      allocate( CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   endif
+
+   call Determine_GK_AmpereTensors_on_Structured_Grid
+
+   max_nnz=19 ! maximum number of non-zero values per each row
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   tarVal=0.0
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
+
+      ! 2 (gqid-1) & 3 (gqid+1)
+      AntiSym1 = 0.5*(CT(1,2,qq+1,ss,0)-CT(1,2,qq-1,ss,0))
+      AntiSym2 = 0.5*(CT(3,2,qq+1,ss,0)-CT(3,2,qq-1,ss,0))
+      tarGid(2 ,Lid) = mapP2G(qq-1,ss,ff)
+      tarVal(2 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq-1,ss,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(3 ,Lid) = mapP2G(qq+1,ss,ff)
+      tarVal(3 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq+1,ss,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 4 (sid-1) & 5 (sid+1)
+      AntiSym1 = 0.5*(CT(2,1,qq,ss+1,0)-CT(2,1,qq,ss-1,0))
+      AntiSym2 = 0.5*(CT(3,1,qq,ss+1,0)-CT(3,1,qq,ss-1,0))
+      tarGid(4 ,Lid) = mapP2G(qq,ss-1,ff)
+      tarVal(4 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss-1,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(5 ,Lid) = mapP2G(qq,ss+1,ff)
+      tarVal(5 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss+1,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 6 (gfid-1) & 7 (gfid+1)
+      AntiSym1 = 0.5*(CT(1,3,qq,ss,+1)-CT(1,3,qq,ss,-1))
+      AntiSym2 = 0.5*(CT(2,3,qq,ss,+1)-CT(2,3,qq,ss,-1))
+      tarGid(6 ,Lid) = mapP2G(qq,ss,ff-1)
+      tarVal(6 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,-1)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(7 ,Lid) = mapP2G(qq,ss,ff+1)
+      tarVal(7 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,+1)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      Sym1 = 0.25*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+      ! 8 (sid+1,qid+1) & 9 (sid-1,qid-1)
+      tarGid(8 ,Lid) = mapP2G(qq+1,ss+1,ff)
+      tarVal(8 ,Lid) = +Sym1
+      tarGid(9 ,Lid) = mapP2G(qq-1,ss-1,ff)
+      tarVal(9 ,Lid) = +Sym1
+      ! 10 (sid+1,qid-1) & 11 (sid-1,qid+1)
+      tarGid(10,Lid) = mapP2G(qq-1,ss+1,ff)
+      tarVal(10,Lid) = -Sym1
+      tarGid(11,Lid) = mapP2G(qq+1,ss-1,ff)
+      tarVal(11,Lid) = -Sym1
+
+      Sym1 = 0.25*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+      ! 12 (sid+1,gfid+1) & 13 (sid-1,gfid-1)
+      tarGid(12,Lid) = mapP2G(qq,ss+1,ff+1)
+      tarVal(12,Lid) = +Sym1
+      tarGid(13,Lid) = mapP2G(qq,ss-1,ff-1)
+      tarVal(13,Lid) = +Sym1
+      ! 14 (sid+1,gfid-1) & 15 (sid-1,gfid+1)
+      tarGid(14,Lid) = mapP2G(qq,ss+1,ff-1)
+      tarVal(14,Lid) = -Sym1
+      tarGid(15,Lid) = mapP2G(qq,ss-1,ff+1)
+      tarVal(15,Lid) = -Sym1
+
+
+      Sym1 = 0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+      ! 16 (gqid+1,gfid+1) & 17  (gqid-1, gfid-1)
+      tarGid(16,Lid) = mapP2G(qq+1,ss,ff+1)
+      tarVal(16,Lid) = +Sym1
+      tarGid(17,Lid) = mapP2G(qq-1,ss,ff-1)
+      tarVal(17,Lid) = +Sym1
+      ! 18 (gqid+1,gfid-1) & 18 (gqid-1, gfid+1)
+      tarGid(18,Lid) = mapP2G(qq+1,ss,ff-1)
+      tarVal(18,Lid) = -Sym1
+      tarGid(19,Lid) = mapP2G(qq-1,ss,ff+1)
+      tarVal(19,Lid) = -Sym1
+
+      ! 1 (gqid,sid,gfid)
+      tarGid(1,Lid)=mapP2G(qq,ss,ff)
+      tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+
+      ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+      ! so make sure that target coefficient values represent (-nabla*(Metric_T-B^i*B^j/B^2)*nabla*Ah_para))
+      tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+   enddo
+   call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
+   call Add_Skin_Term_to_GK_Ampere_LHS
+
+   ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
+   d_nnz=0; o_nnz=0;
+   do Lid=1,Lsize
+      do tnum=1,max_nnz
+         if(tarGid(tnum,Lid)>=0) then
+            if(tarGid(tnum,Lid)<Gid_start .or. tarGid(tnum,Lid)>Gid_end) then
+               o_nnz(Lid)=o_nnz(Lid)+1
+            else
+               d_nnz(Lid)=d_nnz(Lid)+1
+            endif
+         endif
+      enddo
+   enddo
+
+
+   ! Construct Matrix (AMat)
+   call MatCreate(PETSC_COMM_WORLD,AMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(AMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(AMat,ierr); CHKERRQ(ierr)
+   ! Preallocate the memory using o_nnz and d_nnz
+   call MatMPIAIJSetPreallocation(AMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(AMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(AMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(AMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "AMat Assembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call MatView(AMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+
+
+
+   ! Construct KSP
+   tt0=MPI_WTIME()
+   call KSPCreate(PETSC_COMM_WORLD,ksp_A,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_A,AMat,AMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_A,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_A,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "ksp_A (GK Ampere) Create takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+
+end subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
+
+subroutine Update_GK_Ampere_LHS_Coeffs
+
+   use Structured_Grid
+   use particle_decomp
+   use global_parameters
+   use field_array, only:FLA_Te0
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   real tt0, tt1
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   integer :: dim_gq, dim_a, i
+   PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
+   real(wp), external :: Te0_eV, Ti0_eV, density
+   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+
+   ! Calculate dn
+   if(Flag_Weight_dfh==0) then
+      SG%dne_SM = SG%dne(:,:,1)
+      SG%dni_SM = SG%dni(:,:,1)
+   elseif(Flag_Weight_dfh==1) then
+      do i=1,SG%dim_s
+         SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
+         SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
+      enddo
+   endif
+
+   ! Then, smooth them
+   call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
+   call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
+
+   call Determine_GK_AmpereTensors_on_Structured_Grid
+
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   tarVal=0.0
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
+
+      ! 2 (gqid-1) & 3 (gqid+1)
+      AntiSym1 = 0.5*(CT(1,2,qq+1,ss,0)-CT(1,2,qq-1,ss,0))
+      AntiSym2 = 0.5*(CT(3,2,qq+1,ss,0)-CT(3,2,qq-1,ss,0))
+      tarGid(2 ,Lid) = mapP2G(qq-1,ss,ff)
+      tarVal(2 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq-1,ss,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(3 ,Lid) = mapP2G(qq+1,ss,ff)
+      tarVal(3 ,Lid) = 0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq+1,ss,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 4 (sid-1) & 5 (sid+1)
+      AntiSym1 = 0.5*(CT(2,1,qq,ss+1,0)-CT(2,1,qq,ss-1,0))
+      AntiSym2 = 0.5*(CT(3,1,qq,ss+1,0)-CT(3,1,qq,ss-1,0))
+      tarGid(4 ,Lid) = mapP2G(qq,ss-1,ff)
+      tarVal(4 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss-1,0)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(5 ,Lid) = mapP2G(qq,ss+1,ff)
+      tarVal(5 ,Lid) = 0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss+1,0)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      ! 6 (gfid-1) & 7 (gfid+1)
+      AntiSym1 = 0.5*(CT(1,3,qq,ss,+1)-CT(1,3,qq,ss,-1))
+      AntiSym2 = 0.5*(CT(2,3,qq,ss,+1)-CT(2,3,qq,ss,-1))
+      tarGid(6 ,Lid) = mapP2G(qq,ss,ff-1)
+      tarVal(6 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,-1)) - min(0.0,AntiSym1) - min(0.0,AntiSym2)
+      tarGid(7 ,Lid) = mapP2G(qq,ss,ff+1)
+      tarVal(7 ,Lid) = 0.5*(CT(3,3,qq,ss,0)+CT(3,3,qq,ss,+1)) + max(0.0,AntiSym1) + max(0.0,AntiSym2)
+
+      Sym1 = 0.25*(CT(1,2,qq,ss,0)+CT(2,1,qq,ss,0))
+      ! 8 (sid+1,qid+1) & 9 (sid-1,qid-1)
+      tarGid(8 ,Lid) = mapP2G(qq+1,ss+1,ff)
+      tarVal(8 ,Lid) = +Sym1
+      tarGid(9 ,Lid) = mapP2G(qq-1,ss-1,ff)
+      tarVal(9 ,Lid) = +Sym1
+      ! 10 (sid+1,qid-1) & 11 (sid-1,qid+1)
+      tarGid(10,Lid) = mapP2G(qq-1,ss+1,ff)
+      tarVal(10,Lid) = -Sym1
+      tarGid(11,Lid) = mapP2G(qq+1,ss-1,ff)
+      tarVal(11,Lid) = -Sym1
+
+      Sym1 = 0.25*(CT(1,3,qq,ss,0)+CT(3,1,qq,ss,0))
+      ! 12 (sid+1,gfid+1) & 13 (sid-1,gfid-1)
+      tarGid(12,Lid) = mapP2G(qq,ss+1,ff+1)
+      tarVal(12,Lid) = +Sym1
+      tarGid(13,Lid) = mapP2G(qq,ss-1,ff-1)
+      tarVal(13,Lid) = +Sym1
+      ! 14 (sid+1,gfid-1) & 15 (sid-1,gfid+1)
+      tarGid(14,Lid) = mapP2G(qq,ss+1,ff-1)
+      tarVal(14,Lid) = -Sym1
+      tarGid(15,Lid) = mapP2G(qq,ss-1,ff+1)
+      tarVal(15,Lid) = -Sym1
+
+
+      Sym1 = 0.25*(CT(2,3,qq,ss,0)+CT(3,2,qq,ss,0))
+      ! 16 (gqid+1,gfid+1) & 17  (gqid-1, gfid-1)
+      tarGid(16,Lid) = mapP2G(qq+1,ss,ff+1)
+      tarVal(16,Lid) = +Sym1
+      tarGid(17,Lid) = mapP2G(qq-1,ss,ff-1)
+      tarVal(17,Lid) = +Sym1
+      ! 18 (gqid+1,gfid-1) & 18 (gqid-1, gfid+1)
+      tarGid(18,Lid) = mapP2G(qq+1,ss,ff-1)
+      tarVal(18,Lid) = -Sym1
+      tarGid(19,Lid) = mapP2G(qq-1,ss,ff+1)
+      tarVal(19,Lid) = -Sym1
+
+      ! 1 (gqid,sid,gfid)
+      tarGid(1,Lid)=mapP2G(qq,ss,ff)
+      tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+
+      ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+      ! so make sure that target coefficient values represent (-nabla*(Metric_T-B^i*B^j/B^2)*nabla*Ah_para))
+      tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+   enddo
+   call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
+   call Add_Skin_Term_to_GK_Ampere_LHS
+
+
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(AMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(AMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(AMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "AMat Assembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call MatView(AMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+end subroutine Update_GK_Ampere_LHS_Coeffs
+
+
+
+subroutine Determine_GK_AmpereTensors_on_Structured_Grid
+   use precision, only:wp
+   use global_parameters, only:stdout,mype,ifelectron,mzetamax,msm0,amasse,amassi
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   integer sid,gqid,i,j,ierr
+   real(wp) invBsq ! 1/(B^2)
+   real(wp) inv_du(3)
+   integer istatus(MPI_STATUS_SIZE), icount, ierror
+
+   inv_du(1) = SG%inv_ds
+   inv_du(2) = SG%inv_dgq
+   inv_du(3) = 1.0/(SG%zetamax-SG%zetamin)
+
+   ! Calculate Coefficient Tensor CT= Jacob*(Metric_T(i,j)-B^i*B^j/B^2)/(du^i*du^j)
+   do sid=1,SG%dim_a
+      do gqid=1,SG%dim_gq
+         invBsq=1.0/(SG%BB(gqid,sid)**2.0) ! unit (T^(-2))
+         do j=1,3
+            do i=1,3
+               CT(i,j,gqid,sid,0)= SG%Jacob_sqf(gqid,sid)*(Metric_T(i,j,gqid,sid)- invBsq*(SG%B0_cntv3_sqf(i,gqid,sid)*SG%B0_cntv3_sqf(j,gqid,sid)))*inv_du(i)*inv_du(j)
+            enddo
+         enddo
+      enddo
+   enddo
+
+   ! Communicate CT with neighboring left and right planes.
+   ! So, CT(:,:,:,:,tid) ==>  tid=-1(left plane), tid=0(my plane), tid=1(right plane)
+   ! CT(3,3,0:dim_gq,0:dim_a+1,-1:1)
+   icount=3*3*(SG%dim_gq+1)*(SG%dim_a+2)
+   call MPI_SENDRECV(CT(:,:,:,:,0),icount,mpi_Rsize,left_pe,0,CT(:,:,:,:,1),icount,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierror)
+   call MPI_SENDRECV(CT(:,:,:,:,0),icount,mpi_Rsize,right_pe,0,CT(:,:,:,:,-1),icount,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierror)
+
+   CT(:,:,SG%dim_gq,:,:)  =CT(:,:,1,:,:)
+   CT(:,:,0,:,:)          =CT(:,:,SG%dim_gq-1,:,:)
+   CT(:,:,:,0,:)          =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   CT(:,:,:,SG%dim_a+1,:) =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+
+end subroutine Determine_GK_AmpereTensors_on_Structured_Grid
+
+
+subroutine Add_Skin_Term_to_GK_Ampere_LHS
+
+   use precision
+   use Structured_Grid
+   use field_array
+
+   implicit none
+
+   integer Lid,Gid,qq,ss
+   integer sid,gqid,i,j,ierr
+   real(wp) sk_coeff
+   real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
+   real(wp) me_kg,mi_kg, qe_C, qi_C
+   real(wp) ne_tot(SG%dim_gq,SG%dim_s), ni_tot(SG%dim_gq,SG%dim_s)
+
+   if(Flag_Def_dne_adiab==1) then
+      do sid=1,SG%dim_s
+         do gqid=1,SG%dim_gq
+            ! density unit is (#/m^3)
+            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
+            ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
+         enddo
+      enddo
+   elseif(Flag_Def_dne_adiab==3) then
+      ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
+      do sid=1,SG%dim_s
+         do gqid=1,SG%dim_gq
+            ! density unit is (#/m^3)
+            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
+            ne_tot(gqid,sid) = 1e6*(SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))))
+         enddo
+      enddo
+   else
+      write(stdout,*) "Error! Flag_Def_dne_adiab=", Flag_Def_dne_adiab, " in Determine_GK_PoissonTensor"
+      call flush(stdout)
+      stop
+   endif
+
+   ! Density must be positive so ignore negative values because of numerical noises
+   ne_tot = max(0.0,ne_tot)
+   ni_tot = max(0.0,ni_tot)
+
+   me_kg = 1e-3*amasse
+   mi_kg = 1e-3*amassi
+
+   qe_C = charge/2997924580.0
+   qi_C = chargi/2997924580.0
+
+   !In the case of delta-h electron simulation,
+   !add the adiabatic electron response term in the LHS (PMat)
+   ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
+   do Lid=1,Lsize
+      Gid= mapL2G(Lid)
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+
+      sk_coeff = PERMEABILITY*(ne_tot(qq,ss)*qe_C**2.0/me_kg + ni_tot(qq,ss)*qi_C**2.0/mi_kg) ! Sigma_over_s [mu0*ns*qs^2/(m_s)]
+
+      tarVal(1,Lid)=tarVal(1,Lid) + sk_coeff! 1 (Center)
+
+      ! Adiabatic Density is not only determined by the phi on that node but also affected by neighboring phi
+      ! (See a note "The Poisson equation regarding the electron adiabatic density")
+      ! Determine tarVal corresponding to the integral coefficients of the shape function
+      if(ss==1) then
+         ! ! Left Half case
+         ! AD_coeff=AD_coeff/18.0
+         ! tarVal(1,Lid)=tarVal(1,Lid) + 8*AD_coeff ! 1 (Center)
+         ! tarVal(2,Lid)=tarVal(2,Lid) + 2*AD_coeff ! 2 (qq-1)
+         ! tarVal(3,Lid)=tarVal(3,Lid) + 2*AD_coeff ! 3 (qq+1)
+         ! tarVal(5,Lid)=tarVal(5,Lid) + 4*AD_coeff ! 5 (ss+1)
+         ! tarVal(8,Lid)=tarVal(8,Lid) + 1*AD_coeff ! 8 (ss+1,qq+1)
+         ! tarVal(10,Lid)=tarVal(10,Lid) + 1*AD_coeff ! 10 (ss+1,qq-1)
+      elseif(ss==SG%dim_s) then
+         ! ! Right Half case
+         ! AD_coeff=AD_coeff/18.0
+         ! tarVal(1,Lid)=tarVal(1,Lid) + 8*AD_coeff ! 1 (Center)
+         ! tarVal(2,Lid)=tarVal(2,Lid) + 2*AD_coeff ! 2 (qq-1)
+         ! tarVal(3,Lid)=tarVal(3,Lid) + 2*AD_coeff ! 3 (qq+1)
+         ! tarVal(4,Lid)=tarVal(4,Lid) + 4*AD_coeff ! 4 (ss-1)
+         ! tarVal(9,Lid)=tarVal(9,Lid) + 1*AD_coeff ! 9 (ss-1,qq-1)
+         ! tarVal(11,Lid)=tarVal(11,Lid) + 1*AD_coeff ! 11 (ss-1,qq+1)
+      else
+         ! ! Full case
+         ! AD_coeff=AD_coeff/36.0
+         ! tarVal(1,Lid)=tarVal(1,Lid) + 16*AD_coeff! 1 (Center)
+         ! tarVal(2,Lid)=tarVal(2,Lid) + 4*AD_coeff ! 2 (qq-1)
+         ! tarVal(3,Lid)=tarVal(3,Lid) + 4*AD_coeff ! 3 (qq+1)
+         ! tarVal(4,Lid)=tarVal(4,Lid) + 4*AD_coeff ! 4 (ss-1)
+         ! tarVal(5,Lid)=tarVal(5,Lid) + 4*AD_coeff ! 5 (ss+1)
+         ! tarVal(8,Lid)=tarVal(8,Lid) + 1*AD_coeff ! 8 (ss+1,qq+1)
+         ! tarVal(9,Lid)=tarVal(9,Lid) + 1*AD_coeff ! 9 (ss-1,qq-1)
+         ! tarVal(10,Lid)=tarVal(10,Lid) + 1*AD_coeff ! 10 (ss+1,qq-1)
+         ! tarVal(11,Lid)=tarVal(11,Lid) + 1*AD_coeff ! 11 (ss-1,qq+1)
+      endif
+   enddo
+
+
+
+end subroutine Add_Skin_Term_to_GK_Ampere_LHS
+
+subroutine Apply_BC_to_GK_Ampere_LHS_Coeffs
+   use Structured_Grid
+   use global_parameters, only:mzetamax,stdout,mype
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,j
+   integer :: dim_gq, dim_a
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+   ! GK Ampere equations' BCs are Dirichlet at both sides
+   ! At inner boundary
+   ss=1
+   do ff=1,mzetamax
+      do qq=1,dim_gq-1
+         !Dirichlet condition
+         Lid=mapP2L(qq,ss,ff)
+         if(Lid>0) then
+            tarGid(:,Lid) = -100
+            tarVal(:,Lid) = 0.0
+
+            tarGid(1,Lid) = mapP2G(qq,ss,ff)
+            tarVal(1,Lid) = 1.0 ! Ah_para @ (ss=1)
+         endif
+      enddo
+   enddo
+
+   ! At outer boundary
+   ss=dim_a
+   do ff=1,mzetamax
+      do qq=1,dim_gq-1
+         Lid=mapP2L(qq,ss,ff)
+         if(Lid>0) then
+            tarGid(:, Lid) = -100
+            tarVal(:, Lid) = 0.0
+
+            tarGid(1, Lid) = mapP2G(qq,ss,ff)
+            tarVal(1, Lid) = 1.0 ! Ah_para @ (ss=dim_a)
+         endif
+      enddo
+   enddo
+
+end subroutine Apply_BC_to_GK_Ampere_LHS_Coeffs
+
+
+subroutine Apply_BC_to_GK_Ampere_RHS_Coeffs
+   use Structured_Grid
+   use global_parameters, only:mzetamax,stdout,mype
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,j
+   integer :: dim_gq, dim_a
+   PetscReal val
+   PetscErrorCode ierr
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+   ! GK Ampere equations' BCs are Dirichlet at both sides
+   ! Assumes that Ah_para = 0 at both ends
+
+   ! At inner boundary
+   ss=1
+   do ff=1,mzetamax
+      do qq=1,dim_gq-1
+         Lid=mapP2L(qq,ss,ff)
+         if(Lid>0) then
+            Gid=mapL2G(Lid)
+            ! val=BC0_value
+            val = 0.0
+            call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+         endif
+      enddo
+   enddo
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+
+   ! At outer boundary
+   ss=dim_a
+   do ff=1,mzetamax
+      do qq=1,dim_gq-1
+         Lid=mapP2L(qq,ss,ff)
+         if(Lid>0) then
+            Gid=mapL2G(Lid)
+            ! val=BC1_value
+            val = 0.0
+            call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+         endif
+      enddo
+   enddo
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+
+   if(BC0_type==1 .and. BC1_type==1) then
+      ! This is purely Neumann conditions.. so the solution is not unique
+      ! We need a reference point (Dirichlet condition)
+      Lid=mapP2L(1,1,1) ! This is a reference point
+      if(Lid>0) then
+         Gid=mapL2G(Lid)
+         val=0.0 ! Reference value
+         call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      endif
+   endif
+
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+
+end subroutine Apply_BC_to_GK_Ampere_RHS_Coeffs
+
+
+
+subroutine Solve_GK_Ampere_3D_on_SG()
+   use precision, only:wp
+   ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
+   use global_parameters
+   use field_array
+
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
+   PetscInt Lid,Gid,num_its, gqid,gfid,aid
+   PetscInt ss,qq,ff
+   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
+   PetscErrorCode ierr
+   integer istatus(MPI_STATUS_SIZE)
+   PetscReal source(SG%dim_gq,SG%dim_a)
+   PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
+   real(wp) tt0,tt1
+   real(wp) AD ! Adiabatic Factor = e*phi/Te0
+   integer :: i,j,ij
+   Vec AparaS,mu0_j_para 
+
+   real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
+
+
+   RHS_leading_coeff=1e4*1.602176634e-19*uveloci*PERMEABILITY ! factor 1e4 is for (m^-2)
+
+   call VecDuplicate(bVec,AparaS,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,mu0_j_para,ierr); CHKERRQ(ierr)
+   ! Assign and Assemble bVec (source term)
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      qq=mapG2P(Gid)%gqid
+      ss=mapG2P(Gid)%aid
+      val=RHS_leading_coeff*(SG%dji_para(qq,ss,1)+SG%dje_para(qq,ss,1))
+      call VecSetValues(mu0_j_para,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      call VecSetValues(AparaS,1,Gid,SG%AparaS(qq,ss),INSERT_VALUES,ierr);CHKERRQ(ierr) 
+   enddo
+
+   ! Calculate bVec = PerpLapMat*AparaS + mu0_j_para
+   tt0=MPI_WTIME()
+   call MatMultAdd(PerpLapMat,AparaS,mu0_j_para,bVec,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "MatMultAdd in Solve_GK_Ampere_3D_on_SG takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+
+   if(mod(istep,msnap)==0) then
+      ! Copy bVec (source) to the SG%test_src vector
+      allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
+      call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
+      bVec_mype(:)=ptr_bVec(1:Lsize)
+      call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
+      call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+      do Lid=1,sum_Lsize_partd
+         Gid=recv_mapL2G_partd(Lid)
+         SG%Ampere_RHS(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
+      enddo
+      SG%Ampere_RHS(SG%dim_gq,:)=SG%Ampere_RHS(1,:)
+      deallocate(bVec_mype, bVec_partd)
+   endif
+
+   call VecDestroy(AparaS,ierr); CHKERRQ(ierr)
+   call VecDestroy(mu0_j_para,ierr); CHKERRQ(ierr)
+
+
+
+   call Apply_BC_to_GK_Ampere_RHS_Coeffs
+
+   call VecAssemblyBegin(bVec,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(bVec,ierr); CHKERRQ(ierr)
+
+   ! Solve the linear system
+   tt0=MPI_WTIME()
+   call KSPSolve(ksp_A,bVec,xVec,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0 .or. mype==1) write(stdout,*) "In Solve_GK_Ampere_3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+
+   ! Check the residual error and number of the iterations
+   call MatMult(AMat,xVec,ResVec,ierr); CHKERRQ(ierr)
+   call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
+   call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
+   call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
+   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
+   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "In Solve_GK_Ampere_3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   call flush(stdout)
+
+   ! Copy xVec (solution) to the SG%test_phi vector
+   allocate(xVec_mype(Lsize), xVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(xVec,ptr_xVec,ierr)
+   xVec_mype(:)=ptr_xVec(1:Lsize)
+   call VecRestoreArrayReadF90(xVec,ptr_xVec,ierr)
+   call MPI_ALLGATHERV(xVec_mype,Lsize,mpi_Rsize,xVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%AparaH(mapG2P(Gid)%gqid,mapG2P(Gid)%aid,1) = xVec_partd(Lid)
+   enddo
+   SG%AparaH(SG%dim_gq,:,1)=SG%AparaH(1,:,1)
+   deallocate(xVec_mype, xVec_partd)
+
+   ! SG%AparaH(:,1:35,:) = 0.0
+   ! do i=35,60
+   !    SG%AparaH(:,i,:) = (i-35)*(1e4)/25.0
+   ! enddo
+   ! SG%AparaH(:,61:SG%dim_s-11,:) = 1e4
+   ! do i=SG%dim_s-10,SG%dim_s
+   !    SG%AparaH(:,i,:) = 1e4 -(i-(SG%dim_s-10))*(1e4)/10.0
+   ! enddo
+
+   ! do j=1,SG%dim_gq
+   !    SG%AparaH(j,:,:) = SG%AparaH(j,:,:)*(1.0+0.5*cos(3*(j-1)/real(SG%dim_gq-1)*2.0*pi))
+   ! enddo
+
+
+   ! Copy bVec (source) to the SG%test_src vector
+   allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
+   bVec_mype(:)=ptr_bVec(1:Lsize)
+   call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
+   call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%test_src_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
+   enddo
+   SG%test_src_2D(SG%dim_gq,:)=SG%test_src_2D(1,:)
+   deallocate(bVec_mype, bVec_partd)
+
+   ! Copy ResVec (residual=A*x-b) to the SG%test_res vector
+   allocate(ResVec_mype(Lsize), ResVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(ResVec,ptr_ResVec,ierr)
+   ResVec_mype(:)=ptr_ResVec(1:Lsize)
+   call VecRestoreArrayReadF90(ResVec,ptr_ResVec,ierr)
+   call MPI_ALLGATHERV(ResVec_mype,Lsize,mpi_Rsize,ResVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   do Lid=1,sum_Lsize_partd
+      Gid=recv_mapL2G_partd(Lid)
+      SG%test_res_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = ResVec_partd(Lid)
+   enddo
+   SG%test_res_2D(SG%dim_gq,:)=SG%test_res_2D(1,:)
+   deallocate(ResVec_mype, ResVec_partd)
+
+   call MPI_SENDRECV(SG%AparaH(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,&
+                     SG%AparaH(:,:,0),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+   call MPI_SENDRECV(SG%AparaH(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,&
+                     SG%AparaH(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
+
+
+   call Cal_gaH_from_AparaH_on_SG
+   call Cal_grad_gaH_cov_on_SG
+
+   !!! Copy SG%AparaH to SG_phi that will be used on GPU side
+   !!! SG_phi = SG%AparaH
+   !!! $acc update device(SG_phi)
+
+   ! if(mod(istep,msnap)==0) then
+   !    ! To get full 3D data for diagnostic purpose
+   !    call MPI_ALLGATHER(SG%AparaH(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   !    call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
+   ! endif
+
+end subroutine Solve_GK_Ampere_3D_on_SG
+
 
 end module MGY_PETSc_Interface_Data
