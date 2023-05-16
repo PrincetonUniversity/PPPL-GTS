@@ -2049,9 +2049,9 @@ int gcmotion_em(REAL *dXgr,
 		REAL *dXgf,
 		REAL *particle_array,
 		REAL *wpi_array,
-		REAL *ga_array,
-		REAL *wga_array,
-		REAL *gat_array,
+		REAL *gaE_array,
+		REAL *wgaE_array,
+		REAL *gatE_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
 		int *nval,
@@ -2114,10 +2114,10 @@ int gcmotion_em(REAL *dXgr,
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
 		wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
-		gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
-		gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
-		gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
-		gaE = *(ga_array + k);           /* gaE[k] */
+		gaEa = *(wgaE_array + 3 * k);     /* wgaE[k][0] */
+		gaEq = *(wgaE_array + 3 * k + 1); /* wgaE[k][1] */
+		gaEz = *(wgaE_array + 3 * k + 2); /* wgaE[k][2] */
+		gaE = *(gaE_array + k);           /* gaE[k] */
 		bgr = Xgr + gaE;    /* rhohat = rho + alpha */
 		a	=Xa;
 		if(a < 1e-100){
@@ -2336,7 +2336,7 @@ int gcmotion_em(REAL *dXgr,
 		dXa[k]	=-a21*BBq+a11*Bf;
 		dXgq[k]	=a22*BB-a21*BBa-D*Bf;
 
-		dXgr[k] -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
+		dXgr[k] -= gatE_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
 
 		ghq[k]	=-a21*(-wpi2)+a11*(-wpi3);     /* da/dt|_EXB, no e and m dependence */
 		Ta[k]       =-a21*wpi1-D*(-wpi3);          /* dtheta/dt|_EXB, no e and m dependence */
@@ -2348,7 +2348,7 @@ int gcmotion_em(REAL *dXgr,
 		//================================================================================
 		// MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(gaE)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(gaE))
 		// This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.
-		P[k]   -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
+		P[k]   -= gatE_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
 		//==============================================================================
 
 
@@ -2380,9 +2380,9 @@ int gcmotion_em_MGY(REAL *dXgr,
 		REAL *dXgf,
 		REAL *particle_array,
 		REAL *wpi_array,
-		REAL *ga_array,
-		REAL *wga_array,
-		REAL *gat_array,
+		REAL *gaE_array,
+		REAL *wgaE_array,
+		REAL *gatE_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
 		int *nval,
@@ -2447,10 +2447,10 @@ int gcmotion_em_MGY(REAL *dXgr,
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
 		wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
-		gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
-		gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
-		gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
-		gaE = *(ga_array + k);           /* gaE[k] */
+		gaEa = *(wgaE_array + 3 * k);     /* wgaE[k][0] */
+		gaEq = *(wgaE_array + 3 * k + 1); /* wgaE[k][1] */
+		gaEz = *(wgaE_array + 3 * k + 2); /* wgaE[k][2] */
+		gaE = *(gaE_array + k);           /* gaE[k] */
 		bgr = Xgr + gaE;    /* rhohat = rho + alpha */
 		a	=Xa;
 		if(a < 1e-100){
@@ -2690,7 +2690,7 @@ int gcmotion_em_MGY(REAL *dXgr,
 		dXgf[k]	=-a12*dHdgr+a11*dHda+D*(-dHdgq);
 
 		// transfromation from rho_hat to rho
-		dXgr[k] -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
+		dXgr[k] -= gatE_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
 
 
 		if((*Flag_Streaming)==1){
@@ -2707,7 +2707,7 @@ int gcmotion_em_MGY(REAL *dXgr,
          //MGYOO(08/23/2019):
          // In the case of Flag_Streaming=1 (yes streaming, yes perturbed mirror force)
          // rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(gaE))
-         P[k]   -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
+         P[k]   -= gatE_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
       }
       else{
          // (no streaming ,no perturbed mirror force, only ExB and electric force along perturbed field line)
@@ -2756,9 +2756,9 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 		REAL *dXgf,
 		REAL *particle_array,
 		REAL *wpi_array,
-		REAL *ga_array,
-		REAL *wga_array,
-		REAL *gat_array,
+		REAL *gaE_array,
+		REAL *wgaE_array,
+		REAL *gatE_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
       int  *m_start,
@@ -2813,7 +2813,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
    #pragma acc data copyin(gq[:Np1],sa[:Na1],aF[:Na1],daF[:Na1],dgF[:Na1],d2gF[:Na1],dgY[:Na1],d2gY[:Na1],aT[:Na1],daT[:Na1],aP[:Na1],daP[:Na1],\
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,ga_array,wga_array,gat_array,Er_particle) private(gradPhi)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,Er_particle) private(gradPhi)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
@@ -2823,10 +2823,10 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
          gradPhi[0] = *(wpi_array+3*k);      /* wpi[k][0] */
          gradPhi[1] = *(wpi_array+3*k+1);    /* wpi[k][1] */
          gradPhi[2] = *(wpi_array+3*k+2);    /* wpi[k][2] */
-         gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
-         gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
-         gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
-         gaE = *(ga_array + k);           /* gaE[k] */
+         gaEa = *(wgaE_array + 3 * k);     /* wgaE[k][0] */
+         gaEq = *(wgaE_array + 3 * k + 1); /* wgaE[k][1] */
+         gaEz = *(wgaE_array + 3 * k + 2); /* wgaE[k][2] */
+         gaE = *(gaE_array + k);           /* gaE[k] */
          a   =Xa;
          if(a < 1e-100){
             a =0.;
@@ -3026,7 +3026,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
          for(i=0;i<3;++i) {
             dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
          }
-         dXgr[k] = Coeff*dXgr[k] -gat_array[k];
+         dXgr[k] = Coeff*dXgr[k] -gatE_array[k];
 
          dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
          dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
@@ -3056,7 +3056,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             for(i=0;i<3;++i) {
                P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
             }
-            P[k] = Coeff*P[k] -gat_array[k];
+            P[k] = Coeff*P[k] -gatE_array[k];
 
             ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -3078,7 +3078,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             for(i=0;i<3;++i) {
                P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]); // excluding the mirror force due to streaming along dB
             }
-            P[k] = Coeff*P[k] -gat_array[k];
+            P[k] = Coeff*P[k] -gatE_array[k];
 
             ghq[k]      = Coeff*((B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*((B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -3712,9 +3712,9 @@ int gcmotion_eon_em(REAL *dXgr,
 		REAL *dXgf,
 		REAL *particle_array,
 		REAL *wpi_array,
-		REAL *ga_array,
-		REAL *wga_array,
-		REAL *gat_array,
+		REAL *gaE_array,
+		REAL *wgaE_array,
+		REAL *gatE_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
 		int  *nval,
@@ -3772,10 +3772,10 @@ int gcmotion_eon_em(REAL *dXgr,
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
 		wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
-		gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
-		gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
-		gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
-		gaE = *(ga_array + k);           /* gaE[k] */
+		gaEa = *(wgaE_array + 3 * k);     /* wgaE[k][0] */
+		gaEq = *(wgaE_array + 3 * k + 1); /* wgaE[k][1] */
+		gaEz = *(wgaE_array + 3 * k + 2); /* wgaE[k][2] */
+		gaE = *(gaE_array + k);           /* gaE[k] */
 		bgr = Xgr + gaE;    /* rhohat = rho + alpha */
 		a   =Xa;
 		if(a < 1e-100){
@@ -3992,11 +3992,11 @@ int gcmotion_eon_em(REAL *dXgr,
 		dXa[k]     *=c0cs;
 		dXgq[k]    *=c0cs;
 
-		dXgr[k] -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
+		dXgr[k] -= gatE_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
 		//================================================================================
 		// MGYOO (11/03/2018) : rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(gaE)), not using delta_v1 (dgadt_1 = artial_dgadt + v1*grad(gaE))
 		// This is because even full dgadt is the perturbed term. None of full dgadt can be equilibrium term.
-		Pa[k]   -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
+		Pa[k]   -= gatE_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
 		//================================================================================
 
 
@@ -4027,9 +4027,9 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		REAL *dXgf,
 		REAL *particle_array,
 		REAL *wpi_array,
-		REAL *ga_array,
-		REAL *wga_array,
-		REAL *gat_array,
+		REAL *gaE_array,
+		REAL *wgaE_array,
+		REAL *gatE_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
 		int  *nval,
@@ -4089,10 +4089,10 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		wpi1 = *(wpi_array+3*k);      /* wpi[k][0] */
 		wpi2 = *(wpi_array+3*k+1);    /* wpi[k][1] */
 		wpi3 = *(wpi_array+3*k+2);    /* wpi[k][2] */
-		gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
-		gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
-		gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
-		gaE = *(ga_array + k);           /* gaE[k] */
+		gaEa = *(wgaE_array + 3 * k);     /* wgaE[k][0] */
+		gaEq = *(wgaE_array + 3 * k + 1); /* wgaE[k][1] */
+		gaEz = *(wgaE_array + 3 * k + 2); /* wgaE[k][2] */
+		gaE = *(gaE_array + k);           /* gaE[k] */
 		bgr = Xgr + gaE;    /* rhohat = rho + alpha */
 		a   =Xa;
 		if(a < 1e-100){
@@ -4320,7 +4320,7 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
 		dXgq[k]    *=c0cs;
 
 		// transfromation from rho_hat to rho
-		dXgr[k] -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
+		dXgr[k] -= gatE_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k]; /* = ddt(rho) */
 
 
       if((*Flag_Streaming)==1){
@@ -4336,7 +4336,7 @@ int gcmotion_eon_em_MGY(REAL *dXgr,
          //MGYOO(08/23/2019):
          // In the case of Flag_Streaming=1 (yes streaming, yes perturbed mirror force)
          // rho_dot_1 transform must use full dgadt(=partial_dgadt + (v0+v1)*grad(gaE))
-         Pa[k]   -= gat_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
+         Pa[k]   -= gatE_array[k] + gaEa * dXa[k] + gaEq * dXgq[k] + gaEz * dXgf[k];
       }
       else{
          // (no streaming ,no perturbed mirror force), only (ExB and electric force along perturbed field line)
@@ -4383,9 +4383,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 		REAL *dXgf,
 		REAL *particle_array,
 		REAL *wpi_array,
-		REAL *ga_array,
-		REAL *wga_array,
-		REAL *gat_array,
+		REAL *gaE_array,
+		REAL *wgaE_array,
+		REAL *gatE_array,
 		REAL *Er_particle,
 		REAL *nonlinear,
       int  *m_start,
@@ -4440,7 +4440,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
 
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,ga_array,wga_array,gat_array,Er_particle) private(gradPhi)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,Er_particle) private(gradPhi)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
@@ -4450,10 +4450,10 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
          gradPhi[0] = *(wpi_array+3*k);      /* wpi[k][0] */
          gradPhi[1] = *(wpi_array+3*k+1);    /* wpi[k][1] */
          gradPhi[2] = *(wpi_array+3*k+2);    /* wpi[k][2] */
-         gaEa = *(wga_array + 3 * k);     /* wgaE[k][0] */
-         gaEq = *(wga_array + 3 * k + 1); /* wgaE[k][1] */
-         gaEz = *(wga_array + 3 * k + 2); /* wgaE[k][2] */
-         gaE = *(ga_array + k);           /* gaE[k] */
+         gaEa = *(wgaE_array + 3 * k);     /* wgaE[k][0] */
+         gaEq = *(wgaE_array + 3 * k + 1); /* wgaE[k][1] */
+         gaEz = *(wgaE_array + 3 * k + 2); /* wgaE[k][2] */
+         gaE = *(gaE_array + k);           /* gaE[k] */
          a   =Xa;
          if(a < 1e-100){
             a =0.;
@@ -4656,7 +4656,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
          for(i=0;i<3;++i) {
             dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
          }
-         dXgr[k] = Coeff*dXgr[k] -gat_array[k];
+         dXgr[k] = Coeff*dXgr[k] -gatE_array[k];
 
          dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
          dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
@@ -4670,7 +4670,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             for(i=0;i<3;++i) {
                Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
             }
-            Pa[k] = Coeff*Pa[k] -gat_array[k];
+            Pa[k] = Coeff*Pa[k] -gatE_array[k];
 
             ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -4693,7 +4693,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             for(i=0;i<3;++i) {
                Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]); // excluding the mirror force due to streaming along dB
             }
-            Pa[k] = Coeff*Pa[k] -gat_array[k];
+            Pa[k] = Coeff*Pa[k] -gatE_array[k];
 
             ghq[k]      = Coeff*( csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*( csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
