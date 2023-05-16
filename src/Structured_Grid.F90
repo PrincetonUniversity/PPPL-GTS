@@ -592,7 +592,7 @@ contains
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Electron_Density_Current_on_SG takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(A,ES11.3,A)') "Measure_Electron_Density_Current_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
@@ -845,7 +845,7 @@ contains
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Ion_Density_Current_on_SG takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(A,ES11.3,A)') "Measure_Ion_Density_Current_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
    end subroutine Measure_Ion_Density_Current_on_SG
@@ -910,7 +910,7 @@ contains
       
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(A,ES11.3,A)') "Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
    end subroutine Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu

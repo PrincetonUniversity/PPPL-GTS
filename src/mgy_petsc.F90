@@ -568,7 +568,7 @@ subroutine Solve_Poisson3D_on_SG()
    tt0=MPI_WTIME()
    call KSPSolve(ksp_P,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0 .or. mype==1) write(stdout,*) "In Solve_Poisson3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+   if(mype==0 .or. mype==1) write(stdout,'(A,I0,A,ES11.3,A)') "In Solve_Poisson3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
    ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
@@ -579,7 +579,7 @@ subroutine Solve_Poisson3D_on_SG()
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
    call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
-   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "In Solve_Poisson3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   if(mype==0) write(stdout,"(A,ES12.4,A,I0)") "In Solve_Poisson3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
    ! Copy xVec (solution) to the SG%test_phi vector
@@ -2902,7 +2902,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    tt0=MPI_WTIME()
    call MatMultAdd(PerpLapMat,AparaS,mu0_j_para,bVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "MatMultAdd in Solve_GK_Ampere_3D_on_SG takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,'(A,ES11.3,A)') "MatMultAdd in Solve_GK_Ampere_3D_on_SG takes ",tt1-tt0," secs"
    call flush(stdout)
 
 
@@ -2935,7 +2935,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    tt0=MPI_WTIME()
    call KSPSolve(ksp_A,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0 .or. mype==1) write(stdout,*) "In Solve_GK_Ampere_3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+   if(mype==0 .or. mype==1) write(stdout,'(A,I0,A,ES11.3,A)') "In Solve_GK_Ampere_3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
    ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
@@ -2946,7 +2946,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
    call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
-   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "In Solve_GK_Ampere_3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   if(mype==0) write(stdout,"(A,ES12.4,A,I0)") "In Solve_GK_Ampere_3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
    ! Copy xVec (solution) to the SG%test_phi vector
