@@ -1775,7 +1775,7 @@ contains
 
    end subroutine Get_gradPhi_at_zion
 
-   subroutine Get_gradPhi_gradgaH_at_zion(out_gradPhi_arr, out_grad_gaH_arr)
+   subroutine Get_gradPhi_gaHS_gradgaHS_at_zion(out_gradPhi_arr, out_gaHS_arr, out_grad_gaH_arr, out_grad_gaS_arr)
       use mpi_defs
       use precision
       use global_parameters
@@ -1783,9 +1783,9 @@ contains
 
       implicit none
 
-      real(wp), intent(out):: out_gradPhi_arr(3,mi), out_grad_gaH_arr(3,mi)
+      real(wp), intent(out):: out_gradPhi_arr(3,mi), out_gaHS_arr(mi), out_grad_gaH_arr(3,mi), out_grad_gaS_arr(3,mi)
       real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
-      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1)
+      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_gaHS(SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaS(3,SG%dim_gq,SG%dim_s,0:1)
       integer m,sid,gqid,larmor,k
       real(wp) P_s,P_gq,P_gf
       real(wp) tt0,tt1
@@ -1793,16 +1793,22 @@ contains
 
       !#TODO Check if SG_gradPhi and SG_grad_gaH are really needed.. Can we just use SG%grad_... without performance degradation?
       SG_gradPhi = SG%grad_phi_cov
+      SG_gaHS = SG%gaH(:,:,0:1) + SG%gaS(:,:,0:1)
       SG_grad_gaH = SG%grad_gaH_cov
+      SG_grad_gaS = SG%grad_gaS_cov
+      
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
 
-      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,out_gradPhi_arr,out_grad_gaH_arr)
+      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,out_gradPhi_arr,out_gaHS_arr,out_grad_gaH_arr,out_grad_gaS_arr)
       do m=1,mi
          out_gradPhi_arr(:,m)=0.0
+         out_gaHS_arr(m)=0.0 ! gaHS=gaH + gaS
          out_grad_gaH_arr(:,m)=0.0
+         out_grad_gaS_arr(:,m)=0.0
+
          !$acc loop seq
          do larmor=1,larmor_num
             P_s  = max(s0,min(s1, ionLarmor_s(larmor,m)))
@@ -1825,7 +1831,9 @@ contains
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf0*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,0) + wgq1*SG_gradPhi(:,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,0) + wgq1*SG_gradPhi(:,gqid+1,sid+1,0)))
+            out_gaHS_arr(m) = out_gaHS_arr(m) + wgf0*(ws0*(wgq0*SG_gaHS(gqid,sid,0) + wgq1*SG_gaHS(gqid+1,sid,0)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,0) + wgq1*SG_gaHS(gqid+1,sid+1,0)))
             out_grad_gaH_arr(:,m) = out_grad_gaH_arr(:,m) + wgf0*(ws0*(wgq0*SG_grad_gaH(:,gqid,sid,0) + wgq1*SG_grad_gaH(:,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaH(:,gqid,sid+1,0) + wgq1*SG_grad_gaH(:,gqid+1,sid+1,0)))
+            out_grad_gaS_arr(:,m) = out_grad_gaS_arr(:,m) + wgf0*(ws0*(wgq0*SG_grad_gaS(:,gqid,sid,0) + wgq1*SG_grad_gaS(:,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaS(:,gqid,sid+1,0) + wgq1*SG_grad_gaS(:,gqid+1,sid+1,0)))
 
             ! Add contributions from phi at zetamax to the particle
             target_gf = SG_zetamax
@@ -1834,24 +1842,28 @@ contains
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf1*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,1) + wgq1*SG_gradPhi(:,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,1) + wgq1*SG_gradPhi(:,gqid+1,sid+1,1)))
+            out_gaHS_arr(m) = out_gaHS_arr(m) + wgf0*(ws0*(wgq0*SG_gaHS(gqid,sid,0) + wgq1*SG_gaHS(gqid+1,sid,0)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,0) + wgq1*SG_gaHS(gqid+1,sid+1,1)))
             out_grad_gaH_arr(:,m) = out_grad_gaH_arr(:,m) + wgf1*(ws0*(wgq0*SG_grad_gaH(:,gqid,sid,1) + wgq1*SG_grad_gaH(:,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaH(:,gqid,sid+1,1) + wgq1*SG_grad_gaH(:,gqid+1,sid+1,1)))
+            out_grad_gaS_arr(:,m) = out_grad_gaS_arr(:,m) + wgf1*(ws0*(wgq0*SG_grad_gaS(:,gqid,sid,1) + wgq1*SG_grad_gaS(:,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaS(:,gqid,sid+1,1) + wgq1*SG_grad_gaS(:,gqid+1,sid+1,1)))
          enddo
 
          ! Take larmor radius average
          out_gradPhi_arr(:,m) = inv_larmor_num*out_gradPhi_arr(:,m)
+         out_gaHS_arr(m) = inv_larmor_num*out_gaHS_arr(m)
          out_grad_gaH_arr(:,m) = inv_larmor_num*out_grad_gaH_arr(:,m)
+         out_grad_gaS_arr(:,m) = inv_larmor_num*out_grad_gaS_arr(:,m)
       enddo
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,'(A,ES11.3,A)') "Get_gradPhi_gradgaH_at_zion takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_gradPhi_gaHS_gradgaHS_at_zion takes ",tt1-tt0," secs"
       endif
       ! call flush(stdout)
 #endif
 
 
-   end subroutine Get_gradPhi_gradgaH_at_zion
+   end subroutine Get_gradPhi_gaHS_gradgaHS_at_zion
 
 
 end module Structured_Grid
