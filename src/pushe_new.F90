@@ -2974,7 +2974,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    integer, intent(in) :: irk_e, nrk
    integer i,ip,m,ij,ierr
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),wpi(5,me),Er_particle(me)
+   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),grad_gaH(3,me),wpi(5,me),Er_particle(me)
    real(wp) gaE(me),wgaE(3,me), gatE(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
@@ -2988,7 +2988,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    real(wp) prev_phi00(0:mpsi),phi00_convergency
    integer loop
 
-   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,wpi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,grad_gaH,wpi,Er_particle,gaE,wgaE,gatE)
 
 
    ! if(ifneoclassical/=1 .or. Flag_w_Evol/=3) then
@@ -3068,9 +3068,14 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
    endif
 
+   
+   if(electromagnetic==2) then
+      call Get_Phi_gradPhi_grad_gaH_at_zeon(Phi_at_zeon, gradPhi, grad_gaH)
+   else
+      call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
+   endif
 
-   call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
-
+   !#NOTE grad_gaH is dimensionless and so does not need conversion
    !$acc parallel loop present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)

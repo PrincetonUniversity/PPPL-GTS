@@ -2051,7 +2051,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
    integer, intent(in):: irk_i,nrk
    integer i,ip,m,ij,ierr,ierror,j
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),wpi(3,mi),Er_particle(mi)
+   real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),grad_gaH(3,mi),wpi(3,mi),Er_particle(mi)
    real(wp) ga(mi),wga(3,mi), gat(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
    real(wp) adum(0:mpsi),adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) tt0,tt1,cput0,cput1 ! For timer
@@ -2065,7 +2065,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
    real(wp) vdrenergy,new_f0
    integer larmor, loop
 
-   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,ga,wga,gat)
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,grad_gaH,wpi,Er_particle,ga,wga,gat)
 
    inv_ds = real(mpsi)/(s1-s0)
 
@@ -2109,8 +2109,13 @@ subroutine pushion_wEvol4(irk_i,nrk)
    endif
 
    call Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
-   call Get_gradPhi_at_zion(gradPhi)
+   if (electromagnetic==2) then
+      call Get_gradPhi_gradgaH_at_zion(gradPhi,grad_gaH) 
+   else
+      call Get_gradPhi_at_zion(gradPhi)
+   endif
 
+   !#NOTE grad_gaH is dimensionless and so does not need conversion
    !$acc parallel loop present(gradPhi)
    do m=1,mi
       !$acc loop seq
