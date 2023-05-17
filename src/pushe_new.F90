@@ -2978,7 +2978,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    real(wp) gaE(me),wgaE(3,me), gatE(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
-   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
+   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form, gcmotion_eon_em_MGY_vec_form_EM2
    real(wp) mu,Te_inverse,vpara,energy
    real(wp) AD ! Adiabatic term: AD=e*phi/Te0  ! Note that e here is the elementary charge which is the same as abs(qe)
    real(wp) e1,e2,e3,Ea_00
@@ -3120,7 +3120,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic >= 1)then
+   if(electromagnetic == 1)then
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
@@ -3131,6 +3131,8 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
          call flush(stdout)
          STOP
       endif
+   elseif(electromagnetic==2) then
+      m=gcmotion_eon_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,me,zeondim)
    else
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
    endif

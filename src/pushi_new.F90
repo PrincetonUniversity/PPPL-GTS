@@ -2056,7 +2056,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
    real(wp) adum(0:mpsi),adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
-   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
+   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form,gcmotion_em_MGY_vec_form_EM2
    real(wp) mu,vpara,energy
    real(wp) e1,e2,e3,Ea_00
    real(wp) inv_ds
@@ -2158,7 +2158,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic >= 1) then
+   if(electromagnetic == 1) then
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
@@ -2168,6 +2168,8 @@ subroutine pushion_wEvol4(irk_i,nrk)
          call flush(stdout)
          stop
       endif
+   elseif(electromagnetic==2) then
+      m=gcmotion_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,mi,ziondim)
    else
       m=gcmotion(dgr,da,dgq,dgf,zion,gradPhi,Er_particle,nonlinear,mi,ziondim)
    end if
