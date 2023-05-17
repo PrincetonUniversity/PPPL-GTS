@@ -1624,14 +1624,14 @@ contains
 #endif
    end subroutine Get_Phi_and_gradPhi_at_zeon
 
-   subroutine Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(out_Phi_arr, out_gradPhi_arr, out_gaHS, out_grad_gaH_arr, out_grad_gaS_arr)
+   subroutine Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(out_Phi_arr, out_gradPhi_arr, out_gaHS_arr, out_grad_gaH_arr, out_grad_gaS_arr)
       use mpi_defs
       use precision
       use global_parameters
       use particle_array
 
       implicit none
-      real(wp), intent(out):: out_Phi_arr(memax), out_gradPhi_arr(3,me), out_gaHS(me), out_grad_gaH_arr(3,me), out_grad_gaS_arr(3,me)
+      real(wp), intent(out):: out_Phi_arr(memax), out_gradPhi_arr(3,me), out_gaHS_arr(me), out_grad_gaH_arr(3,me), out_grad_gaS_arr(3,me)
       real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
       real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_gaHS(SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaS(3,SG%dim_gq,SG%dim_s,0:1)
       integer m,sid,gqid,k
@@ -1645,18 +1645,19 @@ contains
       SG_grad_gaH = SG%grad_gaH_cov
       SG_grad_gaS = SG%grad_gaS_cov
 
-      out_Phi_arr = 0.0
-      out_gaHS = 0.0
-      out_gradPhi_arr = 0.0
-      out_grad_gaH_arr = 0.0
-      out_grad_gaS_arr = 0.0
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
 #endif
 
-      !$acc parallel loop gang vector present(zeon,out_Phi_arr,out_gradPhi_arr,out_grad_gaH_arr)
+      !$acc parallel loop gang vector present(zeon,out_Phi_arr,out_gradPhi_arr,out_gaHS_arr,out_grad_gaH_arr,out_grad_gaS_arr)
       do m=1,me
+         out_Phi_arr(m)=0.0
+         out_gradPhi_arr(:,m)=0.0
+         out_gaHS_arr(m)=0.0 ! gaHS=gaH + gaS
+         out_grad_gaH_arr(:,m)=0.0
+         out_grad_gaS_arr(:,m)=0.0
+
          P_s = max(s0,min(s1,zeon(7,m)))
          P_gq = modulo(zeon(2,m),2.0*pi)
          P_gf = zeon(3,m)
@@ -1679,7 +1680,7 @@ contains
          wgq0 = 1.0-wgq1
 
          out_Phi_arr(m) = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,0)) + ws1*(wgq0*SG_phi(gqid,sid+1,0) + wgq1*SG_phi(gqid+1,sid+1,0)))
-         out_gaHS(m) = wgf0*(ws0*(wgq0*SG_gaHS(gqid,sid,0) + wgq1*SG_gaHS(gqid+1,sid,0)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,0) + wgq1*SG_gaHS(gqid+1,sid+1,0)))
+         out_gaHS_arr(m) = wgf0*(ws0*(wgq0*SG_gaHS(gqid,sid,0) + wgq1*SG_gaHS(gqid+1,sid,0)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,0) + wgq1*SG_gaHS(gqid+1,sid+1,0)))
          do k=1,3
             out_gradPhi_arr(k,m) = wgf0*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,0) + wgq1*SG_gradPhi(k,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,0) + wgq1*SG_gradPhi(k,gqid+1,sid+1,0)))
             out_grad_gaH_arr(k,m) = wgf0*(ws0*(wgq0*SG_grad_gaH(k,gqid,sid,0) + wgq1*SG_grad_gaH(k,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaH(k,gqid,sid+1,0) + wgq1*SG_grad_gaH(k,gqid+1,sid+1,0)))
@@ -1693,7 +1694,7 @@ contains
          wgq0 = 1.0-wgq1
 
          out_Phi_arr(m) = out_Phi_arr(m) + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
-         out_gaHS(m) = out_gaHS(m) + wgf1*(ws0*(wgq0*SG_gaHS(gqid,sid,1) + wgq1*SG_gaHS(gqid+1,sid,1)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,1) + wgq1*SG_gaHS(gqid+1,sid+1,1)))
+         out_gaHS_arr(m) = out_gaHS_arr(m) + wgf1*(ws0*(wgq0*SG_gaHS(gqid,sid,1) + wgq1*SG_gaHS(gqid+1,sid,1)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,1) + wgq1*SG_gaHS(gqid+1,sid+1,1)))
          do k=1,3
             out_gradPhi_arr(k,m) = out_gradPhi_arr(k,m) + wgf1*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,1) + wgq1*SG_gradPhi(k,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,1) + wgq1*SG_gradPhi(k,gqid+1,sid+1,1)))
             out_grad_gaH_arr(k,m) = out_grad_gaH_arr(k,m) + wgf1*(ws0*(wgq0*SG_grad_gaH(k,gqid,sid,1) + wgq1*SG_grad_gaH(k,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaH(k,gqid,sid+1,1) + wgq1*SG_grad_gaH(k,gqid+1,sid+1,1)))
