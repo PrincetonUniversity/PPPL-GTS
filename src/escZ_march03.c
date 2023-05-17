@@ -16,11 +16,13 @@
 #define gcmotion_em gcmotion_em_
 #define gcmotion_em_MGY gcmotion_em_mgy_
 #define gcmotion_em_MGY_vec_form gcmotion_em_mgy_vec_form_
+#define gcmotion_em_MGY_vec_form_EM2 gcmotion_em_mgy_vec_form_em2_
 #define gcmotion_e gcmotion_e_
 #define gcmotion_eon gcmotion_eon_
 #define gcmotion_eon_em gcmotion_eon_em_
 #define gcmotion_eon_em_MGY gcmotion_eon_em_mgy_
 #define gcmotion_eon_em_MGY_vec_form gcmotion_eon_em_mgy_vec_form_
+#define gcmotion_eon_em_MGY_vec_form_EM2 gcmotion_eon_em_mgy_vec_form_em2_
 #define get4exb get4exb_
 #define get4exb12 get4exb12_
 #define species species_
@@ -3177,7 +3179,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
    #pragma acc data copyin(gq[:Np1],sa[:Na1],aF[:Na1],daF[:Na1],dgF[:Na1],d2gF[:Na1],dgY[:Na1],d2gY[:Na1],aT[:Na1],daT[:Na1],aP[:Na1],daP[:Na1],\
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,Er_particle) private(gradPhi)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
@@ -3307,7 +3309,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
             gYa       *=a;
          }
          else{       /* a == 0. -- the case must be avoided */
-            printf("Error! particle input_r=0 in gcmotion_em_MGY_vec_form!!\n");
+            printf("Error! particle input_r=0 in gcmotion_em_MGY_vec_form_EM2!!\n");
             //exit(1);
          }
          B[k]=BB;    /* output of B field */
@@ -5176,7 +5178,7 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
 
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaHS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaHS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
@@ -5305,7 +5307,7 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
             gYa       *=a;
          }
          else{       /* a == 0. -- the case must be avoided */
-            printf("Error! particle input r=0 in gcmotion_eon_em_MGY_vec_form!!\n");
+            printf("Error! particle input r=0 in gcmotion_eon_em_MGY_vec_form_EM2!!\n");
             // exit(1);
          }
          B[k]=BB;    /* output of B field */
