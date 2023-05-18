@@ -859,10 +859,6 @@ subroutine load_uniform_MGY
    enddo
    acc_newer_H_zion=.true.
 
-   ! To check whether some particles outside the boundary
-   ! If Ptl_BC_type=2, ion boundary checking considers the gyro-radius to determien whether it touches the wall
-   call treat_ions_out_of_boundary
-   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
 
    wi_init  = zion(5,:)
    wi_vpara = 0
@@ -1227,6 +1223,7 @@ subroutine load_uniform_MGY
                zion0(6,m) = 0.0
                zion(8,m)  = 0.0
                zion(5,m)  = 0.0
+               zion0(8,m) = 0.0 ! Full-f Ni=0, otherwise this can make error in the case of Flag_w_Evol=3
             enddo
          enddo
          acc_newer_H_zion=.true.
@@ -1253,6 +1250,11 @@ subroutine load_uniform_MGY
 
    call MPI_BCAST(etracers_labels,num_of_etracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
    call MPI_BCAST(itracers_labels,num_of_itracers,MPI_Rsize,0,MPI_COMM_WORLD,ierror)
+
+   ! To check whether some particles outside the boundary
+   ! If Ptl_BC_type=2, ion boundary checking considers the gyro-radius to determien whether it touches the wall
+   call treat_ions_out_of_boundary
+   !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi),ilabels(:mi))
 
 
    ntracer=0
@@ -1343,8 +1345,8 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    call n_T_u_group
    call n_T_u_group_e
 
-   call Measure_Ion_Density_on_SG(1)
-   call Measure_Electron_Density_on_SG(1)
+   call Measure_Ion_Density_Current_on_SG(1)
+   call Measure_Electron_Density_Current_on_SG(1)
 
    call poisson(solver,masssolver)
 
@@ -1385,7 +1387,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    enddo
    acc_newer_D_zeon=.true.
 
-   call Measure_Electron_Density_on_SG(1)
+   call Measure_Electron_Density_Current_on_SG(1)
    call poisson(solver,masssolver)
    call Update_SG_phi_3D_by_gathering_SG_phi2D
 

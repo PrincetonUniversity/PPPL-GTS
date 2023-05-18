@@ -170,7 +170,7 @@ module global_parameters
    integer :: Flag_Measure_Ptl_FootPrint=0 ! Default=0(Not Meausre), can be set =1 (Do Measure)
    integer :: Flag_noExB=0 ! Default=0 (ExB is considered), can be set =1 (noExB)
    integer :: Flag_Recycling=0 ! Default=0 (no Recycling), can be set = 1 (Recycling of Ion at outer wall)
-   integer :: Flag_Weight_dfh=0 ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight)
+   integer :: Flag_Weight_dfh=0 ! Default=0 (delta-f), can be set = 1(full-f or full-h)
    integer :: Ptl_Src_nstep=50 ! Generate src from boundaires at every Ptl_Src_nstep (default=50 steps)
    integer :: Ptl_Src_dim_a=50 ! radial dimension of PtlSrcCV system
    integer :: Ptl_Src_dim_gq=50 ! poloidal dimension of PtlSrcCV system
@@ -218,8 +218,8 @@ module particle_array
    real(wp),dimension(:,:),allocatable :: wpion,wtion0,wtion1
    !$acc declare create(jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    !$acc declare create(jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
-   real(wp),dimension(:,:),allocatable :: zion_s_on_GyroOrbit, zion_gq_on_GyroOrbit
-   !$acc declare create(zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit)
+   real(wp),dimension(:,:),allocatable :: ionLarmor_s, ionLarmor_gq, ionLarmor_gf
+   !$acc declare create(ionLarmor_s,ionLarmor_gq,ionLarmor_gf)
    ! Here we declare zion,zion0,zeon and zeon0 as array pointers
    ! so that we can pass them as dummy arguments to a subroutine and be allowed
    ! to reallocate them inside that subroutine if needed.
@@ -277,7 +277,6 @@ module field_array
    real(wp),dimension(:,:),allocatable :: Weighted_Vol
    real(wp),dimension(:),allocatable :: Node_simple_Vol
    real(wp),dimension(:,:),allocatable :: phi,densityi,densitye,pgyro,tgyro,dphidt
-   real(wp),dimension(:),allocatable :: test_src ! test charge src in ratio ((ni-ne)/n0)
    real(wp),dimension(:,:),allocatable :: old_phi, tmp_old_phi ! phi at previous time step
    real(wp),dimension(:),allocatable :: old_phi00, tmp_old_phi00 ! phi00 at previous time step
    real(wp),dimension(:),allocatable :: cum_phi00, cum_phi00_SQ, cum_zonali, cum_zonali_SQ, cum_zonale, cum_zonale_SQ

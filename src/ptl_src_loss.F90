@@ -115,7 +115,7 @@ module Ptl_locators_partial
             acc_newer_H_zion=.false.
             acc_newer_D_zion=.false.
          endif
-         !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,zion_s_on_GyroOrbit,zion_gq_on_GyroOrbit) private(intpl_pgyro,intpl_tgyro)
+         !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,ionLarmor_s,ionLarmor_gq) private(intpl_pgyro,intpl_tgyro)
          do m=m0,m1
             !psitmp=zion(1,m)   ! =a
             psitmp=zion(7,m)   ! =s
@@ -176,7 +176,7 @@ module Ptl_locators_partial
             do larmor=1, larmor_num
                !  MODIFIED for FINITE GYRORADIUS CASE
                pdum=max(psimin,min(psimax,psitmp+rhoi*intpl_pgyro(larmor)))
-               zion_s_on_GyroOrbit(larmor,m)=psitmp+rhoi*intpl_pgyro(larmor)
+               ionLarmor_s(larmor,m)=psitmp+rhoi*intpl_pgyro(larmor)
                rdum=delr*max(0.0_wp,min(s1-s0,pdum-s0))
                ii=max(0,min(mpsi-1,int(rdum)))
                !        wp1=rdum-real(ii)
@@ -186,7 +186,7 @@ module Ptl_locators_partial
 
                ! particle position in theta
                tflr=thetatmp+rhoi*intpl_tgyro(larmor)
-               zion_gq_on_GyroOrbit(larmor,m)=modulo(tflr,2.0*pi)
+               ionLarmor_gq(larmor,m)=modulo(tflr,2.0*pi)
 
                ! inner flux surface
                im=ii
@@ -207,6 +207,7 @@ module Ptl_locators_partial
          enddo
 
       end subroutine ion_locator_at_larmor_points_partial
+
 
 
 end module Ptl_locators_partial
@@ -653,13 +654,18 @@ module Ptl_Src_Loss
          do Fid=1,Gsize
             PSCV%Elec_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
          enddo
+#ifdef _MGY_TIMER_
+         if(mype==0) write(stdout,'(2(A,I0),2(A,ES11.3),A)') "I'm=",mype,", Ptl_Src_nstep=",Ptl_Src_nstep,", PSCV_mean_a=",0.5*(PSCV%a_min+PSCV%a_max),", max Elec_dErg_eV_per_nstep=", maxval(recv_FL_max_dErg_eV)," eV"
+#endif
 
          ! Gather Ion max_dErg
          call MPI_Allgatherv(FL_max_Ion_dErg_eV, Lsize, MPI_Rsize, recv_FL_max_dErg_eV, recv_counts_Lsize, recv_displs_Lsize, MPI_Rsize, partd_comm, ierr)
          do Fid=1,Gsize
             PSCV%Ion_dErg_eV_per_nstep(F_ini_gqid(Fid),F_ini_aid(Fid),1) = recv_FL_max_dErg_eV(Fid)
          enddo
-
+#ifdef _MGY_TIMER_
+         if(mype==0) write(stdout,'(2(A,I0),2(A,ES11.3),A)') "I'm=",mype,", Ptl_Src_nstep=",Ptl_Src_nstep,", PSCV_mean_a=",0.5*(PSCV%a_min+PSCV%a_max),", max Ion_dErg_eV_per_nstep=", maxval(recv_FL_max_dErg_eV)," eV"
+#endif
          !toroidal communication
          length = PSCV%dim_a*PSCV%dim_gq
          call MPI_SENDRECV(PSCV%Elec_dErg_eV_per_nstep(:,:,1),length,mpi_Rsize,left_pe,1, PSCV%Elec_dErg_eV_per_nstep(:,:,0),length,mpi_Rsize,right_pe,1,toroidal_comm,istatus,ierror)
@@ -1284,8 +1290,8 @@ module Ptl_Src_Loss
          real(wp) P_s,ff,P_q,inv_ds
          real(wp), allocatable ::Te_norm(:), ge_val(:)
 
-         real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
-         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
+         real(wp), allocatable :: wpi(:,:),gaE(:),wgaE(:,:),gatE(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
+         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,gaE,wgaE,gatE)
          real(wp) fip,r,dela
          real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
          real(wp) intp_phi, intp_FLA_Te0, intp_phi00
@@ -1423,7 +1429,7 @@ module Ptl_Src_Loss
 
 
 
-         allocate(wpi(3,me),ga(me),wga(3,me),gat(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
+         allocate(wpi(3,me),gaE(me),wgaE(3,me),gatE(me),dgr(me),da(me),dgq(me),dgf(me),Er_particle(me))
          allocate(AdiabTerm(m0:me))
 
 
@@ -1507,16 +1513,16 @@ module Ptl_Src_Loss
             Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
          enddo
 
-         if(electromagnetic == 1)then
-            !$acc parallel loop present(zeon,ga,wga,gat)
+         if(electromagnetic >= 1)then
+            !$acc parallel loop present(zeon,gaE,wgaE,gatE)
             do m=m0,me
-               call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+               call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
             enddo
 
             if(Flag_GC_Solver==0) then
-               m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,me,zeondim)
+               m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
             elseif(Flag_GC_Solver==1) then
-               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,ga,wga,gat,Er_particle,nonlinear,m0,me,zeondim)
+               m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,m0,me,zeondim)
             else
                write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
                call flush(stdout)
@@ -1627,7 +1633,7 @@ module Ptl_Src_Loss
 
          deallocate(Te_norm)
          deallocate(ge_val)
-         deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
+         deallocate(wpi,gaE,wgaE,gatE,dgr,da,dgq,dgf,Er_particle)
          deallocate(AdiabTerm)
 
       end subroutine load_electrons_In_or_Out_Flux
@@ -1667,8 +1673,8 @@ module Ptl_Src_Loss
          real(wp) P_s,ff,P_q,inv_ds
          real(wp), allocatable :: gi_val(:)
 
-         real(wp), allocatable :: wpi(:,:),ga(:),wga(:,:),gat(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
-         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,ga,wga,gat)
+         real(wp), allocatable :: wpi(:,:),gaE(:),wgaE(:,:),gatE(:),dgr(:),da(:),dgq(:),dgf(:),Er_particle(:)
+         !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,gaE,wgaE,gatE)
          real(wp) fip,r,dela
          real(wp) e1,e2,e3,wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
          integer ip,ij,larmor
@@ -1803,7 +1809,7 @@ module Ptl_Src_Loss
 
 
 
-         allocate(wpi(3,mi),ga(mi),wga(3,mi),gat(mi),dgr(mi),da(mi),dgq(mi),dgf(mi),Er_particle(mi))
+         allocate(wpi(3,mi),gaE(mi),wgaE(3,mi),gatE(mi),dgr(mi),da(mi),dgq(mi),dgf(mi),Er_particle(mi))
 
 
 
@@ -1863,16 +1869,16 @@ module Ptl_Src_Loss
             Er_particle(m)=fip*Er401_bp(ip+1)+(1.0_wp-fip)*Er401_bp(ip) ! Er at particle's position
          enddo
 
-         if(electromagnetic == 1)then
-            !$acc parallel loop present(zion,ga,wga,gat)
+         if(electromagnetic >= 1)then
+            !$acc parallel loop present(zion,gaE,wgaE,gatE)
             do m=m0,mi
-               call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+               call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
             enddo
 
             if(Flag_GC_Solver==0) then
-               m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim)
+               m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim)
             elseif(Flag_GC_Solver==1) then
-               m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,ga,wga,gat,Er_particle,nonlinear,m0,mi,ziondim)
+               m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,m0,mi,ziondim)
             else
                write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
                call flush(stdout)
@@ -1977,7 +1983,7 @@ module Ptl_Src_Loss
          call MPI_Barrier(MPI_COMM_WORLD,ierror)
 
          deallocate(gi_val)
-         deallocate(wpi,ga,wga,gat,dgr,da,dgq,dgf,Er_particle)
+         deallocate(wpi,gaE,wgaE,gatE,dgr,da,dgq,dgf,Er_particle)
 
       end subroutine load_ions_In_or_Out_Flux
 
@@ -1993,7 +1999,7 @@ module Ptl_Src_Loss
 
          integer, optional, intent(in) :: m_start, m_end
          integer m0,m1
-         integer m,i,j
+         integer m,i,j,k,is_this_trc
          real(wp) psimax,psimin
          integer lost_mid_arr(memax) ! index of loss particles
          integer lost_num ! number of loss particles across boundary
@@ -2027,26 +2033,28 @@ module Ptl_Src_Loss
             !$acc parallel loop present(zeon,zeon0)
             do m=m0,m1
                if(Flag_Ptl_BC1_type==0 .and. zeon(1,m) > psimax)then
-                  zeon(1,m)=psimax
+                  zeon(1,m)=zeon0(1,m)
                   zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-                  zeon(3,m)=zeon0(3,m)
+                  ! Do not reset zeon(3,m) or toroidal angle !!
+                  ! This is to ensure that this particle is in the same toroidal rank.
                   zeon(4,m)=zeon0(4,m)
                   zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                   !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
                   !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
                   zeon(7,m)=zeon0(7,m)
 
-                  if(Flag_w_Evol==3) zeon(8,m)=zeon0(8,m)
+                  if(Flag_w_Evol>=3) zeon(8,m)=zeon0(8,m)
                elseif(Flag_Ptl_BC0_type==0 .and. zeon(1,m) < psimin)then
-                  zeon(1,m)=psimin
+                  zeon(1,m)=zeon0(1,m)
                   zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-                  zeon(3,m)=zeon0(3,m)
+                  ! Do not reset zeon(3,m) or toroidal angle !!
+                  ! This is to ensure that this particle is in the same toroidal rank.
                   zeon(4,m)=zeon0(4,m)
                   zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                   !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
                   !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
                   zeon(7,m)=zeon0(7,m)
-                  if(Flag_w_Evol==3) zeon(8,m)=zeon0(8,m)
+                  if(Flag_w_Evol>=3) zeon(8,m)=zeon0(8,m)
                endif
             enddo
             acc_newer_D_zeon=.true.
@@ -2166,7 +2174,18 @@ module Ptl_Src_Loss
                   zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
                   zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
                   zeon0(9,m) = integral_f0 ! f_tot
-                  elabels(m) = -3.0
+
+                  is_this_trc=0
+                  !$acc loop seq
+                  do k=1,num_of_etracers
+                     if (elabels(m) == etracers_labels(k)) then
+                        is_this_trc=1 ! this is one of tracers
+                        exit
+                     endif
+                  enddo
+                  if(is_this_trc==0) then
+                     elabels(m) = -3.0 ! change elables value only if this is not a tracer
+                  endif
                elseif(Flag_Ptl_BC0_type==2 .and. zeon(1,m)<psimin)then
                   ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
                   ! zeon0(9,m) is f_tot
@@ -2176,7 +2195,18 @@ module Ptl_Src_Loss
                   zeon(8,m) = integral_f0 -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
                   zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
                   zeon0(9,m) = integral_f0 ! f_tot
-                  elabels(m) = -1.0
+
+                  is_this_trc=0
+                  !$acc loop seq
+                  do k=1,num_of_etracers
+                     if (elabels(m) == etracers_labels(k)) then
+                        is_this_trc=1 ! this is one of tracers
+                        exit
+                     endif
+                  enddo
+                  if(is_this_trc==0) then
+                     elabels(m) = -1.0 ! change elables value only if this is not a tracer
+                  endif
                endif
             enddo
             acc_newer_D_zeon=.true.
@@ -2198,7 +2228,7 @@ module Ptl_Src_Loss
          integer, optional, intent(in) :: m_start, m_end
          integer m0, m1
 
-         integer m,i,j
+         integer m,i,j,k,is_this_trc
          real(wp) psimax,psimin
          integer lost_mid_arr(mimax) ! index of loss particles
          integer lost_mid_arr_BDY1(mimax)
@@ -2236,18 +2266,20 @@ module Ptl_Src_Loss
             !$acc parallel loop present(zion,zion0)
             do m=m0,m1
                if(Flag_Ptl_BC1_type==0 .and. zion(1,m) > psimax)then
-                  zion(1,m)=psimax
+                  zion(1,m)=zion0(1,m)
                   zion(2,m)=2.0_wp*pi-zion0(2,m)
-                  zion(3,m)=zion0(3,m)
+                  ! Do not reset zion(3,m) or toroidal angle !!
+                  ! This is to ensure that this particle is in the same toroidal rank.
                   zion(4,m)=zion0(4,m)
                   zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                   !   zion(5,m)=-zion0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
                   !   zion(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
                   zion(7,m)=zion0(7,m)
                elseif(Flag_Ptl_BC0_type==0 .and. zion(1,m) < psimin)then
-                  zion(1,m)=psimin
+                  zion(1,m)=zion0(1,m)
                   zion(2,m)=2.0_wp*pi-zion0(2,m)
-                  zion(3,m)=zion0(3,m)
+                  ! Do not reset zion(3,m) or toroidal angle !!
+                  ! This is to ensure that this particle is in the same toroidal rank.
                   zion(4,m)=zion0(4,m)
                   zion(5,m)=zion0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
                   !   zion(5,m)=-zion0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
@@ -2409,7 +2441,18 @@ module Ptl_Src_Loss
                         zion0(8,m) = 0.0 ! This is the wall condition, ftot=0 for the ion touching the wall (considering gyroradius)
                         zion(5,m) = -integral_f0 ! ftot=f0+df=0 --> df=-f0
                         zion(8,m) = integral_f0 ! f_0
+
+                        is_this_trc=0
+                        !$acc loop seq
+                        do k=1,num_of_itracers
+                           if (ilabels(m) == itracers_labels(k)) then
+                              is_this_trc=1 ! this is one of tracers
+                              exit
+                           endif
+                        enddo
+                        if(is_this_trc==0) then
                         ilabels(m) = -3.0
+                     endif
                      endif
                   else
                      if(zion(7,m)>s1)then
@@ -2417,8 +2460,19 @@ module Ptl_Src_Loss
                         zion0(8,m) = integral_f0 ! full-f
                         zion(5,m) = 0.0! df
                         zion(8,m) = integral_f0 ! f_0
+                        
+                        is_this_trc=0
+                        !$acc loop seq
+                        do k=1,num_of_itracers
+                           if (ilabels(m) == itracers_labels(k)) then
+                              is_this_trc=1 ! this is one of tracers
+                              exit
+                           endif
+                        enddo
+                        if(is_this_trc==0) then
                         ilabels(m) = -3.0
                      endif
+                  endif
                   endif
                elseif(Flag_Ptl_BC0_type==2) then
                   if(Ptl_BC0_val==0) then
@@ -2428,7 +2482,18 @@ module Ptl_Src_Loss
                         zion0(8,m) = 0.0 ! This is the wall condition, ftot=0 for the ion touching the wall (considering gyroradius)
                         zion(5,m) = -integral_f0 ! ftot=f0+df=0 --> df=-f0
                         zion(8,m) = integral_f0 ! f_0
-                        ilabels(m) = -1.0
+                        
+                        is_this_trc=0
+                        !$acc loop seq
+                        do k=1,num_of_itracers
+                           if (ilabels(m) == itracers_labels(k)) then
+                              is_this_trc=1 ! this is one of tracers
+                              exit
+                           endif
+                        enddo
+                        if(is_this_trc==0) then
+                           ilabels(m) = -1.0
+                        endif
                      endif
                   else
                      if(zion(7,m)<s0) then
@@ -2436,7 +2501,18 @@ module Ptl_Src_Loss
                         zion0(8,m) = integral_f0 ! full-f
                         zion(5,m) = 0.0! df
                         zion(8,m) = integral_f0 ! f_0
-                        ilabels(m) = -1.0
+
+                        is_this_trc=0
+                        !$acc loop seq
+                        do k=1,num_of_itracers
+                           if (ilabels(m) == itracers_labels(k)) then
+                              is_this_trc=1 ! this is one of tracers
+                              exit
+                           endif
+                        enddo
+                        if(is_this_trc==0) then
+                           ilabels(m) = -1.0
+                        endif
                      endif
                   endif
                endif
@@ -3693,7 +3769,8 @@ module Ptl_Src_Loss
             tgt_gqid = ceiling((tgt_gq-gq_min)*inv_dgq+0.5) ! Find nearst grid
 
             ! Find ur bound of the particle
-            ptl_ur_bound = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,:)
+            ptl_ur_bound(1) = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,1)
+            ptl_ur_bound(2) = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,2)
 
             ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
             ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
@@ -3754,7 +3831,8 @@ module Ptl_Src_Loss
 
             sr0 = max(sr_min, sr(srid)-0.5*dsr)
             sr1 = min(sr_max, sr(srid)+0.5*dsr)
-            ptl_ur_bound = tgt_ur_bound(aid,gqid,gfid,:)
+            ptl_ur_bound(1) = tgt_ur_bound(aid,gqid,gfid,1)
+            ptl_ur_bound(2) = tgt_ur_bound(aid,gqid,gfid,2)
             ur0 = ptl_ur_bound(1) + sr0*(ptl_ur_bound(2)-ptl_ur_bound(1))
             ur1 = ptl_ur_bound(1) + sr1*(ptl_ur_bound(2)-ptl_ur_bound(1))
             Cell_dVol_sr = (ur1**3.0-ur0**3.0)/3.0
@@ -4024,7 +4102,8 @@ module Ptl_Src_Loss
             tgt_gqid = ceiling((tgt_gq-gq_min)*inv_dgq+0.5) ! Find nearst grid
 
             ! Find ur bound of the particle
-            ptl_ur_bound = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,:)
+            ptl_ur_bound(1) = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,1)
+            ptl_ur_bound(2) = tgt_ur_bound(tgt_aid,tgt_gqid,tgt_gfid,2)
 
             ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
             ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
@@ -4087,7 +4166,8 @@ module Ptl_Src_Loss
 
             sr0 = max(sr_min, sr(srid)-0.5*dsr)
             sr1 = min(sr_max, sr(srid)+0.5*dsr)
-            ptl_ur_bound = tgt_ur_bound(aid,gqid,gfid,:)
+            ptl_ur_bound(1) = tgt_ur_bound(aid,gqid,gfid,1)
+            ptl_ur_bound(2) = tgt_ur_bound(aid,gqid,gfid,2)
             ur0 = ptl_ur_bound(1) + sr0*(ptl_ur_bound(2)-ptl_ur_bound(1))
             ur1 = ptl_ur_bound(1) + sr1*(ptl_ur_bound(2)-ptl_ur_bound(1))
             Cell_dVol_sr = (ur1**3.0-ur0**3.0)/3.0

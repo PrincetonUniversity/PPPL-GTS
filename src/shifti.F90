@@ -99,6 +99,14 @@ subroutine shifti
                endif
             enddo
          endif
+
+#ifdef _MGY_DEBUG_
+         if(mype==0) then
+            write(stdout,'(3(A,I8))') "In shifti, istep=",istep," irk=",irk, ", loop=",loop
+            call flush(stdout)
+         endif
+#endif
+
          return
       endif
 

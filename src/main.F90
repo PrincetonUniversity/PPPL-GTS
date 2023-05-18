@@ -128,7 +128,7 @@ program GTS
 
    call Init_Magnetic_Grid
 
-   call Cal_FootPrint_of_MagneticFieldLine
+   if(electromagnetic>0 .and. num_of_EMP>0) call Cal_FootPrint_of_MagneticFieldLine
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    call Do_FieldLineFollowing_for_Poincare_Plot_parallelized
@@ -243,22 +243,27 @@ program GTS
    irk=2
    idiag=1
    if(Flag_Poisson3D_on_SG==1) then
-      call Measure_Ion_Density_on_SG(1)
+      call Measure_Ion_Density_Current_on_SG(1)
    else
       call charge_ion
    endif
 
    if(Flag_Poisson3D_on_SG==1) then
-      if(ifelectron/=0) call Measure_Electron_Density_on_SG(1)
+      if(ifelectron/=0) call Measure_Electron_Density_Current_on_SG(1)
    else
       if(ifelectron/=0) call charge_eon
    endif
 
    if(Flag_Poisson==1) then
       if(Flag_Poisson3D_on_SG==1) then
+         call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
          call Construct_GK_Poisson3D_Solver_with_Extremal_Method
          call poisson( solver1, masssolver  )
-         call Update_Amat_Coeffs
+         call Update_GK_Poisson_LHS_Coeffs
+         if(electromagnetic==2) then
+            call Construct_GK_Ampere_3D_Solver_with_Extremal_Method
+            call Solve_GK_Ampere_3D_on_SG
+         endif
       else
          call poisson( solver1, masssolver  )
       endif
@@ -300,8 +305,8 @@ program GTS
       call SetZeros_Cumulative_Variables
       call Cumulate_Some_Variables_for_Measure
       call SetZeros_cum_Radial_FluxData_a1D_on_DG
-      call Measure_Electron_Density_on_SG(1)
-      call Measure_Ion_Density_on_SG(1)
+      call Measure_Electron_Density_Current_on_SG(1)
+      call Measure_Ion_Density_Current_on_SG(1)
       call snapshot_hdf5
       call snapshot_Magnetic_Information
       call check_tracer_e
@@ -380,7 +385,11 @@ program GTS
          if(Flag_Poisson==1 .and. Flag_Poisson3D_on_SG==1 .and. Flag_Update_Pol_Shielding==1 ) then
             if(irk==1) then
                !Update Polarization Shielding Term in Poisson3D equation
-               call Update_Amat_Coeffs
+               call Update_GK_Poisson_LHS_Coeffs
+               if(electromagnetic==2) then
+                  call Set_old_Apara_at_irk1
+                  call Update_GK_Ampere_LHS_Coeffs
+               endif
             endif
          endif
 
@@ -395,7 +404,7 @@ program GTS
          timewc(8)=timewc(8)+dtwc
 
          ! push ion
-         if(Flag_w_Evol/=3) then
+         if(Flag_w_Evol<3) then
             if(Flag_RK4==1) then
                call pushion_RK4(irk)
             else
@@ -411,7 +420,11 @@ program GTS
             time(2)=time(2)+dt
             timewc(2)=timewc(2)+dtwc
          else
-            call pushion_wEvol3(irk,nrk)
+            if(Flag_w_Evol==3) then
+               call pushion_wEvol3(irk,nrk)
+            elseif(Flag_w_Evol==4) then
+               call pushion_wEvol4(irk,nrk)
+            endif
             call timer(t0,dt,t0wc,dtwc)
             time(1)=time(1)+dt
             timewc(1)=timewc(1)+dtwc
@@ -435,11 +448,7 @@ program GTS
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
          ! in PUSHI for calculating electric force on ions
          if(Flag_Poisson3D_on_SG==1) then
-            if(Flag_Weight_dfh==3 .and. irk==nrk) then
-               call Measure_Ion_Density_on_SG(1)
-            else
-               call Measure_Ion_Density_on_SG(0)
-            endif
+            call Measure_Ion_Density_Current_on_SG(0)
          else
             call charge_ion
          endif
@@ -466,7 +475,7 @@ program GTS
                timewc(9)=timewc(9)+dtwc
 
                   !  CALL PUSHE(irk)
-               if(Flag_w_Evol/=3) then
+               if(Flag_w_Evol<3) then
                   if(Flag_RK4==1) then
                      call pusheon_RK4(solver1, masssolver, irk)
                   else
@@ -481,8 +490,11 @@ program GTS
                   time(11)=time(11)+dt
                   timewc(11)=timewc(11)+dtwc
                else
-                  ! call pusheon_wEvol3(solver1, masssolver, irk, nrk)
-                  call pusheon_wEvol4(solver1, masssolver, irk, nrk)
+                  if(Flag_w_Evol==3) then
+                     call pusheon_wEvol3(solver1, masssolver, irk, nrk)
+                  elseif(Flag_w_Evol==4) then
+                     call pusheon_wEvol4(solver1, masssolver, irk, nrk)
+                  endif
                   call timer(t0,dt,t0wc,dtwc)
                   time(10)=time(10)+dt
                   timewc(10)=timewc(10)+dtwc
@@ -552,11 +564,7 @@ program GTS
             ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
             ! for calculating gamma_e
             if(Flag_Poisson3D_on_SG==1) then
-               if(Flag_Weight_dfh==3 .and. irk==nrk) then
-                  call Measure_Electron_Density_on_SG(1)
-               else
-                  call Measure_Electron_Density_on_SG(0)
-               endif
+               call Measure_Electron_Density_Current_on_SG(0)
             else
                call charge_eon
             endif
@@ -568,6 +576,9 @@ program GTS
 
          ! solve GK Poisson equation using adiabatic electron
          if(Flag_Poisson==1) call poisson( solver1, masssolver )
+         if(electromagnetic==2) then
+            call Solve_GK_Ampere_3D_on_SG
+         endif
          !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
          if (mype == 0) then
@@ -640,8 +651,8 @@ program GTS
          call ion_locator_at_larmor_points
          call electron_locator
 
-         call Measure_Electron_Density_on_SG(1) !Input flag=1 for diagnostic purpose
-         call Measure_Ion_Density_on_SG(1) !Input flag=1 for diagnostic purpose
+         call Measure_Electron_Density_Current_on_SG(1) !Input flag=1 for diagnostic purpose
+         call Measure_Ion_Density_Current_on_SG(1) !Input flag=1 for diagnostic purpose
 
          ! call Cal_dupara_per_dt_using_SG
 

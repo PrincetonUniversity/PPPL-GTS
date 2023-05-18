@@ -1134,16 +1134,6 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(file_id, "mean_full_dphi",2,h5dims,H5T_NATIVE_DOUBLE, (E_00*c)/(charg0*1e8)*intp_val_Arr,h5err)
       call h5ltset_attribute_string_f(file_id, "mean_full_dphi", "unit", "V", h5err)
 
-      do i=0,mpsi
-         do j=1,mtheta(i)
-            ij=igrid(i)+j
-            tmp_vec_mgrid_size(ij) = test_src(ij)*density(psi_grid(i),0)
-         enddo
-      enddo
-
-      call Interpolate_Data_into_Coarser_Grids(tmp_vec_mgrid_size,gq_jump,a_jump,intp_val_Arr)
-      call h5ltmake_dataset_f(file_id, "test_src",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*intp_val_Arr,h5err)
-      call h5ltset_attribute_string_f(file_id, "test_src", "unit", "/#^3", h5err)
 
       if(ifelectron==1) then
          tmp_vec_mgrid_size=0.0
@@ -1513,19 +1503,41 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "dne_SM",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne_SM(:,:),h5err)
       call h5ltmake_dataset_f(gid_SG, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
-
-      call h5ltmake_dataset_f(gid_SG, "hyb_ratio_e",2,h5dims,H5T_NATIVE_DOUBLE, SG%hyb_ratio_e,h5err)
-      call h5ltmake_dataset_f(gid_SG, "hyb_ratio_i",2,h5dims,H5T_NATIVE_DOUBLE, SG%hyb_ratio_i,h5err)
-
+      call h5ltmake_dataset_f(gid_SG, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err) ! 1e4 is the factor for (m^-2)
+      call h5ltmake_dataset_f(gid_SG, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
+      if(electromagnetic==2) then
+         call h5ltmake_dataset_f(gid_SG, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
+         call h5ltmake_dataset_f(gid_SG, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "Ampere_RHS",2,h5dims,H5T_NATIVE_DOUBLE, SG%Ampere_RHS,h5err)
+      endif
 
       call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%ni_by_ff(:,:,1),SG%Cell_dV)
       call Smooth_SG_Data_2D([2,2],SG%ne_by_fh(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%dje_para(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%je_para_by_fh(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%dji_para(:,:,1),SG%Cell_dV)
+      call Smooth_SG_Data_2D([2,2],SG%ji_para_by_ff(:,:,1),SG%Cell_dV)
       call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG_SM, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
+      if(electromagnetic==2) then
+         call Smooth_SG_Data_2D([2,2],SG%AparaH(:,:,1),SG%Cell_dV)
+         call Smooth_SG_Data_2D([2,2],SG%AparaS,SG%Cell_dV)
+         call Smooth_SG_Data_2D([2,2],SG%gaH(:,:,1),SG%Cell_dV)
+         call h5ltmake_dataset_f(gid_SG_SM, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG_SM, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
+         call h5ltmake_dataset_f(gid_SG_SM, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
+      endif
 
       call h5ltmake_dataset_f(gid_SG, "phi",2,h5dims,H5T_NATIVE_DOUBLE, SG%phi(:,:,1),h5err)
 
@@ -1534,13 +1546,14 @@ subroutine snapshot_hdf5
       h5dims(1:3)=(/3,SG%dim_gq,SG%dim_s/)
       call h5ltmake_dataset_f(gid_SG, "B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%B0_cov3,h5err)
       call h5ltmake_dataset_f(gid_SG, "grad_phi_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_phi_cov(:,:,:,1),h5err)
+      if(electromagnetic==2) call h5ltmake_dataset_f(gid_SG, "grad_gaH_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_gaH_cov(:,:,:,1),h5err)
 
 
       call h5ltmake_dataset_f(gid_SG, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, SG%B0_cntv3,h5err)
 
 
 
-      if(electromagnetic==1) then
+      if(electromagnetic>=1) then
          h5dims(1:4)=(/3,SG%dim_gq,SG%dim_s,2/)
          call h5ltmake_dataset_f(gid_SG, "dB_cntv",4,h5dims,H5T_NATIVE_DOUBLE, SG%dB_cntv3,h5err)
       endif
@@ -2044,11 +2057,6 @@ subroutine snapshot_hdf5
          call h5ltset_attribute_string_f(gid, "Te", "unit", "eV", h5err)
          call h5ltmake_dataset_f(gid, "Te_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,22,1)),h5err)
          call h5ltmake_dataset_f(gid, "Te_perp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%eScaData(:,:,23,1)),h5err)
-         call h5ltmake_dataset_f(gid, "w_dne",2,h5dims,H5T_NATIVE_DOUBLE, DG%w_dne,h5err)
-         call h5ltmake_dataset_f(gid, "ne_tot_hybrid",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%ne_tot_hybrid),h5err)
-         call h5ltset_attribute_string_f(gid, "ne_tot_hybrid", "unit", "#/m^3", h5err)
-         call h5ltmake_dataset_f(gid, "Te_hybrid",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%Te_hybrid),h5err)
-         call h5ltset_attribute_string_f(gid, "Te_hybrid", "unit", "eV", h5err)
          call h5ltmake_dataset_f(gid, "eFlux_P_B",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,7,1)),h5err)
          call h5ltmake_dataset_f(gid, "eFlux_P_N",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,8,1)),h5err)
          call h5ltmake_dataset_f(gid, "eFlux_P_BxN",2,h5dims,H5T_NATIVE_DOUBLE, uveloci*1e4*(DG%eScaData(:,:,9,1)),h5err)
@@ -2091,12 +2099,6 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid, "Ti",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,6,1)),h5err)
          call h5ltmake_dataset_f(gid, "Ti_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,24,1)),h5err)
          call h5ltmake_dataset_f(gid, "Ti_perp",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,25,1)),h5err)
-         call h5ltmake_dataset_f(gid, "w_dni",2,h5dims,H5T_NATIVE_DOUBLE, DG%w_dni,h5err)
-         call h5ltmake_dataset_f(gid, "ni_hybrid",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%ni_hybrid),h5err)
-         call h5ltset_attribute_string_f(gid, "ni_hybrid", "unit", "#/m^3", h5err)
-         call h5ltmake_dataset_f(gid, "Ti_hybrid",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%Ti_hybrid),h5err)
-         call h5ltset_attribute_string_f(gid, "Ti_hybrid", "unit", "eV", h5err)
-         call h5ltset_attribute_string_f(gid, "Ti", "unit", "eV", h5err)
          call h5ltmake_dataset_f(gid, "dni_Larmor",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*(DG%iScaData(:,:,7,1)),h5err)
          call h5ltset_attribute_string_f(gid, "dni_Larmor", "unit", "#/m^3", h5err)
          call h5ltmake_dataset_f(gid, "dTi_Larmor_consst",2,h5dims,H5T_NATIVE_DOUBLE, 1e3*Tem_00*(DG%iScaData(:,:,8,1)),h5err)
@@ -2346,7 +2348,7 @@ subroutine snapshot_Magnetic_Information
       allocate(uvec_B_cov(3,Naq), uvec_N_cov(3,Naq), uvec_BxN_cov(3,Naq))
       allocate(uvec_B_cntv(3,Naq), uvec_N_cntv(3,Naq), uvec_BxN_cntv(3,Naq))
 
-      if(electromagnetic==1) then
+      if(electromagnetic>=1) then
          allocate(ini_ga_(Naq),ini_dga0dt_(Naq))
          allocate(ini_dB_cov3_(3,Naq),ini_dB_cntv3_(3,Naq), ini_grad_ga_cov3_(3,Naq))
       endif
@@ -2398,7 +2400,7 @@ subroutine snapshot_Magnetic_Information
          call Cal_unit_vectors_tangential_normal_binormal_to_FluxSurface(a_(k), gq_(k), zetamax,s_(k),uvec_B_cov(:,k),uvec_B_cntv(:,k),uvec_N_cov(:,k),uvec_N_cntv(:,k),uvec_BxN_cov(:,k),uvec_BxN_cntv(:,k))
       enddo
 
-      if(electromagnetic==1)then
+      if(electromagnetic>=1)then
          ! Get initial magnetic perturbation information
          do k=1,size(a_)
             call Get_MP_alpha_amplitude(a_(k), gq_(k),modulo(zetamax,2.0*pi),0.0, ini_ga_(k), ini_grad_ga_cov3_(1:3,k), ini_dga0dt_(k))
@@ -2482,7 +2484,7 @@ subroutine snapshot_Magnetic_Information
 
 
 
-      if(electromagnetic==1) then
+      if(electromagnetic>=1) then
          call h5gcreate_f(file_id, "iniMP", gid_MP, h5err)
          ! 2D data
          h5dims(1:2)=(/dim_gq, dim_a/)
@@ -2559,7 +2561,7 @@ subroutine snapshot_Magnetic_Information
       deallocate(B0_cov3_, B0_cntv3_, j0_cov3_, j0_cntv3_)
       deallocate(uvec_B_cov, uvec_N_cov, uvec_BxN_cov)
       deallocate(uvec_B_cntv, uvec_N_cntv, uvec_BxN_cntv)
-      if(electromagnetic==1)then
+      if(electromagnetic>=1)then
          deallocate(ini_ga_,ini_dga0dt_)
          deallocate(ini_dB_cov3_,ini_dB_cntv3_, ini_grad_ga_cov3_)
       endif
@@ -2621,6 +2623,8 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
 
    dni_init=0.0; dni_vpara=0.0; dni_vperp=0.0; dni_accel=0.0; dni_fdamp=0.0;
    dTi_init=0.0; dTi_vpara=0.0; dTi_vperp=0.0; dTi_accel=0.0; dTi_fdamp=0.0;
+
+   call ion_locator
 
    !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
@@ -2993,6 +2997,8 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
 
    dne_init=0.0; dne_vpara=0.0; dne_vperp=0.0; dne_accel=0.0; dne_adiab=0.0; dne_fdamp=0.0;
    dTe_init=0.0; dTe_vpara=0.0; dTe_vperp=0.0; dTe_accel=0.0; dTe_adiab=0.0; dTe_fdamp=0.0;
+
+   call electron_locator
 
    !$acc parallel loop present(zeon,jteon0,jteon1,wzeon,wpeon,wteon0,wteon1)
    do m=1,me

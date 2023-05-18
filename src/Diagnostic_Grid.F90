@@ -24,10 +24,6 @@ module Diagnostic_Grid
       real(wp), allocatable, dimension(:,:) :: FLA_SM_Denominator, FLA_SM_FLabel, FLA_SM_psi0
       real(wp), allocatable, dimension(:,:) :: FLA_SM_FLabel_Left, FLA_SM_FLabel_Right
 
-      ! Hybrid (full-f + df) density and temperature
-      real(wp), allocatable, dimension(:,:) :: w_dne, w_dni ! wdne=abs(snap.DG.dne_tot)./(abs(snap.DG.ne_tot)+abs(snap.DG.dne_tot));
-      real(wp), allocatable, dimension(:,:) :: ne_tot_hybrid, ni_hybrid, Te_hybrid, Ti_hybrid ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
-
       integer :: num_eZD_1D, num_iZD_1D ! number of eZonData_1D and iZonData_1D
       real(wp), allocatable, dimension(:,:) :: eZonData_1D, iZonData_1D !  Zonal Data (particle, Energy, etc)
       real(wp), allocatable, dimension(:,:) :: cum_eZonData_1D, cum_iZonData_1D ! cumulative Zonal Data (particle, Energy, etc)
@@ -135,9 +131,6 @@ module Diagnostic_Grid
 
          allocate(DG%eScaData(Nq,Na,DG%num_eSD,0:1), DG%eVecData(3,Nq,Na,DG%num_eVD,0:1) )
          allocate(DG%iScaData(Nq,Na,DG%num_iSD,0:1), DG%iVecData(3,Nq,Na,DG%num_iVD,0:1) )
-
-         allocate(DG%w_dne(Nq,Na), DG%w_dni(Nq,Na))
-         allocate(DG%ne_tot_hybrid(Nq,Na), DG%ni_hybrid(Nq,Na), DG%Te_hybrid(Nq,Na), DG%Ti_hybrid(Nq,Na))
 
          allocate(DG%eZonData_1D(DG%num_eZD_1D,Na), DG%iZonData_1D(DG%num_iZD_1D,Na)) ! Zonal Data (particle, Energy, etc)
          allocate(DG%cum_eZonData_1D(DG%num_eZD_1D,Na), DG%cum_iZonData_1D(DG%num_iZD_1D,Na)) ! cumulative Zonal Data (particle, Energy, etc)
@@ -729,7 +722,7 @@ module Diagnostic_Grid
             P_gf = modulo(zeon0(3,m),2*pi)
             P_s  = zeon0(7,m)
 
-            if( elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            if( (P_s-s0)*(P_s-s1)>0) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -994,12 +987,6 @@ module Diagnostic_Grid
             DG%eScaData(:,:,vid,1) = DG%eScaData(:,:,vid,1)*DG%inv_Cell_dV
          enddo
 
-         ! Calculate hybrid particle and energy density
-         DG%w_dne(:,:) = abs(DG%eScaData(:,:,1,1))/(abs(DG%eScaData(:,:,1,1))+abs(DG%eScaData(:,:,5,1))) ! wdne=abs(snap.DG.dne_tot)./(abs(snap.DG.ne_tot)+abs(snap.DG.dne_tot));
-         DG%ne_tot_hybrid = DG%w_dne*DG%eScaData(:,:,5,1) + (1.0-DG%w_dne)*(DG%n0_2D+DG%eScaData(:,:,1,1)) + int(ifelectron/2)*DG%dne_adiab ! (n_hybrid = w_dne.*snap.DG.ne_tot+(1.0-w_dne).*(snap.DG.dne_tot+snap.n0_2D))
-         DG%Te_hybrid  = DG%w_dne*DG%eScaData(:,:,6,1) + (1.0-DG%w_dne)*(DG%eScaData(:,:,3,1) +DG%Te0_2D*DG%n0_2D) +DG%Te0_2D*int(ifelectron/2)*DG%dne_adiab ! (hybrid (2/3)*energy_density, then will be divded by n_hybrid to get T_hybrid)
-         DG%Te_hybrid  = DG%Te_hybrid / DG%ne_tot_hybrid
-
          ! Calculate inverse of tot density (including dne_adiabatic in the case of delta-h electron (ifelectron==2))
          inv_tot_ne = 1.0/(DG%n0_2D + DG%eScaData(:,:,1,1) + int(ifelectron/2)*DG%dne_adiab) ! smoothed total density using df or dh
          ! Convert Energy to Temperature
@@ -1124,7 +1111,7 @@ module Diagnostic_Grid
             P_gf = modulo(zion0(3,m),2*pi)
             P_s  = zion0(7,m)
 
-            if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            if( (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1330,20 +1317,20 @@ module Diagnostic_Grid
             enddo
          enddo
 
-         !$acc update self (zion_s_on_GyroOrbit(:,:mi),zion_gq_on_GyroOrbit(:,:mi))
+         !$acc update self (ionLarmor_s(:,:mi),ionLarmor_gq(:,:mi))
          do m=1,mi
             if (Flag_w_Threshold==1 .and. (zion0(5,m)<w_Thold_min .or. zion0(5,m)>w_Thold_max)) cycle
 
-            if( ilabels(m)<0 .and. ((zion(7,m)-s0)*(zion(7,m)-s1)>0) ) then
+            if(  (zion(7,m)-s0)*(zion(7,m)-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
 
             do larmor=1,larmor_num
                P_a  = zion0(1,m)
-               P_gq = modulo(zion_gq_on_GyroOrbit(larmor,m),2*pi)
+               P_gq = modulo(ionLarmor_gq(larmor,m),2*pi)
                P_gf = modulo(zion0(3,m),2*pi)
-               P_s  = zion_s_on_GyroOrbit(larmor,m)
+               P_s  = ionLarmor_s(larmor,m)
 
                ! ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
                ori_sid = max(0,min(int((P_s-s0)*ori_inv_ds),mpsi-1)) ! To avoid segmentation fault
@@ -1466,13 +1453,6 @@ module Diagnostic_Grid
             DG%iScaData(:,:,vid,1) = DG%iScaData(:,:,vid,1)*DG%inv_Cell_dV
          enddo
 
-
-         ! Calculate hybrid particle and energy density
-         DG%w_dni      = abs(DG%iScaData(:,:,1,1))/(abs(DG%iScaData(:,:,1,1))+abs(DG%iScaData(:,:,5,1))) ! wdni=abs(snap.DG.dni)./(abs(snap.DG.ni)+abs(snap.DG.dni));
-         DG%ni_hybrid  = DG%w_dni*DG%iScaData(:,:,5,1) + (1.0-DG%w_dni)*(DG%iScaData(:,:,1,1)+DG%n0_2D) ! (n_hybrid = w_dni.*snap.DG.ni+(1.0-w_dni).*(snap.DG.dni+snap.n0_2D))
-         DG%Ti_hybrid  = DG%w_dni*DG%iScaData(:,:,6,1) + (1.0-DG%w_dni)*(DG%iScaData(:,:,3,1)+DG%n0_2D*DG%Ti0_2D) ! (hybrid energy_density, then will be divded by n_hybrid to get T_hybrid)
-         DG%Ti_hybrid  = DG%Ti_hybrid / DG%ni_hybrid
-
          ! Calculate Temperatures
          DG%iScaData(:,:,2,1) = DG%iScaData(:,:,2,1)/DG%n0_2D ! Convert Energy to Temperature
          ! Consistent Temperature by considering density fluctuation in the denominator
@@ -1558,7 +1538,7 @@ module Diagnostic_Grid
          do m=1,me
 
             P_s=zeon0(7,m)
-            if(  elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+            if(  (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1742,7 +1722,7 @@ module Diagnostic_Grid
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
-            if( elabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            if( (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1833,7 +1813,7 @@ module Diagnostic_Grid
          do m=1,mi
 
             P_s=zion0(7,m)
-            if( ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0) ) then
+            if(  (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -1945,7 +1925,7 @@ module Diagnostic_Grid
             ws1 = (P_s-DG%s_1D(sid))*DG%inv_ds
             ws0 = 1.0-ws1
 
-            if(  ilabels(m)<0 .and. ((P_s-s0)*(P_s-s1)>0)) then
+            if(  (P_s-s0)*(P_s-s1)>0 ) then
                ! Since this particle is outside the physical boundary, not need to calculate its contribution
                cycle
             endif
@@ -2200,79 +2180,6 @@ module Diagnostic_Grid
                DG%iVecData(k,:,:,vid,1) = target_Data2D(1:Ngq,1:Na)
             enddo
          enddo
-
-
-         ! =======================================
-         ! Smooth Electron's hybrid density and temperature
-         ! =======================================
-
-
-         ! Convert electron temperautre to Energy_Density first.
-         DG%Te_hybrid  = DG%Te_hybrid * DG%ne_tot_hybrid
-
-         !Smooth Electron's hybrid density
-         target_Data2D(1:Ngq,1:Na) = DG%ne_tot_hybrid
-         do smid=1,num_smooth
-            ! Set ghost cell periodic in theta direction
-            target_Data2D(0,:)     = target_Data2D(Ngq-1,:)
-            target_Data2D(Ngq+1,:) = target_Data2D(2,:)
-            ! Smooth in theta direction
-            target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
-            ! Smooth in radial direction
-            target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
-         enddo
-         DG%ne_tot_hybrid = target_Data2D(1:Ngq,1:Na)
-
-         !Smooth Electron's hybrid Temperature
-         target_Data2D(1:Ngq,1:Na) = DG%Te_hybrid
-         do smid=1,num_smooth
-            ! Set ghost cell periodic in theta direction
-            target_Data2D(0,:)     = target_Data2D(Ngq-1,:)
-            target_Data2D(Ngq+1,:) = target_Data2D(2,:)
-            ! Smooth in theta direction
-            target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
-            ! Smooth in radial direction
-            target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
-         enddo
-         DG%Te_hybrid = target_Data2D(1:Ngq,1:Na) ! This is smoothed Energy Density
-         DG%Te_hybrid = DG%Te_hybrid / DG%ne_tot_hybrid ! Now this is the smoothed temperature
-
-
-         ! =======================================
-         ! Smooth Ion's hybrid density and temperature
-         ! =======================================
-
-         ! Convert Ion temperature to Energy_Density first.
-         DG%Ti_hybrid  = DG%Ti_hybrid * DG%ni_hybrid
-         !Smooth Ion's hybrid density
-         target_Data2D(1:Ngq,1:Na) = DG%ni_hybrid
-         do smid=1,num_smooth
-            ! Set ghost cell periodic in theta direction
-            target_Data2D(0,:)     = target_Data2D(Ngq-1,:)
-            target_Data2D(Ngq+1,:) = target_Data2D(2,:)
-            ! Smooth in theta direction
-            target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
-            ! Smooth in radial direction
-            target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
-         enddo
-         DG%ni_hybrid = target_Data2D(1:Ngq,1:Na)
-
-         !Smooth Ion's hybrid Temperature
-         target_Data2D(1:Ngq,1:Na) = DG%Ti_hybrid
-         do smid=1,num_smooth
-            ! Set ghost cell periodic in theta direction
-            target_Data2D(0,:)     = target_Data2D(Ngq-1,:)
-            target_Data2D(Ngq+1,:) = target_Data2D(2,:)
-            ! Smooth in theta direction
-            target_Data2D(1:Ngq,:) = SM_gq_Coeff(-1,1:Ngq,:)*target_Data2D(0:Ngq-1,:) + SM_gq_Coeff(0,1:Ngq,:)*target_Data2D(1:Ngq,:) + SM_gq_Coeff(1,1:Ngq,:)*target_Data2D(2:Ngq+1,:)
-            ! Smooth in radial direction
-            target_Data2D(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*target_Data2D(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*target_Data2D(:,1:Na) + SM_a_Coeff(1,:,1:Na)*target_Data2D(:,2:Na+1)
-         enddo
-         DG%Ti_hybrid = target_Data2D(1:Ngq,1:Na) ! This is smoothed Energy Density
-         DG%Ti_hybrid = DG%Ti_hybrid / DG%ni_hybrid ! Now this is the smoothed temperature
-
-
-
 
       end subroutine Smooth_DG_Scalar_Vector_Data
 

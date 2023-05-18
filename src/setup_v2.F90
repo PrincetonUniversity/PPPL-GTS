@@ -23,6 +23,7 @@ Subroutine setup
       a_ref,zeta_ref,psiout,pdum,totalv,inv_jaco,munstable,nunstable,gradth,&
       munstable1,nunstable1,inv_grada,Lc,Lci,Lce,Lcn,Lcu,Tcc,backnc,Tau,Tau_e,vthc_e,dela,fip
    integer intgral,ninbin,i_itera
+   integer const_mtheta
 
    integer, external :: metric_elements
 
@@ -981,6 +982,16 @@ Subroutine setup
 #else
       mtheta(i)=max(2,2*int(plenth(i)/tdum/2.0_wp+0.5_wp)) !even # poloidal grid
 #endif
+   enddo
+
+   const_mtheta = ceiling(sum(mtheta)/real(mpsi+1)) ! average
+   const_mtheta = 400
+
+   do i=0,mpsi
+
+      if(Flag_Ptl_BC0_type>0 .or. Flag_Ptl_BC1_type>0) then
+         mtheta(i)= const_mtheta
+      endif
       deltat(i)=2.0_wp*pi/real(mtheta(i),wp)
 
       k=max(k,mtheta(i))
@@ -1207,6 +1218,11 @@ Subroutine setup
    mimax=mi+50*ceiling(sqrt(real(mi,wp))) !particle array upper bound
    memax=me+50*ceiling(sqrt(real(me,wp))) !particle array upper bound
 
+   if(Flag_Ptl_BC0_type>0 .or. Flag_Ptl_BC1_type>0) then
+      mimax=1.5*mi
+      memax=1.5*me
+   endif
+
    ! temperature and density on the grid, T_i=n_0=1 at mid-radius
    rtemi=1.0_wp
    rden=1.0_wp
@@ -1221,14 +1237,6 @@ Subroutine setup
 
    phi=0.0
 
-   allocate(test_src(mgrid))
-   test_src=0.0
-   do i=20,30
-      do j=0,mtheta(i)
-         ij=igrid(i)+j
-         test_src(ij) = sin(6*modulo(real(j,wp)*deltat(i)+zetamax*qtinv(i),2.0*pi) - 4*zetamax)
-      enddo
-   enddo
 
    if(ifdphi==3) then
       allocate(old_phi(0:1,mgrid),tmp_old_phi(0:1,mgrid))
@@ -1909,7 +1917,7 @@ Subroutine setup
 
    allocate (zion(ziondim,mimax),zion0(ziondim,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
       wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers),&
-      zion_s_on_GyroOrbit(larmor_num,mimax),zion_gq_on_GyroOrbit(larmor_num,mimax))
+      ionLarmor_s(larmor_num,mimax),ionLarmor_gq(larmor_num,mimax),ionLarmor_gf(larmor_num,mimax))
 
    if(Flag_RK4==1) then
       allocate(RK_cum_zion(ziondim,mimax))
@@ -2469,7 +2477,7 @@ Subroutine read_input_params
       Flag_Update_Pol_Shielding, & ! Default=0 (Not Update), can be set=1(Update) Polarization Shielding Term in Poisson3D equation over time
       Flag_DK_Ion,        &   ! Default=0 (GyroKinetic Ion), can be set =1 (DriftKinetic Ion; zero Gyro-radius)
       Flag_Measure_Ptl_FootPrint, & ! Default=0(Not Meausre), can be set =1 (Do Measure)
-      Flag_Weight_dfh,    &   ! Default=0 (delta-f), can be set = 1(full-f or full-h), or =2(hybrid two-weight; using both delta and full weight0
+      Flag_Weight_dfh,    &   ! Default=0 (delta-f), can be set = 1(full-f or full-h)
       w_Thold_min,        &
       w_Thold_max,        &
       mode00,             &   ! =1, include (0,0) mode, =0, exclude (0,0) mode
