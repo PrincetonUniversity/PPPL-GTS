@@ -1,13 +1,20 @@
-on SEABORG
-module load MASS/3.0
-module load sprng64/1.0
-module load idl/6.3
-module load nag_smp_64/2
-module load netcdf/3.6.0
-module switch hdf5_par_64/1.6.4 hdf5_par64/1.6.4
-module load superlu_mt_64
+5/19/2023
+
+setup
+export NERSC_HOST=perlmuttergpu
+module load PrgEnv-nvhpc/8.3.3
+export OPENMPI_DIR=/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi
+module load darshan
+export PETSC_DIR=/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4
+export PETSC_ARCH=perlmutter-nvhpc-gts
+export SPRNG_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/nvhpc_perlmutter
+export PSPLINE_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/nvhpc_perlmutter
+
+compile
+make _ARCH=perlmuttergpu  ACC=y
 
 
+====================================================================
 compile
 gmake OPENMP=y
 
