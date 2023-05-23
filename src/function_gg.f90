@@ -4085,7 +4085,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
       ! PPI
       num_of_samplePPIs_for_output = 70*70
-      PPI_jump= (Gsize)/num_of_samplePPIs_for_output
+      PPI_jump= max(1,(Gsize)/num_of_samplePPIs_for_output)
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
       h5dims(1)=(Gsize+max(0,PPI_jump-1))/PPI_jump
