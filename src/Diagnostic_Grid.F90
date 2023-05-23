@@ -621,12 +621,16 @@ module Diagnostic_Grid
          KE_para = 0.5*for_E*(zeon0(4,1:me)*BB(1:me))**2.0
          KE_perp = zeon(6,1:me)*zeon(6,1:me)*BB(1:me)
 
-         do m=1,me
-            aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
-            gqid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
-            gfid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
-            Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
-         enddo
+         if(allocated(FMap3D%Mirror_Ratio)) then
+            do m=1,me
+               aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+               gqid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+               gfid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
+               Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
+            enddo
+         else
+            Mirror_Ratio=-1.0
+         endif
 
 
          ! Calculate dne_adiabatic by interpolating dphi on original grids
@@ -789,12 +793,14 @@ module Diagnostic_Grid
 
 
                   ! if(norm_vperp>abs(norm_vpara)*tan(asin(sqrt(1.0/Mirror_Ratio(m))))) then ! Magnetically trapped particle
-                  if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
-                     vid=27; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
-                     vid=28; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
-                  else
-                     vid=29; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
-                     vid=30; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                  if(Mirror_Ratio(m)>0) then
+                     if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
+                        vid=27; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
+                        vid=28; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
+                     else
+                        vid=29; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
+                        vid=30; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                     endif
                   endif
 
                   if( sqrt(norm_vpara**2.0+norm_vperp**2.0)<umax ) then
@@ -1083,12 +1089,16 @@ module Diagnostic_Grid
          ori_inv_ds = real(mpsi)/(s1-s0)
          ori_inv_dgf= 1.0/(zetamax-zetamin)
 
-         do m=1,mi
-            aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
-            gqid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
-            gfid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
-            Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
-         enddo
+         if(allocated(FMap3D%Mirror_Ratio)) then
+            do m=1,mi
+               aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+               gqid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+               gfid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
+               Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
+            enddo
+         else
+            Mirror_Ratio = -1.0
+         endif
 
          energy(:) = in_P_data(2,:)
          KE_para = 0.5*(zion0(4,1:mi)*BB(1:mi)-backu(1:mi))**2.0
@@ -1175,14 +1185,15 @@ module Diagnostic_Grid
                   norm_vpara = zion0(4,m)*BB(m)*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
                   norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
                   ! if(norm_vperp>abs(norm_vpara)*tan(asin(sqrt(1.0/Mirror_Ratio(m))))) then ! Magnetically trapped particle
-                  if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
-                     vid=28; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
-                     vid=29; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
-                  else
-                     vid=30; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
-                     vid=31; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                  if(Mirror_Ratio(m)>0) then
+                     if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
+                        vid=28; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
+                        vid=29; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
+                     else
+                        vid=30; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
+                        vid=31; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                     endif
                   endif
-
 
                   if( sqrt(norm_vpara**2.0+norm_vperp**2.0)<umax ) then
                      vid=32; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*zion0(6,m) !  Phase volume by markers
@@ -1518,7 +1529,11 @@ module Diagnostic_Grid
          real(wp) intp_phi_V ! interpolated phi in GTS unit
 
          !$acc declare create(ptl_data)
-         tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+         if(allocated(FMap3D%Mirror_Ratio)) then
+            tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+         else
+            tmp_FMap3D_MirrorRatio=-1.0
+         endif
 
          ori_inv_ds = real(mpsi)/(s1-s0)
 
@@ -1651,23 +1666,20 @@ module Diagnostic_Grid
             ptl_data(23,m) = 0.5*(in_P_data(5,m)*Full_da(m)*ee_inv_grad_a(m)) ! by full-f or ull-h
 
 
-            aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
-            qid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
-            fid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
-            ! Mirror_Ratio = min(FMap3D%Max_BB0_CCW(qid,aid,fid),FMap3D%Max_BB0_CW(qid,aid,fid))/(BB(m))
-            ! if(aid>200 .or. aid<1 .or. qid>300 .or. qid<1 .or. fid>100 .or. fid<1) then
-            !    ! write(stdout,*) "zeon(1,m)=",zeon(1,m),"FMap3D%a_1D(1)=",FMap3D%a_1D(1),FMap3D%gq_1D(1),FMap3D%gf_1D(1)
-            !    write(stdout,*) "FMap3D%inv_da=",FMap3D%inv_da,FMap3D%inv_dgq,FMap3D%inv_dgf
-            !    write(stdout,*) "In eZon Measure; (aid,qid,fid)=", aid, qid, fid
-            ! endif
-            ! Mirror_Ratio = FMap3D%Mirror_Ratio(qid,aid,fid)
             inv_vth = 1.0/sqrt(backTe(m))  ! vth = sqrt(Te/me) = sqrt(backTe); Note that backTe is defined as Te/me
             norm_vpara = zeon0(4,m)*csc0*BB(m)*m0ms*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
             norm_vperp = zeon(6,m)*sqrt(2.0*BB(m)*m0ms)*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
 
+            if(allocated(FMap3D%Mirror_Ratio)) then
+               aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+               qid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+               fid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
 
-            Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
-            ! Mirror_Ratio = 1
+               Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
+            else
+               Mirror_Ratio = -1.0
+            endif
+
             if(Mirror_Ratio>0) then
 
                ptl_weight = zeon0(8,m) + fe_AD
@@ -1789,7 +1801,11 @@ module Diagnostic_Grid
          real(wp) :: ori_inv_ds
          !$acc declare create(ptl_data)
 
-         tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+         if(allocated(FMap3D%Mirror_Ratio)) then
+            tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+         else
+            tmp_FMap3D_MirrorRatio=-1.0
+         endif
 
 
 
@@ -1861,17 +1877,19 @@ module Diagnostic_Grid
             ptl_data(19,m) = zion0(8,m)*(vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by streaming only
             ptl_data(20,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming only
 
-            aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
-            qid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
-            fid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
-
             inv_vth = 1.0/sqrt(backT(m))  ! vth = sqrt(T/m)
             norm_vpara = zion0(4,m)*BB(m)*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
             norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
 
-            Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
+            if(allocated(FMap3D%Mirror_Ratio)) then
+               aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+               qid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+               fid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
 
-
+               Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
+            else
+               Mirror_Ratio = -1.0
+            endif
 
             if(Mirror_Ratio>0) then
                ptl_weight = zion0(8,m)
