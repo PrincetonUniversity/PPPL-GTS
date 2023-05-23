@@ -957,8 +957,10 @@ subroutine snapshot_hdf5
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "num_of_FLabel_pcws",1,h5dims,H5T_NATIVE_INTEGER, num_of_FLabel_pcws,h5err)
       h5dims(1)=num_of_FLabel_pcws
-      call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
-      call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
+      if(allocated(FLabel_pcws_a) .and. allocated(FLabel_pcws_y)) then
+         call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
+         call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
+      endif
 
       ! =======================
       ! 2D data
