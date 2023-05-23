@@ -3105,7 +3105,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       ! Cal FMap3D_safety_q_1D by interpolation
       P_a = FMap3D_a_1D(aa)
       call Convert_a_to_s(P_a,P_s)
-      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ori_sid = max(0,min(mpsi-1,floor((P_s-s0)*ori_inv_ds))) ! s index of original full grid
       ratio=(P_s-s_grid(ori_sid))*ori_inv_ds
       FMap3D_safety_q_1D(aa) = ratio*q_grid(ori_sid+1) + (1.0-ratio)*q_grid(ori_sid)
    enddo
@@ -3833,7 +3833,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       ! Cal FMap3D_safety_q_1D by interpolation
       P_a = FMap3D_a_1D(aa)
       call Convert_a_to_s(P_a,P_s)
-      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ori_sid = max(0,min(mpsi-1,floor((P_s-s0)*ori_inv_ds))) ! s index of original full grid
       ratio=(P_s-s_grid(ori_sid))*ori_inv_ds
       FMap3D_safety_q_1D(aa) = ratio*q_grid(ori_sid+1) + (1.0-ratio)*q_grid(ori_sid)
    enddo

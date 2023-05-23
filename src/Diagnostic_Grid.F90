@@ -2380,7 +2380,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*inv_ds))) ! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
@@ -2496,7 +2496,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*ori_inv_ds)))! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
@@ -2558,7 +2558,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*ori_inv_ds))) ! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
@@ -2689,7 +2689,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*ori_inv_ds))) ! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
@@ -2785,7 +2785,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*ori_inv_ds))) ! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
