@@ -672,7 +672,7 @@ contains
             gq=gq_1D(gqid)
 
             esi_aid  = min(esi%dim_a-1,floor((a-esi%a_1D(1))*inv_esi_da) +1)
-            esi_gqid = floor((gq-esi%gq_1D(1))*inv_esi_dgq) +1
+            esi_gqid = min(esi%dim_gq-1,floor((gq-esi%gq_1D(1))*inv_esi_dgq) +1)
 
             at=(a-esi%a_1D(esi_aid))*inv_esi_da
             qt=(gq-esi%gq_1D(esi_gqid))*inv_esi_dgq
