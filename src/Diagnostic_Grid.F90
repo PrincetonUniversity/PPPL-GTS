@@ -2002,7 +2002,7 @@ module Diagnostic_Grid
                ori_aid = DG%ori_aid(i)
 
                gqdum = modulo(DG%gq_1D(j) - qtinv(ori_aid)*zetamax, 2.0*pi) * ori_inv_dgq(ori_aid)
-               jt=int(gqdum);  wt=gqdum-jt
+               jt=min(mtheta(ori_aid)-1,int(gqdum));  wt=gqdum-jt
                ij=igrid(ori_aid)+jt
                out_IntpData_2D(j,i) =(1.0-wt)*oriData_1D(ij) + wt*oriData_1D(ij+1)
             enddo

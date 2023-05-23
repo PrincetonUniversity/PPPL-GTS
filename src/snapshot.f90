@@ -476,7 +476,7 @@ subroutine Interpolate_Data_into_Coarser_Grids(in_Data_Arr1D, gq_jump, a_jump, o
    do i=0,mpsi,a_jump
       do j=0,jm
          gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-         jt=int(gqdum);  wt=gqdum-jt
+         jt=min(mtheta(i)-1, int(gqdum));  wt=gqdum-jt
          out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)
          k=k+1
       enddo
@@ -1037,7 +1037,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) +real(ZF_SEPARATION)*phi00(i)
             intp_val_Arr(k) = ((E_00*c)/(charg0*1e8))*intp_val
             k=k+1
@@ -1069,7 +1069,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = real(ZF_SEPARATION)*(zonal_dTi(i)) + (vth_grid(i)**2)*((1.0-wt)*phi_tmp(igrid(i)+jt)+  wt*phi_tmp(igrid(i)+jt+1))
             intp_val_Arr(k) = 1e3*Tem_00*intp_val
             k=k+1
@@ -1091,7 +1091,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = (1.0-wt)*full_dne(1,igrid(i)+jt) + wt*full_dne(1,igrid(i)+jt+1)
             intp_val_Arr(k) = 1e6*intp_val
             k=k+1
@@ -1111,7 +1111,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = Te_grid(i)*(((1.0-wt)*heatflux(igrid(i)+jt)+  wt*heatflux(igrid(i)+jt+1))) +real(ZF_SEPARATION)*(zonal_dTe(i))
             intp_val_Arr(k) = 1e3*Tem_00*(intp_val)
             k=k+1
