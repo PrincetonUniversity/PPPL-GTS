@@ -2624,7 +2624,7 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
    dni_init=0.0; dni_vpara=0.0; dni_vperp=0.0; dni_accel=0.0; dni_fdamp=0.0;
    dTi_init=0.0; dTi_vpara=0.0; dTi_vperp=0.0; dTi_accel=0.0; dTi_fdamp=0.0;
 
-   call ion_locator
+   call ion_locator_at_larmor_points
 
    !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
