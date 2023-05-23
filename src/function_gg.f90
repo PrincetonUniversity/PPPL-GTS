@@ -3792,6 +3792,10 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    if(mype==0) then
       allocate(recv_num_of_PPIs(Gsize), recv_num_of_FootPoints(Gsize))
       allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
+   else
+      ! allocate small memory to dummy variable (to prevent MPI compiler warnings)
+      allocate(recv_num_of_PPIs(1), recv_num_of_FootPoints(1))
+      allocate(recv_PPI(1,1), recv_FootPoints(1,1))
    endif
    call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(num_of_FootPoints, Lsize, MPI_INTEGER, recv_num_of_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
