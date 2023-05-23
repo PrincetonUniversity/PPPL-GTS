@@ -2281,6 +2281,7 @@ module Diagnostic_Grid
          integer ierror
 
          real(wp) recvr(mgrid)
+         real(wp) recv_arr_SFL(num_of_SampledFieldLines)
          integer istatus(MPI_STATUS_SIZE)
 
          real(wp) target_gq, target_zeta
@@ -2343,10 +2344,10 @@ module Diagnostic_Grid
          enddo
 
          ! Do Allreduce across toroidal_comm to get a sum of FLA
-         call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_val = recvr(1:num_of_SampledFieldLines)
-         call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+         call MPI_ALLREDUCE(each_FLA_val,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_val = recv_arr_SFL
+         call MPI_ALLREDUCE(each_FLA_denominator,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_denominator = recv_arr_SFL
 
          each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
 
@@ -2444,6 +2445,7 @@ module Diagnostic_Grid
          integer ierror
 
          real(wp) recvr(mgrid)
+         real(wp) recv_arr_SFL(num_of_SampledFieldLines)
          integer istatus(MPI_STATUS_SIZE)
 
          real(wp) target_gq, target_zeta
@@ -2520,10 +2522,10 @@ module Diagnostic_Grid
          enddo
 
          ! Do Allreduce across toroidal_comm to get a sum of FLA
-         call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_val = recvr(1:num_of_SampledFieldLines)
-         call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+         call MPI_ALLREDUCE(each_FLA_val,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_val = recv_arr_SFL
+         call MPI_ALLREDUCE(each_FLA_denominator,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_denominator = recv_arr_SFL
 
          each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
 
@@ -2619,6 +2621,7 @@ module Diagnostic_Grid
          integer ierror
 
          real(wp) recvr(mgrid)
+         real(wp) recv_arr_SFL(num_of_SampledFieldLines)
          integer istatus(MPI_STATUS_SIZE)
 
          real(wp) target_gq, target_zeta
@@ -2650,10 +2653,10 @@ module Diagnostic_Grid
          enddo
 
          ! Do Allreduce across toroidal_comm to get a sum of FLA
-         call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_val = recvr(1:num_of_SampledFieldLines)
-         call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+         call MPI_ALLREDUCE(each_FLA_val,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_val = recv_arr_SFL
+         call MPI_ALLREDUCE(each_FLA_denominator,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_denominator = recv_arr_SFL
 
          each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
 
