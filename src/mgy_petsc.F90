@@ -190,7 +190,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
          do aid=0,dim_a+1
             do gqid=0,dim_gq
                Gid=mapP2G(gqid,aid,gfid)
-               write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), Gid, mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid
+               if(Gid>=0) write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), Gid, mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid
             enddo
          enddo
       enddo
