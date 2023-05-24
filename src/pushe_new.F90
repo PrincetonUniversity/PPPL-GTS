@@ -19,7 +19,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
       xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
-      zetatmp,e1,e2,e3,wpi(3,me),gaE(me),wgaE(3,me),gatE(me),rdel, &
+      zetatmp,e1,e2,e3,gradPhi(3,me),wpi(5,me),gaE(me),wgaE(3,me),gatE(me),rdel, &
       dgr(me),da(me),dgq(me),dgf(me),mu, &
       Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, &
       vpara, v2, avw, f_rho,  &
@@ -125,9 +125,9 @@ subroutine pusheon(solver1, masssolver, irk_e)
       e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
       e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
 
-      wpi(1,m)=e1
-      wpi(2,m)=e2
-      wpi(3,m)=e3
+      gradPhi(1,m)=e1
+      gradPhi(2,m)=e2
+      gradPhi(3,m)=e3
 
       !MGYOO (10/30/2018; to use analytic profile of ga0(a))
       call Get_MP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
@@ -170,18 +170,18 @@ subroutine pusheon(solver1, masssolver, irk_e)
    ! call cpu_time(cput0)
 
    if(electromagnetic >= 1)then
-      !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
+      !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       if(Flag_GC_Solver==0) then
-         m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
+         m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,1,me,zeondim)
+         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,1,me,zeondim)
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
          stop
       endif
    else
-      m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
+      m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
    endif
 
    ! tt1=rtc()
@@ -1126,7 +1126,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
       xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
-      zetatmp,e1,e2,e3,wpi(3,me),gaE(me),wgaE(3,me),gatE(me),rdel, &
+      zetatmp,e1,e2,e3,gradPhi(3,me),wpi(5,me),gaE(me),wgaE(3,me),gatE(me),rdel, &
       dgr(me),da(me),dgq(me),dgf(me),mu, &
       Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, &
       vpara, v2, avw, f_rho,  &
@@ -1157,7 +1157,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
-   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE)
    real(wp) tmp_zeon5(memax)
    !$acc declare create (tmp_zeon5)
    integer :: loop
@@ -1263,9 +1263,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
       e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
 
-      wpi(1,m)=e1
-      wpi(2,m)=e2
-      wpi(3,m)=e3
+      gradPhi(1,m)=e1
+      gradPhi(2,m)=e2
+      gradPhi(3,m)=e3
 
 
    enddo
@@ -1314,18 +1314,18 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    tt0=MPI_WTIME()
 #endif
    if(electromagnetic >= 1)then
-      !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
+      !m=gcmotion_eon_em(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       if(Flag_GC_Solver==0) then
-         m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
+         m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,1,me,zeondim)
+         m=gcmotion_eon_em_MGY_vec_form(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,1,me,zeondim)
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
          stop
       endif
    else
-      m=gcmotion_eon(dgr,da,dgq,dgf,zeon,wpi,Er_particle,nonlinear,me,zeondim)
+      m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
    endif
 
 
