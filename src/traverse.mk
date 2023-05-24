@@ -14,6 +14,7 @@ ifeq ($(F90),mpif90)
        ifeq ($(PE_ENV),PGI)   # Using PGI compiler
           FFLAGS:= -r8 -Kieee -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR)
           OPT:=-O2
+         #OPT:=-C -O2 -Mbounds -Mchkptr -Mchkstk -traceback -Minfo
           COPT:=-O2
           CFLAGS:=
           OMPFLAG:=-mp=nonuma
