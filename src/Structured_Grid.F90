@@ -1564,7 +1564,7 @@ contains
          ! Cal contributions from phi at zetamin to the particle
          target_gf = SG_zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid  = max(1,min(SG%dim_gq-1,int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1575,7 +1575,7 @@ contains
          ! Add contributions from phi at zetamax to the particle
          target_gf = SG_zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid  = max(1,min(SG%dim_gq-1,int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
