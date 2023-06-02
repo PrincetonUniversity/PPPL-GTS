@@ -47,7 +47,7 @@ else
              SPRNG_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/NVIDIA_perlmuttergpu
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
              SPRNG_INC:=-I${SPRNG_DIR}/include
-             PSPLINE_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/NVIDIA_perlmutter
+             PSPLINE_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/NVIDIA_perlmuttergpu
              PSPLINE_INC:=-I${PSPLINE_DIR}/mod
              PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline #-L${NETCDF_DIR}/lib -lnetcdf
              PETSC_DIR=/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4
