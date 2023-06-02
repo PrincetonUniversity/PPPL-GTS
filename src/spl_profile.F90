@@ -11,7 +11,7 @@ module profile_array
 end module profile_array
 
 
-  
+
 module spl_profiles
 
   use ezspline
@@ -27,11 +27,11 @@ subroutine read_profiles(profile_data_name)
 
   use precision
   use mpi_defs
-  use global_parameters, only:mype 
+  use global_parameters, only:mype
   use spl_profiles
   use profile_array
   use control_parameters, only:ain, aout
-  
+
   implicit none
 
   real(wp), dimension(:,:), allocatable :: worka
@@ -53,7 +53,6 @@ subroutine read_profiles(profile_data_name)
   profname(5)=' thermal plasma toroidal rotation   '   ! Toroidal rotation
   profname(6)=' Radial Potential due to rotation NC'   ! Equilibrium Radial electric potential
   !    profname(6)=' Radial Electrical Potential        '   ! Equilibrium Radial electric potential
-  
 ! The root process reads the file containing the profiles.
 ! We first read the number of radial grid points there are for each profile.
   if(mype == 0)then
@@ -63,12 +62,11 @@ subroutine read_profiles(profile_data_name)
         read(3,'(a36)')chdum
 Print*, chdum
      enddo
-     read(3,10) ndum 
+     read(3,10) ndum
      write(*,*)'in read_profiles: Number of grid points ndum=',ndum
   endif
 !         10 format(12x,I3)
 10 format(11x,I3)
-  
 ! The value of "ndum" is broadcast to the other processes for memory allocation
   call mpi_bcast(ndum,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
   allocate(worka(ndum,6),rcor(ndum+2),ne_50(ndum+2),Ti_50(ndum+2),&
@@ -109,8 +107,8 @@ Print*, chdum
      f1=2.0_wp
      f2=2.0_wp
      f3=2.0_wp
-     
-     
+
+
      !  jj1=8
      !  jj2=27
 
@@ -129,7 +127,7 @@ Print*, chdum
      enddo
 
 200  print*, 'jj1=',jj1, 'jj2=',jj2   ! profiles Ti, Te and ne are modified at boundary layer inside jj1 and outside jj2
-                                      ! say, dTi/da=dTi/da(jj2-1)*fdown and 
+                                      ! say, dTi/da=dTi/da(jj2-1)*fdown and
                                       ! fdown=exp{-f2*[(r-rc))/(f1*rc)]^f3} with rc=r_jj2-r_(jj2-1)
 
      !  allocate(rcor2(ndum),ne_51(ndum),Ti_51(ndum),Te_51(ndum),dne_51(ndum),dTi_51(ndum),dTe_51(ndum))
@@ -160,6 +158,12 @@ Print*, chdum
         Te_51(k)=Te_51(jj1+1) + D01AHF(acdum,xx,error_8,minpts,acc,flTe,-1,ifail)     !1D integral over r
         ifail=1
         Ti_51(k)=Ti_51(jj1+1) + D01AHF(acdum,xx,error_8,minpts,acc,flTi,-1,ifail)     !1D integral over r
+! 04/2020 this is added to fix the strange problem due to 1D integral D01AHF -- should find replacemnt
+        if(j.gt.20) then
+           ne_51(k)=ne_51(k+1)
+           Te_51(k)=Te_51(k+1)
+           Ti_51(k)=Ti_51(k+1)
+        end if
      enddo
 
      do j=jj2,ndum
@@ -171,11 +175,28 @@ Print*, chdum
         Te_51(j)=Te_51(jj2-1) + D01AHF(acdum,xx,error_8,minpts,acc,frTe,-1,ifail)     !1D integral over r
         ifail=1
         Ti_51(j)=Ti_51(jj2-1) + D01AHF(acdum,xx,error_8,minpts,acc,frTi,-1,ifail)     !1D integral over r
+
+! 06/2022 this is added to fix the strange problem due to 1D integral D01AHF -- should find replacemnt
+        if(j.gt.(jj2+20)) then
+           ne_51(j)=ne_51(j-1)
+           Te_51(j)=Te_51(j-1)
+           Ti_51(j)=Ti_51(j-1)
+        end if
      enddo
 
      worka(1:ndum,2)=ne_51(1:ndum)
      worka(1:ndum,3)=Ti_51(1:ndum)
      worka(1:ndum,4)=Te_51(1:ndum)
+
+
+!!!!!! check !!!!!!!
+!     open(unit=3,file='TRANSP_modified.d')   ! write modified TRANSP profiles to TRANSP_modified.d
+!     do i=1,ndum
+!        write(3,30) (worka(i,j), j=1,6)
+!     end do
+!     close(3) ! close file
+!!!!!! end check !!!!!!!
+
 
    ! Delete and deallocate the spline coefficients so that we can reuse the sp* structures
      call ezspline_free(spn,ier)
@@ -391,7 +412,7 @@ subroutine spl_init
   use profile_array
 
   implicit none
-  
+
   call ezspline_init(spn,ndum+2,(/1,0/),ier)
   spn%x1=rcor
   spn%bcval1min=0.0d0
@@ -418,7 +439,7 @@ subroutine spl_init
   call ezspline_setup(spPHI,PHI_50,ier)
 
 end subroutine spl_init
-    
+
 
 
 
@@ -455,7 +476,7 @@ end subroutine spl_init2
 
 
 subroutine spl_free
-  
+
   use spl_profiles
   use profile_array
 
@@ -481,11 +502,11 @@ subroutine get_profiles
 
      implicit  none
      integer, parameter:: np=307
-     real(doubleprec), dimension(np) :: xx,yn,yT,yTe,yo 
+     real(doubleprec), dimension(np) :: xx,yn,yT,yTe,yo
      integer i
      real(doubleprec) thedum,pdum
      real(wp), external :: density,temperature,temperature_e,domega_da
-     
+
 
      open(105,file='show_profile.dat')
 
@@ -497,12 +518,12 @@ subroutine get_profiles
         yTe(i)=temperature_e(xx(i),thedum)
         pdum=domega_da(xx(i),thedum,yo(i))
      end do
-     
+
 !     call ezspline_interp(spn,np,xx,yn,ier)
 !     call ezspline_interp(spTi,np,xx,yT,ier)
 !     call ezspline_interp(spTe,np,xx,yTe,ier)
 !     call ezspline_interp(spO,np,xx,yo,ier)
- 
+
      yT=yT*Tem_00             ! convert to Kev
      yTe=yTe*Tem_00/m0ms      ! convert to Kev
 
