@@ -110,7 +110,13 @@ Subroutine setup
 
    if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases
    zeondim=8
-   if(ifdphi>=2) zeondim=9
+   if(ifdphi>=2) then
+      if(Flag_w_Evol<=1) then
+         zeondim=10
+      elseif(Flag_w_Evol==3 .or. Flag_w_Evol==4) then
+         zeondim=9
+      endif
+   endif
    ziondim=8
    !  r0=rmajor    !wx  normalized
    !  b0=b_axis    !wx  normalized

@@ -1193,9 +1193,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
       !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
-         ! Note that zeon0(8,m) does not mean "mu", this is reserved for the other quantity
-         ! zeon0(9,m) is the adiabatic term in the weight evolution @ t={n}, x={n}
-         ! zeon(9,m) is a kind of temporary pouch to bring wdot term during shifte
+         ! Note that zeon0(9,m) does not mean "mu", this is reserved for the other quantity
+         ! zeon0(10,m) is the adiabatic term in the weight evolution @ t={n}, x={n}
+         ! zeon(10,m) is a kind of temporary pouch to bring wdot term during shifte
 
          !$acc loop seq
          do i=1,5
@@ -1472,9 +1472,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          if(irk_e==1) then
             !======================================================
             ! MGYOO(05/10/2019) :
-            ! Please note that zeon0(9,m) is the adiabatic term
-            ! zeon0(9,m)  = (q*dphi_NZ/Te) @ t{n}, x{n}
-            zeon0(9,m) = E_f
+            ! Please note that zeon0(10,m) is the adiabatic term
+            ! zeon0(10,m)  = (q*dphi_NZ/Te) @ t{n}, x{n}
+            zeon0(10,m) = E_f
             !======================================================
          endif
 
@@ -1606,7 +1606,6 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             zeon(3,m) = zeon0(3,m)+RK_adv_coeff*tstep*dgf(m)
             zeon(4,m) = zeon0(4,m)+RK_adv_coeff*tstep*dgr(m)
             ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
-            ! zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*now_w)*(wdot +zeon(9,m))*fip-fdamp*zeon(5,m))
             zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
 
          else if(irk_e==4) then !irk_i==4
@@ -1635,7 +1634,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          endif
 
          ! MGYOO(05/06/2019) : To pass wdot information which are needed in the following for m=1:me routines after shift
-         zeon(9,m) = wdot
+         zeon(10,m) = wdot
 
       enddo
 
@@ -1825,11 +1824,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             fdamp=0.0_wp
          end if
 
-         wdot = zeon(9,m)
+         wdot = zeon(10,m)
 
          !======================================================
-         ! MGYOO(05/10/2019): Here, zeon0(9,m) differs from that of the irk_e=1 stage of pusheon
-         ! zeon0(9,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
+         ! MGYOO(05/10/2019): Here, zeon0(10,m) differs from that of the irk_e=1 stage of pusheon
+         ! zeon0(10,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
          !======================================================
          ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
          ! MGYOO (12/30/2019):
@@ -1838,10 +1837,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          ! More exact form is the following:
          ! dz/dt= d(-ln(f0))/dt + d(-ln(|1-E_f|))/dt
          ! wdphidt = d(-ln(|1-E_f|))/dt
-         wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(9,m))))/(RK_adv_coeff*tstep)
+         wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(10,m))))/(RK_adv_coeff*tstep)
 
          if(Flag_Def_dne_adiab==3) then
-            wdphidt = (E_f-zeon0(9,m))/(RK_adv_coeff*tstep)
+            wdphidt = (E_f-zeon0(10,m))/(RK_adv_coeff*tstep)
          endif
 
          ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
@@ -1852,9 +1851,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
             ! Note that this scheme is beneficial for nonlinear case only (dw/dt=(1-w)*F).
             ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
-            zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
+            zeon(5,m) = zeon0(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
          else
-            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
       enddo
 
@@ -1973,11 +1972,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                   fdamp=0.0_wp
                end if
 
-               wdot = zeon(9,m)
+               wdot = zeon(10,m)
 
                !======================================================
-               ! MGYOO(05/10/2019): Here, zeon0(9,m) differs from that of the irk_e=1 stage of pusheon
-               ! zeon0(9,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
+               ! MGYOO(05/10/2019): Here, zeon0(10,m) differs from that of the irk_e=1 stage of pusheon
+               ! zeon0(10,m)= (q*dphi_NZ/Te) @ t{n}, x{n}, where {...} indicates the time level
                !======================================================
                ! Here, E_f = (q*dphi_NZ/Te) @ t{n}, x{n+k}, where k is RK_adv_coeff (eg. k=0.5 for irk_e=1,2 | k=1 for irk_e=3)
                ! MGYOO (12/30/2019):
@@ -1986,10 +1985,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                ! More exact form is the following:
                ! dz/dt= d(-ln(f0))/dt + d(-ln(|1-E_f|))/dt
                ! wdphidt = d(-ln(|1-E_f|))/dt
-               wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(9,m))))/(RK_adv_coeff*tstep)
+               wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(10,m))))/(RK_adv_coeff*tstep)
 
                if(Flag_Def_dne_adiab==3) then
-                  wdphidt = (E_f-zeon0(9,m))/(RK_adv_coeff*tstep)
+                  wdphidt = (E_f-zeon0(10,m))/(RK_adv_coeff*tstep)
                endif
 
                ! Advance particle information for the next RK step
@@ -1998,11 +1997,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
                if(Flag_w_Evol==1) then
                   ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-                  ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
+                  ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
                   ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
                   RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +(wdot+wdphidt)*(RK_cum_coeff*tstep)
                else
-                  RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +RK_cum_coeff*tstep*((zeon0(8,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+                  RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +RK_cum_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
                endif
 
                ! Advance particle information for the next RK step
@@ -2010,14 +2009,14 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                   ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
                   if(Flag_w_Evol==1) then
                      !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-                     zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
+                     zeon(5,m) = zeon0(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
                   else
-                     zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+                     zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
                   endif
                else if(irk_e==4) then !irk_i==4
                   if(Flag_w_Evol==1) then
                      ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
-                     zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
+                     zeon(5,m) = zeon0(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
                   else
                      ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
                      zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
@@ -2029,7 +2028,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                ! Cal weight evolution due to the adiabatic response (d/dt(q*dphi/Te))
                if(irk_e==4)then
                   if(loop==MaxLoopNum_Adiab_Weight_Update) then
-                     we_adiab(m) = we_adiab(m) + tstep*(zeon0(8,m)-nonlinear*tmp_zeon5(m))*wdphidt
+                     we_adiab(m) = we_adiab(m) + tstep*(zeon0(9,m)-nonlinear*tmp_zeon5(m))*wdphidt
                   endif
                endif
             enddo
@@ -2168,11 +2167,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
          if(Flag_w_Evol==1) then
             ! Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-            ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
+            ! RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_cum_coeff*tstep)))
             ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
             RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(wdot)*(RK_cum_coeff*tstep)
          else
-            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(8,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
+            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(9,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
          endif
          ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
 
@@ -2190,9 +2189,9 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
             if(Flag_w_Evol==1) then
                !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
-               zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-(wdot)*(RK_adv_coeff*tstep)))
+               zeon(5,m) = zeon0(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-(wdot)*(RK_adv_coeff*tstep)))
             else
-               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(8,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
+               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
             endif
          else if(irk_e==4) then !irk_i==4
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
@@ -2206,7 +2205,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
             if(Flag_w_Evol==1) then
                ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
-               zeon(5,m) = zeon0(5,m) +(zeon0(8,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
+               zeon(5,m) = zeon0(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-RK_cum_zeon(5,m)))
             else
                ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
                zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
