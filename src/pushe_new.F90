@@ -130,7 +130,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
       gradPhi(3,m)=e3
 
       !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m), zeon(2,m), zeon(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
 
    enddo
 
@@ -1276,11 +1276,11 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 #endif
    !$acc parallel loop present(zeon,gaE,wgaE,gatE)
    do m=1,me
-      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_MP_alpha_amplitude", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon, Get_extMP_alpha_amplitude", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -2548,7 +2548,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 #endif
    !$acc parallel loop present(zeon,gaE,wgaE,gatE)
    do m=1,me
-      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -2974,11 +2974,11 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    integer, intent(in) :: irk_e, nrk
    integer i,ip,m,ij,ierr
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),wpi(5,me),Er_particle(me)
+   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),gaHS(me),grad_gaH(3,me),grad_gaS(3,me),wpi(5,me),Er_particle(me)
    real(wp) gaE(me),wgaE(3,me), gatE(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
-   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
+   integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form, gcmotion_eon_em_MGY_vec_form_EM2
    real(wp) mu,Te_inverse,vpara,energy
    real(wp) AD ! Adiabatic term: AD=e*phi/Te0  ! Note that e here is the elementary charge which is the same as abs(qe)
    real(wp) e1,e2,e3,Ea_00
@@ -2988,7 +2988,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    real(wp) prev_phi00(0:mpsi),phi00_convergency
    integer loop
 
-   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,wpi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,gaHS,grad_gaH,grad_gaS,wpi,Er_particle,gaE,wgaE,gatE)
 
 
    ! if(ifneoclassical/=1 .or. Flag_w_Evol/=3) then
@@ -3068,9 +3068,14 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
    endif
 
+   
+   if(electromagnetic==2) then
+      call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaHS, grad_gaH, grad_gaS)
+   else
+      call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
+   endif
 
-   call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
-
+   !#NOTE grad_gaH is dimensionless and so does not need conversion
    !$acc parallel loop present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
@@ -3086,7 +3091,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 #endif
    !$acc parallel loop present(zeon,gaE,wgaE,gatE)
    do m=1,me
-      call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
@@ -3115,7 +3120,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic >= 1)then
+   if(electromagnetic == 1)then
       if(Flag_GC_Solver==0) then
          m=gcmotion_eon_em_MGY(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,me,zeondim)
       elseif(Flag_GC_Solver==1) then
@@ -3126,6 +3131,8 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
          call flush(stdout)
          STOP
       endif
+   elseif(electromagnetic==2) then
+      m=gcmotion_eon_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,me,zeondim)
    else
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
    endif
@@ -3439,8 +3446,14 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
 
          if(electromagnetic==2) then
+            call cpu_time(cput0)
+            tt0=MPI_WTIME()
             call Update_SG_AparaS(irk_e,nrk)
             call Solve_GK_Ampere_3D_on_SG
+            call cpu_time(cput1)
+            tt1=MPI_WTIME()
+            time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
+            timewc_in_Pushe(3) = timewc_in_Pushe(3) + (tt1-tt0)
          endif
 
          call Get_Phi_at_zeon(Phi_at_zeon)

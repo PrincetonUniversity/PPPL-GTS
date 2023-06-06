@@ -1516,7 +1516,7 @@ module Ptl_Src_Loss
          if(electromagnetic >= 1)then
             !$acc parallel loop present(zeon,gaE,wgaE,gatE)
             do m=m0,me
-               call Get_MP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+               call Get_extMP_alpha_amplitude(zeon(1,m),zeon(2,m),zeon(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
             enddo
 
             if(Flag_GC_Solver==0) then
@@ -1872,7 +1872,7 @@ module Ptl_Src_Loss
          if(electromagnetic >= 1)then
             !$acc parallel loop present(zion,gaE,wgaE,gatE)
             do m=m0,mi
-               call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+               call Get_extMP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
             enddo
 
             if(Flag_GC_Solver==0) then

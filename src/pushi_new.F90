@@ -141,7 +141,7 @@ subroutine pushion
 
 
       !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-      call Get_MP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zion(1,m), zion(2,m), zion(3,m), istep*tstep, gaE(m), wgaE(1:3,m), gatE(m))
 
 
 
@@ -909,11 +909,11 @@ subroutine pushion_RK4(irk_i)
    !MGYOO (10/30/2018; to use analytic profile of ga0(a))
    !$acc parallel loop present(zion,gaE,wgaE,gatE)
    do m=1,mi
-      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_extMP_alpha_amplitude", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -1664,11 +1664,11 @@ subroutine pushion_wEvol3(irk_i,nrk)
    !MGYOO (10/30/2018; to use analytic profile of ga0(a))
    !$acc parallel loop present(zion,gaE,wgaE,gatE)
    do m=1,mi
-      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
+      call Get_extMP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_extMP_alpha_amplitude", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -2051,12 +2051,12 @@ subroutine pushion_wEvol4(irk_i,nrk)
    integer, intent(in):: irk_i,nrk
    integer i,ip,m,ij,ierr,ierror,j
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),wpi(3,mi),Er_particle(mi)
-   real(wp) ga(mi),wga(3,mi), gat(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
+   real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),gaHS(mi),grad_gaH(3,mi),grad_gaS(3,mi),wpi(3,mi),Er_particle(mi)
+   real(wp) gaE(mi),wgaE(3,mi), gatE(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
    real(wp) adum(0:mpsi),adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
-   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
+   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form,gcmotion_em_MGY_vec_form_EM2
    real(wp) mu,vpara,energy
    real(wp) e1,e2,e3,Ea_00
    real(wp) inv_ds
@@ -2065,7 +2065,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
    real(wp) vdrenergy,new_f0
    integer larmor, loop
 
-   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,ga,wga,gat)
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,gaHS,grad_gaH,grad_gaS,wpi,Er_particle,gaE,wgaE,gatE)
 
    inv_ds = real(mpsi)/(s1-s0)
 
@@ -2109,8 +2109,14 @@ subroutine pushion_wEvol4(irk_i,nrk)
    endif
 
    call Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
-   call Get_gradPhi_at_zion(gradPhi)
+   if (electromagnetic==2) then
+      ! Note that gaHS = gaH + gaS
+      call Get_gradPhi_gaHS_gradgaHS_at_zion(gradPhi,gaHS,grad_gaH,grad_gaS) 
+   else
+      call Get_gradPhi_at_zion(gradPhi)
+   endif
 
+   !#NOTE grad_gaH is dimensionless and so does not need conversion
    !$acc parallel loop present(gradPhi)
    do m=1,mi
       !$acc loop seq
@@ -2124,13 +2130,13 @@ subroutine pushion_wEvol4(irk_i,nrk)
    tt0=MPI_WTIME()
 #endif
    !MGYOO (10/30/2018; to use analytic profile of ga0(a))
-   !$acc parallel loop present(zion,ga,wga,gat)
+   !$acc parallel loop present(zion,gaE,wgaE,gatE)
    do m=1,mi
-      call Get_MP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, ga(m), wga(:,m), gat(m))
+      call Get_extMP_alpha_amplitude(zion(1,m),zion(2,m),zion(3,m),istep*tstep, gaE(m), wgaE(:,m), gatE(m))
    enddo
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_MP_alpha_amplitude", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, Get_extMP_alpha_amplitude", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -2154,14 +2160,16 @@ subroutine pushion_wEvol4(irk_i,nrk)
 #endif
    if(electromagnetic == 1) then
       if(Flag_GC_Solver==0) then
-         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,ga,wga,gat,Er_particle,nonlinear,mi,ziondim);
+         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,gradPhi,ga,wga,gat,Er_particle,nonlinear,1,mi,ziondim);
+         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,1,mi,ziondim);
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
          stop
       endif
+   elseif(electromagnetic==2) then
+      m=gcmotion_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,mi,ziondim)
    else
       m=gcmotion(dgr,da,dgq,dgf,zion,gradPhi,Er_particle,nonlinear,mi,ziondim)
    end if
