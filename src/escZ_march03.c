@@ -2786,6 +2786,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
 	const int m0 = (*m_start); // First index of particle array on Fortran side. (Default:1)
    const int m1 = (*m_end);   // Last index of particle array on Fortran side. (Default: me)
 	int i,j0,j1,k;
+   const double NL=(*nonlinear); // nonlinear flag: either linear(=0) or nonlinear(=1)
 	REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,TT,PP;
 	REAL a,q;
 
@@ -2959,19 +2960,11 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
          const REAL dH0dB0 = Xgr*Xgr*BB+Xgm;  //( (qs^2/ms)*rho_para^2*B0 + mu)
 
 
-         // Nonlinear Flag Check!!
-         // If nonlinear=0, ignore ExB drift due to the plasma self-electric fields (gradPhi terms)
-         if((*nonlinear)<0.5){
-            gradPhi[0]=0.0;
-            gradPhi[1]=0.0;
-            gradPhi[2]=0.0;
-         }
-
          // CAUTION!!!!
          // Er_particle definition should be checked!!!
          // If this is the grad(Phi0) then everything is Okay,
          // but it this is the real radial electric field (-grad(Phi0)) then we must modify the sign of following equation.
-         const REAL gradH0_cov3[3] = {dH0dB0*gradB0[0] +gradPhi[0]+Er_particle[k], dH0dB0*gradB0[1] +gradPhi[1], dH0dB0*gradB0[2]+gradPhi[2]}; // Note that BBgf=0 because of toroidally symmetric equilibrium
+         const REAL gradH0_cov3[3] = {dH0dB0*gradB0[0] +NL*gradPhi[0]+Er_particle[k], dH0dB0*gradB0[1] +NL*gradPhi[1], dH0dB0*gradB0[2]+NL*gradPhi[2]}; // Note that BBgf=0 because of toroidally symmetric equilibrium
 
          //================================================================================
          // MGYOO (01/30/2019) : To get perturbed components of v_para (vpara_dvi_a ... terms)
@@ -3016,9 +3009,9 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
          if((*Flag_noExB)==1){
-            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-gradPhi[1]))/Jacobian;
-            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]) -B0_cov3[0]*(gradH0_cov3[2]-gradPhi[2]))/Jacobian;
-            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]))/Jacobian;
+            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-NL*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-NL*gradPhi[1]))/Jacobian;
+            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-NL*gradPhi[0]-Er_particle[k]) -B0_cov3[0]*(gradH0_cov3[2]-NL*gradPhi[2]))/Jacobian;
+            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-NL*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-NL*gradPhi[0]-Er_particle[k]))/Jacobian;
          }
 
 
@@ -4797,6 +4790,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
 {
 	const int m0 = (*m_start); // First index of particle array on Fortran side. (Default:1)
    const int m1 = (*m_end);   // Last index of particle array on Fortran side. (Default: me)
+   const double NL=(*nonlinear); // nonlinear flag: either linear(=0) or nonlinear(=1)
 	int i,j0,j1,k;
 	REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,T,P;
 	REAL a,q;
@@ -4975,19 +4969,11 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
          const REAL dH0dgr = m0ms*csc0*csc0*Xgr*BB*BB; //( (qs^2/ms)*rho_para*B0^2)
          const REAL dH0dB0 = m0ms*csc0*csc0*Xgr*Xgr*BB+Xgm;  //( (qs^2/ms)*rho_para^2*B0 + mu)
 
-         // Nonlinear Flag Check!!
-         // If nonlinear=0, ignore ExB drift due to the plasma self-electric fields (gradPhi terms)
-         if((*nonlinear)<0.5){
-            gradPhi[0]=0.0;
-            gradPhi[1]=0.0;
-            gradPhi[2]=0.0;
-         }
-
          // CAUTION!!!!
          // Er_particle definition should be checked!!!
          // If this is the grad(Phi0) then everything is Okay,
          // but it this is the real radial electric field (-grad(Phi0)) then we must modify the sign of following equation.
-         const REAL gradH0_cov3[3] = {dH0dB0*gradB0[0] +csc0*(gradPhi[0]+Er_particle[k]), dH0dB0*gradB0[1] +csc0*gradPhi[1], dH0dB0*gradB0[2]+csc0*gradPhi[2]}; // Note that BBgf=0 because of toroidally symmetric equilibrium
+         const REAL gradH0_cov3[3] = {dH0dB0*gradB0[0] +csc0*(NL*gradPhi[0]+Er_particle[k]), dH0dB0*gradB0[1] +csc0*NL*gradPhi[1], dH0dB0*gradB0[2]+csc0*NL*gradPhi[2]}; // Note that BBgf=0 because of toroidally symmetric equilibrium
 
          //================================================================================
          // MGYOO (01/30/2019) : To get perturbed components of v_para (vpara_dve_a ... terms)
@@ -5032,9 +5018,9 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
          if((*Flag_noExB)==1){
-            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-csc0*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-csc0*gradPhi[1]))/Jacobian;
-            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-csc0*(gradPhi[0]+Er_particle[k])) -B0_cov3[0]*(gradH0_cov3[2]-csc0*gradPhi[2]))/Jacobian;
-            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-csc0*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-csc0*(gradPhi[0]+Er_particle[k])))/Jacobian;
+            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-csc0*NL*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-csc0*NL*gradPhi[1]))/Jacobian;
+            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-csc0*(NL*gradPhi[0]+Er_particle[k])) -B0_cov3[0]*(gradH0_cov3[2]-csc0*NL*gradPhi[2]))/Jacobian;
+            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-csc0*NL*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-csc0*(NL*gradPhi[0]+Er_particle[k])))/Jacobian;
          }
 
          // Calculate Full Velocity and acceleration of Guiding Center
