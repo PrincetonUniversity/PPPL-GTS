@@ -1132,6 +1132,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       vpara, v2, avw, f_rho,  &
       ! following working arrays are defined to use OMP reduction:
    adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
+   real(wp) now_wAD, wdot_fullh ! wdot_fullh
    real(wp) tdum,thetatmp
    real(Wp) tmp_old_AD, tmp_new_AD, tmp_old_dADdt, tmp_new_dADdt
    real(wp) vdq, vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
@@ -1158,8 +1159,8 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
    !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE)
-   real(wp) tmp_zeon5(memax)
-   !$acc declare create (tmp_zeon5)
+   real(wp) tmp_zeon5(memax), tmp_zeon8(memax)
+   !$acc declare create (tmp_zeon5, tmp_zeon8)
    integer :: loop
    real(wp) prev_phi00(0:mpsi), phi00_convergency
 
@@ -1202,6 +1203,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             zeon0(i,m)=zeon(i,m)
          enddo
          zeon0(7,m)=zeon(7,m)
+         zeon0(8,m)=zeon(8,m) ! full-h
 
          !$acc loop seq
          do i=1,size(RK_cum_zeon,1)
@@ -1470,12 +1472,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          end if
 
          if(irk_e==1) then
-            !======================================================
-            ! MGYOO(05/10/2019) :
-            ! Please note that zeon0(10,m) is the adiabatic term
+            ! MGYOO(06/08/2023) : Save some information @ t{n}, x{n}
+            ! zeon(9,m) = f_AD(t{n},x{n})*Z_i, where f_AD=-q*phi/Te*f0=-E_f : adiabatic weight
             ! zeon0(10,m)  = (q*dphi_NZ/Te) @ t{n}, x{n}
-            zeon0(10,m) = E_f
-            !======================================================
+            now_wAD = -E_f*back_f0_e(m)*zeon0(6,m) 
+            zeon(9,m) = now_wAD 
+            zeon0(10,m) = E_f 
          endif
 
          if(ifneoclassical==1) then
@@ -1755,11 +1757,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       call n_T_u_group_e
 
       acc_newer_D_zeon=.true.
-      !$acc parallel loop gang vector present(zeon,zeon0,backTe)
+      !$acc parallel loop gang vector present(zeon,zeon0,backTe,tmp_zeon5,tmp_zeon8)
       do m=1,me
          ! calculate d(delta_phi)/dt at particles along trajactory
 
          tmp_zeon5(m)=zeon(5,m)
+         tmp_zeon8(m)=zeon(8,m)
 
          T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 
@@ -1843,6 +1846,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             wdphidt = (E_f-zeon0(10,m))/(RK_adv_coeff*tstep)
          endif
 
+         ! Note that full-h cannot be solved in the same way of dh because fAD can be zero.
+         ! Instead, full-h will be solved directly from dh/dt=-d[f_AD]/dt in the similar way wEvol=3,4 do               
+         ! wdot_fullh = -(now_wAD-old_wAD)/dtK
+         now_wAD = -E_f*back_f0_e(m)*zeon0(6,m)
+         wdot_fullh = -(now_wAD-zeon(9,m))/(RK_adv_coeff*tstep) 
+
          ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
 
 
@@ -1855,6 +1864,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
          else
             zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
          endif
+         zeon(8,m) = zeon0(8,m) +wdot_fullh*(RK_adv_coeff*tstep)
       enddo
 
 
@@ -1862,6 +1872,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
       !$acc parallel loop present(RK_cum_zeon)
       do m=1,me
          RK_cum_zeon(6,m) = RK_cum_zeon(5,m)
+         RK_cum_zeon(9,m) = RK_cum_zeon(8,m)
       enddo
 
       if(Flag_Poisson==1) then
@@ -1991,6 +2002,12 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                   wdphidt = (E_f-zeon0(10,m))/(RK_adv_coeff*tstep)
                endif
 
+               ! Note that full-h cannot be solved in the same way of dh because fAD can be zero.
+               ! Instead, full-h will be solved directly from dh/dt=-d[f_AD]/dt in the similar way wEvol=3,4 do               
+               ! wdot_fullh = -(now_wAD-old_wAD)/dtK
+               now_wAD = -E_f*back_f0_e(m)*zeon0(6,m)
+               wdot_fullh = -(now_wAD-zeon(9,m))/(RK_adv_coeff*tstep) 
+
                ! Advance particle information for the next RK step
 
                ! Calculate dADdt and evolve weight
@@ -2003,6 +2020,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                else
                   RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +RK_cum_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
                endif
+               RK_cum_zeon(8,m) = RK_cum_zeon(9,m) +(wdot_fullh)*(RK_cum_coeff*tstep)
 
                ! Advance particle information for the next RK step
                if(irk_e<4) then
@@ -2013,6 +2031,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                   else
                      zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
                   endif
+                  zeon(8,m) = zeon0(8,m) +wdot_fullh*(RK_adv_coeff*tstep)
                else if(irk_e==4) then !irk_i==4
                   if(Flag_w_Evol==1) then
                      ! Get the future value at time level (n+1): using accumulated increase of the transformed weight Z.
@@ -2021,6 +2040,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
                      ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
                      zeon(5,m) = zeon0(5,m) +RK_cum_zeon(5,m)
                   endif
+                  zeon(8,m) = zeon0(8,m) +RK_cum_zeon(8,m)
                endif
 
                !==================================================
