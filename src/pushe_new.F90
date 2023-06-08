@@ -2663,9 +2663,9 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 
 
          ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
-         ! zeon0(9,m) is f_0 (@ irk=1)
+         ! zeon0(10,m) is f_0 (@ irk=1)
          zeon(9,m)  = zeon0(6,m)*back_f0_e(m)*AD
-         zeon0(9,m) = zeon0(6,m)*back_f0_e(m)
+         zeon0(10,m) = zeon0(6,m)*back_f0_e(m)
       endif
 
 
@@ -2837,11 +2837,11 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
          AD=0.0 ! Because phi=0 (no Poisson)
 
          ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
-         ! zeon0(9,m) is f_0 (@ irk=1)
+         ! zeon0(10,m) is f_0 (@ irk=1)
          new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
          new_f0 = zeon0(6,m)*back_f0_e(m)
 
-         zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(9,m)) - (new_f_AD-zeon(9,m)) ! df or dh
+         zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(10,m)) - (new_f_AD-zeon(9,m)) ! df or dh
          zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
       enddo
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
@@ -2927,11 +2927,11 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
             endif
 
             ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
-            ! zeon0(9,m) is f_0 (@ irk=1)
+            ! zeon0(10,m) is f_0 (@ irk=1)
             new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
             new_f0 = zeon0(6,m)*back_f0_e(m)
 
-            zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(9,m)) - (new_f_AD-zeon(9,m)) ! df or dh
+            zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(10,m)) - (new_f_AD-zeon(9,m)) ! df or dh
             zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
          enddo
          acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
