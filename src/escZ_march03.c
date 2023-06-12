@@ -2997,12 +2997,6 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             g_gfgf*totB_cntv3[2]};
 
 
-         REAL Coeff = 0.0;
-         #pragma acc loop seq
-         for(i=0;i<3;++i) {
-            Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
-         }
-         Coeff = 1.0/Coeff;
 
          REAL B0_cross_gradH0_cntv[3] = {(B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
             (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian,
@@ -3014,18 +3008,25 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-NL*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-NL*gradPhi[0]-Er_particle[k]))/Jacobian;
          }
 
+         // In the case of linear simulation (NL=0), full motions ignore dPhi and dB terms
+         REAL Coeff = 0.0;
+         #pragma acc loop seq
+         for(i=0;i<3;++i) {
+            Coeff += B0_cov3[i]*(B0star_cntv3[i] + NL*dB_cntv3[i]);
+         }
+         Coeff = 1.0/Coeff;
 
          // Calculate Full Velocity and acceleration of Guiding Center
          dXgr[k] = 0.0;
          #pragma acc loop seq
          for(i=0;i<3;++i) {
-            dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
+            dXgr[k] += (B0star_cntv3[i] + NL*dB_cntv3[i])*(-gradH0_cov3[i]);
          }
-         dXgr[k] = Coeff*dXgr[k] -gatE_array[k];
+         dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k];
 
-         dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
-         dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
-         dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
+         dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+NL*dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
+         dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+NL*dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
+         dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+NL*dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
 
 
          // Calculate poloidal velocity...
@@ -3043,6 +3044,13 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
          T[k] =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/major_R;      /*  poloidal velocity in general geometry -- see note */
 
 
+         // In the case of linear simulation (NL=0), perturbed motions include dPhi and dB terms
+         Coeff = 0.0;
+         #pragma acc loop seq
+         for(i=0;i<3;++i) {
+            Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
+         }
+         Coeff = 1.0/Coeff;
 
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
@@ -5006,13 +5014,6 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             g_gfgf*totB_cntv3[2]};
 
 
-         REAL Coeff = 0.0;
-         #pragma acc loop seq
-         for(i=0;i<3;++i) {
-            Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
-         }
-         Coeff = c0cs/Coeff;
-
          REAL B0_cross_gradH0_cntv[3] = {(B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
             (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian,
             (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
@@ -5023,18 +5024,34 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-csc0*NL*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-csc0*(NL*gradPhi[0]+Er_particle[k])))/Jacobian;
          }
 
+         // In the case of linear simulation (NL=0), full motions ignore dPhi and dB terms
+         REAL Coeff = 0.0;
+         #pragma acc loop seq
+         for(i=0;i<3;++i) {
+            Coeff += B0_cov3[i]*(B0star_cntv3[i] + NL*dB_cntv3[i]);
+         }
+         Coeff = c0cs/Coeff;
+
          // Calculate Full Velocity and acceleration of Guiding Center
          dXgr[k] = 0.0;
          #pragma acc loop seq
          for(i=0;i<3;++i) {
-            dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]);
+            dXgr[k] += (B0star_cntv3[i] + NL*dB_cntv3[i])*(-gradH0_cov3[i]);
          }
-         dXgr[k] = Coeff*dXgr[k] -gatE_array[k];
+         dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k];
 
-         dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
-         dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
-         dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
+         dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+NL*dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
+         dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+NL*dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
+         dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+NL*dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
 
+
+         // In the case of linear simulation (NL=0), perturbed motions include dPhi and dB terms
+         Coeff = 0.0;
+         #pragma acc loop seq
+         for(i=0;i<3;++i) {
+            Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
+         }
+         Coeff = c0cs/Coeff;
 
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
