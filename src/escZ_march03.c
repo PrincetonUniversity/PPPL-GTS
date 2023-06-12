@@ -3057,7 +3057,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             P[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+               P[k] += B0star_cntv3[i]*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
             }
             P[k] = Coeff*P[k] -gatE_array[k];
 
@@ -3079,7 +3079,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
             P[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]); // excluding the mirror force due to streaming along dB
+               P[k] += B0star_cntv3[i]*(-gradPhi[i]); // excluding the mirror force due to streaming along dB
             }
             P[k] = Coeff*P[k] -gatE_array[k];
 
@@ -3408,7 +3408,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
 
          dXgr[k] = 0.0;
          #pragma acc loop seq
-         for(i=0;i<3;++i) {
+         for(i=0;i<3;++i) { 
             dXgr[k] += (B0star_cntv3[i] + NL*dB_cntv3[i])*(-gradH0_cov3[i] +NL*para_gradPhi_cov3[i]);
          }
          dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k] + NL*(dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
@@ -5056,7 +5056,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             Pa[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+               Pa[k] += B0star_cntv3[i]*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
             }
             Pa[k] = Coeff*Pa[k] -gatE_array[k];
 
@@ -5079,7 +5079,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
             Pa[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]); // excluding the mirror force due to streaming along dB
+               Pa[k] += B0star_cntv3[i]*(-csc0*gradPhi[i]); // excluding the mirror force due to streaming along dB
             }
             Pa[k] = Coeff*Pa[k] -gatE_array[k];
 
