@@ -3147,6 +3147,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
 {
 	const int m0 = (*m_start); // First index of particle array on Fortran side. (Default:1)
    const int m1 = (*m_end);   // Last index of particle array on Fortran side. (Default: me)
+   const double NL=(*nonlinear); // nonlinear flag: either linear(=0) or nonlinear(=1)
 	int i,j0,j1,k;
 	REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,TT,PP;
 	REAL a,q;
@@ -3326,19 +3327,11 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
          const REAL dH0dB0 = Xgr*Xgr*BB+Xgm;  //( (qs^2/ms)*rho_para^2*B0 + mu)
 
 
-         // Nonlinear Flag Check!!
-         // If nonlinear=0, ignore ExB drift due to the plasma self-electric fields (gradPhi terms)
-         if((*nonlinear)<0.5){
-            gradPhi[0]=0.0;
-            gradPhi[1]=0.0;
-            gradPhi[2]=0.0;
-         }
-
          // CAUTION!!!!
          // Er_particle definition should be checked!!!
          // If this is the grad(Phi0) then everything is Okay,
          // but it this is the real radial electric field (-grad(Phi0)) then we must modify the sign of following equation.
-         const REAL gradH0_cov3[3] = {dH0dB0*gradB0[0] +gradPhi[0]+Er_particle[k], dH0dB0*gradB0[1] +gradPhi[1], dH0dB0*gradB0[2]+gradPhi[2]}; // Note that BBgf=0 because of toroidally symmetric equilibrium
+         const REAL gradH0_cov3[3] = {dH0dB0*gradB0[0] +NL*gradPhi[0]+Er_particle[k], dH0dB0*gradB0[1] +NL*gradPhi[1], dH0dB0*gradB0[2]+NL*gradPhi[2]}; // Note that BBgf=0 because of toroidally symmetric equilibrium
 
          //================================================================================
          // MGYOO (01/30/2019) : To get perturbed components of v_para (vpara_dvi_a ... terms)
@@ -3388,10 +3381,11 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
                                     g_gfgf*totB_cntv3[2]};
 
 
+         // In the case of linear simulation (NL=0), full motions ignore dPhi and dB terms
          REAL Coeff = 0.0;
          #pragma acc loop seq
          for(i=0;i<3;++i) {
-            Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
+            Coeff += B0_cov3[i]*(B0star_cntv3[i] + NL*dB_cntv3[i]);
          }
          Coeff = 1.0/Coeff;
 
@@ -3400,29 +3394,25 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
             (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
          if((*Flag_noExB)==1){
-            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-gradPhi[1]))/Jacobian;
-            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]) -B0_cov3[0]*(gradH0_cov3[2]-gradPhi[2]))/Jacobian;
-            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-gradPhi[0]-Er_particle[k]))/Jacobian;
+            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-NL*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-NL*gradPhi[1]))/Jacobian;
+            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-NL*gradPhi[0]-Er_particle[k]) -B0_cov3[0]*(gradH0_cov3[2]-NL*gradPhi[2]))/Jacobian;
+            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-NL*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-NL*gradPhi[0]-Er_particle[k]))/Jacobian;
          }
 
 
          // Calculate Full Velocity and acceleration of Guiding Center
          // Note that Full velocities has to be calculated before calculating dXgr (rho_para) term
-         dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
-         dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
-         dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
+         dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+NL*dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
+         dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+NL*dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
+         dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+NL*dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
 
          dXgr[k] = 0.0;
          #pragma acc loop seq
          for(i=0;i<3;++i) {
-            dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i] +para_gradPhi_cov3[i]);
+            dXgr[k] += (B0star_cntv3[i] + NL*dB_cntv3[i])*(-gradH0_cov3[i] +NL*para_gradPhi_cov3[i]);
          }
-         dXgr[k] = Coeff*dXgr[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+         dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k] + NL*(dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
 
-
-
-         // TODO : Check if the following turbulence terms are still valid in this electromagnetic==2 case.
-      
          // Calculate poloidal velocity...
          // This is a legacy of previous gcmotion routines.. and should be checked later!!
          // The resulting T[k] values will be used in get_fluxes routine.
@@ -3438,15 +3428,23 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
          T[k] =(dXa[k]*gha[k]*Gatheta+dXgq[k]/gha[k])*rD/major_R;      /*  poloidal velocity in general geometry -- see note */
 
 
+         // In the case of linear simulation (NL=0), perturbed motions include dPhi and dB terms
+         Coeff = 0.0;
+         #pragma acc loop seq
+         for(i=0;i<3;++i) {
+            Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
+         }
+         Coeff = 1.0/Coeff;     
+
 
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
             P[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+               P[k] += B0star_cntv3[i]*(-gradPhi[i]+para_gradPhi_cov3[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]-Er_particle[k]); // including the mirror force due to streaming along dB
             }
-            P[k] = Coeff*P[k] -gatE_array[k];
+            P[k] = Coeff*P[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]); 
 
             ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -3466,9 +3464,9 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
             P[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               P[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-gradPhi[i]); // excluding the mirror force due to streaming along dB
+               P[k] += (B0star_cntv3[i])*(-gradPhi[i]+para_gradPhi_cov3[i]); // excluding the mirror force due to streaming along dB
             }
-            P[k] = Coeff*P[k] -gatE_array[k];
+            P[k] = Coeff*P[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
 
             ghq[k]      = Coeff*((B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*((B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -5149,6 +5147,7 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
 {
 	const int m0 = (*m_start); // First index of particle array on Fortran side. (Default:1)
    const int m1 = (*m_end);   // Last index of particle array on Fortran side. (Default: me)
+   const double NL=(*nonlinear); // nonlinear flag: either linear(=0) or nonlinear(=1)
 	int i,j0,j1,k;
 	REAL r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,dFda,gYa,gFa,T,P;
 	REAL a,q;
@@ -5331,19 +5330,11 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
          const REAL dH0dgr = m0ms*csc0*csc0*Xgr*BB*BB; //( (qs^2/ms)*rho_para*B0^2)
          const REAL dH0dB0 = m0ms*csc0*csc0*Xgr*Xgr*BB+Xgm;  //( (qs^2/ms)*rho_para^2*B0 + mu)
 
-         // Nonlinear Flag Check!!
-         // If nonlinear=0, ignore ExB drift due to the plasma self-electric fields (gradPhi terms)
-         if((*nonlinear)<0.5){
-            gradPhi[0]=0.0;
-            gradPhi[1]=0.0;
-            gradPhi[2]=0.0;
-         }
-
          // CAUTION!!!!
          // Er_particle definition should be checked!!!
          // If this is the grad(Phi0) then everything is Okay,
          // but it this is the real radial electric field (-grad(Phi0)) then we must modify the sign of following equation.
-         const REAL gradH0_cov3[3] = {dH0dB0*gradB0[0] +csc0*(gradPhi[0]+Er_particle[k]), dH0dB0*gradB0[1] +csc0*gradPhi[1], dH0dB0*gradB0[2]+csc0*gradPhi[2]}; // Note that BBgf=0 because of toroidally symmetric equilibrium
+         const REAL gradH0_cov3[3] = {dH0dB0*gradB0[0] +csc0*(NL*gradPhi[0]+Er_particle[k]), dH0dB0*gradB0[1] +csc0*NL*gradPhi[1], dH0dB0*gradB0[2]+csc0*NL*gradPhi[2]}; // Note that BBgf=0 because of toroidally symmetric equilibrium
 
          //================================================================================
          // MGYOO (01/30/2019) : To get perturbed components of v_para (vpara_dve_a ... terms)
@@ -5394,10 +5385,11 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
                                        g_gfgf*totB_cntv3[2]};
 
 
+         // In the case of linear simulation (NL=0), full motions ignore dPhi and dB terms
          REAL Coeff = 0.0;
          #pragma acc loop seq
          for(i=0;i<3;++i) {
-            Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
+            Coeff += B0_cov3[i]*(B0star_cntv3[i] + NL*dB_cntv3[i]);
          }
          Coeff = c0cs/Coeff;
 
@@ -5406,35 +5398,41 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
                                           (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
          if((*Flag_noExB)==1){
-            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-csc0*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-csc0*gradPhi[1]))/Jacobian;
-            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-csc0*(gradPhi[0]+Er_particle[k])) -B0_cov3[0]*(gradH0_cov3[2]-csc0*gradPhi[2]))/Jacobian;
-            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-csc0*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-csc0*(gradPhi[0]+Er_particle[k])))/Jacobian;
+            B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-csc0*NL*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-csc0*NL*gradPhi[1]))/Jacobian;
+            B0_cross_gradH0_cntv[1] = (B0_cov3[2]*(gradH0_cov3[0]-csc0*(NL*gradPhi[0]+Er_particle[k])) -B0_cov3[0]*(gradH0_cov3[2]-csc0*NL*gradPhi[2]))/Jacobian;
+            B0_cross_gradH0_cntv[2] = (B0_cov3[0]*(gradH0_cov3[1]-csc0*NL*gradPhi[1]) -B0_cov3[1]*(gradH0_cov3[0]-csc0*(NL*gradPhi[0]+Er_particle[k])))/Jacobian;
          }
 
          // Calculate Full Velocity and acceleration of Guiding Center
          // Note that Full velocities has to be calculated before calculating dXgr (rho_para) term
-         dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
-         dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
-         dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
+         dXa[k]  = Coeff*(dH0dgr*(B0star_cntv3[0]+NL*dB_cntv3[0]) + B0_cross_gradH0_cntv[0]);
+         dXgq[k] = Coeff*(dH0dgr*(B0star_cntv3[1]+NL*dB_cntv3[1]) + B0_cross_gradH0_cntv[1]);
+         dXgf[k] = Coeff*(dH0dgr*(B0star_cntv3[2]+NL*dB_cntv3[2]) + B0_cross_gradH0_cntv[2]);
 
          dXgr[k] = 0.0;
          #pragma acc loop seq
          for(i=0;i<3;++i) {
-            dXgr[k] += (B0star_cntv3[i] + dB_cntv3[i])*(-gradH0_cov3[i]+ csc0*para_gradPhi_cov3[i]);
+            dXgr[k] += (B0star_cntv3[i] + NL*dB_cntv3[i])*(-gradH0_cov3[i]+ csc0*NL*para_gradPhi_cov3[i]);
          }
-         dXgr[k] = Coeff*dXgr[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+         dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k] + NL*(dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
 
 
-         // TODO : Check if the following turbulence terms are still valid in this electromagnetic==2 case.
+         // In the case of linear simulation (NL=0), perturbed motions include dPhi and dB terms
+         Coeff = 0.0;
+         #pragma acc loop seq
+         for(i=0;i<3;++i) {
+            Coeff += B0_cov3[i]*(B0star_cntv3[i] + dB_cntv3[i]);
+         }
+         Coeff = c0cs/Coeff;
 
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
             Pa[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+               Pa[k] += B0star_cntv3[i]*csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]-csc0*Er_particle[k]); // including the mirror force due to streaming along dB
             }
-            Pa[k] = Coeff*Pa[k] -gatE_array[k];
+            Pa[k] = Coeff*Pa[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
 
             ghq[k]      = Coeff*(dH0dgr*(dB_cntv3[0]) + csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*(dH0dgr*(dB_cntv3[1]) + csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
@@ -5455,9 +5453,9 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
             Pa[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               Pa[k] += (B0star_cntv3[i]+dB_cntv3[i])*(-csc0*gradPhi[i]); // excluding the mirror force due to streaming along dB
+               Pa[k] += B0star_cntv3[i]*csc0*(-gradPhi[i]+para_gradPhi_cov3[i]); // excluding the mirror force due to streaming along dB
             }
-            Pa[k] = Coeff*Pa[k] -gatE_array[k];
+            Pa[k] = Coeff*Pa[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
 
             ghq[k]      = Coeff*( csc0*(B0_cov3[1]*gradPhi[2]-B0_cov3[2]*gradPhi[1])/Jacobian);
             Ta[k]       = Coeff*( csc0*(B0_cov3[2]*gradPhi[0]-B0_cov3[0]*gradPhi[2])/Jacobian);
