@@ -10,15 +10,16 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    use function_gg_module
    use Ptl_Src_Loss
    use Diagnostic_Grid
+   use Structured_Grid
 
    implicit none
    integer, intent(in):: irk_i,nrk
    integer i,im,ip,j,jt,kz,m,ii,j11,j10,j01,j00,jtheta,ierror,larmor,ij,ipjt
    real(wp) rdum,r,grada,vpara,energy,kappa,vdr,wdot,wdrift,&
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
-      xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
+      xdum,ydum,xdot,ydot,&
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,thetatmp,&
-      zetatmp,rhoi,e1,e2,e3,wpi(3,mi),gaE(mi),wgaE(3,mi),gatE(mi),rdel, &
+      zetatmp,rhoi,wpi(3,mi),gaE(mi),wgaE(3,mi),gatE(mi),rdel, &
       dgr(mi),da(mi),dgq(mi),dgf(mi),mu, &
       Er_particle(mi),dela,fip,weqflow,T_inverse,&
       B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
@@ -30,7 +31,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
    real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis.
    !(gf component is 0 due to the toroidal axisymmetric assumption )
-
+   real(wp) gradPhi(3,mi)
 
    integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
 
@@ -50,7 +51,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
-   !$acc declare create(dgr,da,dgq,dgf,wpi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,wpi,gradPhi,Er_particle,gaE,wgaE,gatE)
 
    if(acc_newer_H_zion) then
       !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -93,63 +94,17 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
       enddo
    endif
    ! Followings are not required here, so commented out. (MGYOO: 11/13/2019)
-   call ion_locator_at_larmor_points ! This is required to get correct wpi values which would use ion location info. such as jtion, wpion, wtion.
-   ! call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc.
+   call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc.
 
-
-   !  mu(1:mi)=zion(6,1:mi)**2
-
-   ! gather e_field using 4-point gyro-averaging, sorting in poloidal angle
-   ! The following line is an OpenMP directive for loop-level parallelism
-   ! on shared memory machines (see http://www.openmp.org).
-   !
-   ! Ion locations in the 3D field mesh, wzion, wpion, jtion0, jtion1, wtion0, wtion1
-   ! are calculated at CHARGE_ION
-   !
-   !$omp parallel do private(m,e1,e2,e3,wz1,wz0,larmor,ij,wp0,wt00,wt10,wp1,wt01,wt11)
-   !$acc parallel loop present(zion,zion0)
+   call Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
+   call Get_gradPhi_at_zion(gradPhi)
+   !$acc parallel loop present(gradPhi)
    do m=1,mi
-      e1=0.0_wp
-      e2=0.0_wp
-      e3=0.0_wp
-      wz1=wzion(m)
-      wz0=1.0_wp-wz1
-
       !$acc loop seq
-      do larmor=1, larmor_num
-         ij=jtion0(larmor,m)
-         wp0=1.0_wp-wpion(larmor,m)
-         wt00=1.0_wp-wtion0(larmor,m)
-         e1=e1+wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-         e2=e2+wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-         e3=e3+wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-         ij=ij+1
-         wt10=1.0_wp-wt00
-         e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-         e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-         e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-         ij=jtion1(larmor,m)
-         wp1=1.0_wp-wp0
-         wt01=1.0_wp-wtion1(larmor,m)
-         e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-         e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-         e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-         ij=ij+1
-         wt11=1.0_wp-wt01
-         e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-         e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-         e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+      do i=1,3
+         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
       enddo
-
-      wpi(1,m)=e1*inv_larmor_num
-      wpi(2,m)=e2*inv_larmor_num
-      wpi(3,m)=e3*inv_larmor_num
-
    enddo
-
 
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
@@ -196,18 +151,17 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    tt0=MPI_WTIME()
 #endif
    if(electromagnetic >= 1) then
-      !m=gcmotion_em(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi);
       if(Flag_GC_Solver==0) then
-         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
+         m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
-         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,wpi,gaE,wgaE,gatE,Er_particle,nonlinear,1,mi,ziondim);
+         m=gcmotion_em_MGY_vec_form(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,1,mi,ziondim);
       else
          write(stdout,*) "Wrong Flag_GC_Solver=", Flag_GC_Solver
          call flush(stdout)
          stop
       endif
    else
-      m=gcmotion(dgr,da,dgq,dgf,zion,wpi,Er_particle,nonlinear,mi,ziondim)
+      m=gcmotion(dgr,da,dgq,dgf,zion,gradPhi,Er_particle,nonlinear,mi,ziondim)
    end if
 
 #ifdef _MGY_TIMER_
@@ -533,8 +487,6 @@ subroutine pushion_wEvol3(irk_i,nrk)
    real(wp) timef,dela,r,fip
    integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
    real(wp) mu,vpara,energy
-   real(wp) e1,e2,e3,Ea_00
-   real(wp) wz0,wz1,wp0,wt00,wt10,wp1,wt01,wt11
    real(wp) E_a,E_t,E_f,delr
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
    real(wp) vdrenergy,new_f0
@@ -576,7 +528,6 @@ subroutine pushion_wEvol3(irk_i,nrk)
    endif
 
    ! Followings are not required here, so commented out. (MGYOO: 11/13/2019)
-   call ion_locator_at_larmor_points ! This is required to get correct wpi values which would use ion location info. such as jtion, wpion, wtion.
 
    if(irk_i==1) then
       !$acc parallel loop present(zion,back_f0_i)
@@ -588,48 +539,16 @@ subroutine pushion_wEvol3(irk_i,nrk)
    ! gather e_field using multi-point gyro-averaging, sorting in poloidal angle
    ! The following line is an OpenMP directive for loop-level parallelism
    ! on shared memory machines (see http://www.openmp.org).
+   call n_T_u_group
 
-   !$acc parallel loop present(zion,zion0)
+   call Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
+   call Get_gradPhi_at_zion(gradPhi)
+   !$acc parallel loop present(gradPhi)
    do m=1,mi
-      e1=0.0_wp
-      e2=0.0_wp
-      e3=0.0_wp
-      wz1=wzion(m)
-      wz0=1.0_wp-wz1
-
       !$acc loop seq
-      do larmor=1, larmor_num
-         ij=jtion0(larmor,m)
-         wp0=1.0_wp-wpion(larmor,m)
-         wt00=1.0_wp-wtion0(larmor,m)
-         e1=e1+wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-         e2=e2+wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-         e3=e3+wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-         ij=ij+1
-         wt10=1.0_wp-wt00
-         e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-         e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-         e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-         ij=jtion1(larmor,m)
-         wp1=1.0_wp-wp0
-         wt01=1.0_wp-wtion1(larmor,m)
-         e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-         e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-         e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-         ij=ij+1
-         wt11=1.0_wp-wt01
-         e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-         e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-         e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
+      do i=1,3
+         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
       enddo
-
-      gradPhi(1,m)=e1*inv_larmor_num
-      gradPhi(2,m)=e2*inv_larmor_num
-      gradPhi(3,m)=e3*inv_larmor_num
-
    enddo
 
 
@@ -871,7 +790,6 @@ subroutine pushion_wEvol4(irk_i,nrk)
    real(wp) timef,dela,r,fip
    integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form,gcmotion_em_MGY_vec_form_EM2
    real(wp) mu,vpara,energy
-   real(wp) e1,e2,e3,Ea_00
    real(wp) inv_ds
    real(wp) E_a,E_t,E_f,delr
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
