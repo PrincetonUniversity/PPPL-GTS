@@ -389,50 +389,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
       if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
-      !   fluxes diagnose
-      if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
-
-         call cpu_time(cput0)
-         tt0=MPI_WTIME()
-
-         !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
-         !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
-         !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
-         !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
-         !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
-         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-         !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me))
-
-
-         if(acc_newer_D_zeon) then
-            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-            acc_newer_D_zeon=.false.
-            acc_newer_H_zeon=.false.
-         endif
-
-
-         !$omp parallel do private(m)
-         do m=1,me
-            wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
-         end do
-
-         call get_fluxes_e(wpi)
-
-         !   im=mod(istep,100)
-         im=mod(istep,ndiag)
-         if(im==0) then
-            call get_Te_fluctuation(wpi(2,:))
-            ! write(stdout,*) 'irk=',irk,', energy(1:me:100) in keV'
-            ! write(stdout,*) (wpi(2,i)*Tem_00,i=1,me,me/20)
-            ! call flush(stdout)
-         end if
-
-         call cpu_time(cput1)
-         tt1=MPI_WTIME()
-         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
-         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
-
-      endif
 
       if(irk_e==1) then
          call cpu_time(cput0)
@@ -956,51 +912,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
 
 
 
-      !   fluxes diagnose
-      if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
-
-         call cpu_time(cput0)
-         tt0=MPI_WTIME()
-
-         !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
-         !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
-         !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
-         !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
-         !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
-         !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-         !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me))
-
-
-         if(acc_newer_D_zeon) then
-            !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-            acc_newer_D_zeon=.false.
-            acc_newer_H_zeon=.false.
-         endif
-
-
-         !$omp parallel do private(m)
-         do m=1,me
-            wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
-         end do
-
-         call get_fluxes_e(wpi)
-
-         !   im=mod(istep,100)
-         im=mod(istep,ndiag)
-         if(im==0) then
-            call get_Te_fluctuation(wpi(2,:))
-            ! write(stdout,*) 'irk=',irk,', energy(1:me:100) in keV'
-            ! write(stdout,*) (wpi(2,i)*Tem_00,i=1,me,me/20)
-            ! call flush(stdout)
-         end if
-
-         call cpu_time(cput1)
-         tt1=MPI_WTIME()
-         time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
-         timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
-
-      endif
-
       if(irk_e==1) then
          call cpu_time(cput0)
          tt0=MPI_WTIME()
@@ -1315,46 +1226,6 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
       call flush(stdout)
 #endif
 
-
-   !   fluxes diagnose
-   if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
-
-      call cpu_time(cput0)
-      tt0=MPI_WTIME()
-
-      !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
-      !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
-      !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
-      !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
-      !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
-      !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-      !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me))
-
-
-      if(acc_newer_D_zeon) then
-         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-         acc_newer_D_zeon=.false.
-         acc_newer_H_zeon=.false.
-      endif
-
-
-      !$omp parallel do private(m)
-      do m=1,me
-         wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
-      end do
-
-      call get_fluxes_e(wpi)
-
-      if(mod(istep,ndiag)==0) then
-         call get_Te_fluctuation(wpi(2,:))
-      end if
-
-      call cpu_time(cput1)
-      tt1=MPI_WTIME()
-      time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
-      timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
-
-   endif
 
    if(irk_e==1) then
       call cpu_time(cput0)
@@ -1801,55 +1672,6 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       call flush(stdout)
 #endif
 
-
-   !   fluxes diagnose
-   if(idiag_e==0) then  ! istep=n*ndiag, irk=1, i=1, and irk_e=1
-
-      call cpu_time(cput0)
-      tt0=MPI_WTIME()
-
-
-      call electron_locator()
-
-
-      !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
-      !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))
-      !$acc update self(ee_inv_grad_a(:me),ee_inv_grad_gq(:me),ee_inv_grad_gf(:me))
-      !$acc update self(dgr(:me), da(:me), dgq(:me), dgf(:me), wpi(:,:me))
-      !$acc update self (dve_gf(:me),vpara_dve_a(:me),vpara_dve_gq(:me),vpara_dve_gf(:me))
-      !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-      !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me))
-
-
-      if(acc_newer_D_zeon) then
-         !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
-         acc_newer_D_zeon=.false.
-         acc_newer_H_zeon=.false.
-      endif
-
-
-      !$omp parallel do private(m)
-      do m=1,me
-         wpi(1,m)=wpi(1,m)*gha(m)       ! now wpi(1,*)=dr/dt|_EXB=da/dt|_EXB *(1/|grad a|)
-      end do
-
-      call get_fluxes_e(wpi)
-
-
-
-      if(mod(istep,ndiag)==0) then
-         call get_Te_fluctuation(wpi(2,:))
-      end if
-
-
-
-
-      call cpu_time(cput1)
-      tt1=MPI_WTIME()
-      time_in_Pushe(5) = time_in_Pushe(5) + (cput1-cput0)
-      timewc_in_Pushe(5) = timewc_in_Pushe(5) + (tt1-tt0)
-
-   endif
 
    if(irk_e==1) then
       call cpu_time(cput0)
