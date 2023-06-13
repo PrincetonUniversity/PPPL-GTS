@@ -1103,7 +1103,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 end subroutine pusheon
 
 
-subroutine pusheon_RK4(solver1, masssolver, irk_e)
+subroutine pusheon_RK4(solver1, masssolver, irk_e, nrk)
    use precision
    use global_parameters
    use particle_array
@@ -1120,7 +1120,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
 
    type(solver_data) :: solver1, masssolver
 
-   integer, intent(in) :: irk_e
+   integer, intent(in) :: irk_e,nrk
    integer i,im,ip,j,jt,k,kz,kk,m,ii,j11,j10,j01,j00,jtheta,ierror,ij,ipjt
    real(wp) rdum,r,grada,energy,kappa,vdr,wdot,wdrift,&
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
@@ -1188,9 +1188,10 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
    if(nonlinear<0.5_wp) fdamp0=0.0_wp
    fdamp0=0.0_wp
 
+   
+   call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, irk_e, nrk)
+
    if(irk_e==1)then ! 1st step of Runge-Kutta method
-      RK_cum_coeff =(1.0/6.0)
-      RK_adv_coeff =0.5
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
       !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
@@ -1210,18 +1211,6 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e)
             RK_cum_zeon(i,m)=0.0
          enddo
       enddo
-   elseif(irk_e==2) then
-      RK_cum_coeff =(1.0/3.0)
-      RK_adv_coeff =0.5
-   elseif(irk_e==3) then
-      RK_cum_coeff =(1.0/3.0)
-      RK_adv_coeff =1.0
-   elseif(irk_e==4) then
-      RK_cum_coeff =(1.0/6.0)
-      RK_adv_coeff =1.0 ! This is used to calculate dphi/dt
-   else
-      write(stdout,*) "In pushe_RK4, irk_e=",irk_e,", is weird. Please Check It!!"
-      call flush(stdout)
    endif
 
    call electron_locator

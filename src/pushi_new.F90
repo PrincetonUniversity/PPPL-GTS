@@ -735,7 +735,7 @@ end subroutine pushion
 
 
 
-subroutine pushion_RK4(irk_i)
+subroutine pushion_RK4(irk_i,nrk)
    use precision
    use mpi_defs
    use global_parameters
@@ -749,7 +749,7 @@ subroutine pushion_RK4(irk_i)
    use Diagnostic_Grid
 
    implicit none
-   integer, intent(in):: irk_i
+   integer, intent(in):: irk_i,nrk
    integer i,im,ip,j,jt,kz,m,ii,j11,j10,j01,j00,jtheta,ierror,larmor,ij,ipjt
    real(wp) rdum,r,grada,vpara,energy,kappa,vdr,wdot,wdrift,&
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
@@ -811,9 +811,9 @@ subroutine pushion_RK4(irk_i)
    if(nonlinear<0.5_wp) fdamp0=0.0_wp
    fdamp0=0.0_wp
 
+   call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, irk_i, nrk)
+
    if(irk_i==1)then ! 1st step of Runge-Kutta method
-      RK_cum_coeff =(1.0/6.0)
-      RK_adv_coeff =0.5
       acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
       !$acc parallel loop present(zion,zion0,RK_cum_zion)
       do m=1,mi
@@ -830,20 +830,7 @@ subroutine pushion_RK4(irk_i)
             RK_cum_zion(i,m)=0.0
          enddo
       enddo
-   elseif(irk_i==2) then
-      RK_cum_coeff =(1.0/3.0)
-      RK_adv_coeff =0.5
-   elseif(irk_i==3) then
-      RK_cum_coeff =(1.0/3.0)
-      RK_adv_coeff =1.0
-   elseif(irk_i==4) then
-      RK_cum_coeff =(1.0/6.0)
-      RK_adv_coeff =1.0
-   else
-      write(stdout,*) "In pushi_RK4, irk_i=",irk_i,", is weird. Please Check It!!"
-      call flush(stdout)
    endif
-
    ! Followings are not required here, so commented out. (MGYOO: 11/13/2019)
    call ion_locator_at_larmor_points ! This is required to get correct wpi values which would use ion location info. such as jtion, wpion, wtion.
    ! call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc.
