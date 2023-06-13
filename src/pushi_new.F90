@@ -44,7 +44,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    real(wp)  wfix     ! =0 in the boundary buffer, and =1 otherwise
    real(wp)  rdm1, rdm2
 
-   real(wp) ddT_da_particle, w_anti_relax, muB, instep,outstep,fdamp,fdamp0, rdum1
+   real(wp) ddT_da_particle, muB
 
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
@@ -70,9 +70,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    psimax=psi_grid(mpsi)
    psimin=psi_grid(0)
 
-   fdamp0=1.0_wp/tstep*5.0d-4
-   if(nonlinear<0.5_wp) fdamp0=0.0_wp
-   fdamp0=0.0_wp
+
 
    call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, irk_i, nrk)
 
@@ -231,12 +229,6 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    !             TT(:)=poloidal velocity =vec(v).vec(B_p)/B_p; Oct. 2012
 
    !
-   !        rdum1=maxval(abs(zion(5,1:mi)))
-   !        if(rdum1>100.0_wp) print*, 'p1111=',mype, istep, irk_i, rdum1, mi
-   !
-
-
-
 
 
    dminv=0.0d0
@@ -248,9 +240,6 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
 #endif
 
    ! update GC position
-   ! Another OpenMP parallel loop...
-   !$omp parallel do private(m,mu,vpara,energy,kappa,wdrift,weqflow,vdr,wdrive,wdot,xdum,ydum,T_inverse,energy1,B_inverse,u_vpara,vdq,wgradB,wKH, &
-   !$omp& omega_t,r,ip,fip,ddT_da_particle,w_anti_relax,muB,instep,outstep,fdamp,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,v2,avw)
    acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
    !$acc parallel loop present(zion,zion0,RK_cum_zion)
    do m=1,mi
@@ -293,22 +282,6 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
 
       weqflow=vdr*Ba(m)+vdq*Bq(m)
 
-      ! new term added to maintain constant grad(Ti) drive
-      w_anti_relax=(min(umax*umax,energy*T_inverse)-1.5_wp)*ddT_da_particle*T_inverse
-      w_anti_relax=vdr*w_anti_relax
-
-      if(zion(1,m).le.lmax.or.zion(1,m).ge.rmin) then
-         instep =smoothstep_m(lmin,lmax,zion(1,m))
-         outstep=smoothstep_m(rmin,rmax,zion(1,m))
-         !        fip=smoothstep(0.20_wp,0.25_wp,zion(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zion(1,m)))
-         fip=instep*(1.0_wp-outstep)
-         !  wdrive=wdrive*fip
-         w_anti_relax=w_anti_relax*fip
-         fdamp=(1.0_wp-fip)*fdamp0
-      else
-         fip=1.0_wp
-         fdamp=0.0_wp
-      end if
 
       if(ifneoclassical==1) then
          wdrift=(dgr(m)*BB(m)+zion(4,m)*weqflow)*(vpara-backu(m))*T_inverse   !  full drho/dt -- including NC dynamics
@@ -369,11 +342,9 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
          wdot_accel  = wdrift + wgradB
          !=================================================================
 
-         wi_vpara(m) = wi_vpara(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_vpara*fip)
-         wi_vperp(m) = wi_vperp(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_vperp*fip)
-         wi_accel(m) = wi_accel(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_accel*fip)
-         wi_fdamp(m) = wi_fdamp(m) + tstep*(-fdamp*zion(5,m) )
-
+         wi_vpara(m) = wi_vpara(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_vpara)
+         wi_vperp(m) = wi_vperp(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_vperp)
+         wi_accel(m) = wi_accel(m) + tstep*( (zion0(8,m)-nonlinear*now_w)*wdot_accel)
       endif
       !=================================================
 
@@ -389,7 +360,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
       if(Flag_w_Evol==1) then
          RK_cum_zion(5,m) = RK_cum_zion(5,m) +(wdot)*(RK_cum_coeff*tstep)
       else
-         RK_cum_zion(5,m) = RK_cum_zion(5,m) +RK_cum_coeff*tstep*((zion0(8,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
+         RK_cum_zion(5,m) = RK_cum_zion(5,m) +RK_cum_coeff*tstep*((zion0(8,m)-nonlinear*now_w)*wdot)
       endif
 
       ! Advance particle information for the next RK step
@@ -404,7 +375,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
          if(Flag_w_Evol==1) then
             zion(5,m) = zion0(5,m)+(zion0(8,m)-zion0(5,m))*(1.0-exp(-wdot*RK_adv_coeff*tstep))
          else
-            zion(5,m) = zion0(5,m)+RK_adv_coeff*tstep*((zion0(8,m)-nonlinear*now_w)*wdot*fip-fdamp*zion(5,m))
+            zion(5,m) = zion0(5,m)+RK_adv_coeff*tstep*((zion0(8,m)-nonlinear*now_w)*wdot)
          endif
 
       else if(irk_i==4) then !irk_i==4

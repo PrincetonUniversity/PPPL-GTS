@@ -47,7 +47,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    real(wp)  dminv,dmaxv
    real(wp)  wfix     ! =0 in the boundary buffer, and =1 otherwise
 
-   real(wp) muB, instep,outstep,fdamp,fdamp0
+   real(wp) muB
 
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
@@ -77,10 +77,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    psimin=psi_grid(0)
 
    f_rho=1.0_wp/for_rho   ! for_rho=(ms/m0)*(e0/es)
-
-   fdamp0=1.0_wp/tstep*5.0d-4
-   if(nonlinear<0.5_wp) fdamp0=0.0_wp
-   fdamp0=0.0_wp
 
    
    call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, irk_e, nrk)
@@ -240,10 +236,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
 
       ! update GC position
-      ! Another OpenMP parallel loop...
-      !$omp parallel do private (m,mu,energy,kappa,wdrift,wgradB,vdr,wdrive,wdot,xdum,ydum,T_inverse,&
-      !$omp& r,ip,Ea_00,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11,wdphidt,wdphidt2,muB,fip,&
-      !$omp& instep,outstep,fdamp,vpara,v2,avw,E_f)
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
@@ -327,19 +319,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          endif
 
 
-         if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-            instep =smoothstep_m(lmin,lmax,zeon(1,m))
-            outstep=smoothstep_m(rmin,rmax,zeon(1,m))
-            !  fip=smoothstep(0.20_wp,0.25_wp,zeon(1,m))*(1.0_wp-smoothstep(0.75_wp,0.80_wp,zeon(1,m)))
-            fip=instep*(1.0_wp-outstep)
-            !  wdrive=wdrive*fip
-
-            fdamp=(1.0_wp-fip)*fdamp0
-         else
-            fip=1.0_wp
-            fdamp=0.0_wp
-         end if
-
          if(irk_e==1) then
             ! MGYOO(06/08/2023) : Save some information @ t{n}, x{n}
             ! zeon(9,m) = f_AD(t{n},x{n})*Z_i, where f_AD=-q*phi/Te*f0=-E_f : adiabatic weight
@@ -407,10 +386,9 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             wdot_vperp = (1.0_wp-E_f)*wdot_vperp
             wdot_accel = (1.0_wp-E_f)*wdot_accel
 
-            we_vpara(m) = we_vpara(m) + tstep*( (1.0-nonlinear*now_w)*wdot_vpara*fip)
-            we_vperp(m) = we_vperp(m) + tstep*( (1.0-nonlinear*now_w)*wdot_vperp*fip)
-            we_accel(m) = we_accel(m) + tstep*( (1.0-nonlinear*now_w)*wdot_accel*fip)
-            we_fdamp(m) = we_fdamp(m) + tstep*(-fdamp*zeon(5,m))
+            we_vpara(m) = we_vpara(m) + tstep*( (1.0-nonlinear*now_w)*wdot_vpara)
+            we_vperp(m) = we_vperp(m) + tstep*( (1.0-nonlinear*now_w)*wdot_vperp)
+            we_accel(m) = we_accel(m) + tstep*( (1.0-nonlinear*now_w)*wdot_accel)
          endif
          !=================================================
 
@@ -631,17 +609,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             STOP
          endif
 
-         if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-            instep =smoothstep_m(lmin,lmax,zeon(1,m))
-            outstep=smoothstep_m(rmin,rmax,zeon(1,m))
-            fip=instep*(1.0_wp-outstep)
-            !  wdrive=wdrive*fip
-            fdamp=(1.0_wp-fip)*fdamp0
-         else
-            fip=1.0_wp
-            fdamp=0.0_wp
-         end if
-
          wdot = zeon(10,m)
 
          !======================================================
@@ -677,7 +644,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             ! For linear case ( dw/dt=F), this transform may cause additional numerical errors and accumulation.
             zeon(5,m) = zeon0(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
          else
-            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+            zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt))
          endif
          zeon(8,m) = zeon0(8,m) +wdot_fullh*(RK_adv_coeff*tstep)
       enddo
@@ -779,16 +746,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                   STOP
                endif
 
-               if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-                  instep =smoothstep_m(lmin,lmax,zeon(1,m))
-                  outstep=smoothstep_m(rmin,rmax,zeon(1,m))
-                  fip=instep*(1.0_wp-outstep)
-                  !  wdrive=wdrive*fip
-                  fdamp=(1.0_wp-fip)*fdamp0
-               else
-                  fip=1.0_wp
-                  fdamp=0.0_wp
-               end if
 
                wdot = zeon(10,m)
 
@@ -825,7 +782,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                   ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
                   RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +(wdot+wdphidt)*(RK_cum_coeff*tstep)
                else
-                  RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +RK_cum_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+                  RK_cum_zeon(5,m) = RK_cum_zeon(6,m) +RK_cum_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt))
                endif
                RK_cum_zeon(8,m) = RK_cum_zeon(9,m) +(wdot_fullh)*(RK_cum_coeff*tstep)
 
@@ -836,7 +793,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                      !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
                      zeon(5,m) = zeon0(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-(wdot+wdphidt)*(RK_adv_coeff*tstep)))
                   else
-                     zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt)*fip-fdamp*zeon(5,m))
+                     zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*tmp_zeon5(m))*(wdot +wdphidt))
                   endif
                   zeon(8,m) = zeon0(8,m) +wdot_fullh*(RK_adv_coeff*tstep)
                else if(irk_e==4) then !irk_i==4
@@ -924,16 +881,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          wdrive=vdr*kappa
          wgradB=vdr*Ba(m)+vdq*Bq(m)
 
-         if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-            instep =smoothstep_m(lmin,lmax,zeon(1,m))
-            outstep=smoothstep_m(rmin,rmax,zeon(1,m))
-            fip=instep*(1.0_wp-outstep)
-            fdamp=(1.0_wp-fip)*fdamp0
-         else
-            fip=1.0_wp
-            fdamp=0.0_wp
-         end if
-
          if(ifneoclassical==1) then
             wdrift=(dgr(m)*BB(m)+zeon(4,m)*wgradB)*zeon(4,m)*BB(m)*for_E*T_inverse   ! see note
          else
@@ -977,10 +924,9 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             wdot_accel  = wdrift + wgradB
             !=================================================================
 
-            we_vpara(m) = we_vpara(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_vpara*fip)
-            we_vperp(m) = we_vperp(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_vperp*fip)
-            we_accel(m) = we_accel(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_accel*fip)
-            we_fdamp(m) = we_fdamp(m) + tstep*(-fdamp*zeon(5,m))
+            we_vpara(m) = we_vpara(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_vpara)
+            we_vperp(m) = we_vperp(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_vperp)
+            we_accel(m) = we_accel(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_accel)
          endif
          !=================================================
 
@@ -998,7 +944,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             ! Note that we accumulate the increase of the Transformed wiehgt Z (Z=-ln(1-w); delta_Z=(F*dt)) rather than original weight.
             RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +(wdot)*(RK_cum_coeff*tstep)
          else
-            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(9,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
+            RK_cum_zeon(5,m) = RK_cum_zeon(5,m) +RK_cum_coeff*tstep*((zeon0(9,m)-nonlinear*zeon(5,m))*(wdot))
          endif
          ! Accumulate weight including dphi/dt term (so the driving terms have (wdot+dphidt))
 
@@ -1018,7 +964,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                !Using the transformed equation, the weight increase becomes delta_w = (1-w0)*[1-exp(-F*dt)], where F is the driving force
                zeon(5,m) = zeon0(5,m) +(zeon0(9,m)-zeon0(5,m))*(1.0-exp(-(wdot)*(RK_adv_coeff*tstep)))
             else
-               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*zeon(5,m))*(wdot)*fip-fdamp*zeon(5,m))
+               zeon(5,m) = zeon0(5,m) +RK_adv_coeff*tstep*((zeon0(9,m)-nonlinear*zeon(5,m))*(wdot))
             endif
          else if(irk_e==4) then !irk_i==4
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
@@ -2635,67 +2581,3 @@ end subroutine Get_AdiabaticTerm_at_specific_Pos_Time
 
 
 
-
-
-
-
-
-
-subroutine Update_ElectronWeights_using_New_wdphidt_partial
-
-   use precision
-   use global_parameters
-   use particle_array
-   use field_array
-
-   implicit none
-
-   integer m
-   real(wp) new_wdphidt_partial(me)
-   real(wp) AD_at_t_nm1_x_n(me) ! AdiabaticTerm @ t={n-1}, x={n}
-   real(wp) AD_at_t_np1_x_n(me) ! AdiabaticTerm @ t={n+1}, x={n}
-   real(wp) instep,outstep,fdamp0,fip,fdamp
-   real(wp), external :: SMOOTHSTEP
-
-
-   ! Note that x={n} is zeon0 position here,
-   ! because this routine is called after pusheon_wEvol0or1_ifdphi3.
-   ! So zeon0 here is at the time level {n}
-
-   ! old_phi is at t={n-1}
-   ! phi is at t={n+1} because this routine is called after pushe and poission.
-   call Get_AdiabaticTerm_at_specific_Pos_Time(old_phi,  old_phi00,  zeon0,  AD_at_t_nm1_x_n)
-   call Get_AdiabaticTerm_at_specific_Pos_Time(phi,      phi00,      zeon0,  AD_at_t_np1_x_n)
-
-
-   ! Get new wdphidt_partial using central differencing
-   ! new_wdpdhit_partial = (AD(t{n+1},x{n}) -AD(t{n-1},x{n}))/(2*tstep)
-   new_wdphidt_partial = (AD_at_t_np1_x_n-AD_at_t_nm1_x_n)/(2.0*tstep)
-
-   ! Calculate weight evolution due to the change of wdphidt_partial term
-   do m=1,me
-      fdamp0=0.0_wp
-      if(zeon0(1,m).le.lmax.or.zeon0(1,m).ge.rmin) then
-         instep =smoothstep(lmin,lmax,zeon(1,m))
-         outstep=smoothstep(rmin,rmax,zeon(1,m))
-         fip=instep*(1.0_wp-outstep)
-         fdamp=(1.0_wp-fip)*fdamp0
-      else
-         fip=1.0_wp
-         fdamp=0.0_wp
-      end if
-
-      if(elabels(m) == etracers_labels((num_of_etracers/2))) then
-         write(stdout,*) "istep=",istep,"At update Update_ElectronWeights_using_New_wdphidt_partial"
-         write(stdout,*) "zeon(5,m)=",zeon(5,m),"zeon0(5,m)=",zeon0(5,m),"RK_cum_zeon(9,m)=",RK_cum_zeon(9,m),"new_dw=",tstep*((zeon0(8,m)-nonlinear*zeon0(5,m))*new_wdphidt_partial(m)*fip -fdamp*zeon0(5,m))
-         call flush(stdout)
-      endif
-      ! Subtract the weight evolution due to predicted partial derivative term
-      ! (This is RK_cum_zeon(9,m) due to wdphidt_partial in pushe_RK4_ifdphi3)
-      ! After that, evolve again using new_wdphidt_partial
-      zeon(5,m) = zeon(5,m) - RK_cum_zeon(9,m) +tstep*((zeon0(8,m)-nonlinear*zeon0(5,m))*new_wdphidt_partial(m)*fip -fdamp*zeon0(5,m))
-
-
-   enddo
-
-end subroutine Update_ElectronWeights_using_New_wdphidt_partial
