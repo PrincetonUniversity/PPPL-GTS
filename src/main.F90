@@ -455,100 +455,42 @@ program GTS
 
          if(ifelectron/=0) then    ! include kinetic electrons
 
-            ! NOTE: nelectron must take 1 or even number due to the use of 2nd order Runge-Kutta
-            if(nelectron==1) then  ! electrons have the same step size as ions
-               idiag_e=mod(irk-1,nrk)+mod(istep,ndiag)
-               ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
-               ! via calling get_fluexs_e in pushe
+            idiag_e=mod(irk-1,nrk)+mod(istep,ndiag)
+            ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
+            ! via calling get_fluexs_e in pushe
 
-               !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation,
-               !  but give almost identical results for particle weight and ererything else according to a short test (20 steps)
+            !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation,
+            !  but give almost identical results for particle weight and ererything else according to a short test (20 steps)
 
-               ! calculate electron collisions
-               call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
+            ! calculate electron collisions
+            call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
+            call timer(t0,dt,t0wc,dtwc)
+            time(9)=time(9)+dt
+            timewc(9)=timewc(9)+dtwc
+
+            if(Flag_w_Evol<3) then
+               call pusheon_wEvol0or1(solver1, masssolver, irk, nrk)
                call timer(t0,dt,t0wc,dtwc)
-               time(9)=time(9)+dt
-               timewc(9)=timewc(9)+dtwc
+               time(10)=time(10)+dt
+               timewc(10)=timewc(10)+dtwc
 
-                  !  CALL PUSHE(irk)
-               if(Flag_w_Evol<3) then
-                  call pusheon_wEvol0or1(solver1, masssolver, irk, nrk)
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(10)=time(10)+dt
-                  timewc(10)=timewc(10)+dtwc
-
-                  call shifte
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(11)=time(11)+dt
-                  timewc(11)=timewc(11)+dtwc
-               else
-                  if(Flag_w_Evol==3) then
-                     call pusheon_wEvol3(solver1, masssolver, irk, nrk)
-                  elseif(Flag_w_Evol==4) then
-                     call pusheon_wEvol4(solver1, masssolver, irk, nrk)
-                  endif
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(10)=time(10)+dt
-                  timewc(10)=timewc(10)+dtwc
-                  ! Note that pusheon_wEvol3 does not need shifte in the main.F90
-                  ! because it calls the shifte inside of the push routine
-               endif
-
-
+               call shifte
+               call timer(t0,dt,t0wc,dtwc)
+               time(11)=time(11)+dt
+               timewc(11)=timewc(11)+dtwc
             else
-               ! Note that Following Subelectron routines are only valid for RK2 scheme
-               ! 1 ion step = nelectron(>1) electron steps
-               ! originally, 1 ion step = 2*nelectron electron steps
-               if(irk==1) then
-                  me00=me
-                  ntracer00=ntracer_e
-                  zeon00=0.0_wp
-                  !$omp parallel do private(i)
-                  do i=1,me
-                     zeon00(:,i)=zeon(:,i)
-                  end do
-               end if
+               if(Flag_w_Evol==3) then
+                  call pusheon_wEvol3(solver1, masssolver, irk, nrk)
+               elseif(Flag_w_Evol==4) then
+                  call pusheon_wEvol4(solver1, masssolver, irk, nrk)
+               endif
+               call timer(t0,dt,t0wc,dtwc)
+               time(10)=time(10)+dt
+               timewc(10)=timewc(10)+dtwc
+               ! Note that pusheon_wEvol3 does not need shifte in the main.F90
+               ! because it calls the shifte inside of the push routine
+            endif
 
-               if(irk==2) then
-                  me=me00
-                  ntracer_e=ntracer00
-                  zeon=0.0_wp
-                  !$omp parallel do private(i)
-                  do i=1,me
-                     zeon(:,i)=zeon00(:,i)
-                  end do
-               end if
-
-               do i=1,(nelectron/2)*irk
-                  idiag_e=mod(istep,ndiag)+mod(irk-1,2)+mod(i-1,(nelectron/2)*irk)
-                  ! if idiag_e=0, then istep=n*ndiag, irk=1, and i=1, calculate fluxes via calling
-                  ! get_fluexs_e in pushe
-                  ! push electron -- the 1st step of 2nd order Runge-Kutta
-                  !    CALL PUSHE(1)
-                  call pusheon(solver1, masssolver, 1)
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(10)=time(10)+dt
-                  timewc(10)=timewc(10)+dtwc
-
-                  call shifte
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(11)=time(11)+dt
-                  timewc(11)=timewc(11)+dtwc
-
-                  ! push electron -- the 2nd step of 2nd order Runge-Kutta
-                  !    CALL PUSHE(2)
-                  call pusheon(solver1, masssolver, 2)
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(10)=time(10)+dt
-                  timewc(10)=timewc(10)+dtwc
-
-                  call shifte
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(11)=time(11)+dt
-                  timewc(11)=timewc(11)+dtwc
-
-               end do
-            end if    ! end if(nelectron==1)
 
             if(irk==nrk.and.wimcompressibility==2) call weight_damping_eon
 
