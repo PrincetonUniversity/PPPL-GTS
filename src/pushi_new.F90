@@ -14,7 +14,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
 
    implicit none
    integer, intent(in):: irk_i,nrk
-   integer i,im,ip,j,jt,kz,m,ii,j11,j10,j01,j00,jtheta,ierror,larmor,ij,ipjt
+   integer i,im,ip,j,kz,m,ii,ierror,larmor,ipjt
    real(wp) rdum,r,grada,vpara,energy,kappa,vdr,wdot,wdrift,&
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
       xdum,ydum,xdot,ydot,&
@@ -23,9 +23,8 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
       dgr(mi),da(mi),dgq(mi),dgf(mi),mu, &
       Er_particle(mi),dela,fip,weqflow,T_inverse,&
       B_inverse,energy1,vdq,wKH,wgradB,omega_t,u_vpara,  &
-      v2, avw,   &
+      v2 
       ! following working arrays are defined to use OMP reduction:
-   adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) vdgf, vd_para_mag, vd_para_a_cntv, vd_para_gq_cntv, vd_perp_a_cntv, vd_perp_gq_cntv
    real(wp) wdot_vpara, wdot_vperp, wdot_accel, now_w
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
@@ -41,13 +40,9 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    integer minpts,ifail
    real(wp) acc,error_8
    real(wp) E_a,E_t,E_f,timef
-   real(wp)  dminv,dmaxv
-   real(wp)  wfix     ! =0 in the boundary buffer, and =1 otherwise
-   real(wp)  rdm1, rdm2
 
    real(wp) ddT_da_particle, muB
 
-   real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
@@ -183,10 +178,6 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    !             TT(:)=poloidal velocity =vec(v).vec(B_p)/B_p; Oct. 2012
 
    !
-
-
-   dminv=0.0d0
-   dmaxv=0.0d0
 
 
 #ifdef _MGY_TIMER_
@@ -478,11 +469,10 @@ subroutine pushion_wEvol3(irk_i,nrk)
    use Structured_Grid
    implicit none
    integer, intent(in):: irk_i,nrk
-   integer i,ip,m,ij,ierr,ierror,j
+   integer i,ip,m,ierr,ierror,j
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
    real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),wpi(3,mi),Er_particle(mi)
    real(wp) gaE(mi),wgaE(3,mi), gatE(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
-   real(wp) adum(0:mpsi),adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
    integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
@@ -781,11 +771,10 @@ subroutine pushion_wEvol4(irk_i,nrk)
    use Structured_Grid
    implicit none
    integer, intent(in):: irk_i,nrk
-   integer i,ip,m,ij,ierr,ierror,j
+   integer i,ip,m,ierr,ierror,j
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
    real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),gaHS(mi),grad_gaH(3,mi),grad_gaS(3,mi),wpi(3,mi),Er_particle(mi)
    real(wp) gaE(mi),wgaE(3,mi), gatE(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(ga)/dt
-   real(wp) adum(0:mpsi),adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi),adum_11(0:mpsi)
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
    integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form,gcmotion_em_MGY_vec_form_EM2
@@ -1082,7 +1071,7 @@ subroutine ion_locator_at_larmor_points
    use field_array
    implicit none
 
-   integer m,i,im,j,k,ip,jt,ii,j11,j10,j01,j00,larmor,ij,ipjt
+   integer m,i,im,j,k,ip,jt,ii,j11,j10,j01,j00,larmor,ipjt
 
    real(wp) rdum,tdum,delr,delt(0:mpsi),delz,r,wp1,wp0,wt11,wt10,wt01,wt00,&
       tflr,pi2_inv,psitmp,thetatmp,zetatmp,rhoi,psimax,psimin,pdum,thedum

@@ -16,17 +16,16 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    type(solver_data) :: solver1, masssolver
 
    integer, intent(in) :: irk_e,nrk
-   integer i,im,ip,j,jt,k,kz,kk,m,ii,j11,j10,j01,j00,jtheta,ierror,ij,ipjt
+   integer i,im,ip,j,jt,k,kz,kk,m,ii,ierror,ipjt
    real(wp) rdum,r,grada,energy,kappa,vdr,wdot,wdrift,&
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
       xdum,ydum,xdot,ydot,&
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
-      zetatmp,gradPhi(3,me),wpi(5,me),gaE(me),wgaE(3,me),gatE(me),rdel, &
+      zetatmp,gradPhi(3,me),wpi(5,me),gaE(me),wgaE(3,me),gatE(me),&
       dgr(me),da(me),dgq(me),dgf(me),mu, &
       Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, &
-      vpara, v2, avw, f_rho,  &
+      vpara, v2,  f_rho
       ! following working arrays are defined to use OMP reduction:
-   adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
    real(wp) Phi_at_zeon(memax)
    real(wp) now_wAD, wdot_fullh ! wdot_fullh
    real(wp) tdum,thetatmp
@@ -44,13 +43,10 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    real(wp), external :: D01AHF,dsda!,SMOOTHSTEP
    integer minpts,ifail
    real(wp)  acc,error_8
-   real(wp)  E_a,E_t,E_f,timef
-   real(wp)  dminv,dmaxv
-   real(wp)  wfix     ! =0 in the boundary buffer, and =1 otherwise
+   real(wp)  E_f,timef
 
    real(wp) muB
 
-   real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
    !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE,Phi_at_zeon)
@@ -195,8 +191,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    !             wpi(3,:)=dphi/dzeta (NO change); no change for: zeon(1,2,4,:), wpi(1,2,:) and mu;
 
 
-   dminv=0.0d0
-   dmaxv=0.0d0
 
    IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
 
@@ -996,7 +990,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
    type(solver_data) :: solver1, masssolver
 
    integer, intent(in) :: irk_e, nrk
-   integer i,ip,m,ij,ierr
+   integer i,ip,m,ierr
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
    real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),wpi(5,me),Er_particle(me)
    real(wp) gaE(me),wgaE(3,me), gatE(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
@@ -1426,7 +1420,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
    type(solver_data) :: solver1, masssolver
 
    integer, intent(in) :: irk_e, nrk
-   integer i,ip,m,ij,ierr
+   integer i,ip,m,ierr
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
    real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),gaHS(me),grad_gaH(3,me),grad_gaS(3,me),wpi(5,me),Er_particle(me)
    real(wp) gaE(me),wgaE(3,me), gatE(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
