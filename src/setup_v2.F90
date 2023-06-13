@@ -1941,8 +1941,8 @@ Subroutine setup
       allocate(UnNorm_zeta_i(mimax), UnNorm_theta_i(mimax))
       allocate(UnNorm_zeta_e(memax), UnNorm_theta_e(memax))
 
-      allocate(wi_init(mimax), wi_vpara(mimax), wi_vperp(mimax), wi_accel(mimax), wi_fdamp(mimax))
-      allocate(we_init(memax), we_vpara(memax), we_vperp(memax), we_accel(memax), we_adiab(memax), we_fdamp(memax))
+      allocate(wi_init(mimax), wi_vpara(mimax), wi_vperp(mimax), wi_accel(mimax))
+      allocate(we_init(memax), we_vpara(memax), we_vperp(memax), we_accel(memax), we_adiab(memax))
 
 
 

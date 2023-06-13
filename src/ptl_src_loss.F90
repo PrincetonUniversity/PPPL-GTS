@@ -1572,7 +1572,7 @@ module Ptl_Src_Loss
 
          !$acc update device(zeon(:,m0:me),zeon0(:,m0:me))
 
-         !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,UnNorm_theta_e,UnNorm_zeta_e)
          do m=m0,me
 
             ! Set initial weights of electrons
@@ -1605,7 +1605,6 @@ module Ptl_Src_Loss
             we_vperp(m) = 0
             we_accel(m) = 0
             we_adiab(m) = 0
-            we_fdamp(m) = 0
 
             !$acc loop seq
             do k=1,5
@@ -1931,7 +1930,7 @@ module Ptl_Src_Loss
 
          !$acc update device (zion(:,m0:mi),zion0(:,m0:mi))
 
-         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,UnNorm_theta_i,UnNorm_zeta_i)
          do m=m0,mi
 
             ! Set initial weights of ions
@@ -1955,7 +1954,6 @@ module Ptl_Src_Loss
             wi_vpara(m) = 0
             wi_vperp(m) = 0
             wi_accel(m) = 0
-            wi_fdamp(m) = 0
 
             !$acc loop seq
             do k=1,5
@@ -2132,7 +2130,6 @@ module Ptl_Src_Loss
                we_vperp(m)     = we_vperp(mtop)
                we_accel(m)     = we_accel(mtop)
                we_adiab(m)     = we_adiab(mtop)
-               we_fdamp(m)     = we_fdamp(mtop)
 
                UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
                UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
@@ -2384,7 +2381,6 @@ module Ptl_Src_Loss
                wi_vpara(m)     = wi_vpara(mtop)
                wi_vperp(m)     = wi_vperp(mtop)
                wi_accel(m)     = wi_accel(mtop)
-               wi_fdamp(m)     = wi_fdamp(mtop)
 
                UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
                UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
@@ -2591,7 +2587,7 @@ module Ptl_Src_Loss
          call ion_locator_at_larmor_points_partial(mi0,mi)
 
          ! Determine the weight of the new particle
-         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,UnNorm_theta_i,UnNorm_zeta_i)
          do m=mi0,mi
             zion0(6,m) = sqrt(ErgDampRatio)*zion0(6,m) ! since v_perp is reduced by factor of sqrt(ErgDampRatio), Jvperp=2*pi*vperp is also reduced
             zion0(8,m) = zion0(8,m)/(outION%Recycling_Ratio) ! divide by Recycling Ratio to statistically match 100% Recycling
@@ -2599,13 +2595,12 @@ module Ptl_Src_Loss
             ! zion0(6,m) = 1e-6*zion0(6,m) ! Reduce the phase volume to reduce the particle noise
          enddo
 
-         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         !$acc parallel loop present(zion,zion0,wi_init,wi_vpara,wi_vperp,wi_accel,UnNorm_theta_i,UnNorm_zeta_i)
          do m=mi0,mi
             wi_init(m)  = zion(5,m)
             wi_vpara(m) = 0
             wi_vperp(m) = 0
             wi_accel(m) = 0
-            wi_fdamp(m) = 0
 
             !$acc loop seq
             do k=1,5
@@ -2666,14 +2661,13 @@ module Ptl_Src_Loss
 
          call electron_locator_partial(me0,me) ! This is needed to calculate evector (gradPhi) and its interpolation (wpi)
 
-         !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         !$acc parallel loop present(zeon,zeon0,we_init,we_vpara,we_vperp,we_accel,we_adiab,UnNorm_theta_e,UnNorm_zeta_e)
          do m=me0,me
             we_init(m)  = zeon(5,m)
             we_vpara(m) = 0
             we_vperp(m) = 0
             we_accel(m) = 0
             we_adiab(m) = 0
-            we_fdamp(m) = 0
 
             !$acc loop seq
             do k=1,5
@@ -4590,7 +4584,7 @@ module Ptl_Src_Loss
          ! zion0(8,m) is "f_tot"
          ! zion0(6,m) is "phase volume"
 
-         !$acc parallel loop present(zion,zion0,target_norm_phase_vol,back_f0_i,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         !$acc parallel loop present(zion,zion0,target_norm_phase_vol,back_f0_i,wi_init,wi_vpara,wi_vperp,wi_accel,UnNorm_theta_i,UnNorm_zeta_i)
          do m=m0,mi
             zion0(6,m) = target_norm_phase_vol(m)/gi_val(m) ! Phase space volume
             integral_f0 = zion0(6,m)*back_f0_i(m) !f_0
@@ -4604,7 +4598,6 @@ module Ptl_Src_Loss
             wi_vpara(m) = 0
             wi_vperp(m) = 0
             wi_accel(m) = 0
-            wi_fdamp(m) = 0
 
             !$acc loop seq
             do i=1,5
@@ -4828,7 +4821,7 @@ module Ptl_Src_Loss
          ! zeon(8,m) is "f_tot"
          ! zeon0(6,m) is "phase volume"
 
-         !$acc parallel loop present(zeon,zeon0,target_norm_phase_vol,back_f0_e,we_init,we_vpara,we_vperp,we_accel,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         !$acc parallel loop present(zeon,zeon0,target_norm_phase_vol,back_f0_e,we_init,we_vpara,we_vperp,we_accel,UnNorm_theta_e,UnNorm_zeta_e)
          do m=m0,me
             ! zeon(5,m) is "df" or "dh"
             ! zeon(8,m) is "full-f or full-h"
@@ -4853,7 +4846,6 @@ module Ptl_Src_Loss
             we_vperp(m) = 0
             we_accel(m) = 0
             we_adiab(m) = 0
-            we_fdamp(m) = 0
 
             !$acc loop seq
             do i=1,5
@@ -5091,7 +5083,7 @@ module Ptl_Src_Loss
          ! zeon(8,m) is "f_tot"
          ! zeon0(6,m) is "phase volume"
 
-         !$acc parallel loop present(zeon,zeon0,target_norm_phase_vol,back_f0_e,we_init,we_vpara,we_vperp,we_accel,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         !$acc parallel loop present(zeon,zeon0,target_norm_phase_vol,back_f0_e,we_init,we_vpara,we_vperp,we_accel,UnNorm_theta_e,UnNorm_zeta_e)
          do m=m0,me
             ! zeon(5,m) is "df" or "dh"
             ! zeon(8,m) is "full-f or full-h"
@@ -5116,7 +5108,6 @@ module Ptl_Src_Loss
             we_vperp(m) = 0
             we_accel(m) = 0
             we_adiab(m) = 0
-            we_fdamp(m) = 0
 
             !$acc loop seq
             do i=1,5
@@ -5451,7 +5442,7 @@ module Ptl_Src_Loss
          ! zion0(8,m) is "f_tot"
          ! zion0(6,m) is "phase volume"
 
-         !$acc parallel loop present(zion,zion0,back_f0_i,wi_init,wi_vpara,wi_vperp,wi_accel,wi_fdamp,UnNorm_theta_i,UnNorm_zeta_i)
+         !$acc parallel loop present(zion,zion0,back_f0_i,wi_init,wi_vpara,wi_vperp,wi_accel,UnNorm_theta_i,UnNorm_zeta_i)
          do m=m0,mi
             ! zion(5,m) is "df"
             ! zion0(8,m) is "f_tot"
@@ -5467,7 +5458,6 @@ module Ptl_Src_Loss
             wi_vpara(m) = 0
             wi_vperp(m) = 0
             wi_accel(m) = 0
-            wi_fdamp(m) = 0
 
             !$acc loop seq
             do i=1,5
@@ -5915,7 +5905,7 @@ module Ptl_Src_Loss
          ! zeon(8,m) is "f_tot"
          ! zeon0(6,m) is "phase volume"
 
-         !$acc parallel loop present(zeon,zeon0,back_f0_e,we_init,we_vpara,we_vperp,we_accel,we_fdamp,UnNorm_theta_e,UnNorm_zeta_e)
+         !$acc parallel loop present(zeon,zeon0,back_f0_e,we_init,we_vpara,we_vperp,we_accel,UnNorm_theta_e,UnNorm_zeta_e)
          do m=m0,me
             ! zeon(5,m) is "df" or "dh"
             ! zeon(8,m) is "f_tot"
@@ -5949,7 +5939,6 @@ module Ptl_Src_Loss
             we_vperp(m) = 0
             we_accel(m) = 0
             we_adiab(m) = 0
-            we_fdamp(m) = 0
 
             !$acc loop seq
             do i=1,5
@@ -6091,7 +6080,6 @@ module Ptl_Src_Loss
             wi_vpara(m)     = wi_vpara(mtop)
             wi_vperp(m)     = wi_vperp(mtop)
             wi_accel(m)     = wi_accel(mtop)
-            wi_fdamp(m)     = wi_fdamp(mtop)
 
             UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
             UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
@@ -6233,7 +6221,6 @@ module Ptl_Src_Loss
             wi_vpara(m)     = wi_vpara(mtop)
             wi_vperp(m)     = wi_vperp(mtop)
             wi_accel(m)     = wi_accel(mtop)
-            wi_fdamp(m)     = wi_fdamp(mtop)
 
             UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
             UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
@@ -6367,7 +6354,6 @@ module Ptl_Src_Loss
             we_vperp(m)     = we_vperp(mtop)
             we_accel(m)     = we_accel(mtop)
             we_adiab(m)     = we_adiab(mtop)
-            we_fdamp(m)     = we_fdamp(mtop)
 
             UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
             UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
@@ -6518,7 +6504,6 @@ module Ptl_Src_Loss
             we_vperp(m)     = we_vperp(mtop)
             we_accel(m)     = we_accel(mtop)
             we_adiab(m)     = we_adiab(mtop)
-            we_fdamp(m)     = we_fdamp(mtop)
 
             UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
             UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)

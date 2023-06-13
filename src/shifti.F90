@@ -36,7 +36,7 @@ subroutine shifti
    dim_RK_cum_zion = size(RK_cum_zion,1)
 
 
-   dim_Ptl_package = dim_zion + dim_zion0 + dim_RK_cum_zion + 8  ! zeon + zeon0 + RK_cum_zion+ ilables + 5 values about wi evolution +2 Unnormalized Angles
+   dim_Ptl_package = dim_zion + dim_zion0 + dim_RK_cum_zion + 7  ! zeon + zeon0 + RK_cum_zion+ ilables + 4 values about wi evolution +2 Unnormalized Angles
 
 
    call MPI_Type_contiguous( dim_Ptl_package, MPI_Rsize, MPI_Ptl_type, ierr);
@@ -149,9 +149,8 @@ subroutine shifti
          send_Ptls(k+3, i) =  wi_vpara(m)
          send_Ptls(k+4, i) =  wi_vperp(m)
          send_Ptls(k+5, i) =  wi_accel(m)
-         send_Ptls(k+6, i) =  wi_fdamp(m)
-         send_Ptls(k+7, i) =  UnNorm_theta_i(m)
-         send_Ptls(k+8, i) =  UnNorm_zeta_i(m)
+         send_Ptls(k+6, i) =  UnNorm_theta_i(m)
+         send_Ptls(k+7, i) =  UnNorm_zeta_i(m)
       enddo
 
 
@@ -208,7 +207,6 @@ subroutine shifti
          wi_vpara(m)     = wi_vpara(mtop)
          wi_vperp(m)     = wi_vperp(mtop)
          wi_accel(m)     = wi_accel(mtop)
-         wi_fdamp(m)     = wi_fdamp(mtop)
 
          UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
          UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
@@ -243,9 +241,8 @@ subroutine shifti
          wi_vpara(mi+i)  =  recv_Ptls(k+3, i)
          wi_vperp(mi+i)  =  recv_Ptls(k+4, i)
          wi_accel(mi+i)  =  recv_Ptls(k+5, i)
-         wi_fdamp(mi+i)  =  recv_Ptls(k+6, i)
-         UnNorm_theta_i(mi+i)= recv_Ptls(k+7, i)
-         UnNorm_zeta_i(mi+i) = recv_Ptls(k+8, i)
+         UnNorm_theta_i(mi+i)= recv_Ptls(k+6, i)
+         UnNorm_zeta_i(mi+i) = recv_Ptls(k+7, i)
       enddo
       mi = mi + recv_num
 

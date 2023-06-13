@@ -239,10 +239,10 @@ module particle_array
    ! ============================
    ! MGYOO (07/31/2018)
    ! Additional information about weight component ratio
-   real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp ! for ion weight
-   !$acc declare create(wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp)
-   real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp ! for electron weight
-   !$acc declare create(we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp)
+   real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel ! for ion weight
+   !$acc declare create(wi_init, wi_vpara, wi_vperp, wi_accel)
+   real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab ! for electron weight
+   !$acc declare create(we_init, we_vpara, we_vperp, we_accel, we_adiab)
    ! ============================
 
 

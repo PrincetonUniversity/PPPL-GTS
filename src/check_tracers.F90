@@ -38,7 +38,7 @@ subroutine check_tracer_e
    endif
 
 
-   each_TRI_length = 27 ! including we_adiab + we_fdamp + 2 Unnormalized Angles
+   each_TRI_length = 26 ! including we_adiab +  2 Unnormalized Angles
 
    allocate( send_buf_TRI(each_TRI_length, num_of_etracers), recv_buf_TRI(each_TRI_length, num_of_etracers), send_buf_TRI_Poincare(each_TRI_length, num_of_etracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_etracers))
 
@@ -109,14 +109,13 @@ subroutine check_tracer_e
          send_buf_TRI(17,m) = we_vperp(my_tracer_indices(m))
          send_buf_TRI(18,m) = we_accel(my_tracer_indices(m))
          send_buf_TRI(19,m) = we_adiab(my_tracer_indices(m))
-         send_buf_TRI(20,m) = we_fdamp(my_tracer_indices(m))
-         send_buf_TRI(21,m) = UnNorm_theta_e(my_tracer_indices(m))
-         send_buf_TRI(22,m) = UnNorm_zeta_e(my_tracer_indices(m))
-         send_buf_TRI(23,m) = zeon0(6,my_tracer_indices(m)) ! Phase volume
-         send_buf_TRI(24,m) = zeon0(8,my_tracer_indices(m)) ! full-f or full-h @ previous step
-         send_buf_TRI(25,m) = zeon0(9,my_tracer_indices(m)) ! f0 @ previous step
-         send_buf_TRI(26,m) = zeon0(5,my_tracer_indices(m)) ! df or dh @ previous step
-         send_buf_TRI(27,m) = zeon(9,my_tracer_indices(m))  ! f_AD @ previous step
+         send_buf_TRI(20,m) = UnNorm_theta_e(my_tracer_indices(m))
+         send_buf_TRI(21,m) = UnNorm_zeta_e(my_tracer_indices(m))
+         send_buf_TRI(22,m) = zeon0(6,my_tracer_indices(m)) ! Phase volume
+         send_buf_TRI(23,m) = zeon0(8,my_tracer_indices(m)) ! full-f or full-h @ previous step
+         send_buf_TRI(24,m) = zeon0(9,my_tracer_indices(m)) ! f0 @ previous step
+         send_buf_TRI(25,m) = zeon0(5,my_tracer_indices(m)) ! df or dh @ previous step
+         send_buf_TRI(26,m) = zeon(9,my_tracer_indices(m))  ! f_AD @ previous step
       enddo
 
       ! Gather tracers_information to Root Rank.
@@ -190,9 +189,8 @@ subroutine check_tracer_e
          send_buf_TRI_Poincare(17,num_of_MY_tracers_Poincare) = we_vperp(my_tracer_indices(m))
          send_buf_TRI_Poincare(18,num_of_MY_tracers_Poincare) = we_accel(my_tracer_indices(m))
          send_buf_TRI_Poincare(19,num_of_MY_tracers_Poincare) = we_adiab(my_tracer_indices(m))
-         send_buf_TRI_Poincare(20,num_of_MY_tracers_Poincare) = we_fdamp(my_tracer_indices(m))
-         send_buf_TRI_Poincare(21,num_of_MY_tracers_Poincare) = UnNorm_theta_e(my_tracer_indices(m))
-         send_buf_TRI_Poincare(22,num_of_MY_tracers_Poincare) = UnNorm_zeta_e(my_tracer_indices(m))
+         send_buf_TRI_Poincare(20,num_of_MY_tracers_Poincare) = UnNorm_theta_e(my_tracer_indices(m))
+         send_buf_TRI_Poincare(21,num_of_MY_tracers_Poincare) = UnNorm_zeta_e(my_tracer_indices(m))
       endif
    enddo
 
@@ -266,7 +264,7 @@ subroutine check_tracer_i
       call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
    endif
 
-   each_TRI_length = 25 ! + 2 Unnormalized Angles
+   each_TRI_length = 24 ! + 2 Unnormalized Angles
    allocate( send_buf_TRI(each_TRI_length, num_of_itracers), recv_buf_TRI(each_TRI_length, num_of_itracers), send_buf_TRI_Poincare(each_TRI_length, num_of_itracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_itracers))
 
 
@@ -337,13 +335,12 @@ subroutine check_tracer_i
          send_buf_TRI(16,m) = wi_vpara(my_tracer_indices(m))
          send_buf_TRI(17,m) = wi_vperp(my_tracer_indices(m))
          send_buf_TRI(18,m) = wi_accel(my_tracer_indices(m))
-         send_buf_TRI(19,m) = wi_fdamp(my_tracer_indices(m))
-         send_buf_TRI(20,m) = UnNorm_theta_i(my_tracer_indices(m))
-         send_buf_TRI(21,m) = UnNorm_zeta_i(my_tracer_indices(m))
-         send_buf_TRI(22,m) = zion0(6,my_tracer_indices(m)) ! Phase volume
-         send_buf_TRI(23,m) = zion0(8,my_tracer_indices(m)) ! full-f @ previous step
-         send_buf_TRI(24,m) = zion0(6,my_tracer_indices(m))*back_f0_i(my_tracer_indices(m))! f0 @ current step
-         send_buf_TRI(25,m) = zion(5,my_tracer_indices(m)) ! df @ current step
+         send_buf_TRI(19,m) = UnNorm_theta_i(my_tracer_indices(m))
+         send_buf_TRI(20,m) = UnNorm_zeta_i(my_tracer_indices(m))
+         send_buf_TRI(21,m) = zion0(6,my_tracer_indices(m)) ! Phase volume
+         send_buf_TRI(22,m) = zion0(8,my_tracer_indices(m)) ! full-f @ previous step
+         send_buf_TRI(23,m) = zion0(6,my_tracer_indices(m))*back_f0_i(my_tracer_indices(m))! f0 @ current step
+         send_buf_TRI(24,m) = zion(5,my_tracer_indices(m)) ! df @ current step
       enddo
 
       ! Gather tracers_information to Root Rank.
@@ -415,9 +412,8 @@ subroutine check_tracer_i
          send_buf_TRI_Poincare(16,num_of_MY_tracers_Poincare) = wi_vpara(my_tracer_indices(m))
          send_buf_TRI_Poincare(17,num_of_MY_tracers_Poincare) = wi_vperp(my_tracer_indices(m))
          send_buf_TRI_Poincare(18,num_of_MY_tracers_Poincare) = wi_accel(my_tracer_indices(m))
-         send_buf_TRI_Poincare(19,num_of_MY_tracers_Poincare) = wi_fdamp(my_tracer_indices(m))
-         send_buf_TRI_Poincare(20,num_of_MY_tracers_Poincare) = UnNorm_theta_i(my_tracer_indices(m))
-         send_buf_TRI_Poincare(21,num_of_MY_tracers_Poincare) = UnNorm_zeta_i(my_tracer_indices(m))
+         send_buf_TRI_Poincare(19,num_of_MY_tracers_Poincare) = UnNorm_theta_i(my_tracer_indices(m))
+         send_buf_TRI_Poincare(20,num_of_MY_tracers_Poincare) = UnNorm_zeta_i(my_tracer_indices(m))
       endif
    enddo
 
@@ -472,8 +468,7 @@ subroutine check_abnormal_weight_electrons
    character(len=30) file_name
 
 
-   each_PTL_length = 19 ! including we_adiab + we_fdamp
-
+   each_PTL_length = 18 ! including we_adiab 
 
    MY_PE_weight_sum=0
    MY_PE_abnormal_weight_sum=0
@@ -531,7 +526,6 @@ subroutine check_abnormal_weight_electrons
       send_buf_PTL(16,i) = we_vperp(m)
       send_buf_PTL(17,i) = we_accel(m)
       send_buf_PTL(18,i) = we_adiab(m)
-      send_buf_PTL(19,i) = we_fdamp(m)
    enddo
 
    ! Gather tracers_information to Root Rank.
@@ -644,7 +638,6 @@ subroutine check_abnormal_weight_ions
       send_buf_PTL(15,i) = wi_vpara(m)
       send_buf_PTL(16,i) = wi_vperp(m)
       send_buf_PTL(17,i) = wi_accel(m)
-      send_buf_PTL(18,i) = wi_fdamp(m)
    enddo
 
    ! Gather tracers_information to Root Rank.
@@ -751,7 +744,6 @@ subroutine Abandon_Abnormal_Particles
       wi_vpara(m)     = wi_vpara(mtop)
       wi_vperp(m)     = wi_vperp(mtop)
       wi_accel(m)     = wi_accel(mtop)
-      wi_fdamp(m)     = wi_fdamp(mtop)
 
       UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
       UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
@@ -828,7 +820,6 @@ subroutine Abandon_Abnormal_Particles
       we_vperp(m)     = we_vperp(mtop)
       we_accel(m)     = we_accel(mtop)
       we_adiab(m)     = we_adiab(mtop)
-      we_fdamp(m)     = we_fdamp(mtop)
 
       UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
       UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
