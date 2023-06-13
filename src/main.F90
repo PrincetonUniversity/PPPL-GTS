@@ -406,7 +406,7 @@ program GTS
          ! push ion
          if(Flag_w_Evol<3) then
             if(Flag_RK4==1) then
-               call pushion_RK4(irk,nrk)
+               call pushion_wEvol0or1(irk,nrk)
             else
                call pushion
             endif
@@ -477,7 +477,7 @@ program GTS
                   !  CALL PUSHE(irk)
                if(Flag_w_Evol<3) then
                   if(Flag_RK4==1) then
-                     call pusheon_RK4(solver1, masssolver, irk, nrk)
+                     call pusheon_wEvol0or1(solver1, masssolver, irk, nrk)
                   else
                      call pusheon(solver1, masssolver, irk)
                   endif

@@ -1103,7 +1103,7 @@ subroutine pusheon(solver1, masssolver, irk_e)
 end subroutine pusheon
 
 
-subroutine pusheon_RK4(solver1, masssolver, irk_e, nrk)
+subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    use precision
    use global_parameters
    use particle_array
@@ -1632,7 +1632,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e, nrk)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
       !   fluxes diagnose
@@ -2238,7 +2238,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e, nrk)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
@@ -2395,7 +2395,7 @@ subroutine pusheon_RK4(solver1, masssolver, irk_e, nrk)
 
    ENDIF   !IF(ifelectron==2.and.ifdphi==2) then  ! ifdphi==2 as the similar way as the ifdphi=2 for RK2 of GTS
 
-end subroutine pusheon_RK4
+end subroutine pusheon_wEvol0or1
 
 
 subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
@@ -2689,7 +2689,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
@@ -3190,7 +3190,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_RK4' takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
@@ -3841,7 +3841,7 @@ subroutine Update_ElectronWeights_using_New_wdphidt_partial
 
 
    ! Note that x={n} is zeon0 position here,
-   ! because this routine is called after pusheon_RK4_ifdphi3.
+   ! because this routine is called after pusheon_wEvol0or1_ifdphi3.
    ! So zeon0 here is at the time level {n}
 
    ! old_phi is at t={n-1}

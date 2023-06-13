@@ -735,7 +735,7 @@ end subroutine pushion
 
 
 
-subroutine pushion_RK4(irk_i,nrk)
+subroutine pushion_wEvol0or1(irk_i,nrk)
    use precision
    use mpi_defs
    use global_parameters
@@ -1252,7 +1252,7 @@ subroutine pushion_RK4(irk_i,nrk)
 
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_RK4' takes", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_wEvol0or1' takes", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -1482,7 +1482,7 @@ subroutine pushion_RK4(irk_i,nrk)
 
 
 
-end subroutine pushion_RK4
+end subroutine pushion_wEvol0or1
 
 
 
@@ -1733,7 +1733,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
 
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_RK4' takes", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_wEvol0or1' takes", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
