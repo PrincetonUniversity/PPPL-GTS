@@ -405,11 +405,7 @@ program GTS
 
          ! push ion
          if(Flag_w_Evol<3) then
-            if(Flag_RK4==1) then
-               call pushion_wEvol0or1(irk,nrk)
-            else
-               call pushion
-            endif
+            call pushion_wEvol0or1(irk,nrk)
             call timer(t0,dt,t0wc,dtwc)
             time(1)=time(1)+dt
             timewc(1)=timewc(1)+dtwc
@@ -476,11 +472,7 @@ program GTS
 
                   !  CALL PUSHE(irk)
                if(Flag_w_Evol<3) then
-                  if(Flag_RK4==1) then
-                     call pusheon_wEvol0or1(solver1, masssolver, irk, nrk)
-                  else
-                     call pusheon(solver1, masssolver, irk)
-                  endif
+                  call pusheon_wEvol0or1(solver1, masssolver, irk, nrk)
                   call timer(t0,dt,t0wc,dtwc)
                   time(10)=time(10)+dt
                   timewc(10)=timewc(10)+dtwc

@@ -2139,12 +2139,10 @@ module Ptl_Src_Loss
 
                UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
                UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
-               if(Flag_RK4==1) then
-                  !$acc loop seq
-                  do j=1,dim_RK_cum_zeon
-                     RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
-                  enddo
-               endif
+               !$acc loop seq
+               do j=1,dim_RK_cum_zeon
+                  RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+               enddo
             enddo
             deallocate(fill_mid_arr)
             acc_newer_D_zeon=.true.
@@ -2393,12 +2391,10 @@ module Ptl_Src_Loss
 
                UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
                UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
-               if(Flag_RK4==1) then
-                  !$acc loop seq
-                  do j=1,dim_RK_cum_zion
-                     RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
-                  enddo
-               endif
+               !$acc loop seq
+               do j=1,dim_RK_cum_zion
+                  RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
+               enddo
             enddo
             deallocate(fill_mid_arr)
             acc_newer_D_zion=.true.
@@ -6176,12 +6172,10 @@ module Ptl_Src_Loss
 
             UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
             UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
-            if(Flag_RK4==1) then
-               !$acc loop seq
-               do j=1,dim_RK_cum_zion
-                  RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
-               enddo
-            endif
+            !$acc loop seq
+            do j=1,dim_RK_cum_zion
+               RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
+            enddo
          enddo
          acc_newer_D_zion=.true.
 
@@ -6320,12 +6314,10 @@ module Ptl_Src_Loss
 
             UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
             UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
-            if(Flag_RK4==1) then
-               !$acc loop seq
-               do j=1,dim_RK_cum_zion
-                  RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
-               enddo
-            endif
+            !$acc loop seq
+            do j=1,dim_RK_cum_zion
+               RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
+            enddo
          enddo
          acc_newer_D_zion=.true.
 
@@ -6456,12 +6448,10 @@ module Ptl_Src_Loss
 
             UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
             UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
-            if(Flag_RK4==1) then
-               !$acc loop seq
-               do j=1,dim_RK_cum_zeon
-                  RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
-               enddo
-            endif
+            !$acc loop seq
+            do j=1,dim_RK_cum_zeon
+               RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+            enddo
          enddo
          acc_newer_D_zeon=.true.
 
@@ -6609,12 +6599,10 @@ module Ptl_Src_Loss
 
             UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
             UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
-            if(Flag_RK4==1) then
-               !$acc loop seq
-               do j=1,dim_RK_cum_zeon
-                  RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
-               enddo
-            endif
+            !$acc loop seq
+            do j=1,dim_RK_cum_zeon
+               RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+            enddo
          enddo
          acc_newer_D_zeon=.true.
 

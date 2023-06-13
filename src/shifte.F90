@@ -34,11 +34,7 @@ subroutine shifte
 
    dim_zeon = size(zeon,1)
    dim_zeon0 = size(zeon0,1)
-   if(Flag_RK4==1) then
-      dim_RK_cum_zeon = size(RK_cum_zeon,1)
-   else
-      dim_RK_cum_zeon =0
-   endif
+   dim_RK_cum_zeon = size(RK_cum_zeon,1)
 
    dim_Ptl_package = dim_zeon + dim_zeon0 + dim_RK_cum_zeon + 9  ! zeon + zeon0 + RK_cum_zeon+ elabels + 6 values about we evolution +2 Unnormalized Angles
 
@@ -164,13 +160,11 @@ subroutine shifte
             send_Ptls(k+j, i) =  zeon0(j,m)
          enddo
          k=k+dim_zeon0
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zeon
-               send_Ptls(k+j, i) =  RK_cum_zeon(j,m)
-            enddo
-            k=k+dim_RK_cum_zeon
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zeon
+            send_Ptls(k+j, i) =  RK_cum_zeon(j,m)
+         enddo
+         k=k+dim_RK_cum_zeon
          send_Ptls(k+1, i) =  elabels(m)
          send_Ptls(k+2, i) =  we_init(m)
          send_Ptls(k+3, i) =  we_vpara(m)
@@ -263,12 +257,10 @@ subroutine shifte
 
          UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
          UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zeon
-               RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
-            enddo
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zeon
+            RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+         enddo
       enddo
 
 #ifdef _MGY_DEBUG_
@@ -293,13 +285,11 @@ subroutine shifte
             zeon0(j,me+i)   = recv_Ptls(k+j, i)
          enddo
          k=k+dim_zeon0
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zeon
-               RK_cum_zeon(j,me+i) = recv_Ptls(k+j, i)
-            enddo
-            k=k+dim_RK_cum_zeon
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zeon
+            RK_cum_zeon(j,me+i) = recv_Ptls(k+j, i)
+         enddo
+         k=k+dim_RK_cum_zeon
          elabels(me+i)   =  recv_Ptls(k+1, i)
          we_init(me+i)   =  recv_Ptls(k+2, i)
          we_vpara(me+i)  =  recv_Ptls(k+3, i)

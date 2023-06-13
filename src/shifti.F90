@@ -33,11 +33,8 @@ subroutine shifti
 
    dim_zion = size(zion,1)
    dim_zion0 = size(zion0,1)
-   if(Flag_RK4==1) then
-      dim_RK_cum_zion = size(RK_cum_zion,1)
-   else
-      dim_RK_cum_zion =0
-   endif
+   dim_RK_cum_zion = size(RK_cum_zion,1)
+
 
    dim_Ptl_package = dim_zion + dim_zion0 + dim_RK_cum_zion + 8  ! zeon + zeon0 + RK_cum_zion+ ilables + 5 values about wi evolution +2 Unnormalized Angles
 
@@ -142,13 +139,11 @@ subroutine shifti
          enddo
          k=k+dim_zion0
 
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zion
-               send_Ptls(k+j, i) =  RK_cum_zion(j,m)
-            enddo
-            k=k+dim_RK_cum_zion
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zion
+            send_Ptls(k+j, i) =  RK_cum_zion(j,m)
+         enddo
+         k=k+dim_RK_cum_zion
          send_Ptls(k+1, i) =  ilabels(m)
          send_Ptls(k+2, i) =  wi_init(m)
          send_Ptls(k+3, i) =  wi_vpara(m)
@@ -217,12 +212,10 @@ subroutine shifti
 
          UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
          UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zion
-               RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
-            enddo
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zion
+            RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
+         enddo
       enddo
 
 
@@ -240,13 +233,11 @@ subroutine shifti
             zion0(j,mi+i)   = recv_Ptls(k+j, i)
          enddo
          k=k+dim_zion0
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zion
-               RK_cum_zion(j,mi+i) = recv_Ptls(k+j, i)
-            enddo
-            k=k+dim_RK_cum_zion
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zion
+            RK_cum_zion(j,mi+i) = recv_Ptls(k+j, i)
+         enddo
+         k=k+dim_RK_cum_zion
          ilabels(mi+i)   =  recv_Ptls(k+1, i)
          wi_init(mi+i)   =  recv_Ptls(k+2, i)
          wi_vpara(mi+i)  =  recv_Ptls(k+3, i)
