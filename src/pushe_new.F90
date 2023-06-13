@@ -2466,40 +2466,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
       timewc_in_Pushe =0
    endif
 
-   ! Set RK_cum_coeff and RK_adv_coeff
-   if(nrk==4) then
-      select case (irk_e)
-         case(1)
-            RK_adv_coeff = 0.5
-            RK_cum_coeff = (1.0/6.0)
-         case(2)
-            RK_adv_coeff = 0.5
-            RK_cum_coeff = (1.0/3.0)
-         case(3)
-            RK_adv_coeff = 1.0
-            RK_cum_coeff = (1.0/3.0)
-         case(4)
-            RK_adv_coeff = 1.0
-            RK_cum_coeff = (1.0/6.0)
-         case default
-            write(stdout,'((A,I3,A,I3))') "Error!! irk_e=",irk_e,"!! ikr_e must be between 1 and nrk=",nrk
-            call flush(stdout)
-            STOP
-      end select
-   elseif(nrk==2) then
-      select case (irk_e)
-         case(1)
-            RK_adv_coeff = 0.5
-            RK_cum_coeff = 0.0
-         case(2)
-            RK_cum_coeff = 1.0
-            RK_adv_coeff = 1.0
-         case default
-            write(stdout,'((A,I3,A,I3))') "Error!! irk_e=",irk_e,"!! ikr_e must be between 1 and nrk=",nrk
-            call flush(stdout)
-            STOP
-      end select
-   endif
+   call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, irk_e, nrk)
 
    ! Update zeon0 if irk_e==1
    if(irk_e==1) then
@@ -3031,40 +2998,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       timewc_in_Pushe =0
    endif
 
-   ! Set RK_cum_coeff and RK_adv_coeff
-   if(nrk==4) then
-      select case (irk_e)
-         case(1)
-            RK_adv_coeff = 0.5
-            RK_cum_coeff = (1.0/6.0)
-         case(2)
-            RK_adv_coeff = 0.5
-            RK_cum_coeff = (1.0/3.0)
-         case(3)
-            RK_adv_coeff = 1.0
-            RK_cum_coeff = (1.0/3.0)
-         case(4)
-            RK_adv_coeff = 1.0
-            RK_cum_coeff = (1.0/6.0)
-         case default
-            write(stdout,'((A,I3,A,I3))') "Error!! irk_e=",irk_e,"!! ikr_e must be between 1 and nrk=",nrk
-            call flush(stdout)
-            STOP
-      end select
-   elseif(nrk==2) then
-      select case (irk_e)
-         case(1)
-            RK_adv_coeff = 0.5
-            RK_cum_coeff = 0.0
-         case(2)
-            RK_cum_coeff = 1.0
-            RK_adv_coeff = 1.0
-         case default
-            write(stdout,'((A,I3,A,I3))') "Error!! irk_e=",irk_e,"!! ikr_e must be between 1 and nrk=",nrk
-            call flush(stdout)
-            STOP
-      end select
-   endif
+   call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, irk_e, nrk)
 
    ! Update zeon0 if irk_e==1
    if(irk_e==1) then
