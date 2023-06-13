@@ -828,6 +828,8 @@ subroutine pushion_wEvol4(irk_i,nrk)
       enddo
    endif
 
+   call n_T_u_group
+
    call Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
    if (electromagnetic==2) then
       ! Note that gaHS = gaH + gaS

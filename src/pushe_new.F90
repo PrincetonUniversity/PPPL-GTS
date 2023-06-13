@@ -1482,6 +1482,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
    endif
 
+   call n_T_u_group_e ! call n_T_u here to ensure that backTe is correctly updated
    
    if(electromagnetic==2) then
       call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaHS, grad_gaH, grad_gaS)
