@@ -19,14 +19,15 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    integer i,im,ip,j,jt,k,kz,kk,m,ii,j11,j10,j01,j00,jtheta,ierror,ij,ipjt
    real(wp) rdum,r,grada,energy,kappa,vdr,wdot,wdrift,&
       vdrenergy,delr,delt(0:mpsi),delz,pi2_inv,adum(0:mpsi),&
-      xdum,ydum,xdot,ydot,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00,&
+      xdum,ydum,xdot,ydot,&
       epara,psimax,psimin,pdum,wdrive,ainv,psitmp,&
-      zetatmp,e1,e2,e3,gradPhi(3,me),wpi(5,me),gaE(me),wgaE(3,me),gatE(me),rdel, &
+      zetatmp,gradPhi(3,me),wpi(5,me),gaE(me),wgaE(3,me),gatE(me),rdel, &
       dgr(me),da(me),dgq(me),dgf(me),mu, &
       Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, &
       vpara, v2, avw, f_rho,  &
       ! following working arrays are defined to use OMP reduction:
    adum_00(0:mpsi),adum_tur(0:mpsi),adum_tot(0:mpsi)
+   real(wp) Phi_at_zeon(memax)
    real(wp) now_wAD, wdot_fullh ! wdot_fullh
    real(wp) tdum,thetatmp
    real(Wp) tmp_old_AD, tmp_new_AD, tmp_old_dADdt, tmp_new_dADdt
@@ -52,7 +53,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    real(wp) wfield(3,mgrid,0:1)   ! weight-field W_0+v_//*W_1+v^2*W_2
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
-   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE,Phi_at_zeon)
    real(wp) tmp_zeon5(memax), tmp_zeon8(memax)
    !$acc declare create (tmp_zeon5, tmp_zeon8)
    integer :: loop
@@ -103,53 +104,18 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
       enddo
    endif
 
-   call electron_locator
-   ! call n_T_u_group_e             ! get Te at electron position
+   ! call electron_locator
+   call n_T_u_group_e  ! get back_f0_e, Te, u_//, dlnn/da, dlnT/da, etc at electrons.
 
-   !  mu(1:me)=zeon(6,1:me)**2
-
-   ! gather e_field at electron GC positions using linear interpolation.
-   ! No FLR effect for electrons.
-   ! The following line is an OpenMP directive for loop-level parallelism
-   ! on shared memory machines (see http://www.openmp.org).
-   !$omp parallel do private(m,e1,e2,e3,wz1,wz0,ij,wp0,wt00,wt10,wp1,wt01,wt11)
-   !$acc parallel loop present(zeon,zeon0)
+   call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
+   !$acc parallel loop present(Phi_at_zeon,gradPhi)
    do m=1,me
-      wz1=wzeon(m)
-      wz0=1.0_wp-wz1
-
-      ij=jteon0(m)
-      wp0=1.0_wp-wpeon(m)
-      wt00=1.0_wp-wteon0(m)
-      e1=wp0*wt00*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-      e2=wp0*wt00*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-      e3=wp0*wt00*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-      ij=ij+1
-      wt10=1.0_wp-wt00
-      e1=e1+wp0*wt10*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-      e2=e2+wp0*wt10*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-      e3=e3+wp0*wt10*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-      ij=jteon1(m)
-      wp1=1.0_wp-wp0
-      wt01=1.0_wp-wteon1(m)
-      e1=e1+wp1*wt01*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-      e2=e2+wp1*wt01*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-      e3=e3+wp1*wt01*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-      ij=ij+1
-      wt11=1.0_wp-wt01
-      e1=e1+wp1*wt11*(wz0*evector(1,0,ij)+wz1*evector(1,1,ij))
-      e2=e2+wp1*wt11*(wz0*evector(2,0,ij)+wz1*evector(2,1,ij))
-      e3=e3+wp1*wt11*(wz0*evector(3,0,ij)+wz1*evector(3,1,ij))
-
-      gradPhi(1,m)=e1
-      gradPhi(2,m)=e2
-      gradPhi(3,m)=e3
-
-
-   enddo
+      Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
+      !$acc loop seq
+      do i=1,3
+         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
+      enddo
+   enddo 
 
 
 #ifdef _MGY_TIMER_
@@ -217,7 +183,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
 #endif
 
    !  call n_T_u_group_e  ! prepare n, T, u_//, dlnn/da, dlnT/da, etc at electrons.
-   ! moved to collision_eon.f90 -- caution: in this case, BB must be obtained by call esigetb etc.!!!
 
    call Ti_at_electrons ! NOTE: array backT is borrowed to store Ti_at_electrons;
    ! WARNING: must make sure there is no memory conflict!!!
@@ -275,29 +240,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          wgradB=vdr*Ba(m)+vdq*Bq(m)
 
 
-         ! calculate d(delta_phi)/dt at particles along trajactory
-         wz1=wzeon(m)
-         wz0=1.0_wp-wz1
-
-         ij=jteon0(m)
-         wp0=1.0_wp-wpeon(m)
-         wt00=1.0_wp-wteon0(m)
-         e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ij=ij+1
-         wt10=1.0_wp-wt00
-         e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ij=jteon1(m)
-         wp1=1.0_wp-wp0
-         wt01=1.0_wp-wteon1(m)
-         e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ij=ij+1
-         wt11=1.0_wp-wt01
-         e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-
-
          !    calculate <phi> at electrons (no FLR effect -- x=R)
          r=zeon(7,m)-s0       ! in radial coordinator s
          r=r*delr
@@ -306,12 +248,12 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
 
          if ( Flag_Def_dne_adiab==0 ) then
-            E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+            E_f=(Phi_at_zeon(m)-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
          elseif(Flag_Def_dne_adiab==1) then
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+            E_f=(Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
          elseif(Flag_Def_dne_adiab==2) then
-            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
+            E_f=(Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
          else
             E_f=-1e100
             write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
@@ -554,8 +496,15 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
       timewc_in_Pushe(1) = timewc_in_Pushe(1) + (tt1-tt0)
 
 
-      call electron_locator
+      ! call electron_locator
       call n_T_u_group_e
+
+      
+      call Get_Phi_at_zeon(Phi_at_zeon)
+      !$acc parallel loop present(Phi_at_zeon)
+      do m=1,me
+         Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
+      enddo
 
       acc_newer_D_zeon=.true.
       !$acc parallel loop gang vector present(zeon,zeon0,backTe,tmp_zeon5,tmp_zeon8)
@@ -568,26 +517,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 
 
-         wz1=wzeon(m)
-         wz0=1.0_wp-wz1
-         ij=jteon0(m)
-         wp0=1.0_wp-wpeon(m)
-         wt00=1.0_wp-wteon0(m)
-         e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ij=ij+1
-         wt10=1.0_wp-wt00
-         e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ij=jteon1(m)
-         wp1=1.0_wp-wp0
-         wt01=1.0_wp-wteon1(m)
-         e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-         ij=ij+1
-         wt11=1.0_wp-wt01
-         e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-
 
          !    calculate <phi> at electrons (no FLR effect -- x=R)
          r=zeon(7,m)-s0       ! in radial coordinator s
@@ -597,12 +526,12 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
 
          if ( Flag_Def_dne_adiab==0 ) then
-            E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+            E_f=(Phi_at_zeon(m)-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
          elseif(Flag_Def_dne_adiab==1) then
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+            E_f=(Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
          elseif(Flag_Def_dne_adiab==2) then
-            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
+            E_f=(Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
          else
             E_f=-1e100
             write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
@@ -690,13 +619,11 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                close(200903)
             endif
 
-            call cpu_time(cput0)
-            tt0=MPI_WTIME()
-            ! call smooth_PHI
-            call cpu_time(cput1)
-            tt1=MPI_WTIME()
-            time_in_Pushe(4) = time_in_Pushe(4) + (cput1-cput0)
-            timewc_in_Pushe(4) = timewc_in_Pushe(4) + (tt1-tt0)
+            call Get_Phi_at_zeon(Phi_at_zeon)
+            !$acc parallel loop present(Phi_at_zeon)
+            do m=1,me
+               Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
+            enddo            
 
             acc_newer_D_zeon=.true.
             !$acc parallel loop present(zeon,zeon0,backTe,RK_cum_zeon)
@@ -704,27 +631,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                ! calculate d(delta_phi)/dt at particles along trajactory
 
                T_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
-
-               wz1=wzeon(m)
-               wz0=1.0_wp-wz1
-               ij=jteon0(m)
-               wp0=1.0_wp-wpeon(m)
-               wt00=1.0_wp-wteon0(m)
-               e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-               ij=ij+1
-               wt10=1.0_wp-wt00
-               e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-               ij=jteon1(m)
-               wp1=1.0_wp-wp0
-               wt01=1.0_wp-wteon1(m)
-               e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-               ij=ij+1
-               wt11=1.0_wp-wt01
-               e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-
 
                !    calculate <phi> at electrons (no FLR effect -- x=R)
                r=zeon(7,m)-s0       ! in radial coordinator s
@@ -734,12 +640,12 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
 
                if ( Flag_Def_dne_adiab==0 ) then
-                  E_f=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
+                  E_f=(Phi_at_zeon(m)-real(1.0-ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_NZ/Te)
                elseif(Flag_Def_dne_adiab==1) then
                   ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-                  E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
+                  E_f=(Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
                elseif(Flag_Def_dne_adiab==2) then
-                  E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
+                  E_f=(Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
                else
                   E_f=-1e100
                   write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
