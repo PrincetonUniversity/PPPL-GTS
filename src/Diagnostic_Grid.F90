@@ -593,7 +593,6 @@ module Diagnostic_Grid
 
          real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1)
          real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
-         real(wp) :: intpl_FLA_Te0(DG%dim_gq,DG%dim_a)
          real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          integer :: ij,ip
@@ -635,7 +634,6 @@ module Diagnostic_Grid
 
          ! Calculate dne_adiabatic by interpolating dphi on original grids
          call Interpolate_OriGridData_into_DG(phi(1,:), intpl_dphi)
-         call Interpolate_OriGridData_into_DG(FLA_Te0(1,:), intpl_FLA_Te0)
          if (Flag_Def_dne_adiab==0) then
             do aid=1,DG%dim_a
                i = DG%ori_aid(aid)
@@ -645,13 +643,6 @@ module Diagnostic_Grid
             do aid=1,DG%dim_a
                i = DG%ori_aid(aid)
                DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
-            enddo
-         elseif(Flag_Def_dne_adiab==2) then
-            do aid=1,DG%dim_a
-               do gqid=1,DG%dim_gq
-                  i = DG%ori_aid(aid)
-                  DG%dne_adiab(gqid,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(gqid,aid)+real(ZF_SEPARATION)*phi00(i))/intpl_FLA_Te0(gqid,aid)
-               enddo
             enddo
          elseif(Flag_Def_dne_adiab==3) then
             do aid=1,DG%dim_a
@@ -1563,50 +1554,6 @@ module Diagnostic_Grid
 
 
             Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
-
-
-
-            ! ! Cal new phi at new position (i.e. phi @ (t_(n+1), x_(n+1)))
-            ! wz1=wzeon(m)
-            ! wz0=1.0_wp-wz1
-
-            ! ij=jteon0(m)
-            ! wp0=1.0_wp-wpeon(m)
-            ! wt00=1.0_wp-wteon0(m)
-            ! e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ! ij=ij+1
-            ! wt10=1.0_wp-wt00
-            ! e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ! ij=jteon1(m)
-            ! wp1=1.0_wp-wp0
-            ! wt01=1.0_wp-wteon1(m)
-            ! e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ! ij=ij+1
-            ! wt11=1.0_wp-wt01
-            ! e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-
-            ! ! calculate <phi> at electrons (no FLR effect -- x=R)
-            ! r=zeon0(7,m)-s0       ! in radial coordinator s
-            ! r=r*ori_inv_ds
-            ! ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-            ! fip=r-real(ip,wp)
-            ! Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-
-            ! if ( Flag_Def_dne_adiab==0 ) then
-            !    AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
-            ! elseif(Flag_Def_dne_adiab==1) then
-            !    ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-            !    AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
-            ! elseif(Flag_Def_dne_adiab==3) then
-            !    AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
-            ! else
-            !    AD=-1e100
-            !    write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in Measure Electrons_on_DG!!"
-            !    STOP
-            ! endif
 
 
             call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi_V)

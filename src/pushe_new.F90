@@ -37,7 +37,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    !(gf component is 0 due to the toroidal axisymmetric assumption )
 
    integer gcmotion_eon, gcmotion_eon_em, gcmotion_eon_em_MGY, gcmotion_eon_em_MGY_vec_form
-   real(wp) inv_intpl_FLA_Te0
 
    real(wp) tt0,tt1,cput0,cput1,rtc
 
@@ -292,25 +291,20 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          wp0=1.0_wp-wpeon(m)
          wt00=1.0_wp-wteon0(m)
          e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         inv_intpl_FLA_Te0 = wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=ij+1
          wt10=1.0_wp-wt00
          e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=jteon1(m)
          wp1=1.0_wp-wp0
          wt01=1.0_wp-wteon1(m)
          e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=ij+1
          wt11=1.0_wp-wt01
          e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
-         inv_intpl_FLA_Te0 = 1.0/inv_intpl_FLA_Te0
 
          !    calculate <phi> at electrons (no FLR effect -- x=R)
          r=zeon(7,m)-s0       ! in radial coordinator s
@@ -605,25 +599,20 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          wp0=1.0_wp-wpeon(m)
          wt00=1.0_wp-wteon0(m)
          e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         inv_intpl_FLA_Te0=   wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=ij+1
          wt10=1.0_wp-wt00
          e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=jteon1(m)
          wp1=1.0_wp-wp0
          wt01=1.0_wp-wteon1(m)
          e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
          ij=ij+1
          wt11=1.0_wp-wt01
          e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-         inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij)) ! --> phi at electrons
 
-         inv_intpl_FLA_Te0 = 1.0/inv_intpl_FLA_Te0
 
          !    calculate <phi> at electrons (no FLR effect -- x=R)
          r=zeon(7,m)-s0       ! in radial coordinator s
@@ -761,25 +750,20 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                wp0=1.0_wp-wpeon(m)
                wt00=1.0_wp-wteon0(m)
                e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-               inv_intpl_FLA_Te0=   wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
                ij=ij+1
                wt10=1.0_wp-wt00
                e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-               inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
                ij=jteon1(m)
                wp1=1.0_wp-wp0
                wt01=1.0_wp-wteon1(m)
                e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-               inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
                ij=ij+1
                wt11=1.0_wp-wt01
                e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-               inv_intpl_FLA_Te0=inv_intpl_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
 
-               inv_intpl_FLA_Te0 = 1.0/inv_intpl_FLA_Te0
 
                !    calculate <phi> at electrons (no FLR effect -- x=R)
                r=zeon(7,m)-s0       ! in radial coordinator s

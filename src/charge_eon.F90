@@ -316,8 +316,6 @@ subroutine charge_eon
                   elseif(Flag_Def_dne_adiab==1) then!Flag_Def_dne_adiab==1
                      ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
                      dn_adiabatic = den_grid(i)*(abs(csc0)*(full_dphi)/Te_grid(i))
-                  elseif(Flag_Def_dne_adiab==2) then
-                     dn_adiabatic = den_grid(i)*(abs(csc0)*(full_dphi)/FLA_Te0(:,ij))
                   elseif(Flag_Def_dne_adiab==3) then!Flag_Def_dne_adiab==1
                      ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
                      dn_adiabatic = den_grid(i)*(-1.0+exp(abs(csc0)*(full_dphi)/Te_grid(i)))

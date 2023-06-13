@@ -1487,9 +1487,6 @@ module Ptl_Src_Loss
             elseif(Flag_Def_dne_adiab==1) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
                AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
-            elseif(Flag_Def_dne_adiab==2) then
-               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (e*dphi_tot/Te)
             elseif(Flag_Def_dne_adiab==3) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
                AdiabTerm(m)=-1.0+exp(abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (e*dphi_tot/Te)
@@ -4815,9 +4812,6 @@ module Ptl_Src_Loss
             elseif(Flag_Def_dne_adiab==1) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
                AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
-            elseif(Flag_Def_dne_adiab==2) then
-               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (e*dphi_tot/Te)
             elseif(Flag_Def_dne_adiab==3) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
                AdiabTerm(m)=-1.0+exp(abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (e*dphi_tot/Te)
@@ -5081,9 +5075,6 @@ module Ptl_Src_Loss
             elseif(Flag_Def_dne_adiab==1) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
                AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
-            elseif(Flag_Def_dne_adiab==2) then
-               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-               AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (e*dphi_tot/Te)
             elseif(Flag_Def_dne_adiab==3) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
                AdiabTerm(m)=-1.0+exp(abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (e*dphi_tot/Te)
@@ -5915,74 +5906,6 @@ module Ptl_Src_Loss
          !$acc update device(zeon(:,m0:me))
          !$acc update device(zeon0(6,m0:me))
          call n_T_u_group_e(m0,me,flag_backf0=.true.)   ! This is to get back_f0_e inside. (which requires zeon(4) and zeon(6))
-
-
-         ! if (mype==0) then
-         !    write(filename,'("test_",i5.5,".dat")') istep
-         !    open(unit=20211210, file=filename, position='append',action='write')
-         !    do m=m0,me
-         !       upara = zeon(4,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m)))! upara
-         !       uperp = zeon(6,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m))  ! uperp
-         !       write(20211210,'(99(ES16.8,1x))') zeon(:,m), upara, uperp, zeon0(6,m)
-         !    enddo
-         !    call flush(20211210)
-         !    close(20211210)
-         ! endif
-
-
-
-
-         ! ! Calculate Adiab term
-         ! allocate(AdiabTerm(m0:me))
-         ! call electron_locator_partial(m0,me) ! This is required to calculate wpeon, wteon0 and etc
-         ! !$acc parallel loop present(AdiabTerm, wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
-         ! do m=m0,me
-         !    wz1=wzeon(m)
-         !    wz0=1.0_wp-wz1
-
-         !    ij=jteon0(m)
-         !    wp0=1.0_wp-wpeon(m)
-         !    wt00=1.0_wp-wteon0(m)
-         !    intp_phi = wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         !    intp_FLA_Te0 = wp0*wt00*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
-
-         !    ij=ij+1
-         !    wt10=1.0_wp-wt00
-         !    intp_phi=intp_phi+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         !    intp_FLA_Te0=intp_FLA_Te0+wp0*wt10*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
-
-         !    ij=jteon1(m)
-         !    wp1=1.0_wp-wp0
-         !    wt01=1.0_wp-wteon1(m)
-         !    intp_phi=intp_phi+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-         !    intp_FLA_Te0=intp_FLA_Te0+wp1*wt01*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
-
-         !    ij=ij+1
-         !    wt11=1.0_wp-wt01
-         !    intp_phi=intp_phi+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-         !    intp_FLA_Te0=intp_FLA_Te0+wp1*wt11*(wz0*FLA_Te0(0,ij)+wz1*FLA_Te0(1,ij))
-
-         !    r=(zeon(7,m)-s0)/deltar       ! in radial coordinator s
-         !    ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-         !    fip=r-real(ip,wp)
-         !    intp_phi00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-         !    if ( Flag_Def_dne_adiab==0 ) then
-         !       AdiabTerm(m)=abs(csc0)*(intp_phi-real(1.0-ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_NZ/Te)
-         !    elseif(Flag_Def_dne_adiab==1) then
-         !       ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-         !       AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
-         !    elseif(Flag_Def_dne_adiab==2) then
-         !       ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-         !       AdiabTerm(m)=abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(intp_FLA_Te0) ! Adiabatic term (e*dphi_tot/Te)
-         !    elseif(Flag_Def_dne_adiab==3) then
-         !       ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-         !       AdiabTerm(m)=-1.0+exp(abs(csc0)*(intp_phi+real(ZF_SEPARATION,wp)*intp_phi00)/(backTe(m)*msm0)) ! Adiabatic term (e*dphi_tot/Te)
-         !    else
-         !       AdiabTerm(m)=-1e100
-         !       write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
-         !       STOP
-         !    endif
-         ! enddo
 
 
 

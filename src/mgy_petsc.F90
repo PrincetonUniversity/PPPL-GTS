@@ -1401,7 +1401,6 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) tmp
 
    dim_a =SG%dim_a
@@ -1625,7 +1624,6 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
    integer :: dim_gq, dim_a, i
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
 
 
    Flag_WhichLHS=0 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
@@ -1895,7 +1893,6 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
    integer Lid,Gid,qq,ss
    real(wp), external :: density, Te0_eV
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) AD_coeff
 
 
@@ -1950,15 +1947,9 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
                ! tarVal(11,Lid)=tarVal(11,Lid) + 1*AD_coeff ! 11 (ss-1,qq+1)
             endif
          enddo
-      elseif(Flag_Def_dne_adiab==2) then
-         ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
-         call Interpolate_OriGridData_into_SG(FLA_Te0(1,:), intpl_FLA_Te0)
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/(1e3*Tem_00*intpl_FLA_Te0(qq,ss))
-         enddo
+      else 
+         write(stdout,'((A,I0,A))') "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab," is not implemented in Add_Adiabatic_Term_to_GK_Poisson_LHS!!"
+         call flush(stdout)
       endif
 
    elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
@@ -2303,7 +2294,6 @@ subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) tmp
 
    dim_a =SG%dim_a
@@ -2472,7 +2462,6 @@ subroutine Update_GK_Ampere_LHS_Coeffs
    integer :: dim_gq, dim_a, i
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
 
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
