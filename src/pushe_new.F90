@@ -234,12 +234,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    !             gha(:)=1/|grad a|   F(:) =F
    !             wpi(3,:)=dphi/dzeta (NO change); no change for: zeon(1,2,4,:), wpi(1,2,:) and mu;
 
-   !  if(nonlinear>100.0_wp) then            ! for nonlinear run
-   if(wimcompressibility==1) then            ! for implementation of weight imcompressibility
-      call weight_field_eon(wfield)      ! calculate weight-field uisng zeon0 for irk=1 and zeon at half-step for irk=2
-      ! used BB obtained from gcmotion, and electron locations are obtain here in pushe
-      ! which are used to calculate wfield in phase space grids and gether wfield at electron (next)
-   end if
 
    dminv=0.0d0
    dmaxv=0.0d0
@@ -383,53 +377,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          ! (1-E_f) is not needed for wdot, it is needed for wdphidt term
          ! wdot=(1.0_wp-E_f)*wdot
 
-
-
-         if(wimcompressibility==1) then     ! for weight imcompressibility
-            ! calculate average weight <w> at particles using wieght-field wfield
-            wz1=wzeon(m)
-            wz0=1.0_wp-wz1
-
-            ij=jteon0(m)
-            wp0=1.0_wp-wpeon(m)
-
-            wt00=1.0_wp-wteon0(m)
-            e1=wp0*wt00*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
-            e2=wp0*wt00*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
-            e3=wp0*wt00*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
-
-            ij=ij+1
-            wt10=1.0_wp-wt00
-            e1=e1+wp0*wt10*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
-            e2=e2+wp0*wt10*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
-            e3=e3+wp0*wt10*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
-
-            ij=jteon1(m)
-            wp1=1.0_wp-wp0
-            wt01=1.0_wp-wteon1(m)
-            e1=e1+wp1*wt01*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
-            e2=e2+wp1*wt01*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
-            e3=e3+wp1*wt01*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
-
-            ij=ij+1
-            wt11=1.0_wp-wt01
-            e1=e1+wp1*wt11*(wz0*wfield(1,ij,0)+wz1*wfield(1,ij,1))
-            e2=e2+wp1*wt11*(wz0*wfield(2,ij,0)+wz1*wfield(2,ij,1))
-            e3=e3+wp1*wt11*(wz0*wfield(3,ij,0)+wz1*wfield(3,ij,1))
-
-            avw=e1+e2*vpara+e3*v2
-
-
-            !     if(mype==100.and.m==me/2) print*, 'AVW=', avw, zeon(5,m), mype
-            !     if(mype==0.and.m==me/4) print*, 'AVW=', avw, zeon(5,m), mype
-            !     if(mype==200.and.m==me/8) print*, 'AVW=', avw, zeon(5,m), mype
-         end if
-
-         if(wimcompressibility==1) then
-            now_w = avw
-         else
-            now_w = zeon(5,m)
-         endif
+          now_w = zeon(5,m)
 
          !==================================================
          ! MGYOO(03/27/2019)

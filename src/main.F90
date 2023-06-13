@@ -437,8 +437,6 @@ program GTS
          time(18)=time(18)+dt
          timewc(18)=timewc(18)+dtwc
 
-         ! Calculate ion weight damping
-         if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
 
          ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
@@ -492,7 +490,6 @@ program GTS
             endif
 
 
-            if(irk==nrk.and.wimcompressibility==2) call weight_damping_eon
 
             ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
             ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON

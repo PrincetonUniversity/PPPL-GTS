@@ -104,7 +104,6 @@ Subroutine setup
    !  kappan=kappati*kappan        ! =R_0*<grad(n)/n>=R_0/L_n
    aelectron=1.0/aelectron      ! aelectron=1.0/1837.0
 
-   !  if(nonlinear==0.0) wimcompressibility=0   ! no need to calculate and use weight field <w> for linear runs -- added March 2017
 
    if(ifneoclassical==1) Er_from_GTC_Neo=0   ! no need to import any equilibrium Er
 
@@ -2704,10 +2703,10 @@ Subroutine read_input_params
 
    !Check conflicting parameters
    if(Flag_RK4==1) then
-      if(wimcompressibility==1 .or. nelectron/=1 .or. ifdphi/=2) then
+      if(nelectron/=1 .or. ifdphi/=2) then
          write(stdout,*) 'Conflicting parameters!! Check and Change parameters'
          write(stdout,*) 'Flag_RK4=1 does not deal with one of the following parameters'
-         write(stdout,*) 'wimcompressibility=', wimcompressibility, ", nelectron=",nelectron, ", ifdphi", ifdphi
+         write(stdout,*) "nelectron=",nelectron, ", ifdphi", ifdphi
          call flush(stdout)
          stop
       endif

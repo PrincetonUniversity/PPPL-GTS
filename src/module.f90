@@ -103,12 +103,6 @@ module global_parameters
    ! The following input parameters are specified in setup for radial boundary layers with damping
    real(wp) lmin, lmax, rmin, rmax
 
-   ! The following  parameters are used to sepcify weight damping implementation
-   !     wimcompressibility=0 --> no damping
-   !     wimcompressibility=1 --> use the algorithm to assure imcompressibility in weight
-   !     wimcompressibility=2 --> apply weight damping with damping rate specified by eta_w=weight_damping_rate/tstep
-   integer,parameter  :: wimcompressibility=0       ! switch  added April, 2013 for implementing weight imcompressibility
-   !     integer  :: wimcompressibility=1       ! switch  added April, 2013 for implementing weight imcompressibility
    real(wp),parameter :: weight_damping_rate=2.0d-7 ! =eta_w*tstep
 
    ! finite element order
