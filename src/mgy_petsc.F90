@@ -1548,7 +1548,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
 
-   if(Flag_Def_dne_adiab==3) then
+   if(Flag_Def_dne_adiab==2) then
 
       ! Set PMat value as the first term
       call MatDuplicate(PMat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
@@ -1580,7 +1580,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    endif
 
 
-   if(Flag_Def_dne_adiab==3) then
+   if(Flag_Def_dne_adiab==2) then
       ! Construct KSP
       tt0=MPI_WTIME()
       call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
@@ -1796,7 +1796,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
             ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
-   elseif(Flag_Def_dne_adiab==3) then
+   elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
@@ -1899,7 +1899,7 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
    !In the case of delta-h electron simulation,
    !add the adiabatic electron response term in the LHS (PMat)
    ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
-   ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
+   ! Note that, in the case of Flag_Def_dne_adiab==2, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
    if(ifelectron==2) then
       if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
          do Lid=1,Lsize
@@ -2655,7 +2655,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
             ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
-   elseif(Flag_Def_dne_adiab==3) then
+   elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq

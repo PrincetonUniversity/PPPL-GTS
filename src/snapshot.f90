@@ -615,7 +615,7 @@ subroutine snapshot_hdf5
          elseif(Flag_Def_dne_adiab==1) then !Flag_Def_dne_adiab==1
             ! adiabatic electron is using full_dphi instead of nonzonal phi
             dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
-         elseif(Flag_Def_dne_adiab==3) then
+         elseif(Flag_Def_dne_adiab==2) then
             dne_adiabatic(:,ij) = den_grid(i)*(-1.0+exp(abs(csc0)*full_dphi(:,ij)/Te_grid(i)))
          end if
 
@@ -1669,7 +1669,7 @@ subroutine snapshot_hdf5
          do i=1,DG%dim_a
             DG%ZON_dne_adiab(i) = abs(csc0)*(int(ifelectron/2)*phi00(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
          enddo
-      elseif(Flag_Def_dne_adiab==3) then
+      elseif(Flag_Def_dne_adiab==2) then
          do i=1,DG%dim_a
             DG%ZON_dne_adiab(i) = den_grid(i)*(-1.0+exp(abs(csc0)*(phi00(DG%ori_aid(i)))/DG%Te0_1D(i)))
          enddo
@@ -1680,7 +1680,7 @@ subroutine snapshot_hdf5
          do i=1,DG%dim_a
             DG%mean_ZON_dne_adiab(i) = abs(csc0)*(int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
          enddo
-      elseif(Flag_Def_dne_adiab==3) then
+      elseif(Flag_Def_dne_adiab==2) then
          do i=1,DG%dim_a
             DG%mean_ZON_dne_adiab(i) = den_grid(i)*(-1.0+exp(abs(csc0)*(mean_zonal_dphi(DG%ori_aid(i)))/DG%Te0_1D(i)))
          enddo

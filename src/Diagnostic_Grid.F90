@@ -644,7 +644,7 @@ module Diagnostic_Grid
                i = DG%ori_aid(aid)
                DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
             enddo
-         elseif(Flag_Def_dne_adiab==3) then
+         elseif(Flag_Def_dne_adiab==2) then
             do aid=1,DG%dim_a
                i = DG%ori_aid(aid)
                DG%dne_adiab(:,aid)=den_grid(i)*(-1.0+exp(abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)))
@@ -688,7 +688,7 @@ module Diagnostic_Grid
             elseif(Flag_Def_dne_adiab==1) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
                AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
-            elseif(Flag_Def_dne_adiab==3) then
+            elseif(Flag_Def_dne_adiab==2) then
                AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
             else
                AD=-1e100

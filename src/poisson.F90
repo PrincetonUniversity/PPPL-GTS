@@ -416,7 +416,7 @@ subroutine poisson( solver, masssolver )
          call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
          call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
 
-         if(Flag_Def_dne_adiab==3) then
+         if(Flag_Def_dne_adiab==2) then
             call Solve_Nonlinear_Poisson3D_on_SG()
          else
             call Solve_Poisson3D_on_SG

@@ -319,9 +319,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
             E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
          elseif(Flag_Def_dne_adiab==2) then
-             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*inv_intpl_FLA_Te0*csc0 ! Adiabatic term (q*dphi_tot/Te)
-         elseif(Flag_Def_dne_adiab==3) then
             E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
          else
             E_f=-1e100
@@ -627,9 +624,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
             E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
          elseif(Flag_Def_dne_adiab==2) then
-             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-            E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*inv_intpl_FLA_Te0*csc0 ! Adiabatic term (q*dphi_tot/Te)
-         elseif(Flag_Def_dne_adiab==3) then
             E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
          else
             E_f=-1e100
@@ -663,7 +657,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          ! wdphidt = d(-ln(|1-E_f|))/dt
          wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(10,m))))/(RK_adv_coeff*tstep)
 
-         if(Flag_Def_dne_adiab==3) then
+         if(Flag_Def_dne_adiab==2) then
             wdphidt = (E_f-zeon0(10,m))/(RK_adv_coeff*tstep)
          endif
 
@@ -778,9 +772,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                   ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
                   E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! Adiabatic term (q*dphi_tot/Te)
                elseif(Flag_Def_dne_adiab==2) then
-                  ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) with FLA_Te0
-                  E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*inv_intpl_FLA_Te0*csc0 ! Adiabatic term (q*dphi_tot/Te)
-               elseif(Flag_Def_dne_adiab==3) then
                   E_f=(e1+real(ZF_SEPARATION,wp)*Ea_00)*T_inverse*csc0 ! (E_f=q*dphi_tot/Te). dne_Adiab=(exp(-E_f)-1)*f0
                else
                   E_f=-1e100
@@ -814,7 +805,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                ! wdphidt = d(-ln(|1-E_f|))/dt
                wdphidt = -log(abs((1.0-E_f)/(1.0-zeon0(10,m))))/(RK_adv_coeff*tstep)
 
-               if(Flag_Def_dne_adiab==3) then
+               if(Flag_Def_dne_adiab==2) then
                   wdphidt = (E_f-zeon0(10,m))/(RK_adv_coeff*tstep)
                endif
 
@@ -1456,7 +1447,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
          elseif(Flag_Def_dne_adiab==1) then
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
             AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
-         elseif(Flag_Def_dne_adiab==3) then
+         elseif(Flag_Def_dne_adiab==2) then
             AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
          else
             AD=-1e100
@@ -1721,7 +1712,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
             elseif(Flag_Def_dne_adiab==1) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
                AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
-            elseif(Flag_Def_dne_adiab==3) then
+            elseif(Flag_Def_dne_adiab==2) then
                AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
             else
                AD=-1e100
