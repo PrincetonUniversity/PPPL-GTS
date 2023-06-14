@@ -1225,8 +1225,8 @@ Subroutine setup
    memax=me+50*ceiling(sqrt(real(me,wp))) !particle array upper bound
 
    if(Flag_Ptl_BC0_type>0 .or. Flag_Ptl_BC1_type>0) then
-      mimax=1.5*mi
-      memax=1.5*me
+      mimax=2.0*mi
+      memax=2.0*me
    endif
 
    ! temperature and density on the grid, T_i=n_0=1 at mid-radius
