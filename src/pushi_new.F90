@@ -30,9 +30,9 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    real(wp) tot_B_vec_cov(3), tot_B_vec_cntv(3) ! covariant and contravariant components of total B field (B0 + dB) incluidng the magnetic perturbation
    real(wp) grad_lnf0_a_cov, grad_lnf0_gq_cov ! covariant components of grad(ln(f0)) in a and gq axis.
    !(gf component is 0 due to the toroidal axisymmetric assumption )
-   real(wp) gradPhi(3,mi)
+   real(wp) gradPhi(3,mi),gaHS(mi),grad_gaH(3,mi),grad_gaS(3,mi)
 
-   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
+   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form, gcmotion_em_MGY_vec_form_EM2
 
    real(wp) tt0,tt1,cput0,cput1,rtc
 
@@ -46,7 +46,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
 
-   !$acc declare create(dgr,da,dgq,dgf,wpi,gradPhi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,wpi,gradPhi,Er_particle,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS)
 
    if(acc_newer_H_zion) then
       !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -92,7 +92,14 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc.
 
    call Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
-   call Get_gradPhi_at_zion(gradPhi)
+   if (electromagnetic==2) then
+      ! Note that gaHS = gaH + gaS
+      call Get_gradPhi_gaHS_gradgaHS_at_zion(gradPhi,gaHS,grad_gaH,grad_gaS) 
+   else
+      call Get_gradPhi_at_zion(gradPhi)
+   endif
+
+   !#NOTE grad_gaH is dimensionless and so does not need conversion
    !$acc parallel loop present(gradPhi)
    do m=1,mi
       !$acc loop seq
@@ -471,18 +478,18 @@ subroutine pushion_wEvol3(irk_i,nrk)
    integer, intent(in):: irk_i,nrk
    integer i,ip,m,ierr,ierror,j
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),wpi(3,mi),Er_particle(mi)
+   real(wp) dgr(mi),da(mi),dgq(mi),dgf(mi),gradPhi(3,mi),wpi(3,mi),Er_particle(mi),gaHS(mi),grad_gaH(3,mi),grad_gaS(3,mi)
    real(wp) gaE(mi),wgaE(3,mi), gatE(mi) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
-   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form
+   integer gcmotion, gcmotion_em, gcmotion_em_MGY, gcmotion_em_MGY_vec_form, gcmotion_em_MGY_vec_form_EM2
    real(wp) mu,vpara,energy
    real(wp) E_a,E_t,E_f,delr
    real(wp) FullVelocity_da_dgq_dgf(3,mi) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
    real(wp) vdrenergy,new_f0
    integer larmor, loop
 
-   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS)
 
    if(acc_newer_H_zion) then
       !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -532,7 +539,14 @@ subroutine pushion_wEvol3(irk_i,nrk)
    call n_T_u_group
 
    call Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
-   call Get_gradPhi_at_zion(gradPhi)
+   if (electromagnetic==2) then
+      ! Note that gaHS = gaH + gaS
+      call Get_gradPhi_gaHS_gradgaHS_at_zion(gradPhi,gaHS,grad_gaH,grad_gaS) 
+   else
+      call Get_gradPhi_at_zion(gradPhi)
+   endif
+
+   !#NOTE grad_gaH is dimensionless and so does not need conversion
    !$acc parallel loop present(gradPhi)
    do m=1,mi
       !$acc loop seq
