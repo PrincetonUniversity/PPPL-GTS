@@ -108,17 +108,19 @@ Subroutine setup
    if(ifneoclassical==1) Er_from_GTC_Neo=0   ! no need to import any equilibrium Er
 
    if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases
-   zeondim=8
-   if(ifdphi>=2) then
-      if(Flag_w_Evol<=3) then
-         zeondim=10
-      elseif(Flag_w_Evol==4) then
-         zeondim=9
-      endif
+
+   if(Flag_w_Evol<=3) then
+      zeondim=10
+   elseif(Flag_w_Evol==4) then
+      zeondim=9
    endif
    ziondim=8
    !  r0=rmajor    !wx  normalized
    !  b0=b_axis    !wx  normalized
+
+
+   if(mype==0) write(stdout,'(2(A,I0))') "In setup_v2.F90, zeondim=",zeondim,", ziondim=",ziondim
+   call flush(stdout)
 
    !  NO. 1 constant
    pi=4.0_wp*atan(1.0_wp)
