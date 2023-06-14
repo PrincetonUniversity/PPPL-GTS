@@ -190,7 +190,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
          do aid=0,dim_a+1
             do gqid=0,dim_gq
                Gid=mapP2G(gqid,aid,gfid)
-               write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), Gid, mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid
+               if(Gid>=0) write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), Gid, mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid
             enddo
          enddo
       enddo
@@ -1401,7 +1401,6 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) tmp
 
    dim_a =SG%dim_a
@@ -1549,7 +1548,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
 
-   if(Flag_Def_dne_adiab==3) then
+   if(Flag_Def_dne_adiab==2) then
 
       ! Set PMat value as the first term
       call MatDuplicate(PMat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
@@ -1581,7 +1580,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    endif
 
 
-   if(Flag_Def_dne_adiab==3) then
+   if(Flag_Def_dne_adiab==2) then
       ! Construct KSP
       tt0=MPI_WTIME()
       call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
@@ -1625,7 +1624,6 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
    integer :: dim_gq, dim_a, i
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
 
 
    Flag_WhichLHS=0 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
@@ -1798,7 +1796,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
             ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
-   elseif(Flag_Def_dne_adiab==3) then
+   elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
@@ -1895,14 +1893,13 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
    integer Lid,Gid,qq,ss
    real(wp), external :: density, Te0_eV
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) AD_coeff
 
 
    !In the case of delta-h electron simulation,
    !add the adiabatic electron response term in the LHS (PMat)
    ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
-   ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
+   ! Note that, in the case of Flag_Def_dne_adiab==2, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
    if(ifelectron==2) then
       if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
          do Lid=1,Lsize
@@ -1950,15 +1947,9 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
                ! tarVal(11,Lid)=tarVal(11,Lid) + 1*AD_coeff ! 11 (ss-1,qq+1)
             endif
          enddo
-      elseif(Flag_Def_dne_adiab==2) then
-         ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
-         call Interpolate_OriGridData_into_SG(FLA_Te0(1,:), intpl_FLA_Te0)
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/(1e3*Tem_00*intpl_FLA_Te0(qq,ss))
-         enddo
+      else 
+         write(stdout,'((A,I0,A))') "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab," is not implemented in Add_Adiabatic_Term_to_GK_Poisson_LHS!!"
+         call flush(stdout)
       endif
 
    elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
@@ -2303,7 +2294,6 @@ subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) tmp
 
    dim_a =SG%dim_a
@@ -2472,7 +2462,6 @@ subroutine Update_GK_Ampere_LHS_Coeffs
    integer :: dim_gq, dim_a, i
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
 
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
@@ -2666,7 +2655,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
             ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
-   elseif(Flag_Def_dne_adiab==3) then
+   elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq

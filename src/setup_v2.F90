@@ -104,13 +104,18 @@ Subroutine setup
    !  kappan=kappati*kappan        ! =R_0*<grad(n)/n>=R_0/L_n
    aelectron=1.0/aelectron      ! aelectron=1.0/1837.0
 
-   !  if(nonlinear==0.0) wimcompressibility=0   ! no need to calculate and use weight field <w> for linear runs -- added March 2017
 
    if(ifneoclassical==1) Er_from_GTC_Neo=0   ! no need to import any equilibrium Er
 
    if(ifelectron/=2) ifdphi=0   ! guarantee ifdphi=0 when ifelectron=0 or 1 --> no dphi/dt calculation involved in those cases
    zeondim=8
-   if(ifdphi>=2) zeondim=9
+   if(ifdphi>=2) then
+      if(Flag_w_Evol<=3) then
+         zeondim=10
+      elseif(Flag_w_Evol==4) then
+         zeondim=9
+      endif
+   endif
    ziondim=8
    !  r0=rmajor    !wx  normalized
    !  b0=b_axis    !wx  normalized
@@ -688,30 +693,30 @@ Subroutine setup
 
    !ZHIXIN:
    if(rmin.le.0.0.or.rmax.le.0.0) then !use original way
-      rmin=psi_grid(mpsi-nbound)
-      rmax=psi_grid(mpsi-nbound/2)
-
       ! MGYOO (07/15/2019):
       ! nbound=0 made run-time error while calculating smoothstep
       ! Instead, nbound=-1 could used to turn off any further boundary damping things.
       if(nbound<0) then
          rmin=psi_grid(mpsi)
          rmax=1.0
+      else
+         rmin=psi_grid(mpsi-nbound)
+         rmax=psi_grid(mpsi-nbound/2)
       endif
 
       if(mype==0) print*, ' rmin,rmax = ', rmin,rmax
    endif
 
    if(lmin.le.0.0.or.lmax.le.0.0) then !use original way
-      lmin=psi_grid(0+nbound/2)
-      lmax=psi_grid(0+nbound)
-
       ! MGYOO (07/15/2019):
       ! nbound=0 made run-time error while calculating smoothstep
       ! Instead, nbound=-1 could used to turn off any further boundary damping things.
       if(nbound<0) then
          lmin=0.0
          lmax=psi_grid(0)
+      else
+         lmin=psi_grid(0+nbound/2)
+         lmax=psi_grid(0+nbound)
       endif
 
       if(mype==0) print*, ' lmin,lmax = ', lmin,lmax
@@ -985,7 +990,6 @@ Subroutine setup
    enddo
 
    const_mtheta = ceiling(sum(mtheta)/real(mpsi+1)) ! average
-   const_mtheta = 400
 
    do i=0,mpsi
 
@@ -1919,10 +1923,8 @@ Subroutine setup
       wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers),&
       ionLarmor_s(larmor_num,mimax),ionLarmor_gq(larmor_num,mimax),ionLarmor_gf(larmor_num,mimax))
 
-   if(Flag_RK4==1) then
-      allocate(RK_cum_zion(ziondim,mimax))
-      RK_cum_zion=0.0
-   endif
+   allocate(RK_cum_zion(ziondim,mimax))
+   RK_cum_zion=0.0
    if(ifelectron/=0) then
 
       allocate(RK_cum_zeon(zeondim,memax))
@@ -1938,8 +1940,8 @@ Subroutine setup
       allocate(UnNorm_zeta_i(mimax), UnNorm_theta_i(mimax))
       allocate(UnNorm_zeta_e(memax), UnNorm_theta_e(memax))
 
-      allocate(wi_init(mimax), wi_vpara(mimax), wi_vperp(mimax), wi_accel(mimax), wi_fdamp(mimax))
-      allocate(we_init(memax), we_vpara(memax), we_vperp(memax), we_accel(memax), we_adiab(memax), we_fdamp(memax))
+      allocate(wi_init(mimax), wi_vpara(mimax), wi_vperp(mimax), wi_accel(mimax))
+      allocate(we_init(memax), we_vpara(memax), we_vperp(memax), we_accel(memax), we_adiab(memax))
 
 
 
@@ -2700,10 +2702,10 @@ Subroutine read_input_params
 
    !Check conflicting parameters
    if(Flag_RK4==1) then
-      if(wimcompressibility==1 .or. nelectron/=1 .or. ifdphi/=2) then
+      if(nelectron/=1 .or. ifdphi/=2) then
          write(stdout,*) 'Conflicting parameters!! Check and Change parameters'
          write(stdout,*) 'Flag_RK4=1 does not deal with one of the following parameters'
-         write(stdout,*) 'wimcompressibility=', wimcompressibility, ", nelectron=",nelectron, ", ifdphi", ifdphi
+         write(stdout,*) "nelectron=",nelectron, ", ifdphi", ifdphi
          call flush(stdout)
          stop
       endif

@@ -476,7 +476,7 @@ subroutine Interpolate_Data_into_Coarser_Grids(in_Data_Arr1D, gq_jump, a_jump, o
    do i=0,mpsi,a_jump
       do j=0,jm
          gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-         jt=int(gqdum);  wt=gqdum-jt
+         jt=min(mtheta(i)-1, int(gqdum));  wt=gqdum-jt
          out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)
          k=k+1
       enddo
@@ -616,8 +616,6 @@ subroutine snapshot_hdf5
             ! adiabatic electron is using full_dphi instead of nonzonal phi
             dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
          elseif(Flag_Def_dne_adiab==2) then
-            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/FLA_Te0(:,ij)
-         elseif(Flag_Def_dne_adiab==3) then
             dne_adiabatic(:,ij) = den_grid(i)*(-1.0+exp(abs(csc0)*full_dphi(:,ij)/Te_grid(i)))
          end if
 
@@ -957,8 +955,10 @@ subroutine snapshot_hdf5
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "num_of_FLabel_pcws",1,h5dims,H5T_NATIVE_INTEGER, num_of_FLabel_pcws,h5err)
       h5dims(1)=num_of_FLabel_pcws
-      call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
-      call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
+      if(allocated(FLabel_pcws_a) .and. allocated(FLabel_pcws_y)) then
+         call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
+         call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
+      endif
 
       ! =======================
       ! 2D data
@@ -1035,7 +1035,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) +real(ZF_SEPARATION)*phi00(i)
             intp_val_Arr(k) = ((E_00*c)/(charg0*1e8))*intp_val
             k=k+1
@@ -1067,7 +1067,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = real(ZF_SEPARATION)*(zonal_dTi(i)) + (vth_grid(i)**2)*((1.0-wt)*phi_tmp(igrid(i)+jt)+  wt*phi_tmp(igrid(i)+jt+1))
             intp_val_Arr(k) = 1e3*Tem_00*intp_val
             k=k+1
@@ -1089,7 +1089,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = (1.0-wt)*full_dne(1,igrid(i)+jt) + wt*full_dne(1,igrid(i)+jt+1)
             intp_val_Arr(k) = 1e6*intp_val
             k=k+1
@@ -1109,7 +1109,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = Te_grid(i)*(((1.0-wt)*heatflux(igrid(i)+jt)+  wt*heatflux(igrid(i)+jt+1))) +real(ZF_SEPARATION)*(zonal_dTe(i))
             intp_val_Arr(k) = 1e3*Tem_00*(intp_val)
             k=k+1
@@ -1669,7 +1669,7 @@ subroutine snapshot_hdf5
          do i=1,DG%dim_a
             DG%ZON_dne_adiab(i) = abs(csc0)*(int(ifelectron/2)*phi00(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
          enddo
-      elseif(Flag_Def_dne_adiab==3) then
+      elseif(Flag_Def_dne_adiab==2) then
          do i=1,DG%dim_a
             DG%ZON_dne_adiab(i) = den_grid(i)*(-1.0+exp(abs(csc0)*(phi00(DG%ori_aid(i)))/DG%Te0_1D(i)))
          enddo
@@ -1680,7 +1680,7 @@ subroutine snapshot_hdf5
          do i=1,DG%dim_a
             DG%mean_ZON_dne_adiab(i) = abs(csc0)*(int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
          enddo
-      elseif(Flag_Def_dne_adiab==3) then
+      elseif(Flag_Def_dne_adiab==2) then
          do i=1,DG%dim_a
             DG%mean_ZON_dne_adiab(i) = den_grid(i)*(-1.0+exp(abs(csc0)*(mean_zonal_dphi(DG%ori_aid(i)))/DG%Te0_1D(i)))
          enddo
@@ -2630,7 +2630,7 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
    dni_init=0.0; dni_vpara=0.0; dni_vperp=0.0; dni_accel=0.0; dni_fdamp=0.0;
    dTi_init=0.0; dTi_vpara=0.0; dTi_vperp=0.0; dTi_accel=0.0; dTi_fdamp=0.0;
 
-   call ion_locator
+   call ion_locator_at_larmor_points
 
    !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
@@ -2659,25 +2659,21 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
          dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
          dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
          dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-         dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
          dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
          dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
          dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
          tmp1 = wgf1*wa0*inner_wgq0
          dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
          dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
          dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
          dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-         dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
          dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
          dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
          dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
 
          !inner radius, larger theta index
          ij=ij+1
@@ -2686,25 +2682,21 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
          dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
          dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
          dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-         dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
          dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
          dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
          dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
          tmp1 = wgf1*wa0*inner_wgq1
          dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
          dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
          dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
          dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-         dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
          dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
          dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
          dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
 
          !outter radius, smaller theta index
          ij=jtion1(larmor,m)
@@ -2713,25 +2705,21 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
          dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
          dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
          dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-         dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
          dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
          dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
          dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
          tmp1 = wgf1*wa1*outter_wgq0
          dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
          dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
          dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
          dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-         dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
          dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
          dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
          dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
 
          !outter radius, larger theta index
          ij=ij+1
@@ -2740,25 +2728,21 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
          dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
          dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
          dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-         dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
          dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
          dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
          dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
          tmp1 = wgf1*wa1*outter_wgq1
          dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
          dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
          dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
          dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-         dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
          dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
          dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
          dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
       enddo
    enddo
 
@@ -3032,28 +3016,24 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
       dne_vperp(0,ij) = dne_vperp(0,ij) + tmp1*we_vperp(m)
       dne_accel(0,ij) = dne_accel(0,ij) + tmp1*we_accel(m)
       dne_adiab(0,ij) = dne_adiab(0,ij) + tmp1*we_adiab(m)
-      dne_fdamp(0,ij) = dne_fdamp(0,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(0,ij)  = dTe_init(0,ij)  + tmp2*we_init(m)
       dTe_vpara(0,ij) = dTe_vpara(0,ij) + tmp2*we_vpara(m)
       dTe_vperp(0,ij) = dTe_vperp(0,ij) + tmp2*we_vperp(m)
       dTe_accel(0,ij) = dTe_accel(0,ij) + tmp2*we_accel(m)
       dTe_adiab(0,ij) = dTe_adiab(0,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(0,ij) = dTe_fdamp(0,ij) + tmp2*we_fdamp(m)
       tmp1 = wgf1*wa0*inner_wgq0
       dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
       dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
       dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
       dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
       dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
-      dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
       dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
       dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
       dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
       dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
       !inner radius, larger theta index
       ij=ij+1
@@ -3063,28 +3043,24 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
       dne_vperp(0,ij) = dne_vperp(0,ij) + tmp1*we_vperp(m)
       dne_accel(0,ij) = dne_accel(0,ij) + tmp1*we_accel(m)
       dne_adiab(0,ij) = dne_adiab(0,ij) + tmp1*we_adiab(m)
-      dne_fdamp(0,ij) = dne_fdamp(0,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(0,ij)  = dTe_init(0,ij)  + tmp2*we_init(m)
       dTe_vpara(0,ij) = dTe_vpara(0,ij) + tmp2*we_vpara(m)
       dTe_vperp(0,ij) = dTe_vperp(0,ij) + tmp2*we_vperp(m)
       dTe_accel(0,ij) = dTe_accel(0,ij) + tmp2*we_accel(m)
       dTe_adiab(0,ij) = dTe_adiab(0,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(0,ij) = dTe_fdamp(0,ij) + tmp2*we_fdamp(m)
       tmp1 = wgf1*wa0*inner_wgq1
       dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
       dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
       dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
       dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
       dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
-      dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
       dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
       dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
       dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
       dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
       !outter radius, smaller theta index
       ij=jteon1(m)
@@ -3094,28 +3070,24 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
       dne_vperp(0,ij) = dne_vperp(0,ij) + tmp1*we_vperp(m)
       dne_accel(0,ij) = dne_accel(0,ij) + tmp1*we_accel(m)
       dne_adiab(0,ij) = dne_adiab(0,ij) + tmp1*we_adiab(m)
-      dne_fdamp(0,ij) = dne_fdamp(0,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(0,ij)  = dTe_init(0,ij)  + tmp2*we_init(m)
       dTe_vpara(0,ij) = dTe_vpara(0,ij) + tmp2*we_vpara(m)
       dTe_vperp(0,ij) = dTe_vperp(0,ij) + tmp2*we_vperp(m)
       dTe_accel(0,ij) = dTe_accel(0,ij) + tmp2*we_accel(m)
       dTe_adiab(0,ij) = dTe_adiab(0,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(0,ij) = dTe_fdamp(0,ij) + tmp2*we_fdamp(m)
       tmp1 = wgf1*wa1*outter_wgq0
       dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
       dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
       dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
       dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
       dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
-      dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
       dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
       dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
       dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
       dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
       !outter radius, larger theta index
       ij=ij+1
@@ -3125,28 +3097,24 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
       dne_vperp(0,ij) = dne_vperp(0,ij) + tmp1*we_vperp(m)
       dne_accel(0,ij) = dne_accel(0,ij) + tmp1*we_accel(m)
       dne_adiab(0,ij) = dne_adiab(0,ij) + tmp1*we_adiab(m)
-      dne_fdamp(0,ij) = dne_fdamp(0,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(0,ij)  = dTe_init(0,ij)  + tmp2*we_init(m)
       dTe_vpara(0,ij) = dTe_vpara(0,ij) + tmp2*we_vpara(m)
       dTe_vperp(0,ij) = dTe_vperp(0,ij) + tmp2*we_vperp(m)
       dTe_accel(0,ij) = dTe_accel(0,ij) + tmp2*we_accel(m)
       dTe_adiab(0,ij) = dTe_adiab(0,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(0,ij) = dTe_fdamp(0,ij) + tmp2*we_fdamp(m)
       tmp1 = wgf1*wa1*outter_wgq1
       dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
       dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
       dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
       dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
       dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
-      dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
       dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
       dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
       dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
       dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
    enddo
 

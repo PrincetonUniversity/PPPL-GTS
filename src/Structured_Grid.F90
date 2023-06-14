@@ -1058,7 +1058,8 @@ contains
             ori_sid = SG%ori_sid(i)
 
             gqdum = modulo(SG%gq_1D(j) - qtinv(ori_sid)*zetamax, 2.0*pi) * ori_inv_dgq(ori_sid)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(ori_sid)-1,int(gqdum));  
+            wt=gqdum-jt
             ij=igrid(ori_sid)+jt
             out_IntpData_2D(j,i) =(1.0-wt)*oriData_1D(ij) + wt*oriData_1D(ij+1)
          enddo
@@ -1593,7 +1594,7 @@ contains
          ! Cal contributions from phi at zetamin to the particle
          target_gf = SG_zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid  = max(1,min(SG%dim_gq-1,int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1604,7 +1605,7 @@ contains
          ! Add contributions from phi at zetamax to the particle
          target_gf = SG_zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid  = max(1,min(SG%dim_gq-1,int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 

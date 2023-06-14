@@ -364,7 +364,6 @@ subroutine load
       wi_vpara(m) = 0
       wi_vperp(m) = 0
       wi_accel(m) = 0
-      wi_fdamp(m) = 0
    enddo
 
    if(mype==0) print*, 'average weight at t=0 is ', pdum
@@ -410,7 +409,6 @@ subroutine load
          we_vperp(m) = 0
          we_accel(m) = 0
          we_adiab(m) = 0
-         we_fdamp(m) = 0
       enddo
 
 
@@ -622,7 +620,7 @@ subroutine load
    ! call flush(stdout)
 
    if(acc_newer_H_zeon) then
-      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:),we_fdamp(:))
+      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:))
       !$acc update device(zeon(:,:),zeon0(:,:),elabels(:))
       !$acc update device(UnNorm_theta_e(:),UnNorm_zeta_e(:))
       acc_newer_H_zeon=.false.
@@ -630,7 +628,7 @@ subroutine load
    endif
 
    if(acc_newer_H_zion) then
-      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:),wi_fdamp(:))
+      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:))
       !$acc update device(zion(:,:),zion0(:,:),ilabels(:))
       !$acc update device(UnNorm_theta_i(:),UnNorm_zeta_i(:))
       acc_newer_H_zion=.false.
@@ -864,7 +862,6 @@ subroutine load_uniform_MGY
    wi_vpara = 0
    wi_vperp = 0
    wi_accel = 0
-   wi_fdamp = 0
 
    if(mype==0) then
       open(unit=1212,file='test_zion_load.dat',action='write')
@@ -1079,7 +1076,6 @@ subroutine load_uniform_MGY
       we_vperp = 0
       we_accel = 0
       we_adiab = 0
-      we_fdamp = 0
    endif
 
    !$acc update device(elabels(:me))
@@ -1270,7 +1266,7 @@ subroutine load_uniform_MGY
 
 
    if(acc_newer_H_zeon) then
-      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:),we_fdamp(:))
+      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:))
       !$acc update device(zeon(:,:),zeon0(:,:),elabels(:))
       !$acc update device(UnNorm_theta_e(:),UnNorm_zeta_e(:))
       acc_newer_H_zeon=.false.
@@ -1278,7 +1274,7 @@ subroutine load_uniform_MGY
    endif
 
    if(acc_newer_H_zion) then
-      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:),wi_fdamp(:))
+      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:))
       !$acc update device(zion(:,:),zion0(:,:),ilabels(:))
       !$acc update device(UnNorm_theta_i(:),UnNorm_zeta_i(:))
       acc_newer_H_zion=.false.

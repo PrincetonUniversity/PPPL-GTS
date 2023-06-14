@@ -20,6 +20,7 @@ subroutine shifte
    real(wp) normalized_zeta
    real(wp),dimension(:,:),allocatable :: send_Ptls, recv_Ptls
 
+   integer request_send_L, request_send_R, request_recv_L, request_recv_R
    integer MPI_Ptl_type
 
    !$acc declare create (zeon_zeta_arr)
@@ -33,13 +34,9 @@ subroutine shifte
 
    dim_zeon = size(zeon,1)
    dim_zeon0 = size(zeon0,1)
-   if(Flag_RK4==1) then
-      dim_RK_cum_zeon = size(RK_cum_zeon,1)
-   else
-      dim_RK_cum_zeon =0
-   endif
+   dim_RK_cum_zeon = size(RK_cum_zeon,1)
 
-   dim_Ptl_package = dim_zeon + dim_zeon0 + dim_RK_cum_zeon + 9  ! zeon + zeon0 + RK_cum_zeon+ elabels + 6 values about we evolution +2 Unnormalized Angles
+   dim_Ptl_package = dim_zeon + dim_zeon0 + dim_RK_cum_zeon + 8  ! zeon + zeon0 + RK_cum_zeon+ elabels + 5 values about we evolution +2 Unnormalized Angles
 
 
    call MPI_Type_contiguous( dim_Ptl_package, MPI_Rsize, MPI_Ptl_type, ierr);
@@ -163,22 +160,19 @@ subroutine shifte
             send_Ptls(k+j, i) =  zeon0(j,m)
          enddo
          k=k+dim_zeon0
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zeon
-               send_Ptls(k+j, i) =  RK_cum_zeon(j,m)
-            enddo
-            k=k+dim_RK_cum_zeon
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zeon
+            send_Ptls(k+j, i) =  RK_cum_zeon(j,m)
+         enddo
+         k=k+dim_RK_cum_zeon
          send_Ptls(k+1, i) =  elabels(m)
          send_Ptls(k+2, i) =  we_init(m)
          send_Ptls(k+3, i) =  we_vpara(m)
          send_Ptls(k+4, i) =  we_vperp(m)
          send_Ptls(k+5, i) =  we_accel(m)
          send_Ptls(k+6, i) =  we_adiab(m)
-         send_Ptls(k+7, i) =  we_fdamp(m)
-         send_Ptls(k+8, i) =  UnNorm_theta_e(m)
-         send_Ptls(k+9, i) =  UnNorm_zeta_e(m)
+         send_Ptls(k+7, i) =  UnNorm_theta_e(m)
+         send_Ptls(k+8, i) =  UnNorm_zeta_e(m)
       enddo
 
       if(send_num>0) then
@@ -191,16 +185,24 @@ subroutine shifte
       endif
 #endif
 
-      ! Send to Left
-      call MPI_SENDRECV(send_Ptls(:,1:send_L_count),send_L_count,MPI_Ptl_type,left_pe,0, recv_Ptls(:,1+recv_L_count:recv_num),recv_R_count,MPI_Ptl_type,right_pe ,0,toroidal_comm,istatus,ierr)
-      ! Send to Right
-      call MPI_SENDRECV(send_Ptls(:,1+send_L_count:send_num),send_R_count,MPI_Ptl_type,right_pe,0, recv_Ptls(:,1:recv_L_count),recv_L_count,MPI_Ptl_type,left_pe ,0,toroidal_comm,istatus,ierr)
+      ! Send to Left and Right 
+      if(send_L_count > 0) call MPI_ISEND(send_Ptls(:,1:send_L_count), send_L_count, MPI_Ptl_type, left_pe, 0, toroidal_comm, request_send_L, ierr)
+      if(send_R_count > 0) call MPI_ISEND(send_Ptls(:,1+send_L_count:send_num), send_R_count, MPI_Ptl_type, right_pe, 0, toroidal_comm, request_send_R, ierr)
+
+      ! Recv from Left and Right
+      if(recv_L_count > 0) call MPI_IRECV(recv_Ptls(:,1:recv_L_count), recv_L_count, MPI_Ptl_type, left_pe, 0, toroidal_comm, request_recv_L, ierr)
+      if(recv_R_count > 0) call MPI_IRECV(recv_Ptls(:,1+recv_L_count:recv_num), recv_R_count, MPI_Ptl_type, right_pe, 0, toroidal_comm, request_recv_R, ierr)
+     
+      ! Wait all non-blocking communications are finished
+      if(send_L_count > 0) call MPI_WAIT(request_send_L, istatus, ierr)
+      if(send_R_count > 0) call MPI_WAIT(request_send_R, istatus, ierr)
+      if(recv_L_count > 0) call MPI_WAIT(request_recv_L, istatus, ierr)
+      if(recv_R_count > 0) call MPI_WAIT(request_recv_R, istatus, ierr)
 
 
       if(recv_num>0) then
          !$acc update device(recv_Ptls(:,:recv_num))
       endif
-
 
 #ifdef _MGY_DEBUG_
       if(loop>ntoroidal)then
@@ -250,16 +252,13 @@ subroutine shifte
          we_vperp(m)     = we_vperp(mtop)
          we_accel(m)     = we_accel(mtop)
          we_adiab(m)     = we_adiab(mtop)
-         we_fdamp(m)     = we_fdamp(mtop)
 
          UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
          UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zeon
-               RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
-            enddo
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zeon
+            RK_cum_zeon(j,m)= RK_cum_zeon(j,mtop)
+         enddo
       enddo
 
 #ifdef _MGY_DEBUG_
@@ -284,22 +283,19 @@ subroutine shifte
             zeon0(j,me+i)   = recv_Ptls(k+j, i)
          enddo
          k=k+dim_zeon0
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zeon
-               RK_cum_zeon(j,me+i) = recv_Ptls(k+j, i)
-            enddo
-            k=k+dim_RK_cum_zeon
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zeon
+            RK_cum_zeon(j,me+i) = recv_Ptls(k+j, i)
+         enddo
+         k=k+dim_RK_cum_zeon
          elabels(me+i)   =  recv_Ptls(k+1, i)
          we_init(me+i)   =  recv_Ptls(k+2, i)
          we_vpara(me+i)  =  recv_Ptls(k+3, i)
          we_vperp(me+i)  =  recv_Ptls(k+4, i)
          we_accel(me+i)  =  recv_Ptls(k+5, i)
          we_adiab(me+i)  =  recv_Ptls(k+6, i)
-         we_fdamp(me+i)  =  recv_Ptls(k+7, i)
-         UnNorm_theta_e(me+i)= recv_Ptls(k+8, i)
-         UnNorm_zeta_e(me+i) = recv_Ptls(k+9, i)
+         UnNorm_theta_e(me+i)= recv_Ptls(k+7, i)
+         UnNorm_zeta_e(me+i) = recv_Ptls(k+8, i)
       enddo
       me = me + recv_num
       m0=me-recv_num+1  ! new starting index of next loop

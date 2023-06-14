@@ -83,9 +83,17 @@ contains
       type(FieldMap_3D), pointer :: FM
       character(128) :: filename
       integer :: Na,Nq,Nf,i,j,k
-      integer :: h5err
+      integer :: h5err,file_exist
       integer(HSIZE_T) :: h5dims(5)
       integer(HID_T) file_id
+
+      ! Check if the file exists.
+      filename = 'FootPrint.h5'
+      inquire(file=filename, exist=file_exist)
+      if (.not. file_exist) then
+         write(stdout,'(A,A,A)'), "In Read_FMap3D_on_MG, Error: File ", trim(filename), " does not exist."
+         return
+      endif
 
       FM=>FMap3D
 
@@ -672,7 +680,7 @@ contains
             gq=gq_1D(gqid)
 
             esi_aid  = min(esi%dim_a-1,floor((a-esi%a_1D(1))*inv_esi_da) +1)
-            esi_gqid = floor((gq-esi%gq_1D(1))*inv_esi_dgq) +1
+            esi_gqid = min(esi%dim_gq-1,floor((gq-esi%gq_1D(1))*inv_esi_dgq) +1)
 
             at=(a-esi%a_1D(esi_aid))*inv_esi_da
             qt=(gq-esi%gq_1D(esi_gqid))*inv_esi_dgq

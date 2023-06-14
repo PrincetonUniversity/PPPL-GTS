@@ -2432,9 +2432,7 @@ subroutine Cumulate_Some_Variables_for_Measure
          elseif(Flag_Def_dne_adiab==1) then!Flag_Def_dne_adiab==1
             ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
             adiab_dne_n0  = abs(csc0)*(full_dphi)/Te_grid(i)
-         elseif(Flag_Def_dne_adiab==2) then
-            adiab_dne_n0  = abs(csc0)*(full_dphi)/FLA_Te0(:,ij)
-         elseif(Flag_Def_dne_adiab==3) then!Flag_Def_dne_adiab==1
+         elseif(Flag_Def_dne_adiab==2) then!Flag_Def_dne_adiab==1
             ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
             adiab_dne_n0  = -1.0+exp(abs(csc0)*(full_dphi)/Te_grid(i))
          end if
@@ -3065,6 +3063,11 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
    if(mype==0) then
       allocate(recv_num_of_PPIs(Gsize), recv_num_of_FootPoints(Gsize))
       allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
+   else
+      ! Other ranks do not need to allocate memory to the following variables
+      ! Here, allocate a dummy small memory to those variables just to avoid some MPI compiler may complain that we are using a null pointer.
+      allocate(recv_num_of_PPIs(1), recv_num_of_FootPoints(1))
+      allocate(recv_PPI(1, 1), recv_FootPoints(1,1)) 
    endif
    call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(num_of_FootPoints, Lsize, MPI_INTEGER, recv_num_of_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
@@ -3100,7 +3103,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       ! Cal FMap3D_safety_q_1D by interpolation
       P_a = FMap3D_a_1D(aa)
       call Convert_a_to_s(P_a,P_s)
-      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ori_sid = max(0,min(mpsi-1,floor((P_s-s0)*ori_inv_ds))) ! s index of original full grid
       ratio=(P_s-s_grid(ori_sid))*ori_inv_ds
       FMap3D_safety_q_1D(aa) = ratio*q_grid(ori_sid+1) + (1.0-ratio)*q_grid(ori_sid)
    enddo
@@ -3787,6 +3790,10 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    if(mype==0) then
       allocate(recv_num_of_PPIs(Gsize), recv_num_of_FootPoints(Gsize))
       allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
+   else
+      ! allocate small memory to dummy variable (to prevent MPI compiler warnings)
+      allocate(recv_num_of_PPIs(1), recv_num_of_FootPoints(1))
+      allocate(recv_PPI(1,1), recv_FootPoints(1,1))
    endif
    call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(num_of_FootPoints, Lsize, MPI_INTEGER, recv_num_of_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
@@ -3824,7 +3831,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       ! Cal FMap3D_safety_q_1D by interpolation
       P_a = FMap3D_a_1D(aa)
       call Convert_a_to_s(P_a,P_s)
-      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ori_sid = max(0,min(mpsi-1,floor((P_s-s0)*ori_inv_ds))) ! s index of original full grid
       ratio=(P_s-s_grid(ori_sid))*ori_inv_ds
       FMap3D_safety_q_1D(aa) = ratio*q_grid(ori_sid+1) + (1.0-ratio)*q_grid(ori_sid)
    enddo
@@ -4076,7 +4083,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
       ! PPI
       num_of_samplePPIs_for_output = 70*70
-      PPI_jump= (Gsize)/num_of_samplePPIs_for_output
+      PPI_jump= max(1,(Gsize)/num_of_samplePPIs_for_output)
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
       h5dims(1)=(Gsize+max(0,PPI_jump-1))/PPI_jump
@@ -5235,6 +5242,7 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
 
    real(wp) tmp_weight
    real(wp) sendl(mgrid),recvr(mgrid)
+   real(wp) recv_arr_SFL(num_of_SampledFieldLines)
    integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
 
 
@@ -5300,10 +5308,10 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
    enddo
 
    ! Do Allreduce across toroidal_comm to get a sum of FLA
-   call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-   each_FLA_val = recvr(1:num_of_SampledFieldLines)
-   call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-   each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+   call MPI_ALLREDUCE(each_FLA_val,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+   each_FLA_val = recv_arr_SFL
+   call MPI_ALLREDUCE(each_FLA_denominator,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+   each_FLA_denominator = recv_arr_SFL
 
    each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
 
@@ -6242,7 +6250,7 @@ subroutine Update_Most_Particle_Information_to_HOST()
    ! Update Electron Particles
    !$acc update self(elabels(:me))
    !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-   !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
+   !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me))
    !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
    acc_newer_D_zeon=.false.
    acc_newer_H_zeon=.false.
@@ -6250,7 +6258,7 @@ subroutine Update_Most_Particle_Information_to_HOST()
    ! Update Ion Particles
    !$acc update self(ilabels(:mi))
    !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-   !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
+   !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi))
    !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
    acc_newer_D_zion=.false.
    acc_newer_H_zion=.false.
@@ -6265,7 +6273,7 @@ subroutine Update_Most_Particle_Information_to_DEVICE()
    ! Update Electron Particles
    !$acc update device(elabels(:me))
    !$acc update device(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-   !$acc update device(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
+   !$acc update device(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me))
    !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
    acc_newer_D_zeon=.false.
    acc_newer_H_zeon=.false.
@@ -6273,7 +6281,7 @@ subroutine Update_Most_Particle_Information_to_DEVICE()
    ! Update Ion Particles
    !$acc update device(ilabels(:mi))
    !$acc update device(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-   !$acc update device(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
+   !$acc update device(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi))
    !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
    acc_newer_D_zion=.false.
    acc_newer_H_zion=.false.

@@ -593,7 +593,6 @@ module Diagnostic_Grid
 
          real(wp) tmp_Scalar_Data(DG%dim_gq,DG%dim_a,DG%num_eSD,0:1), tmp_Vector_Data(3,DG%dim_gq,DG%dim_a,DG%num_eVD,0:1)
          real(wp) :: intpl_dphi(DG%dim_gq, DG%dim_a), inv_tot_ne(DG%dim_gq, DG%dim_a)
-         real(wp) :: intpl_FLA_Te0(DG%dim_gq,DG%dim_a)
          real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          integer :: ij,ip
@@ -621,17 +620,20 @@ module Diagnostic_Grid
          KE_para = 0.5*for_E*(zeon0(4,1:me)*BB(1:me))**2.0
          KE_perp = zeon(6,1:me)*zeon(6,1:me)*BB(1:me)
 
-         do m=1,me
-            aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
-            gqid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
-            gfid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
-            Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
-         enddo
+         if(allocated(FMap3D%Mirror_Ratio)) then
+            do m=1,me
+               aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+               gqid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+               gfid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
+               Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
+            enddo
+         else
+            Mirror_Ratio=-1.0
+         endif
 
 
          ! Calculate dne_adiabatic by interpolating dphi on original grids
          call Interpolate_OriGridData_into_DG(phi(1,:), intpl_dphi)
-         call Interpolate_OriGridData_into_DG(FLA_Te0(1,:), intpl_FLA_Te0)
          if (Flag_Def_dne_adiab==0) then
             do aid=1,DG%dim_a
                i = DG%ori_aid(aid)
@@ -643,13 +645,6 @@ module Diagnostic_Grid
                DG%dne_adiab(:,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
             enddo
          elseif(Flag_Def_dne_adiab==2) then
-            do aid=1,DG%dim_a
-               do gqid=1,DG%dim_gq
-                  i = DG%ori_aid(aid)
-                  DG%dne_adiab(gqid,aid)=den_grid(i)*abs(csc0)*(intpl_dphi(gqid,aid)+real(ZF_SEPARATION)*phi00(i))/intpl_FLA_Te0(gqid,aid)
-               enddo
-            enddo
-         elseif(Flag_Def_dne_adiab==3) then
             do aid=1,DG%dim_a
                i = DG%ori_aid(aid)
                DG%dne_adiab(:,aid)=den_grid(i)*(-1.0+exp(abs(csc0)*(intpl_dphi(:,aid)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)))
@@ -693,7 +688,7 @@ module Diagnostic_Grid
             elseif(Flag_Def_dne_adiab==1) then
                ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
                AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
-            elseif(Flag_Def_dne_adiab==3) then
+            elseif(Flag_Def_dne_adiab==2) then
                AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
             else
                AD=-1e100
@@ -789,12 +784,14 @@ module Diagnostic_Grid
 
 
                   ! if(norm_vperp>abs(norm_vpara)*tan(asin(sqrt(1.0/Mirror_Ratio(m))))) then ! Magnetically trapped particle
-                  if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
-                     vid=27; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
-                     vid=28; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
-                  else
-                     vid=29; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
-                     vid=30; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                  if(Mirror_Ratio(m)>0) then
+                     if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
+                        vid=27; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
+                        vid=28; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
+                     else
+                        vid=29; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
+                        vid=30; DG%eScaData(qq,ss,vid,k) = DG%eScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                     endif
                   endif
 
                   if( sqrt(norm_vpara**2.0+norm_vperp**2.0)<umax ) then
@@ -1083,12 +1080,16 @@ module Diagnostic_Grid
          ori_inv_ds = real(mpsi)/(s1-s0)
          ori_inv_dgf= 1.0/(zetamax-zetamin)
 
-         do m=1,mi
-            aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
-            gqid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
-            gfid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
-            Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
-         enddo
+         if(allocated(FMap3D%Mirror_Ratio)) then
+            do m=1,mi
+               aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+               gqid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+               gfid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
+               Mirror_Ratio(m) = FMap3D%Mirror_Ratio(gqid,aid,gfid)
+            enddo
+         else
+            Mirror_Ratio = -1.0
+         endif
 
          energy(:) = in_P_data(2,:)
          KE_para = 0.5*(zion0(4,1:mi)*BB(1:mi)-backu(1:mi))**2.0
@@ -1175,14 +1176,15 @@ module Diagnostic_Grid
                   norm_vpara = zion0(4,m)*BB(m)*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
                   norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
                   ! if(norm_vperp>abs(norm_vpara)*tan(asin(sqrt(1.0/Mirror_Ratio(m))))) then ! Magnetically trapped particle
-                  if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
-                     vid=28; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
-                     vid=29; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
-                  else
-                     vid=30; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
-                     vid=31; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                  if(Mirror_Ratio(m)>0) then
+                     if(abs(norm_vpara/norm_vperp)<sqrt(Mirror_Ratio(m)-1.0)) then ! Magnetically trapped particle
+                        vid=28; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Trapped Particle Density
+                        vid=29; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Trapped (2/3)*Energy Density
+                     else
+                        vid=30; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*ptl_weight ! Magnetically Passing Particle Density
+                        vid=31; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*(2.0/3.0*energy(m))*ptl_weight ! Magnetically Passing (2/3)*Energy Density
+                     endif
                   endif
-
 
                   if( sqrt(norm_vpara**2.0+norm_vperp**2.0)<umax ) then
                      vid=32; DG%iScaData(qq,ss,vid,k) = DG%iScaData(qq,ss,vid,k) + ratio*zion0(6,m) !  Phase volume by markers
@@ -1518,7 +1520,11 @@ module Diagnostic_Grid
          real(wp) intp_phi_V ! interpolated phi in GTS unit
 
          !$acc declare create(ptl_data)
-         tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+         if(allocated(FMap3D%Mirror_Ratio)) then
+            tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+         else
+            tmp_FMap3D_MirrorRatio=-1.0
+         endif
 
          ori_inv_ds = real(mpsi)/(s1-s0)
 
@@ -1548,50 +1554,6 @@ module Diagnostic_Grid
 
 
             Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
-
-
-
-            ! ! Cal new phi at new position (i.e. phi @ (t_(n+1), x_(n+1)))
-            ! wz1=wzeon(m)
-            ! wz0=1.0_wp-wz1
-
-            ! ij=jteon0(m)
-            ! wp0=1.0_wp-wpeon(m)
-            ! wt00=1.0_wp-wteon0(m)
-            ! e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ! ij=ij+1
-            ! wt10=1.0_wp-wt00
-            ! e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ! ij=jteon1(m)
-            ! wp1=1.0_wp-wp0
-            ! wt01=1.0_wp-wteon1(m)
-            ! e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ! ij=ij+1
-            ! wt11=1.0_wp-wt01
-            ! e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
-
-            ! ! calculate <phi> at electrons (no FLR effect -- x=R)
-            ! r=zeon0(7,m)-s0       ! in radial coordinator s
-            ! r=r*ori_inv_ds
-            ! ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-            ! fip=r-real(ip,wp)
-            ! Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-
-            ! if ( Flag_Def_dne_adiab==0 ) then
-            !    AD=(e1-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
-            ! elseif(Flag_Def_dne_adiab==1) then
-            !    ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-            !    AD=(e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
-            ! elseif(Flag_Def_dne_adiab==3) then
-            !    AD=-1.0+exp((e1+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
-            ! else
-            !    AD=-1e100
-            !    write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in Measure Electrons_on_DG!!"
-            !    STOP
-            ! endif
 
 
             call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi_V)
@@ -1651,23 +1613,20 @@ module Diagnostic_Grid
             ptl_data(23,m) = 0.5*(in_P_data(5,m)*Full_da(m)*ee_inv_grad_a(m)) ! by full-f or ull-h
 
 
-            aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
-            qid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
-            fid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
-            ! Mirror_Ratio = min(FMap3D%Max_BB0_CCW(qid,aid,fid),FMap3D%Max_BB0_CW(qid,aid,fid))/(BB(m))
-            ! if(aid>200 .or. aid<1 .or. qid>300 .or. qid<1 .or. fid>100 .or. fid<1) then
-            !    ! write(stdout,*) "zeon(1,m)=",zeon(1,m),"FMap3D%a_1D(1)=",FMap3D%a_1D(1),FMap3D%gq_1D(1),FMap3D%gf_1D(1)
-            !    write(stdout,*) "FMap3D%inv_da=",FMap3D%inv_da,FMap3D%inv_dgq,FMap3D%inv_dgf
-            !    write(stdout,*) "In eZon Measure; (aid,qid,fid)=", aid, qid, fid
-            ! endif
-            ! Mirror_Ratio = FMap3D%Mirror_Ratio(qid,aid,fid)
             inv_vth = 1.0/sqrt(backTe(m))  ! vth = sqrt(Te/me) = sqrt(backTe); Note that backTe is defined as Te/me
             norm_vpara = zeon0(4,m)*csc0*BB(m)*m0ms*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
             norm_vperp = zeon(6,m)*sqrt(2.0*BB(m)*m0ms)*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
 
+            if(allocated(FMap3D%Mirror_Ratio)) then
+               aid = max(1,min(FMap3D%dim_a,floor((zeon0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+               qid = max(1,min(FMap3D%dim_gq,floor((zeon0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+               fid = max(1,min(FMap3D%dim_gf,floor((zeon0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
 
-            Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
-            ! Mirror_Ratio = 1
+               Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
+            else
+               Mirror_Ratio = -1.0
+            endif
+
             if(Mirror_Ratio>0) then
 
                ptl_weight = zeon0(8,m) + fe_AD
@@ -1789,7 +1748,11 @@ module Diagnostic_Grid
          real(wp) :: ori_inv_ds
          !$acc declare create(ptl_data)
 
-         tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+         if(allocated(FMap3D%Mirror_Ratio)) then
+            tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
+         else
+            tmp_FMap3D_MirrorRatio=-1.0
+         endif
 
 
 
@@ -1861,17 +1824,19 @@ module Diagnostic_Grid
             ptl_data(19,m) = zion0(8,m)*(vpara_dvi_a(m))*ii_inv_grad_a(m) ! Particle Flux by streaming only
             ptl_data(20,m) = ptl_data(5,m)*in_P_data(2,m) ! Energy Flux by streaming only
 
-            aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
-            qid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
-            fid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
-
             inv_vth = 1.0/sqrt(backT(m))  ! vth = sqrt(T/m)
             norm_vpara = zion0(4,m)*BB(m)*inv_vth ! norm_vpara = rho_para*(eB/m)/vth
             norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*inv_vth ! norm_vperp = sqrt(mu)*sqrt(2B/m)/vth
 
-            Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
+            if(allocated(FMap3D%Mirror_Ratio)) then
+               aid = max(1,min(FMap3D%dim_a,floor((zion0(1,m)-FMap3D%a_1D(1))*FMap3D%inv_da) +1))
+               qid = max(1,min(FMap3D%dim_gq,floor((zion0(2,m)-FMap3D%gq_1D(1))*FMap3D%inv_dgq) +1))
+               fid = max(1,min(FMap3D%dim_gf,floor((zion0(3,m)-FMap3D%gf_1D(1))*FMap3D%inv_dgf) +1))
 
-
+               Mirror_Ratio = tmp_FMap3D_MirrorRatio(qid,aid,fid)
+            else
+               Mirror_Ratio = -1.0
+            endif
 
             if(Mirror_Ratio>0) then
                ptl_weight = zion0(8,m)
@@ -2002,7 +1967,7 @@ module Diagnostic_Grid
                ori_aid = DG%ori_aid(i)
 
                gqdum = modulo(DG%gq_1D(j) - qtinv(ori_aid)*zetamax, 2.0*pi) * ori_inv_dgq(ori_aid)
-               jt=int(gqdum);  wt=gqdum-jt
+               jt=min(mtheta(ori_aid)-1,int(gqdum));  wt=gqdum-jt
                ij=igrid(ori_aid)+jt
                out_IntpData_2D(j,i) =(1.0-wt)*oriData_1D(ij) + wt*oriData_1D(ij+1)
             enddo
@@ -2281,6 +2246,7 @@ module Diagnostic_Grid
          integer ierror
 
          real(wp) recvr(mgrid)
+         real(wp) recv_arr_SFL(num_of_SampledFieldLines)
          integer istatus(MPI_STATUS_SIZE)
 
          real(wp) target_gq, target_zeta
@@ -2343,10 +2309,10 @@ module Diagnostic_Grid
          enddo
 
          ! Do Allreduce across toroidal_comm to get a sum of FLA
-         call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_val = recvr(1:num_of_SampledFieldLines)
-         call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+         call MPI_ALLREDUCE(each_FLA_val,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_val = recv_arr_SFL
+         call MPI_ALLREDUCE(each_FLA_denominator,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_denominator = recv_arr_SFL
 
          each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
 
@@ -2361,7 +2327,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*inv_ds))) ! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
@@ -2444,6 +2410,7 @@ module Diagnostic_Grid
          integer ierror
 
          real(wp) recvr(mgrid)
+         real(wp) recv_arr_SFL(num_of_SampledFieldLines)
          integer istatus(MPI_STATUS_SIZE)
 
          real(wp) target_gq, target_zeta
@@ -2476,7 +2443,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*ori_inv_ds)))! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
@@ -2520,10 +2487,10 @@ module Diagnostic_Grid
          enddo
 
          ! Do Allreduce across toroidal_comm to get a sum of FLA
-         call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_val = recvr(1:num_of_SampledFieldLines)
-         call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+         call MPI_ALLREDUCE(each_FLA_val,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_val = recv_arr_SFL
+         call MPI_ALLREDUCE(each_FLA_denominator,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_denominator = recv_arr_SFL
 
          each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
 
@@ -2538,7 +2505,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*ori_inv_ds))) ! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
@@ -2619,6 +2586,7 @@ module Diagnostic_Grid
          integer ierror
 
          real(wp) recvr(mgrid)
+         real(wp) recv_arr_SFL(num_of_SampledFieldLines)
          integer istatus(MPI_STATUS_SIZE)
 
          real(wp) target_gq, target_zeta
@@ -2650,10 +2618,10 @@ module Diagnostic_Grid
          enddo
 
          ! Do Allreduce across toroidal_comm to get a sum of FLA
-         call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_val = recvr(1:num_of_SampledFieldLines)
-         call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-         each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+         call MPI_ALLREDUCE(each_FLA_val,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_val = recv_arr_SFL
+         call MPI_ALLREDUCE(each_FLA_denominator,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+         each_FLA_denominator = recv_arr_SFL
 
          each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
 
@@ -2668,7 +2636,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*ori_inv_ds))) ! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 
@@ -2764,7 +2732,7 @@ module Diagnostic_Grid
                this_gq = modulo(gPPI(Pid,Fid)%gq, 2.0*pi)
                this_gf = gPPI(Pid,Fid)%target_normalized_gf
 
-               ori_sid = (this_s-s0)*ori_inv_ds ! s index of original full grid
+               ori_sid = max(0,min(mpsi-1,floor((this_s-s0)*ori_inv_ds))) ! s index of original full grid
                ff  = (this_s-s_grid(ori_sid))*ori_inv_ds
                this_safety_q = ff*q_grid(ori_sid+1) + (1.0-ff)*q_grid(ori_sid)
 

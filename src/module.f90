@@ -103,12 +103,6 @@ module global_parameters
    ! The following input parameters are specified in setup for radial boundary layers with damping
    real(wp) lmin, lmax, rmin, rmax
 
-   ! The following  parameters are used to sepcify weight damping implementation
-   !     wimcompressibility=0 --> no damping
-   !     wimcompressibility=1 --> use the algorithm to assure imcompressibility in weight
-   !     wimcompressibility=2 --> apply weight damping with damping rate specified by eta_w=weight_damping_rate/tstep
-   integer,parameter  :: wimcompressibility=0       ! switch  added April, 2013 for implementing weight imcompressibility
-   !     integer  :: wimcompressibility=1       ! switch  added April, 2013 for implementing weight imcompressibility
    real(wp),parameter :: weight_damping_rate=2.0d-7 ! =eta_w*tstep
 
    ! finite element order
@@ -154,10 +148,10 @@ module global_parameters
    real(wp) inv_larmor_num ! (=1.0/larmor_num) For faster calculation
    !==============================================================================
 
-   integer :: Flag_RK4=0 ! Default value is 0 (OFF), it can be controlled by INPUT.d file
+   integer :: Flag_RK4=1 ! Default value is 1 (ON), it can be controlled by INPUT.d file
    integer :: Flag_Poisson=1 ! Default=1 (ON), if this is 0 then does not solve poisson equation so becomes the single particle simulation.
    integer :: Flag_Poisson3D_on_SG=0 ! Default=0 (OFF; using original equation), can be set =1 (new 3D Poisson Solver on SG)
-   integer :: Flag_Def_dne_adiab=0 ! Default=0 (original definition; using nonzonal phi), can be set =1 (using full phi with Te0), =2 (using full phi with FLA_Te0)
+   integer :: Flag_Def_dne_adiab=0 ! Default=0 (original definition; using nonzonal phi), can be set =1 (using full phi with Te0; f_AD=(e*phi/Te0)*f0), =2 (using full phi as f_AD=(exp(e*phi/Te0)-1)*f0)
    integer :: Flag_w_Evol=0  ! Default=0 (OFF;original equation), can be set =1(Transformed Weight Evolution Equation) by INPUT.d
    integer :: Flag_GC_Solver=1 ! Default=1 (Vector form GC equation), can be set =0(Matrix form GC equation)
    integer :: Flag_Load_and_WeightDef=0 ! Default=0 (original), can be set =1 (Uniform Loading and double-weight definition for df and f_tot)
@@ -245,10 +239,10 @@ module particle_array
    ! ============================
    ! MGYOO (07/31/2018)
    ! Additional information about weight component ratio
-   real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp ! for ion weight
-   !$acc declare create(wi_init, wi_vpara, wi_vperp, wi_accel, wi_fdamp)
-   real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp ! for electron weight
-   !$acc declare create(we_init, we_vpara, we_vperp, we_accel, we_adiab, we_fdamp)
+   real(wp), dimension(:), allocatable :: wi_init, wi_vpara, wi_vperp, wi_accel ! for ion weight
+   !$acc declare create(wi_init, wi_vpara, wi_vperp, wi_accel)
+   real(wp), dimension(:), allocatable :: we_init, we_vpara, we_vperp, we_accel, we_adiab ! for electron weight
+   !$acc declare create(we_init, we_vpara, we_vperp, we_accel, we_adiab)
    ! ============================
 
 
