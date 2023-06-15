@@ -502,7 +502,6 @@ subroutine snapshot_hdf5
    implicit none
 
    integer, parameter :: gq_jump=3, a_jump=1
-   integer :: msnap_for_All
    integer :: dim_a, dim_gq
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
@@ -554,8 +553,6 @@ subroutine snapshot_hdf5
          DG_FLA_iScaData(:,:,i) = DG_FLA_Data(:,:,1)
       enddo
    endif
-
-   msnap_for_All = msnap*50
 
 
    if(istep==0) then
@@ -798,7 +795,7 @@ subroutine snapshot_hdf5
    ! Record some data on sparse grid points
    ! ==================================
    snap_flag=.false.
-   if(mod(istep,msnap_for_All)==0 .and. myrank_partd==nproc_partd-1) then
+   if(mod(istep,msnap*snapAll_Factor)==0 .and. myrank_partd==nproc_partd-1) then
       call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
       write(file_path, '("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
       snap_flag=.true.
@@ -2233,7 +2230,7 @@ subroutine snapshot_hdf5
 
 
    ! Copy snapshot data of last poloidal plane into AllPlanes if istep==msnap_for_All
-   if(mod(istep,msnap_for_All)==0 .and. mype == numberpe-1) then
+   if(mod(istep,msnap*snapAll_Factor)==0 .and. mype == numberpe-1) then
       write(file_path, '("snapshots_hdf5/snap",i5.5,".h5")') istep/msnap
       write(file_path2,'("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
       call system("cp " // file_path // file_path2)

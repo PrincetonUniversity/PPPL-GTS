@@ -2458,6 +2458,7 @@ Subroutine read_input_params
       irun,               &   ! =0, 1st run; >0 continueing run
       mstep,              &   ! number of last step
       msnap,              &   ! step interval for snapshot, PHI record and checkpoint
+      snapAll_Factor, &  ! step interval for snapshot for All poloidal planes
       ndiag,              &   ! calculate fluxes, tur intensity, etc, every ndiag-step
       nonlinear,          &   ! =1.0, nonlinear run, =0.0, linear run
       ifdphi,             &   ! =0 --> no dphi/dt involved when ifelectron=0 or 1;

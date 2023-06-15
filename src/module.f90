@@ -19,6 +19,7 @@ module global_parameters
       stdout,mype,numberpe,mode00,nbound,irun,iload,irk,&
       idiag,ncycle,mtdiag,idiag1,idiag2,ipsi,maintnT,&
       nelectron,ntracer_e,ntracer00,me00,idiag_e,ierrr
+   integer :: snapAll_Factor=100 ! record All Poloidal Planes every istep=msnap*snapAll_Facotr
    integer :: nbound_inner=-100, nbound_outer=-100
    real(wp) Gt_start, Gt_end ! for measuring the elpased time for something
    real(wp) misum,mesum  !Total number of ions and electrons can be >2 billion
