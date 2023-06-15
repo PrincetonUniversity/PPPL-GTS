@@ -72,20 +72,13 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
 
    if(irk_i==1)then ! 1st step of Runge-Kutta method
       acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
-      !$acc parallel loop present(zion,zion0,RK_cum_zion)
+      !$acc parallel loop gang vector present(zion,zion0,RK_cum_zion)
       do m=1,mi
          ! Note that zion0(8,m) does not mean "mu", this is reserved for the other quantity
-         !$acc loop seq
-         do i=1,5
-            zion0(i,m)=zion(i,m)
-         enddo
-
+         zion0(1:5,m)=zion(1:5,m)
          zion0(7,m)=zion(7,m)
 
-         !$acc loop seq
-         do i=1,size(RK_cum_zion,1)
-            RK_cum_zion(i,m)=0.0
-         enddo
+         RK_cum_zion(1:5,m)=0.0
       enddo
    endif
    ! Followings are not required here, so commented out. (MGYOO: 11/13/2019)
@@ -202,7 +195,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
 
    ! update GC position
    acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
-   !$acc parallel loop present(zion,zion0,RK_cum_zion)
+   !$acc parallel loop gang vector present(zion,zion0,RK_cum_zion)
    do m=1,mi
       !     dbdz=0.0   for axisymmetric system   !wx
 
@@ -341,10 +334,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
 
       else if(irk_i==4) then !irk_i==4
          ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
-         !$acc loop seq
-         do i=1,4
-            zion(i,m) = zion0(i,m) +RK_cum_zion(i,m)
-         enddo
+         zion(1:4,m) = zion0(1:4,m) +RK_cum_zion(1:4,m)
          zion(7,m) = zion0(7,m) +RK_cum_zion(7,m)
 
          if(Flag_w_Evol==1) then
@@ -517,18 +507,12 @@ subroutine pushion_wEvol3(irk_i,nrk)
    call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, irk_i, nrk)
 
    if(irk_i==1)then ! 1st step of Runge-Kutta method
-      !$acc parallel loop present(zion,zion0,RK_cum_zion)
+      !$acc parallel loop gang vector present(zion,zion0,RK_cum_zion)
       do m=1,mi
-         !$acc loop seq
-         do i=1,5
-            zion0(i,m)=zion(i,m)
-         enddo
+         zion0(1:5,m)=zion(1:5,m)
          zion0(7,m)=zion(7,m)
 
-         !$acc loop seq
-         do i=1,size(RK_cum_zion,1)
-            RK_cum_zion(i,m)=0.0
-         enddo
+         RK_cum_zion(:,m)=0.0
       enddo
       acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
    endif
@@ -640,7 +624,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
    tt0=MPI_WTIME()
 #endif
 
-   !$acc parallel loop present(zion,zion0,RK_cum_zion)
+   !$acc parallel loop gang vector present(zion,zion0,RK_cum_zion)
    do m=1,mi
       mu=zion(6,m)**2.0 ! normalized mu of electrons
       vpara = BB(m)*zion(4,m)
@@ -661,10 +645,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
          zion(4,m) = zion0(4,m)+RK_adv_coeff*tstep*dgr(m)
          zion(7,m) = zion0(7,m)+RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
       else if(irk_i==nrk) then !irk_i==4
-         !$acc loop seq
-         do i=1,4
-            zion(i,m) = zion0(i,m) +RK_cum_zion(i,m)
-         enddo
+         zion(1:4,m) = zion0(1:4,m) +RK_cum_zion(1:4,m)
          zion(7,m) = zion0(7,m) +RK_cum_zion(7,m)
       endif
 
@@ -835,18 +816,12 @@ subroutine pushion_wEvol4(irk_i,nrk)
 
 
    if(irk_i==1)then ! 1st step of Runge-Kutta method
-      !$acc parallel loop present(zion,zion0,RK_cum_zion)
+      !$acc parallel loop gang vector present(zion,zion0,RK_cum_zion)
       do m=1,mi
-         !$acc loop seq
-         do i=1,5
-            zion0(i,m)=zion(i,m)
-         enddo
+         zion0(1:5,m)=zion(1:5,m)
          zion0(7,m)=zion(7,m)
 
-         !$acc loop seq
-         do i=1,size(RK_cum_zion,1)
-            RK_cum_zion(i,m)=0.0
-         enddo
+         RK_cum_zion(:,m)=0.0
       enddo
       acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
    endif
@@ -956,7 +931,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
    tt0=MPI_WTIME()
 #endif
 
-   !$acc parallel loop present(zion,zion0,RK_cum_zion)
+   !$acc parallel loop gang vector present(zion,zion0,RK_cum_zion)
    do m=1,mi
       mu=zion(6,m)**2.0 ! normalized mu of electrons
       vpara = BB(m)*zion(4,m)
@@ -977,10 +952,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
          zion(4,m) = zion0(4,m)+RK_adv_coeff*tstep*dgr(m)
          zion(7,m) = zion0(7,m)+RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
       else if(irk_i==nrk) then !irk_i==4
-         !$acc loop seq
-         do i=1,4
-            zion(i,m) = zion0(i,m) +RK_cum_zion(i,m)
-         enddo
+         zion(1:4,m) = zion0(1:4,m) +RK_cum_zion(1:4,m)
          zion(7,m) = zion0(7,m) +RK_cum_zion(7,m)
       endif
 
@@ -1137,7 +1109,7 @@ subroutine ion_locator_at_larmor_points
       acc_newer_H_zion=.false.
       acc_newer_D_zion=.false.
    endif
-   !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,ionLarmor_s,ionLarmor_gq) private(intpl_pgyro,intpl_tgyro,thedum)
+   !$acc parallel loop gang vector present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1,ionLarmor_s,ionLarmor_gq) private(intpl_pgyro,intpl_tgyro,thedum)
    do m=1,mi
       !psitmp=zion(1,m)   ! =a
       psitmp=zion(7,m)   ! =s

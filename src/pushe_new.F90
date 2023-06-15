@@ -81,23 +81,17 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
 
    if(irk_e==1)then ! 1st step of Runge-Kutta method
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
-      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
+      !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
          ! Note that zeon0(9,m) does not mean "mu", this is reserved for the other quantity
          ! zeon0(10,m) is the adiabatic term in the weight evolution @ t={n}, x={n}
          ! zeon(10,m) is a kind of temporary pouch to bring wdot term during shifte
 
-         !$acc loop seq
-         do i=1,5
-            zeon0(i,m)=zeon(i,m)
-         enddo
+         zeon0(1:5,m)=zeon(1:5,m)
          zeon0(7,m)=zeon(7,m)
          zeon0(8,m)=zeon(8,m) ! full-h
 
-         !$acc loop seq
-         do i=1,size(RK_cum_zeon,1)
-            RK_cum_zeon(i,m)=0.0
-         enddo
+         RK_cum_zeon(:,m)=0.0
       enddo
    endif
 
@@ -365,10 +359,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
             ! zeon(1:5,m) = zeon0(1:5,m) +RK_cum_zeon(1:5,m)
 
-            !$acc loop seq
-            do i=1,4
-               zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
-            enddo
+            zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)
             zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
          endif
 
@@ -601,7 +592,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             enddo            
 
             acc_newer_D_zeon=.true.
-            !$acc parallel loop present(zeon,zeon0,backTe,RK_cum_zeon)
+            !$acc parallel loop gang vector present(zeon,zeon0,backTe,RK_cum_zeon)
             do m=1,me
                ! calculate d(delta_phi)/dt at particles along trajactory
 
@@ -851,10 +842,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
             ! Get the future value at time level (n+1): f_(n+1) = f_(n) + (1/6)*(k1+2*k2+2*k3+k4) = f_(n)+RK_cum_value
             ! zeon(1:5,m) = zeon0(1:5,m) +RK_cum_zeon(1:5,m)
 
-            !$acc loop seq
-            do i=1,4
-               zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
-            enddo
+            zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)
             zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
 
             if(Flag_w_Evol==1) then
@@ -1060,21 +1048,16 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 
    ! Update zeon0 if irk_e==1
    if(irk_e==1) then
-      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
+      !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
          wpi(4,m) = zeon(5,m)-zeon0(5,m) ! Change of dh during the last one step
          wpi(5,m) = zeon(8,m)-zeon0(8,m) ! Change of full-h during the last one step
-         !$acc loop seq
-         do i=1,5
-            zeon0(i,m)=zeon(i,m)
-         enddo
+
+         zeon0(1:5,m)=zeon(1:5,m)
          zeon0(7,m)=zeon(7,m)
          zeon0(8,m)=zeon(8,m) ! full_f or full-h
 
-         !$acc loop seq
-         do i=1,size(RK_cum_zeon,1)
-            RK_cum_zeon(i,m)=0.0
-         enddo
+         RK_cum_zeon(:,m)=0.0
       enddo
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
    endif
@@ -1176,7 +1159,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
       tt0=MPI_WTIME()
 #endif
 
-   !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+   !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
    do m=1,me
       Te_inverse=1.0/(backTe(m)*msm0)
       mu=zeon(6,m)**2.0 ! normalized mu of electrons
@@ -1231,10 +1214,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
          zeon(4,m) = zeon0(4,m) +RK_adv_coeff*tstep*dgr(m)
          zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
       else if(irk_e==nrk) then
-         !$acc loop seq
-         do i=1,4
-            zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
-         enddo
+         zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)
          zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
       endif
 
@@ -1400,7 +1380,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
             Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
          enddo 
 
-         !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+         !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
          do m=1,me
             Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 
@@ -1517,21 +1497,15 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
    ! Update zeon0 if irk_e==1
    if(irk_e==1) then
-      !$acc parallel loop present(zeon,zeon0,RK_cum_zeon)
+      !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon)
       do m=1,me
          wpi(4,m) = zeon(5,m)-zeon0(5,m) ! Change of dh during the last one step
          wpi(5,m) = zeon(8,m)-zeon0(8,m) ! Change of full-h during the last one step
-         !$acc loop seq
-         do i=1,5
-            zeon0(i,m)=zeon(i,m)
-         enddo
+         zeon0(1:5,m)=zeon(1:5,m)
          zeon0(7,m)=zeon(7,m)
          zeon0(8,m)=zeon(8,m) ! full_f or full-h
 
-         !$acc loop seq
-         do i=1,size(RK_cum_zeon,1)
-            RK_cum_zeon(i,m)=0.0
-         enddo
+         RK_cum_zeon(:,m)=0.0
       enddo
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
    endif
@@ -1637,7 +1611,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       tt0=MPI_WTIME()
 #endif
 
-   !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
+   !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
    do m=1,me
       Te_inverse=1.0/(backTe(m)*msm0)
       mu=zeon(6,m)**2.0 ! normalized mu of electrons
@@ -1695,10 +1669,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
          zeon(4,m) = zeon0(4,m) +RK_adv_coeff*tstep*dgr(m)
          zeon(7,m) = zeon0(7,m) +RK_adv_coeff*tstep*(Tc/backT(m))**dsda_power*da(m)
       else if(irk_e==nrk) then
-         !$acc loop seq
-         do i=1,4
-            zeon(i,m) = zeon0(i,m) +RK_cum_zeon(i,m)
-         enddo
+         zeon(1:4,m) = zeon0(1:4,m) +RK_cum_zeon(1:4,m)
          zeon(7,m) = zeon0(7,m) +RK_cum_zeon(7,m)
       endif
 
