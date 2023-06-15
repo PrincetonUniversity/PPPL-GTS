@@ -109,15 +109,23 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
-   !$acc parallel loop present(Phi_at_zeon,gradPhi)
+   ! Structure Grid variables use SI units such as Phi [V] and gaH [m] 
+   ! They need to be convereted into GTS's normalized unit
+   !$acc parallel loop gang vector present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
-      enddo
+      gradPhi(:,m) = Fac_Volt2GTS*gradPhi(:,m)
    enddo 
+
+   ! ga has a length unit [L], so need to convert from SI [m] to GTS [cm] by multiplying a factor of 100
+   if(electromagnetic==2) then
+      !$acc parallel loop gang vector present(gaHS,grad_gaH,grad_gaS)
+      do m=1,me
+         gaHS(m) = 100*gaHS(m)
+         grad_gaH(:,m) = 100*grad_gaH(:,m)
+         grad_gaS(:,m) = 100*grad_gaS(:,m)
+      enddo
+   endif
 
 
 #ifdef _MGY_TIMER_
@@ -1080,15 +1088,23 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
-   !$acc parallel loop present(Phi_at_zeon,gradPhi)
+   ! Structure Grid variables use SI units such as Phi [V] and gaH [m] 
+   ! They need to be convereted into GTS's normalized unit
+   !$acc parallel loop gang vector present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
-      enddo
+      gradPhi(:,m) = Fac_Volt2GTS*gradPhi(:,m)
    enddo 
+
+   ! ga has a length unit [L], so need to convert from SI [m] to GTS [cm] by multiplying a factor of 100
+   if(electromagnetic==2) then
+      !$acc parallel loop gang vector present(gaHS,grad_gaH,grad_gaS)
+      do m=1,me
+         gaHS(m) = 100*gaHS(m)
+         grad_gaH(:,m) = 100*grad_gaH(:,m)
+         grad_gaS(:,m) = 100*grad_gaS(:,m)
+      enddo
+   endif
 
 
 #ifdef _MGY_TIMER_
@@ -1528,15 +1544,24 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
-   !$acc parallel loop present(Phi_at_zeon,gradPhi)
+
+   ! Structure Grid variables use SI units such as Phi [V] and gaH [m] 
+   ! They need to be convereted into GTS's normalized unit
+   !$acc parallel loop gang vector present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
+      gradPhi(:,m) = Fac_Volt2GTS*gradPhi(:,m)
+   enddo 
+
+   ! ga has a length unit [L], so need to convert from SI [m] to GTS [cm] by multiplying a factor of 100
+   if(electromagnetic==2) then
+      !$acc parallel loop gang vector present(gaHS,grad_gaH,grad_gaS)
+      do m=1,me
+         gaHS(m) = 100*gaHS(m)
+         grad_gaH(:,m) = 100*grad_gaH(:,m)
+         grad_gaS(:,m) = 100*grad_gaS(:,m)
       enddo
-   enddo
+   endif
 
 
 #ifdef _MGY_TIMER_
