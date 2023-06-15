@@ -1019,7 +1019,7 @@ subroutine load_uniform_MGY
             AdiabTerm(m)=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
          else
             AdiabTerm(m)=-1e100
-            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in load_uniform_MGY!!"
             STOP
          endif
       enddo
@@ -1405,7 +1405,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
 
       zeon(9,m) = integral_f0*AdiabTerm ! f_AD
 
-      zeon0(9,m) = integral_f0*AdiabTerm + zeon(8,m) ! f_tot
+      zeon0(9,m) =zeon(8,m) + int(ifelectron/2)*zeon(9,m) ! f_tot
       zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
 
       ! if(mype==0 .and. m==1) then

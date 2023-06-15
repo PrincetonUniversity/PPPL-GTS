@@ -517,7 +517,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          ! Instead, full-h will be solved directly from dh/dt=-d[f_AD]/dt in the similar way wEvol=3,4 do               
          ! wdot_fullh = -(now_wAD-old_wAD)/dtK
          now_wAD = -E_f*back_f0_e(m)*zeon0(6,m)
-         wdot_fullh = -(now_wAD-zeon(9,m))/(RK_adv_coeff*tstep) 
+         wdot_fullh = int(ifelectron/2)*(-(now_wAD-zeon(9,m))/(RK_adv_coeff*tstep)) ! wdot_fullh=0 when ifelectron<2 
 
          ! weight advanced including dphi/dt term (so the driving terms have (wdot+dphidt))
 
@@ -643,7 +643,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                ! Instead, full-h will be solved directly from dh/dt=-d[f_AD]/dt in the similar way wEvol=3,4 do               
                ! wdot_fullh = -(now_wAD-old_wAD)/dtK
                now_wAD = -E_f*back_f0_e(m)*zeon0(6,m)
-               wdot_fullh = -(now_wAD-zeon(9,m))/(RK_adv_coeff*tstep) 
+               wdot_fullh = int(ifelectron/2)*(-(now_wAD-zeon(9,m))/(RK_adv_coeff*tstep))
 
                ! Advance particle information for the next RK step
 
@@ -1330,8 +1330,8 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
          new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
          new_f0 = zeon0(6,m)*back_f0_e(m)
 
-         zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(10,m)) - (new_f_AD-zeon(9,m)) ! df or dh
-         zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
+         zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(10,m)) - int(ifelectron/2)*(new_f_AD-zeon(9,m)) ! df or dh
+         zeon(8,m) = zeon0(8,m) - int(ifelectron/2)*(new_f_AD-zeon(9,m)) ! full-f or full-h
       enddo
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
    elseif(Flag_Poisson==1) then
@@ -1417,8 +1417,8 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
             new_f_AD  = zeon0(6,m)*back_f0_e(m)*AD
             new_f0 = zeon0(6,m)*back_f0_e(m)
 
-            zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(10,m)) - (new_f_AD-zeon(9,m)) ! df or dh
-            zeon(8,m) = zeon0(8,m) - (new_f_AD-zeon(9,m)) ! full-f or full-h
+            zeon(5,m) = zeon0(5,m) - (new_f0-zeon0(10,m)) - int(ifelectron/2)*(new_f_AD-zeon(9,m)) ! df or dh
+            zeon(8,m) = zeon0(8,m) - int(ifelectron/2)*(new_f_AD-zeon(9,m)) ! full-f or full-h
          enddo
          acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
       enddo
@@ -1630,7 +1630,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
          ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
          ! zeon0(9,m) is f_0 (@ irk=1)
          zeon(9,m)  = zeon0(6,m)*back_f0_e(m)*AD
-         zeon0(9,m) = zeon0(8,m)+zeon(9,m) ! #TODO : IMPORTANT! checky why this re-normalization is needed. 
+         zeon0(9,m) = zeon0(8,m)+int(ifelectron/2)*zeon(9,m) ! #TODO : IMPORTANT! checky why this re-normalization is needed. 
 
 
          ! zeon0(9,m) = zeon0(6,m)*back_f0_e(m)
