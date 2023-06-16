@@ -3,7 +3,7 @@ subroutine open_files
    use particle_decomp
    use field_array
    use diagnosis_array
-
+   use control_parameters
    implicit none
 
    integer i
@@ -34,20 +34,20 @@ subroutine open_files
    write(chdum2,'("FLOW.",i5.5)')myrank_toroidal
 
    if(irun==0) then
-      if(movie_3D_h5==0 .and. myrank_partd==0) then   ! when movie 3D data output is off
+      if(movie_3D_h5==0 .and. myrank_partd==0 .and. flag_PHI>0) then   ! when movie 3D data output is off
          open(unit=777,file=chdum,form='unformatted')
          write(777) msnap,myrank_toroidal,mpsi,mgrid,mzetamax,ntoroidal,zetamin,zetamax,deltaz,vthc
          write(777) igrid,deltat,qtinv,mtheta,itran,vth_grid
          call flush(777)
       endif
-      if(myrank_partd==1) then   ! myrank_partd==1 will write delta-n
+      if(myrank_partd==1 .and. flag_DEN>0) then   ! myrank_partd==1 will write delta-n
          open(unit=888,file=chdum1,form='unformatted')
          !        write(888) msnap,myrank_toroidal,mpsi,mzeta,mgrid,mzetamax,ntoroidal,zetamin,zetamax,deltaz,vthc
          write(888) msnap,myrank_toroidal,mpsi,mgrid,mzetamax,ntoroidal,zetamin,zetamax,deltaz,vthc
          write(888) igrid,deltat,qtinv,mtheta,itran,vth_grid
          call flush(888)
       endif
-      if(myrank_partd==2) then   ! myrank_partd==2 will write delta-Vi
+      if(myrank_partd==2 .and. flag_FLOW>0) then   ! myrank_partd==2 will write delta-Vi
          open(unit=808,file=chdum2,form='unformatted')
          !        write(808) msnap,myrank_toroidal,mpsi,mzeta,mgrid,mzetamax,ntoroidal,zetamin,zetamax,deltaz,vthc
          write(808) msnap,myrank_toroidal,mpsi,mgrid,mzetamax,ntoroidal,zetamin,zetamax,deltaz,vthc
