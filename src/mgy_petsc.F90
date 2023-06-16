@@ -2912,6 +2912,21 @@ subroutine Solve_GK_Ampere_3D_on_SG()
       enddo
       SG%Ampere_RHS(SG%dim_gq,:)=SG%Ampere_RHS(1,:)
       deallocate(bVec_mype, bVec_partd)
+
+
+      call MatMult(PerpLapMat,AparaS,bVec,ierr); CHKERRQ(ierr)
+      allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
+      call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
+      bVec_mype(:)=ptr_bVec(1:Lsize)
+      call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
+      call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+      do Lid=1,sum_Lsize_partd
+         Gid=recv_mapL2G_partd(Lid)
+         SG%perpLap_AparaS(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
+      enddo
+      SG%perpLap_AparaS(SG%dim_gq,:)=SG%perpLap_AparaS(1,:)
+      deallocate(bVec_mype, bVec_partd)
+      
    endif
 
    call VecDestroy(AparaS,ierr); CHKERRQ(ierr)

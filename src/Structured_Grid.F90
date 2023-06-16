@@ -65,6 +65,8 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:) :: old_AparaS, RK_cum_AparaS  ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
      
       real(wp), allocatable, dimension(:,:) :: Ampere_RHS ! RHS of Ampere's equation
+      real(wp), allocatable, dimension(:,:) :: perpLap_AparaS ! RHS of Ampere's equation
+
    end type
 
    type(Grid_Info) :: SG ! Structure Grid
@@ -316,9 +318,10 @@ contains
       if(electromagnetic==2) then
          allocate(SG%AparaH(Nq,Ns,0:2))
          SG%AparaH=0.0
-         allocate(SG%AparaS(Nq,Ns),SG%Ampere_RHS(Nq,Ns))
+         allocate(SG%AparaS(Nq,Ns),SG%Ampere_RHS(Nq,Ns),SG%perpLap_AparaS(Nq,Ns))
          SG%AparaS=0.0
          SG%Ampere_RHS=0.0
+         SG%perpLap_AparaS=0.0
          allocate(SG%gaH(Nq,Ns,0:2),SG%gaS(Nq,Ns,0:2))
          SG%gaH=0.0
          SG%gaS=0.0
