@@ -162,7 +162,6 @@ module function_gg_module
          logical Flag_back_f0_i
          integer ierr
 
-         !$acc declare create(back_flux_A)
 
          Flag_back_f0_i=.true.
          if(present(flag_backf0)) Flag_back_f0_i = flag_backf0
@@ -180,6 +179,8 @@ module function_gg_module
 
          allocate(back_flux_A(m0:m1))
 
+
+         !$acc enter data create(back_flux_A)
 
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
@@ -342,7 +343,8 @@ module function_gg_module
             endif
          endif
 
-         deallocate(back_flux_A)
+         !$acc exit data delete(back_flux_A)
+         if(allocated(back_flux_A)) deallocate(back_flux_A)
 
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
@@ -396,7 +398,6 @@ module function_gg_module
          logical, optional,intent(in) :: flag_backf0
          logical Flag_backf0_e
 
-         !$acc declare create(back_flux_A,omega_ui,backTi)
 
          Flag_backf0_e = .true.
          if(present(flag_backf0)) Flag_backf0_e = flag_backf0
@@ -412,6 +413,7 @@ module function_gg_module
 
          allocate(back_flux_A(m0:m1),omega_ui(m0:m1),backTi(m0:m1))
 
+         !$acc enter data create(back_flux_A, omega_ui, backTi)
 
          if(acc_newer_H_zeon) then
             !$acc update device(zeon(:,m0:m1),zeon0(:,m0:m1),RK_cum_zeon(:,m0:m1))
@@ -578,7 +580,8 @@ module function_gg_module
          endif
 
 
-         deallocate(back_flux_A,omega_ui,backTi)
+         !$acc exit data delete(back_flux_A, omega_ui, backTi)
+         if(allocated(back_flux_A)) deallocate(back_flux_A,omega_ui,backTi)
 
 
 #ifdef _MGY_TIMER_

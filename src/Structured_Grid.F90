@@ -376,7 +376,6 @@ contains
       real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
 
 
-      !$acc declare create(ptl_data)
 
 
       ! Determine Flag target data
@@ -414,6 +413,7 @@ contains
       eData = 0.0
 
 
+      !$acc enter data create(ptl_data)
 
       select case(flagT)
          case(0)
@@ -590,6 +590,7 @@ contains
          SG%ne_by_fh(:,sid,:) = tmp*(SG%ne_by_fh(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
       enddo
 
+      !$acc exit data delete(ptl_data)
       deallocate(eData,tmp_eData)
       deallocate(ptl_data)
 
@@ -625,7 +626,6 @@ contains
       integer num_iD ! num_of iData (First dimension)
       real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
 
-      !$acc declare create(ptl_data)
 
       ! Determine Flag target data
       ! flagT=0 (Default; only measures a term from particle weight zeon(5,m))
@@ -663,6 +663,7 @@ contains
       allocate(ptl_data(num_iD,mi))
       iData=0.0
 
+      !$acc enter data create(ptl_data)
 
       select case(flagT)
          case(0)
@@ -843,6 +844,7 @@ contains
          SG%ni_by_ff(:,sid,:) = tmp*(SG%ni_by_ff(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
       enddo
 
+      !$acc exit data delete(ptl_data)
       deallocate(iData,tmp_iData)
       deallocate(ptl_data)
 

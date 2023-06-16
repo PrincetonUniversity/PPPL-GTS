@@ -1519,7 +1519,6 @@ module Diagnostic_Grid
          integer :: ij,ip
          real(wp) intp_phi_V ! interpolated phi in GTS unit
 
-         !$acc declare create(ptl_data)
          if(allocated(FMap3D%Mirror_Ratio)) then
             tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
          else
@@ -1539,6 +1538,8 @@ module Diagnostic_Grid
          allocate(ptl_data(DG%num_eZD_1D,me))
          eData1D=0.0
          ! in_P_data(2,:)= energy(:)
+
+         !$acc enter data create(ptl_data)
 
          !$acc parallel loop present(zeon0,ptl_data,elabels, in_P_data,Full_da,ee_inv_grad_a,ghq,vpara_dve_a)
          do m=1,me
@@ -1720,6 +1721,7 @@ module Diagnostic_Grid
             enddo
          endif
 
+         !$acc exit data delete(ptl_data)
          deallocate(ptl_data)
 
       end subroutine Measure_and_Cumulate_eZonData_on_DG
@@ -1746,7 +1748,6 @@ module Diagnostic_Grid
          integer :: aid,qid,fid
          real(wp) tmp_FMap3D_MirrorRatio(FMap3D%dim_gq,FMap3D%dim_a,FMap3D%dim_gf)
          real(wp) :: ori_inv_ds
-         !$acc declare create(ptl_data)
 
          if(allocated(FMap3D%Mirror_Ratio)) then
             tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
@@ -1768,7 +1769,7 @@ module Diagnostic_Grid
          allocate(ptl_data(DG%num_iZD_1D,mi))
          iData1D=0.0
 
-
+         !$acc enter data create(ptl_data)
 
          ! in_P_data(2,:)= energy(:)
 
@@ -1932,7 +1933,7 @@ module Diagnostic_Grid
             enddo
          endif
 
-
+         !$acc exit data delete(ptl_data)
          deallocate(ptl_data)
 
       end subroutine Measure_and_Cumulate_iZonData_on_DG
