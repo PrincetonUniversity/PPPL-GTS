@@ -356,6 +356,10 @@ subroutine Construct_Perp_Laplacian_Matrix
       ! 1 (gqid,sid,gfid)
       tarGid(1,Lid)=mapP2G(qq,ss,ff)
       tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+
+      ! IMPORTANT!! Multiply +inv_Jacob to the above coefficients,
+      ! so make sure that target coefficient values represent (+nabla*(eps_T*nabla*phi))
+      tarVal(:,Lid) = +1.0*inv_Jacob*tarVal(:,Lid)
    enddo
    ! call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
