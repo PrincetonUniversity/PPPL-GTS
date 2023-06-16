@@ -508,6 +508,7 @@ program GTS
          ! solve GK Poisson equation using adiabatic electron
          if(Flag_Poisson==1) call poisson( solver1, masssolver )
          if(electromagnetic==2) then
+            call Update_SG_AparaS(irk,nrk)
             call Solve_GK_Ampere_3D_on_SG
          endif
          !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
