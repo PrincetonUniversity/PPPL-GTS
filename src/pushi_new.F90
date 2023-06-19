@@ -92,7 +92,10 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
       call Get_gradPhi_at_zion(gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
+   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
+   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
+   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
+   !       Only Voltage-related part needs to be converted
    !$acc parallel loop present(gradPhi)
    do m=1,mi
       !$acc loop seq
@@ -530,7 +533,10 @@ subroutine pushion_wEvol3(irk_i,nrk)
       call Get_gradPhi_at_zion(gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
+   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
+   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
+   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
+   !       Only Voltage-related part needs to be converted   
    !$acc parallel loop present(gradPhi)
    do m=1,mi
       !$acc loop seq
@@ -827,7 +833,10 @@ subroutine pushion_wEvol4(irk_i,nrk)
       call Get_gradPhi_at_zion(gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
+   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
+   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
+   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
+   !       Only Voltage-related part needs to be converted
    !$acc parallel loop present(gradPhi)
    do m=1,mi
       !$acc loop seq

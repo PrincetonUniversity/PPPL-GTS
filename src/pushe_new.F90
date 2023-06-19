@@ -103,7 +103,10 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
+   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
+   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
+   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
+   !       Only Voltage-related part needs to be converted
    !$acc parallel loop present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
@@ -1063,7 +1066,10 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
+   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
+   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
+   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
+   !       Only Voltage-related part needs to be converted
    !$acc parallel loop present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
@@ -1502,7 +1508,10 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   !#NOTE grad_gaH is dimensionless and so does not need conversion
+   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
+   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
+   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
+   !       Only Voltage-related part needs to be converted
    !$acc parallel loop present(Phi_at_zeon,gradPhi)
    do m=1,me
       Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)

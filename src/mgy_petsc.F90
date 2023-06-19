@@ -1828,6 +1828,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
          do j=1,3
             do i=1,3
                ! Note tsince mgy_petsc coefficients are using SI units
+               ! NOTE: Structure Grid still uses flux coordinate for the space, not directly using meter units
                ! Following (1e-3) is a converting coefficient for mass (g->kg)
                tmp=1e-3*(ne_tot(gqid,sid)*amasse + ni_tot(gqid,sid)*amassi)*invBsq
                Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(SG%B0_cntv3_sqf(i,gqid,sid)*SG%B0_cntv3_sqf(j,gqid,sid)))
