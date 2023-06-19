@@ -956,9 +956,9 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
          endif
 
          do m=1,me
-         FullVelocity_da_dgq_dgf(1,m) = da(m)
-         FullVelocity_da_dgq_dgf(2,m) = dgq(m)
-         FullVelocity_da_dgq_dgf(3,m) = dgf(m)
+            FullVelocity_da_dgq_dgf(1,m) = da(m)
+            FullVelocity_da_dgq_dgf(2,m) = dgq(m)
+            FullVelocity_da_dgq_dgf(3,m) = dgf(m)
          enddo
          call Measure_Electrons_on_Diagnostic_Grid(wpi(1:3,:),FullVelocity_da_dgq_dgf)
 
@@ -1710,7 +1710,6 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
       call cpu_time(cput0)
       tt0=MPI_WTIME()
 
-      call electron_locator()
 
       !!!!!!$acc update self (Bq(:me),Ba(:me))  ! these are not used for now, but possibly for future diagnostics
       !$acc update self(BB(:me),Ta(:me),ghq(:me),gha(:me),Pa(:me),F(:me))

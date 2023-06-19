@@ -569,6 +569,7 @@ module Diagnostic_Grid
          use particle_decomp
          use esi_interface
          use Magnetic_Grid, MG_BB=>BB
+         use Structured_Grid
          implicit none
 
          real(wp), intent(in) :: in_P_data(3,me) ! additional particle data from input
@@ -596,8 +597,9 @@ module Diagnostic_Grid
          real(wp) :: uvec_N_cov(3), uvec_B_cov(3), uvec_BxN_cov(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          real(wp) :: uvec_N_cntv(3), uvec_B_cntv(3), uvec_BxN_cntv(3) ! unit vectors in total B direction, Normal (gradFL), and binormal
          integer :: ij,ip
-         real(wp) :: Te_inverse, r,fip,wz0,wz1,wp0,wp1,wt00,wt10,wt01,wt11,e1,Ea_00,AD,fe0(me),fe_AD(me)
+         real(wp) :: Te_inverse, r,fip,e1,Ea_00,AD,fe0(me),fe_AD(me)
          real(wp) :: Mirror_Ratio(me),ptl_weight
+         real(wp) :: intp_phi_V ! interpolated phi in the Volt unit
 
 
          if(acc_newer_D_zeon) then
@@ -654,27 +656,8 @@ module Diagnostic_Grid
          do m=1,me
             Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 
-            ! Cal new phi at new position (i.e. phi @ (t_(n+1), x_(n+1)))
-            wz1=wzeon(m)
-            wz0=1.0_wp-wz1
-
-            ij=jteon0(m)
-            wp0=1.0_wp-wpeon(m)
-            wt00=1.0_wp-wteon0(m)
-            e1=   wp0*wt00*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ij=ij+1
-            wt10=1.0_wp-wt00
-            e1=e1+wp0*wt10*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ij=jteon1(m)
-            wp1=1.0_wp-wp0
-            wt01=1.0_wp-wteon1(m)
-            e1=e1+wp1*wt01*(wz0*phi(0,ij)+wz1*phi(1,ij))
-
-            ij=ij+1
-            wt11=1.0_wp-wt01
-            e1=e1+wp1*wt11*(wz0*phi(0,ij)+wz1*phi(1,ij)) ! --> phi at electrons
+            call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi_V)
+            e1 = Fac_Volt2GTS*intp_phi_V
 
             ! calculate <phi> at electrons (no FLR effect -- x=R)
             r=zeon0(7,m)-s0       ! in radial coordinator s
