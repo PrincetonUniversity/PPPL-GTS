@@ -71,15 +71,15 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
    call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, irk_i, nrk)
 
    if(irk_i==1)then ! 1st step of Runge-Kutta method
-      acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
       !$acc parallel loop gang vector present(zion,zion0,RK_cum_zion)
       do m=1,mi
          ! Note that zion0(8,m) does not mean "mu", this is reserved for the other quantity
          zion0(1:5,m)=zion(1:5,m)
          zion0(7,m)=zion(7,m)
 
-         RK_cum_zion(1:5,m)=0.0
+         RK_cum_zion(:,m)=0.0
       enddo
+      acc_newer_D_zion=.true. !device side zion will be changed in the following acc routine
    endif
    ! Followings are not required here, so commented out. (MGYOO: 11/13/2019)
    call n_T_u_group  ! prepare n, T, dlnn/da, dlnT/da, etc.
