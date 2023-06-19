@@ -870,33 +870,15 @@ module Diagnostic_Grid
                   norm_vpara = zeon0(4,m)*csc0*BB(m)*sqrt(m0ms*PVS(pbid)%inv_Te0) ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
                   norm_vperp = zeon(6,m)*sqrt(2.0*BB(m))*sqrt(PVS(pbid)%inv_Te0) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
 
-                  vxid = floor(norm_vpara*PVS(pbid)%inv_dv)
-                  vyid = floor(norm_vperp*PVS(pbid)%inv_dv)
+                  ! Restrict maximum norm_v to locate very high-energy particles at the boundary of PVS to capture their amount
+                  norm_vpara = sign(1.0,norm_vpara)*min(PVS(pbid)%max_norm_v,abs(norm_vpara))
+                  norm_vperp = min(PVS(pbid)%max_norm_v,norm_vperp)
+
+                  vxid = max(-PVS(pbid)%nv,min(PVS(pbid)%nv-1, floor(norm_vpara*PVS(pbid)%inv_dv)))
+                  vyid = max(0,min(PVS(pbid)%nv-1, floor(norm_vperp*PVS(pbid)%inv_dv)))
                   rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
                   rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
 
-                  ! ! Do not calculate any contribution from "too" outside of our probe boudnary
-                  ! ! "too" outside means that even over the ghost cells around the probe boundary
-                  ! if(vxid< -PVS(pbid)%nv-1) then
-                  !    continue
-                  ! elseif(vxid>=PVS(pbid)%nv+1) then
-                  !    continue
-                  ! elseif(vyid>=PVS(pbid)%nv+1) then
-                  !    continue
-                  ! endif
-
-                  if(vxid< -PVS(pbid)%nv) then
-                     vxid= -PVS(pbid)%nv
-                     rvx=0.0
-                  elseif (vxid>= PVS(pbid)%nv) then
-                     vxid=  PVS(pbid)%nv-1
-                     rvx=1.0
-                  endif
-
-                  if(vyid>= PVS(pbid)%nv) then
-                     vyid=  PVS(pbid)%nv-1
-                     rvy=1.0
-                  endif
 
                   do j=1,4
                      select case(j)
@@ -1262,33 +1244,14 @@ module Diagnostic_Grid
                   norm_vpara = zion0(4,m)*BB(m)*sqrt(PVS(pbid)%inv_Ti0) ! norm_vpara = vpara/sqrt(T/m)
                   norm_vperp = zion(6,m)*sqrt(2.0*BB(m))*sqrt(PVS(pbid)%inv_Ti0) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m)
 
-                  vxid = floor(norm_vpara*PVS(pbid)%inv_dv)
-                  vyid = floor(norm_vperp*PVS(pbid)%inv_dv)
+                  ! Restrict maximum norm_v to locate very high-energy particles at the boundary of PVS to capture their amount
+                  norm_vpara = sign(1.0,norm_vpara)*min(PVS(pbid)%max_norm_v,abs(norm_vpara))
+                  norm_vperp = min(PVS(pbid)%max_norm_v,norm_vperp)
+
+                  vxid = max(-PVS(pbid)%nv,min(PVS(pbid)%nv-1, floor(norm_vpara*PVS(pbid)%inv_dv)))
+                  vyid = max(0,min(PVS(pbid)%nv-1, floor(norm_vperp*PVS(pbid)%inv_dv)))
                   rvx  = (norm_vpara-PVS(pbid)%vpara_1D(vxid))*PVS(pbid)%inv_dv
                   rvy  = (norm_vperp-PVS(pbid)%vperp_1D(vyid))*PVS(pbid)%inv_dv
-
-                  ! ! Do not calculate any contribution from "too" outside of our probe boudnary
-                  ! ! "too" outside means that even over the ghost cells around the probe boundary
-                  ! if(vxid< -PVS(pbid)%nv-1) then
-                  !    continue
-                  ! elseif(vxid>=PVS(pbid)%nv+1) then
-                  !    continue
-                  ! elseif(vyid>=PVS(pbid)%nv+1) then
-                  !    continue
-                  ! endif
-
-                  if(vxid< -PVS(pbid)%nv) then
-                     vxid= -PVS(pbid)%nv
-                     rvx=0.0
-                  elseif (vxid>= PVS(pbid)%nv) then
-                     vxid=  PVS(pbid)%nv-1
-                     rvx=1.0
-                  endif
-
-                  if(vyid>= PVS(pbid)%nv) then
-                     vyid=  PVS(pbid)%nv-1
-                     rvy=1.0
-                  endif
 
                   do j=1,4
                      select case(j)
