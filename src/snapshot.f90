@@ -1599,13 +1599,15 @@ subroutine snapshot_hdf5
       ! deallocate(intp_val_arr)
 
 
-      h5dims(1:2)=3
-      h5dims(3)=SG%dim_gq+1
-      h5dims(4)=SG%dim_a+2
-      h5dims(5)=3
-      call h5ltmake_dataset_f(gid_SG, "test_CT",5,h5dims,H5T_NATIVE_DOUBLE, CT,h5err)
-      call h5ltmake_dataset_f(gid_SG, "test_Metric_T",4,h5dims,H5T_NATIVE_DOUBLE, Metric_T,h5err)
-      call h5ltmake_dataset_f(gid_SG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
+      if(Flag_Poisson==1) then
+         h5dims(1:2)=3
+         h5dims(3)=SG%dim_gq+1
+         h5dims(4)=SG%dim_a+2
+         h5dims(5)=3
+         call h5ltmake_dataset_f(gid_SG, "test_CT",5,h5dims,H5T_NATIVE_DOUBLE, CT,h5err)
+         call h5ltmake_dataset_f(gid_SG, "test_Metric_T",4,h5dims,H5T_NATIVE_DOUBLE, Metric_T,h5err)
+         call h5ltmake_dataset_f(gid_SG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
+      endif
 
 
       ! Print FP (FootPrint) Data
