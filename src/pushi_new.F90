@@ -148,7 +148,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic >= 1) then
+   if(electromagnetic == 1) then
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
@@ -158,13 +158,15 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
          call flush(stdout)
          stop
       endif
+   elseif(electromagnetic==2) then
+      m=gcmotion_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,mi,ziondim)
    else
       m=gcmotion(dgr,da,dgq,dgf,zion,gradPhi,Er_particle,nonlinear,mi,ziondim)
    end if
 
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, ion gc motion takes", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion_wEvol0or1, ion gcmotion takes", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -383,7 +385,7 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
 
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_wEvol0or1' takes", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion_wEvol0or1, main do loop takes", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -578,7 +580,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
 #endif
-   if(electromagnetic >= 1) then
+   if(electromagnetic == 1) then
       if(Flag_GC_Solver==0) then
          m=gcmotion_em_MGY(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,Er_particle,nonlinear,mi,ziondim);
       elseif(Flag_GC_Solver==1) then
@@ -588,12 +590,14 @@ subroutine pushion_wEvol3(irk_i,nrk)
          call flush(stdout)
          stop
       endif
+   elseif(electromagnetic==2) then
+      m=gcmotion_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zion,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,mi,ziondim)
    else
       m=gcmotion(dgr,da,dgq,dgf,zion,gradPhi,Er_particle,nonlinear,mi,ziondim)
    end if
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion, ion gc motion takes", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion_wEvol3, ion gcmotion takes", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -666,7 +670,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
 
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion,  ACC 'main do loop in pushion_wEvol0or1' takes", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion_wEvol3, main do loop takes", tt1-tt0," secs"
    call flush(stdout)
 #endif
 
@@ -895,7 +899,7 @@ subroutine pushion_wEvol4(irk_i,nrk)
    end if
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion_wEvol4, ion gc motion takes", tt1-tt0," secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pushion_wEvol4, ion gcmotion takes", tt1-tt0," secs"
    call flush(stdout)
 #endif
 

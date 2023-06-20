@@ -177,7 +177,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
    endif
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon_wEvol0or1, electron gcmotion takes", tt1-tt0, " secs"
    call flush(stdout)
 #endif
 
@@ -380,7 +380,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon_wEvol0or1 main do loop takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
@@ -866,7 +866,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon_wEvol0or1 main do loop takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
@@ -1129,7 +1129,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
    endif
 #ifdef _MGY_TIMER_
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,'(a,ES11.3,a)') "ACC electron gcmotion takes", tt1-tt0, " secs"
+   if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon_wEvol3, electron gcmotion takes", tt1-tt0, " secs"
    call flush(stdout)
 #endif
 
@@ -1229,7 +1229,7 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon_wEvo3, main do loop takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
@@ -1680,7 +1680,7 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,'(a,I5,a,ES11.3,a)') "I'm=",mype, ", ACC 'main do loop in pusheon_wEvol0or1' takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(a,ES11.3,a)') "In pusheon_wEvol4, main do loop takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
