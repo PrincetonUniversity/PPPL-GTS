@@ -354,7 +354,7 @@ program GTS
 
 
       ! if(istep==istart .or. mod(istep,msnap) .eq. 0) then
-      if(istep==istart .or. mod(istep,Ptl_Src_nstep) .eq. 0) then
+      if(Ptl_Src_nstep>0 .and. mod(istep-istart,Ptl_Src_nstep)==0) then
 
          if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
             call timer(t0,dt,t0wc,dtwc)
@@ -565,7 +565,7 @@ program GTS
       call Cumulate_Some_Variables_for_Measure
 
       if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
-         if(istep==istart .or. mod(istep,Ptl_Src_nstep)==0) then
+         if(Ptl_Src_nstep>0 .and. mod(istep-istart,Ptl_Src_nstep)==0)  then
             call timer(t0,dt,t0wc,dtwc)
             call Generate_Particles_from_Boundaries_with_LoadBalancing(Ptl_Src_nstep*tstep*utime)
             call timer(t0,dt,t0wc,dtwc)
