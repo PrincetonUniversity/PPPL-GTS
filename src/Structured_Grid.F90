@@ -75,10 +75,10 @@ module Structured_Grid
    real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
    !$acc declare create(gyro_over_sqrt_mu)
 
-   real(wp) SG_zetamin, SG_zetamax, SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds
+   real(wp) SG_zetamin, SG_zetamax, SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_gq
    integer :: SG_dim_s
    real(wp), allocatable ::  SG_s_1D(:), SG_gq_1D(:), SG_safety_q_1D(:), SG_phi(:,:,:), SG_phi_3D(:,:,:)
-   !$acc declare create(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
+   !$acc declare create(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s,SG_dim_gq)
    !$acc declare create(SG_s_1D,SG_gq_1D,SG_safety_q_1D,SG_phi,SG_phi_3D)
 
 contains
@@ -115,8 +115,8 @@ contains
       Nq=SG%dim_gq
 
       SG_zetamin=SG%zetamin; SG_zetamax=SG%zetamax;
-      SG_inv_dgf=SG%inv_dgf; SG_inv_dgq=SG%inv_dgq; SG_dgf=SG%dgf; SG_inv_ds=SG%inv_ds; SG_dim_s = SG%dim_s;
-      !$acc update device(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
+      SG_inv_dgf=SG%inv_dgf; SG_inv_dgq=SG%inv_dgq; SG_dgf=SG%dgf; SG_inv_ds=SG%inv_ds; SG_dim_s = SG%dim_s; SG_dim_gq=SG%dim_gq;
+      !$acc update device(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s,SG_dim_gq)
 
       allocate(SG%gq_1D(Nq))
       allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%Ti0_eV_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
@@ -486,7 +486,7 @@ contains
          ! Scatter particle to zetamin plane first
          target_gf = zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG%inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -506,7 +506,7 @@ contains
          ! Scatter particle to zetamax plane
          target_gf = zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG%inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -738,7 +738,7 @@ contains
             ! Scatter particle to zetamin plane first
             target_gf = zetamin
             target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG%inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG%inv_dgq+1)))
             wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
 
@@ -759,7 +759,7 @@ contains
             ! Scatter particle to zetamax plane
             target_gf = zetamax
             target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG%inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG%inv_dgq+1)))
             wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
 
@@ -897,7 +897,7 @@ contains
          sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
          ws0 = (1.0-ws1)
-         gqid = P_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(P_gq*SG_inv_dgq+1)))
          wgq1 = (P_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1096,7 +1096,7 @@ contains
 
 
             tmp_gq = modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi)
-            gqid= tmp_gq*SG%inv_dgq +1  !+1 is due to Fortran's default index starting from 1
+            gqid = max(1,min(SG_dim_gq-1, int(tmp_gq*SG_inv_dgq+1)))  !+1 is due to Fortran's default index starting from 1
             wq1 = (tmp_gq-SG%gq_1D(gqid))*SG%inv_dgq
             wq0 = 1.0 - wq1
 
@@ -1366,7 +1366,7 @@ contains
       ! Cal contributions from phi at zetamin to the particle
       target_gf = SG_zetamin
       target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
-      gqid  = target_gq*SG_inv_dgq+1
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
       wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
@@ -1376,7 +1376,7 @@ contains
       ! Add contributions from phi at zetamax to the particle
       target_gf = SG_zetamax
       target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
-      gqid  = target_gq*SG_inv_dgq+1
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
       wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
@@ -1436,7 +1436,7 @@ contains
       ! Cal contributions from phi at zetamin to the particle
       target_gf = (gfid-1)*SG_dgf
       target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
-      gqid  = target_gq*SG_inv_dgq+1
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
       wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
@@ -1450,7 +1450,7 @@ contains
       ! Add contributions from phi at zetamax to the particle
       target_gf = (gfid)*SG_dgf
       target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
-      gqid  = target_gq*SG_inv_dgq+1
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
       wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
@@ -1514,7 +1514,7 @@ contains
          ! Cal contributions from phi at zetamin to the particle
          target_gf = SG_zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1528,7 +1528,7 @@ contains
          ! Add contributions from phi at zetamax to the particle
          target_gf = SG_zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1599,7 +1599,7 @@ contains
          ! Cal contributions from phi at zetamin to the particle
          target_gf = SG_zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = max(1,min(SG%dim_gq-1,int(target_gq*SG_inv_dgq+1)))
+         gqid = max(1,min(SG_dim_gq-1, int(int(target_gq*SG_inv_dgq+1))))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1610,7 +1610,7 @@ contains
          ! Add contributions from phi at zetamax to the particle
          target_gf = SG_zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = max(1,min(SG%dim_gq-1,int(target_gq*SG_inv_dgq+1)))
+         gqid = max(1,min(SG_dim_gq-1, int(int(target_gq*SG_inv_dgq+1))))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1681,7 +1681,7 @@ contains
          ! Cal contributions from phi at zetamin to the particle
          target_gf = SG_zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1695,7 +1695,7 @@ contains
          ! Add contributions from phi at zetamax to the particle
          target_gf = SG_zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1761,7 +1761,7 @@ contains
             ! Cal contributions from phi at zetamin to the particle
             target_gf = SG_zetamin
             target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG_inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf0*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,0) + wgq1*SG_gradPhi(:,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,0) + wgq1*SG_gradPhi(:,gqid+1,sid+1,0)))
@@ -1769,7 +1769,7 @@ contains
             ! Add contributions from phi at zetamax to the particle
             target_gf = SG_zetamax
             target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG_inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf1*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,1) + wgq1*SG_gradPhi(:,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,1) + wgq1*SG_gradPhi(:,gqid+1,sid+1,1)))
@@ -1842,7 +1842,7 @@ contains
             ! Cal contributions from phi at zetamin to the particle
             target_gf = SG_zetamin
             target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG_inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf0*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,0) + wgq1*SG_gradPhi(:,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,0) + wgq1*SG_gradPhi(:,gqid+1,sid+1,0)))
@@ -1853,7 +1853,7 @@ contains
             ! Add contributions from phi at zetamax to the particle
             target_gf = SG_zetamax
             target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG_inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf1*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,1) + wgq1*SG_gradPhi(:,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,1) + wgq1*SG_gradPhi(:,gqid+1,sid+1,1)))
