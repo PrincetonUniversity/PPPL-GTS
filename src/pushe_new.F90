@@ -870,48 +870,14 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
       call flush(stdout)
 #endif
 
-
-
       if(irk_e==4)then
-         ! out of boundary particle
-         !$omp parallel do private(m)
-         acc_newer_D_zeon=.true.
-         !$acc parallel loop present(zeon,zeon0)
-         do m=1,me
-            if(zeon(1,m) > psimax)then
-               zeon(1,m)=zeon0(1,m)
-               zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-               zeon(3,m)=zeon0(3,m)
-               zeon(4,m)=zeon0(4,m)
-               zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-               !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-               !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at outer boundary
-               zeon(7,m)=zeon0(7,m)
-
-            elseif(zeon(1,m) < psimin)then
-               zeon(1,m)=zeon0(1,m)
-               zeon(2,m)=2.0_wp*pi-zeon0(2,m)
-               zeon(3,m)=zeon0(3,m)
-               zeon(4,m)=zeon0(4,m)
-               zeon(5,m)=zeon0(5,m) ! this sounds reasonable: energy, momentum and particle conserving boundary
-               !   zeon(5,m)=-zeon0(5,m)   ! remove density (weight) accumulation at edge when ifneoclassical=1
-               !   zeon(5,m)=0.0       ! ? more or less, close to delta-f=0 at inner boundary
-               zeon(7,m)=zeon0(7,m)
-            endif
-         enddo
-
-         ! ********************************
-         if(mype==2) then
-            error_8=1.0e-5_wp
-            IFAIL=1
-            rdum=D01AHF(0.0d0,zeon(1,me/2),error_8,minpts,acc,dsda,-1,IFAIL)
-            print*, 'EEEEEEEEEEEE', zeon(7,me/2),'  ', rdum
-            !   write(stdout,*)'######## electron gcmotion: wall =',(tt1-tt0),'  cpu =',(cput1-cput0)
-         end if
-         ! ********************************
-
+         if(Flag_Measure_Ptl_FootPrint==1) then
+            !$acc update self(wpi(:,:me))
+            call Measure_and_Cumulate_Electron_FootPrint_at_BDY1(FP_BDY1,wpi(2,:))
+         endif
+         call treat_electrons_out_of_boundary
+         call Cumulate_e_lost_num
       endif
-
 
 
       if(irk_e==1) then
