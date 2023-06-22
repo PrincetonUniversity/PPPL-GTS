@@ -1,4 +1,4 @@
-subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
+subroutine pusheon_wEvol0or1(irk_e, nrk)
    use precision
    use global_parameters
    use particle_array
@@ -14,7 +14,6 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
 
    implicit none
 
-   type(solver_data) :: solver1, masssolver
 
    integer, intent(in) :: irk_e,nrk
    integer i,im,ip,j,jt,k,kz,kk,m,ii,ierror,ipjt
@@ -954,7 +953,7 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
 end subroutine pusheon_wEvol0or1
 
 
-subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
+subroutine pusheon_wEvol3(irk_e, nrk)
    use precision
    use global_parameters
    use particle_array
@@ -970,7 +969,6 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 
    implicit none
 
-   type(solver_data) :: solver1, masssolver
 
    integer, intent(in) :: irk_e, nrk
    integer i,ip,m,ierr
@@ -1405,7 +1403,7 @@ end subroutine pusheon_wEvol3
 
 
 
-subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
+subroutine pusheon_wEvol4(irk_e, nrk)
    use precision
    use global_parameters
    use particle_array
@@ -1421,7 +1419,6 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
    implicit none
 
-   type(solver_data) :: solver1, masssolver
 
    integer, intent(in) :: irk_e, nrk
    integer i,ip,m,ierr

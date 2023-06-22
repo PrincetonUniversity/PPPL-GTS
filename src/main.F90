@@ -46,8 +46,6 @@ program GTS
    real(doubleprec) program_start_t0, program_start_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc
    real(doubleprec) tmp_time(nc), tmp_timewc(nc), loop_start_time,loop_start_timewc, mainloop_time, mainloop_timewc
    character(len=16) ic(nc)
-   type(solver_data) :: solver1,solver_dphi_dt,masssolver
-   type(fem_data) :: fem1,femt,femm
    character(len=40) cdum
    integer DT_int(8)
    character(len=10) DT_str(3)
@@ -139,74 +137,6 @@ program GTS
    call Read_FMap3D_on_MG
 
    call MPI_Bcast(FLA_Te0,2*mgrid,MPI_Rsize,nproc_partd-1,partd_comm,ierror)
-   ! solver
-   ! which solver to use
-   ! order = 0 original solver
-   ! order = 1 linear finite element
-   ! order = 2 2nd order finite element
-   ! which bc_type to use
-   ! bc_type=0 neumann bc at a0, neumann bc at a1
-   ! bc_type=1 dirichlet bc at a0, neumann bc at a1
-   ! bc_type=2 dirichlet bc at a0, dirichlet bc at a1
-   ! bc_type=3 neumann bc at a0, dirichlet bc at a1
-   if( order .le. 0 ) then
-      solver1%order=0
-      solver_dphi_dt%order=0
-      if(mype == 0) write (0, *) "	integral equation order=", order
-      ! mat type 1, bc type 1
-      solver1%mat%bc_type = 2
-      call new_gk_solver( solver1, '', 1, 2 )
-      ! mat type 2, bc type 2
-      solver_dphi_dt%mat%bc_type = 2
-      if(ifelectron==2.and.ifdphi==1) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
-   else          !  for order > 0
-      if(mype == 0) write (0, *) "	finite element order=", order
-
-      solver1%order = order
-      solver1%mat%mat_type = 1
-      solver1%mat%bc_type = 0
-      fem1%order = order
-      call new_fem_data( fem1 )
-#ifdef CJTEST
-      call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, 2 )
-      call testsolve( solver1, masssolver )
-      call delete_fem_data( fem1 )
-      call destroy_solver( solver1 )
-#else
-      call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, solver1%mat%bc_type )
-#endif
-
-      masssolver%order = 0
-      masssolver%mat%mat_type = -1
-      masssolver%mat%bc_type = -1
-      femm%order = 1
-      call new_fem_data( femm )
-      call new_fem_masssolver( femm, masssolver )
-#ifdef CJTEST
-      call testmasssolve( masssolver )
-      call delete_fem_data( femm )
-      call destroy_solver( masssolver )
-#endif
-
-      if(ifelectron==2.and.ifdphi==1) then
-         solver_dphi_dt%order = order
-         solver_dphi_dt%mat%mat_type = 2
-         solver_dphi_dt%mat%bc_type = 2
-         femt%order = order
-         call new_fem_data( femt )
-         call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', solver_dphi_dt%mat%mat_type, solver_dphi_dt%mat%bc_type )
-#ifdef CJTEST
-         call testsolve( solver_dphi_dt, masssolver )
-         call delete_fem_data( femt )
-         call destroy_solver( solver_dphi_dt )
-#endif
-      endif
-
-#ifdef CJTEST
-      call PetscFinalize( ierror )
-      stop
-#endif
-   endif
 
    call Initialize_Structured_Grid
    ! SG%phi(:,1:SG%dim_s-10,:) =1e4
@@ -228,16 +158,9 @@ program GTS
    endif
    call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 
-
-   ! call Initialize_Structured_Grid
-   ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
-   ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
-   ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
-
    call Initialize_Ptl_Src_Loss
 
    istep=0
-   !  if(mype==0) call view_orbit
 
    ! initial field
    irk=2
@@ -271,24 +194,10 @@ program GTS
          call Cal_grad_gaH_and_grad_gaS_on_SG
       endif
       if(Flag_Load_and_WeightDef/=0) then
-         call Adjust_electron_weight_for_initially_zero_potential(solver1,masssolver)
+         call Adjust_electron_weight_for_initially_zero_potential
       endif
    endif
 
-
-
-   ! call smooth(0)
-
-   ! call smooth(1)
-
-
-   if(ifelectron==2.and.ifdphi==1) then
-      call current_ion
-      call current_eon
-      call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
-   end if
-
-   !  call check_temperature
 
    call open_files
 
@@ -468,7 +377,7 @@ program GTS
             timewc(9)=timewc(9)+dtwc
 
             if(Flag_w_Evol<3) then
-               call pusheon_wEvol0or1(solver1, masssolver, irk, nrk)
+               call pusheon_wEvol0or1(irk, nrk)
                call timer(t0,dt,t0wc,dtwc)
                time(10)=time(10)+dt
                timewc(10)=timewc(10)+dtwc
@@ -479,9 +388,9 @@ program GTS
                timewc(11)=timewc(11)+dtwc
             else
                if(Flag_w_Evol==3) then
-                  call pusheon_wEvol3(solver1, masssolver, irk, nrk)
+                  call pusheon_wEvol3(irk, nrk)
                elseif(Flag_w_Evol==4) then
-                  call pusheon_wEvol4(solver1, masssolver, irk, nrk)
+                  call pusheon_wEvol4(irk, nrk)
                endif
                call timer(t0,dt,t0wc,dtwc)
                time(10)=time(10)+dt
@@ -549,13 +458,6 @@ program GTS
          call timer(t0,dt,t0wc,dtwc)
          time(5)=time(5)+dt
          timewc(5)=timewc(5)+dtwc
-
-
-         if(ifelectron==2.and.ifdphi==1) then
-            call current_ion
-            call current_eon
-            call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
-         end if
 
       enddo  ! enddo irk=1,nrk
 
@@ -725,19 +627,7 @@ program GTS
       enddo
    endif
 
-   if( order .le. 0 ) then
-      if(ifelectron==2.and.ifdphi==1) call destroy_solver(solver_dphi_dt)
-      call destroy_solver(solver1)
-   else
-      call delete_fem_data( fem1 )
-      call destroy_solver( solver1 )
-      call delete_fem_data( femm )
-      call destroy_solver( masssolver )
-      if(ifelectron==2.and.ifdphi==1) then
-         call delete_fem_data( femt )
-         call destroy_solver( solver_dphi_dt )
-      endif
-   endif
+
 
    call Finalize_Ptl_Src_Loss
 
