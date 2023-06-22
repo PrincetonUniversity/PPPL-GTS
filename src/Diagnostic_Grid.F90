@@ -2134,7 +2134,7 @@ module Diagnostic_Grid
 
       end subroutine Get_Conserving_Smooth_Coeffs_on_DG
 
-      subroutine Smooth_DG_Data_2D(num_smooth, target_Data2D, Reference_Data2D)
+      subroutine Smooth_DG_Data_2D(num_smooth, target_Data2D, Volume2D)
 
          use precision
          use global_parameters
@@ -2142,7 +2142,7 @@ module Diagnostic_Grid
 
          integer, intent(in) :: num_smooth
          real(wp),intent(inout) :: target_Data2D(DG%dim_gq, DG%dim_a)
-         real(wp),optional:: Reference_Data2D(DG%dim_gq, DG%dim_a)
+         real(wp),intent(in),optional:: Volume2D(DG%dim_gq, DG%dim_a)
          real(wp) :: VV(DG%dim_gq, DG%dim_a)
          integer :: smid, aid, gqid, Na,Ngq, vid,k
          real(wp) :: SM_Data(0:DG%dim_gq+1, 0:DG%dim_a+1)  ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
@@ -2152,7 +2152,7 @@ module Diagnostic_Grid
          Ngq = DG%dim_gq
 
          VV=1.0
-         if(present(Reference_Data2D)) VV=Reference_Data2D
+         if(present(Volume2D)) VV=Volume2D
 
          ! Get Smooth Coeffs which conserves Volume Weighted Integration
          call Get_Conserving_Smooth_Coeffs_on_DG(VV, SM_a_Coeff, SM_gq_Coeff)

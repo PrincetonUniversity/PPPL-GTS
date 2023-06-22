@@ -920,7 +920,7 @@ contains
 #endif
    end subroutine Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
 
-   subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Reference_Data2D)
+   subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Volume2D)
 
       use precision
       use global_parameters
@@ -928,7 +928,7 @@ contains
 
       integer, intent(in) :: num_smooth_gq_s(:)
       real(wp),intent(inout) :: target_Data2D(SG%dim_gq, SG%dim_s)
-      real(wp),optional:: Reference_Data2D(SG%dim_gq, SG%dim_s)
+      real(wp),intent(in),optional:: Volume2D(SG%dim_gq, SG%dim_s)
       real(wp) :: VV(SG%dim_gq, SG%dim_s)
       integer :: smid, aid, gqid, Ns,Nq, vid,k
       real(wp) :: SM_Data(0:SG%dim_gq+1, 0:SG%dim_s+1)  ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
@@ -938,7 +938,7 @@ contains
       Nq = SG%dim_gq
 
       VV=1.0
-      if(present(Reference_Data2D)) VV=Reference_Data2D
+      if(present(Volume2D)) VV=Volume2D
 
       ! Get Smooth Coeffs which conserves Volume Weighted Integration
       call Get_Conserving_Smooth_Coeffs_on_SG(VV, SM_s_Coeff, SM_gq_Coeff)
