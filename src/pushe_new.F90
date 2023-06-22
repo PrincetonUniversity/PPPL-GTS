@@ -574,6 +574,8 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
                tt0=MPI_WTIME()
                call Update_SG_AparaS(irk_e,nrk)
                call Solve_GK_Ampere_3D_on_SG
+               call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+               call Cal_grad_gaH_and_grad_gaS_on_SG
                call cpu_time(cput1)
                tt1=MPI_WTIME()
                time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
@@ -1324,6 +1326,8 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
             tt0=MPI_WTIME()
             call Update_SG_AparaS(irk_e,nrk)
             call Solve_GK_Ampere_3D_on_SG
+            call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+            call Cal_grad_gaH_and_grad_gaS_on_SG
             call cpu_time(cput1)
             tt1=MPI_WTIME()
             time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
@@ -1798,6 +1802,8 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
             tt0=MPI_WTIME()
             call Update_SG_AparaS(irk_e,nrk)
             call Solve_GK_Ampere_3D_on_SG
+            call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+            call Cal_grad_gaH_and_grad_gaS_on_SG
             call cpu_time(cput1)
             tt1=MPI_WTIME()
             time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)

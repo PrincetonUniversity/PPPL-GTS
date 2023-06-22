@@ -263,6 +263,8 @@ program GTS
          if(electromagnetic==2) then
             call Construct_GK_Ampere_3D_Solver_with_Extremal_Method
             call Solve_GK_Ampere_3D_on_SG
+            call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+            call Cal_grad_gaH_and_grad_gaS_on_SG
          endif
       else
          call poisson( solver1, masssolver  )
@@ -511,6 +513,8 @@ program GTS
             if(electromagnetic==2) then
                call Update_SG_AparaS(irk,nrk)
                call Solve_GK_Ampere_3D_on_SG
+               call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+               call Cal_grad_gaH_and_grad_gaS_on_SG
             endif
          endif
          !if(Flag_Poisson==1) call poisson( solver_dphi_dt )

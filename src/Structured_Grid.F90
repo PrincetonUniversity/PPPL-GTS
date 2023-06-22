@@ -1220,7 +1220,7 @@ contains
                         SG%gaS(:,:,0),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
       call MPI_SENDRECV(SG%gaS(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,&
                         SG%gaS(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
-   end subroutine
+   end subroutine Cal_gaH_gaS_from_AparaH_AparaS_on_SG
 
    subroutine Cal_grad_gaH_and_grad_gaS_on_SG
       use precision
