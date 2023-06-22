@@ -148,21 +148,6 @@ subroutine poisson( solver, masssolver )
 
       if(Flag_Poisson3D_on_SG>=1) then
 
-         ! Calculate dn
-         if(Flag_Weight_dfh==0) then
-            SG%dne_SM = SG%dne(:,:,1)
-            SG%dni_SM = SG%dni(:,:,1)
-         elseif(Flag_Weight_dfh==1) then
-            do i=1,SG%dim_s
-               SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
-               SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
-            enddo
-         endif
-
-         ! Then, smooth them
-         call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
-         call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
-
          ! Solve Poisson3D Equation on SG using SG%dni and SG%dne
          call Solve_Poisson3D_on_SG
          call Cal_gradPhi_on_SG
@@ -401,31 +386,12 @@ subroutine poisson( solver, masssolver )
 
       if(Flag_Poisson3D_on_SG>=1) then
 
-         ! Calculate dn
-         if(Flag_Weight_dfh==0) then
-            SG%dne_SM = SG%dne(:,:,1)
-            SG%dni_SM = SG%dni(:,:,1)
-         elseif(Flag_Weight_dfh==1) then
-            do i=1,SG%dim_s
-               SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
-               SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
-            enddo
-         endif
-
-         ! and smooth them
-         call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
-         call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
-
          if(Flag_Def_dne_adiab==2) then
             call Solve_Nonlinear_Poisson3D_on_SG()
          else
             call Solve_Poisson3D_on_SG
          endif
 
-
-         ! call Measure_Ion_Density_on_SG
-         ! ! call Smooth_SG_Data_2D([3,0],SG%dni(:,:,1),SG%Cell_dV)
-         ! ! call Smooth_SG_Data_2D([3,0],SG%dne(:,:,1),SG%Cell_dV)
          ! call Solve_Poisson3D_on_SG
          call Cal_gradPhi_on_SG
          ! Note that potential on SG (StructuredGrid) uses SI unit (Volt)

@@ -374,6 +374,7 @@ contains
       integer num_eD ! num of eData (First Dimension)
       real(wp) tt0,tt1,tmp
       real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
+      integer i
 
 
 
@@ -590,6 +591,16 @@ contains
          SG%ne_by_fh(:,sid,:) = tmp*(SG%ne_by_fh(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
       enddo
 
+      ! Calculate dne_SM
+      if(Flag_Weight_dfh==0) then
+         SG%dne_SM = SG%dne(:,:,1)
+      elseif(Flag_Weight_dfh==1) then
+         do i=1,SG%dim_s
+            SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
+         enddo
+      endif
+      call Smooth_SG_Data_2D([2,2],SG%dne_SM,SG%Cell_dV)
+
       !$acc exit data delete(ptl_data)
       deallocate(eData,tmp_eData)
       deallocate(ptl_data)
@@ -625,6 +636,7 @@ contains
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_iD ! num_of iData (First dimension)
       real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
+      integer i
 
 
       ! Determine Flag target data
@@ -844,6 +856,17 @@ contains
          SG%ni_by_ff(:,sid,:) = tmp*(SG%ni_by_ff(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
       enddo
 
+
+      ! Calculate dni_SM 
+      if(Flag_Weight_dfh==0) then
+         SG%dni_SM = SG%dni(:,:,1)
+      elseif(Flag_Weight_dfh==1) then
+         do i=1,SG%dim_s
+            SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
+         enddo
+      endif
+      call Smooth_SG_Data_2D([2,2],SG%dni_SM,SG%Cell_dV)
+      
       !$acc exit data delete(ptl_data)
       deallocate(iData,tmp_iData)
       deallocate(ptl_data)

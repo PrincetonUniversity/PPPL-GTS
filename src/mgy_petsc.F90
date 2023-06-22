@@ -1643,22 +1643,6 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
-   ! Calculate dn
-   if(Flag_Weight_dfh==0) then
-      SG%dne_SM = SG%dne(:,:,1)
-      SG%dni_SM = SG%dni(:,:,1)
-   elseif(Flag_Weight_dfh==1) then
-      do i=1,SG%dim_s
-         SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
-         SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
-      enddo
-   endif
-
-   ! Then, smooth them
-   call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
-   call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
-
-
    call Determine_GK_PoissonTensors_on_Structured_Grid(Flag_WhichLHS)
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
@@ -2470,22 +2454,6 @@ subroutine Update_GK_Ampere_LHS_Coeffs
 
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
-
-
-   ! Calculate dn
-   if(Flag_Weight_dfh==0) then
-      SG%dne_SM = SG%dne(:,:,1)
-      SG%dni_SM = SG%dni(:,:,1)
-   elseif(Flag_Weight_dfh==1) then
-      do i=1,SG%dim_s
-         SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
-         SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
-      enddo
-   endif
-
-   ! Then, smooth them
-   call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
-   call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
 
    call Determine_GK_AmpereTensors_on_Structured_Grid
 
