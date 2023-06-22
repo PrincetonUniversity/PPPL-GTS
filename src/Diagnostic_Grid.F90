@@ -2134,7 +2134,7 @@ module Diagnostic_Grid
 
       end subroutine Get_Conserving_Smooth_Coeffs_on_DG
 
-      subroutine Smooth_DG_Data_2D(num_smooth, target_Data2D, Volume2D)
+      subroutine Smooth_DG_Data_2D(num_smooth, target_Data2D, Volume2D, Output2D)
 
          use precision
          use global_parameters
@@ -2143,6 +2143,7 @@ module Diagnostic_Grid
          integer, intent(in) :: num_smooth
          real(wp),intent(inout) :: target_Data2D(DG%dim_gq, DG%dim_a)
          real(wp),intent(in),optional:: Volume2D(DG%dim_gq, DG%dim_a)
+         real(wp),intent(out),optional:: Output2D(DG%dim_gq, DG%dim_a)
          real(wp) :: VV(DG%dim_gq, DG%dim_a)
          integer :: smid, aid, gqid, Na,Ngq, vid,k
          real(wp) :: SM_Data(0:DG%dim_gq+1, 0:DG%dim_a+1)  ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
@@ -2168,7 +2169,14 @@ module Diagnostic_Grid
             ! Smooth in radial direction
             SM_Data(:,1:Na) = SM_a_Coeff(-1,:,1:Na)*SM_Data(:,0:Na-1) + SM_a_Coeff(0,:,1:Na)*SM_Data(:,1:Na) + SM_a_Coeff(1,:,1:Na)*SM_Data(:,2:Na+1)
          enddo
-         target_Data2D = SM_Data(1:Ngq,1:Na)
+
+         if(present(Output2D)) then
+            ! If an optional output Data is provided, copy Smoothed Data to it without changing input target_Data2D
+            Output2D = SM_Data(1:Ngq,1:Na)
+         else
+            ! Overwrite the given input Data with Smoothed Data
+            target_Data2D = SM_Data(1:Ngq,1:Na)
+         endif
 
       end subroutine Smooth_DG_Data_2D
 

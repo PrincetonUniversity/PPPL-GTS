@@ -920,7 +920,7 @@ contains
 #endif
    end subroutine Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
 
-   subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Volume2D)
+   subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Volume2D, Output2D)
 
       use precision
       use global_parameters
@@ -929,6 +929,7 @@ contains
       integer, intent(in) :: num_smooth_gq_s(:)
       real(wp),intent(inout) :: target_Data2D(SG%dim_gq, SG%dim_s)
       real(wp),intent(in),optional:: Volume2D(SG%dim_gq, SG%dim_s)
+      real(wp),intent(out),optional:: Output2D(SG%dim_gq, SG%dim_s)
       real(wp) :: VV(SG%dim_gq, SG%dim_s)
       integer :: smid, aid, gqid, Ns,Nq, vid,k
       real(wp) :: SM_Data(0:SG%dim_gq+1, 0:SG%dim_s+1)  ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
@@ -956,7 +957,6 @@ contains
             ! Smooth in radial direction
             SM_Data(:,1:Ns) = SM_s_Coeff(-1,:,1:Ns)*SM_Data(:,0:Ns-1) + SM_s_Coeff(0,:,1:Ns)*SM_Data(:,1:Ns) + SM_s_Coeff(1,:,1:Ns)*SM_Data(:,2:Ns+1)
          enddo
-         target_Data2D = SM_Data(1:Nq,1:Ns)
       elseif(size(num_smooth_gq_s)==2) then
          SM_Data = 0.0
          SM_Data(1:Nq,1:Ns) = target_Data2D
@@ -971,12 +971,18 @@ contains
             ! Smooth in radial direction
             SM_Data(:,1:Ns) = SM_s_Coeff(-1,:,1:Ns)*SM_Data(:,0:Ns-1) + SM_s_Coeff(0,:,1:Ns)*SM_Data(:,1:Ns) + SM_s_Coeff(1,:,1:Ns)*SM_Data(:,2:Ns+1)
          enddo
-         target_Data2D = SM_Data(1:Nq,1:Ns)
       else
          write(stdout,*) "Error! Check num_smooth_gq_s = ",num_smooth_gq_s(:)
          stop
       endif
 
+      if(present(Output2D)) then
+         ! If an optional output Data is provided, copy Smoothed Data to it without changing input target_Data2D
+         Output2D = SM_Data(1:Nq,1:Ns)
+      else
+         ! Overwrite the given input Data with Smoothed Data
+         target_Data2D = SM_Data(1:Nq,1:Ns)
+      endif
    end subroutine Smooth_SG_Data_2D
 
 
