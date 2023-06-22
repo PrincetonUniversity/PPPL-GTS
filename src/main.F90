@@ -281,7 +281,6 @@ program GTS
 
    ! call smooth(1)
 
-   call field(masssolver)
 
    if(ifelectron==2.and.ifdphi==1) then
       call current_ion
@@ -551,12 +550,6 @@ program GTS
          time(5)=time(5)+dt
          timewc(5)=timewc(5)+dtwc
 
-         ! field
-         call field(masssolver)
-
-         call timer(t0,dt,t0wc,dtwc)
-         time(6)=time(6)+dt
-         timewc(6)=timewc(6)+dtwc
 
          if(ifelectron==2.and.ifdphi==1) then
             call current_ion
