@@ -1322,6 +1322,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    use Structured_Grid
    use Ptl_Src_Loss
    use solver_data_class
+   use MGY_PETSc_Interface_Data
    implicit none
 
 
@@ -1344,7 +1345,12 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    call Measure_Ion_Density_Current_on_SG(1)
    call Measure_Electron_Density_Current_on_SG(1)
 
-   call poisson(solver,masssolver)
+   if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+      call Solve_Nonlinear_Poisson3D_on_SG
+   else
+      call Solve_Poisson3D_on_SG
+   endif
+   call Cal_gradPhi_on_SG
 
    call Update_SG_phi_3D_by_gathering_SG_phi2D
 
@@ -1384,7 +1390,12 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    acc_newer_D_zeon=.true.
 
    call Measure_Electron_Density_Current_on_SG(1)
-   call poisson(solver,masssolver)
+   if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+      call Solve_Nonlinear_Poisson3D_on_SG
+   else
+      call Solve_Poisson3D_on_SG
+   endif
+   call Cal_gradPhi_on_SG
    call Update_SG_phi_3D_by_gathering_SG_phi2D
 
    !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)

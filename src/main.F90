@@ -255,25 +255,25 @@ program GTS
    endif
 
    if(Flag_Poisson==1) then
-      if(Flag_Poisson3D_on_SG==1) then
-         call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
-         call Construct_GK_Poisson3D_Solver_with_Extremal_Method
-         call poisson( solver1, masssolver  )
-         call Update_GK_Poisson_LHS_Coeffs
-         if(electromagnetic==2) then
-            call Construct_GK_Ampere_3D_Solver_with_Extremal_Method
-            call Solve_GK_Ampere_3D_on_SG
-            call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
-            call Cal_grad_gaH_and_grad_gaS_on_SG
-         endif
+      call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
+      call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+      call Update_GK_Poisson_LHS_Coeffs
+      if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+         call Solve_Nonlinear_Poisson3D_on_SG
       else
-         call poisson( solver1, masssolver  )
+         call Solve_Poisson3D_on_SG
+      endif
+      call Cal_gradPhi_on_SG
+      if(electromagnetic==2) then
+         call Construct_GK_Ampere_3D_Solver_with_Extremal_Method
+         call Solve_GK_Ampere_3D_on_SG
+         call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+         call Cal_grad_gaH_and_grad_gaS_on_SG
       endif
       if(Flag_Load_and_WeightDef/=0) then
          call Adjust_electron_weight_for_initially_zero_potential(solver1,masssolver)
       endif
    endif
-   !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
 
 
@@ -507,9 +507,14 @@ program GTS
 
          endif    ! end if(ifelectron/=0)
 
-         ! solve GK Poisson equation using adiabatic electron
+         ! solve GK field equations
          if(Flag_Poisson==1) then
-            call poisson( solver1, masssolver )
+            if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+               call Solve_Nonlinear_Poisson3D_on_SG
+            else
+               call Solve_Poisson3D_on_SG
+            endif
+            call Cal_gradPhi_on_SG
             if(electromagnetic==2) then
                call Update_SG_AparaS(irk,nrk)
                call Solve_GK_Ampere_3D_on_SG
@@ -517,7 +522,6 @@ program GTS
                call Cal_grad_gaH_and_grad_gaS_on_SG
             endif
          endif
-         !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
          if (mype == 0) then
             open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')

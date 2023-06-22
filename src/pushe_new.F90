@@ -554,7 +554,12 @@ subroutine pusheon_wEvol0or1(solver1, masssolver, irk_e, nrk)
 
             call cpu_time(cput0)
             tt0=MPI_WTIME()
-            call poisson( solver1, masssolver )
+            if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+               call Solve_Nonlinear_Poisson3D_on_SG
+            else
+               call Solve_Poisson3D_on_SG
+            endif
+            call Cal_gradPhi_on_SG            
             call cpu_time(cput1)
             tt1=MPI_WTIME()
             time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
@@ -1306,7 +1311,12 @@ subroutine pusheon_wEvol3(solver1, masssolver, irk_e, nrk)
 
          call cpu_time(cput0)
          tt0=MPI_WTIME()
-         call poisson(solver1, masssolver)
+         if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+            call Solve_Nonlinear_Poisson3D_on_SG
+         else
+            call Solve_Poisson3D_on_SG
+         endif
+         call Cal_gradPhi_on_SG
          call cpu_time(cput1)
          tt1=MPI_WTIME()
          time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
@@ -1781,7 +1791,12 @@ subroutine pusheon_wEvol4(solver1, masssolver, irk_e, nrk)
 
          call cpu_time(cput0)
          tt0=MPI_WTIME()
-         call poisson(solver1, masssolver)
+         if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+            call Solve_Nonlinear_Poisson3D_on_SG
+         else
+            call Solve_Poisson3D_on_SG
+         endif
+         call Cal_gradPhi_on_SG
          call cpu_time(cput1)
          tt1=MPI_WTIME()
          time_in_Pushe(3) = time_in_Pushe(3) + (cput1-cput0)
