@@ -1514,25 +1514,29 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_SG, "perpLap_AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%perpLap_AparaS,h5err)
       endif
 
-      call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%ni_by_ff(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%ne_by_fh(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%dje_para(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%je_para_by_fh(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%dji_para(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%ji_para_by_ff(:,:,1),SG%Cell_dV)
-      call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
-      if(electromagnetic==2) then
-         allocate(tmp2D(SG%dim_gq, SG%dim_s)) 
+      allocate(tmp2D(SG%dim_gq, SG%dim_s)) !To hold smoothed data 
 
+      call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%ni_by_ff(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%ne_by_fh(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%dje_para(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%je_para_by_fh(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%dji_para(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%ji_para_by_ff(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%test_phi_2D,Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%test_src_2D,Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*tmp2D,h5err)
+      if(electromagnetic==2) then
          call Smooth_SG_Data_2D([2,2], SG%AparaH(:,:,1), Volume2D=SG%Cell_dV, Output2D=tmp2D)
          call h5ltmake_dataset_f(gid_SG_SM, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE,tmp2D,h5err)
          call Smooth_SG_Data_2D([2,2], SG%AparaS, Volume2D=SG%Cell_dV, Output2D=tmp2D)
@@ -1541,9 +1545,9 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_SG_SM, "gaH",2,h5dims,H5T_NATIVE_DOUBLE,tmp2D,h5err)
          call Smooth_SG_Data_2D([2,2], SG%gaS(:,:,1), Volume2D=SG%Cell_dV, Output2D=tmp2D)
          call h5ltmake_dataset_f(gid_SG_SM, "gaS",2,h5dims,H5T_NATIVE_DOUBLE,tmp2D,h5err)
-
-         deallocate(tmp2D)
       endif
+
+      deallocate(tmp2D)
 
       call h5ltmake_dataset_f(gid_SG, "phi",2,h5dims,H5T_NATIVE_DOUBLE, SG%phi(:,:,1),h5err)
 
@@ -1592,10 +1596,6 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "RealCharge_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%RealCharge_3D,h5err)
       call h5ltmake_dataset_f(gid_SG, "niPol_3D",3,h5dims,H5T_NATIVE_DOUBLE, SG%niPol_3D,h5err)
 
-      call Smooth_SG_Data_2D([2],SG%test_phi_2D,SG%Cell_dV)
-      call Smooth_SG_Data_2D([2],SG%test_src_2D,SG%Cell_dV)
-      call h5ltmake_dataset_f(gid_SG_SM, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_2D,h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_2D,h5err)
 
       ! h5dims(1:4)=(/3,SG%dim_gq,SG%dim_s,mzetamax/)
       ! allocate(intp_val_arr(3*SG%dim_gq*SG%dim_s*mzetamax))
