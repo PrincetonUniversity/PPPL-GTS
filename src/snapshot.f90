@@ -476,7 +476,7 @@ subroutine Interpolate_Data_into_Coarser_Grids(in_Data_Arr1D, gq_jump, a_jump, o
    do i=0,mpsi,a_jump
       do j=0,jm
          gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-         jt=int(gqdum);  wt=gqdum-jt
+         jt=min(mtheta(i)-1, int(gqdum));  wt=gqdum-jt
          out_intpl_Arr1D(k) =(1.0-wt)*in_Data_Arr1D(igrid(i)+jt) + wt*in_Data_Arr1D(igrid(i)+jt+1)
          k=k+1
       enddo
@@ -502,7 +502,6 @@ subroutine snapshot_hdf5
    implicit none
 
    integer, parameter :: gq_jump=3, a_jump=1
-   integer :: msnap_for_All
    integer :: dim_a, dim_gq
    real(wp) :: gqdum, wt, inv_dgq(0:mpsi)
    ! integer(HSIZE_T), dimension(2) :: h5dims=(/dim_a, dim_gq/))
@@ -513,6 +512,7 @@ subroutine snapshot_hdf5
    ! real(wp) :: intp_val_Arr(((mpsi+1)/a_jump)*(jm+1))  ! 1D representation for 2D data(0:a_jump:mpsi, 0:jm)
    real(wp) :: intp_val, intp_val2
    real(wp), dimension(:), allocatable ::intp_val_Arr, test_dphi_3D  ! 1D representation for 1D data(dims(1)) , 2D data(dims(1), dims(2)) or 3D data(dims(1), dims(2), dims(3))
+   real(wp), dimension(:,:), allocatable :: tmp2D
    integer :: i,j,ij,k,jt,jm,istatus(MPI_STATUS_SIZE),ierror, pbid
    real(wp) full_dphi(0:1,mgrid), intpl_dphi_NZ(0:1), dne_adiabatic(0:1,mgrid)
    real(wp) full_dni(0:1,mgrid), full_dne(0:1,mgrid), FLA_full_dni(0:1,mgrid), FLA_full_dne(0:1,mgrid)
@@ -554,8 +554,6 @@ subroutine snapshot_hdf5
          DG_FLA_iScaData(:,:,i) = DG_FLA_Data(:,:,1)
       enddo
    endif
-
-   msnap_for_All = msnap*50
 
 
    if(istep==0) then
@@ -616,8 +614,6 @@ subroutine snapshot_hdf5
             ! adiabatic electron is using full_dphi instead of nonzonal phi
             dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/Te_grid(i)
          elseif(Flag_Def_dne_adiab==2) then
-            dne_adiabatic(:,ij) = den_grid(i)*abs(csc0)*(phi(:,ij)+real(ZF_SEPARATION)*phi00(i))/FLA_Te0(:,ij)
-         elseif(Flag_Def_dne_adiab==3) then
             dne_adiabatic(:,ij) = den_grid(i)*(-1.0+exp(abs(csc0)*full_dphi(:,ij)/Te_grid(i)))
          end if
 
@@ -800,7 +796,7 @@ subroutine snapshot_hdf5
    ! Record some data on sparse grid points
    ! ==================================
    snap_flag=.false.
-   if(mod(istep,msnap_for_All)==0 .and. myrank_partd==nproc_partd-1) then
+   if(mod(istep,msnap*snapAll_Factor)==0 .and. myrank_partd==nproc_partd-1) then
       call system("mkdir -p " // 'snapshots_hdf5/AllPlanes')
       write(file_path, '("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
       snap_flag=.true.
@@ -957,8 +953,10 @@ subroutine snapshot_hdf5
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "num_of_FLabel_pcws",1,h5dims,H5T_NATIVE_INTEGER, num_of_FLabel_pcws,h5err)
       h5dims(1)=num_of_FLabel_pcws
-      call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
-      call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
+      if(allocated(FLabel_pcws_a) .and. allocated(FLabel_pcws_y)) then
+         call h5ltmake_dataset_f(file_id, "FLabel_pcws_a",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_a,h5err)
+         call h5ltmake_dataset_f(file_id, "FLabel_pcws_y",1,h5dims,H5T_NATIVE_DOUBLE, FLabel_pcws_y,h5err)
+      endif
 
       ! =======================
       ! 2D data
@@ -1035,7 +1033,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = ((1.0-wt)*phi(1,igrid(i)+jt)+  wt*phi(1,igrid(i)+jt+1)) +real(ZF_SEPARATION)*phi00(i)
             intp_val_Arr(k) = ((E_00*c)/(charg0*1e8))*intp_val
             k=k+1
@@ -1067,7 +1065,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = real(ZF_SEPARATION)*(zonal_dTi(i)) + (vth_grid(i)**2)*((1.0-wt)*phi_tmp(igrid(i)+jt)+  wt*phi_tmp(igrid(i)+jt+1))
             intp_val_Arr(k) = 1e3*Tem_00*intp_val
             k=k+1
@@ -1089,7 +1087,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = (1.0-wt)*full_dne(1,igrid(i)+jt) + wt*full_dne(1,igrid(i)+jt+1)
             intp_val_Arr(k) = 1e6*intp_val
             k=k+1
@@ -1109,7 +1107,7 @@ subroutine snapshot_hdf5
       do i=0,mpsi,a_jump
          do j=0,jm
             gqdum = modulo(2.0*pi*real(j)/real(jm) - qtinv(i)*zetamax, 2.0*pi) * inv_dgq(i)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(i)-1,int(gqdum));  wt=gqdum-jt
             intp_val = Te_grid(i)*(((1.0-wt)*heatflux(igrid(i)+jt)+  wt*heatflux(igrid(i)+jt+1))) +real(ZF_SEPARATION)*(zonal_dTe(i))
             intp_val_Arr(k) = 1e3*Tem_00*(intp_val)
             k=k+1
@@ -1511,33 +1509,45 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_SG, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
          call h5ltmake_dataset_f(gid_SG, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
          call h5ltmake_dataset_f(gid_SG, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "gaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaS(:,:,1),h5err)
          call h5ltmake_dataset_f(gid_SG, "Ampere_RHS",2,h5dims,H5T_NATIVE_DOUBLE, SG%Ampere_RHS,h5err)
+         call h5ltmake_dataset_f(gid_SG, "perpLap_AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%perpLap_AparaS,h5err)
       endif
 
-      call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%ni_by_ff(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%ne_by_fh(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%dje_para(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%je_para_by_fh(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%dji_para(:,:,1),SG%Cell_dV)
-      call Smooth_SG_Data_2D([2,2],SG%ji_para_by_ff(:,:,1),SG%Cell_dV)
-      call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dni(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%dne(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
+      allocate(tmp2D(SG%dim_gq, SG%dim_s)) !To hold smoothed data 
+
+      call Smooth_SG_Data_2D([2,2],SG%dni(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "dni",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%dne(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "dne",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%ni_by_ff(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%ne_by_fh(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%dje_para(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%je_para_by_fh(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%dji_para(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%ji_para_by_ff(:,:,1),Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%test_phi_2D,Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, tmp2D,h5err)
+      call Smooth_SG_Data_2D([2,2],SG%test_src_2D,Volume2D=SG%Cell_dV, Output2D=tmp2D)
+      call h5ltmake_dataset_f(gid_SG_SM, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*tmp2D,h5err)
       if(electromagnetic==2) then
-         call Smooth_SG_Data_2D([2,2],SG%AparaH(:,:,1),SG%Cell_dV)
-         call Smooth_SG_Data_2D([2,2],SG%AparaS,SG%Cell_dV)
-         call Smooth_SG_Data_2D([2,2],SG%gaH(:,:,1),SG%Cell_dV)
-         call h5ltmake_dataset_f(gid_SG_SM, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
-         call h5ltmake_dataset_f(gid_SG_SM, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaS,h5err)
-         call h5ltmake_dataset_f(gid_SG_SM, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%gaH(:,:,1),h5err)
+         call Smooth_SG_Data_2D([2,2], SG%AparaH(:,:,1), Volume2D=SG%Cell_dV, Output2D=tmp2D)
+         call h5ltmake_dataset_f(gid_SG_SM, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE,tmp2D,h5err)
+         call Smooth_SG_Data_2D([2,2], SG%AparaS, Volume2D=SG%Cell_dV, Output2D=tmp2D)
+         call h5ltmake_dataset_f(gid_SG_SM, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE,tmp2D,h5err)
+         call Smooth_SG_Data_2D([2,2], SG%gaH(:,:,1), Volume2D=SG%Cell_dV, Output2D=tmp2D)
+         call h5ltmake_dataset_f(gid_SG_SM, "gaH",2,h5dims,H5T_NATIVE_DOUBLE,tmp2D,h5err)
+         call Smooth_SG_Data_2D([2,2], SG%gaS(:,:,1), Volume2D=SG%Cell_dV, Output2D=tmp2D)
+         call h5ltmake_dataset_f(gid_SG_SM, "gaS",2,h5dims,H5T_NATIVE_DOUBLE,tmp2D,h5err)
       endif
+
+      deallocate(tmp2D)
 
       call h5ltmake_dataset_f(gid_SG, "phi",2,h5dims,H5T_NATIVE_DOUBLE, SG%phi(:,:,1),h5err)
 
@@ -1546,7 +1556,10 @@ subroutine snapshot_hdf5
       h5dims(1:3)=(/3,SG%dim_gq,SG%dim_s/)
       call h5ltmake_dataset_f(gid_SG, "B0_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%B0_cov3,h5err)
       call h5ltmake_dataset_f(gid_SG, "grad_phi_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_phi_cov(:,:,:,1),h5err)
-      if(electromagnetic==2) call h5ltmake_dataset_f(gid_SG, "grad_gaH_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_gaH_cov(:,:,:,1),h5err)
+      if(electromagnetic==2) then
+         call h5ltmake_dataset_f(gid_SG, "grad_gaH_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_gaH_cov(:,:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "grad_gaS_cov",3,h5dims,H5T_NATIVE_DOUBLE, SG%grad_gaS_cov(:,:,:,1),h5err)
+      endif
 
 
       call h5ltmake_dataset_f(gid_SG, "B0_cntv",3,h5dims,H5T_NATIVE_DOUBLE, SG%B0_cntv3,h5err)
@@ -1583,10 +1596,6 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "RealCharge_3D",3,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%RealCharge_3D,h5err)
       call h5ltmake_dataset_f(gid_SG, "niPol_3D",3,h5dims,H5T_NATIVE_DOUBLE, SG%niPol_3D,h5err)
 
-      call Smooth_SG_Data_2D([2],SG%test_phi_2D,SG%Cell_dV)
-      call Smooth_SG_Data_2D([2],SG%test_src_2D,SG%Cell_dV)
-      call h5ltmake_dataset_f(gid_SG_SM, "test_phi_2D",2,h5dims,H5T_NATIVE_DOUBLE, SG%test_phi_2D,h5err)
-      call h5ltmake_dataset_f(gid_SG_SM, "test_src_2D",2,h5dims,H5T_NATIVE_DOUBLE, (1.0/1.602176634e-19)*SG%test_src_2D,h5err)
 
       ! h5dims(1:4)=(/3,SG%dim_gq,SG%dim_s,mzetamax/)
       ! allocate(intp_val_arr(3*SG%dim_gq*SG%dim_s*mzetamax))
@@ -1595,13 +1604,15 @@ subroutine snapshot_hdf5
       ! deallocate(intp_val_arr)
 
 
-      h5dims(1:2)=3
-      h5dims(3)=SG%dim_gq+1
-      h5dims(4)=SG%dim_a+2
-      h5dims(5)=3
-      call h5ltmake_dataset_f(gid_SG, "test_CT",5,h5dims,H5T_NATIVE_DOUBLE, CT,h5err)
-      call h5ltmake_dataset_f(gid_SG, "test_Metric_T",4,h5dims,H5T_NATIVE_DOUBLE, Metric_T,h5err)
-      call h5ltmake_dataset_f(gid_SG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
+      if(Flag_Poisson==1) then
+         h5dims(1:2)=3
+         h5dims(3)=SG%dim_gq+1
+         h5dims(4)=SG%dim_a+2
+         h5dims(5)=3
+         call h5ltmake_dataset_f(gid_SG, "test_CT",5,h5dims,H5T_NATIVE_DOUBLE, CT,h5err)
+         call h5ltmake_dataset_f(gid_SG, "test_Metric_T",4,h5dims,H5T_NATIVE_DOUBLE, Metric_T,h5err)
+         call h5ltmake_dataset_f(gid_SG, "test_Polar_T",4,h5dims,H5T_NATIVE_DOUBLE, Polar_T,h5err)
+      endif
 
 
       ! Print FP (FootPrint) Data
@@ -1663,7 +1674,7 @@ subroutine snapshot_hdf5
          do i=1,DG%dim_a
             DG%ZON_dne_adiab(i) = abs(csc0)*(int(ifelectron/2)*phi00(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
          enddo
-      elseif(Flag_Def_dne_adiab==3) then
+      elseif(Flag_Def_dne_adiab==2) then
          do i=1,DG%dim_a
             DG%ZON_dne_adiab(i) = den_grid(i)*(-1.0+exp(abs(csc0)*(phi00(DG%ori_aid(i)))/DG%Te0_1D(i)))
          enddo
@@ -1674,7 +1685,7 @@ subroutine snapshot_hdf5
          do i=1,DG%dim_a
             DG%mean_ZON_dne_adiab(i) = abs(csc0)*(int(ifelectron/2)*mean_zonal_dphi(DG%ori_aid(i))*DG%n0_1D(i)/DG%Te0_1D(i))
          enddo
-      elseif(Flag_Def_dne_adiab==3) then
+      elseif(Flag_Def_dne_adiab==2) then
          do i=1,DG%dim_a
             DG%mean_ZON_dne_adiab(i) = den_grid(i)*(-1.0+exp(abs(csc0)*(mean_zonal_dphi(DG%ori_aid(i)))/DG%Te0_1D(i)))
          enddo
@@ -2227,7 +2238,7 @@ subroutine snapshot_hdf5
 
 
    ! Copy snapshot data of last poloidal plane into AllPlanes if istep==msnap_for_All
-   if(mod(istep,msnap_for_All)==0 .and. mype == numberpe-1) then
+   if(mod(istep,msnap*snapAll_Factor)==0 .and. mype == numberpe-1) then
       write(file_path, '("snapshots_hdf5/snap",i5.5,".h5")') istep/msnap
       write(file_path2,'("snapshots_hdf5/AllPlanes/P",i3.3,"_snap",i5.5,".h5")') myrank_toroidal, istep/msnap
       call system("cp " // file_path // file_path2)
@@ -2403,7 +2414,7 @@ subroutine snapshot_Magnetic_Information
       if(electromagnetic>=1)then
          ! Get initial magnetic perturbation information
          do k=1,size(a_)
-            call Get_MP_alpha_amplitude(a_(k), gq_(k),modulo(zetamax,2.0*pi),0.0, ini_ga_(k), ini_grad_ga_cov3_(1:3,k), ini_dga0dt_(k))
+            call Get_extMP_alpha_amplitude(a_(k), gq_(k),modulo(zetamax,2.0*pi),0.0, ini_ga_(k), ini_grad_ga_cov3_(1:3,k), ini_dga0dt_(k))
          enddo
 
          ini_dB_cntv3_(1,:) = ini_ga_*j0_cntv3_(1,:) + (ini_grad_ga_cov3_(2,:)*B0_cov3_(3,:) - ini_grad_ga_cov3_(3,:)*B0_cov3_(2,:))/Jacobian_
@@ -2624,7 +2635,7 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
    dni_init=0.0; dni_vpara=0.0; dni_vperp=0.0; dni_accel=0.0; dni_fdamp=0.0;
    dTi_init=0.0; dTi_vpara=0.0; dTi_vperp=0.0; dTi_accel=0.0; dTi_fdamp=0.0;
 
-   call ion_locator
+   call ion_locator_at_larmor_points
 
    !$acc parallel loop present(zion,jtion0,jtion1,wzion,wpion,wtion0,wtion1)
    do m=1,mi
@@ -2653,25 +2664,21 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
          dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
          dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
          dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-         dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
          dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
          dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
          dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
          tmp1 = wgf1*wa0*inner_wgq0
          dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
          dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
          dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
          dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-         dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
          dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
          dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
          dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
 
          !inner radius, larger theta index
          ij=ij+1
@@ -2680,25 +2687,21 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
          dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
          dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
          dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-         dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
          dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
          dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
          dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
          tmp1 = wgf1*wa0*inner_wgq1
          dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
          dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
          dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
          dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-         dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
          dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
          dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
          dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
 
          !outter radius, smaller theta index
          ij=jtion1(larmor,m)
@@ -2707,25 +2710,21 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
          dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
          dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
          dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-         dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
          dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
          dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
          dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
          tmp1 = wgf1*wa1*outter_wgq0
          dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
          dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
          dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
          dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-         dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
          dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
          dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
          dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
 
          !outter radius, larger theta index
          ij=ij+1
@@ -2734,25 +2733,21 @@ subroutine Cal_dni_dTi_from_each_ion_weight_component
          dni_vpara(0,ij) = dni_vpara(0,ij) + tmp1*wi_vpara(m)
          dni_vperp(0,ij) = dni_vperp(0,ij) + tmp1*wi_vperp(m)
          dni_accel(0,ij) = dni_accel(0,ij) + tmp1*wi_accel(m)
-         dni_fdamp(0,ij) = dni_fdamp(0,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(0,ij)  = dTi_init(0,ij)  + tmp2*wi_init(m)
          dTi_vpara(0,ij) = dTi_vpara(0,ij) + tmp2*wi_vpara(m)
          dTi_vperp(0,ij) = dTi_vperp(0,ij) + tmp2*wi_vperp(m)
          dTi_accel(0,ij) = dTi_accel(0,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(0,ij) = dTi_fdamp(0,ij) + tmp2*wi_fdamp(m)
          tmp1 = wgf1*wa1*outter_wgq1
          dni_init(1,ij)  = dni_init(1,ij)  + tmp1*wi_init(m)
          dni_vpara(1,ij) = dni_vpara(1,ij) + tmp1*wi_vpara(m)
          dni_vperp(1,ij) = dni_vperp(1,ij) + tmp1*wi_vperp(m)
          dni_accel(1,ij) = dni_accel(1,ij) + tmp1*wi_accel(m)
-         dni_fdamp(1,ij) = dni_fdamp(1,ij) + tmp1*wi_fdamp(m)
          tmp2 = tmp1*((2.0/3.0)*energy-backT(m))
          dTi_init(1,ij)  = dTi_init(1,ij)  + tmp2*wi_init(m)
          dTi_vpara(1,ij) = dTi_vpara(1,ij) + tmp2*wi_vpara(m)
          dTi_vperp(1,ij) = dTi_vperp(1,ij) + tmp2*wi_vperp(m)
          dTi_accel(1,ij) = dTi_accel(1,ij) + tmp2*wi_accel(m)
-         dTi_fdamp(1,ij) = dTi_fdamp(1,ij) + tmp2*wi_fdamp(m)
       enddo
    enddo
 
@@ -3026,28 +3021,24 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
       dne_vperp(0,ij) = dne_vperp(0,ij) + tmp1*we_vperp(m)
       dne_accel(0,ij) = dne_accel(0,ij) + tmp1*we_accel(m)
       dne_adiab(0,ij) = dne_adiab(0,ij) + tmp1*we_adiab(m)
-      dne_fdamp(0,ij) = dne_fdamp(0,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(0,ij)  = dTe_init(0,ij)  + tmp2*we_init(m)
       dTe_vpara(0,ij) = dTe_vpara(0,ij) + tmp2*we_vpara(m)
       dTe_vperp(0,ij) = dTe_vperp(0,ij) + tmp2*we_vperp(m)
       dTe_accel(0,ij) = dTe_accel(0,ij) + tmp2*we_accel(m)
       dTe_adiab(0,ij) = dTe_adiab(0,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(0,ij) = dTe_fdamp(0,ij) + tmp2*we_fdamp(m)
       tmp1 = wgf1*wa0*inner_wgq0
       dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
       dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
       dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
       dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
       dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
-      dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
       dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
       dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
       dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
       dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
       !inner radius, larger theta index
       ij=ij+1
@@ -3057,28 +3048,24 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
       dne_vperp(0,ij) = dne_vperp(0,ij) + tmp1*we_vperp(m)
       dne_accel(0,ij) = dne_accel(0,ij) + tmp1*we_accel(m)
       dne_adiab(0,ij) = dne_adiab(0,ij) + tmp1*we_adiab(m)
-      dne_fdamp(0,ij) = dne_fdamp(0,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(0,ij)  = dTe_init(0,ij)  + tmp2*we_init(m)
       dTe_vpara(0,ij) = dTe_vpara(0,ij) + tmp2*we_vpara(m)
       dTe_vperp(0,ij) = dTe_vperp(0,ij) + tmp2*we_vperp(m)
       dTe_accel(0,ij) = dTe_accel(0,ij) + tmp2*we_accel(m)
       dTe_adiab(0,ij) = dTe_adiab(0,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(0,ij) = dTe_fdamp(0,ij) + tmp2*we_fdamp(m)
       tmp1 = wgf1*wa0*inner_wgq1
       dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
       dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
       dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
       dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
       dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
-      dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
       dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
       dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
       dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
       dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
       !outter radius, smaller theta index
       ij=jteon1(m)
@@ -3088,28 +3075,24 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
       dne_vperp(0,ij) = dne_vperp(0,ij) + tmp1*we_vperp(m)
       dne_accel(0,ij) = dne_accel(0,ij) + tmp1*we_accel(m)
       dne_adiab(0,ij) = dne_adiab(0,ij) + tmp1*we_adiab(m)
-      dne_fdamp(0,ij) = dne_fdamp(0,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(0,ij)  = dTe_init(0,ij)  + tmp2*we_init(m)
       dTe_vpara(0,ij) = dTe_vpara(0,ij) + tmp2*we_vpara(m)
       dTe_vperp(0,ij) = dTe_vperp(0,ij) + tmp2*we_vperp(m)
       dTe_accel(0,ij) = dTe_accel(0,ij) + tmp2*we_accel(m)
       dTe_adiab(0,ij) = dTe_adiab(0,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(0,ij) = dTe_fdamp(0,ij) + tmp2*we_fdamp(m)
       tmp1 = wgf1*wa1*outter_wgq0
       dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
       dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
       dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
       dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
       dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
-      dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
       dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
       dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
       dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
       dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
       !outter radius, larger theta index
       ij=ij+1
@@ -3119,28 +3102,24 @@ subroutine Cal_dne_dTe_from_each_electron_weight_component
       dne_vperp(0,ij) = dne_vperp(0,ij) + tmp1*we_vperp(m)
       dne_accel(0,ij) = dne_accel(0,ij) + tmp1*we_accel(m)
       dne_adiab(0,ij) = dne_adiab(0,ij) + tmp1*we_adiab(m)
-      dne_fdamp(0,ij) = dne_fdamp(0,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(0,ij)  = dTe_init(0,ij)  + tmp2*we_init(m)
       dTe_vpara(0,ij) = dTe_vpara(0,ij) + tmp2*we_vpara(m)
       dTe_vperp(0,ij) = dTe_vperp(0,ij) + tmp2*we_vperp(m)
       dTe_accel(0,ij) = dTe_accel(0,ij) + tmp2*we_accel(m)
       dTe_adiab(0,ij) = dTe_adiab(0,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(0,ij) = dTe_fdamp(0,ij) + tmp2*we_fdamp(m)
       tmp1 = wgf1*wa1*outter_wgq1
       dne_init(1,ij)  = dne_init(1,ij)  + tmp1*we_init(m)
       dne_vpara(1,ij) = dne_vpara(1,ij) + tmp1*we_vpara(m)
       dne_vperp(1,ij) = dne_vperp(1,ij) + tmp1*we_vperp(m)
       dne_accel(1,ij) = dne_accel(1,ij) + tmp1*we_accel(m)
       dne_adiab(1,ij) = dne_adiab(1,ij) + tmp1*we_adiab(m)
-      dne_fdamp(1,ij) = dne_fdamp(1,ij) + tmp1*we_fdamp(m)
       tmp2 = tmp1*((2.0/3.0)*energy-backTe(m)*msm0)
       dTe_init(1,ij)  = dTe_init(1,ij)  + tmp2*we_init(m)
       dTe_vpara(1,ij) = dTe_vpara(1,ij) + tmp2*we_vpara(m)
       dTe_vperp(1,ij) = dTe_vperp(1,ij) + tmp2*we_vperp(m)
       dTe_accel(1,ij) = dTe_accel(1,ij) + tmp2*we_accel(m)
       dTe_adiab(1,ij) = dTe_adiab(1,ij) + tmp2*we_adiab(m)
-      dTe_fdamp(1,ij) = dTe_fdamp(1,ij) + tmp2*we_fdamp(m)
 
    enddo
 

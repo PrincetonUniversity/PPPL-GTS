@@ -162,7 +162,6 @@ module function_gg_module
          logical Flag_back_f0_i
          integer ierr
 
-         !$acc declare create(back_flux_A)
 
          Flag_back_f0_i=.true.
          if(present(flag_backf0)) Flag_back_f0_i = flag_backf0
@@ -180,6 +179,8 @@ module function_gg_module
 
          allocate(back_flux_A(m0:m1))
 
+
+         !$acc enter data create(back_flux_A)
 
          dela=(a1-a0)/real(jr,wp)
          dela=1.0_wp/dela
@@ -342,7 +343,8 @@ module function_gg_module
             endif
          endif
 
-         deallocate(back_flux_A)
+         !$acc exit data delete(back_flux_A)
+         if(allocated(back_flux_A)) deallocate(back_flux_A)
 
 #ifdef _MGY_TIMER_
          time1=MPI_WTIME()
@@ -396,7 +398,6 @@ module function_gg_module
          logical, optional,intent(in) :: flag_backf0
          logical Flag_backf0_e
 
-         !$acc declare create(back_flux_A,omega_ui,backTi)
 
          Flag_backf0_e = .true.
          if(present(flag_backf0)) Flag_backf0_e = flag_backf0
@@ -412,6 +413,7 @@ module function_gg_module
 
          allocate(back_flux_A(m0:m1),omega_ui(m0:m1),backTi(m0:m1))
 
+         !$acc enter data create(back_flux_A, omega_ui, backTi)
 
          if(acc_newer_H_zeon) then
             !$acc update device(zeon(:,m0:m1),zeon0(:,m0:m1),RK_cum_zeon(:,m0:m1))
@@ -578,7 +580,8 @@ module function_gg_module
          endif
 
 
-         deallocate(back_flux_A,omega_ui,backTi)
+         !$acc exit data delete(back_flux_A, omega_ui, backTi)
+         if(allocated(back_flux_A)) deallocate(back_flux_A,omega_ui,backTi)
 
 
 #ifdef _MGY_TIMER_
@@ -600,7 +603,7 @@ module function_gg_module
       end subroutine n_T_u_group_e
 
 
-      subroutine Get_MP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt) bind (C, name="get_mp_alpha_amplitude_")
+      subroutine Get_extMP_alpha_amplitude(in_a, in_theta, in_zeta, in_time, out_ga, out_grad_ga, out_partial_dga0dt) bind (C, name="get_extmp_alpha_amplitude_")
          !$acc routine seq
          use iso_c_binding, only : c_double
          use global_parameters
@@ -654,7 +657,7 @@ module function_gg_module
             endif
          endif
 
-      end subroutine Get_MP_alpha_amplitude
+      end subroutine Get_extMP_alpha_amplitude
 
 
       subroutine Convert_a_to_s(in_a, out_s)
@@ -1824,7 +1827,7 @@ end function temperature_e
 
 
 
-subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+subroutine Get_extMP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
 
    use iso_c_binding, only : c_double
    use global_parameters
@@ -1887,9 +1890,9 @@ subroutine Get_MP_alpha_amplitude_arr_at_zion(in_time, out_ga, out_grad_ga, out_
 
       enddo
    endif
-end subroutine Get_MP_alpha_amplitude_arr_at_zion
+end subroutine Get_extMP_alpha_amplitude_arr_at_zion
 
-subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
+subroutine Get_extMP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_partial_dga0dt)
 
    use iso_c_binding, only : c_double
    use global_parameters
@@ -1952,7 +1955,7 @@ subroutine Get_MP_alpha_amplitude_arr_at_zeon(in_time, out_ga, out_grad_ga, out_
 
       enddo
    endif
-end subroutine Get_MP_alpha_amplitude_arr_at_zeon
+end subroutine Get_extMP_alpha_amplitude_arr_at_zeon
 
 subroutine Generate_FLabel_piecewise_radial_base_function
 
@@ -2432,9 +2435,7 @@ subroutine Cumulate_Some_Variables_for_Measure
          elseif(Flag_Def_dne_adiab==1) then!Flag_Def_dne_adiab==1
             ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
             adiab_dne_n0  = abs(csc0)*(full_dphi)/Te_grid(i)
-         elseif(Flag_Def_dne_adiab==2) then
-            adiab_dne_n0  = abs(csc0)*(full_dphi)/FLA_Te0(:,ij)
-         elseif(Flag_Def_dne_adiab==3) then!Flag_Def_dne_adiab==1
+         elseif(Flag_Def_dne_adiab==2) then!Flag_Def_dne_adiab==1
             ! Adiabatic electron is defined using full_dphi instead of nonzonal phi
             adiab_dne_n0  = -1.0+exp(abs(csc0)*(full_dphi)/Te_grid(i))
          end if
@@ -3065,6 +3066,11 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
    if(mype==0) then
       allocate(recv_num_of_PPIs(Gsize), recv_num_of_FootPoints(Gsize))
       allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
+   else
+      ! Other ranks do not need to allocate memory to the following variables
+      ! Here, allocate a dummy small memory to those variables just to avoid some MPI compiler may complain that we are using a null pointer.
+      allocate(recv_num_of_PPIs(1), recv_num_of_FootPoints(1))
+      allocate(recv_PPI(1, 1), recv_FootPoints(1,1)) 
    endif
    call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(num_of_FootPoints, Lsize, MPI_INTEGER, recv_num_of_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
@@ -3075,9 +3081,9 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
 
    ! Measure FieldFollowingData on FMap3D
    num_of_FMap3D_variables = 4
-   FMap3D_dim_a  = 200
-   FMap3D_dim_gq = 300
-   FMap3D_dim_gf = 50
+   FMap3D_dim_a  = 100
+   FMap3D_dim_gq = 150
+   FMap3D_dim_gf = 25
 
    Na=FMap3D_dim_a
    Nq=FMap3D_dim_gq
@@ -3100,7 +3106,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       ! Cal FMap3D_safety_q_1D by interpolation
       P_a = FMap3D_a_1D(aa)
       call Convert_a_to_s(P_a,P_s)
-      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ori_sid = max(0,min(mpsi-1,floor((P_s-s0)*ori_inv_ds))) ! s index of original full grid
       ratio=(P_s-s_grid(ori_sid))*ori_inv_ds
       FMap3D_safety_q_1D(aa) = ratio*q_grid(ori_sid+1) + (1.0-ratio)*q_grid(ori_sid)
    enddo
@@ -3457,8 +3463,10 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
    specific_time=0.0
    max_tor_rotation = FLF_max_tor_num
-   num_gq = 500
-   num_gf = 500
+   ! num_gq = 500
+   ! num_gf = 500
+   num_gq = 200
+   num_gf = 200
 
    Gsize = num_gq*num_gf
    Lsize = Gsize/numberpe
@@ -3787,6 +3795,10 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    if(mype==0) then
       allocate(recv_num_of_PPIs(Gsize), recv_num_of_FootPoints(Gsize))
       allocate(recv_PPI(2*max_tor_rotation, Gsize), recv_FootPoints(2,Gsize))
+   else
+      ! allocate small memory to dummy variable (to prevent MPI compiler warnings)
+      allocate(recv_num_of_PPIs(1), recv_num_of_FootPoints(1))
+      allocate(recv_PPI(1,1), recv_FootPoints(1,1))
    endif
    call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(num_of_FootPoints, Lsize, MPI_INTEGER, recv_num_of_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
@@ -3798,9 +3810,12 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
    ! Measure FieldFollowingData on FMap3D
    num_of_FMap3D_variables = 26
-   FMap3D_dim_a  = 200
-   FMap3D_dim_gq = 300
-   FMap3D_dim_gf = 100
+   ! FMap3D_dim_a  = 200
+   ! FMap3D_dim_gq = 300
+   ! FMap3D_dim_gf = 100
+   FMap3D_dim_a  = 100
+   FMap3D_dim_gq = 150
+   FMap3D_dim_gf = 50
 
    Na=FMap3D_dim_a
    Nq=FMap3D_dim_gq
@@ -3824,7 +3839,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
       ! Cal FMap3D_safety_q_1D by interpolation
       P_a = FMap3D_a_1D(aa)
       call Convert_a_to_s(P_a,P_s)
-      ori_sid = (P_s-s0)*ori_inv_ds ! s index of original full grid
+      ori_sid = max(0,min(mpsi-1,floor((P_s-s0)*ori_inv_ds))) ! s index of original full grid
       ratio=(P_s-s_grid(ori_sid))*ori_inv_ds
       FMap3D_safety_q_1D(aa) = ratio*q_grid(ori_sid+1) + (1.0-ratio)*q_grid(ori_sid)
    enddo
@@ -4076,7 +4091,7 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
       ! PPI
       num_of_samplePPIs_for_output = 70*70
-      PPI_jump= (Gsize)/num_of_samplePPIs_for_output
+      PPI_jump= max(1,(Gsize)/num_of_samplePPIs_for_output)
       h5dims(1)=1
       call h5ltmake_dataset_f(file_id, "PPI_jump",1,h5dims,H5T_NATIVE_INTEGER, PPI_jump, h5err)
       h5dims(1)=(Gsize+max(0,PPI_jump-1))/PPI_jump
@@ -5235,6 +5250,7 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
 
    real(wp) tmp_weight
    real(wp) sendl(mgrid),recvr(mgrid)
+   real(wp) recv_arr_SFL(num_of_SampledFieldLines)
    integer icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
 
 
@@ -5300,10 +5316,10 @@ subroutine Do_FieldLineAverage_by_using_gPPI(TargetData, FLA_ResultData)
    enddo
 
    ! Do Allreduce across toroidal_comm to get a sum of FLA
-   call MPI_ALLREDUCE(each_FLA_val,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-   each_FLA_val = recvr(1:num_of_SampledFieldLines)
-   call MPI_ALLREDUCE(each_FLA_denominator,recvr,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
-   each_FLA_denominator = recvr(1:num_of_SampledFieldLines)
+   call MPI_ALLREDUCE(each_FLA_val,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+   each_FLA_val = recv_arr_SFL
+   call MPI_ALLREDUCE(each_FLA_denominator,recv_arr_SFL,num_of_SampledFieldLines,mpi_Rsize, MPI_SUM, toroidal_comm,ierror)
+   each_FLA_denominator = recv_arr_SFL
 
    each_FLA_val =  each_FLA_val/ each_FLA_denominator ! Take average
 
@@ -6242,7 +6258,7 @@ subroutine Update_Most_Particle_Information_to_HOST()
    ! Update Electron Particles
    !$acc update self(elabels(:me))
    !$acc update self(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-   !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
+   !$acc update self(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me))
    !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
    acc_newer_D_zeon=.false.
    acc_newer_H_zeon=.false.
@@ -6250,7 +6266,7 @@ subroutine Update_Most_Particle_Information_to_HOST()
    ! Update Ion Particles
    !$acc update self(ilabels(:mi))
    !$acc update self(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-   !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
+   !$acc update self(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi))
    !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
    acc_newer_D_zion=.false.
    acc_newer_H_zion=.false.
@@ -6265,7 +6281,7 @@ subroutine Update_Most_Particle_Information_to_DEVICE()
    ! Update Electron Particles
    !$acc update device(elabels(:me))
    !$acc update device(UnNorm_theta_e(:me),UnNorm_zeta_e(:me))
-   !$acc update device(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me),we_fdamp(:me))
+   !$acc update device(we_init(:me),we_vpara(:me),we_vperp(:me),we_accel(:me),we_adiab(:me))
    !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
    acc_newer_D_zeon=.false.
    acc_newer_H_zeon=.false.
@@ -6273,7 +6289,7 @@ subroutine Update_Most_Particle_Information_to_DEVICE()
    ! Update Ion Particles
    !$acc update device(ilabels(:mi))
    !$acc update device(UnNorm_theta_i(:mi),UnNorm_zeta_i(:mi))
-   !$acc update device(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi),wi_fdamp(:mi))
+   !$acc update device(wi_init(:mi),wi_vpara(:mi),wi_vperp(:mi),wi_accel(:mi))
    !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
    acc_newer_D_zion=.false.
    acc_newer_H_zion=.false.

@@ -42,8 +42,8 @@ subroutine restart_write
 
       write(222) UnNorm_zeta_i(1:mi), UnNorm_theta_i(1:mi)
       write(222) UnNorm_zeta_e(1:mi), UnNorm_theta_e(1:mi)
-      write(222) wi_init(1:mi), wi_vpara(1:mi), wi_vperp(1:mi), wi_accel(1:mi), wi_fdamp(1:mi)
-      write(222) we_init(1:me), we_vpara(1:me), we_vperp(1:me), we_accel(1:me), we_adiab(1:me), we_fdamp(1:me)
+      write(222) wi_init(1:mi), wi_vpara(1:mi), wi_vperp(1:mi), wi_accel(1:mi)
+      write(222) we_init(1:me), we_vpara(1:me), we_vperp(1:me), we_accel(1:me), we_adiab(1:me)
 
       write(222) pmarke,markere,cloud_e    ! these are calculated in load.f90 and should be saved for check point
       !     write(222) dphidt,dphidt00  ! these are saved for check point only when using Jacobian iteration for solving dphidt
@@ -115,8 +115,8 @@ subroutine restart_read
 
       read(333) UnNorm_zeta_i(1:mi), UnNorm_theta_i(1:mi)
       read(333) UnNorm_zeta_e(1:mi), UnNorm_theta_e(1:mi)
-      read(333) wi_init(1:mi), wi_vpara(1:mi), wi_vperp(1:mi), wi_accel(1:mi), wi_fdamp(1:mi)
-      read(333) we_init(1:me), we_vpara(1:me), we_vperp(1:me), we_accel(1:me), we_adiab(1:me), we_fdamp(1:me)
+      read(333) wi_init(1:mi), wi_vpara(1:mi), wi_vperp(1:mi), wi_accel(1:mi)
+      read(333) we_init(1:me), we_vpara(1:me), we_vperp(1:me), we_accel(1:me), we_adiab(1:me)
 
       read(333) pmarke,markere,cloud_e
       !     read(333) dphidt,dphidt00  ! these are needed only when using Jacobian iteration for solving dphidt

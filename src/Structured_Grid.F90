@@ -60,9 +60,13 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:,:) :: gaH ! alpha_h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
       real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       real(wp), allocatable, dimension(:,:) :: AparaS ! A_para^s; dimension (dim_gq, dim_s)
+      real(wp), allocatable, dimension(:,:,:) :: gaS ! alpha_s; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
+      real(wp), allocatable, dimension(:,:,:,:) :: grad_gaS_cov ! grad(alpha_s); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       real(wp), allocatable, dimension(:,:) :: old_AparaS, RK_cum_AparaS  ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
      
       real(wp), allocatable, dimension(:,:) :: Ampere_RHS ! RHS of Ampere's equation
+      real(wp), allocatable, dimension(:,:) :: perpLap_AparaS ! RHS of Ampere's equation
+
    end type
 
    type(Grid_Info) :: SG ! Structure Grid
@@ -71,10 +75,10 @@ module Structured_Grid
    real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
    !$acc declare create(gyro_over_sqrt_mu)
 
-   real(wp) SG_zetamin, SG_zetamax, SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds
+   real(wp) SG_zetamin, SG_zetamax, SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_gq
    integer :: SG_dim_s
    real(wp), allocatable ::  SG_s_1D(:), SG_gq_1D(:), SG_safety_q_1D(:), SG_phi(:,:,:), SG_phi_3D(:,:,:)
-   !$acc declare create(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
+   !$acc declare create(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s,SG_dim_gq)
    !$acc declare create(SG_s_1D,SG_gq_1D,SG_safety_q_1D,SG_phi,SG_phi_3D)
 
 contains
@@ -111,8 +115,8 @@ contains
       Nq=SG%dim_gq
 
       SG_zetamin=SG%zetamin; SG_zetamax=SG%zetamax;
-      SG_inv_dgf=SG%inv_dgf; SG_inv_dgq=SG%inv_dgq; SG_dgf=SG%dgf; SG_inv_ds=SG%inv_ds; SG_dim_s = SG%dim_s;
-      !$acc update device(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s)
+      SG_inv_dgf=SG%inv_dgf; SG_inv_dgq=SG%inv_dgq; SG_dgf=SG%dgf; SG_inv_ds=SG%inv_ds; SG_dim_s = SG%dim_s; SG_dim_gq=SG%dim_gq;
+      !$acc update device(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s,SG_dim_gq)
 
       allocate(SG%gq_1D(Nq))
       allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%Ti0_eV_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
@@ -221,13 +225,13 @@ contains
             do qq=1,SG%dim_gq
 
                ! At zeta=zetamin
-               call Get_MP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamin, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
+               call Get_extMP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamin, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
                SG%dB_cntv3(1,qq,ss,0) = tmp_ga*SG%j0_cntv3(1,qq,ss) + (tmp_grad_ga(2)*SG%B0_cov3(3,qq,ss) - tmp_grad_ga(3)*SG%B0_cov3(2,qq,ss))/SG%Jacobian(qq,ss)
                SG%dB_cntv3(2,qq,ss,0) = tmp_ga*SG%j0_cntv3(2,qq,ss) + (tmp_grad_ga(3)*SG%B0_cov3(1,qq,ss) - tmp_grad_ga(1)*SG%B0_cov3(3,qq,ss))/SG%Jacobian(qq,ss)
                SG%dB_cntv3(3,qq,ss,0) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)
 
                ! At zeta=zetamax
-               call Get_MP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamax, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
+               call Get_extMP_alpha_amplitude(SG%a_1D(ss), SG%gq_1D(qq), zetamax, real(istep)*tstep*utime, tmp_ga, tmp_grad_ga, tmp_dga0dt)
                SG%dB_cntv3(1,qq,ss,1) = tmp_ga*SG%j0_cntv3(1,qq,ss) + (tmp_grad_ga(2)*SG%B0_cov3(3,qq,ss) - tmp_grad_ga(3)*SG%B0_cov3(2,qq,ss))/SG%Jacobian(qq,ss)
                SG%dB_cntv3(2,qq,ss,1) = tmp_ga*SG%j0_cntv3(2,qq,ss) + (tmp_grad_ga(3)*SG%B0_cov3(1,qq,ss) - tmp_grad_ga(1)*SG%B0_cov3(3,qq,ss))/SG%Jacobian(qq,ss)
                SG%dB_cntv3(3,qq,ss,1) = tmp_ga*SG%j0_cntv3(3,qq,ss) + (tmp_grad_ga(1)*SG%B0_cov3(2,qq,ss) - tmp_grad_ga(2)*SG%B0_cov3(1,qq,ss))/SG%Jacobian(qq,ss)
@@ -314,13 +318,16 @@ contains
       if(electromagnetic==2) then
          allocate(SG%AparaH(Nq,Ns,0:2))
          SG%AparaH=0.0
-         allocate(SG%AparaS(Nq,Ns),SG%Ampere_RHS(Nq,Ns))
+         allocate(SG%AparaS(Nq,Ns),SG%Ampere_RHS(Nq,Ns),SG%perpLap_AparaS(Nq,Ns))
          SG%AparaS=0.0
          SG%Ampere_RHS=0.0
-         allocate(SG%gaH(Nq,Ns,0:2))
+         SG%perpLap_AparaS=0.0
+         allocate(SG%gaH(Nq,Ns,0:2),SG%gaS(Nq,Ns,0:2))
          SG%gaH=0.0
-         allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1))
+         SG%gaS=0.0
+         allocate(SG%grad_gaH_cov(3,Nq,Ns,0:1),SG%grad_gaS_cov(3,Nq,Ns,0:1))
          SG%grad_gaH_cov=0.0
+         SG%grad_gaS_cov=0.0
          allocate(SG%old_AparaS(Nq,Ns),SG%RK_cum_AparaS(Nq,Ns))
          SG%old_AparaS=0.0
          SG%RK_cum_AparaS=0.0
@@ -367,9 +374,9 @@ contains
       integer num_eD ! num of eData (First Dimension)
       real(wp) tt0,tt1,tmp
       real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
+      integer i
 
 
-      !$acc declare create(ptl_data)
 
 
       ! Determine Flag target data
@@ -407,6 +414,7 @@ contains
       eData = 0.0
 
 
+      !$acc enter data create(ptl_data)
 
       select case(flagT)
          case(0)
@@ -479,7 +487,7 @@ contains
          ! Scatter particle to zetamin plane first
          target_gf = zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG%inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -499,7 +507,7 @@ contains
          ! Scatter particle to zetamax plane
          target_gf = zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG%inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -583,12 +591,23 @@ contains
          SG%ne_by_fh(:,sid,:) = tmp*(SG%ne_by_fh(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
       enddo
 
+      ! Calculate dne_SM
+      if(Flag_Weight_dfh==0) then
+         SG%dne_SM = SG%dne(:,:,1)
+      elseif(Flag_Weight_dfh==1) then
+         do i=1,SG%dim_s
+            SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
+         enddo
+      endif
+      call Smooth_SG_Data_2D([2,2],SG%dne_SM,SG%Cell_dV)
+
+      !$acc exit data delete(ptl_data)
       deallocate(eData,tmp_eData)
       deallocate(ptl_data)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Electron_Density_Current_on_SG takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(A,ES11.3,A)') "Measure_Electron_Density_Current_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
 
@@ -617,8 +636,8 @@ contains
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_iD ! num_of iData (First dimension)
       real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
+      integer i
 
-      !$acc declare create(ptl_data)
 
       ! Determine Flag target data
       ! flagT=0 (Default; only measures a term from particle weight zeon(5,m))
@@ -656,6 +675,7 @@ contains
       allocate(ptl_data(num_iD,mi))
       iData=0.0
 
+      !$acc enter data create(ptl_data)
 
       select case(flagT)
          case(0)
@@ -730,7 +750,7 @@ contains
             ! Scatter particle to zetamin plane first
             target_gf = zetamin
             target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG%inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG%inv_dgq+1)))
             wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
 
@@ -751,7 +771,7 @@ contains
             ! Scatter particle to zetamax plane
             target_gf = zetamax
             target_gq = modulo(P_gq + (target_gf-P_gf)/P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG%inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG%inv_dgq+1)))
             wgq1 = (target_gq-SG%gq_1D(gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
 
@@ -836,12 +856,24 @@ contains
          SG%ni_by_ff(:,sid,:) = tmp*(SG%ni_by_ff(:,sid,:)-SG%n0_1D(sid)) + SG%n0_1D(sid)
       enddo
 
+
+      ! Calculate dni_SM 
+      if(Flag_Weight_dfh==0) then
+         SG%dni_SM = SG%dni(:,:,1)
+      elseif(Flag_Weight_dfh==1) then
+         do i=1,SG%dim_s
+            SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
+         enddo
+      endif
+      call Smooth_SG_Data_2D([2,2],SG%dni_SM,SG%Cell_dV)
+      
+      !$acc exit data delete(ptl_data)
       deallocate(iData,tmp_iData)
       deallocate(ptl_data)
 
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Measure_Ion_Density_Current_on_SG takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(A,ES11.3,A)') "Measure_Ion_Density_Current_on_SG takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
    end subroutine Measure_Ion_Density_Current_on_SG
@@ -888,7 +920,7 @@ contains
          sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
          ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
          ws0 = (1.0-ws1)
-         gqid = P_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(P_gq*SG_inv_dgq+1)))
          wgq1 = (P_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -906,12 +938,12 @@ contains
       
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
-      if(mype==0) write(stdout,*) "Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu takes", tt1-tt0, " secs"
+      if(mype==0) write(stdout,'(A,ES11.3,A)') "Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu takes", tt1-tt0, " secs"
       call flush(stdout)
 #endif
    end subroutine Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu
 
-   subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Reference_Data2D)
+   subroutine Smooth_SG_Data_2D(num_smooth_gq_s, target_Data2D, Volume2D, Output2D)
 
       use precision
       use global_parameters
@@ -919,7 +951,8 @@ contains
 
       integer, intent(in) :: num_smooth_gq_s(:)
       real(wp),intent(inout) :: target_Data2D(SG%dim_gq, SG%dim_s)
-      real(wp),optional:: Reference_Data2D(SG%dim_gq, SG%dim_s)
+      real(wp),intent(in),optional:: Volume2D(SG%dim_gq, SG%dim_s)
+      real(wp),intent(out),optional:: Output2D(SG%dim_gq, SG%dim_s)
       real(wp) :: VV(SG%dim_gq, SG%dim_s)
       integer :: smid, aid, gqid, Ns,Nq, vid,k
       real(wp) :: SM_Data(0:SG%dim_gq+1, 0:SG%dim_s+1)  ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
@@ -929,7 +962,7 @@ contains
       Nq = SG%dim_gq
 
       VV=1.0
-      if(present(Reference_Data2D)) VV=Reference_Data2D
+      if(present(Volume2D)) VV=Volume2D
 
       ! Get Smooth Coeffs which conserves Volume Weighted Integration
       call Get_Conserving_Smooth_Coeffs_on_SG(VV, SM_s_Coeff, SM_gq_Coeff)
@@ -947,7 +980,6 @@ contains
             ! Smooth in radial direction
             SM_Data(:,1:Ns) = SM_s_Coeff(-1,:,1:Ns)*SM_Data(:,0:Ns-1) + SM_s_Coeff(0,:,1:Ns)*SM_Data(:,1:Ns) + SM_s_Coeff(1,:,1:Ns)*SM_Data(:,2:Ns+1)
          enddo
-         target_Data2D = SM_Data(1:Nq,1:Ns)
       elseif(size(num_smooth_gq_s)==2) then
          SM_Data = 0.0
          SM_Data(1:Nq,1:Ns) = target_Data2D
@@ -962,12 +994,18 @@ contains
             ! Smooth in radial direction
             SM_Data(:,1:Ns) = SM_s_Coeff(-1,:,1:Ns)*SM_Data(:,0:Ns-1) + SM_s_Coeff(0,:,1:Ns)*SM_Data(:,1:Ns) + SM_s_Coeff(1,:,1:Ns)*SM_Data(:,2:Ns+1)
          enddo
-         target_Data2D = SM_Data(1:Nq,1:Ns)
       else
          write(stdout,*) "Error! Check num_smooth_gq_s = ",num_smooth_gq_s(:)
          stop
       endif
 
+      if(present(Output2D)) then
+         ! If an optional output Data is provided, copy Smoothed Data to it without changing input target_Data2D
+         Output2D = SM_Data(1:Nq,1:Ns)
+      else
+         ! Overwrite the given input Data with Smoothed Data
+         target_Data2D = SM_Data(1:Nq,1:Ns)
+      endif
    end subroutine Smooth_SG_Data_2D
 
 
@@ -1054,7 +1092,8 @@ contains
             ori_sid = SG%ori_sid(i)
 
             gqdum = modulo(SG%gq_1D(j) - qtinv(ori_sid)*zetamax, 2.0*pi) * ori_inv_dgq(ori_sid)
-            jt=int(gqdum);  wt=gqdum-jt
+            jt=min(mtheta(ori_sid)-1,int(gqdum));  
+            wt=gqdum-jt
             ij=igrid(ori_sid)+jt
             out_IntpData_2D(j,i) =(1.0-wt)*oriData_1D(ij) + wt*oriData_1D(ij+1)
          enddo
@@ -1086,7 +1125,7 @@ contains
 
 
             tmp_gq = modulo(j*deltat(i) + qtinv(i)*zetamax,2.0*pi)
-            gqid= tmp_gq*SG%inv_dgq +1  !+1 is due to Fortran's default index starting from 1
+            gqid = max(1,min(SG_dim_gq-1, int(tmp_gq*SG_inv_dgq+1)))  !+1 is due to Fortran's default index starting from 1
             wq1 = (tmp_gq-SG%gq_1D(gqid))*SG%inv_dgq
             wq0 = 1.0 - wq1
 
@@ -1162,16 +1201,28 @@ contains
 
    end subroutine Cal_gradPhi_on_SG
 
-   subroutine Cal_gaH_from_AparaH_on_SG
+   subroutine Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+      use particle_decomp
+      use mpi_defs
       implicit none
       integer k
+      integer ierr
+      integer istatus(MPI_STATUS_SIZE)
 
       do k=0,2
          SG%gaH(:,:,k) = SG%AparaH(:,:,k)/SG%BB
       enddo
-   end subroutine
 
-   subroutine Cal_grad_gaH_cov_on_SG
+      ! NOTE that SG%AparaS has (Nq,Ns) dimension at the zetamin plane, but gaS has (Nq,Ns,0:2) dimension at 3 neighboring planes
+      ! Communicate between neighboring planes to get 3D gaS
+      SG%gaS(:,:,1) = SG%AparaS/SG%BB 
+      call MPI_SENDRECV(SG%gaS(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,&
+                        SG%gaS(:,:,0),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+      call MPI_SENDRECV(SG%gaS(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,&
+                        SG%gaS(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
+   end subroutine Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+
+   subroutine Cal_grad_gaH_and_grad_gaS_on_SG
       use precision
       use global_parameters
       use field_array
@@ -1181,22 +1232,31 @@ contains
 
       integer sid,gqid,istatus(MPI_STATUS_SIZE),ierr
       integer target_gqid
-      real(wp) gaH_left, gaH_right, target_gq,wgq0,wgq1,delta_gq
+      real(wp) gaH_left, gaH_right, gaS_left, gaS_right
+      real(wp) target_gq,wgq0,wgq1,delta_gq
 
-      ! Calculate grad_phi_cov at zetamax (so, the last index is 1)
+
+
+      ! Calculate grad_gaH_cov and grad_gaS_cov at zetamax (so, the last index is 1)
       ! radial direction
       SG%grad_gaH_cov(1,:,1,1) = SG%inv_ds*(SG%gaH(:,2,1)-SG%gaH(:,1,1))
+      SG%grad_gaS_cov(1,:,1,1) = SG%inv_ds*(SG%gaS(:,2,1)-SG%gaS(:,1,1))
       do sid=2,SG%dim_s-1
          SG%grad_gaH_cov(1,:,sid,1) = 0.5*SG%inv_ds*(SG%gaH(:,sid+1,1)-SG%gaH(:,sid-1,1))
+         SG%grad_gaS_cov(1,:,sid,1) = 0.5*SG%inv_ds*(SG%gaS(:,sid+1,1)-SG%gaS(:,sid-1,1))
       enddo
       SG%grad_gaH_cov(1,:,SG%dim_s,1) = SG%inv_ds*(SG%gaH(:,SG%dim_s,1)-SG%gaH(:,SG%dim_s-1,1))
+      SG%grad_gaS_cov(1,:,SG%dim_s,1) = SG%inv_ds*(SG%gaS(:,SG%dim_s,1)-SG%gaS(:,SG%dim_s-1,1))
 
       ! theta direction with the periodic condition
       SG%grad_gaH_cov(2,1,:,1) = 0.5*SG%inv_dgq*(SG%gaH(2,:,1)-SG%gaH(SG%dim_gq-1,:,1))
+      SG%grad_gaS_cov(2,1,:,1) = 0.5*SG%inv_dgq*(SG%gaS(2,:,1)-SG%gaS(SG%dim_gq-1,:,1))
       do gqid=2,SG%dim_gq-1
          SG%grad_gaH_cov(2,gqid,:,1) = 0.5*SG%inv_dgq*(SG%gaH(gqid+1,:,1)-SG%gaH(gqid-1,:,1))
+         SG%grad_gaS_cov(2,gqid,:,1) = 0.5*SG%inv_dgq*(SG%gaS(gqid+1,:,1)-SG%gaS(gqid-1,:,1))
       enddo
       SG%grad_gaH_cov(2,SG%dim_gq,:,1) = SG%grad_gaH_cov(2,1,:,1)
+      SG%grad_gaS_cov(2,SG%dim_gq,:,1) = SG%grad_gaS_cov(2,1,:,1)
 
       ! Get gaH along a field line at a given r surface
       do sid=1,SG%dim_s
@@ -1209,6 +1269,7 @@ contains
             wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
             gaH_right = wgq0*SG%gaH(target_gqid,sid,2) + wgq1*SG%gaH(target_gqid+1,sid,2)
+            gaS_right = wgq0*SG%gaS(target_gqid,sid,2) + wgq1*SG%gaS(target_gqid+1,sid,2)
 
             ! get gaH from the left plane
             target_gq = modulo(SG%gq_1D(gqid) - delta_gq, 2.0*pi)
@@ -1216,17 +1277,21 @@ contains
             wgq1 = (target_gq-SG%gq_1D(target_gqid))*SG%inv_dgq
             wgq0 = 1.0-wgq1
             gaH_left = wgq0*SG%gaH(target_gqid,sid,0) + wgq1*SG%gaH(target_gqid+1,sid,0)
+            gaS_left = wgq0*SG%gaS(target_gqid,sid,0) + wgq1*SG%gaS(target_gqid+1,sid,0)
 
             ! d(gaH)/dzeta = d(gaH)/dl - 1/q*d(gaH)/dtheta
             SG%grad_gaH_cov(3,gqid,sid,1) =  (gaH_right-gaH_left)/(2.0*deltaz) - SG%grad_gaH_cov(2,gqid,sid,1)/SG%safety_q_1D(sid)
+            SG%grad_gaS_cov(3,gqid,sid,1) =  (gaS_right-gaS_left)/(2.0*deltaz) - SG%grad_gaS_cov(2,gqid,sid,1)/SG%safety_q_1D(sid)
          enddo
       enddo
 
       ! Communicate in toroidal direction so that get grad_gaH_cov at zetamin (grad_gaH_cov(:,:,:,0)) at from the left poloidal plane
       call MPI_SENDRECV(SG%grad_gaH_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,right_pe,0, &
                         SG%grad_gaH_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
+      call MPI_SENDRECV(SG%grad_gaS_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,right_pe,0, &
+                        SG%grad_gaS_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
 
-   end subroutine Cal_grad_gaH_cov_on_SG   
+   end subroutine Cal_grad_gaH_and_grad_gaS_on_SG   
 
    subroutine Set_old_Apara_at_irk1
       implicit none
@@ -1330,7 +1395,7 @@ contains
       ! Cal contributions from phi at zetamin to the particle
       target_gf = SG_zetamin
       target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
-      gqid  = target_gq*SG_inv_dgq+1
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
       wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
@@ -1340,7 +1405,7 @@ contains
       ! Add contributions from phi at zetamax to the particle
       target_gf = SG_zetamax
       target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
-      gqid  = target_gq*SG_inv_dgq+1
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
       wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
@@ -1400,7 +1465,7 @@ contains
       ! Cal contributions from phi at zetamin to the particle
       target_gf = (gfid-1)*SG_dgf
       target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
-      gqid  = target_gq*SG_inv_dgq+1
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
       wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
@@ -1414,7 +1479,7 @@ contains
       ! Add contributions from phi at zetamax to the particle
       target_gf = (gfid)*SG_dgf
       target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pii)
-      gqid  = target_gq*SG_inv_dgq+1
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
       wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
       wgq0 = 1.0-wgq1
 
@@ -1478,7 +1543,7 @@ contains
          ! Cal contributions from phi at zetamin to the particle
          target_gf = SG_zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1492,7 +1557,7 @@ contains
          ! Add contributions from phi at zetamax to the particle
          target_gf = SG_zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1509,7 +1574,7 @@ contains
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,*) "Get_Phi_at_zeon takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_Phi_at_zeon takes ",tt1-tt0," secs"
       endif
       call flush(stdout)
 #endif
@@ -1563,7 +1628,7 @@ contains
          ! Cal contributions from phi at zetamin to the particle
          target_gf = SG_zetamin
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(int(target_gq*SG_inv_dgq+1))))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1574,7 +1639,7 @@ contains
          ! Add contributions from phi at zetamax to the particle
          target_gf = SG_zetamax
          target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-         gqid  = target_gq*SG_inv_dgq+1
+         gqid = max(1,min(SG_dim_gq-1, int(int(target_gq*SG_inv_dgq+1))))
          wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
          wgq0 = 1.0-wgq1
 
@@ -1588,12 +1653,98 @@ contains
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,*) "Get_Phi_and_gradPhi_at_zeon takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_Phi_and_gradPhi_at_zeon takes ",tt1-tt0," secs"
       endif
       call flush(stdout)
 #endif
    end subroutine Get_Phi_and_gradPhi_at_zeon
 
+   subroutine Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(out_Phi_arr, out_gradPhi_arr, out_gaHS_arr, out_grad_gaH_arr, out_grad_gaS_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+      real(wp), intent(out):: out_Phi_arr(memax), out_gradPhi_arr(3,me), out_gaHS_arr(me), out_grad_gaH_arr(3,me), out_grad_gaS_arr(3,me)
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_gaHS(SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaS(3,SG%dim_gq,SG%dim_s,0:1)
+      integer m,sid,gqid,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+
+      !#TODO Check if SG_gradPhi and SG_grad_gaH are really needed.. Can we just use SG%grad_... without performance degradation?
+      SG_gradPhi = SG%grad_phi_cov
+      SG_gaHS = SG%gaH(:,:,0:1) + SG%gaS(:,:,0:1)
+      SG_grad_gaH = SG%grad_gaH_cov
+      SG_grad_gaS = SG%grad_gaS_cov
+
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zeon,out_Phi_arr,out_gradPhi_arr,out_gaHS_arr,out_grad_gaH_arr,out_grad_gaS_arr)
+      do m=1,me
+         out_Phi_arr(m)=0.0
+         out_gradPhi_arr(:,m)=0.0
+         out_gaHS_arr(m)=0.0 ! gaHS=gaH + gaS
+         out_grad_gaH_arr(:,m)=0.0
+         out_grad_gaS_arr(:,m)=0.0
+
+         P_s = max(s0,min(s1,zeon(7,m)))
+         P_gq = modulo(zeon(2,m),2.0*pi)
+         P_gf = zeon(3,m)
+         P_gf = max(zetamin,min(zetamax,P_gf))
+
+         wgf1 = abs(modulo(P_gf,2.0*pi)-SG_zetamin)*SG_inv_dgf
+         wgf0 = (1.0-wgf1)
+
+         sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+         ws0 = (1.0-ws1)
+
+         inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+         ! Cal contributions from phi at zetamin to the particle
+         target_gf = SG_zetamin
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+
+         out_Phi_arr(m) = wgf0*(ws0*(wgq0*SG_phi(gqid,sid,0) + wgq1*SG_phi(gqid+1,sid,0)) + ws1*(wgq0*SG_phi(gqid,sid+1,0) + wgq1*SG_phi(gqid+1,sid+1,0)))
+         out_gaHS_arr(m) = wgf0*(ws0*(wgq0*SG_gaHS(gqid,sid,0) + wgq1*SG_gaHS(gqid+1,sid,0)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,0) + wgq1*SG_gaHS(gqid+1,sid+1,0)))
+         do k=1,3
+            out_gradPhi_arr(k,m) = wgf0*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,0) + wgq1*SG_gradPhi(k,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,0) + wgq1*SG_gradPhi(k,gqid+1,sid+1,0)))
+            out_grad_gaH_arr(k,m) = wgf0*(ws0*(wgq0*SG_grad_gaH(k,gqid,sid,0) + wgq1*SG_grad_gaH(k,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaH(k,gqid,sid+1,0) + wgq1*SG_grad_gaH(k,gqid+1,sid+1,0)))
+            out_grad_gaS_arr(k,m) = wgf0*(ws0*(wgq0*SG_grad_gaS(k,gqid,sid,0) + wgq1*SG_grad_gaS(k,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaS(k,gqid,sid+1,0) + wgq1*SG_grad_gaS(k,gqid+1,sid+1,0)))
+         enddo
+         ! Add contributions from phi at zetamax to the particle
+         target_gf = SG_zetamax
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+
+         out_Phi_arr(m) = out_Phi_arr(m) + wgf1*(ws0*(wgq0*SG_phi(gqid,sid,1) + wgq1*SG_phi(gqid+1,sid,1)) + ws1*(wgq0*SG_phi(gqid,sid+1,1) + wgq1*SG_phi(gqid+1,sid+1,1)))
+         out_gaHS_arr(m) = out_gaHS_arr(m) + wgf1*(ws0*(wgq0*SG_gaHS(gqid,sid,1) + wgq1*SG_gaHS(gqid+1,sid,1)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,1) + wgq1*SG_gaHS(gqid+1,sid+1,1)))
+         do k=1,3
+            out_gradPhi_arr(k,m) = out_gradPhi_arr(k,m) + wgf1*(ws0*(wgq0*SG_gradPhi(k,gqid,sid,1) + wgq1*SG_gradPhi(k,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(k,gqid,sid+1,1) + wgq1*SG_gradPhi(k,gqid+1,sid+1,1)))
+            out_grad_gaH_arr(k,m) = out_grad_gaH_arr(k,m) + wgf1*(ws0*(wgq0*SG_grad_gaH(k,gqid,sid,1) + wgq1*SG_grad_gaH(k,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaH(k,gqid,sid+1,1) + wgq1*SG_grad_gaH(k,gqid+1,sid+1,1)))
+            out_grad_gaS_arr(k,m) = out_grad_gaS_arr(k,m) + wgf1*(ws0*(wgq0*SG_grad_gaS(k,gqid,sid,1) + wgq1*SG_grad_gaS(k,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaS(k,gqid,sid+1,1) + wgq1*SG_grad_gaS(k,gqid+1,sid+1,1)))
+         enddo
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,'(A,ES11.3,A)') "Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon takes ",tt1-tt0," secs"
+      endif
+      call flush(stdout)
+#endif
+   end subroutine Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon
 
    subroutine Get_gradPhi_at_zion(out_gradPhi_arr)
       use mpi_defs
@@ -1639,7 +1790,7 @@ contains
             ! Cal contributions from phi at zetamin to the particle
             target_gf = SG_zetamin
             target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG_inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf0*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,0) + wgq1*SG_gradPhi(:,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,0) + wgq1*SG_gradPhi(:,gqid+1,sid+1,0)))
@@ -1647,7 +1798,7 @@ contains
             ! Add contributions from phi at zetamax to the particle
             target_gf = SG_zetamax
             target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
-            gqid  = target_gq*SG_inv_dgq+1
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
             wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
             wgq0 = 1.0-wgq1
             out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf1*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,1) + wgq1*SG_gradPhi(:,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,1) + wgq1*SG_gradPhi(:,gqid+1,sid+1,1)))
@@ -1660,7 +1811,7 @@ contains
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) then
-            write(stdout,*) "Get_gradPhi_at_zion takes ",tt1-tt0," secs"
+            write(stdout,'(A,ES11.3,A)') "Get_gradPhi_at_zion takes ",tt1-tt0," secs"
       endif
       ! call flush(stdout)
 #endif
@@ -1668,6 +1819,95 @@ contains
 
    end subroutine Get_gradPhi_at_zion
 
+   subroutine Get_gradPhi_gaHS_gradgaHS_at_zion(out_gradPhi_arr, out_gaHS_arr, out_grad_gaH_arr, out_grad_gaS_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+
+      real(wp), intent(out):: out_gradPhi_arr(3,mi), out_gaHS_arr(mi), out_grad_gaH_arr(3,mi), out_grad_gaS_arr(3,mi)
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      real(wp) SG_gradPhi(3,SG%dim_gq,SG%dim_s,0:1), SG_gaHS(SG%dim_gq,SG%dim_s,0:1), SG_grad_gaH(3,SG%dim_gq,SG%dim_s,0:1), SG_grad_gaS(3,SG%dim_gq,SG%dim_s,0:1)
+      integer m,sid,gqid,larmor,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+
+      !#TODO Check if SG_gradPhi and SG_grad_gaH are really needed.. Can we just use SG%grad_... without performance degradation?
+      SG_gradPhi = SG%grad_phi_cov
+      SG_gaHS = SG%gaH(:,:,0:1) + SG%gaS(:,:,0:1)
+      SG_grad_gaH = SG%grad_gaH_cov
+      SG_grad_gaS = SG%grad_gaS_cov
+      
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,out_gradPhi_arr,out_gaHS_arr,out_grad_gaH_arr,out_grad_gaS_arr)
+      do m=1,mi
+         out_gradPhi_arr(:,m)=0.0
+         out_gaHS_arr(m)=0.0 ! gaHS=gaH + gaS
+         out_grad_gaH_arr(:,m)=0.0
+         out_grad_gaS_arr(:,m)=0.0
+
+         !$acc loop seq
+         do larmor=1,larmor_num
+            P_s  = max(s0,min(s1, ionLarmor_s(larmor,m)))
+            P_gq = modulo(ionLarmor_gq(larmor,m), 2.0*pi)
+            P_gf = max(zetamin,min(zetamax,ionLarmor_gf(larmor,m)))
+
+            wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+            wgf0 = (1.0-wgf1)
+
+            sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+            ws0 = (1.0-ws1)
+
+            inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+            ! Cal contributions from phi at zetamin to the particle
+            target_gf = SG_zetamin
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf0*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,0) + wgq1*SG_gradPhi(:,gqid+1,sid,0)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,0) + wgq1*SG_gradPhi(:,gqid+1,sid+1,0)))
+            out_gaHS_arr(m) = out_gaHS_arr(m) + wgf0*(ws0*(wgq0*SG_gaHS(gqid,sid,0) + wgq1*SG_gaHS(gqid+1,sid,0)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,0) + wgq1*SG_gaHS(gqid+1,sid+1,0)))
+            out_grad_gaH_arr(:,m) = out_grad_gaH_arr(:,m) + wgf0*(ws0*(wgq0*SG_grad_gaH(:,gqid,sid,0) + wgq1*SG_grad_gaH(:,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaH(:,gqid,sid+1,0) + wgq1*SG_grad_gaH(:,gqid+1,sid+1,0)))
+            out_grad_gaS_arr(:,m) = out_grad_gaS_arr(:,m) + wgf0*(ws0*(wgq0*SG_grad_gaS(:,gqid,sid,0) + wgq1*SG_grad_gaS(:,gqid+1,sid,0)) + ws1*(wgq0*SG_grad_gaS(:,gqid,sid+1,0) + wgq1*SG_grad_gaS(:,gqid+1,sid+1,0)))
+
+            ! Add contributions from phi at zetamax to the particle
+            target_gf = SG_zetamax
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_gradPhi_arr(:,m) = out_gradPhi_arr(:,m) + wgf1*(ws0*(wgq0*SG_gradPhi(:,gqid,sid,1) + wgq1*SG_gradPhi(:,gqid+1,sid,1)) + ws1*(wgq0*SG_gradPhi(:,gqid,sid+1,1) + wgq1*SG_gradPhi(:,gqid+1,sid+1,1)))
+            out_gaHS_arr(m) = out_gaHS_arr(m) + wgf0*(ws0*(wgq0*SG_gaHS(gqid,sid,0) + wgq1*SG_gaHS(gqid+1,sid,0)) + ws1*(wgq0*SG_gaHS(gqid,sid+1,0) + wgq1*SG_gaHS(gqid+1,sid+1,1)))
+            out_grad_gaH_arr(:,m) = out_grad_gaH_arr(:,m) + wgf1*(ws0*(wgq0*SG_grad_gaH(:,gqid,sid,1) + wgq1*SG_grad_gaH(:,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaH(:,gqid,sid+1,1) + wgq1*SG_grad_gaH(:,gqid+1,sid+1,1)))
+            out_grad_gaS_arr(:,m) = out_grad_gaS_arr(:,m) + wgf1*(ws0*(wgq0*SG_grad_gaS(:,gqid,sid,1) + wgq1*SG_grad_gaS(:,gqid+1,sid,1)) + ws1*(wgq0*SG_grad_gaS(:,gqid,sid+1,1) + wgq1*SG_grad_gaS(:,gqid+1,sid+1,1)))
+         enddo
+
+         ! Take larmor radius average
+         out_gradPhi_arr(:,m) = inv_larmor_num*out_gradPhi_arr(:,m)
+         out_gaHS_arr(m) = inv_larmor_num*out_gaHS_arr(m)
+         out_grad_gaH_arr(:,m) = inv_larmor_num*out_grad_gaH_arr(:,m)
+         out_grad_gaS_arr(:,m) = inv_larmor_num*out_grad_gaS_arr(:,m)
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,'(A,ES11.3,A)') "Get_gradPhi_gaHS_gradgaHS_at_zion takes ",tt1-tt0," secs"
+      endif
+      ! call flush(stdout)
+#endif
+
+
+   end subroutine Get_gradPhi_gaHS_gradgaHS_at_zion
 
 
 end module Structured_Grid

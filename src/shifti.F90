@@ -20,6 +20,7 @@ subroutine shifti
    real(wp) normalized_zeta
    real(wp),dimension(:,:),allocatable :: send_Ptls, recv_Ptls
 
+   integer request_send_L, request_send_R, request_recv_L, request_recv_R
    integer MPI_Ptl_type
 
    !$acc declare create (zion_zeta_arr)
@@ -32,13 +33,10 @@ subroutine shifti
 
    dim_zion = size(zion,1)
    dim_zion0 = size(zion0,1)
-   if(Flag_RK4==1) then
-      dim_RK_cum_zion = size(RK_cum_zion,1)
-   else
-      dim_RK_cum_zion =0
-   endif
+   dim_RK_cum_zion = size(RK_cum_zion,1)
 
-   dim_Ptl_package = dim_zion + dim_zion0 + dim_RK_cum_zion + 8  ! zeon + zeon0 + RK_cum_zion+ ilables + 5 values about wi evolution +2 Unnormalized Angles
+
+   dim_Ptl_package = dim_zion + dim_zion0 + dim_RK_cum_zion + 7  ! zeon + zeon0 + RK_cum_zion+ ilables + 4 values about wi evolution +2 Unnormalized Angles
 
 
    call MPI_Type_contiguous( dim_Ptl_package, MPI_Rsize, MPI_Ptl_type, ierr);
@@ -141,28 +139,36 @@ subroutine shifti
          enddo
          k=k+dim_zion0
 
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zion
-               send_Ptls(k+j, i) =  RK_cum_zion(j,m)
-            enddo
-            k=k+dim_RK_cum_zion
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zion
+            send_Ptls(k+j, i) =  RK_cum_zion(j,m)
+         enddo
+         k=k+dim_RK_cum_zion
          send_Ptls(k+1, i) =  ilabels(m)
          send_Ptls(k+2, i) =  wi_init(m)
          send_Ptls(k+3, i) =  wi_vpara(m)
          send_Ptls(k+4, i) =  wi_vperp(m)
          send_Ptls(k+5, i) =  wi_accel(m)
-         send_Ptls(k+6, i) =  wi_fdamp(m)
-         send_Ptls(k+7, i) =  UnNorm_theta_i(m)
-         send_Ptls(k+8, i) =  UnNorm_zeta_i(m)
+         send_Ptls(k+6, i) =  UnNorm_theta_i(m)
+         send_Ptls(k+7, i) =  UnNorm_zeta_i(m)
       enddo
 
 
-      ! Send to Left
-      call MPI_SENDRECV(send_Ptls(:,1:send_L_count),send_L_count,MPI_Ptl_type,left_pe,0, recv_Ptls(:,1+recv_L_count:recv_num),recv_R_count,MPI_Ptl_type,right_pe ,0,toroidal_comm,istatus,ierr)
-      ! Send to Right
-      call MPI_SENDRECV(send_Ptls(:,1+send_L_count:send_num),send_R_count,MPI_Ptl_type,right_pe,0, recv_Ptls(:,1:recv_L_count),recv_L_count,MPI_Ptl_type,left_pe ,0,toroidal_comm,istatus,ierr)
+      ! Send to Left and Right 
+      if(send_L_count > 0) call MPI_ISEND(send_Ptls(:,1:send_L_count), send_L_count, MPI_Ptl_type, left_pe, 0, toroidal_comm, request_send_L, ierr)
+      if(send_R_count > 0) call MPI_ISEND(send_Ptls(:,1+send_L_count:send_num), send_R_count, MPI_Ptl_type, right_pe, 0, toroidal_comm, request_send_R, ierr)
+
+      ! Recv from Left and Right
+      if(recv_L_count > 0) call MPI_IRECV(recv_Ptls(:,1:recv_L_count), recv_L_count, MPI_Ptl_type, left_pe, 0, toroidal_comm, request_recv_L, ierr)
+      if(recv_R_count > 0) call MPI_IRECV(recv_Ptls(:,1+recv_L_count:recv_num), recv_R_count, MPI_Ptl_type, right_pe, 0, toroidal_comm, request_recv_R, ierr)
+     
+      ! Wait all non-blocking communications are finished
+      if(send_L_count > 0) call MPI_WAIT(request_send_L, istatus, ierr)
+      if(send_R_count > 0) call MPI_WAIT(request_send_R, istatus, ierr)
+      if(recv_L_count > 0) call MPI_WAIT(request_recv_L, istatus, ierr)
+      if(recv_R_count > 0) call MPI_WAIT(request_recv_R, istatus, ierr)
+
+
 
       ! fill holes
       mtop = mi
@@ -201,16 +207,13 @@ subroutine shifti
          wi_vpara(m)     = wi_vpara(mtop)
          wi_vperp(m)     = wi_vperp(mtop)
          wi_accel(m)     = wi_accel(mtop)
-         wi_fdamp(m)     = wi_fdamp(mtop)
 
          UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
          UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zion
-               RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
-            enddo
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zion
+            RK_cum_zion(j,m)= RK_cum_zion(j,mtop)
+         enddo
       enddo
 
 
@@ -228,21 +231,18 @@ subroutine shifti
             zion0(j,mi+i)   = recv_Ptls(k+j, i)
          enddo
          k=k+dim_zion0
-         if(Flag_RK4==1) then
-            !$acc loop seq
-            do j=1,dim_RK_cum_zion
-               RK_cum_zion(j,mi+i) = recv_Ptls(k+j, i)
-            enddo
-            k=k+dim_RK_cum_zion
-         endif
+         !$acc loop seq
+         do j=1,dim_RK_cum_zion
+            RK_cum_zion(j,mi+i) = recv_Ptls(k+j, i)
+         enddo
+         k=k+dim_RK_cum_zion
          ilabels(mi+i)   =  recv_Ptls(k+1, i)
          wi_init(mi+i)   =  recv_Ptls(k+2, i)
          wi_vpara(mi+i)  =  recv_Ptls(k+3, i)
          wi_vperp(mi+i)  =  recv_Ptls(k+4, i)
          wi_accel(mi+i)  =  recv_Ptls(k+5, i)
-         wi_fdamp(mi+i)  =  recv_Ptls(k+6, i)
-         UnNorm_theta_i(mi+i)= recv_Ptls(k+7, i)
-         UnNorm_zeta_i(mi+i) = recv_Ptls(k+8, i)
+         UnNorm_theta_i(mi+i)= recv_Ptls(k+6, i)
+         UnNorm_zeta_i(mi+i) = recv_Ptls(k+7, i)
       enddo
       mi = mi + recv_num
 

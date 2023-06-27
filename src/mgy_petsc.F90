@@ -68,7 +68,7 @@ contains
 
 subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
    use precision
-   use global_parameters,only:stdout,mype,numberpe
+   use global_parameters,only:stdout,mype,numberpe,electromagnetic
    use particle_decomp
    implicit none
    integer, intent(in):: dim_gq,dim_a,dim_gf
@@ -190,7 +190,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
          do aid=0,dim_a+1
             do gqid=0,dim_gq
                Gid=mapP2G(gqid,aid,gfid)
-               write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), Gid, mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid
+               if(Gid>=0) write(200205,"(5(I8))") mapP2L(gqid,aid,gfid), Gid, mapG2P(Gid)%gqid,mapG2P(Gid)%aid,mapG2P(Gid)%gfid
             enddo
          enddo
       enddo
@@ -201,13 +201,16 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
 
 
    call Construct_Metric_Tensor_on_Structured_Grid
-   call Construct_Perp_Laplacian_Matrix
    ! Create vectors (bVec, xVec, ResVec) for future use
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
    call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
    call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
    call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
    call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
+
+   if(electromagnetic==2) then
+      call Construct_Perp_Laplacian_Matrix
+   endif
 
 end subroutine Initialize_MGY_PETSc_Interface_Data
 
@@ -356,6 +359,10 @@ subroutine Construct_Perp_Laplacian_Matrix
       ! 1 (gqid,sid,gfid)
       tarGid(1,Lid)=mapP2G(qq,ss,ff)
       tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+
+      ! IMPORTANT!! Multiply +inv_Jacob to the above coefficients,
+      ! so make sure that target coefficient values represent (+nabla*(eps_T*nabla*phi))
+      tarVal(:,Lid) = +1.0*inv_Jacob*tarVal(:,Lid)
    enddo
    ! call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
@@ -568,7 +575,7 @@ subroutine Solve_Poisson3D_on_SG()
    tt0=MPI_WTIME()
    call KSPSolve(ksp_P,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0 .or. mype==1) write(stdout,*) "In Solve_Poisson3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+   if(mype==0 .or. mype==1) write(stdout,'(A,I0,A,ES11.3,A)') "In Solve_Poisson3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
    ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
@@ -579,7 +586,7 @@ subroutine Solve_Poisson3D_on_SG()
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
    call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
-   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "In Solve_Poisson3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   if(mype==0) write(stdout,"(A,ES12.4,A,I0)") "In Solve_Poisson3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
    ! Copy xVec (solution) to the SG%test_phi vector
@@ -1401,7 +1408,6 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) tmp
 
    dim_a =SG%dim_a
@@ -1549,7 +1555,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
 
-   if(Flag_Def_dne_adiab==3) then
+   if(Flag_Def_dne_adiab==2) then
 
       ! Set PMat value as the first term
       call MatDuplicate(PMat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
@@ -1581,7 +1587,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    endif
 
 
-   if(Flag_Def_dne_adiab==3) then
+   if(Flag_Def_dne_adiab==2) then
       ! Construct KSP
       tt0=MPI_WTIME()
       call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
@@ -1625,7 +1631,6 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
    integer :: dim_gq, dim_a, i
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
 
 
    Flag_WhichLHS=0 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
@@ -1640,22 +1645,6 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
 
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
-
-   ! Calculate dn
-   if(Flag_Weight_dfh==0) then
-      SG%dne_SM = SG%dne(:,:,1)
-      SG%dni_SM = SG%dni(:,:,1)
-   elseif(Flag_Weight_dfh==1) then
-      do i=1,SG%dim_s
-         SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
-         SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
-      enddo
-   endif
-
-   ! Then, smooth them
-   call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
-   call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
-
 
    call Determine_GK_PoissonTensors_on_Structured_Grid(Flag_WhichLHS)
 
@@ -1798,7 +1787,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
             ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
-   elseif(Flag_Def_dne_adiab==3) then
+   elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
@@ -1826,6 +1815,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
          do j=1,3
             do i=1,3
                ! Note tsince mgy_petsc coefficients are using SI units
+               ! NOTE: Structure Grid still uses flux coordinate for the space, not directly using meter units
                ! Following (1e-3) is a converting coefficient for mass (g->kg)
                tmp=1e-3*(ne_tot(gqid,sid)*amasse + ni_tot(gqid,sid)*amassi)*invBsq
                Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(SG%B0_cntv3_sqf(i,gqid,sid)*SG%B0_cntv3_sqf(j,gqid,sid)))
@@ -1895,14 +1885,13 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
    integer Lid,Gid,qq,ss
    real(wp), external :: density, Te0_eV
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) AD_coeff
 
 
    !In the case of delta-h electron simulation,
    !add the adiabatic electron response term in the LHS (PMat)
    ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
-   ! Note that, in the case of Flag_Def_dne_adiab==3, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
+   ! Note that, in the case of Flag_Def_dne_adiab==2, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
    if(ifelectron==2) then
       if(Flag_Def_dne_adiab==0 .or. Flag_Def_dne_adiab==1) then
          do Lid=1,Lsize
@@ -1950,15 +1939,9 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
                ! tarVal(11,Lid)=tarVal(11,Lid) + 1*AD_coeff ! 11 (ss-1,qq+1)
             endif
          enddo
-      elseif(Flag_Def_dne_adiab==2) then
-         ! use FLA_Te0 to the definition of the electron adiabatic density (dne_adiab = n0*e*full_phi/FLA_Te0)
-         call Interpolate_OriGridData_into_SG(FLA_Te0(1,:), intpl_FLA_Te0)
-         do Lid=1,Lsize
-            Gid= mapL2G(Lid)
-            qq = mapG2P(Gid)%gqid
-            ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/(1e3*Tem_00*intpl_FLA_Te0(qq,ss))
-         enddo
+      else 
+         write(stdout,'((A,I0,A))') "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab," is not implemented in Add_Adiabatic_Term_to_GK_Poisson_LHS!!"
+         call flush(stdout)
       endif
 
    elseif(ifelectron==1 .and. Flag_Poisson3D_on_SG==2) then
@@ -2303,7 +2286,6 @@ subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
    integer :: dim_gq, dim_a
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
    real(wp) tmp
 
    dim_a =SG%dim_a
@@ -2472,26 +2454,9 @@ subroutine Update_GK_Ampere_LHS_Coeffs
    integer :: dim_gq, dim_a, i
    PetscReal AntiSym1, AntiSym2, Sym1 ! anti-symmetric and symmetric terms
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) intpl_FLA_Te0(SG%dim_gq,SG%dim_a)
 
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
-
-
-   ! Calculate dn
-   if(Flag_Weight_dfh==0) then
-      SG%dne_SM = SG%dne(:,:,1)
-      SG%dni_SM = SG%dni(:,:,1)
-   elseif(Flag_Weight_dfh==1) then
-      do i=1,SG%dim_s
-         SG%dne_SM(:,i) = SG%ne_by_fh(:,i,1) -SG%n0_1D(i)
-         SG%dni_SM(:,i) = SG%ni_by_ff(:,i,1) -SG%n0_1D(i)
-      enddo
-   endif
-
-   ! Then, smooth them
-   call Smooth_SG_Data_2D([2,0],SG%dne_SM,SG%Cell_dV)
-   call Smooth_SG_Data_2D([2,0],SG%dni_SM,SG%Cell_dV)
 
    call Determine_GK_AmpereTensors_on_Structured_Grid
 
@@ -2666,7 +2631,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
             ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
          enddo
       enddo
-   elseif(Flag_Def_dne_adiab==3) then
+   elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
@@ -2868,18 +2833,18 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    use particle_decomp
    implicit none
 
-   PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
+   PetscScalar, pointer :: ptr_tmpVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
    PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
    PetscErrorCode ierr
    integer istatus(MPI_STATUS_SIZE)
    PetscReal source(SG%dim_gq,SG%dim_a)
-   PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
+   PetscReal, allocatable :: tmpVec_mype(:),tmpVec_partd(:)
    real(wp) tt0,tt1
    real(wp) AD ! Adiabatic Factor = e*phi/Te0
    integer :: i,j,ij
-   Vec AparaS,mu0_j_para 
+   Vec AparaS,mu0_j_para, tmpVec 
 
    real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
 
@@ -2895,35 +2860,24 @@ subroutine Solve_GK_Ampere_3D_on_SG()
       ss=mapG2P(Gid)%aid
       val=RHS_leading_coeff*(SG%dji_para(qq,ss,1)+SG%dje_para(qq,ss,1))
       call VecSetValues(mu0_j_para,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-      call VecSetValues(AparaS,1,Gid,SG%AparaS(qq,ss),INSERT_VALUES,ierr);CHKERRQ(ierr) 
+      val=SG%AparaS(qq,ss)
+      call VecSetValues(AparaS,1,Gid,val,INSERT_VALUES,ierr);CHKERRQ(ierr) 
    enddo
+
+
+   ! Ensure all the vector’s entries are stored on the correct MPI process. 
+   call VecAssemblyBegin(mu0_j_para,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(mu0_j_para,ierr); CHKERRQ(ierr)
+   call VecAssemblyBegin(AparaS,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(AparaS,ierr); CHKERRQ(ierr)
+
 
    ! Calculate bVec = PerpLapMat*AparaS + mu0_j_para
    tt0=MPI_WTIME()
    call MatMultAdd(PerpLapMat,AparaS,mu0_j_para,bVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0) write(stdout,*) "MatMultAdd in Solve_GK_Ampere_3D_on_SG takes ",tt1-tt0," secs"
+   if(mype==0) write(stdout,'(A,ES11.3,A)') "MatMultAdd in Solve_GK_Ampere_3D_on_SG takes ",tt1-tt0," secs"
    call flush(stdout)
-
-
-   if(mod(istep,msnap)==0) then
-      ! Copy bVec (source) to the SG%test_src vector
-      allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
-      call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
-      bVec_mype(:)=ptr_bVec(1:Lsize)
-      call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
-      call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
-      do Lid=1,sum_Lsize_partd
-         Gid=recv_mapL2G_partd(Lid)
-         SG%Ampere_RHS(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
-      enddo
-      SG%Ampere_RHS(SG%dim_gq,:)=SG%Ampere_RHS(1,:)
-      deallocate(bVec_mype, bVec_partd)
-   endif
-
-   call VecDestroy(AparaS,ierr); CHKERRQ(ierr)
-   call VecDestroy(mu0_j_para,ierr); CHKERRQ(ierr)
-
 
 
    call Apply_BC_to_GK_Ampere_RHS_Coeffs
@@ -2935,72 +2889,33 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    tt0=MPI_WTIME()
    call KSPSolve(ksp_A,bVec,xVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
-   if(mype==0 .or. mype==1) write(stdout,*) "In Solve_GK_Ampere_3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
+   if(mype==0 .or. mype==1) write(stdout,'(A,I0,A,ES11.3,A)') "In Solve_GK_Ampere_3D_on_SG, mype=",mype,"; KSPSolve takes ",tt1-tt0," secs"
    call flush(stdout)
 
-   ! call KSPView(ksp_P,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
+   ! call KSPView(ksp_A,PETSC_VIEWER_STDOUT_WORLD, ierr);CHKERRQ(ierr);
 
    ! Check the residual error and number of the iterations
    call MatMult(AMat,xVec,ResVec,ierr); CHKERRQ(ierr)
    call VecAXPY(ResVec,-1.0,bVec,ierr); CHKERRQ(ierr)
    call VecNorm(ResVec,NORM_2,res_norm2,ierr); CHKERRQ(ierr)
    call VecNorm(bVec,NORM_2,src_norm2,ierr); CHKERRQ(ierr)
-   call KSPGetIterationNumber(ksp_P,num_its,ierr); CHKERRQ(ierr)
-   if(mype==0) write(stdout,"(A,ES16.8,A,4I)") "In Solve_GK_Ampere_3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
+   call KSPGetIterationNumber(ksp_A,num_its,ierr); CHKERRQ(ierr)
+   if(mype==0) write(stdout,"(A,ES12.4,A,I0)") "In Solve_GK_Ampere_3D_on_SG, Norm of error=", res_norm2/src_norm2, ", iterations=",num_its
    call flush(stdout)
 
-   ! Copy xVec (solution) to the SG%test_phi vector
-   allocate(xVec_mype(Lsize), xVec_partd(sum_Lsize_partd))
-   call VecGetArrayReadF90(xVec,ptr_xVec,ierr)
-   xVec_mype(:)=ptr_xVec(1:Lsize)
-   call VecRestoreArrayReadF90(xVec,ptr_xVec,ierr)
-   call MPI_ALLGATHERV(xVec_mype,Lsize,mpi_Rsize,xVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+   ! Copy xVec (solution) to the SG%AparaH vector
+   allocate(tmpVec_mype(Lsize), tmpVec_partd(sum_Lsize_partd))
+   call VecGetArrayReadF90(xVec,ptr_tmpVec,ierr)
+   tmpVec_mype(:)=ptr_tmpVec(1:Lsize)
+   call VecRestoreArrayReadF90(xVec,ptr_tmpVec,ierr)
+   call MPI_ALLGATHERV(tmpVec_mype,Lsize,mpi_Rsize,tmpVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
    do Lid=1,sum_Lsize_partd
       Gid=recv_mapL2G_partd(Lid)
-      SG%AparaH(mapG2P(Gid)%gqid,mapG2P(Gid)%aid,1) = xVec_partd(Lid)
+      SG%AparaH(mapG2P(Gid)%gqid,mapG2P(Gid)%aid,1) = tmpVec_partd(Lid)
    enddo
    SG%AparaH(SG%dim_gq,:,1)=SG%AparaH(1,:,1)
-   deallocate(xVec_mype, xVec_partd)
+   deallocate(tmpVec_mype, tmpVec_partd)
 
-   ! SG%AparaH(:,1:35,:) = 0.0
-   ! do i=35,60
-   !    SG%AparaH(:,i,:) = (i-35)*(1e4)/25.0
-   ! enddo
-   ! SG%AparaH(:,61:SG%dim_s-11,:) = 1e4
-   ! do i=SG%dim_s-10,SG%dim_s
-   !    SG%AparaH(:,i,:) = 1e4 -(i-(SG%dim_s-10))*(1e4)/10.0
-   ! enddo
-
-   ! do j=1,SG%dim_gq
-   !    SG%AparaH(j,:,:) = SG%AparaH(j,:,:)*(1.0+0.5*cos(3*(j-1)/real(SG%dim_gq-1)*2.0*pi))
-   ! enddo
-
-
-   ! Copy bVec (source) to the SG%test_src vector
-   allocate(bVec_mype(Lsize), bVec_partd(sum_Lsize_partd))
-   call VecGetArrayReadF90(bVec,ptr_bVec,ierr)
-   bVec_mype(:)=ptr_bVec(1:Lsize)
-   call VecRestoreArrayReadF90(bVec,ptr_bVec,ierr)
-   call MPI_ALLGATHERV(bVec_mype,Lsize,mpi_Rsize,bVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
-   do Lid=1,sum_Lsize_partd
-      Gid=recv_mapL2G_partd(Lid)
-      SG%test_src_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = bVec_partd(Lid)
-   enddo
-   SG%test_src_2D(SG%dim_gq,:)=SG%test_src_2D(1,:)
-   deallocate(bVec_mype, bVec_partd)
-
-   ! Copy ResVec (residual=A*x-b) to the SG%test_res vector
-   allocate(ResVec_mype(Lsize), ResVec_partd(sum_Lsize_partd))
-   call VecGetArrayReadF90(ResVec,ptr_ResVec,ierr)
-   ResVec_mype(:)=ptr_ResVec(1:Lsize)
-   call VecRestoreArrayReadF90(ResVec,ptr_ResVec,ierr)
-   call MPI_ALLGATHERV(ResVec_mype,Lsize,mpi_Rsize,ResVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
-   do Lid=1,sum_Lsize_partd
-      Gid=recv_mapL2G_partd(Lid)
-      SG%test_res_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = ResVec_partd(Lid)
-   enddo
-   SG%test_res_2D(SG%dim_gq,:)=SG%test_res_2D(1,:)
-   deallocate(ResVec_mype, ResVec_partd)
 
    call MPI_SENDRECV(SG%AparaH(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,&
                      SG%AparaH(:,:,0),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
@@ -3008,9 +2923,10 @@ subroutine Solve_GK_Ampere_3D_on_SG()
                      SG%AparaH(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
 
 
-   call Cal_gaH_from_AparaH_on_SG
-   call Cal_grad_gaH_cov_on_SG
+   call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+   call Cal_grad_gaH_and_grad_gaS_on_SG
 
+   !#TODO If using the following temporary variables, we should allocate them on GPU as moulde global variables to reduce communication time
    !!! Copy SG%AparaH to SG_phi that will be used on GPU side
    !!! SG_phi = SG%AparaH
    !!! $acc update device(SG_phi)
@@ -3020,6 +2936,43 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    !    call MPI_ALLGATHER(SG%AparaH(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_phi_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
    !    call MPI_ALLGATHER(SG%test_src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,SG%test_src_3D,SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierr)
    ! endif
+
+
+   if(mod(istep,msnap)==0) then
+      allocate(tmpVec_mype(Lsize), tmpVec_partd(sum_Lsize_partd))
+      call VecDuplicate(bVec,tmpVec,ierr); CHKERRQ(ierr)
+
+      ! Copy bVec (RHS of A*x=b equation) to SG%Ampere_RHS
+      call VecGetArrayReadF90(bVec,ptr_tmpVec,ierr)
+      tmpVec_mype(:)=ptr_tmpVec(1:Lsize)
+      call VecRestoreArrayReadF90(bVec,ptr_tmpVec,ierr)
+      call MPI_ALLGATHERV(tmpVec_mype,Lsize,mpi_Rsize,tmpVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+      do Lid=1,sum_Lsize_partd
+         Gid=recv_mapL2G_partd(Lid)
+         SG%Ampere_RHS(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = tmpVec_partd(Lid)
+      enddo
+      SG%Ampere_RHS(SG%dim_gq,:)=SG%Ampere_RHS(1,:)
+
+      ! Calclate PerpMat*AparaS and copy it to SG%perpLap_AparaS for debugging purpose
+      call MatMult(PerpLapMat,AparaS,tmpVec,ierr); CHKERRQ(ierr)
+      call VecGetArrayReadF90(tmpVec,ptr_tmpVec,ierr)
+      tmpVec_mype(:)=ptr_tmpVec(1:Lsize)
+      call VecRestoreArrayReadF90(tmpVec,ptr_tmpVec,ierr)
+      call MPI_ALLGATHERV(tmpVec_mype,Lsize,mpi_Rsize,tmpVec_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+      do Lid=1,sum_Lsize_partd
+         Gid=recv_mapL2G_partd(Lid)
+         SG%perpLap_AparaS(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = tmpVec_partd(Lid)
+      enddo
+      SG%perpLap_AparaS(SG%dim_gq,:)=SG%perpLap_AparaS(1,:)
+
+      call VecDestroy(tmpVec,ierr); CHKERRQ(ierr)
+      deallocate(tmpVec_mype, tmpVec_partd)
+   endif
+
+
+   call VecDestroy(AparaS,ierr); CHKERRQ(ierr)
+   call VecDestroy(mu0_j_para,ierr); CHKERRQ(ierr)
+
 
 end subroutine Solve_GK_Ampere_3D_on_SG
 

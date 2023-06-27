@@ -46,8 +46,6 @@ program GTS
    real(doubleprec) program_start_t0, program_start_t0wc, t0,t0wc,time(nc),timewc(nc),dt,dtwc
    real(doubleprec) tmp_time(nc), tmp_timewc(nc), loop_start_time,loop_start_timewc, mainloop_time, mainloop_timewc
    character(len=16) ic(nc)
-   type(solver_data) :: solver1,solver_dphi_dt,masssolver
-   type(fem_data) :: fem1,femt,femm
    character(len=40) cdum
    integer DT_int(8)
    character(len=10) DT_str(3)
@@ -128,7 +126,7 @@ program GTS
 
    call Init_Magnetic_Grid
 
-   if(electromagnetic>0 .and. num_of_EMP>0) call Cal_FootPrint_of_MagneticFieldLine
+   call Cal_FootPrint_of_MagneticFieldLine
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode_by_MCI
    call Do_FieldLineFollowing_for_Poincare_Plot_parallelized
@@ -139,74 +137,6 @@ program GTS
    call Read_FMap3D_on_MG
 
    call MPI_Bcast(FLA_Te0,2*mgrid,MPI_Rsize,nproc_partd-1,partd_comm,ierror)
-   ! solver
-   ! which solver to use
-   ! order = 0 original solver
-   ! order = 1 linear finite element
-   ! order = 2 2nd order finite element
-   ! which bc_type to use
-   ! bc_type=0 neumann bc at a0, neumann bc at a1
-   ! bc_type=1 dirichlet bc at a0, neumann bc at a1
-   ! bc_type=2 dirichlet bc at a0, dirichlet bc at a1
-   ! bc_type=3 neumann bc at a0, dirichlet bc at a1
-   if( order .le. 0 ) then
-      solver1%order=0
-      solver_dphi_dt%order=0
-      if(mype == 0) write (0, *) "	integral equation order=", order
-      ! mat type 1, bc type 1
-      solver1%mat%bc_type = 2
-      call new_gk_solver( solver1, '', 1, 2 )
-      ! mat type 2, bc type 2
-      solver_dphi_dt%mat%bc_type = 2
-      if(ifelectron==2.and.ifdphi==1) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
-   else          !  for order > 0
-      if(mype == 0) write (0, *) "	finite element order=", order
-
-      solver1%order = order
-      solver1%mat%mat_type = 1
-      solver1%mat%bc_type = 0
-      fem1%order = order
-      call new_fem_data( fem1 )
-#ifdef CJTEST
-      call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, 2 )
-      call testsolve( solver1, masssolver )
-      call delete_fem_data( fem1 )
-      call destroy_solver( solver1 )
-#else
-      call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, solver1%mat%bc_type )
-#endif
-
-      masssolver%order = 0
-      masssolver%mat%mat_type = -1
-      masssolver%mat%bc_type = -1
-      femm%order = 1
-      call new_fem_data( femm )
-      call new_fem_masssolver( femm, masssolver )
-#ifdef CJTEST
-      call testmasssolve( masssolver )
-      call delete_fem_data( femm )
-      call destroy_solver( masssolver )
-#endif
-
-      if(ifelectron==2.and.ifdphi==1) then
-         solver_dphi_dt%order = order
-         solver_dphi_dt%mat%mat_type = 2
-         solver_dphi_dt%mat%bc_type = 2
-         femt%order = order
-         call new_fem_data( femt )
-         call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', solver_dphi_dt%mat%mat_type, solver_dphi_dt%mat%bc_type )
-#ifdef CJTEST
-         call testsolve( solver_dphi_dt, masssolver )
-         call delete_fem_data( femt )
-         call destroy_solver( solver_dphi_dt )
-#endif
-      endif
-
-#ifdef CJTEST
-      call PetscFinalize( ierror )
-      stop
-#endif
-   endif
 
    call Initialize_Structured_Grid
    ! SG%phi(:,1:SG%dim_s-10,:) =1e4
@@ -228,16 +158,9 @@ program GTS
    endif
    call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 
-
-   ! call Initialize_Structured_Grid
-   ! call Construct_SimplePoisson3D_Solver_using_DiagnosticGrid
-   ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
-   ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
-
    call Initialize_Ptl_Src_Loss
 
    istep=0
-   !  if(mype==0) call view_orbit
 
    ! initial field
    irk=2
@@ -255,39 +178,26 @@ program GTS
    endif
 
    if(Flag_Poisson==1) then
-      if(Flag_Poisson3D_on_SG==1) then
-         call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
-         call Construct_GK_Poisson3D_Solver_with_Extremal_Method
-         call poisson( solver1, masssolver  )
-         call Update_GK_Poisson_LHS_Coeffs
-         if(electromagnetic==2) then
-            call Construct_GK_Ampere_3D_Solver_with_Extremal_Method
-            call Solve_GK_Ampere_3D_on_SG
-         endif
+      call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
+      call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+      call Update_GK_Poisson_LHS_Coeffs
+      if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+         call Solve_Nonlinear_Poisson3D_on_SG
       else
-         call poisson( solver1, masssolver  )
+         call Solve_Poisson3D_on_SG
+      endif
+      call Cal_gradPhi_on_SG
+      if(electromagnetic==2) then
+         call Construct_GK_Ampere_3D_Solver_with_Extremal_Method
+         call Solve_GK_Ampere_3D_on_SG
+         call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+         call Cal_grad_gaH_and_grad_gaS_on_SG
       endif
       if(Flag_Load_and_WeightDef/=0) then
-         call Adjust_electron_weight_for_initially_zero_potential(solver1,masssolver)
+         call Adjust_electron_weight_for_initially_zero_potential
       endif
    endif
-   !  if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
-
-
-   ! call smooth(0)
-
-   ! call smooth(1)
-
-   call field(masssolver)
-
-   if(ifelectron==2.and.ifdphi==1) then
-      call current_ion
-      call current_eon
-      call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
-   end if
-
-   !  call check_temperature
 
    call open_files
 
@@ -354,7 +264,7 @@ program GTS
 
 
       ! if(istep==istart .or. mod(istep,msnap) .eq. 0) then
-      if(istep==istart .or. mod(istep,Ptl_Src_nstep) .eq. 0) then
+      if(Ptl_Src_nstep>0 .and. mod(istep-istart,Ptl_Src_nstep)==0) then
 
          if(Flag_Ptl_BC0_type==2 .or. Flag_Ptl_BC1_type==2) then
             call timer(t0,dt,t0wc,dtwc)
@@ -405,11 +315,7 @@ program GTS
 
          ! push ion
          if(Flag_w_Evol<3) then
-            if(Flag_RK4==1) then
-               call pushion_RK4(irk)
-            else
-               call pushion
-            endif
+            call pushion_wEvol0or1(irk,nrk)
             call timer(t0,dt,t0wc,dtwc)
             time(1)=time(1)+dt
             timewc(1)=timewc(1)+dtwc
@@ -441,8 +347,6 @@ program GTS
          time(18)=time(18)+dt
          timewc(18)=timewc(18)+dtwc
 
-         ! Calculate ion weight damping
-         if(irk==nrk.and.wimcompressibility==2) call weight_damping_ion
 
          ! Calculate ion perturbed density "delta-ni" and ion locations in the 3D field
          ! mesh, which are ued in CURRENT_EON for calculating gamma_i as well as
@@ -459,106 +363,43 @@ program GTS
 
          if(ifelectron/=0) then    ! include kinetic electrons
 
-            ! NOTE: nelectron must take 1 or even number due to the use of 2nd order Runge-Kutta
-            if(nelectron==1) then  ! electrons have the same step size as ions
-               idiag_e=mod(irk-1,nrk)+mod(istep,ndiag)
-               ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
-               ! via calling get_fluexs_e in pushe
+            idiag_e=mod(irk-1,nrk)+mod(istep,ndiag)
+            ! if idiag_e=0, then istep=n*ndiag, irk=1, calculate fluxes
+            ! via calling get_fluexs_e in pushe
 
-               !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation,
-               !  but give almost identical results for particle weight and ererything else according to a short test (20 steps)
+            !  March, 2012: PUSHEON uses more a different way (more precise in form -- see note) to calculate RHS of delta-fe equation,
+            !  but give almost identical results for particle weight and ererything else according to a short test (20 steps)
 
-               ! calculate electron collisions
-               call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
+            ! calculate electron collisions
+            call collision_eon  ! collision is on when icollision>0 and calculated every icollision-step at irk=2
+            call timer(t0,dt,t0wc,dtwc)
+            time(9)=time(9)+dt
+            timewc(9)=timewc(9)+dtwc
+
+            if(Flag_w_Evol<3) then
+               call pusheon_wEvol0or1(irk, nrk)
                call timer(t0,dt,t0wc,dtwc)
-               time(9)=time(9)+dt
-               timewc(9)=timewc(9)+dtwc
+               time(10)=time(10)+dt
+               timewc(10)=timewc(10)+dtwc
 
-                  !  CALL PUSHE(irk)
-               if(Flag_w_Evol<3) then
-                  if(Flag_RK4==1) then
-                     call pusheon_RK4(solver1, masssolver, irk)
-                  else
-                     call pusheon(solver1, masssolver, irk)
-                  endif
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(10)=time(10)+dt
-                  timewc(10)=timewc(10)+dtwc
-
-                  call shifte
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(11)=time(11)+dt
-                  timewc(11)=timewc(11)+dtwc
-               else
-                  if(Flag_w_Evol==3) then
-                     call pusheon_wEvol3(solver1, masssolver, irk, nrk)
-                  elseif(Flag_w_Evol==4) then
-                     call pusheon_wEvol4(solver1, masssolver, irk, nrk)
-                  endif
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(10)=time(10)+dt
-                  timewc(10)=timewc(10)+dtwc
-                  ! Note that pusheon_wEvol3 does not need shifte in the main.F90
-                  ! because it calls the shifte inside of the push routine
-               endif
-
-
+               call shifte
+               call timer(t0,dt,t0wc,dtwc)
+               time(11)=time(11)+dt
+               timewc(11)=timewc(11)+dtwc
             else
-               ! Note that Following Subelectron routines are only valid for RK2 scheme
-               ! 1 ion step = nelectron(>1) electron steps
-               ! originally, 1 ion step = 2*nelectron electron steps
-               if(irk==1) then
-                  me00=me
-                  ntracer00=ntracer_e
-                  zeon00=0.0_wp
-                  !$omp parallel do private(i)
-                  do i=1,me
-                     zeon00(:,i)=zeon(:,i)
-                  end do
-               end if
+               if(Flag_w_Evol==3) then
+                  call pusheon_wEvol3(irk, nrk)
+               elseif(Flag_w_Evol==4) then
+                  call pusheon_wEvol4(irk, nrk)
+               endif
+               call timer(t0,dt,t0wc,dtwc)
+               time(10)=time(10)+dt
+               timewc(10)=timewc(10)+dtwc
+               ! Note that pusheon_wEvol3 does not need shifte in the main.F90
+               ! because it calls the shifte inside of the push routine
+            endif
 
-               if(irk==2) then
-                  me=me00
-                  ntracer_e=ntracer00
-                  zeon=0.0_wp
-                  !$omp parallel do private(i)
-                  do i=1,me
-                     zeon(:,i)=zeon00(:,i)
-                  end do
-               end if
 
-               do i=1,(nelectron/2)*irk
-                  idiag_e=mod(istep,ndiag)+mod(irk-1,2)+mod(i-1,(nelectron/2)*irk)
-                  ! if idiag_e=0, then istep=n*ndiag, irk=1, and i=1, calculate fluxes via calling
-                  ! get_fluexs_e in pushe
-                  ! push electron -- the 1st step of 2nd order Runge-Kutta
-                  !    CALL PUSHE(1)
-                  call pusheon(solver1, masssolver, 1)
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(10)=time(10)+dt
-                  timewc(10)=timewc(10)+dtwc
-
-                  call shifte
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(11)=time(11)+dt
-                  timewc(11)=timewc(11)+dtwc
-
-                  ! push electron -- the 2nd step of 2nd order Runge-Kutta
-                  !    CALL PUSHE(2)
-                  call pusheon(solver1, masssolver, 2)
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(10)=time(10)+dt
-                  timewc(10)=timewc(10)+dtwc
-
-                  call shifte
-                  call timer(t0,dt,t0wc,dtwc)
-                  time(11)=time(11)+dt
-                  timewc(11)=timewc(11)+dtwc
-
-               end do
-            end if    ! end if(nelectron==1)
-
-            if(irk==nrk.and.wimcompressibility==2) call weight_damping_eon
 
             ! Calculate perturbed density and current of nonadiabatic electrons "delta-ne^h"
             ! and electron locations in the 3D field mesh,  which are needed in CURRENT_EON
@@ -574,12 +415,21 @@ program GTS
 
          endif    ! end if(ifelectron/=0)
 
-         ! solve GK Poisson equation using adiabatic electron
-         if(Flag_Poisson==1) call poisson( solver1, masssolver )
-         if(electromagnetic==2) then
-            call Solve_GK_Ampere_3D_on_SG
+         ! solve GK field equations
+         if(Flag_Poisson==1) then
+            if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+               call Solve_Nonlinear_Poisson3D_on_SG
+            else
+               call Solve_Poisson3D_on_SG
+            endif
+            call Cal_gradPhi_on_SG
+            if(electromagnetic==2) then
+               call Update_SG_AparaS(irk,nrk)
+               call Solve_GK_Ampere_3D_on_SG
+               call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
+               call Cal_grad_gaH_and_grad_gaS_on_SG
+            endif
          endif
-         !if(Flag_Poisson==1) call poisson( solver_dphi_dt )
 
          if (mype == 0) then
             open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
@@ -609,19 +459,6 @@ program GTS
          time(5)=time(5)+dt
          timewc(5)=timewc(5)+dtwc
 
-         ! field
-         call field(masssolver)
-
-         call timer(t0,dt,t0wc,dtwc)
-         time(6)=time(6)+dt
-         timewc(6)=timewc(6)+dtwc
-
-         if(ifelectron==2.and.ifdphi==1) then
-            call current_ion
-            call current_eon
-            call solve_dphidt(solver_dphi_dt,masssolver)    ! --> d(delta-phi)/dt
-         end if
-
       enddo  ! enddo irk=1,nrk
 
       call Print_Reference_ntracer_Information
@@ -631,7 +468,7 @@ program GTS
       call Cumulate_Some_Variables_for_Measure
 
       if(Flag_Ptl_BC0_type==1 .or. Flag_Ptl_BC1_type==1) then
-         if(istep==istart .or. mod(istep,Ptl_Src_nstep)==0) then
+         if(Ptl_Src_nstep>0 .and. mod(istep-istart,Ptl_Src_nstep)==0)  then
             call timer(t0,dt,t0wc,dtwc)
             call Generate_Particles_from_Boundaries_with_LoadBalancing(Ptl_Src_nstep*tstep*utime)
             call timer(t0,dt,t0wc,dtwc)
@@ -790,19 +627,7 @@ program GTS
       enddo
    endif
 
-   if( order .le. 0 ) then
-      if(ifelectron==2.and.ifdphi==1) call destroy_solver(solver_dphi_dt)
-      call destroy_solver(solver1)
-   else
-      call delete_fem_data( fem1 )
-      call destroy_solver( solver1 )
-      call delete_fem_data( femm )
-      call destroy_solver( masssolver )
-      if(ifelectron==2.and.ifdphi==1) then
-         call delete_fem_data( femt )
-         call destroy_solver( solver_dphi_dt )
-      endif
-   endif
+
 
    call Finalize_Ptl_Src_Loss
 

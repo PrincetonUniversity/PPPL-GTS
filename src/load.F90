@@ -364,7 +364,6 @@ subroutine load
       wi_vpara(m) = 0
       wi_vperp(m) = 0
       wi_accel(m) = 0
-      wi_fdamp(m) = 0
    enddo
 
    if(mype==0) print*, 'average weight at t=0 is ', pdum
@@ -410,7 +409,6 @@ subroutine load
          we_vperp(m) = 0
          we_accel(m) = 0
          we_adiab(m) = 0
-         we_fdamp(m) = 0
       enddo
 
 
@@ -622,7 +620,7 @@ subroutine load
    ! call flush(stdout)
 
    if(acc_newer_H_zeon) then
-      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:),we_fdamp(:))
+      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:))
       !$acc update device(zeon(:,:),zeon0(:,:),elabels(:))
       !$acc update device(UnNorm_theta_e(:),UnNorm_zeta_e(:))
       acc_newer_H_zeon=.false.
@@ -630,7 +628,7 @@ subroutine load
    endif
 
    if(acc_newer_H_zion) then
-      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:),wi_fdamp(:))
+      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:))
       !$acc update device(zion(:,:),zion0(:,:),ilabels(:))
       !$acc update device(UnNorm_theta_i(:),UnNorm_zeta_i(:))
       acc_newer_H_zion=.false.
@@ -864,7 +862,6 @@ subroutine load_uniform_MGY
    wi_vpara = 0
    wi_vperp = 0
    wi_accel = 0
-   wi_fdamp = 0
 
    if(mype==0) then
       open(unit=1212,file='test_zion_load.dat',action='write')
@@ -1022,7 +1019,7 @@ subroutine load_uniform_MGY
             AdiabTerm(m)=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
          else
             AdiabTerm(m)=-1e100
-            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in load_uniform_MGY!!"
             STOP
          endif
       enddo
@@ -1079,7 +1076,6 @@ subroutine load_uniform_MGY
       we_vperp = 0
       we_accel = 0
       we_adiab = 0
-      we_fdamp = 0
    endif
 
    !$acc update device(elabels(:me))
@@ -1270,7 +1266,7 @@ subroutine load_uniform_MGY
 
 
    if(acc_newer_H_zeon) then
-      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:),we_fdamp(:))
+      !$acc update device(we_init(:),we_vpara(:),we_vperp(:),we_accel(:),we_adiab(:))
       !$acc update device(zeon(:,:),zeon0(:,:),elabels(:))
       !$acc update device(UnNorm_theta_e(:),UnNorm_zeta_e(:))
       acc_newer_H_zeon=.false.
@@ -1278,7 +1274,7 @@ subroutine load_uniform_MGY
    endif
 
    if(acc_newer_H_zion) then
-      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:),wi_fdamp(:))
+      !$acc update device(wi_init(:),wi_vpara(:),wi_vperp(:),wi_accel(:))
       !$acc update device(zion(:,:),zion0(:,:),ilabels(:))
       !$acc update device(UnNorm_theta_i(:),UnNorm_zeta_i(:))
       acc_newer_H_zion=.false.
@@ -1326,6 +1322,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    use Structured_Grid
    use Ptl_Src_Loss
    use solver_data_class
+   use MGY_PETSc_Interface_Data
    implicit none
 
 
@@ -1348,7 +1345,12 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    call Measure_Ion_Density_Current_on_SG(1)
    call Measure_Electron_Density_Current_on_SG(1)
 
-   call poisson(solver,masssolver)
+   if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+      call Solve_Nonlinear_Poisson3D_on_SG
+   else
+      call Solve_Poisson3D_on_SG
+   endif
+   call Cal_gradPhi_on_SG
 
    call Update_SG_phi_3D_by_gathering_SG_phi2D
 
@@ -1388,7 +1390,12 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    acc_newer_D_zeon=.true.
 
    call Measure_Electron_Density_Current_on_SG(1)
-   call poisson(solver,masssolver)
+   if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
+      call Solve_Nonlinear_Poisson3D_on_SG
+   else
+      call Solve_Poisson3D_on_SG
+   endif
+   call Cal_gradPhi_on_SG
    call Update_SG_phi_3D_by_gathering_SG_phi2D
 
    !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
@@ -1409,7 +1416,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
 
       zeon(9,m) = integral_f0*AdiabTerm ! f_AD
 
-      zeon0(9,m) = integral_f0*AdiabTerm + zeon(8,m) ! f_tot
+      zeon0(9,m) =zeon(8,m) + int(ifelectron/2)*zeon(9,m) ! f_tot
       zeon(5,m) = zeon(8,m)-integral_f0 ! df or dh
 
       ! if(mype==0 .and. m==1) then
