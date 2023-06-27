@@ -3081,9 +3081,9 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
 
    ! Measure FieldFollowingData on FMap3D
    num_of_FMap3D_variables = 4
-   FMap3D_dim_a  = 200
-   FMap3D_dim_gq = 300
-   FMap3D_dim_gf = 50
+   FMap3D_dim_a  = 100
+   FMap3D_dim_gq = 150
+   FMap3D_dim_gf = 25
 
    Na=FMap3D_dim_a
    Nq=FMap3D_dim_gq
@@ -3463,8 +3463,10 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
    specific_time=0.0
    max_tor_rotation = FLF_max_tor_num
-   num_gq = 500
-   num_gf = 500
+   ! num_gq = 500
+   ! num_gf = 500
+   num_gq = 200
+   num_gf = 200
 
    Gsize = num_gq*num_gf
    Lsize = Gsize/numberpe
@@ -3808,9 +3810,12 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
 
    ! Measure FieldFollowingData on FMap3D
    num_of_FMap3D_variables = 26
-   FMap3D_dim_a  = 200
-   FMap3D_dim_gq = 300
-   FMap3D_dim_gf = 100
+   ! FMap3D_dim_a  = 200
+   ! FMap3D_dim_gq = 300
+   ! FMap3D_dim_gf = 100
+   FMap3D_dim_a  = 100
+   FMap3D_dim_gq = 150
+   FMap3D_dim_gf = 50
 
    Na=FMap3D_dim_a
    Nq=FMap3D_dim_gq

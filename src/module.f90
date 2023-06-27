@@ -196,7 +196,7 @@ module FieldLineFollowing
       real(wp) ini_FLabel ! FLabel_Function will be used to estimate modified flux-surface labels
    end type
 
-   integer :: FLF_max_tor_num = 400, gPPI_max_tor_num = 200
+   integer :: FLF_max_tor_num = 200, gPPI_max_tor_num = 200
 
    integer :: num_of_SampledFieldLines
    integer, dimension(:), allocatable :: num_of_gPPI_for_each_FieldLine
