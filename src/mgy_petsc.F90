@@ -68,7 +68,7 @@ contains
 
 subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
    use precision
-   use global_parameters,only:stdout,mype,numberpe
+   use global_parameters,only:stdout,mype,numberpe,electromagnetic
    use particle_decomp
    implicit none
    integer, intent(in):: dim_gq,dim_a,dim_gf
@@ -201,13 +201,16 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
 
 
    call Construct_Metric_Tensor_on_Structured_Grid
-   call Construct_Perp_Laplacian_Matrix
    ! Create vectors (bVec, xVec, ResVec) for future use
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
    call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
    call VecSetFromOptions(bVec,ierr); CHKERRQ(ierr)
    call VecDuplicate(bVec,xVec,ierr); CHKERRQ(ierr)
    call VecDuplicate(bVec,ResVec,ierr); CHKERRQ(ierr)
+
+   if(electromagnetic==2) then
+      call Construct_Perp_Laplacian_Matrix
+   endif
 
 end subroutine Initialize_MGY_PETSc_Interface_Data
 
