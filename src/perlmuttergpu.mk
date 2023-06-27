@@ -1,8 +1,9 @@
 
-  CPP := /opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi/bin/mpiCC
-  CC := /opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi/bin/mpicc
-  F90 := /opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi/bin/mpif90
-  F77 := /opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi/bin/mpif77
+# CPP := /opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi/bin/mpicc
+  CPP := /opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/bin/mpicc
+  CC := /opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/bin/mpicc
+  F90 := /opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/bin/mpifort
+  F77 := /opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/bin/mpifort
   LOADER := ftn -Wl,-z,muldefs
 
   include  $(SRCDIR)/git_commands.mk
@@ -44,17 +45,17 @@ else
              COPT:=-fast 
              OMPFLAG:=-qopenmp -DUSE_OPENMP
              NOOMPFLAG:=
-             SPRNG_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/NVIDIA_perlmuttergpu
+             SPRNG_DIR=/global/cfs/cdirs/mp19/jinchen/LIB/NVHPC_perlmuttergpu
              SPRNG_LIB:=-L${SPRNG_DIR}/lib -lsprng -lgmp          # for Edison
              SPRNG_INC:=-I${SPRNG_DIR}/include
-             PSPLINE_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/NVIDIA_perlmuttergpu
+             PSPLINE_DIR=/global/cfs/cdirs/mp19/jinchen/LIB/NVHPC_perlmuttergpu
              PSPLINE_INC:=-I${PSPLINE_DIR}/mod
              PSPLINE_LIB:=-L${PSPLINE_DIR}/lib -lpspline #-L${NETCDF_DIR}/lib -lnetcdf
-             PETSC_DIR=/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4
-	     PETSC_ARCH=perlmutter-nvhpc-gts
-	     PETSC_CC_INCLUDES = -I/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4/include -I/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4/perlmutter-nvhpc-gts/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/math_libs/include
-	     PETSC_FC_INCLUDES = -I/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4/include -I/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4/perlmutter-nvhpc-gts/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/math_libs/include
-	     PETSC_WITH_EXTERNAL_LIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4/perlmutter-nvhpc-gts/lib -L/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.real4/perlmutter-nvhpc-gts/lib -Wl,-rpath,/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/math_libs/lib64 -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/math_libs/lib64 -Wl,-rpath,/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/lib64 -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/lib64 -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/lib64/stubs -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/openmpi/openmpi-3.1.5/lib -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/compilers/lib -L/usr/lib64/gcc/x86_64-suse-linux/7 -Wl,-rpath,/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/compilers/lib -lpetsc -lHYPRE -llapack -lblas -lnetcdf -lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5 -lz -lgmp -lcufft -lcublas -lcusparse -lcusolver -lcurand -lcudart -lnvToolsExt -lcuda -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lnvf -lnvomp -ldl -lnvhpcatm -latomic -lpthread -lnvcpumath -lnsnvc -lnvc -lrt -lgcc_s -lm -lstdc++ -lquadmath
+             PETSC_DIR=/global/cfs/cdirs/mp19/jinchen/LIB/petsc.20230602
+	     PETSC_ARCH=perlmuttergpu-nvhpc-cuda
+	     PETSC_CC_INCLUDES = -I/global/cfs/cdirs/mp19/jinchen/LIB/petsc.20230602/include -I/global/cfs/cdirs/mp19/jinchen/LIB/petsc.20230602/perlmuttergpu-nvhpc-cuda/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/math_libs/include
+	     PETSC_FC_INCLUDES = -I/global/cfs/cdirs/mp19/jinchen/LIB/petsc.20230602/include -I/global/cfs/cdirs/mp19/jinchen/LIB/petsc.20230602/perlmuttergpu-nvhpc-cuda/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/include -I/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/math_libs/include
+	     PETSC_WITH_EXTERNAL_LIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/global/cfs/cdirs/mp19/jinchen/LIB/petsc.20230602/perlmuttergpu-nvhpc-cuda/lib -L/global/cfs/cdirs/mp19/jinchen/LIB/petsc.20230602/perlmuttergpu-nvhpc-cuda/lib -Wl,-rpath,/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/math_libs/lib64 -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/math_libs/lib64 -Wl,-rpath,/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/lib64 -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/lib64 -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/cuda/lib64/stubs -L/opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/lib -L/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/compilers/lib -L/usr/lib64/gcc/x86_64-suse-linux/7 -Wl,-rpath,/opt/nvidia/hpc_sdk/Linux_x86_64/22.7/compilers/lib -lpetsc -lHYPRE -llapack -lblas -lnetcdf -lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5 -lz -lgmp -lcufft -lcublas -lcusparse -lcusolver -lcurand -lcudart -lnvToolsExt -lcuda -lmpifort_nvidia -lmpi_nvidia -lnvf -lnvomp -ldl -lnvhpcatm -latomic -lpthread -lnvcpumath -lnsnvc -lnvc -lrt -lgcc_s -lm -lstdc++ -lquadmath
 endif
    FFTLIB:=
    NAG_FILES:=fake_nag.o nag.o
