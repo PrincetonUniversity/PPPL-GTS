@@ -1,0 +1,5 @@
+-pc_type hypre
+-pc_hypre_type boomeramg
+-ksp_rtol 1.0e-10
+-ksp_max_it 10
+-log_view
