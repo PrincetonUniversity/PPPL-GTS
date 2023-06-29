@@ -73,7 +73,7 @@ OBJ:=module.o Magnetic_Grid.o spl_profile.o function_gg.o Structured_Grid.o Diag
      $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
      check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
      get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o\
-     weight_damping_new.o weight_damping_eon_new2.o sobol.o main.o git_info.o
+     weight_damping_new.o weight_damping_eon_new2.o sobol.o main.o gpus_for_tasks.o git_info.o
 #output_profiles.o
 
 #hypre openmp solver

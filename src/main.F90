@@ -54,10 +54,10 @@ program GTS
    integer:: device_type,my_gpu_device_num
 
    interface
-      subroutine shift(phase,phase0,mp,mpmax)
-         real,pointer,dimension(:,:) :: phase,phase0
-         integer,intent(INOUT) :: mp,mpmax
-      end subroutine shift
+      subroutine print_whichMPI_sees_whichGPU() bind(C, name="print_whichMPI_sees_whichGPU")
+         use iso_c_binding, only: c_double
+         implicit none
+      end subroutine print_whichMPI_sees_whichGPU 
    end interface
 
    call petsc_init()
@@ -72,16 +72,19 @@ program GTS
    endif
 
 #ifdef _ACCEL
+
+   call print_whichMPI_sees_whichGPU
+
    if(mype==0) write(stdout,*) "_OPENACC=", _OPENACC
-   device_type=acc_get_device_type()
-   ngpus_per_node=acc_get_num_devices(device_type)
-   my_gpu_device_num = acc_get_device_num(device_type)
-   write(stdout,'(3(a,I5))') "Before set_device, mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
-   call flush(stdout)
-   call acc_set_device_num(mod(mype,ngpus_per_node),device_type)
-   my_gpu_device_num = acc_get_device_num(device_type)
-   write(stdout,'(3(a,I5))') "After set_device,  mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
-   call flush(stdout)
+   ! device_type=acc_get_device_type()
+   ! ngpus_per_node=acc_get_num_devices(device_type)
+   ! my_gpu_device_num = acc_get_device_num(device_type)
+   ! write(stdout,'(3(a,I5))') "Before set_device, mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
+   ! call flush(stdout)
+   ! ! call acc_set_device_num(mod(mype,ngpus_per_node),device_type)
+   ! my_gpu_device_num = acc_get_device_num(device_type)
+   ! write(stdout,'(3(a,I5))') "After set_device,  mype=",mype,"; ngpus_per_node",ngpus_per_node, "; my_gpu_device_num=",my_gpu_device_num
+   ! call flush(stdout)
 #endif _ACCEL
 
    time=0.0_wp

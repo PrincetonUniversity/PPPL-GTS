@@ -1,6 +1,6 @@
 
 # CPP := /opt/nvidia/hpc_sdk/Linux_x86_64/22.7/comm_libs/mpi/bin/mpicc
-  CPP := /opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/bin/mpicc
+  CPP := /opt/cray/pe/craype/2.7.20/bin/CC
   CC := /opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/bin/mpicc
   F90 := /opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/bin/mpifort
   F77 := /opt/cray/pe/mpich/8.1.25/ofi/nvidia/20.7/bin/mpifort
