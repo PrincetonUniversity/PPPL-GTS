@@ -21,11 +21,11 @@
   irun=0,        ! restart run if >0
   mstep=1000,   ! number of timesteps
   tstep=2.61e-8,   ! 2.61e-8s ; 1e-3*(R0/Cs)
-  micell=5,   ! number of markers per cell for first ion species
-  mpsi=50,      ! number of radial grid points
-  ipsi=25,       ! radial grid point, where mode spectrum is calculated (usually most unstable region)
+  micell=100,   ! number of markers per cell for first ion species
+  mpsi=100,      ! number of radial grid points
+  ipsi=50,       ! radial grid point, where mode spectrum is calculated (usually most unstable region)
   mthetamax=1,   ! factor by which (standard) poloidal grid points are increased
-  mzetamax=16,    ! number of toroidal grid points (=poloidal planes)
+  mzetamax=8,    ! number of toroidal grid points (=poloidal planes)
   npartdom=4,   ! number of MPI tasks between which the particles are divided within a toroidal domain
                  ! mzetamax*npartdom is the number of total cores for the simulation!
   nbound=-1,      ! number of boundary radial cells. ?? some arrays (that span the radius) don't go beyond mpsi-nbound !???
