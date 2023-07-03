@@ -3120,7 +3120,8 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
 		REAL *gaE_array,
 		REAL *wgaE_array,
 		REAL *gatE_array,
-      REAL *gaHS_array,
+      REAL *gaH_array,
+      REAL *gaS_array,
       REAL *wgaH_array,
       REAL *wgaS_array,
 		REAL *Er_particle,
@@ -3159,7 +3160,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
 	REAL Xgr,Xa,Xgq,Xgm;
 	REAL gradPhi[3];
 
-   REAL gaHS; // gaHS = gaH + gaS 
+   REAL gaH,gaS; 
    REAL grad_gaH[3], grad_gaS[3]; // gradient of gaH and gaS
 	REAL gaE, grad_gaE[3];
    
@@ -3181,7 +3182,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
    #pragma acc data copyin(gq[:Np1],sa[:Na1],aF[:Na1],daF[:Na1],dgF[:Na1],d2gF[:Na1],dgY[:Na1],d2gY[:Na1],aT[:Na1],daT[:Na1],aP[:Na1],daP[:Na1],\
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaH_array,gaS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
@@ -3196,7 +3197,8 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
             grad_gaS[i] = *(wgaS_array +3*k +i);
          }
          gaE = *(gaE_array + k);           /* gaE[k] */
-         gaHS = *(gaHS_array + k);
+         gaH = *(gaH_array + k);
+         gaS = *(gaS_array + k);
          a   =Xa;
          if(a < 1e-100){
             a =0.;
@@ -3359,7 +3361,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
 
          const REAL B0star_cntv3[3] = {B0_cntv3[0]+Xgr*j0_cntv3[0], B0_cntv3[1]+Xgr*j0_cntv3[1], B0_cntv3[2]+Xgr*j0_cntv3[2]};
 
-         const REAL gaT = gaE+gaHS; // Total magnetic perturbation
+         const REAL gaT = gaE+gaH+gaS; // Total magnetic perturbation
          const REAL grad_gaT[3] = { grad_gaE[0]+grad_gaH[0]+grad_gaS[0],
                                     grad_gaE[1]+grad_gaH[1]+grad_gaS[1],
                                     grad_gaE[2]+grad_gaH[2]+grad_gaS[2]};
@@ -5120,7 +5122,8 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
 		REAL *gaE_array,
 		REAL *wgaE_array,
 		REAL *gatE_array,
-      REAL *gaHS_array,
+      REAL *gaH_array,
+      REAL *gaS_array,
       REAL *wgaH_array,
       REAL *wgaS_array,
 		REAL *Er_particle,
@@ -5157,7 +5160,7 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
 	REAL y,Y,yy,YY;
 	REAL Xgr,Xa,Xgq,Xgm;
 	REAL gradPhi[3];
-   REAL gaHS; // gaHS = gaH + gaS 
+   REAL gaH,gaS; 
    REAL grad_gaH[3], grad_gaS[3]; // gradient of gaH and gaS
 	REAL gaE, grad_gaE[3];
 
@@ -5180,7 +5183,7 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
 
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaHS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
+      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaH_array,gaS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
@@ -5195,7 +5198,8 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
             grad_gaS[i] = *(wgaS_array +3*k +i);
          }
          gaE = *(gaE_array + k);           /* gaE[k] */
-         gaHS = *(gaHS_array + k);
+         gaH = *(gaH_array + k);
+         gaS = *(gaS_array + k);
          a   =Xa;
          if(a < 1e-100){
             a =0.;
@@ -5362,7 +5366,7 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
 
          const REAL B0star_cntv3[3] = {B0_cntv3[0]+Xgr*j0_cntv3[0], B0_cntv3[1]+Xgr*j0_cntv3[1], B0_cntv3[2]+Xgr*j0_cntv3[2]};
 
-         const REAL gaT = gaE+gaHS; // Total magnetic perturbation
+         const REAL gaT = gaE+gaH+gaS; // Total magnetic perturbation
          const REAL grad_gaT[3] = { grad_gaE[0]+grad_gaH[0]+grad_gaS[0],
                                     grad_gaE[1]+grad_gaH[1]+grad_gaS[1],
                                     grad_gaE[2]+grad_gaH[2]+grad_gaS[2]};
