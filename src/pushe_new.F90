@@ -26,7 +26,7 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
       Er_particle(me),dela,fip,weqflow,wgradB,T_inverse,Ea_00,wdphidt,wdphidt2, &
       vpara, v2,  f_rho
       ! following working arrays are defined to use OMP reduction:
-   real(wp) Phi_at_zeon(memax),gaHS(me),grad_gaH(3,me),grad_gaS(3,me)
+   real(wp) Phi_at_zeon(memax),gaH(me),gaS(me),grad_gaH(3,me),grad_gaS(3,me)
    real(wp) now_wAD, wdot_fullh ! wdot_fullh
    real(wp) tdum,thetatmp
    real(Wp) tmp_old_AD, tmp_new_AD, tmp_old_dADdt, tmp_new_dADdt
@@ -49,7 +49,7 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
 
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumlate (to get future final value) or advance(to predict next RK step) RK4 terms
    real(wp) FullVelocity_da_dgq_dgf(3,me) ! ds= a_dot*(Tc/T)**(dsda_power), dgq=gq_dot, dgf=dgf_dot
-   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE,Phi_at_zeon,gaHS,grad_gaH,grad_gaS)
+   !$acc declare create(dgr,da,dgq,dgf,gradPhi,wpi,Er_particle,gaE,wgaE,gatE,Phi_at_zeon,gaH,gaS,grad_gaH,grad_gaS)
    real(wp) tmp_zeon5(memax), tmp_zeon8(memax)
    !$acc declare create (tmp_zeon5, tmp_zeon8)
    integer :: loop
@@ -97,7 +97,7 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
    call n_T_u_group_e ! call n_T_u here to ensure that backTe is correctly updated
 
    if(electromagnetic==2) then
-      call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaHS, grad_gaH, grad_gaS)
+      call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaH, gaS, grad_gaH, grad_gaS)
    else
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
@@ -170,7 +170,7 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
          STOP
       endif
    elseif(electromagnetic==2) then
-      m=gcmotion_eon_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,me,zeondim)
+      m=gcmotion_eon_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,gaH,gaS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,me,zeondim)
    else
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
    endif
@@ -973,7 +973,7 @@ subroutine pusheon_wEvol3(irk_e, nrk)
    integer, intent(in) :: irk_e, nrk
    integer i,ip,m,ierr
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),wpi(5,me),Er_particle(me),gaHS(me),grad_gaH(3,me),grad_gaS(3,me)
+   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),wpi(5,me),Er_particle(me),gaH(me),gaS(me),grad_gaH(3,me),grad_gaS(3,me)
    real(wp) gaE(me),wgaE(3,me), gatE(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
@@ -986,7 +986,7 @@ subroutine pusheon_wEvol3(irk_e, nrk)
    real(wp) prev_phi00(0:mpsi),phi00_convergency
    integer loop
 
-   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,wpi,Er_particle,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS)
+   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,wpi,Er_particle,gaE,wgaE,gatE,gaH,gaS,grad_gaH,grad_gaS)
 
 
    ! if(ifneoclassical/=1 .or. Flag_w_Evol/=3) then
@@ -1032,7 +1032,7 @@ subroutine pusheon_wEvol3(irk_e, nrk)
    call n_T_u_group_e
 
    if(electromagnetic==2) then
-      call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaHS, grad_gaH, grad_gaS)
+      call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaH, gaS, grad_gaH, grad_gaS)
    else
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
@@ -1094,7 +1094,7 @@ subroutine pusheon_wEvol3(irk_e, nrk)
          STOP
       endif
    elseif(electromagnetic==2) then
-      m=gcmotion_eon_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,me,zeondim)
+      m=gcmotion_eon_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,gaH,gaS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,me,zeondim)
    else
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
    endif
@@ -1423,7 +1423,7 @@ subroutine pusheon_wEvol4(irk_e, nrk)
    integer, intent(in) :: irk_e, nrk
    integer i,ip,m,ierr
    real(wp) RK_cum_coeff, RK_adv_coeff ! Coefficients to cumulate (to get future final value) or advance(to predict next RK step)
-   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),gaHS(me),grad_gaH(3,me),grad_gaS(3,me),wpi(5,me),Er_particle(me)
+   real(wp) dgr(me),da(me),dgq(me),dgf(me),Phi_at_zeon(memax),gradPhi(3,me),gaH(me),gaS(me),grad_gaH(3,me),grad_gaS(3,me),wpi(5,me),Er_particle(me)
    real(wp) gaE(me),wgaE(3,me), gatE(me) ! Magnetic Perturbation Information: alpha, grad_alpha, partial derivative d(gaE)/dt
    real(wp) tt0,tt1,cput0,cput1 ! For timer
    real(wp) timef,dela,r,fip
@@ -1436,7 +1436,7 @@ subroutine pusheon_wEvol4(irk_e, nrk)
    real(wp) prev_phi00(0:mpsi),phi00_convergency
    integer loop
 
-   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,gaHS,grad_gaH,grad_gaS,wpi,Er_particle,gaE,wgaE,gatE)
+   !$acc declare create(dgr,da,dgq,dgf,Phi_at_zeon,gradPhi,gaH,gaS,grad_gaH,grad_gaS,wpi,Er_particle,gaE,wgaE,gatE)
 
 
    ! if(ifneoclassical/=1 .or. Flag_w_Evol/=3) then
@@ -1480,7 +1480,7 @@ subroutine pusheon_wEvol4(irk_e, nrk)
    call n_T_u_group_e ! call n_T_u here to ensure that backTe is correctly updated
    
    if(electromagnetic==2) then
-      call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaHS, grad_gaH, grad_gaS)
+      call Get_Phi_gradPhi_gaHS_gradgaHS_at_zeon(Phi_at_zeon, gradPhi, gaH, gaS, grad_gaH, grad_gaS)
    else
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
@@ -1544,7 +1544,7 @@ subroutine pusheon_wEvol4(irk_e, nrk)
          STOP
       endif
    elseif(electromagnetic==2) then
-      m=gcmotion_eon_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,gaHS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,me,zeondim)
+      m=gcmotion_eon_em_MGY_vec_form_EM2(dgr,da,dgq,dgf,zeon,gradPhi,gaE,wgaE,gatE,gaH,gaS,grad_gaH,grad_gaS,Er_particle,nonlinear,1,me,zeondim)
    else
       m=gcmotion_eon(dgr,da,dgq,dgf,zeon,gradPhi,Er_particle,nonlinear,me,zeondim)
    endif
