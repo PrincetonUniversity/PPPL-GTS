@@ -2923,8 +2923,6 @@ subroutine Solve_GK_Ampere_3D_on_SG()
                      SG%AparaH(:,:,2),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierr)
 
 
-   call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
-   call Cal_grad_gaH_and_grad_gaS_on_SG
 
    !#TODO If using the following temporary variables, we should allocate them on GPU as moulde global variables to reduce communication time
    !!! Copy SG%AparaH to SG_phi that will be used on GPU side
