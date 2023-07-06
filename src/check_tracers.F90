@@ -9,7 +9,7 @@ subroutine check_tracer_e
 
    logical tf
    integer ierror,istatus(MPI_STATUS_SIZE)
-   real tracer_energy, tracer(7), tracer0(7), tracer_at_ZeroPhi(7)
+   real tracer_energy, tracer(zeondim), tracer0(zeondim), tracer_at_ZeroPhi(zeondim)
    integer m,i, kk
    integer my_mpi_id, ierr
    real(wp), dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
