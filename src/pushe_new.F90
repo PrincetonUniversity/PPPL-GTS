@@ -1277,7 +1277,7 @@ subroutine pusheon_wEvol3(irk_e, nrk)
    call n_T_u_group_e
 
 
-   if(Flag_Poisson==0) then
+   if(Flag_Poisson==0 .or. (Flag_Poisson==1 .and. ifelectron==1)) then
       !$acc parallel loop present(zeon,zeon0,back_f0_e)
       do m=1,me
          AD=0.0 ! Because phi=0 (no Poisson)
@@ -1291,7 +1291,7 @@ subroutine pusheon_wEvol3(irk_e, nrk)
          zeon(8,m) = zeon0(8,m) - int(ifelectron/2)*(new_f_AD-zeon(9,m)) ! full-f or full-h
       enddo
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
-   elseif(Flag_Poisson==1) then
+   elseif(Flag_Poisson==1 .and. ifelectron==2) then
       do loop=1,MaxLoopNum_Adiab_Weight_Update
          call cpu_time(cput0)
          tt0=MPI_WTIME()
@@ -1754,7 +1754,7 @@ subroutine pusheon_wEvol4(irk_e, nrk)
 
    ! enddo
 
-   if(Flag_Poisson==0) then
+   if(Flag_Poisson==0 .and. (Flag_Poisson==1 .and. ifelectron==1)) then
       !$acc parallel loop present(zeon,zeon0,back_f0_e)
       do m=1,me
          AD=0.0 ! Because phi=0 (no Poisson)
@@ -1770,7 +1770,7 @@ subroutine pusheon_wEvol4(irk_e, nrk)
          zeon(8,m) = zeon0(9,m) - (int(ifelectron/2)*new_f_AD) ! full-f or full-h
       enddo
       acc_newer_D_zeon=.true. !device side zeon will be changed in the following acc routine
-   elseif(Flag_Poisson==1) then
+   elseif(Flag_Poisson==1 .and. ifelectron==2) then
       do loop=1,MaxLoopNum_Adiab_Weight_Update
          call cpu_time(cput0)
          tt0=MPI_WTIME()
