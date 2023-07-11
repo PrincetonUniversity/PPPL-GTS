@@ -44,6 +44,7 @@ module Structured_Grid
       ! If electromagnetic<=1, this is parallel current using ve_para or vi_para
       ! If electromagnetic==2, theis is calculated using veH=ve_para+qs*B0/ms*alphaH or rhoH=rho_para+alphaH
       real(wp),allocatable, dimension(:,:,:) :: dje_para, dji_para ! dimension: (dim_gq, dim_s, 0:1);
+      real(wp),allocatable, dimension(:,:) :: dje_para_SM, dji_para_SM ! Smoothed current for Ampere3D equation; (dim_gq,dim_s) at current pol. plane
       real(wp),allocatable, dimension(:,:,:) :: je_para_by_fh, ji_para_by_ff ! using total weight; dimension: (dim_gq, dim_s, 0:1);
 
       real(wp), allocatable, dimension(:,:,:) :: phi ! dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
@@ -165,6 +166,9 @@ contains
       allocate(SG%dje_para(Nq,Ns,0:1), SG%dji_para(Nq,Ns,0:1))
       SG%dje_para=0.0
       SG%dji_para=0.0
+      allocate(SG%dje_para_SM(Nq,Ns), SG%dji_para_SM(Nq,Ns))
+      SG%dje_para_SM=0.0
+      SG%dji_para_SM=0.0
       allocate(SG%je_para_by_fh(Nq,Ns,0:1), SG%ji_para_by_ff(Nq,Ns,0:1))
       SG%je_para_by_fh=0.0
       SG%ji_para_by_ff=0.0
@@ -601,6 +605,15 @@ contains
       endif
       call Smooth_SG_Data_2D([2,2],SG%dne_SM,SG%Cell_dV)
 
+
+      ! Calculate dje_para_SM
+      if(Flag_Weight_dfh==0) then
+         SG%dje_para_SM = SG%dje_para(:,:,1)
+      elseif(Flag_Weight_dfh==1) then
+         SG%dje_para_SM = SG%je_para_by_fh(:,:,1)
+      endif
+      call Smooth_SG_Data_2D([2,2],SG%dje_para_SM,SG%Cell_dV)     
+
       !$acc exit data delete(ptl_data)
       deallocate(eData,tmp_eData)
       deallocate(ptl_data)
@@ -866,6 +879,16 @@ contains
          enddo
       endif
       call Smooth_SG_Data_2D([2,2],SG%dni_SM,SG%Cell_dV)
+
+      ! Calculate dji_para_SM
+      if(Flag_Weight_dfh==0) then
+         SG%dji_para_SM = SG%dji_para(:,:,1)
+      elseif(Flag_Weight_dfh==1) then
+         SG%dji_para_SM = SG%ji_para_by_ff(:,:,1)
+      endif
+      call Smooth_SG_Data_2D([2,2],SG%dji_para_SM,SG%Cell_dV)     
+
+
       
       !$acc exit data delete(ptl_data)
       deallocate(iData,tmp_iData)

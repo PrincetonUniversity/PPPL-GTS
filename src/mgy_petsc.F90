@@ -2858,7 +2858,8 @@ subroutine Solve_GK_Ampere_3D_on_SG()
       Gid=mapL2G(Lid)
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
-      val=RHS_leading_coeff*(SG%dji_para(qq,ss,1)+SG%dje_para(qq,ss,1))
+
+      val=RHS_leading_coeff*(SG%dje_para_SM(qq,ss)+SG%dji_para_SM(qq,ss))
       call VecSetValues(mu0_j_para,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       val=SG%AparaS(qq,ss)
       call VecSetValues(AparaS,1,Gid,val,INSERT_VALUES,ierr);CHKERRQ(ierr) 

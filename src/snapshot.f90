@@ -1502,8 +1502,10 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "ni_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ni_by_ff(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "ne_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e6*SG%ne_by_fh(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dje_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dje_para(:,:,1),h5err) ! 1e4 is the factor for (m^-2)
+      call h5ltmake_dataset_f(gid_SG, "dje_para_SM",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dje_para_SM,h5err) ! 1e4 is the factor for (m^-2)
       call h5ltmake_dataset_f(gid_SG, "je_para_by_fh",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%je_para_by_fh(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dji_para",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dji_para(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "dji_para_SM",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%dji_para_SM,h5err) ! 1e4 is the factor for (m^-2)
       call h5ltmake_dataset_f(gid_SG, "ji_para_by_ff",2,h5dims,H5T_NATIVE_DOUBLE, 1e4*1.602176634e-19*uveloci*SG%ji_para_by_ff(:,:,1),h5err)
       if(electromagnetic==2) then
          call h5ltmake_dataset_f(gid_SG, "AparaH",2,h5dims,H5T_NATIVE_DOUBLE, SG%AparaH(:,:,1),h5err)
