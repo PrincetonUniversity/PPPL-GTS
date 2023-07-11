@@ -320,13 +320,13 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
             wdot_accel  = wdrift + wgradB
             !=================================================================
 
-            wdot_vpara = (1.0_wp-E_f)*wdot_vpara
-            wdot_vperp = (1.0_wp-E_f)*wdot_vperp
-            wdot_accel = (1.0_wp-E_f)*wdot_accel
+            ! wdot_vpara = (1.0_wp-E_f)*wdot_vpara
+            ! wdot_vperp = (1.0_wp-E_f)*wdot_vperp
+            ! wdot_accel = (1.0_wp-E_f)*wdot_accel
 
-            we_vpara(m) = we_vpara(m) + tstep*( (1.0-nonlinear*now_w)*wdot_vpara)
-            we_vperp(m) = we_vperp(m) + tstep*( (1.0-nonlinear*now_w)*wdot_vperp)
-            we_accel(m) = we_accel(m) + tstep*( (1.0-nonlinear*now_w)*wdot_accel)
+            we_vpara(m) = we_vpara(m) + tstep*( (zeon0(9,m)-nonlinear*zeon(5,m))*wdot_vpara)
+            we_vperp(m) = we_vperp(m) + tstep*( (zeon0(9,m)-nonlinear*zeon(5,m))*wdot_vperp)
+            we_accel(m) = we_accel(m) + tstep*( (zeon0(9,m)-nonlinear*zeon(5,m))*wdot_accel)
          endif
          !=================================================
 
@@ -797,9 +797,9 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
             wdot_accel  = wdrift + wgradB
             !=================================================================
 
-            we_vpara(m) = we_vpara(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_vpara)
-            we_vperp(m) = we_vperp(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_vperp)
-            we_accel(m) = we_accel(m) + tstep*( (1.0-nonlinear*zeon(5,m))*wdot_accel)
+            we_vpara(m) = we_vpara(m) + tstep*( (zeon0(9,m)-nonlinear*zeon(5,m))*wdot_vpara)
+            we_vperp(m) = we_vperp(m) + tstep*( (zeon0(9,m)-nonlinear*zeon(5,m))*wdot_vperp)
+            we_accel(m) = we_accel(m) + tstep*( (zeon0(9,m)-nonlinear*zeon(5,m))*wdot_accel)
          endif
          !=================================================
 
