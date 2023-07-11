@@ -6,7 +6,6 @@ module Structured_Grid
 
    type Grid_Info
 
-      integer :: gq_jump=1,s_jump=1
       integer :: dim_s,dim_a,dim_gq
       real(wp) zetamin,zetamax,dgf,inv_dgf ! zeta value of this plane
       real(wp) dgq,inv_dgq ! dgq is constant since it is uniform along theta direction
@@ -97,14 +96,14 @@ contains
       real(wp) gyro_phase,coeff,dR_du(3,2)
       real(wp) :: tmp_ga, tmp_grad_ga(3), tmp_dga0dt
 
-      SG%dim_s=(mpsi+1)/SG%s_jump
+      SG%dim_s=(mpsi+1)
       SG%dim_a=SG%dim_s
-      SG%dim_gq=mtheta(ipsi)/SG%gq_jump+1
+      SG%dim_gq=mtheta(ipsi)+1
 
       SG%dgq=2.0*pi/(SG%dim_gq-1)
       SG%inv_dgq=1.0/SG%dgq
 
-      SG%ds=((s1-s0)/real(mpsi))*SG%s_jump
+      SG%ds=((s1-s0)/real(mpsi))
       SG%inv_ds=1.0/SG%ds
 
       SG%zetamax=zetamax
@@ -125,7 +124,7 @@ contains
       allocate(SG%Cell_dS_s(Nq,Ns),SG%inv_Cell_dS_s(Nq,Ns),SG%Cell_dS_gq(Nq,Ns),SG%inv_Cell_dS_gq(Nq,Ns),SG%Cell_dS_gf(Nq,Ns),SG%inv_Cell_dS_gf(Nq,Ns))
 
       k=1
-      do i=0,mpsi,SG%s_jump
+      do i=0,mpsi
          SG%ori_sid(k)=i
          SG%a_1D(k)=psi_grid(i)
          SG%a_2D(:,k)=psi_grid(i)
