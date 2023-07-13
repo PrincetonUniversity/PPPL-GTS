@@ -980,6 +980,8 @@ contains
       real(wp) :: SM_Data(0:SG%dim_gq+1, 0:SG%dim_s+1)  ! Note that there are ghost cells surrouding boundaries (index 0, dim_*+1)
       real(wp) :: SM_gq_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_s+1), SM_s_Coeff(-1:1,0:SG%dim_gq+1, 0:SG%dim_s+1)
 
+      !#TODO How to smooth along toroidal direction? along the field line like the origianl GTS smooth does?
+
       Ns = SG%dim_s
       Nq = SG%dim_gq
 
