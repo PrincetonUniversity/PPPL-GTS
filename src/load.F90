@@ -1308,7 +1308,7 @@ subroutine load_uniform_MGY
 end subroutine load_uniform_MGY
 
 
-subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver)
+subroutine Adjust_electron_weight_for_initially_zero_potential
    use precision
    use mpi_defs
    use global_parameters
@@ -1326,7 +1326,6 @@ subroutine Adjust_electron_weight_for_initially_zero_potential(solver,masssolver
    implicit none
 
 
-   type(solver_data) :: solver, masssolver
    integer m,ierror
    real(wp) :: AdiabTerm ! e*phi/T
    real(wp) intp_SG_full_phi_V, integral_f0
