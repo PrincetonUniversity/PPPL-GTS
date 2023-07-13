@@ -696,8 +696,8 @@ module Ptl_Src_Loss
          dt_s  = tstep*utime
          me_kg = 1e-3*amasse
          mi_kg = 1e-3*amassi
-         qe_C = charge/2997924580.0
-         qi_C = chargi/2997924580.0
+         qe_C = charge/2997924580.0 ! esu to Coulomb
+         qi_C = chargi/2997924580.0 ! esu to Coulomb
 
          MarginFactor = 1.1 ! Give 10% margin for more safety
          MinimumVal = 0.05 ! du=0.05 everywhere
