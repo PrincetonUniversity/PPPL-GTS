@@ -104,6 +104,8 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
    allocate(mapP2G(0:dim_gq,0:dim_a+1,0:dim_gf+1)) ! 3-dimensional array (Note that 0, and dim+1 are ghost nodes)
    allocate(mapP2L(0:dim_gq,0:dim_a+1,0:dim_gf+1))
 
+   mapP2G = -100 !Default value is negative (-100), so one can tell whether a specific PETS point is out of the num_its process (mapP2L<0)
+
    ! Construct mapping from Local to Global index
    do Lid=1,Lsize
       mapL2G(Lid)=Gid_start+(Lid-1)
@@ -1890,6 +1892,7 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
    !In the case of delta-h electron simulation,
    !add the adiabatic electron response term in the LHS (PMat)
+   !# TODO why is this add_adiab routine must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"? Check this again.
    ! NOTE: The following line must locate after "call Apply_BC_to_GK_Poisson_LHS_Coeffs"
    ! Note that, in the case of Flag_Def_dne_adiab==2, there is no add to tarVal, so tarVal simply represents -nabla*eps*nabla differential operator
    if(ifelectron==2) then
