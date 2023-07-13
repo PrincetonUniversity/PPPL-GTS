@@ -280,6 +280,7 @@ Subroutine setup
 
    if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
    if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert the pol momentum flux in fort.56 etc. to 1/(m*s^2)
+   if(mype==0) print*, 'utime=', utime
 
 
    if(plasma==1) then           !Read experimental profiles
