@@ -1129,29 +1129,31 @@ subroutine pusheon_wEvol3(irk_e, nrk)
 
 
       if(irk_e==1) then
-         ! Calculate Adiabatic term at irk_e=1 (so @(t_n,x_n) level)
-         ! and save the value intto zeon0(8,m)
+         if(ifelectron==1) then
+            AD = 0.0 ! noPoisson or delta-f case
+         elseif(ifelectron==2) then
+            ! Calculate Adiabatic term at irk_e=1 (so @(t_n,x_n) level)
+            ! and save the value intto zeon0(8,m)
+            ! calculate <phi> at electrons (no FLR effect -- x=R)
+            r=zeon(7,m)-s0       ! in radial coordinator s
+            r=r*inv_ds
+            ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
+            fip=r-real(ip,wp)
+            Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
 
-         ! calculate <phi> at electrons (no FLR effect -- x=R)
-         r=zeon(7,m)-s0       ! in radial coordinator s
-         r=r*inv_ds
-         ip=max(0,min(mpsi-1,int(r)))      ! ip [0,mpsi-1]
-         fip=r-real(ip,wp)
-         Ea_00=fip*phi00(ip+1)+(1.0_wp-fip)*phi00(ip) ! <phi> at electrons
-
-         if ( Flag_Def_dne_adiab==0 ) then
-            AD=(Phi_at_zeon(m)-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
-         elseif(Flag_Def_dne_adiab==1) then
-            ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-            AD=(Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
-         elseif(Flag_Def_dne_adiab==2) then
-            AD=-1.0+exp((Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
-         else
-            AD=-1e100
-            write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
-            STOP
+            if ( Flag_Def_dne_adiab==0 ) then
+               AD=(Phi_at_zeon(m)-real(1.0-ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_NZ/Te)
+            elseif(Flag_Def_dne_adiab==1) then
+               ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
+               AD=(Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0) ! Adiabatic term (e*dphi_tot/Te)
+            elseif(Flag_Def_dne_adiab==2) then
+               AD=-1.0+exp((Phi_at_zeon(m)+real(ZF_SEPARATION,wp)*Ea_00)*Te_inverse*abs(csc0)) ! (AD=(-1+exp(e*dphi_tot/Te)))
+            else
+               AD=-1e100
+               write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
+               STOP
+            endif
          endif
-
          ! zeon(9,m) is f_AD(@ irk=1) which is the adiabatic response (=f0*e*phi/Te0) or (=f0*[exp(e*phi/Te0)-1])
          ! zeon0(10,m) is f_0 (@ irk=1)
          zeon(9,m)  = zeon0(6,m)*back_f0_e(m)*AD
