@@ -2622,25 +2622,26 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
    integer Lid,Gid,qq,ss
    integer sid,gqid,i,j,ierr
    real(wp) sk_coeff
-   real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
-   real(wp) me_kg,mi_kg, qe_C, qi_C
    real(wp) ne_tot(SG%dim_gq,SG%dim_s), ni_tot(SG%dim_gq,SG%dim_s)
+   real(wp) inv_norm_vA_sq !inverse of normalized Alfven velocity square (v0/v_Alfv_0)^2 
+
+
 
    if(Flag_Def_dne_adiab==1) then
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
-            ! density unit is (#/m^3)
-            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
-            ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
+            ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
+            !#TODO : change the units of adiabatic density to the normalized ones. Currently SG%phi is using V unit.
+            ne_tot(gqid,sid) = SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid)
          enddo
       enddo
    elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
-            ! density unit is (#/m^3)
-            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
-            ne_tot(gqid,sid) = 1e6*(SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))))
+            ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
+            !#TODO : change the units of adiabatic density to the normalized ones. Currently SG%phi is using V unit.
+            ne_tot(gqid,sid) = SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid)))
          enddo
       enddo
    else
@@ -2653,11 +2654,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
    ne_tot = max(0.0,ne_tot)
    ni_tot = max(0.0,ni_tot)
 
-   me_kg = 1e-3*amasse
-   mi_kg = 1e-3*amassi
-
-   qe_C = charge/2997924580.0
-   qi_C = chargi/2997924580.0
+   inv_norm_vA_sq = (uveloci/v_Alfv_0)**2.0  ! inverse of normalized Alfven velocity square
 
    !In the case of delta-h electron simulation,
    !add the adiabatic electron response term in the LHS (PMat)
@@ -2667,7 +2664,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
       qq = mapG2P(Gid)%gqid
       ss = mapG2P(Gid)%aid
 
-      sk_coeff = PERMEABILITY*(ne_tot(qq,ss)*qe_C**2.0/me_kg + ni_tot(qq,ss)*qi_C**2.0/mi_kg) ! Sigma_over_s [mu0*ns*qs^2/(m_s)]
+      sk_coeff = inv_norm_vA_sq*(ne_tot(qq,ss)*csc0*csc0*m0ms + ni_tot(qq,ss)*csc0_i*csc0_i*m0ms_i) ! inv_norm_vA_sq * Sigma_over_s[ns*qs^2/ms]
 
       tarVal(1,Lid)=tarVal(1,Lid) + sk_coeff! 1 (Center)
 
@@ -2839,7 +2836,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    PetscScalar, pointer :: ptr_tmpVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
-   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
+   PetscReal val, res_norm2, src_norm2, Kss_coeff,inv_du(3)
    PetscErrorCode ierr
    integer istatus(MPI_STATUS_SIZE)
    PetscReal source(SG%dim_gq,SG%dim_a)
@@ -2847,38 +2844,39 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    real(wp) tt0,tt1
    real(wp) AD ! Adiabatic Factor = e*phi/Te0
    integer :: i,j,ij
-   Vec AparaS,mu0_j_para, tmpVec 
+   Vec AparaS,j_para_term, tmpVec 
+
+   real(wp) inv_norm_vA_sq ! inverse of normalized Alfven velocity square (v0^/vA^2)
 
    real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
 
-
-   RHS_leading_coeff=1e4*1.602176634e-19*uveloci*PERMEABILITY ! factor 1e4 is for (m^-2)
+   inv_norm_vA_sq = (uveloci/v_Alfv_0)**2.0 ! inverse of normalized Alfven velocity square
 
    call VecDuplicate(bVec,AparaS,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,mu0_j_para,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,j_para_term,ierr); CHKERRQ(ierr)
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
 
-      val=RHS_leading_coeff*(SG%dje_para_SM(qq,ss)+SG%dji_para_SM(qq,ss))
-      call VecSetValues(mu0_j_para,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      val=inv_norm_vA_sq*(SG%dje_para_SM(qq,ss)+SG%dji_para_SM(qq,ss))
+      call VecSetValues(j_para_term,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       val=SG%AparaS(qq,ss)
       call VecSetValues(AparaS,1,Gid,val,INSERT_VALUES,ierr);CHKERRQ(ierr) 
    enddo
 
 
    ! Ensure all the vector’s entries are stored on the correct MPI process. 
-   call VecAssemblyBegin(mu0_j_para,ierr); CHKERRQ(ierr)
-   call VecAssemblyEnd(mu0_j_para,ierr); CHKERRQ(ierr)
+   call VecAssemblyBegin(j_para_term,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(j_para_term,ierr); CHKERRQ(ierr)
    call VecAssemblyBegin(AparaS,ierr); CHKERRQ(ierr)
    call VecAssemblyEnd(AparaS,ierr); CHKERRQ(ierr)
 
 
-   ! Calculate bVec = PerpLapMat*AparaS + mu0_j_para
+   ! Calculate bVec = PerpLapMat*AparaS + j_para_term
    tt0=MPI_WTIME()
-   call MatMultAdd(PerpLapMat,AparaS,mu0_j_para,bVec,ierr); CHKERRQ(ierr)
+   call MatMultAdd(PerpLapMat,AparaS,j_para_term,bVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(A,ES11.3,A)') "MatMultAdd in Solve_GK_Ampere_3D_on_SG takes ",tt1-tt0," secs"
    call flush(stdout)
@@ -2973,7 +2971,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
 
 
    call VecDestroy(AparaS,ierr); CHKERRQ(ierr)
-   call VecDestroy(mu0_j_para,ierr); CHKERRQ(ierr)
+   call VecDestroy(j_para_term,ierr); CHKERRQ(ierr)
 
 
 end subroutine Solve_GK_Ampere_3D_on_SG
