@@ -29,6 +29,7 @@ module global_parameters
       uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
       s0,s1,B_0,R_0,Cs   ! B_0=normalized on-axis B, R_0=normalized major radius
    real(wp) v_Alfv_0 ! Base Alfven velocity (v_Alfv_0=B0^2/(4*pi*n0*m0))
+   real(wp) plasma_freq_00 ! Unit plasma frequency = 4.0*pi*charg0*charg0/pmass0 (in CGS units)
    !$acc declare create(a0,a1)
    !$acc declare create(s0,mzetamax)
 

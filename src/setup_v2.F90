@@ -278,6 +278,7 @@ Subroutine setup
    Tem_00=E_00/(1000._wp*trans)  ! temperature unit (unit for input Ti is KeV)
 
    v_Alfv_0 = B_00/sqrt(4.0*pi*pmass0)
+   plasma_freq_00= 4.0*pi*charg0*charg0/pmass0 ! unit plasma frequency = 4*pi*n0*e0^2/m0 (in CGS units)
 
    if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
    if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert the pol momentum flux in fort.56 etc. to 1/(m*s^2)
