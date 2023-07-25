@@ -293,6 +293,10 @@ Subroutine setup
    uSI%mag_mom0 = uSI%Erg0/uSI%B0
    uSI%phi0 = uSI%Erg0/uSI%e0
 
+   uSI%n0 = 1e6 ! unit density=1/cm^3=1e6/m^3
+   uSI%j0 = uSI%n0*uSI%e0*uSI%v0 ! j=n*q*v
+   uSI%A0 = uSI%R0*uSI%B0 ! magnetic potential
+   uSI%ga0 = uSI%R0 ! perturbation parameter (ga=A/B)
 
    if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
    if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert the pol momentum flux in fort.56 etc. to 1/(m*s^2)

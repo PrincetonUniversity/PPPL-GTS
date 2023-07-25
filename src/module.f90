@@ -54,6 +54,8 @@ module global_parameters
    type unit_system
       real(wp) :: e0,R0,B0,m0  ! e0(charge), R0(length), B0(magnetic field), m0(mass)
       real(wp) :: t0,v0,Erg0,mag_mom0,phi0 ! t0(time), v0(velocity), Erg0(energy), mag_mom0(magnetic moment), phi0(electric potential)
+      real(wp) :: n0,j0 !n0(density), j0(current density)
+      real(wp) :: A0,ga0 ! A0(magnetic potential), ga0(unit for ga=A/B)
    end type
    type(unit_system) :: uSI ! SI unit system
 
