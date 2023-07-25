@@ -91,17 +91,6 @@ subroutine pushion_wEvol0or1(irk_i,nrk)
       call Get_gradPhi_at_zion(gradPhi)
    endif
 
-   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
-   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
-   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
-   !       Only Voltage-related part needs to be converted
-   !$acc parallel loop present(gradPhi)
-   do m=1,mi
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
-      enddo
-   enddo
 
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
@@ -533,17 +522,7 @@ subroutine pushion_wEvol3(irk_i,nrk)
       call Get_gradPhi_at_zion(gradPhi)
    endif
 
-   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
-   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
-   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
-   !       Only Voltage-related part needs to be converted   
-   !$acc parallel loop present(gradPhi)
-   do m=1,mi
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
-      enddo
-   enddo
+
 
 
 #ifdef _MGY_TIMER_
@@ -834,17 +813,6 @@ subroutine pushion_wEvol4(irk_i,nrk)
       call Get_gradPhi_at_zion(gradPhi)
    endif
 
-   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
-   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
-   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
-   !       Only Voltage-related part needs to be converted
-   !$acc parallel loop present(gradPhi)
-   do m=1,mi
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
-      enddo
-   enddo
 
 
 #ifdef _MGY_TIMER_
