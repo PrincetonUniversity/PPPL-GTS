@@ -478,7 +478,7 @@ module Ptl_Src_Loss
          real(wp) a_RK(4), gq_RK(4), B_vec_cntv(3)
          integer, allocatable :: F_ini_aid(:), F_ini_gqid(:)
          real(wp),dimension(:),allocatable :: ini_a,ini_gq,ini_gf
-         real(wp) now_a, now_gq, now_gf, now_s, ori_phi_V, now_phi_V ! Note that phi is the potential in Volt unit
+         real(wp) now_a, now_gq, now_gf, now_s, ori_phi_GTS, ori_phi_V, now_phi_GTS, now_phi_V ! Note that phi_V is the potential in Volt unit
          real(wp) prev_a, prev_gq, prev_gf
          real(wp):: aaa, the, Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
          integer recv_counts_Lsize(npartdom), recv_displs_Lsize(npartdom)
@@ -576,7 +576,10 @@ module Ptl_Src_Loss
                prev_gq = now_gq
                prev_gf = now_gf
                call Convert_a_to_s(now_a,now_s)
-               call Get_Intp_global_phi3D_on_SG(now_s, now_gq, now_gf, ori_phi_V)
+               call Get_Intp_global_phi3D_on_SG(now_s, now_gq, now_gf, ori_phi_GTS)
+
+               ori_phi_V = ori_phi_GTS*uSI%phi0 ! convert normalized (GTS-unit) phi to Volt unit of SI
+
 
                ! do while(.true.)
                !$acc loop seq private(a_RK,gq_RK)
@@ -626,7 +629,9 @@ module Ptl_Src_Loss
                   ! Interpolate phi at current point (now_a,now_gq,now_gf)
 
                   call Convert_a_to_s(now_a,now_s)
-                  call Get_Intp_global_phi3D_on_SG(now_s, now_gq, now_gf, now_phi_V)
+                  call Get_Intp_global_phi3D_on_SG(now_s, now_gq, now_gf, now_phi_GTS)
+
+                  now_phi_V = now_phi_GTS*uSI%phi0 ! convert normalized (GTS-unit) phi to Volt unit of SI
 
                   dErg_eV = abs(now_phi_V-ori_phi_V)
                   if(dErg_eV > FL_max_Elec_dErg_eV(Fid)) then
@@ -5534,7 +5539,7 @@ module Ptl_Src_Loss
          real(wp) fip,r,dela
          real(wp) wz0,wz1,wp0,wt00,tw10,wp1,wt01,wt11,wt10
          real(wp) intp_phi, intp_FLA_Te0, intp_phi00
-         real(wp) Te_inverse, intp_phi_V, AD
+         real(wp) Te_inverse, AD
          ! real(wp), allocatable, dimension(:) :: AdiabTerm ! e*phi/T
 
          real(wp) loc_max_ur, loc_min_ur, loc_Del_a, loc_Del_q, loc_Del_f, loc_gf_min, loc_gf_max
@@ -5923,9 +5928,9 @@ module Ptl_Src_Loss
             ! zeon(9,m) = integral_f0*AdiabTerm(m) ! f_AD
 
 
-            call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi_V)
+            call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi)
             Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
-            AD = (Fac_Volt2GTS*intp_phi_V)*Te_inverse*abs(csc0)
+            AD = intp_phi*Te_inverse*abs(csc0)
             zeon(9,m) = integral_f0*AD ! f_AD
 
 
