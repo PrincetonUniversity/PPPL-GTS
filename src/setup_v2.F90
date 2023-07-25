@@ -280,6 +280,20 @@ Subroutine setup
    v_Alfv_0 = B_00/sqrt(4.0*pi*pmass0)
    plasma_freq_00= 4.0*pi*charg0*charg0/pmass0 ! unit plasma frequency = 4*pi*n0*e0^2/m0 (in CGS units)
 
+   ! Define SI unit variables using CGS unit variables above (to match significant figures)
+   uSI%e0 = charg0*(10.0/c)
+   uSI%R0 = R_00/1e2;
+   uSI%m0 = pmass0/1e3;
+   uSI%B0 = B_00/1e4;
+   
+   uSI%t0 = uSI%m0/(uSI%e0*uSI%B0) ! inverse of unit gyro frequency
+
+   uSI%v0 = uSI%R0/uSI%t0
+   uSI%Erg0 = uSI%m0*(uSI%v0**2.0)
+   uSI%mag_mom0 = uSI%Erg0/uSI%B0
+   uSI%phi0 = uSI%Erg0/uSI%e0
+
+
    if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
    if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert the pol momentum flux in fort.56 etc. to 1/(m*s^2)
    if(mype==0) print*, 'utime=', utime

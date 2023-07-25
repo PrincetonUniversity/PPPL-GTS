@@ -52,6 +52,12 @@ module global_parameters
    !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
    !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
 
+   type unit_system
+      real(wp) :: e0,R0,B0,m0  ! e0(charge), R0(length), B0(magnetic field), m0(mass)
+      real(wp) :: t0,v0,Erg0,mag_mom0,phi0 ! t0(time), v0(velocity), Erg0(energy), mag_mom0(magnetic moment), phi0(electric potential)
+   end type
+   type(unit_system) :: uSI ! SI unit system
+
    real(wp) :: eNmNr, eNrNm, iNmNr, iNrNm ! (electron & ion)'s (Nm/Np, Np/Nm), where Nm and Np are total number of markers and real particles
 
    ! When particle weight exceeds threshold value, it would not contribute to charge or current deposition
