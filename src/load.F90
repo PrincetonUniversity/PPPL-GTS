@@ -684,7 +684,7 @@ subroutine load_uniform_MGY
 
    real(wp) vmax,vc,c1,c2,c3,c4,f2val,c5,c6,ratio,gi_val(mi),ge_val(me), Rand !For Flag_Load_and_WeightDef==2 case.
 
-   real(wp) intp_SG_full_phi_V
+   real(wp) intp_SG_full_phi
    real(wp), allocatable, dimension(:) :: AdiabTerm ! e*phi/T
    real(wp) :: target_w_tot
 
@@ -1011,12 +1011,11 @@ subroutine load_uniform_MGY
       allocate(AdiabTerm(me))
       !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
       do m=1,me
-         call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+         call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi)
 
          if(Flag_Def_dne_adiab==1) then
             ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-            ! considering a conversion from V unit to GTS normalized unit
-            AdiabTerm(m)=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+            AdiabTerm(m)=abs(csc0)*intp_SG_full_phi/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
          else
             AdiabTerm(m)=-1e100
             write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in load_uniform_MGY!!"
@@ -1328,7 +1327,8 @@ subroutine Adjust_electron_weight_for_initially_zero_potential
 
    integer m,ierror
    real(wp) :: AdiabTerm ! e*phi/T
-   real(wp) intp_SG_full_phi_V, integral_f0
+   real(wp) intp_SG_full_phi, integral_f0
+   real(wp) new_f_AD, new_f0
 
    if(Flag_Poisson3D_on_SG/=1) then
       write(stdout,*) "Error!! Flag_Poisson3D_on_SG=",Flag_Poisson3D_on_SG, " is not defined in Adjust_electron_weight_for_initially_zero_potential!!"
@@ -1356,12 +1356,12 @@ subroutine Adjust_electron_weight_for_initially_zero_potential
 
    !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
    do m=1,me
-      call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+      call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi)
 
       if(Flag_Def_dne_adiab==1) then
          ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
          ! considering a conversion from V unit to GTS normalized unit
-         AdiabTerm=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+         AdiabTerm=abs(csc0)*intp_SG_full_phi/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
       else
          AdiabTerm=-1e100
          write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
@@ -1399,12 +1399,11 @@ subroutine Adjust_electron_weight_for_initially_zero_potential
 
    !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
    do m=1,me
-      call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi_V)
+      call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi)
 
       if(Flag_Def_dne_adiab==1) then
          ! MGYOO (02/19/2020): New Adiabatic term using total phi (zonal+nonzonal) for the New Poisson3D solver
-         ! considering a conversion from V unit to GTS normalized unit
-         AdiabTerm=abs(csc0)*((charg0*1e8)/(E_00*c)*intp_SG_full_phi_V)/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
+         AdiabTerm=abs(csc0)*intp_SG_full_phi/(backTe(m)*msm0) ! Adiabatic term (e*dphi_tot/Te)
       else
          AdiabTerm=-1e100
          write(stdout,*) "Error!! Flag_Def_dne_adiab=",Flag_Def_dne_adiab, " is not defined in pushe_new.F90!!"
