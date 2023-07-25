@@ -33,7 +33,6 @@ module global_parameters
    !$acc declare create(a0,a1)
    !$acc declare create(s0,mzetamax)
 
-   real(wp) Fac_Volt2GTS ! Conversion Factor from Volt to GTS unit
    real(wp) MM_Cs, MM_Lc_over_vthci, MM_LcTi, MM_LcTe, MM_Lcn, MM_Lcu, MM_vthci, MM_vthce, MM_R_axis, MM_B_axis ! Variables for MeasureMent
    integer,dimension(:),allocatable :: mtheta
    real(wp),dimension(:),allocatable :: deltat
