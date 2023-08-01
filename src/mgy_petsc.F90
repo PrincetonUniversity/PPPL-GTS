@@ -2629,7 +2629,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
          do gqid=1,SG%dim_gq
             ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
             !#TODO : change the units of adiabatic density to the normalized ones. Currently SG%phi is using V unit.
-            ne_tot(gqid,sid) = SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid)
+            ne_tot(gqid,sid) = SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*abs(csc0)*SG%phi(gqid,sid,1)/(SG%Te0_1D(sid))*SG%n0_1D(sid)
          enddo
       enddo
    elseif(Flag_Def_dne_adiab==2) then
@@ -2638,7 +2638,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
          do gqid=1,SG%dim_gq
             ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
             !#TODO : change the units of adiabatic density to the normalized ones. Currently SG%phi is using V unit.
-            ne_tot(gqid,sid) = SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid)))
+            ne_tot(gqid,sid) = SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*abs(csc0)*SG%phi(gqid,sid,1)/(SG%Te0_1D(sid)))
          enddo
       enddo
    else
