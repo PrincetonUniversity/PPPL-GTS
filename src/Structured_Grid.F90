@@ -1317,13 +1317,6 @@ contains
 
    end subroutine Cal_grad_gaH_and_grad_gaS_on_SG   
 
-   subroutine Set_old_Apara_at_irk1
-      implicit none
-     
-      SG%old_AparaS = SG%AparaS
-      
-   end subroutine Set_old_Apara_at_irk1
-
    subroutine Update_SG_AparaS(in_irk,in_nrk)
       use particle_decomp
       use function_gg_module, only:Determine_RK_coefficients
@@ -1336,6 +1329,10 @@ contains
 
       ! This routine sovles the differntial equation of pd(AparaS)/pdt = -b0*grad(Phi) = -para_grad_Phi
       ! For the numerical scheme, RK2 and RK4 are currently implemented. 
+
+      if(in_irk==1) then
+         SG%old_AparaS = SG%AparaS
+      endif
 
       call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, in_irk, in_nrk)
 
