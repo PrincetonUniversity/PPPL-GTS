@@ -43,7 +43,7 @@ subroutine shifti
    call MPI_Type_commit(MPI_Ptl_type, ierr);
 
    m0=1
-   loop=0
+   loop=-1
    do while(1)
       loop = loop +1
       if(loop>ntoroidal)then
