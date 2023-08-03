@@ -438,7 +438,7 @@ program GTS
 
          if (mype == 0) then
             open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
-            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, 0, 0.0, (E_00*c)/(charg0*1e8)*phi00(:)
+            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, 0, 0.0, uSI%phi0*phi00(:)
             call flush(200903)
             close(200903)
          endif
