@@ -1080,7 +1080,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
 
 
    ! Recover original PMat (which is for GK Poisson Equation)
-   call Update_GK_Poisson_LHS_Coeffs(0)
+   call Update_GK_Poisson_LHS_Coeffs
 
 end subroutine Cal_IonPolarDensity_and_RealCharge
 
@@ -1635,7 +1635,7 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
    real(wp), external :: Te0_eV, Ti0_eV, density
 
 
-   Flag_WhichLHS=0 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
+   Flag_WhichLHS=2 !Default value=2 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
    if(present(In_Flag_WhichLHS)) Flag_WhichLHS = In_Flag_WhichLHS
 
    if(Flag_WhichLHS==0 .or. Flag_WhichLHS==1 .or. Flag_WhichLHS==2) then
