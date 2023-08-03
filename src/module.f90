@@ -28,10 +28,11 @@ module global_parameters
       deltaz,zetamax,zetamin,umax,rc,rw,qion,qelectron,aion,aelectron,&
       uveloci,Tem_00,vthi,vthe,vthc,density_ave,finval_v,rho0,rho1,dt_coll,dt_coll_e, &
       s0,s1,B_0,R_0,Cs   ! B_0=normalized on-axis B, R_0=normalized major radius
+   real(wp) v_Alfv_0 ! Base Alfven velocity (v_Alfv_0=B0^2/(4*pi*n0*m0))
+   real(wp) plasma_freq_00 ! Unit plasma frequency = 4.0*pi*charg0*charg0/pmass0 (in CGS units)
    !$acc declare create(a0,a1)
    !$acc declare create(s0,mzetamax)
 
-   real(wp) Fac_Volt2GTS ! Conversion Factor from Volt to GTS unit
    real(wp) MM_Cs, MM_Lc_over_vthci, MM_LcTi, MM_LcTe, MM_Lcn, MM_Lcu, MM_vthci, MM_vthce, MM_R_axis, MM_B_axis ! Variables for MeasureMent
    integer,dimension(:),allocatable :: mtheta
    real(wp),dimension(:),allocatable :: deltat
@@ -49,6 +50,14 @@ module global_parameters
    !  pmass0=1.6734e-24_wp, charg0=4.8032e-10_wp,  &   ! hydrogen
    !  amassi=1.6734e-24_wp, chargi=4.8032e-10_wp,  &   ! hydrogen
    !  amasse=1.6734e-24_wp, charge=-4.8032e-10_wp, &  ! test mass ratio variation: mi/me=100
+
+   type unit_system
+      real(wp) :: e0,R0,B0,m0  ! e0(charge), R0(length), B0(magnetic field), m0(mass)
+      real(wp) :: t0,v0,Erg0,mag_mom0,phi0 ! t0(time), v0(velocity), Erg0(energy), mag_mom0(magnetic moment), phi0(electric potential)
+      real(wp) :: n0,j0 !n0(density), j0(current density)
+      real(wp) :: A0,ga0 ! A0(magnetic potential), ga0(unit for ga=A/B)
+   end type
+   type(unit_system) :: uSI ! SI unit system
 
    real(wp) :: eNmNr, eNrNm, iNmNr, iNrNm ! (electron & ion)'s (Nm/Np, Np/Nm), where Nm and Np are total number of markers and real particles
 

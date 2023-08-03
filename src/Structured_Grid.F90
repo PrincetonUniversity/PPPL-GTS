@@ -130,7 +130,7 @@ contains
          SG%a_2D(:,k)=psi_grid(i)
          SG%s_1D(k)=s_grid(i)
          SG%n0_1D(k)=den_grid(i)
-         SG%Te0_1D(k)=Te_grid(i)
+         SG%Te0_1D(k)=Te_grid(i) !#NOTE: normalized Temperature (T/E_00, where E_00=m0*v0^2) as the same as Ti
          SG%Te0_eV_1D(k)=1e3*Tem_00*Te_grid(i)
          SG%Ti0_1D(k)=vth_grid(i)**2.0
          SG%safety_q_1D(k)=q_grid(i)
@@ -1317,19 +1317,12 @@ contains
 
    end subroutine Cal_grad_gaH_and_grad_gaS_on_SG   
 
-   subroutine Set_old_Apara_at_irk1
-      implicit none
-     
-      SG%old_AparaS = SG%AparaS
-      
-   end subroutine Set_old_Apara_at_irk1
-
    subroutine Update_SG_AparaS(in_irk,in_nrk)
       use particle_decomp
+      use function_gg_module, only:Determine_RK_coefficients
       use mpi_defs
       implicit none
       integer,intent(in) :: in_irk, in_nrk ! input irk and nrk
-      real(wp) dt_s ! time step size in second unit
       real(wp) RK_cum_coeff, RK_adv_coeff
       real(wp) para_grad_Phi(SG%dim_gq,SG%dim_s) ! (b0*grad(Phi))
 
@@ -1337,54 +1330,24 @@ contains
       ! This routine sovles the differntial equation of pd(AparaS)/pdt = -b0*grad(Phi) = -para_grad_Phi
       ! For the numerical scheme, RK2 and RK4 are currently implemented. 
 
-
-   ! Set RK_cum_coeff and RK_adv_coeff
-      if(in_nrk==4) then
-         select case (in_irk)
-            case(1)
-               RK_adv_coeff = 0.5; RK_cum_coeff = (1.0/6.0)
-            case(2)
-               RK_adv_coeff = 0.5; RK_cum_coeff = (1.0/3.0)
-            case(3)
-               RK_adv_coeff = 1.0; RK_cum_coeff = (1.0/3.0)
-            case(4)
-               RK_adv_coeff = 1.0; RK_cum_coeff = (1.0/6.0)
-            case default
-               write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! in_irk=",in_irk,"!! irk must be between 1 and in_nrk=",in_nrk
-               call flush(stdout)
-               STOP
-         end select
-      elseif(in_nrk==2) then
-         select case (in_irk)
-            case(1)
-               RK_adv_coeff = 0.5; RK_cum_coeff = 0.0
-            case(2)
-               RK_adv_coeff = 1.0; RK_cum_coeff = 1.0
-            case default
-               write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! in_irk=",in_irk,"!! irk must be between 1 and in_nrk=",in_nrk
-               call flush(stdout)
-               STOP
-         end select
-      else
-         write(stdout,'((A,I3,A,I3))') "Error in Update_SG_AparaS!! Incorrect in_nrk=",in_nrk
-         call flush(stdout)
-         STOP
+      if(in_irk==1) then
+         SG%old_AparaS = SG%AparaS
       endif
+
+      call Determine_RK_coefficients(RK_adv_coeff, RK_cum_coeff, in_irk, in_nrk)
 
       ! Initialize RK_cum_AparaS when in_irk=1
       if(in_irk==1) then
          SG%RK_cum_AparaS = 0.0
       endif
 
-      dt_s = tstep*utime ! We should use timestep in second unit to be compatible with AparaS that is in SI unit.
       para_grad_Phi = sum(SG%B0_cntv3*SG%grad_phi_cov(:,:,:,1),dim=1)/SG%BB
 
-
       ! accumulate RK_cum_AparaS
-      SG%RK_cum_AparaS = SG%RK_cum_AparaS + dt_s*RK_cum_coeff*(-para_grad_Phi)
+      SG%RK_cum_AparaS = SG%RK_cum_AparaS + tstep*RK_cum_coeff*(-para_grad_Phi)
 
       if(in_irk<in_nrk) then
-         SG%AparaS = SG%old_AparaS + dt_s*RK_adv_coeff*(-para_grad_Phi)
+         SG%AparaS = SG%old_AparaS + tstep*RK_adv_coeff*(-para_grad_Phi)
       elseif(in_irk==in_nrk) then
          SG%AparaS = SG%old_AparaS + SG%RK_cum_AparaS
       endif

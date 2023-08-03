@@ -300,7 +300,6 @@ program GTS
                !Update Polarization Shielding Term in Poisson3D equation
                call Update_GK_Poisson_LHS_Coeffs
                if(electromagnetic==2) then
-                  call Set_old_Apara_at_irk1
                   call Update_GK_Ampere_LHS_Coeffs
                endif
             endif
@@ -418,6 +417,10 @@ program GTS
 
          endif    ! end if(ifelectron/=0)
 
+         if(electromagnetic==2) then
+            call Update_SG_AparaS(irk,nrk)
+         endif
+
          ! solve GK field equations
          if(Flag_Poisson==1) then
             if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
@@ -427,7 +430,6 @@ program GTS
             endif
             call Cal_gradPhi_on_SG
             if(electromagnetic==2) then
-               call Update_SG_AparaS(irk,nrk)
                call Solve_GK_Ampere_3D_on_SG
                call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
                call Cal_grad_gaH_and_grad_gaS_on_SG
@@ -436,7 +438,7 @@ program GTS
 
          if (mype == 0) then
             open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
-            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, 0, 0.0, (E_00*c)/(charg0*1e8)*phi00(:)
+            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, 0, 0.0, uSI%phi0*phi00(:)
             call flush(200903)
             close(200903)
          endif

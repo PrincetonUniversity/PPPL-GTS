@@ -546,7 +546,7 @@ subroutine Solve_Poisson3D_on_SG()
    PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
-   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
+   PetscReal val, res_norm2, src_norm2, Kss_coeff,inv_du(3)
    PetscErrorCode ierr
    integer istatus(MPI_STATUS_SIZE)
    PetscReal source(SG%dim_gq,SG%dim_a)
@@ -555,15 +555,13 @@ subroutine Solve_Poisson3D_on_SG()
    real(wp) AD ! Adiabatic Factor = e*phi/Te0
    integer :: i,j,ij
 
-   RHS_leading_coeff=1.602176634e-19 ! element_chargey (e)
 
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
-      ! val=RHS_leading_coeff*1e6*(SG%dni(qq,ss,1)-SG%dne(qq,ss,1))
-         val=RHS_leading_coeff*1e6*(SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
+      val=csc0_i*SG%dni_SM(qq,ss)+csc0*SG%dne_SM(qq,ss)
       call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
    enddo
 
@@ -675,7 +673,7 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
    PetscScalar, pointer :: ptr_xVec(:), ptr_srcVec(:), ptr_ResVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
-   PetscReal val,src0, res_norm2, src_norm2, ELEMENT_CHARGE
+   PetscReal val,src0, res_norm2, src_norm2
    PetscReal delta_Phi_norm2, ori_Phi_norm2, RelErr
    PetscErrorCode ierr
    integer istatus(MPI_STATUS_SIZE)
@@ -685,7 +683,6 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
    real(wp) AD ! Adiabatic Factor = e*phi/Te0
    integer :: i,j,ij,loop
 
-   ELEMENT_CHARGE=1.602176634e-19 ! element_chargey (e)
 
 
    do loop=1,10
@@ -698,11 +695,11 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
          ss=mapG2P(Gid)%aid
 
          ! RHS of the Poisson Equation (src term): e(ni0+dni-dne)
-         src0 = ELEMENT_CHARGE*1e6*(SG%n0_1D(ss)+SG%dni_SM(qq,ss)-SG%dne_SM(qq,ss))
+         src0 = csc0_i*(SG%n0_1D(ss)+SG%dni_SM(qq,ss))+csc0*SG%dne_SM(qq,ss)
          call VecSetValues(srcVec,1,Gid,src0,INSERT_VALUES,ierr); CHKERRQ(ierr)
 
          ! Second term of Fvec: e*ne0*exp(e*phi/Te0)
-         val = ELEMENT_CHARGE*1e6*SG%n0_1D(ss)*exp(ptr_xVec(Lid)/SG%Te0_eV_1D(ss))
+         val = abs(csc0)*SG%n0_1D(ss)*exp(abs(csc0)*ptr_xVec(Lid)/SG%Te0_1D(ss))
 
          ! Add third term (which is -src0)
          val = val -src0
@@ -728,7 +725,8 @@ subroutine Solve_Nonlinear_Poisson3D_on_SG
       do Lid=1,Lsize
          Gid=mapL2G(Lid)
          ss = mapG2P(Gid)%aid
-         val = 1e6*SG%n0_1D(ss)*ELEMENT_CHARGE/SG%Te0_eV_1D(ss)*exp(ptr_xVec(Lid)/SG%Te0_eV_1D(ss))
+         ! The second term of Jmat = (e^2*ne0/Te0)*exp(e*phi/Te0)
+         val = (csc0*csc0*SG%n0_1D(ss)/SG%Te0_1D(ss))*exp(abs(csc0)*ptr_xVec(Lid)/SG%Te0_1D(ss))
          call MatSetValues(Jmat,1,Gid,1,Gid,val,ADD_VALUES,ierr); CHKERRQ(ierr)
       enddo
       ! Assembly Jacobian Matrix
@@ -867,13 +865,14 @@ subroutine Solve_test_Poisson3D_on_SG()
    PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
-   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
+   PetscReal val, res_norm2, src_norm2, Kss_coeff,inv_du(3)
    PetscErrorCode ierr
    PetscReal source(SG%dim_gq,SG%dim_a)
    PetscReal, allocatable :: xVec_mype(:),xVec_partd(:),bVec_mype(:),bVec_partd(:), ResVec_mype(:),ResVec_partd(:)
    real(wp) tt0,tt1
    real(wp), external :: density,Te0_eV
    real(wp) source_from_GTS(mgrid), dne_adiab_ratio, intpl_dphi_NZ
+   real(wp) AD_coeff
    integer :: i,j,ij
 
    ! source = SG%iScaData(:,:,1,1)-(SG%eScaData(:,:,1,1)+int(ifelectron/2)*SG%dne_adiab)
@@ -906,11 +905,8 @@ subroutine Solve_test_Poisson3D_on_SG()
    ! enddo
 
 
-   RHS_leading_coeff=1.602176634e-19 ! element_charge/permittivity (e/eps0)
-
-   source=RHS_leading_coeff*source
    do aid=1,SG%dim_a
-      source(:,aid) = 1e6*density(SG%a_1D(aid),0.0)*source(:,aid)
+      source(:,aid) = abs(csc0)*SG%n0_1D(aid)*source(:,aid)
    enddo
 
    !add the adiabatic electron response term in the LHS (PMat)
@@ -922,14 +918,18 @@ subroutine Solve_test_Poisson3D_on_SG()
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
             ss = mapG2P(Gid)%aid
-            source(qq,ss) = source(qq,ss) + adiab*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))*SG%test_phi_2D(qq,ss)
+
+            AD_coeff = csc0*csc0*SG%n0_1D(ss)/SG%Te0_1D(ss)
+            source(qq,ss) = source(qq,ss) + adiab*AD_coeff*SG%test_phi_2D(qq,ss)
          enddo
       else
          do Lid=1,Lsize
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
             ss = mapG2P(Gid)%aid
-            source(qq,ss) = source(qq,ss) + 0.01/(Cs*Cs)/(1e3*Tem_00)*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))*SG%test_phi_2D(qq,ss)
+
+            AD_coeff = csc0*csc0*SG%n0_1D(ss)/SG%Te0_1D(ss)
+            source(qq,ss) = source(qq,ss) + 0.01/(Cs*Cs)*AD_coeff*SG%test_phi_2D(qq,ss)
          enddo
       endif
    endif
@@ -1066,7 +1066,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
       SG%niPol_2D(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = Vec_partd(Lid)
    enddo
    SG%niPol_2D(SG%dim_gq,:)=SG%niPol_2D(1,:)
-   SG%niPol_2D=SG%niPol_2D/(-1.602176634e-19) ! Convert from charge denstiy to particle density
+   SG%niPol_2D=-abs(c0cs)*SG%niPol_2D ! Multiply (-1/e) to PMat*xVec such that(-PMat*xVec)/e=niPol
 
    ! Free the pointer and array
    call VecDestroy(RHS_Vec,ierr); CHKERRQ(ierr)
@@ -1567,7 +1567,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
          Gid=mapL2G(Lid)
          qq = mapG2P(Gid)%gqid
          ss = mapG2P(Gid)%aid
-         tmp = 1e6*SG%n0_1D(ss)*(1.602176634e-19)/SG%Te0_eV_1D(ss)*exp(SG%phi(qq,ss,1)/SG%Te0_eV_1D(ss))
+         tmp = (csc0*csc0*SG%n0_1D(ss)/SG%Te0_1D(ss)) * exp(abs(csc0)*SG%phi(qq,ss,1)/SG%Te0_1D(ss))
          call MatSetValues(Jmat,1,Gid,1,Gid,tmp,ADD_VALUES,ierr); CHKERRQ(ierr)
       enddo
 
@@ -1782,20 +1782,16 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
    if(Flag_Def_dne_adiab==1) then
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
-            ! density unit is (#/m^3)
-            ! ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni(gqid,sid,1))
-            ! ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne(gqid,sid,1) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
-            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
-            ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
+            ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
+            ne_tot(gqid,sid) = SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*abs(csc0)*SG%n0_1D(sid)*SG%phi(gqid,sid,1)/SG%Te0_1D(sid)
          enddo
       enddo
    elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
-            ! density unit is (#/m^3)
-            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
-            ne_tot(gqid,sid) = 1e6*(SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))))
+            ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
+            ne_tot(gqid,sid) = SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*abs(csc0)*SG%phi(gqid,sid,1)/SG%Te0_1D(sid))
          enddo
       enddo
 
@@ -1816,10 +1812,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
          ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",SG%BB(gqid,sid), ", Polar(sid)=", 1e-3*(n0*amasse + n0*amassi)*invBsq
          do j=1,3
             do i=1,3
-               ! Note tsince mgy_petsc coefficients are using SI units
-               ! NOTE: Structure Grid still uses flux coordinate for the space, not directly using meter units
-               ! Following (1e-3) is a converting coefficient for mass (g->kg)
-               tmp=1e-3*(ne_tot(gqid,sid)*amasse + ni_tot(gqid,sid)*amassi)*invBsq
+               tmp=invBsq*(msm0*ne_tot(gqid,sid) + msm0_i*ni_tot(gqid,sid))
                Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(SG%B0_cntv3_sqf(i,gqid,sid)*SG%B0_cntv3_sqf(j,gqid,sid)))
             enddo
          enddo
@@ -1832,10 +1825,11 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
 
    if(Flag_WhichTerm==0) then
       ! Construct Epsilon Tensor ( eps=eps_0*Metric_T + Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2)) )
-      Eps_T(:,:,:,:,0)=8.8541878128e-12*Metric_T+Polar_T
+      ! In normalized GK Poisson equation (GTS unit), eps_0 term becomes (norm_eps_0 = (1/(w0*t0)^2) )
+      Eps_T(:,:,:,:,0)=(1.0/(plasma_freq_00*utime)**2.0)*Metric_T+Polar_T
    elseif(Flag_WhichTerm==1) then
       ! Eps=eps_0*Metric_T
-      Eps_T(:,:,:,:,0)=8.8541878128e-12*Metric_T
+      Eps_T(:,:,:,:,0)=(1.0/(plasma_freq_00*utime)**2.0)*Metric_T
    elseif(Flag_WhichTerm==2) then
       ! Eps=Polar_T
       Eps_T(:,:,:,:,0)=Polar_T
@@ -1902,8 +1896,7 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
             qq = mapG2P(Gid)%gqid
             ss = mapG2P(Gid)%aid
 
-            AD_coeff= (1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
-
+            AD_coeff = csc0*csc0*SG%n0_1D(ss)/SG%Te0_1D(ss)
 
             tarVal(1,Lid)=tarVal(1,Lid) + AD_coeff! 1 (Center)
 
@@ -1954,14 +1947,18 @@ subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
             ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + adiab*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))/Te0_eV(SG%a_1D(ss),SG%gq_1D(qq))
+
+            AD_coeff = csc0*csc0*SG%n0_1D(ss)/SG%Te0_1D(ss)
+            tarVal(1,Lid)=tarVal(1,Lid) + adiab*AD_coeff
          enddo
       else
          do Lid=1,Lsize
             Gid= mapL2G(Lid)
             qq = mapG2P(Gid)%gqid
             ss = mapG2P(Gid)%aid
-            tarVal(1,Lid)=tarVal(1,Lid) + 0.01/(Cs*Cs)/(1e3*Tem_00)*(1.602176634e-19)*1e6*density(SG%a_1D(ss),SG%gq_1D(qq))
+
+            AD_coeff = csc0*csc0*SG%n0_1D(ss)/SG%Te0_1D(ss)
+            tarVal(1,Lid)=tarVal(1,Lid) + 0.01/(Cs*Cs)*AD_coeff
          enddo
       endif
    endif
@@ -2622,25 +2619,26 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
    integer Lid,Gid,qq,ss
    integer sid,gqid,i,j,ierr
    real(wp) sk_coeff
-   real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
-   real(wp) me_kg,mi_kg, qe_C, qi_C
    real(wp) ne_tot(SG%dim_gq,SG%dim_s), ni_tot(SG%dim_gq,SG%dim_s)
+   real(wp) inv_norm_vA_sq !inverse of normalized Alfven velocity square (v0/v_Alfv_0)^2 
+
+
 
    if(Flag_Def_dne_adiab==1) then
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
-            ! density unit is (#/m^3)
-            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
-            ne_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))*SG%n0_1D(sid))
+            ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
+            !#TODO : change the units of adiabatic density to the normalized ones. Currently SG%phi is using V unit.
+            ne_tot(gqid,sid) = SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*abs(csc0)*SG%phi(gqid,sid,1)/(SG%Te0_1D(sid))*SG%n0_1D(sid)
          enddo
       enddo
    elseif(Flag_Def_dne_adiab==2) then
       ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
       do sid=1,SG%dim_s
          do gqid=1,SG%dim_gq
-            ! density unit is (#/m^3)
-            ni_tot(gqid,sid) = 1e6*(SG%n0_1D(sid) + SG%dni_SM(gqid,sid))
-            ne_tot(gqid,sid) = 1e6*(SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*SG%phi(gqid,sid,1)/(SG%Te0_eV_1D(sid))))
+            ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
+            !#TODO : change the units of adiabatic density to the normalized ones. Currently SG%phi is using V unit.
+            ne_tot(gqid,sid) = SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*abs(csc0)*SG%phi(gqid,sid,1)/(SG%Te0_1D(sid)))
          enddo
       enddo
    else
@@ -2653,11 +2651,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
    ne_tot = max(0.0,ne_tot)
    ni_tot = max(0.0,ni_tot)
 
-   me_kg = 1e-3*amasse
-   mi_kg = 1e-3*amassi
-
-   qe_C = charge/2997924580.0
-   qi_C = chargi/2997924580.0
+   inv_norm_vA_sq = (uveloci/v_Alfv_0)**2.0  ! inverse of normalized Alfven velocity square
 
    !In the case of delta-h electron simulation,
    !add the adiabatic electron response term in the LHS (PMat)
@@ -2667,7 +2661,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
       qq = mapG2P(Gid)%gqid
       ss = mapG2P(Gid)%aid
 
-      sk_coeff = PERMEABILITY*(ne_tot(qq,ss)*qe_C**2.0/me_kg + ni_tot(qq,ss)*qi_C**2.0/mi_kg) ! Sigma_over_s [mu0*ns*qs^2/(m_s)]
+      sk_coeff = inv_norm_vA_sq*(ne_tot(qq,ss)*csc0*csc0*m0ms + ni_tot(qq,ss)*csc0_i*csc0_i*m0ms_i) ! inv_norm_vA_sq * Sigma_over_s[ns*qs^2/ms]
 
       tarVal(1,Lid)=tarVal(1,Lid) + sk_coeff! 1 (Center)
 
@@ -2839,7 +2833,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    PetscScalar, pointer :: ptr_tmpVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
-   PetscReal val, res_norm2, src_norm2, RHS_leading_coeff, Kss_coeff,inv_du(3)
+   PetscReal val, res_norm2, src_norm2, Kss_coeff,inv_du(3)
    PetscErrorCode ierr
    integer istatus(MPI_STATUS_SIZE)
    PetscReal source(SG%dim_gq,SG%dim_a)
@@ -2847,38 +2841,37 @@ subroutine Solve_GK_Ampere_3D_on_SG()
    real(wp) tt0,tt1
    real(wp) AD ! Adiabatic Factor = e*phi/Te0
    integer :: i,j,ij
-   Vec AparaS,mu0_j_para, tmpVec 
+   Vec AparaS,j_para_term, tmpVec 
 
-   real(wp), parameter :: PERMEABILITY = 1.25663706212e-6 ! permeability (mu0)
+   real(wp) inv_norm_vA_sq ! inverse of normalized Alfven velocity square (v0^/vA^2)
 
-
-   RHS_leading_coeff=1e4*1.602176634e-19*uveloci*PERMEABILITY ! factor 1e4 is for (m^-2)
+   inv_norm_vA_sq = (uveloci/v_Alfv_0)**2.0 ! inverse of normalized Alfven velocity square
 
    call VecDuplicate(bVec,AparaS,ierr); CHKERRQ(ierr)
-   call VecDuplicate(bVec,mu0_j_para,ierr); CHKERRQ(ierr)
+   call VecDuplicate(bVec,j_para_term,ierr); CHKERRQ(ierr)
    ! Assign and Assemble bVec (source term)
    do Lid=1,Lsize
       Gid=mapL2G(Lid)
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
 
-      val=RHS_leading_coeff*(SG%dje_para_SM(qq,ss)+SG%dji_para_SM(qq,ss))
-      call VecSetValues(mu0_j_para,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      val=inv_norm_vA_sq*(SG%dje_para_SM(qq,ss)+SG%dji_para_SM(qq,ss))
+      call VecSetValues(j_para_term,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       val=SG%AparaS(qq,ss)
       call VecSetValues(AparaS,1,Gid,val,INSERT_VALUES,ierr);CHKERRQ(ierr) 
    enddo
 
 
    ! Ensure all the vector’s entries are stored on the correct MPI process. 
-   call VecAssemblyBegin(mu0_j_para,ierr); CHKERRQ(ierr)
-   call VecAssemblyEnd(mu0_j_para,ierr); CHKERRQ(ierr)
+   call VecAssemblyBegin(j_para_term,ierr); CHKERRQ(ierr)
+   call VecAssemblyEnd(j_para_term,ierr); CHKERRQ(ierr)
    call VecAssemblyBegin(AparaS,ierr); CHKERRQ(ierr)
    call VecAssemblyEnd(AparaS,ierr); CHKERRQ(ierr)
 
 
-   ! Calculate bVec = PerpLapMat*AparaS + mu0_j_para
+   ! Calculate bVec = PerpLapMat*AparaS + j_para_term
    tt0=MPI_WTIME()
-   call MatMultAdd(PerpLapMat,AparaS,mu0_j_para,bVec,ierr); CHKERRQ(ierr)
+   call MatMultAdd(PerpLapMat,AparaS,j_para_term,bVec,ierr); CHKERRQ(ierr)
    tt1=MPI_WTIME()
    if(mype==0) write(stdout,'(A,ES11.3,A)') "MatMultAdd in Solve_GK_Ampere_3D_on_SG takes ",tt1-tt0," secs"
    call flush(stdout)
@@ -2973,7 +2966,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
 
 
    call VecDestroy(AparaS,ierr); CHKERRQ(ierr)
-   call VecDestroy(mu0_j_para,ierr); CHKERRQ(ierr)
+   call VecDestroy(j_para_term,ierr); CHKERRQ(ierr)
 
 
 end subroutine Solve_GK_Ampere_3D_on_SG

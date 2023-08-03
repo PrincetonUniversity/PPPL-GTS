@@ -102,19 +102,6 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
-   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
-   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
-   !       Only Voltage-related part needs to be converted
-   !$acc parallel loop present(Phi_at_zeon,gradPhi)
-   do m=1,me
-      Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
-      enddo
-   enddo 
-
 
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
@@ -450,10 +437,6 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
 
       
       call Get_Phi_at_zeon(Phi_at_zeon)
-      !$acc parallel loop present(Phi_at_zeon)
-      do m=1,me
-         Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-      enddo
 
       acc_newer_D_zeon=.true.
       !$acc parallel loop gang vector present(zeon,zeon0,backTe,tmp_zeon5,tmp_zeon8)
@@ -568,7 +551,7 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
 
             if (mype == 0) then
                open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
-               write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, (E_00*c)/(charg0*1e8)*phi00(:)
+               write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, uSI%phi0*phi00(:)
                call flush(200903)
                close(200903)
             endif
@@ -587,10 +570,6 @@ subroutine pusheon_wEvol0or1(irk_e, nrk)
             endif
 
             call Get_Phi_at_zeon(Phi_at_zeon)
-            !$acc parallel loop present(Phi_at_zeon)
-            do m=1,me
-               Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-            enddo            
 
             acc_newer_D_zeon=.true.
             !$acc parallel loop gang vector present(zeon,zeon0,backTe,RK_cum_zeon)
@@ -1037,19 +1016,6 @@ subroutine pusheon_wEvol3(irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
-   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
-   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
-   !       Only Voltage-related part needs to be converted
-   !$acc parallel loop present(Phi_at_zeon,gradPhi)
-   do m=1,me
-      Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
-      enddo
-   enddo 
-
 
 #ifdef _MGY_TIMER_
    tt0=MPI_WTIME()
@@ -1326,7 +1292,7 @@ subroutine pusheon_wEvol3(irk_e, nrk)
 
          if (mype == 0) then
             open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
-            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, (E_00*c)/(charg0*1e8)*phi00(:)
+            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, uSI%phi0*phi00(:)
             call flush(200903)
             close(200903)
          endif
@@ -1345,10 +1311,6 @@ subroutine pusheon_wEvol3(irk_e, nrk)
          endif
 
          call Get_Phi_at_zeon(Phi_at_zeon)
-         !$acc parallel loop present(Phi_at_zeon)
-         do m=1,me
-            Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-         enddo 
 
          !$acc parallel loop gang vector present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)
          do m=1,me
@@ -1487,18 +1449,6 @@ subroutine pusheon_wEvol4(irk_e, nrk)
       call Get_Phi_and_gradPhi_at_zeon(Phi_at_zeon,gradPhi)
    endif
 
-   ! NOTE: Structure Grid (SG) uses SI units for the Voltage so that it needs to be converted to GTS unit
-   !       The SG also uses the flux coordinates for the space on which length unit [L] is defined along each direciton.
-   !       Therefore, gaHS [L^(-1)] and other gradient operations [/L] do not need additional conversion.
-   !       Only Voltage-related part needs to be converted
-   !$acc parallel loop present(Phi_at_zeon,gradPhi)
-   do m=1,me
-      Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-      !$acc loop seq
-      do i=1,3
-         gradPhi(i,m) = Fac_Volt2GTS*gradPhi(i,m)
-      enddo
-   enddo
 
 
 #ifdef _MGY_TIMER_
@@ -1805,7 +1755,7 @@ subroutine pusheon_wEvol4(irk_e, nrk)
 
          if (mype == 0) then
             open(unit=200903,file='phi00_every_istep_irk.dat', position='append',action='write')
-            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, (E_00*c)/(charg0*1e8)*phi00(:)
+            write(200903,'(I8,I8,I8,(999ES16.8))') istep, irk, loop, phi00_convergency, uSI%phi0*phi00(:)
             call flush(200903)
             close(200903)
          endif
@@ -1825,10 +1775,6 @@ subroutine pusheon_wEvol4(irk_e, nrk)
          endif
 
          call Get_Phi_at_zeon(Phi_at_zeon)
-         !$acc parallel loop present(Phi_at_zeon)
-         do m=1,me
-            Phi_at_zeon(m) = Fac_Volt2GTS*Phi_at_zeon(m)
-         enddo
 
 
          !$acc parallel loop present(zeon,zeon0,RK_cum_zeon,backT,backTe,dlnTdae,dlnndae)

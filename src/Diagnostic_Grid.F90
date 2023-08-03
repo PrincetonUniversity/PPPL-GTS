@@ -599,7 +599,6 @@ module Diagnostic_Grid
          integer :: ij,ip
          real(wp) :: Te_inverse, r,fip,e1,Ea_00,AD,fe0(me),fe_AD(me)
          real(wp) :: Mirror_Ratio(me),ptl_weight
-         real(wp) :: intp_phi_V ! interpolated phi in the Volt unit
 
 
          if(acc_newer_D_zeon) then
@@ -656,8 +655,7 @@ module Diagnostic_Grid
          do m=1,me
             Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 
-            call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi_V)
-            e1 = Fac_Volt2GTS*intp_phi_V
+            call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), e1)
 
             ! calculate <phi> at electrons (no FLR effect -- x=R)
             r=zeon0(7,m)-s0       ! in radial coordinator s
@@ -1463,7 +1461,7 @@ module Diagnostic_Grid
          real(wp) :: Te_inverse, r,fip,wz0,wz1,wp0,wp1,wt00,wt10,wt01,wt11,e1,Ea_00,AD,fe0,fe_AD,ptl_weight
          real(wp) :: ori_inv_ds
          integer :: ij,ip
-         real(wp) intp_phi_V ! interpolated phi in GTS unit
+         real(wp) intp_phi ! interpolated phi in GTS unit
 
          if(allocated(FMap3D%Mirror_Ratio)) then
             tmp_FMap3D_MirrorRatio=FMap3D%Mirror_Ratio
@@ -1503,9 +1501,9 @@ module Diagnostic_Grid
             Te_inverse=1.0_wp/backTe(m)*m0ms  ! normalized-Te=Te/E_0, the same unit as normalized Ti
 
 
-            call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi_V)
+            call Get_Intp_phi_on_SG(zeon(7,m), zeon(2,m), zeon(3,m), intp_phi)
 
-            AD = (Fac_Volt2GTS*intp_phi_V)*Te_inverse*abs(csc0)
+            AD = intp_phi*Te_inverse*abs(csc0)
 
 
             fe0    = zeon0(6,m)*back_f0_e(m)
