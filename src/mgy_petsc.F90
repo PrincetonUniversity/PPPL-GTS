@@ -1512,9 +1512,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
 
    enddo
-   call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
    call Add_Adiabatic_Term_to_GK_Poisson_LHS
-
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
@@ -1733,12 +1732,10 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
 
    enddo
+
+   call Add_Adiabatic_Term_to_GK_Poisson_LHS ! ifelectron flag will be determined inside this subroutine
    call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
-
-   if(Flag_WhichLHS==0) then
-      call Add_Adiabatic_Term_to_GK_Poisson_LHS
-   endif
 
 
    ! Set Mat Values using the non-zero information calculated from above
@@ -2382,8 +2379,8 @@ subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
       ! so make sure that target coefficient values represent (-nabla*(Metric_T-B^i*B^j/B^2)*nabla*Ah_para))
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
    enddo
-   call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
    call Add_Skin_Term_to_GK_Ampere_LHS
+   call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
    ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
    if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
@@ -2541,8 +2538,8 @@ subroutine Update_GK_Ampere_LHS_Coeffs
       ! so make sure that target coefficient values represent (-nabla*(Metric_T-B^i*B^j/B^2)*nabla*Ah_para))
       tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
    enddo
-   call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
    call Add_Skin_Term_to_GK_Ampere_LHS
+   call Apply_BC_to_GK_Ampere_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
 
 
    ! Set Mat Values using the non-zero information calculated from above
