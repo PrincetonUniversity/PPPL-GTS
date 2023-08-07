@@ -1907,4 +1907,264 @@ contains
    end subroutine Get_gradPhi_gaHS_gradgaHS_at_zion
 
 
+   subroutine Get_SG_scalar_at_zeon(SG_scalar, out_sca_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+      real(wp), intent(in) :: SG_scalar(SG%dim_gq,SG%dim_s,0:2)
+      real(wp), intent(out) :: out_sca_arr(me)
+
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer m,sid,gqid,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zeon)
+      do m=1,me
+         out_sca_arr(m)=0.0
+
+         P_s = max(s0,min(s1,zeon(7,m)))
+         P_gq = modulo(zeon(2,m),2.0*pi)
+         P_gf = zeon(3,m)
+         P_gf = max(zetamin,min(zetamax,P_gf))
+
+         wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+         wgf0 = (1.0-wgf1)
+
+         sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+         ws0 = (1.0-ws1)
+
+         inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+         ! Cal contributions from phi at zetamin to the particle
+         target_gf = SG_zetamin
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+         out_sca_arr(m) = out_sca_arr(m) + wgf0*(ws0*(wgq0*SG_scalar(gqid,sid,0) + wgq1*SG_scalar(gqid+1,sid,0)) + ws1*(wgq0*SG_scalar(gqid,sid+1,0) + wgq1*SG_scalar(gqid+1,sid+1,0)))
+
+         ! Add contributions from phi at zetamax to the particle
+         target_gf = SG_zetamax
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+         out_sca_arr(m) = out_sca_arr(m) + wgf1*(ws0*(wgq0*SG_scalar(gqid,sid,1) + wgq1*SG_scalar(gqid+1,sid,1)) + ws1*(wgq0*SG_scalar(gqid,sid+1,1) + wgq1*SG_scalar(gqid+1,sid+1,1)))
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,'(A,ES11.3,A)') "Get_SG_scalar_at_zeon takes ",tt1-tt0," secs"
+      endif
+      ! call flush(stdout)
+#endif
+   end subroutine Get_SG_scalar_at_zeon
+
+   subroutine Get_SG_vector_at_zeon(SG_vector, out_vec_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+      real(wp), intent(in) :: SG_vector(3,SG%dim_gq,SG%dim_s,0:1)
+      real(wp), intent(out) :: out_vec_arr(3,me)
+
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer m,sid,gqid,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zeon)
+      do m=1,me
+         out_vec_arr(:,m)=0.0
+
+         P_s = max(s0,min(s1,zeon(7,m)))
+         P_gq = modulo(zeon(2,m),2.0*pi)
+         P_gf = zeon(3,m)
+         P_gf = max(zetamin,min(zetamax,P_gf))
+
+         wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+         wgf0 = (1.0-wgf1)
+
+         sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+         ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+         ws0 = (1.0-ws1)
+
+         inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+         ! Cal contributions from phi at zetamin to the particle
+         target_gf = SG_zetamin
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+         out_vec_arr(:,m) = out_vec_arr(:,m) + wgf0*(ws0*(wgq0*SG_vector(:,gqid,sid,0) + wgq1*SG_vector(:,gqid+1,sid,0)) + ws1*(wgq0*SG_vector(:,gqid,sid+1,0) + wgq1*SG_vector(:,gqid+1,sid+1,0)))
+
+         ! Add contributions from phi at zetamax to the particle
+         target_gf = SG_zetamax
+         target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+         gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+         wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+         wgq0 = 1.0-wgq1
+         out_vec_arr(:,m) = out_vec_arr(:,m) + wgf1*(ws0*(wgq0*SG_vector(:,gqid,sid,1) + wgq1*SG_vector(:,gqid+1,sid,1)) + ws1*(wgq0*SG_vector(:,gqid,sid+1,1) + wgq1*SG_vector(:,gqid+1,sid+1,1)))
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,'(A,ES11.3,A)') "Get_SG_vector_at_zeon takes ",tt1-tt0," secs"
+      endif
+      ! call flush(stdout)
+#endif
+   end subroutine Get_SG_vector_at_zeon   
+
+   subroutine Get_SG_scalar_at_zion(SG_scalar, out_sca_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+      real(wp), intent(in) :: SG_scalar(SG%dim_gq,SG%dim_s,0:2)
+      real(wp), intent(out) :: out_sca_arr(mi)
+
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer m,sid,gqid,larmor,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf)
+      do m=1,mi
+         out_sca_arr(m)=0.0
+         !$acc loop seq
+         do larmor=1,larmor_num
+            P_s  = max(s0,min(s1, ionLarmor_s(larmor,m)))
+            P_gq = modulo(ionLarmor_gq(larmor,m), 2.0*pi)
+            P_gf = max(zetamin,min(zetamax,ionLarmor_gf(larmor,m)))
+
+            wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+            wgf0 = (1.0-wgf1)
+
+            sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+            ws0 = (1.0-ws1)
+
+            inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+            ! Cal contributions from phi at zetamin to the particle
+            target_gf = SG_zetamin
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_sca_arr(m) = out_sca_arr(m) + wgf0*(ws0*(wgq0*SG_scalar(gqid,sid,0) + wgq1*SG_scalar(gqid+1,sid,0)) + ws1*(wgq0*SG_scalar(gqid,sid+1,0) + wgq1*SG_scalar(gqid+1,sid+1,0)))
+
+            ! Add contributions from phi at zetamax to the particle
+            target_gf = SG_zetamax
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_sca_arr(m) = out_sca_arr(m) + wgf1*(ws0*(wgq0*SG_scalar(gqid,sid,1) + wgq1*SG_scalar(gqid+1,sid,1)) + ws1*(wgq0*SG_scalar(gqid,sid+1,1) + wgq1*SG_scalar(gqid+1,sid+1,1)))
+         enddo
+
+         ! Take larmor radius average
+         out_sca_arr(m) = inv_larmor_num*out_sca_arr(m)
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,'(A,ES11.3,A)') "Get_SG_scalar_at_zion takes ",tt1-tt0," secs"
+      endif
+      ! call flush(stdout)
+#endif
+   end subroutine Get_SG_scalar_at_zion
+
+   subroutine Get_SG_vector_at_zion(SG_vector, out_vec_arr)
+      use mpi_defs
+      use precision
+      use global_parameters
+      use particle_array
+
+      implicit none
+      real(wp), intent(in) :: SG_vector(3,SG%dim_gq,SG%dim_s,0:1)
+      real(wp), intent(out) :: out_vec_arr(3,mi)
+
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer m,sid,gqid,larmor,k
+      real(wp) P_s,P_gq,P_gf
+      real(wp) tt0,tt1
+
+#ifdef _MGY_TIMER_
+      tt0=MPI_WTIME()
+#endif
+
+      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf)
+      do m=1,mi
+         out_vec_arr(:,m)=0.0
+         !$acc loop seq
+         do larmor=1,larmor_num
+            P_s  = max(s0,min(s1, ionLarmor_s(larmor,m)))
+            P_gq = modulo(ionLarmor_gq(larmor,m), 2.0*pi)
+            P_gf = max(zetamin,min(zetamax,ionLarmor_gf(larmor,m)))
+
+            wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+            wgf0 = (1.0-wgf1)
+
+            sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+            ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+            ws0 = (1.0-ws1)
+
+            inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+            ! Cal contributions from phi at zetamin to the particle
+            target_gf = SG_zetamin
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_vec_arr(:,m) = out_vec_arr(:,m) + wgf0*(ws0*(wgq0*SG_vector(:,gqid,sid,0) + wgq1*SG_vector(:,gqid+1,sid,0)) + ws1*(wgq0*SG_vector(:,gqid,sid+1,0) + wgq1*SG_vector(:,gqid+1,sid+1,0)))
+
+            ! Add contributions from phi at zetamax to the particle
+            target_gf = SG_zetamax
+            target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+            gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+            wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+            wgq0 = 1.0-wgq1
+            out_vec_arr(:,m) = out_vec_arr(:,m) + wgf1*(ws0*(wgq0*SG_vector(:,gqid,sid,1) + wgq1*SG_vector(:,gqid+1,sid,1)) + ws1*(wgq0*SG_vector(:,gqid,sid+1,1) + wgq1*SG_vector(:,gqid+1,sid+1,1)))
+         enddo
+
+         ! Take larmor radius average
+         out_vec_arr(:,m) = inv_larmor_num*out_vec_arr(:,m)
+      enddo
+
+#ifdef _MGY_TIMER_
+      tt1=MPI_WTIME()
+      if(mype==0) then
+            write(stdout,'(A,ES11.3,A)') "Get_SG_vector_at_zion takes ",tt1-tt0," secs"
+      endif
+      ! call flush(stdout)
+#endif
+   end subroutine Get_SG_vector_at_zion
+
 end module Structured_Grid
