@@ -1906,6 +1906,107 @@ contains
 
    end subroutine Get_gradPhi_gaHS_gradgaHS_at_zion
 
+   subroutine Get_SG_scalar_at_point(SG_scalar, P_s, P_gq, P_gf, out_sca)
+      use global_parameters
+      use precision
+      use, intrinsic :: ieee_arithmetic, only: IEEE_Value, IEEE_QUIET_NAN
+      implicit none
+
+      real(wp), intent(in) :: SG_scalar(SG%dim_gq,SG%dim_s,0:2) 
+      real(wp), intent(in) :: P_s, P_gq, P_gf  ! position of point
+      real(wp), intent(out) :: out_sca
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer m,sid,gqid,k
+
+      if( (P_s-s0)*(P_s-s1)>0 .or. P_gq*(P_gq-2.0*pi)>0 .or. (P_gf-zetamin)*(P_gf-zetamax)>0 ) then
+         write(stdout,*) "Error!! Out of SG boundary!! Get_SG_scalar_at_point subroutine returned NaN value."
+         write(stdout,'(3(A,13.3ES),A)') "(in_s=", P_s, "in_gq=", P_gq, "in_gf=", P_gf, ")"
+         call flush(stdout)
+
+         out_sca = IEEE_VALUE(out_sca, IEEE_QUIET_NAN)
+         return
+      endif
+
+      out_sca=0.0
+
+      wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+      wgf0 = (1.0-wgf1)
+
+      sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+      ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+      ws0 = (1.0-ws1)
+
+      inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+      ! Cal contributions from phi at zetamin to the particle
+      target_gf = SG_zetamin
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+      wgq0 = 1.0-wgq1
+      out_sca = out_sca + wgf0*(ws0*(wgq0*SG_scalar(gqid,sid,0) + wgq1*SG_scalar(gqid+1,sid,0)) + ws1*(wgq0*SG_scalar(gqid,sid+1,0) + wgq1*SG_scalar(gqid+1,sid+1,0)))
+
+      ! Add contributions from phi at zetamax to the particle
+      target_gf = SG_zetamax
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+      wgq0 = 1.0-wgq1
+      out_sca = out_sca + wgf1*(ws0*(wgq0*SG_scalar(gqid,sid,1) + wgq1*SG_scalar(gqid+1,sid,1)) + ws1*(wgq0*SG_scalar(gqid,sid+1,1) + wgq1*SG_scalar(gqid+1,sid+1,1)))
+
+   end subroutine Get_SG_scalar_at_point
+
+   subroutine Get_SG_vector_at_point(SG_vector, P_s, P_gq, P_gf, out_vec)
+      use precision
+      use global_parameters
+      implicit none
+
+      real(wp), intent(in) :: SG_vector(3,SG%dim_gq,SG%dim_s,0:1)
+      real(wp), intent(in) :: P_s, P_gq, P_gf ! position of the point
+      real(wp), intent(out) :: out_vec(3)
+
+      real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
+      integer sid,gqid,k
+
+      if( (P_s-s0)*(P_s-s1)>0 .or. P_gq*(P_gq-2.0*pi)>0 .or. P_gf*(P_gf-2.0*pi)>0 ) then
+         write(stdout,*) "Error!! Out of SG boundary!! Get_SG_vector_at_point subroutine returned NaN values."
+         write(stdout,'(3(A,13.3ES),A)') "(in_s=", P_s, "in_gq=", P_gq, "in_gf=", P_gf, ")"
+         call flush(stdout)
+         
+         do k=1,3
+            out_vec(k) = IEEE_VALUE(out_vec(k), IEEE_QUIET_NAN)
+         enddo
+         return
+      endif
+
+      out_vec = 0.0
+
+      wgf1 = abs(P_gf-SG_zetamin)*SG_inv_dgf
+      wgf0 = (1.0-wgf1)
+
+      sid = max(1,min(int((P_s-s0)*SG_inv_ds) +1,SG_dim_s-1)) ! +1 is due to Fortran's default index starting from 1
+      ws1 = (P_s-SG_s_1D(sid))*SG_inv_ds
+      ws0 = (1.0-ws1)
+
+      inv_P_safety_q = 1.0/(ws0*SG_safety_q_1D(sid) + ws1*SG_safety_q_1D(sid+1))
+
+      ! Cal contributions from phi at zetamin to the particle
+      target_gf = SG_zetamin
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+      wgq0 = 1.0-wgq1
+      out_vec = out_vec + wgf0*(ws0*(wgq0*SG_vector(:,gqid,sid,0) + wgq1*SG_vector(:,gqid+1,sid,0)) + ws1*(wgq0*SG_vector(:,gqid,sid+1,0) + wgq1*SG_vector(:,gqid+1,sid+1,0)))
+
+      ! Add contributions from phi at zetamax to the particle
+      target_gf = SG_zetamax
+      target_gq = modulo(P_gq + (target_gf-P_gf)*inv_P_safety_q, 2.0*pi)
+      gqid = max(1,min(SG_dim_gq-1, int(target_gq*SG_inv_dgq+1)))
+      wgq1 = (target_gq-SG_gq_1D(gqid))*SG_inv_dgq
+      wgq0 = 1.0-wgq1
+      out_vec = out_vec + wgf1*(ws0*(wgq0*SG_vector(:,gqid,sid,1) + wgq1*SG_vector(:,gqid+1,sid,1)) + ws1*(wgq0*SG_vector(:,gqid,sid+1,1) + wgq1*SG_vector(:,gqid+1,sid+1,1)))
+
+   end subroutine Get_SG_vector_at_point   
 
    subroutine Get_SG_scalar_at_zeon(SG_scalar, out_sca_arr)
       use mpi_defs
