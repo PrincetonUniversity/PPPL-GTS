@@ -5,6 +5,8 @@ subroutine check_tracer_e
    use particle_array
    use esi_interface
    use particle_decomp
+   use Structured_Grid
+   use Magnetic_Grid, only:B_cntv,grad_B_cntv,d23_B_cntv,TriCubic_Interpolation_of_Vec
    implicit none
 
    logical tf
@@ -21,6 +23,7 @@ subroutine check_tracer_e
    integer recv_TRI_counts(nproc_toroidal), recv_TRI_displs(nproc_toroidal), recv_TRI_Poincare_counts(nproc_toroidal), recv_TRI_Poincare_displs(nproc_toroidal)
    integer MPI_TRI_Type ! TRI = TRacer Information
    real normalized_zeta, normalized_zeta0, acute_zeta, acute_zeta0, ratio_for_tracer, ratio_for_tracer0
+   real(wp) P_phi, P_gaH, P_gaS, P_grad_phi_cov(3), P_grad_gaH_cov(3), P_grad_gaS_cov(3), P_para_grad_phi, P_para_grad_gaH, P_para_grad_gaS, P_B0_cntv(3)
    character(len=128) cdum
    character(len=30) file_name
 
@@ -38,7 +41,7 @@ subroutine check_tracer_e
    endif
 
 
-   each_TRI_length = 26 ! including we_adiab +  2 Unnormalized Angles
+   each_TRI_length = 32 ! including we_adiab +  2 Unnormalized Angles + electromagnetic field information
 
    allocate( send_buf_TRI(each_TRI_length, num_of_etracers), recv_buf_TRI(each_TRI_length, num_of_etracers), send_buf_TRI_Poincare(each_TRI_length, num_of_etracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_etracers))
 
@@ -116,6 +119,37 @@ subroutine check_tracer_e
          send_buf_TRI(24,m) = zeon0(9,my_tracer_indices(m)) ! f0 @ previous step
          send_buf_TRI(25,m) = zeon0(5,my_tracer_indices(m)) ! df or dh @ previous step
          send_buf_TRI(26,m) = zeon(9,my_tracer_indices(m))  ! f_AD @ previous step
+
+
+         call Get_SG_scalar_at_point(SG%phi, tracer(1), tracer(2), tracer(3), P_phi) 
+         call Get_SG_vector_at_point(SG%grad_phi_cov, tracer(1), tracer(2), tracer(3), P_grad_phi_cov) 
+         call TriCubic_Interpolation_of_Vec(tracer(1), tracer(2), tracer(3), B_cntv, grad_B_cntv, d23_B_cntv, P_B0_cntv)
+
+         P_para_grad_phi = sum(P_B0_cntv*P_grad_phi_cov)/Bj(1)
+
+         send_buf_TRI(27,m) = P_phi
+         send_buf_TRI(28,m) = P_para_grad_phi
+
+         if(electromagnetic==2) then
+            call Get_SG_scalar_at_point(SG%gaH, tracer(1), tracer(2), tracer(3), P_gaH) 
+            call Get_SG_scalar_at_point(SG%gaS, tracer(1), tracer(2), tracer(3), P_gaS) 
+            call Get_SG_vector_at_point(SG%grad_gaH_cov, tracer(1), tracer(2), tracer(3), P_grad_gaH_cov) 
+            call Get_SG_vector_at_point(SG%grad_gaS_cov, tracer(1), tracer(2), tracer(3), P_grad_gaS_cov) 
+
+            P_para_grad_gaH = sum(P_B0_cntv*P_grad_gaH_cov)/Bj(1)
+            P_para_grad_gaS = sum(P_B0_cntv*P_grad_gaS_cov)/Bj(1)
+            
+            send_buf_TRI(29,m) = P_gaH
+            send_buf_TRI(30,m) = P_para_grad_gaH
+            send_buf_TRI(31,m) = P_gaS
+            send_buf_TRI(32,m) = P_para_grad_gaS
+         else
+            send_buf_TRI(29,m) = 0.0
+            send_buf_TRI(30,m) = 0.0
+            send_buf_TRI(31,m) = 0.0
+            send_buf_TRI(32,m) = 0.0            
+         endif 
+
       enddo
 
       ! Gather tracers_information to Root Rank.
