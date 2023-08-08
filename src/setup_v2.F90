@@ -2605,7 +2605,8 @@ Subroutine read_input_params
       PVS_a0,             &
       PVS_a1,             &
       PVS_gq0,            &
-      PVS_gq1
+      PVS_gq1,            &
+      beta_in
 
    namelist/ read2 /  gama0,              &   ! one of two coefficients used in solving Poisson iteratively
       its,                &   ! number of iteration used for superLU interation in poisson solver
