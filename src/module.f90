@@ -37,7 +37,7 @@ module global_parameters
    integer,dimension(:),allocatable :: mtheta
    real(wp),dimension(:),allocatable :: deltat
 
-   real(wp) :: beta_in= -100 ! input target beta. (can differ from real beta calculated from base density and temperature, by artifically adjusting the tension of magnetic field)
+   real(wp) :: beta_in= -100.0 ! input target beta. (can differ from real beta calculated from base density and temperature, by artifically adjusting the tension of magnetic field)
    real(wp) :: beta_ratio! ratio between input beta and real beta (beta_ratio=beta_in/beta_real)
 
    real(wp),parameter :: B_00=1.0e4_wp,  &  ! code unit for B, in unit gauss

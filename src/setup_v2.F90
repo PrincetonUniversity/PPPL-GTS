@@ -39,6 +39,8 @@ Subroutine setup
    real(wp),external :: f_jaco,object_1,object_5,object_12,reducedjacobian,FUN1,FUN3,FUN3e,FUN3n,FUN3u, &
       rho2a_zero,dsda,s2a_zero,FUN_J,smoothstep,gs
    real(wp), external :: Cal_FLabel_Function
+   real(wp) beta_real
+   real(wp) ref_thermal_pressure_SI, ref_magnetic_pressure_SI, ref_v_Alfven_SI
 
    namelist /run_parameters/ micell,misum,mpsi,mthetamax,mzetamax,numberpe,&
       nonlinear,ndiag,tstep,ifelectron,delr,delt,mid_theta,mgrid,mtdiag,&
@@ -538,6 +540,28 @@ Subroutine setup
 
    if(mype==0) write(0,*) 'Tc=', Tc*Tem_00,  'in KeV', backnc, &
       ' a_ref=',a_ref,'  vthc=',vthc,'  s0=',s0,'  s1=',s1
+
+
+   if(electromagnetic==2) then
+
+      ref_thermal_pressure_SI = (uSI%n0*backnc)*(uSI%Erg0*abs(csc0)*(Tc + Tc_e*msm0)) ! Note that Tc_e must be multiplied by msm0 to have the same unit as Tc
+      ref_magnetic_pressure_SI = (uSI%B0*B_0)**2.0/(2.0*4*pi*1e-7) ! B0^2/(2*mu0), where mu0=permeabiltiy=4*pi*10^-7
+      ref_v_Alfven_SI =(uSI%B0*B_0)/sqrt(2.0*4*pi*1e-7*uSI%n0*backnc*uSI%m0*msm0_i) ! vA=B/sqrt(mu0*ni*mi)
+
+      beta_real = ref_thermal_pressure_SI/ref_magnetic_pressure_SI
+      if(beta_in==-100.0) then
+         ! This is the case where beta_in was not specified in INPUT.d
+         beta_in = beta_real
+      endif
+      beta_ratio = beta_in/beta_real
+
+      if(mype==0) then
+         write(stdout,'(3(A,ES12.4))') "At a_ref=",a_ref,", beta_in=",beta_in, ", beta_ratio=", beta_ratio
+         write(stdout,'(A,ES12.4,A)') "Reference v_Alfven=", ref_v_Alfven_SI, " (m/s)"
+         write(stdout,'(A,ES12.4,A)') "Modified v_Alfven=v_Alfven/sqrt(beta_ratio)=", ref_v_Alfven_SI/sqrt(beta_ratio) , " (m/s)"
+         call flush(stdout)
+      endif
+   endif
 
    !   vthi=sqrt(temconst*trans/(aion*pmass0)) ! ion thermal velocity=sqrt(T/m)
    !   vthi=vthi/uveloci                          ! normalized vthi
