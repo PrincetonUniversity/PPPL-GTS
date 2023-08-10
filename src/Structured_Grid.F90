@@ -427,7 +427,8 @@ contains
                   ptl_data(1,m) = zeon(5,m)
                   if(electromagnetic==2) then
                      ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
-                     ptl_data(2,m) = zeon(5,m)*zeon(4,m)*BB(m)*csc0*m0ms  
+                     vH = zeon(4,m)*BB(m)*csc0*m0ms
+                     ptl_data(2,m) = zeon(5,m)*csc0*vH 
                   endif
                enddo
             elseif(Flag_Weight_dfh==1) then ! Using full weight
@@ -436,7 +437,8 @@ contains
                   ptl_data(1,m) = zeon(8,m)
                   if(electromagnetic==2) then
                      ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
-                     ptl_data(2,m) = zeon(8,m)*zeon(4,m)*BB(m)*csc0*m0ms  
+                     vH = zeon(4,m)*BB(m)*csc0*m0ms
+                     ptl_data(2,m) = zeon(8,m)*csc0*vH
                   endif
                enddo
             endif
@@ -448,8 +450,8 @@ contains
 
                ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
                vH = zeon(4,m)*BB(m)*csc0*m0ms   
-               ptl_data(3,m) = zeon(5,m)*vH
-               ptl_data(4,m) = zeon(8,m)*vH
+               ptl_data(3,m) = zeon(5,m)*csc0*vH
+               ptl_data(4,m) = zeon(8,m)*csc0*vH
             enddo
       end select
 
@@ -697,7 +699,8 @@ contains
                   ptl_data(1,m) = zion(5,m)
                   if(electromagnetic==2) then
                      ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
-                     ptl_data(2,m) = zion(5,m)*zion(4,m)*BB(m)
+                     vH = zion(4,m)*BB(m)
+                     ptl_data(2,m) = zion(5,m)*csc0_i*vH
                   endif
                enddo
             elseif(Flag_Weight_dfh==1) then ! Using full weight
@@ -706,7 +709,8 @@ contains
                   ptl_data(1,m) = zion0(8,m)
                   if(electromagnetic==2) then
                      ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
-                     ptl_data(2,m) = zion0(8,m)*zion(4,m)*BB(m)
+                     vH = zion(4,m)*BB(m)
+                     ptl_data(2,m) = zion0(8,m)*csc0_i*vH
                   endif
                enddo
             endif
@@ -717,8 +721,8 @@ contains
                ptl_data(2,m) = zion0(8,m)
 
                vH = zion(4,m)*BB(m)
-               ptl_data(3,m) = zion(5,m)*vH
-               ptl_data(4,m) = zion0(8,m)*vH
+               ptl_data(3,m) = zion(5,m)*csc0_i*vH
+               ptl_data(4,m) = zion0(8,m)*csc0_i*vH
             enddo
       end select
 
