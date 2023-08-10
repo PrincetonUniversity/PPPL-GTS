@@ -2658,7 +2658,7 @@ subroutine Add_Skin_Term_to_GK_Ampere_LHS
       qq = mapG2P(Gid)%gqid
       ss = mapG2P(Gid)%aid
 
-      sk_coeff = inv_norm_vA_sq*(ne_tot(qq,ss)*csc0*csc0*m0ms + ni_tot(qq,ss)*csc0_i*csc0_i*m0ms_i) ! inv_norm_vA_sq * Sigma_over_s[ns*qs^2/ms]
+      sk_coeff = beta_ratio*inv_norm_vA_sq*(ne_tot(qq,ss)*csc0*csc0*m0ms + ni_tot(qq,ss)*csc0_i*csc0_i*m0ms_i) ! inv_norm_vA_sq * Sigma_over_s[ns*qs^2/ms]
 
       tarVal(1,Lid)=tarVal(1,Lid) + sk_coeff! 1 (Center)
 
@@ -2852,7 +2852,7 @@ subroutine Solve_GK_Ampere_3D_on_SG()
       qq=mapG2P(Gid)%gqid
       ss=mapG2P(Gid)%aid
 
-      val=inv_norm_vA_sq*(SG%dje_para_SM(qq,ss)+SG%dji_para_SM(qq,ss))
+      val=beta_ratio*inv_norm_vA_sq*(SG%dje_para_SM(qq,ss)+SG%dji_para_SM(qq,ss))
       call VecSetValues(j_para_term,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
       val=SG%AparaS(qq,ss)
       call VecSetValues(AparaS,1,Gid,val,INSERT_VALUES,ierr);CHKERRQ(ierr) 
