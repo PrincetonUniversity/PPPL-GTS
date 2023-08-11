@@ -3055,6 +3055,7 @@ int gcmotion_em_MGY_vec_form(REAL *dXgr,
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
             P[k] = 0.0; // d(rho_para)/dt
+            P[k] += dB_cntv3[0]*(-Er_particle[k]);
             #pragma acc loop seq
             for(i=0;i<3;++i) {
                P[k] += B0star_cntv3[i]*(-gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
@@ -3182,7 +3183,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
    #pragma acc data copyin(gq[:Np1],sa[:Na1],aF[:Na1],daF[:Na1],dgF[:Na1],d2gF[:Na1],dgY[:Na1],d2gY[:Na1],aT[:Na1],daT[:Na1],aP[:Na1],daP[:Na1],\
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaH_array,gaS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
+      #pragma acc parallel loop gang vector present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaH_array,gaS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*ziondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*ziondim)+1);  /* particle_array[k][1] */
@@ -3364,7 +3365,9 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
             para_gradPhi_cov3[i] = gradPhi_dot_B0*B0_cov3[i]/(BB*BB); 
          }
 
-         const REAL B0star_cntv3[3] = {B0_cntv3[0]+(Xgr-gaH)*j0_cntv3[0], B0_cntv3[1]+(Xgr-gaH)*j0_cntv3[1], B0_cntv3[2]+(Xgr-gaH)*j0_cntv3[2]};
+         const REAL B0star_cntv3[3] = {B0_cntv3[0]+(Xgr-gaH)*j0_cntv3[0] +(B0_cntv3[1]*grad_gaH[2]-B0_cntv3[2]*grad_gaH[1])/Jacobian, 
+                                       B0_cntv3[1]+(Xgr-gaH)*j0_cntv3[1] +(B0_cntv3[2]*grad_gaH[0]-B0_cntv3[0]*grad_gaH[2])/Jacobian,
+                                       B0_cntv3[2]+(Xgr-gaH)*j0_cntv3[2] +(B0_cntv3[0]*grad_gaH[1]-B0_cntv3[1]*grad_gaH[0])/Jacobian};
 
          const REAL gaT = gaE+gaH+gaS; // Total magnetic perturbation
          const REAL grad_gaT[3] = { grad_gaE[0]+grad_gaH[0]+grad_gaS[0],
@@ -3396,9 +3399,9 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
          }
          Coeff = 1.0/Coeff;
 
-         REAL B0_cross_gradH0_cntv[3] = {(B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
-            (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian,
-            (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
+         REAL B0_cross_gradH0_cntv[3] = { (B0_cov3[1]*gradH0_cov3[2] -B0_cov3[2]*gradH0_cov3[1])/Jacobian,
+                                          (B0_cov3[2]*gradH0_cov3[0] -B0_cov3[0]*gradH0_cov3[2])/Jacobian,
+                                          (B0_cov3[0]*gradH0_cov3[1] -B0_cov3[1]*gradH0_cov3[0])/Jacobian};
 
          if((*Flag_noExB)==1){
             B0_cross_gradH0_cntv[0] = (B0_cov3[1]*(gradH0_cov3[2]-NL*gradPhi[2]) -B0_cov3[2]*(gradH0_cov3[1]-NL*gradPhi[1]))/Jacobian;
@@ -3418,7 +3421,7 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
          for(i=0;i<3;++i) { 
             dXgr[k] += (B0star_cntv3[i] + NL*dB_cntv3[i])*(-gradH0_cov3[i] +NL*para_gradPhi_cov3[i]);
          }
-         dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k] + NL*(dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+         dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k];
 
          // Calculate poloidal velocity...
          // This is a legacy of previous gcmotion routines.. and should be checked later!!
@@ -3447,11 +3450,12 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
             P[k] = 0.0; // d(rho_para)/dt
+            P[k] += dB_cntv3[0]*(-Er_particle[k]);
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               P[k] += B0star_cntv3[i]*(-gradPhi[i]+para_gradPhi_cov3[i]) +B0star_cntv3[i]*(-dH0dgaH*grad_gaH[i]) +dB_cntv3[i]*(-dH0dB0*gradB0[i]-Er_particle[k]); // including the mirror force due to streaming along dB
+               P[k] += B0star_cntv3[i]*( -gradPhi[i]+para_gradPhi_cov3[i] + Xgr*gaH*BB*BB*gradB0[i] -dH0dgaH*grad_gaH[i] ) +dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
             }
-            P[k] = Coeff*P[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]); 
+            P[k] = Coeff*P[k] -gatE_array[k];
 
             ghq[k]      = Coeff*(BB*BB*(-gaH)*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*(gradPhi[2]+dH0dgaH*grad_gaH[2])-B0_cov3[2]*(gradPhi[1]+dH0dgaH*grad_gaH[1]))/Jacobian);
             Ta[k]       = Coeff*(BB*BB*(-gaH)*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*(gradPhi[0]+dH0dgaH*grad_gaH[0])-B0_cov3[0]*(gradPhi[2]+dH0dgaH*grad_gaH[2]))/Jacobian);
@@ -3471,9 +3475,9 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
             P[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               P[k] += (B0star_cntv3[i])*(-gradPhi[i]+para_gradPhi_cov3[i]) +B0star_cntv3[i]*(-dH0dgaH*grad_gaH[i]); // excluding the mirror force due to streaming along dB
+               P[k] += B0star_cntv3[i]*( -gradPhi[i]+para_gradPhi_cov3[i] +Xgr*gaH*BB*BB*gradB0[i] -dH0dgaH*grad_gaH[i] ); // excluding the mirror force due to streaming along dB
             }
-            P[k] = Coeff*P[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+            P[k] = Coeff*P[k] -gatE_array[k];
 
             ghq[k]      = Coeff*(BB*BB*(-gaH)*B0_cntv3[0] + (B0_cov3[1]*(gradPhi[2]+dH0dgaH*grad_gaH[2])-B0_cov3[2]*(gradPhi[1]+dH0dgaH*grad_gaH[1]))/Jacobian);
             Ta[k]       = Coeff*(BB*BB*(-gaH)*B0_cntv3[1] + (B0_cov3[2]*(gradPhi[0]+dH0dgaH*grad_gaH[0])-B0_cov3[0]*(gradPhi[2]+dH0dgaH*grad_gaH[2]))/Jacobian);
@@ -5061,6 +5065,7 @@ int gcmotion_eon_em_MGY_vec_form(REAL *dXgr,
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
             Pa[k] = 0.0; // d(rho_para)/dt
+            Pa[k] += dB_cntv3[0]*(-csc0*Er_particle[k]);
             #pragma acc loop seq
             for(i=0;i<3;++i) {
                Pa[k] += B0star_cntv3[i]*(-csc0*gradPhi[i]) + dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
@@ -5188,7 +5193,7 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
                            sr[:Na1*Np1],sra[:Na1*Np1],srq[:Na1*Np1],sraq[:Na1*Np1],sz[:Na1*Np1],sza[:Na1*Np1],szq[:Na1*Np1],szaq[:Na1*Np1],aB[:Na1*Np1],aBa[:Na1*Np1],aBq[:Na1*Np1],aBaq[:Na1*Np1])
 
    {
-      #pragma acc parallel loop present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaH_array,gaS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
+      #pragma acc parallel loop gang vector present(particle_array,dXgr,dXa,dXgq,dXgf,wpi_array,gaE_array,wgaE_array,gatE_array,gaH_array,gaS_array,wgaH_array,wgaS_array,Er_particle) private(gradPhi,grad_gaE,grad_gaH,grad_gaS)
       for(k=m0-1; k < m1; k++){
          Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
          Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */
@@ -5375,7 +5380,9 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
             para_gradPhi_cov3[i] = gradPhi_dot_B0*B0_cov3[i]/(BB*BB); 
          }
 
-         const REAL B0star_cntv3[3] = {B0_cntv3[0]+(Xgr-gaH)*j0_cntv3[0], B0_cntv3[1]+(Xgr-gaH)*j0_cntv3[1], B0_cntv3[2]+(Xgr-gaH)*j0_cntv3[2]};
+         const REAL B0star_cntv3[3] = {B0_cntv3[0]+(Xgr-gaH)*j0_cntv3[0] +(B0_cntv3[1]*grad_gaH[2]-B0_cntv3[2]*grad_gaH[1])/Jacobian, 
+                                       B0_cntv3[1]+(Xgr-gaH)*j0_cntv3[1] +(B0_cntv3[2]*grad_gaH[0]-B0_cntv3[0]*grad_gaH[2])/Jacobian,
+                                       B0_cntv3[2]+(Xgr-gaH)*j0_cntv3[2] +(B0_cntv3[0]*grad_gaH[1]-B0_cntv3[1]*grad_gaH[0])/Jacobian};
 
          const REAL gaT = gaE+gaH+gaS; // Total magnetic perturbation
          const REAL grad_gaT[3] = { grad_gaE[0]+grad_gaH[0]+grad_gaS[0],
@@ -5429,7 +5436,8 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
          for(i=0;i<3;++i) {
             dXgr[k] += (B0star_cntv3[i] + NL*dB_cntv3[i])*(-gradH0_cov3[i]+ csc0*NL*para_gradPhi_cov3[i]);
          }
-         dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k] + NL*(dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+         // dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k] + NL*(dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+         dXgr[k] = Coeff*dXgr[k] -NL*gatE_array[k];
 
 
          // In the case of linear simulation (NL=0), perturbed motions include dPhi and dB terms
@@ -5443,11 +5451,12 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
             Pa[k] = 0.0; // d(rho_para)/dt
+            Pa[k] += dB_cntv3[0]*(-csc0*Er_particle[k]);
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               Pa[k] += B0star_cntv3[i]*csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) +B0star_cntv3[i]*(-dH0dgaH*grad_gaH[i]) +dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+               Pa[k] += B0star_cntv3[i]*( csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) +m0ms*csc0*csc0*Xgr*gaH*BB*BB*gradB0[i] -dH0dgaH*grad_gaH[i] ) +dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
             }
-            Pa[k] = Coeff*Pa[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+            Pa[k] = Coeff*Pa[k] -gatE_array[k];
 
             const REAL tmp_factor=m0ms*csc0*csc0*BB*BB;
             ghq[k]      = Coeff*(tmp_factor*(-gaH)*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2])-B0_cov3[2]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1]))/Jacobian);
@@ -5469,9 +5478,9 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
             Pa[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               Pa[k] += B0star_cntv3[i]*csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) +B0star_cntv3[i]*(-dH0dgaH*grad_gaH[i]); // excluding the mirror force due to streaming along dB
+               Pa[k] += B0star_cntv3[i]*( csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) +m0ms*csc0*csc0*Xgr*gaH*BB*BB*gradB0[i] -dH0dgaH*grad_gaH[i] ); // excluding the mirror force due to streaming along dB
             }
-            Pa[k] = Coeff*Pa[k] -gatE_array[k] + (dXa[k]*grad_gaH[0]+dXgq[k]*grad_gaH[1]+dXgf[k]*grad_gaH[2]);
+            Pa[k] = Coeff*Pa[k] -gatE_array[k];
 
             const REAL tmp_factor=m0ms*csc0*csc0*BB*BB;
             ghq[k]      = Coeff*(tmp_factor*(-gaH)*B0_cntv3[0] +(B0_cov3[1]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2])-B0_cov3[2]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1]))/Jacobian);
