@@ -149,6 +149,8 @@ module global_parameters
    !$acc declare create(electromagnetic, num_of_EMP)
    !$acc declare create(EMP)
 
+   integer :: Flag_pullback=1 ! pullback AparaH to AparaS in the case of electromagnetic simulation (electromagnetic=2)
+
    integer :: num_of_FLabel_pcws
    real(wp),dimension(:),allocatable :: FLabel_pcws_a, FLabel_pcws_y ! piecewise_radial_base_function for FLabel
 

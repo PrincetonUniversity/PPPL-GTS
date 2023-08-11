@@ -434,7 +434,7 @@ program GTS
                call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
                call Cal_grad_gaH_and_grad_gaS_on_SG
 
-               if(irk==nrk) then
+               if(Flag_pullback==1 .and. irk==nrk) then
                   call pullback_electron
                   call pullback_ion
                   call pullback_AparaH_to_AparaS_on_SG

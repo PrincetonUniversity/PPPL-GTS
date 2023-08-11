@@ -1037,6 +1037,7 @@ subroutine load_uniform_MGY
             zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
             ! zeon0(9,m) = integral_f0 ! f_0
             zeon0(9,m) = target_w_tot ! f_tot
+            zeon0(8,m) = zeon(8,m)
          enddo
       else
          ! Set initial weights of electrons
@@ -1056,6 +1057,8 @@ subroutine load_uniform_MGY
             zeon0(9,m) = target_w_tot ! f_tot
             zeon(8,m) = target_w_tot -int(ifelectron/2)*zeon(9,m)! full-f (ifelectron<2) or full-h (ifelectron==2)
             zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
+
+            zeon0(8,m) = zeon(8,m)
          enddo
       endif
       acc_newer_H_zeon=.true.
@@ -1368,23 +1371,14 @@ subroutine Adjust_electron_weight_for_initially_zero_potential
          STOP
       endif
 
-      integral_f0 = zeon0(6,m)*back_f0_e(m)
+      new_f0 = zeon0(6,m)*back_f0_e(m)
+      new_f_AD = zeon0(6,m)*back_f0_e(m)*AdiabTerm
 
+      ! f_tot = f0 + df (when ifelectron<2)
+      ! f_tot = f0 + dh + f_AD (when ifelectron==2)
+      zeon0(9,m) = new_f0 +zeon(5,m) + int(ifelectron/2)*new_f_AD
 
-      ! if(mype==0 .and. m==1) then
-      !    write(stdout,*) 'Before adjustment, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
-      ! endif
-
-      zeon(9,m) = integral_f0*AdiabTerm ! f_AD
-
-      ! Change previous zeon(8,m) and zeon(5,m) to reduce the level of initial potential
-      zeon(8,m) = zeon(8,m) +int(ifelectron/2)*zeon(9,m) ! full-f (ifelectron<2) or full-h (ifelectron==2)
-      zeon(5,m)  = zeon(8,m)-integral_f0 ! df or dh
-
-
-      ! if(mype==0 .and. m==1) then
-      !    write(stdout,*) 'After adjustment1, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
-      ! endif
+      zeon(8,m) = zeon0(9,m) - (int(ifelectron/2)*new_f_AD) ! full-f or full-h 
    enddo
    acc_newer_D_zeon=.true.
 
