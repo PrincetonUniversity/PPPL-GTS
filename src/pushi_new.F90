@@ -1026,6 +1026,41 @@ subroutine pushion_wEvol4(irk_i,nrk)
 end subroutine pushion_wEvol4
 
 
+
+subroutine pullback_ion
+   use precision
+   use global_parameters
+   use particle_array
+   use Structured_Grid
+   use function_gg_module
+
+   implicit none
+
+   integer m
+   real(wp) old_gaH_at_zion(mi), old_back_f0_i(mi), old_grad_Phi_at_zion(3,mi)
+   !$acc declare create(old_gaH_at_zion,old_back_f0_i)
+
+   call n_T_u_group ! To get back_f0_i
+
+   call Get_SG_scalar_at_zion(SG%gaH,old_gaH_at_zion)
+   call Get_SG_vector_at_zion(SG%phi,old_grad_Phi_at_zion)
+
+   !$acc parallel loop present(zion,back_f0_i,old_back_f0_i,old_gaH_at_zion)
+   do m=1,mi
+      old_back_f0_i(m) = back_f0_i(m)
+      zion(4,m) = zion(4,m) - old_gaH_at_zion(m)
+   enddo
+
+   call n_T_u_group ! To get new back_f0_i corresponding to the new zion(4,m) (rho_H)
+
+   ! Update particle weight
+   !$acc parallel loop present(zion,back_f0_i,old_back_f0_i,old_gaH_at_zion)
+   do m=1,mi
+      zion(5,m) = zion(5,m) + zion0(6,m)*(old_back_f0_i(m)-back_f0_i(m))
+   enddo
+end subroutine pullback_ion
+
+
 !========================================
 ! MGYOO (03/29/2018) :
 !========================================

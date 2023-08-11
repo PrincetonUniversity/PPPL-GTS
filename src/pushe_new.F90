@@ -1820,6 +1820,41 @@ subroutine pusheon_wEvol4(irk_e, nrk)
 end subroutine pusheon_wEvol4
 
 
+subroutine pullback_electron
+   use precision
+   use global_parameters
+   use particle_array
+   use Structured_Grid
+   use function_gg_module
+
+   implicit none
+
+   integer m
+   real(wp) old_gaH_at_zeon(me), old_back_f0_e(me), old_grad_Phi(3,me)
+   !$acc declare create(old_gaH_at_zeon,old_back_f0_e)
+
+   call n_T_u_group_e ! To get back_f0_e
+
+   call Get_SG_scalar_at_zeon(SG%gaH,old_gaH_at_zeon)
+   call Get_SG_vector_at_zeon(SG%phi,old_grad_Phi)
+
+
+   !$acc parallel loop present(zeon,back_f0_e,old_back_f0_e,old_gaH_at_zeon)
+   do m=1,me
+      old_back_f0_e(m) = back_f0_e(m)
+      zeon(4,m) = zeon(4,m) - old_gaH_at_zeon(m)
+   enddo
+
+   call n_T_u_group_e  ! To get new back_f0_e corresponding to the new zeon(4,m) (rho_H)
+
+   ! Update particle weight
+   !$acc parallel loop present(zeon,back_f0_e,old_back_f0_e,old_gaH_at_zeon)
+   do m=1,me
+      zeon(5,m) = zeon(5,m) + zeon0(6,m)*(old_back_f0_e(m)-back_f0_e(m))
+   enddo
+   
+
+end subroutine pullback_electron
 
 subroutine electron_locator
    use precision

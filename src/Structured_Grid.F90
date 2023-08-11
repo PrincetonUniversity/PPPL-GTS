@@ -1229,6 +1229,19 @@ contains
 
    end subroutine Cal_gradPhi_on_SG
 
+   subroutine pullback_AparaH_to_AparaS_on_SG
+      implicit none
+
+      ! pullback AparaH to AparaS to reduce particle noises from AparaH
+      SG%AparaS = SG%AparaS + SG%AparaH(:,:,1)
+      SG%gaS = SG%gaS + SG%gaH
+      SG%AparaH = 0.0
+      SG%gaH = 0.0
+   
+      call Cal_grad_gaH_and_grad_gaS_on_SG      
+
+   end subroutine pullback_AparaH_to_AparaS_on_SG
+
    subroutine Cal_gaH_gaS_from_AparaH_AparaS_on_SG
       use particle_decomp
       use mpi_defs
