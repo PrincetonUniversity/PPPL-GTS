@@ -3446,6 +3446,8 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
          }
          Coeff = 1.0/Coeff;     
 
+         const REAL tmp1 = 2.0*BB*Xgr*gaH; // (2*qs^2*BB*rhoH*gaH)/ms
+         const REAL tmp2 = BB*BB*(-gaH);  // (qs^2*BB^2*(-gaH))/ms
 
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
@@ -3453,46 +3455,46 @@ int gcmotion_em_MGY_vec_form_EM2(REAL *dXgr,
             P[k] += dB_cntv3[0]*(-Er_particle[k]);
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               P[k] += B0star_cntv3[i]*( -gradPhi[i]+para_gradPhi_cov3[i] + Xgr*gaH*BB*BB*gradB0[i] -dH0dgaH*grad_gaH[i] ) +dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+               P[k] += B0star_cntv3[i]*( -gradPhi[i]+para_gradPhi_cov3[i] + tmp1*gradB0[i] -dH0dgaH*grad_gaH[i] ) +dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
             }
             P[k] = Coeff*P[k] -gatE_array[k];
 
-            ghq[k]      = Coeff*(BB*BB*(-gaH)*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*(gradPhi[2]+dH0dgaH*grad_gaH[2])-B0_cov3[2]*(gradPhi[1]+dH0dgaH*grad_gaH[1]))/Jacobian);
-            Ta[k]       = Coeff*(BB*BB*(-gaH)*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*(gradPhi[0]+dH0dgaH*grad_gaH[0])-B0_cov3[0]*(gradPhi[2]+dH0dgaH*grad_gaH[2]))/Jacobian);
-            dvi_gf[k]   = Coeff*(BB*BB*(-gaH)*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]) + (B0_cov3[0]*(gradPhi[1]+dH0dgaH*grad_gaH[1])-B0_cov3[1]*(gradPhi[0]+dH0dgaH*grad_gaH[0]))/Jacobian);
+            ghq[k]      = Coeff*(tmp2*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*(gradPhi[2]+dH0dgaH*grad_gaH[2]-tmp1*gradB0[2])-B0_cov3[2]*(gradPhi[1]+dH0dgaH*grad_gaH[1]-tmp1*gradB0[1]))/Jacobian);
+            Ta[k]       = Coeff*(tmp2*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*(gradPhi[0]+dH0dgaH*grad_gaH[0]-tmp1*gradB0[0])-B0_cov3[0]*(gradPhi[2]+dH0dgaH*grad_gaH[2]-tmp1*gradB0[2]))/Jacobian);
+            dvi_gf[k]   = Coeff*(tmp2*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]) + (B0_cov3[0]*(gradPhi[1]+dH0dgaH*grad_gaH[1]-tmp1*gradB0[1])-B0_cov3[1]*(gradPhi[0]+dH0dgaH*grad_gaH[0]-tmp1*gradB0[0]))/Jacobian);
             if((*Flag_noExB)==1){
-               ghq[k]      = Coeff*(BB*BB*(-gaH)*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]));
-               Ta[k]       = Coeff*(BB*BB*(-gaH)*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]));
-               dvi_gf[k]   = Coeff*(BB*BB*(-gaH)*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]));
+               ghq[k]      = Coeff*(tmp2*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]));
+               Ta[k]       = Coeff*(tmp2*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]));
+               dvi_gf[k]   = Coeff*(tmp2*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]));
             }
 
             //Components of delta_v due to the parallel streaming
-            vpara_dvi_a[k]  = Coeff*(BB*BB*(-gaH)*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]));
-            vpara_dvi_gq[k] = Coeff*(BB*BB*(-gaH)*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]));
-            vpara_dvi_gf[k] = Coeff*(BB*BB*(-gaH)*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]));
+            vpara_dvi_a[k]  = Coeff*(tmp2*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]));
+            vpara_dvi_gq[k] = Coeff*(tmp2*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]));
+            vpara_dvi_gf[k] = Coeff*(tmp2*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]));
          }
          else{ //excluding the streaming term and perturbed mirror force
             P[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               P[k] += B0star_cntv3[i]*( -gradPhi[i]+para_gradPhi_cov3[i] +Xgr*gaH*BB*BB*gradB0[i] -dH0dgaH*grad_gaH[i] ); // excluding the mirror force due to streaming along dB
+               P[k] += B0star_cntv3[i]*( -gradPhi[i]+para_gradPhi_cov3[i] +tmp1*gradB0[i] -dH0dgaH*grad_gaH[i] ); // excluding the mirror force due to streaming along dB
             }
             P[k] = Coeff*P[k] -gatE_array[k];
 
-            ghq[k]      = Coeff*(BB*BB*(-gaH)*B0_cntv3[0] + (B0_cov3[1]*(gradPhi[2]+dH0dgaH*grad_gaH[2])-B0_cov3[2]*(gradPhi[1]+dH0dgaH*grad_gaH[1]))/Jacobian);
-            Ta[k]       = Coeff*(BB*BB*(-gaH)*B0_cntv3[1] + (B0_cov3[2]*(gradPhi[0]+dH0dgaH*grad_gaH[0])-B0_cov3[0]*(gradPhi[2]+dH0dgaH*grad_gaH[2]))/Jacobian);
-            dvi_gf[k]   = Coeff*(BB*BB*(-gaH)*B0_cntv3[2] + (B0_cov3[0]*(gradPhi[1]+dH0dgaH*grad_gaH[1])-B0_cov3[1]*(gradPhi[0]+dH0dgaH*grad_gaH[0]))/Jacobian);
+            ghq[k]      = Coeff*(tmp2*B0_cntv3[0] + (B0_cov3[1]*(gradPhi[2]+dH0dgaH*grad_gaH[2]-tmp1*gradB0[2])-B0_cov3[2]*(gradPhi[1]+dH0dgaH*grad_gaH[1]-tmp1*gradB0[1]))/Jacobian);
+            Ta[k]       = Coeff*(tmp2*B0_cntv3[1] + (B0_cov3[2]*(gradPhi[0]+dH0dgaH*grad_gaH[0]-tmp1*gradB0[0])-B0_cov3[0]*(gradPhi[2]+dH0dgaH*grad_gaH[2]-tmp1*gradB0[2]))/Jacobian);
+            dvi_gf[k]   = Coeff*(tmp2*B0_cntv3[2] + (B0_cov3[0]*(gradPhi[1]+dH0dgaH*grad_gaH[1]-tmp1*gradB0[1])-B0_cov3[1]*(gradPhi[0]+dH0dgaH*grad_gaH[0]-tmp1*gradB0[0]))/Jacobian);
 
             if((*Flag_noExB)==1){
-               ghq[k]      = BB*BB*(-gaH)*B0_cntv3[0];
-               Ta[k]       = BB*BB*(-gaH)*B0_cntv3[1];
-               dvi_gf[k]   = BB*BB*(-gaH)*B0_cntv3[2];
+               ghq[k]      = tmp2*B0_cntv3[0];
+               Ta[k]       = tmp2*B0_cntv3[1];
+               dvi_gf[k]   = tmp2*B0_cntv3[2];
             }
 
             //Components of delta_v due to the parallel streaming
-            vpara_dvi_a[k]  = BB*BB*(-gaH)*B0_cntv3[0];
-            vpara_dvi_gq[k] = BB*BB*(-gaH)*B0_cntv3[1];
-            vpara_dvi_gf[k] = BB*BB*(-gaH)*B0_cntv3[2];
+            vpara_dvi_a[k]  = tmp2*B0_cntv3[0];
+            vpara_dvi_gq[k] = tmp2*B0_cntv3[1];
+            vpara_dvi_gf[k] = tmp2*B0_cntv3[2];
          }
 
       }
@@ -5448,55 +5450,57 @@ int gcmotion_eon_em_MGY_vec_form_EM2(REAL *dXgr,
          }
          Coeff = c0cs/Coeff;
 
+         const REAL tmp1 = 2.0*m0ms*csc0*csc0*BB*Xgr*gaH; // (2*qs^2*BB*rhoH*gaH)/ms
+         const REAL tmp2 = m0ms*csc0*csc0*BB*BB*(-gaH);  // (qs^2*BB^2*(-gaH))/ms
          // Calculate perturbed velocity and acceleration of Guiding Center depending on user's choice.
          if((*Flag_Streaming)==1){  // including the streaming term and perturbed mirror force
+
+
             Pa[k] = 0.0; // d(rho_para)/dt
             Pa[k] += dB_cntv3[0]*(-csc0*Er_particle[k]);
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               Pa[k] += B0star_cntv3[i]*( csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) +m0ms*csc0*csc0*Xgr*gaH*BB*BB*gradB0[i] -dH0dgaH*grad_gaH[i] ) +dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
+               Pa[k] += B0star_cntv3[i]*( csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) +tmp1*gradB0[i] -dH0dgaH*grad_gaH[i] ) +dB_cntv3[i]*(-dH0dB0*gradB0[i]); // including the mirror force due to streaming along dB
             }
             Pa[k] = Coeff*Pa[k] -gatE_array[k];
 
-            const REAL tmp_factor=m0ms*csc0*csc0*BB*BB;
-            ghq[k]      = Coeff*(tmp_factor*(-gaH)*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2])-B0_cov3[2]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1]))/Jacobian);
-            Ta[k]       = Coeff*(tmp_factor*(-gaH)*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*(csc0*gradPhi[0]+dH0dgaH*grad_gaH[0])-B0_cov3[0]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2]))/Jacobian);
-            dve_gf[k]   = Coeff*(tmp_factor*(-gaH)*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]) + (B0_cov3[0]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1])-B0_cov3[1]*(csc0*gradPhi[0]+dH0dgaH*grad_gaH[0]))/Jacobian);
+            ghq[k]      = Coeff*(tmp2*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]) + (B0_cov3[1]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2]-tmp1*gradB0[2])-B0_cov3[2]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1]-tmp1*gradB0[1]))/Jacobian);
+            Ta[k]       = Coeff*(tmp2*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]) + (B0_cov3[2]*(csc0*gradPhi[0]+dH0dgaH*grad_gaH[0]-tmp1*gradB0[0])-B0_cov3[0]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2]-tmp1*gradB0[2]))/Jacobian);
+            dve_gf[k]   = Coeff*(tmp2*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]) + (B0_cov3[0]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1]-tmp1*gradB0[1])-B0_cov3[1]*(csc0*gradPhi[0]+dH0dgaH*grad_gaH[0]-tmp1*gradB0[0]))/Jacobian);
 
             if((*Flag_noExB)==1){
-               ghq[k]      = Coeff*(tmp_factor*(-gaH)*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]));
-               Ta[k]       = Coeff*(tmp_factor*(-gaH)*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]));
-               dve_gf[k]   = Coeff*(tmp_factor*(-gaH)*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]));
+               ghq[k]      = Coeff*(tmp2*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]));
+               Ta[k]       = Coeff*(tmp2*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]));
+               dve_gf[k]   = Coeff*(tmp2*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]));
             }
 
             // Components of delta_v due to the parallel streaming
-            vpara_dve_a[k]  = Coeff*(tmp_factor*(-gaH)*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]));
-            vpara_dve_gq[k] = Coeff*(tmp_factor*(-gaH)*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]));
-            vpara_dve_gf[k] = Coeff*(tmp_factor*(-gaH)*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]));
+            vpara_dve_a[k]  = Coeff*(tmp2*B0_cntv3[0] +dH0dgr*(dB_cntv3[0]));
+            vpara_dve_gq[k] = Coeff*(tmp2*B0_cntv3[1] +dH0dgr*(dB_cntv3[1]));
+            vpara_dve_gf[k] = Coeff*(tmp2*B0_cntv3[2] +dH0dgr*(dB_cntv3[2]));
          }
          else{ //excluding the streaming term along dB and perturbed mirror force
             Pa[k] = 0.0; // d(rho_para)/dt
             #pragma acc loop seq
             for(i=0;i<3;++i) {
-               Pa[k] += B0star_cntv3[i]*( csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) +m0ms*csc0*csc0*Xgr*gaH*BB*BB*gradB0[i] -dH0dgaH*grad_gaH[i] ); // excluding the mirror force due to streaming along dB
+               Pa[k] += B0star_cntv3[i]*( csc0*(-gradPhi[i]+para_gradPhi_cov3[i]) +tmp1*gradB0[i] -dH0dgaH*grad_gaH[i] ); // excluding the mirror force due to streaming along dB
             }
             Pa[k] = Coeff*Pa[k] -gatE_array[k];
 
-            const REAL tmp_factor=m0ms*csc0*csc0*BB*BB;
-            ghq[k]      = Coeff*(tmp_factor*(-gaH)*B0_cntv3[0] +(B0_cov3[1]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2])-B0_cov3[2]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1]))/Jacobian);
-            Ta[k]       = Coeff*(tmp_factor*(-gaH)*B0_cntv3[1] +(B0_cov3[2]*(csc0*gradPhi[0]+dH0dgaH*grad_gaH[0])-B0_cov3[0]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2]))/Jacobian);
-            dve_gf[k]   = Coeff*(tmp_factor*(-gaH)*B0_cntv3[2] +(B0_cov3[0]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1])-B0_cov3[1]*(csc0*gradPhi[0]+dH0dgaH*grad_gaH[0]))/Jacobian);
+            ghq[k]      = Coeff*(tmp2*B0_cntv3[0] +(B0_cov3[1]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2]-tmp1*gradB0[2])-B0_cov3[2]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1]-tmp1*gradB0[1]))/Jacobian);
+            Ta[k]       = Coeff*(tmp2*B0_cntv3[1] +(B0_cov3[2]*(csc0*gradPhi[0]+dH0dgaH*grad_gaH[0]-tmp1*gradB0[0])-B0_cov3[0]*(csc0*gradPhi[2]+dH0dgaH*grad_gaH[2]-tmp1*gradB0[2]))/Jacobian);
+            dve_gf[k]   = Coeff*(tmp2*B0_cntv3[2] +(B0_cov3[0]*(csc0*gradPhi[1]+dH0dgaH*grad_gaH[1]-tmp1*gradB0[1])-B0_cov3[1]*(csc0*gradPhi[0]+dH0dgaH*grad_gaH[0]-tmp1*gradB0[0]))/Jacobian);
 
             if((*Flag_noExB)==1){
-               ghq[k]      = Coeff*(tmp_factor*(-gaH)*B0_cntv3[0]);
-               Ta[k]       = Coeff*(tmp_factor*(-gaH)*B0_cntv3[1]);
-               dve_gf[k]   = Coeff*(tmp_factor*(-gaH)*B0_cntv3[2]);
+               ghq[k]      = Coeff*(tmp2*B0_cntv3[0]);
+               Ta[k]       = Coeff*(tmp2*B0_cntv3[1]);
+               dve_gf[k]   = Coeff*(tmp2*B0_cntv3[2]);
             }
 
             // Components of delta_v due to the parallel streaming
-            vpara_dve_a[k]  = Coeff*(tmp_factor*(-gaH)*B0_cntv3[0]);
-            vpara_dve_gq[k] = Coeff*(tmp_factor*(-gaH)*B0_cntv3[1]);
-            vpara_dve_gf[k] = Coeff*(tmp_factor*(-gaH)*B0_cntv3[2]);
+            vpara_dve_a[k]  = Coeff*(tmp2*B0_cntv3[0]);
+            vpara_dve_gq[k] = Coeff*(tmp2*B0_cntv3[1]);
+            vpara_dve_gf[k] = Coeff*(tmp2*B0_cntv3[2]);
          }
 
       }
