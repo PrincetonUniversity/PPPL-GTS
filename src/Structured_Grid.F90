@@ -29,7 +29,6 @@ module Structured_Grid
 
 
       real(wp),allocatable,dimension(:,:,:,:) :: dB_cntv3
-      real(wp),allocatable,dimension(:,:,:) :: E_para
 
       ! Gyro-Orbit positioning information
       ! real(wp),allocatable,dimension(:,:,:,:) :: gyro_over_sqrt_mu ! Dimension: (3,larmor_num,dim_gq,dim_s); First dimension is for (s,gq,gf)
@@ -63,7 +62,8 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:,:) :: gaS ! alpha_s; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
       real(wp), allocatable, dimension(:,:,:,:) :: grad_gaS_cov ! grad(alpha_s); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       real(wp), allocatable, dimension(:,:) :: old_AparaS, RK_cum_AparaS  ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
-     
+      real(wp), allocatable, dimension(:,:) :: E_para
+
       real(wp), allocatable, dimension(:,:) :: Ampere_RHS ! RHS of Ampere's equation
       real(wp), allocatable, dimension(:,:) :: perpLap_AparaS ! RHS of Ampere's equation
 
@@ -334,6 +334,8 @@ contains
          allocate(SG%old_AparaS(Nq,Ns),SG%RK_cum_AparaS(Nq,Ns))
          SG%old_AparaS=0.0
          SG%RK_cum_AparaS=0.0
+         allocate(SG%E_para(Nq,Ns))
+         SG%E_para=0.0
       endif
 
 

@@ -418,6 +418,8 @@ program GTS
          endif    ! end if(ifelectron/=0)
 
          if(electromagnetic==2) then
+            if(irk==1) SG%E_para = SG%AparaH(:,:,1) ! temporarily save AparaH @ irk=1 to calculate E_para in the future
+
             call Update_SG_AparaS(irk,nrk)
          endif
 
@@ -433,6 +435,14 @@ program GTS
                call Solve_GK_Ampere_3D_on_SG
                call Cal_gaH_gaS_from_AparaH_AparaS_on_SG
                call Cal_grad_gaH_and_grad_gaS_on_SG
+
+               if(irk==nrk) then
+                  if(electromagnetic==2) then
+                     SG%E_para = -(SG%AparaH(:,:,1)-SG%E_para)/tstep ! E_para=-(dAh/dt)
+                  else
+                     SG%E_para = -sum(SG%B0_cntv3*SG%grad_phi_cov(:,:,:,1),dim=1)/SG%BB ! E_para= -(grad_Phi*B)/|B|
+                  endif
+               endif
 
                if(Flag_pullback==1 .and. irk==nrk) then
                   call pullback_electron

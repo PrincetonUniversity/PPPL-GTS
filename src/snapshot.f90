@@ -1503,6 +1503,7 @@ subroutine snapshot_hdf5
          call h5ltmake_dataset_f(gid_SG, "AparaS",2,h5dims,H5T_NATIVE_DOUBLE, uSI%A0*SG%AparaS,h5err)
          call h5ltmake_dataset_f(gid_SG, "gaH",2,h5dims,H5T_NATIVE_DOUBLE, uSI%ga0*SG%gaH(:,:,1),h5err)
          call h5ltmake_dataset_f(gid_SG, "gaS",2,h5dims,H5T_NATIVE_DOUBLE, uSI%ga0*SG%gaS(:,:,1),h5err)
+         call h5ltmake_dataset_f(gid_SG, "E_para",2,h5dims,H5T_NATIVE_DOUBLE, (uSI%phi0/uSI%R0)*SG%E_para,h5err)
          call h5ltmake_dataset_f(gid_SG, "Ampere_RHS",2,h5dims,H5T_NATIVE_DOUBLE, SG%Ampere_RHS,h5err)
          call h5ltmake_dataset_f(gid_SG, "perpLap_AparaS",2,h5dims,H5T_NATIVE_DOUBLE, SG%perpLap_AparaS,h5err)
       endif
