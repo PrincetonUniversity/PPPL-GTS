@@ -2287,4 +2287,32 @@ contains
 #endif
    end subroutine Get_SG_vector_at_zion
 
+
+   subroutine Print_Some_0D_Diagnostics_on_SG
+      use particle_decomp
+      use mpi_defs
+      implicit none
+      integer :: fUnit
+      character(len=30) :: fName
+      real(wp) :: rms_phi, sum_phi_sq_each_plane, sum_phi_sq_All_planes
+      real(wp) :: rms_Epara, sum_Epara_sq_each_plane, sum_Epara_sq_All_planes 
+
+      ! write(fName,'(A,I0,A)') "RMS_phi_Epara_at_sid=", ipsi, ".dat" 
+      ! open(file=fName, newunit=fUnit)
+      open(file="RMS_phi_Epara.dat", newunit=fUnit, position='append', action='write')
+
+      sum_phi_sq_each_plane = sum(SG%phi(1:SG%dim_gq-1,ipsi,1)**2.0)
+      call MPI_REDUCE(sum_phi_sq_each_plane, sum_phi_sq_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
+      rms_phi = sqrt(sum_phi_sq_All_planes/((SG%dim_gq-1)*mzetamax))
+
+      sum_Epara_sq_each_plane = sum(SG%E_para(1:SG%dim_gq-1,ipsi)**2.0)
+      call MPI_REDUCE(sum_Epara_sq_each_plane, sum_Epara_sq_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
+      rms_Epara = sqrt(sum_Epara_sq_All_planes/((SG%dim_gq-1)*mzetamax))
+
+      if(mype==0) write(fUnit,'(2I,4ES16.8)') istep, ipsi, SG%a_1D(ipsi), uSI%t0*real(istep)*tstep, rms_phi, rms_Epara
+
+      call flush(fUnit)
+      close(fUnit)
+   end subroutine Print_Some_0D_Diagnostics_on_SG 
+
 end module Structured_Grid

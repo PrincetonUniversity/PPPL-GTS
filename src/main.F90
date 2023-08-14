@@ -450,6 +450,8 @@ program GTS
                   call pullback_AparaH_to_AparaS_on_SG
                endif
             endif
+
+            if(irk==nrk) call Print_Some_0D_Diagnostics_on_SG
          endif
 
          if (mype == 0) then
