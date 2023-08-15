@@ -334,10 +334,10 @@ contains
          allocate(SG%old_AparaS(Nq,Ns),SG%RK_cum_AparaS(Nq,Ns))
          SG%old_AparaS=0.0
          SG%RK_cum_AparaS=0.0
-         allocate(SG%E_para(Nq,Ns))
-         SG%E_para=0.0
       endif
 
+      allocate(SG%E_para(Nq,Ns))
+      SG%E_para=0.0
 
       allocate(SG_s_1D(Ns), SG_gq_1D(Nq), SG_safety_q_1D(Ns))
       allocate(SG_phi(Nq,Ns,0:2)) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
