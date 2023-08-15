@@ -1009,7 +1009,7 @@ subroutine load_uniform_MGY
       call Update_SG_phi_3D_by_gathering_SG_phi2D
 
       allocate(AdiabTerm(me))
-      !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+      !$acc parallel loop present(backTe)
       do m=1,me
          call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi)
 
@@ -1357,7 +1357,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential
    call Update_SG_phi_3D_by_gathering_SG_phi2D
 
 
-   !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+   !$acc parallel loop present(backTe,back_f0_e)
    do m=1,me
       call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi)
 
@@ -1391,7 +1391,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential
    call Cal_gradPhi_on_SG
    call Update_SG_phi_3D_by_gathering_SG_phi2D
 
-   !$acc parallel loop present(wzeon,jteon0,wpeon,wteon0,jteon1,wteon1)
+   !$acc parallel loop present(backTe,back_f0_e)
    do m=1,me
       call Get_Intp_global_phi3D_on_SG(zeon(7,m), zeon(2,m),zeon(3,m), intp_SG_full_phi)
 
