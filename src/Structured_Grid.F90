@@ -2294,22 +2294,35 @@ contains
       implicit none
       integer :: fUnit
       character(len=30) :: fName
-      real(wp) :: rms_phi, sum_phi_sq_each_plane, sum_phi_sq_All_planes
-      real(wp) :: rms_Epara, sum_Epara_sq_each_plane, sum_Epara_sq_All_planes 
+      integer :: Nelms 
+      real(wp) :: target_variable_at_surface(SG%dim_gq-1)
+      real(wp) :: sum_var_each_plane, sum_var_sq_each_plane
+      real(wp) :: sum_var_All_planes, sum_var_sq_All_planes
+      real(wp) :: rms_phi, rmse_phi
+      real(wp) :: rms_Epara, rmse_Epara
 
-      ! write(fName,'(A,I0,A)') "RMS_phi_Epara_at_sid=", ipsi, ".dat" 
-      ! open(file=fName, newunit=fUnit)
       open(file="RMS_phi_Epara.dat", newunit=fUnit, position='append', action='write')
 
-      sum_phi_sq_each_plane = sum(SG%phi(1:SG%dim_gq-1,ipsi,1)**2.0)
-      call MPI_REDUCE(sum_phi_sq_each_plane, sum_phi_sq_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
-      rms_phi = sqrt(sum_phi_sq_All_planes/((SG%dim_gq-1)*mzetamax))
+      Nelms= (SG%dim_gq-1)*mzetamax
 
-      sum_Epara_sq_each_plane = sum(SG%E_para(1:SG%dim_gq-1,ipsi)**2.0)
-      call MPI_REDUCE(sum_Epara_sq_each_plane, sum_Epara_sq_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
-      rms_Epara = sqrt(sum_Epara_sq_All_planes/((SG%dim_gq-1)*mzetamax))
+      target_variable_at_surface = SG%phi(1:SG%dim_gq-1,ipsi,1) 
+      sum_var_each_plane = sum(target_variable_at_surface)
+      sum_var_sq_each_plane = sum(target_variable_at_surface**2.0)
+      call MPI_REDUCE(sum_var_each_plane, sum_var_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
+      call MPI_REDUCE(sum_var_sq_each_plane, sum_var_sq_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
+      rms_phi = sqrt(sum_var_sq_All_planes/Nelms)
+      rmse_phi = sqrt((sum_var_sq_All_planes/Nelms) - (sum_var_All_planes/Nelms)**2.0) ! std(X)=sqrt(Var(X))=sqrt(E[(X-E(X))^2])=sqrt(E[X^2]-E[X]^2)
 
-      if(mype==0) write(fUnit,'(2I,4ES16.8)') istep, ipsi, SG%a_1D(ipsi), uSI%t0*real(istep)*tstep, rms_phi, rms_Epara
+
+      target_variable_at_surface = SG%E_para(1:SG%dim_gq-1,ipsi) 
+      sum_var_each_plane = sum(target_variable_at_surface)
+      sum_var_sq_each_plane = sum(target_variable_at_surface**2.0)
+      call MPI_REDUCE(sum_var_each_plane, sum_var_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
+      call MPI_REDUCE(sum_var_sq_each_plane, sum_var_sq_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
+      rms_Epara = sqrt(sum_var_sq_All_planes/Nelms)
+      rmse_Epara = sqrt((sum_var_sq_All_planes/Nelms) - (sum_var_All_planes/Nelms)**2.0) ! std(X)=sqrt(Var(X))=sqrt(E[(X-E(X))^2])=sqrt(E[X^2]-E[X]^2)
+
+      if(mype==0) write(fUnit,'(2I,6ES16.8)') istep, ipsi, SG%a_1D(ipsi), uSI%t0*real(istep)*tstep, rms_phi, rms_Epara, rmse_phi, rmse_Epara
 
       call flush(fUnit)
       close(fUnit)
