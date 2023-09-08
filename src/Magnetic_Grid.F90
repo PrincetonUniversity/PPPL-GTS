@@ -67,11 +67,11 @@ module Magnetic_Grid
    real(wp),allocatable,dimension(:,:,:,:,:) :: grad_B_cov, grad_B_cntv, grad_j_cov, grad_j_cntv
    real(wp),allocatable,dimension(:,:,:,:,:) :: d23_B_cov, d23_B_cntv, d23_j_cov, d23_j_cntv
 
-   !$acc declare create(R_2D,d12_R_2D,Z_2D,d12_Z_2D)
-   !$acc declare create(BB,grad_BB,d23_BB)
-   !$acc declare create(B_cov,grad_B_cov,d23_B_cov)
-   !$acc declare create(B_cntv,grad_B_cntv,d23_B_cntv)
-   !$acc declare create(j_cntv,grad_j_cntv,d23_j_cntv)
+   ! !$acc declare create(R_2D,d12_R_2D,Z_2D,d12_Z_2D)
+   ! !$acc declare create(BB,grad_BB,d23_BB)
+   ! !$acc declare create(B_cov,grad_B_cov,d23_B_cov)
+   ! !$acc declare create(B_cntv,grad_B_cntv,d23_B_cntv)
+   ! !$acc declare create(j_cntv,grad_j_cntv,d23_j_cntv)
 
 contains
 
@@ -526,14 +526,14 @@ contains
       if(mype==0) call Write_Magnetic_Grid_hdf5
       ! if(mype==0) call test_MG_TriCubic_Interpolation
 
-      !$acc update device(dim_a,dim_gq,dim_gf)
-      !$acc update device(inv_da,inv_dgq,inv_dgf)
-      !$acc update device(a_1D,gq_1D,gf_1D)
-      !$acc update device(R_2D,d12_R_2D,Z_2D,d12_Z_2D)
-      !$acc update device(BB,grad_BB,d23_BB)
-      !$acc update device(B_cov,grad_B_cov,d23_B_cov)
-      !$acc update device(B_cntv,grad_B_cntv,d23_B_cntv)
-      !$acc update device(j_cntv,grad_j_cntv,d23_j_cntv)
+      ! !$acc update device(dim_a,dim_gq,dim_gf)
+      ! !$acc update device(inv_da,inv_dgq,inv_dgf)
+      ! !$acc update device(a_1D,gq_1D,gf_1D)
+      ! !$acc update device(R_2D,d12_R_2D,Z_2D,d12_Z_2D)
+      ! !$acc update device(BB,grad_BB,d23_BB)
+      ! !$acc update device(B_cov,grad_B_cov,d23_B_cov)
+      ! !$acc update device(B_cntv,grad_B_cntv,d23_B_cntv)
+      ! !$acc update device(j_cntv,grad_j_cntv,d23_j_cntv)
 
 
 
@@ -1107,7 +1107,7 @@ contains
 
 
    subroutine BiCubic_Interpolation_of_2D_Scalar(in_a, in_gq, in_Sca, in_d12Sca, out_Sca)
-      !$acc routine seq
+      ! !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq
       real(wp),intent(in) :: in_Sca(dim_gq,dim_a)
@@ -1147,7 +1147,7 @@ contains
    end subroutine BiCubic_Interpolation_of_2D_Scalar
 
    subroutine BiCubic_Interpolation_of_2D_Scalar_and_gradient(in_a, in_gq, in_Sca, in_d12Sca, out_Sca, out_gradSca)
-      !$acc routine seq
+      ! !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq
       real(wp),intent(in) :: in_Sca(dim_gq,dim_a)
@@ -1198,7 +1198,7 @@ contains
 
 
    subroutine TriCubic_Interpolation_of_Scalar(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca)
-      !$acc routine seq
+      ! !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq,in_gf
       real(wp),intent(in) :: in_Sca(dim_gq,dim_a,dim_gf)
@@ -1256,7 +1256,7 @@ contains
    end subroutine TriCubic_Interpolation_of_Scalar
 
    subroutine TriCubic_Interpolation_of_Scalar_and_gradient(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca, out_gradSca)
-      !$acc routine seq
+      ! !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq,in_gf
       real(wp),intent(in) :: in_Sca(dim_gq,dim_a,dim_gf)
@@ -1388,7 +1388,7 @@ contains
 
 
    subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion(in_a,in_gq,in_gf,P_R,P_grad_R,P_Z,P_grad_Z,P_BB,P_grad_BB,P_B_cov,P_B_cntv,P_j_cntv)
-      !$acc routine seq
+      ! !$acc routine seq
       implicit none
       ! real(wp),intent(in) :: in_a,in_gq,in_gf
       ! real(wp),intent(in) :: in_Vec(3,dim_gq,dim_a,dim_gf)
