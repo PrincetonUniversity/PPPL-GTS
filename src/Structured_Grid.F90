@@ -1939,7 +1939,7 @@ contains
 
       if( (P_s-s0)*(P_s-s1)>0 .or. P_gq*(P_gq-2.0*pi)>0 .or. (P_gf-zetamin)*(P_gf-zetamax)>0 ) then
          write(stdout,*) "Error!! Out of SG boundary!! Get_SG_scalar_at_point subroutine returned NaN value."
-         write(stdout,'(3(A,13.3ES),A)') "(in_s=", P_s, "in_gq=", P_gq, "in_gf=", P_gf, ")"
+         write(stdout,'(3(A,ES13.3),A)') "(in_s=", P_s, "in_gq=", P_gq, "in_gf=", P_gf, ")"
          call flush(stdout)
 
          out_sca = IEEE_VALUE(out_sca, IEEE_QUIET_NAN)
@@ -1989,7 +1989,7 @@ contains
 
       if( (P_s-s0)*(P_s-s1)>0 .or. P_gq*(P_gq-2.0*pi)>0 .or. P_gf*(P_gf-2.0*pi)>0 ) then
          write(stdout,*) "Error!! Out of SG boundary!! Get_SG_vector_at_point subroutine returned NaN values."
-         write(stdout,'(3(A,13.3ES),A)') "(in_s=", P_s, "in_gq=", P_gq, "in_gf=", P_gf, ")"
+         write(stdout,'(3(A,ES13.3),A)') "(in_s=", P_s, "in_gq=", P_gq, "in_gf=", P_gf, ")"
          call flush(stdout)
          
          do k=1,3
