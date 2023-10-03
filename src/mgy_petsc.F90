@@ -1038,7 +1038,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
    ! Calculate LHS of the pure Poission Equation (not GK one) to get the real charge density
    ! Note that xVec is the potential calculated already from other routine
    ! Here, RHS vector is the Real Charge Density (including Ion Polarization Density) = ni_GC+ni_Pol-ne
-   call Update_GK_Poisson_LHS_Coeffs(1) ! For Pure Poisson Equation
+   call Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method(1) ! For Pure Poisson Equation
    call MatMult(PMat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
    call VecGetArrayReadF90(RHS_Vec,ptr_Vec,ierr)
    Vec_mype(:)=ptr_Vec(1:Lsize)
@@ -1055,7 +1055,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
    ! Note the signs of the equation
    ! niPol=(nabla*Pol_T*nabla*phi)/e=(-PMat*xVec)/e
    ! Here, RHS is the Ion Polarization Density
-   call Update_GK_Poisson_LHS_Coeffs(2) ! For Ion Polarization Density
+   call Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method(2) ! For Ion Polarization Density
    call MatMult(PMat,xVec,RHS_Vec,ierr); CHKERRQ(ierr)
    call VecGetArrayReadF90(RHS_Vec,ptr_Vec,ierr)
    Vec_mype(:)=ptr_Vec(1:Lsize)
@@ -1080,7 +1080,7 @@ subroutine Cal_IonPolarDensity_and_RealCharge
 
 
    ! Recover original PMat (which is for GK Poisson Equation)
-   call Update_GK_Poisson_LHS_Coeffs
+   call Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method
 
 end subroutine Cal_IonPolarDensity_and_RealCharge
 
@@ -1615,7 +1615,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
-subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
+subroutine Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method(In_Flag_WhichLHS)
 
    use Structured_Grid
    use particle_decomp
@@ -1639,7 +1639,7 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
 
    if(Flag_WhichLHS==0 .or. Flag_WhichLHS==1 .or. Flag_WhichLHS==2) then
    else
-      write(stdout,*) "Error!! In Update_GK_Poisson_LHS_Coeffs, Flag_WhichLHS=",Flag_WhichLHS
+      write(stdout,*) "Error!! In Update_GK_Poisson_LHS_Coeffs_Extremal_Method, Flag_WhichLHS=",Flag_WhichLHS
       call flush(stdout)
       stop
    endif
@@ -1755,7 +1755,7 @@ subroutine Update_GK_Poisson_LHS_Coeffs(In_Flag_WhichLHS)
    ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
 
-end subroutine Update_GK_Poisson_LHS_Coeffs
+end subroutine Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method
 
 subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
    use precision, only:wp
@@ -2436,7 +2436,7 @@ subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
 
 end subroutine Construct_GK_Ampere_3D_Solver_with_Extremal_Method
 
-subroutine Update_GK_Ampere_LHS_Coeffs
+subroutine Update_GK_Ampere_LHS_Coeffs_with_Extremal_Method
 
    use Structured_Grid
    use particle_decomp
@@ -2558,7 +2558,7 @@ subroutine Update_GK_Ampere_LHS_Coeffs
 
    ! call MatView(AMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
 
-end subroutine Update_GK_Ampere_LHS_Coeffs
+end subroutine Update_GK_Ampere_LHS_Coeffs_with_Extremal_Method
 
 
 

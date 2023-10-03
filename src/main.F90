@@ -183,7 +183,7 @@ program GTS
    if(Flag_Poisson==1) then
       call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
       call Construct_GK_Poisson3D_Solver_with_Extremal_Method
-      call Update_GK_Poisson_LHS_Coeffs
+      call Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method
       if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
          call Solve_Nonlinear_Poisson3D_on_SG
       else
@@ -298,9 +298,9 @@ program GTS
          if(Flag_Poisson==1 .and. Flag_Poisson3D_on_SG==1 .and. Flag_Update_Pol_Shielding==1 ) then
             if(irk==1) then
                !Update Polarization Shielding Term in Poisson3D equation
-               call Update_GK_Poisson_LHS_Coeffs
+               call Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method
                if(electromagnetic==2) then
-                  call Update_GK_Ampere_LHS_Coeffs
+                  call Update_GK_Ampere_LHS_Coeffs_with_Extremal_Method
                endif
             endif
          endif
