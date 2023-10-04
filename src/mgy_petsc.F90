@@ -50,6 +50,7 @@ module MGY_PETSc_Interface_Data
    ! Metric_T is used for solving both GK Poisson and GK Ampere equation
    ! Metric_T(i,j) = g^ij 
    real(wp), allocatable, dimension(:,:,:,:) :: Metric_T! On the poloidal plane (PEST structured coordinate)
+   real(wp), allocatable, dimension(:,:,:,:) :: Metric_T_skewed! Metric Tensor on locally skewed coordinate (PEST structured coordinate)
 
    ! Polar_T and Eps_T are used only for the GK Poisson equation
    ! Polar_T = Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2))
@@ -260,6 +261,41 @@ subroutine Construct_Metric_Tensor_on_Structured_Grid
    Metric_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
 
 end subroutine Construct_Metric_Tensor_on_Structured_Grid
+
+subroutine Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+   use precision, only:wp
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   integer sid,gqid,i,j,ierr
+
+   if(.not.allocated(Metric_T_skewed)) allocate(Metric_T_skewed(3,3,0:SG%dim_gq,0:SG%dim_a+1))
+
+   ! Metric Tensor is based on the static equilibrium magnetic field (PEST coordinate)
+   do sid=1,SG%dim_a
+      do gqid=1,SG%dim_gq
+         Metric_T_skewed(:,:,gqid,sid)=0.0
+         Metric_T_skewed(1,1,gqid,sid)=SG%g_ss_cntv(gqid,sid) ! g_s_s
+         Metric_T_skewed(1,2,gqid,sid)=SG%g_sq_cntv(gqid,sid) ! g_s_gqt
+         Metric_T_skewed(2,1,gqid,sid)=SG%g_sq_cntv(gqid,sid) ! g_gqt_s
+         ! g_gqt_gqt = egq*egq + 1/q^2*(egf*egf)
+         Metric_T_skewed(2,2,gqid,sid)=SG%g_qq_cntv(gqid,sid) + SG%g_ff_cntv(gqid,sid)/(SG%skew_q_1D(sid)**2.0) 
+         ! g_gqt_gft = -(1/q)*(egf*egf)
+         Metric_T_skewed(2,3,gqid,sid)= -(1/SG%skew_q_1D(sid))*SG%g_ff_cntv(gqid,sid)
+         ! g_gft_gqt = -(1/q)*(egf*egf)
+         Metric_T_skewed(3,2,gqid,sid)= -(1/SG%skew_q_1D(sid))*SG%g_ff_cntv(gqid,sid)
+         Metric_T_skewed(3,3,gqid,sid)=SG%g_ff_cntv(gqid,sid)
+      enddo
+   enddo
+
+   ! Fill ghost nodes of Metric_T_skewed
+   Metric_T_skewed(:,:,SG%dim_gq,:)=Metric_T_skewed(:,:,1,:)
+   Metric_T_skewed(:,:,0,:)        =Metric_T_skewed(:,:,SG%dim_gq-1,:)
+   Metric_T_skewed(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   Metric_T_skewed(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+
+end subroutine Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
 
 subroutine Construct_Perp_Laplacian_Matrix
    use Structured_Grid
