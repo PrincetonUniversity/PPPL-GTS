@@ -1904,6 +1904,119 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
 end subroutine Determine_GK_PoissonTensors_on_Structured_Grid
 
 
+subroutine Determine_GK_PoissonTensors_on_locally_Skewed_Structured_Grid(In_Flag_WhichTerm)
+   use precision, only:wp
+   use global_parameters, only:stdout,mype,ifelectron,mzetamax,msm0,amasse,amassi
+   use Structured_Grid
+   use particle_decomp
+   implicit none
+
+   integer, intent(in), optional :: In_Flag_WhichTerm
+   integer Flag_WhichTerm
+   integer sid,gqid,i,j,ierr
+   real(wp) invBsq,tmp ! 1/(B^2)
+   real(wp), external :: density
+   real(wp) inv_du(3)
+   integer istatus(MPI_STATUS_SIZE), icount, ierror
+   real(wp) ne_tot(SG%dim_gq,SG%dim_s), ni_tot(SG%dim_gq,SG%dim_s)
+   real(wp) skew_B_cntv(3) ! B_cntv on the locally skewed coordinate
+
+   Flag_WhichTerm=2 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
+   if(present(In_Flag_WhichTerm)) Flag_WhichTerm = In_Flag_WhichTerm
+
+   if(Flag_Def_dne_adiab==1) then
+      do sid=1,SG%dim_s
+         do gqid=1,SG%dim_gq
+            ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
+            ne_tot(gqid,sid) = SG%n0_1D(sid) + SG%dne_SM(gqid,sid) + int(ifelectron/2)*abs(csc0)*SG%n0_1D(sid)*SG%phi(gqid,sid,1)/SG%Te0_1D(sid)
+         enddo
+      enddo
+   elseif(Flag_Def_dne_adiab==2) then
+      ! ne_tot=n0*exp(e*Phi/Te0) + dne_NA
+      do sid=1,SG%dim_s
+         do gqid=1,SG%dim_gq
+            ni_tot(gqid,sid) = SG%n0_1D(sid) + SG%dni_SM(gqid,sid)
+            ne_tot(gqid,sid) = SG%dne_SM(gqid,sid) + SG%n0_1D(sid)*exp(int(ifelectron/2)*abs(csc0)*SG%phi(gqid,sid,1)/SG%Te0_1D(sid))
+         enddo
+      enddo
+
+   else
+      write(stdout,*) "Error! Flag_Def_dne_adiab=", Flag_Def_dne_adiab, " in Determine_GK_PoissonTensor"
+      call flush(stdout)
+      stop
+   endif
+
+   ! Density must be positive so ignore negative values because of numerical noises
+   ne_tot = max(0.0,ne_tot)
+   ni_tot = max(0.0,ni_tot)
+
+   do sid=1,SG%dim_a
+      ! Assuming the static equilibrium density for ions and electrons
+      do gqid=1,SG%dim_gq
+         invBsq=1.0/(SG%BB(gqid,sid)**2.0) ! unit (T^2)
+         ! write(stdout,"(3(A,ES16.8))") "n0(sid)=",n0,", B=",SG%BB(gqid,sid), ", Polar(sid)=", 1e-3*(n0*amasse + n0*amassi)*invBsq
+        
+         skew_B_cntv(1) = SG%B0_cntv3_sqf(1,gqid,sid) ! Bs_skew = Bs
+         skew_B_cntv(2) = SG%B0_cntv3_sqf(2,gqid,sid) - SG%B0_cntv3_sqf(3,gqid,sid)/SG%skew_q_1D(sid) ! Bgq_skew = B_gq_cntv - (1/q)*B_gf_cntv
+         skew_B_cntv(3) = SG%B0_cntv3_sqf(3,gqid,sid) ! Bgf_skew = Bgf
+         do j=1,3
+            do i=1,3
+               tmp=invBsq*(msm0*ne_tot(gqid,sid) + msm0_i*ni_tot(gqid,sid))
+               Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(skew_B_cntv(i)*skew_B_cntv(j)))
+            enddo
+         enddo
+      enddo
+   enddo
+   Polar_T(:,:,SG%dim_gq,:)=Polar_T(:,:,1,:)
+   Polar_T(:,:,0,:)        =Polar_T(:,:,SG%dim_gq-1,:)
+   Polar_T(:,:,:,0)        =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   Polar_T(:,:,:,SG%dim_a+1)  =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+
+   if(Flag_WhichTerm==0) then
+      ! Construct Epsilon Tensor ( eps=eps_0*Metric_T + Sigma_over_s(ns*ms/B^2 * (Metric_T - B^i*B^j/B^2)) )
+      ! In normalized GK Poisson equation (GTS unit), eps_0 term becomes (norm_eps_0 = (1/(w0*t0)^2) )
+      Eps_T(:,:,:,:,0)=(1.0/(plasma_freq_00*utime)**2.0)*Metric_T+Polar_T
+   elseif(Flag_WhichTerm==1) then
+      ! Eps=eps_0*Metric_T
+      Eps_T(:,:,:,:,0)=(1.0/(plasma_freq_00*utime)**2.0)*Metric_T
+   elseif(Flag_WhichTerm==2) then
+      ! Eps=Polar_T
+      Eps_T(:,:,:,:,0)=Polar_T
+   else
+      write(stdout,*) "Error!! Flag_WhichTerm=", Flag_WhichTerm
+      call flush(stdout)
+      stop
+   endif
+
+   ! Communicate Eps_T with neighboring left and right planes.
+   ! So, Eps_T(:,:,:,:,tid) ==>  tid=-1(left plane), tid=0(my plane), tid=1(right plane)
+   ! Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1)
+   icount=3*3*(SG%dim_gq+1)*(SG%dim_a+2)
+   call MPI_SENDRECV(Eps_T(:,:,:,:,0),icount,mpi_Rsize,left_pe,0,Eps_T(:,:,:,:,1),icount,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierror)
+   call MPI_SENDRECV(Eps_T(:,:,:,:,0),icount,mpi_Rsize,right_pe,0,Eps_T(:,:,:,:,-1),icount,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierror)
+
+   inv_du(1) = SG%inv_ds
+   inv_du(2) = SG%inv_dgq
+   inv_du(3) = 1.0/(SG%zetamax-SG%zetamin)
+
+   ! Determine Coefficient Tensor (CT = J*Eps_T(i,j)/(du^i*du^j))
+   do sid=1,SG%dim_a
+      do gqid=1,SG%dim_gq
+         do j=1,3
+            do i=1,3
+               CT(i,j,gqid,sid,:) = SG%Jacob_sqf(gqid,sid)*Eps_T(i,j,gqid,sid,:)*inv_du(i)*inv_du(j)
+            enddo
+         enddo
+      enddo
+   enddo
+   CT(:,:,SG%dim_gq,:,:)  =CT(:,:,1,:,:)
+   CT(:,:,0,:,:)          =CT(:,:,SG%dim_gq-1,:,:)
+   CT(:,:,:,0,:)          =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   CT(:,:,:,SG%dim_a+1,:) =-100 ! Assign Negative initial values which will be ignored in MatSetValues
+
+end subroutine Determine_GK_PoissonTensors_on_locally_Skewed_Structured_Grid
+
+
 subroutine Add_Adiabatic_Term_to_GK_Poisson_LHS
 
    use precision
