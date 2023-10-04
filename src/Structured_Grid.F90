@@ -17,6 +17,11 @@ module Structured_Grid
       real(wp),allocatable,dimension(:,:) :: Cell_dV,inv_Cell_dV ! Cell Volume and its inverse
       real(wp),allocatable,dimension(:,:) :: Cell_dS_s,inv_Cell_dS_s,Cell_dS_gq,inv_Cell_dS_gq,Cell_dS_gf,inv_Cell_dS_gf ! Node_Surface in each direction
 
+      ! safety factor of locally skewed structured coordinate between nearby poloidal planes
+      ! This skew_q_1D will be used in particle shape function and field solvers.
+      ! Default: same as SG%safety_q; can be set differently depending on choice
+      real(wp),allocatable,dimension(:) :: skew_q_1D 
+
       ! Magnetic Field Information (ESI variables)
       real(wp),allocatable,dimension(:,:) :: F,dFda,dgFda,dgYda,R,dRda,dRdgq,Z,dZda,dZdgq,BB,dBBda,dBBdgq,P,T
       real(wp),allocatable,dimension(:,:) :: Jacobian,esi_N,esi_K,g_aa_cov,g_aq_cov,g_qq_cov,g_ff_cov
@@ -78,8 +83,10 @@ module Structured_Grid
    real(wp) SG_zetamin, SG_zetamax, SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds
    integer :: SG_dim_s, SG_dim_gq
    real(wp), allocatable ::  SG_s_1D(:), SG_gq_1D(:), SG_safety_q_1D(:), SG_phi(:,:,:), SG_phi_3D(:,:,:)
+   real(wp), allocatable :: SG_skew_q_1D(:)
    !$acc declare create(SG_zetamin,SG_zetamax,SG_inv_dgf,SG_inv_dgq,SG_dgf,SG_inv_ds,SG_dim_s,SG_dim_gq)
    !$acc declare create(SG_s_1D,SG_gq_1D,SG_safety_q_1D,SG_phi,SG_phi_3D)
+   !$acc declare create(SG_skew_q_1D)
 
 contains
 
@@ -120,6 +127,7 @@ contains
 
       allocate(SG%gq_1D(Nq))
       allocate(SG%a_1D(Ns),SG%ori_sid(Ns),SG%s_1D(Ns),SG%n0_1D(Ns),SG%Te0_1D(Ns),SG%Te0_eV_1D(Ns),SG%Ti0_1D(Ns),SG%Ti0_eV_1D(Ns),SG%dsda_1D(Ns),SG%safety_q_1D(Ns))
+      allocate(SG%skew_q_1D(Ns))
       allocate(SG%a_2D(Nq,Ns),SG%dsda_2D(Nq,Ns),SG%gq_2D(Nq,Ns),SG%Cell_dV(Nq,Ns),SG%inv_Cell_dV(Nq,Ns))
       allocate(SG%Cell_dS_s(Nq,Ns),SG%inv_Cell_dS_s(Nq,Ns),SG%Cell_dS_gq(Nq,Ns),SG%inv_Cell_dS_gq(Nq,Ns),SG%Cell_dS_gf(Nq,Ns),SG%inv_Cell_dS_gf(Nq,Ns))
 
@@ -134,6 +142,7 @@ contains
          SG%Te0_eV_1D(k)=1e3*Tem_00*Te_grid(i)
          SG%Ti0_1D(k)=vth_grid(i)**2.0
          SG%safety_q_1D(k)=q_grid(i)
+         SG%skew_q_1D(k)=q_grid(i)
          k=k+1
       enddo
       SG%Ti0_eV_1D=1e3*Tem_00*SG%Ti0_1D
@@ -340,13 +349,15 @@ contains
       SG%E_para=0.0
 
       allocate(SG_s_1D(Ns), SG_gq_1D(Nq), SG_safety_q_1D(Ns))
+      allocate(SG_skew_q_1D(Ns))
       allocate(SG_phi(Nq,Ns,0:2)) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
       allocate(SG_phi_3D(Nq,Ns,mzetamax))
 
       SG_s_1D  = SG%s_1D
       SG_gq_1D = SG%gq_1D
       SG_safety_q_1D = SG%safety_q_1D
-      !$acc update device(SG_s_1D,SG_gq_1D,SG_safety_q_1D)
+      SG_skew_q_1D = SG%skew_q_1D
+      !$acc update device(SG_s_1D,SG_gq_1D,SG_safety_q_1D,SG_skew_q_1D)
 
       SG_phi=0.0
       SG_phi_3D=0.0
