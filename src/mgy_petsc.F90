@@ -1651,6 +1651,274 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 end subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
 
+subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+
+   use Structured_Grid
+   use particle_decomp
+   use global_parameters
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   real tt0, tt1
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   real, external:: dsda
+   integer :: dim_gq, dim_a
+   real(wp), external :: Te0_eV, Ti0_eV, density
+   real(wp) tmp
+   real(wp) skewCT(3,3,-1:1,-1:1,-1:1), skewA(-1:1,-1:1,-1:1)
+   integer :: skL_gqid(-1:2,-1:1,-1:1) ! gqid of skewed lattice  (qq-1:qq+2,ss-1:ss+1,ff-1:ff+1)
+   real(wp) :: skL_gq0(-1:1,-1:1), skL_ratio0(-1:1,-1:1) ! reference gq (theta) and ratio at (ss-1:ss+1,ff-1:ff+1)
+   integer :: i,j,k
+   integer :: kq,ks,kf 
+   integer :: nid
+   real(wp) :: ND_term ! non-diagnoal term
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+
+   ! call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
+   ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
+   ! Note that there are ghost cells for easier indexing
+   allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   call Determine_GK_PoissonTensors_on_Structured_Grid(0)
+
+   max_nnz=25 ! maximum number of non-zero values per each row
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   tarVal=0.0
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      skL_gq0(-1:1,0) = SG%gq_1D(qq)
+      skL_gq0(-1:1,+1) = modulo(SG%gq_1D(qq) + SG%dgf/(SG%skew_q_1D(ss-1:ss+1)), 2.0*pi) 
+      skL_gq0(-1:1,-1) = modulo(SG%gq_1D(qq) - SG%dgf/(SG%skew_q_1D(ss-1:ss+1)), 2.0*pi) 
+     
+      do kq=-1,2
+         skL_gqid(kq,:,:) = kq + floor(skL_gq0*SG%inv_dgq)+1 
+      enddo
+      skL_gqid = modulo(skL_gqid-1, SG%dim_gq)+1 ! normalize
+
+      do ks=-1,1
+         do kf=-1,1
+            skL_ratio0(ks,kf) = (skL_gq0(ks,kf) - SG%gq_1D(skL_gqid(0,ks,kf)))*SG%inv_dgq
+         enddo
+      enddo
+
+      ! Interpolate skewCT from global regular CT
+      do kf=-1,1
+         do ks=-1,1
+            skewCT(:,:,:,ks,kf) = (1.0-skL_ratio0(ks,kf))*CT(:,:,skL_gqid(-1:1,ks,kf),ss+ks,kf) + skL_ratio0(ks,kf)*CT(:,:,skL_gqid(0:2,ks,kf),ss+ks,kf)
+         enddo
+      enddo
+
+
+
+      ! Determine coefficients for local_A (on locally skewed coordinate)
+      skewA = 0.0 ! initialize first
+      ! Nodes on Faces of lattice of locally skewed coordinate
+      ! (qq,ss,ff) = (+1,0,0) and (-1,0,0)
+      ND_term = 0.125*(skewCT(1,2,0,+1,0)-skewCT(1,2,0,-1,0)+skewCT(3,2,0,0,+1)-skewCT(3,2,0,0,-1))
+      skewA(+1,0,0) = 0.5*(skewCT(2,2,+1,0,0)+skewCT(2,2,0,0,0)) +ND_term
+      skewA(-1,0,0) = 0.5*(skewCT(2,2,-1,0,0)+skewCT(2,2,0,0,0)) -ND_term
+      ! (qq,ss,ff) = (0,+1,0) and (0,-1,0)
+      ND_term = 0.125*(skewCT(2,1,+1,0,0)-skewCT(2,1,-1,0,0)+skewCT(3,1,0,0,+1)-skewCT(3,1,0,0,-1))
+      skewA(0,+1,0) = 0.5*(skewCT(1,1,0,+1,0)+skewCT(1,1,0,0,0)) +ND_term
+      skewA(0,-1,0) = 0.5*(skewCT(1,1,0,-1,0)+skewCT(1,1,0,0,0)) -ND_term 
+      ! (qq,ss,ff) = (0,,0,+1) and (0,0,-1)
+      ND_term = 0.125*(skewCT(1,3,0,+1,0)-skewCT(1,3,0,-1,0)+skewCT(2,3,+1,0,0)-skewCT(2,3,-1,0,0))
+      skewA(0,0,+1) = 0.5*(skewCT(3,3,0,0,+1)+skewCT(3,3,0,0,0)) +ND_term
+      skewA(0,0,-1) = 0.5*(skewCT(3,3,0,0,-1)+skewCT(3,3,0,0,0)) -ND_term
+
+      ! Nodes on Edges of lattice of locally skewed coordinate
+      ! (qq,ss,ff) = (+1,+1,0) and (-1,-1,0)
+      skewA(+1,+1,0) = 0.125*(skewCT(1,2,0,0,0)+skewCT(1,2,0,+1,0)+skewCT(2,1,0,0,0)+skewCT(2,1,+1,0,0))
+      skewA(-1,-1,0) = 0.125*(skewCT(1,2,0,0,0)+skewCT(1,2,0,-1,0)+skewCT(2,1,0,0,0)+skewCT(2,1,-1,0,0))
+      ! (qq,ss,ff) = (+1,0,+1) and (-1,0,-1)
+      skewA(+1,0,+1) = 0.125*(skewCT(2,3,0,0,0)+skewCT(2,3,+1,0,0)+skewCT(3,2,0,0,0)+skewCT(3,2,0,0,+1))
+      skewA(-1,0,-1) = 0.125*(skewCT(2,3,0,0,0)+skewCT(2,3,-1,0,0)+skewCT(3,2,0,0,0)+skewCT(3,2,0,0,-1))
+      ! (qq,ss,ff) = (0,+1,+1) and (0,-1,-1)
+      skewA(0,+1,+1) = 0.125*(skewCT(1,3,0,0,0)+skewCT(1,3,0,+1,0)+skewCT(3,1,0,0,0)+skewCT(3,1,0,0,+1))
+      skewA(0,-1,-1) = 0.125*(skewCT(1,3,0,0,0)+skewCT(1,3,0,-1,0)+skewCT(3,1,0,0,0)+skewCT(3,1,0,0,-1))
+
+      ! (qq,ss,ff) = (+1,-1,0) and (-1,+1,0)
+      skewA(+1,-1,0) = -0.125*(skewCT(1,2,0,0,0)+skewCT(1,2,0,+1,0)+skewCT(2,1,0,0,0)+skewCT(2,1,-1,0,0))
+      skewA(-1,+1,0) = -0.125*(skewCT(1,2,0,0,0)+skewCT(1,2,0,-1,0)+skewCT(2,1,0,0,0)+skewCT(2,1,+1,0,0))
+      ! (qq,ss,ff) = (+1,0,-1) and (-1,0,+1)
+      skewA(+1,0,-1) = -0.125*(skewCT(2,3,0,0,0)+skewCT(2,3,+1,0,0)+skewCT(3,2,0,0,0)+skewCT(3,2,0,0,-1))
+      skewA(-1,0,+1) = -0.125*(skewCT(2,3,0,0,0)+skewCT(2,3,-1,0,0)+skewCT(3,2,0,0,0)+skewCT(3,2,0,0,+1))
+      ! (qq,ss,ff) = (0,+1,-1) and (0,-1,+1)
+      skewA(0,+1,-1) = -0.125*(skewCT(1,3,0,0,0)+skewCT(1,3,0,+1,0)+skewCT(3,1,0,0,0)+skewCT(3,1,0,0,-1))
+      skewA(0,-1,+1) = -0.125*(skewCT(1,3,0,0,0)+skewCT(1,3,0,-1,0)+skewCT(3,1,0,0,0)+skewCT(3,1,0,0,+1))
+
+      ! At center node
+      ! (qq,ss,ff) = (0,0,0)
+      skewA(0,0,0) = -(sum(skewA)-skewA(0,0,0)) 
+
+      ! divide by Jacobian and multiply -1 to represent -nabla*(eps_T)*nabla operator
+      skewA = -skewA/SG%Jacob_sqf(qq,ss)
+
+      ! Distribute skewA to target nodes on the regular structured grid
+      ! First, assign skewA(:,:,0) to corresponding nodes (! skewA eqauls to tarVal at the current plane)
+      nid=1 ! node id
+      do kq=-1,1
+         do ks=-1,1
+            tarGid(nid,Lid) = mapP2G(qq+kq,ss+ks,ff)
+            tarVal(nid,Lid) = skewA(kq,ks,0)
+            nid=nid+1
+         enddo
+      enddo
+
+      ! gqid=skL_gqid(-1:2,0,[-1,+1]) & sid=ss & gfid=[ff-1, ff+1]
+      ks=0; 
+      do kf=-1,1,2
+         tarGid(nid,Lid) = mapP2G(skL_gqid(-1,ks,kf), ss+ks, ff+kf)
+         tarVal(nid,Lid) = (1.0-skL_ratio0(ks,kf))*skewA(-1,ks,kf)
+         nid=nid+1
+
+         tarGid(nid:nid+1,Lid) = mapP2G(skL_gqid(0:1,ks,kf), ss+ks, ff+kf)
+         tarVal(nid:nid+1,Lid) = skL_ratio0(ks,kf)*skewA(-1:0,ks,kf) + (1.0-skL_ratio0(ks,kf))*skewA(0:1,ks,kf)
+         nid=nid+2
+
+         tarGid(nid,Lid) = mapP2G(skL_gqid(2,ks,kf),ss+ks,ff+kf)
+         tarVal(nid,Lid) = skL_ratio0(ks,kf)*skewA(1,ks,kf)
+         nid=nid+1
+      enddo
+
+      ! gqid=gqid_p([0,1],[-1,+1],[-1,+1]) & sid=[ss-1,ss+1] & gfid=[ff-1, ff+1]
+      do kf=-1,1,2
+         do ks=-1,1,2
+            tarGid(nid,Lid) = mapP2G(skL_gqid(0,ks,kf), ss+ks, ff+kf)
+            tarVal(nid,Lid) = (1.0-skL_ratio0(ks,kf))*skewA(0,ks,kf)
+            nid=nid+1
+
+            tarGid(nid,Lid) = mapP2G(skL_gqid(1,ks,kf), ss+ks, ff+kf)
+            tarVal(nid,Lid) = skL_ratio0(ks,kf)*skewA(0,ks,kf)
+            nid=nid+1
+         enddo
+      enddo
+
+      if(nid /= max_nnz +1) then
+         write(stdout,*) ""
+         write(stdout,*) "Error in Construct_GK_Poisson3D_Solver_with_Skewed_Derivative !!"
+         write(stdout,'(A,I0,A,I0)') "number of tarVal nodes ", nid-1," is not equal to max_nnz=",max_nnz
+         write(stdout,*) ""
+         call flush(stdout)
+         stop 
+      endif
+   enddo
+
+   ! #TODO: Adiabatic terms and BC may need to be modified according to the locally skewed coordinate
+   call Add_Adiabatic_Term_to_GK_Poisson_LHS
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs ! Apply Boundary Condition to Amt Coeffs
+
+
+   ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
+   d_nnz=0; o_nnz=0;
+   do Lid=1,Lsize
+      do tnum=1,max_nnz
+         if(tarGid(tnum,Lid)>=0) then
+            if(tarGid(tnum,Lid)<Gid_start .or. tarGid(tnum,Lid)>Gid_end) then
+               o_nnz(Lid)=o_nnz(Lid)+1
+            else
+               d_nnz(Lid)=d_nnz(Lid)+1
+            endif
+         endif
+      enddo
+   enddo
+
+
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
+   ! Preallocate the memory using o_nnz and d_nnz
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "PMat Assembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+
+
+   if(Flag_Def_dne_adiab==2) then
+
+      ! Set PMat value as the first term
+      call MatDuplicate(PMat,MAT_COPY_VALUES,Jmat,ierr); CHKERRQ(ierr)
+
+      ! Add another term from the nonlinear adiabatic response
+      do Lid=1,Lsize
+         Gid=mapL2G(Lid)
+         qq = mapG2P(Gid)%gqid
+         ss = mapG2P(Gid)%aid
+         tmp = (csc0*csc0*SG%n0_1D(ss)/SG%Te0_1D(ss)) * exp(abs(csc0)*SG%phi(qq,ss,1)/SG%Te0_1D(ss))
+         call MatSetValues(Jmat,1,Gid,1,Gid,tmp,ADD_VALUES,ierr); CHKERRQ(ierr)
+      enddo
+
+      ! Assembly Jacobian Matrix
+      tt0=MPI_WTIME()
+      call MatAssemblyBegin(Jmat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+      call MatAssemblyEnd(Jmat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "JMat Assembly takes ",tt1-tt0," secs"
+      call flush(stdout)
+
+      !pre_Jmat
+      call MatDuplicate(Jmat,MAT_COPY_VALUES,pre_Jmat,ierr); CHKERRQ(ierr)
+
+      ! call MatView(Jmat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+      call VecDuplicate(bVec,srcVec,ierr); CHKERRQ(ierr)
+      call VecDuplicate(bVec,yVec,ierr); CHKERRQ(ierr)
+   endif
+
+
+   if(Flag_Def_dne_adiab==2) then
+      ! Construct KSP
+      tt0=MPI_WTIME()
+      call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+      ! call KSPSetOperators(ksp_P,Jmat,Jmat,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp_P,Jmat,pre_Jmat,ierr); CHKERRQ(ierr)
+      ! call KSPSetTolerances(ksp_P,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+      call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+      call flush(stdout)
+   else
+      ! Construct KSP
+      tt0=MPI_WTIME()
+      call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+      call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+      ! call KSPSetTolerances(ksp_P,PETSC_DEFAULT_REAL,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+      call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
+      tt1=MPI_WTIME()
+      if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+      call flush(stdout)
+
+   endif
+
+end subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+
 subroutine Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method(In_Flag_WhichLHS)
 
    use Structured_Grid
