@@ -1197,7 +1197,7 @@ contains
    end subroutine BiCubic_Interpolation_of_2D_Scalar_and_gradient
 
 
-   subroutine TriCubic_Interpolation_of_Scalar(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca)
+   pure subroutine TriCubic_Interpolation_of_Scalar(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca)
       ! !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq,in_gf
@@ -1255,7 +1255,7 @@ contains
 
    end subroutine TriCubic_Interpolation_of_Scalar
 
-   subroutine TriCubic_Interpolation_of_Scalar_and_gradient(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca, out_gradSca)
+   pure subroutine TriCubic_Interpolation_of_Scalar_and_gradient(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca, out_gradSca)
       ! !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq,in_gf
@@ -1328,7 +1328,7 @@ contains
    end subroutine TriCubic_Interpolation_of_Scalar_and_gradient
 
 
-   subroutine TriCubic_Interpolation_of_Vec(in_a,in_gq,in_gf, in_Vec, in_gradVec, in_d23Vec, out_Vec)
+   pure subroutine TriCubic_Interpolation_of_Vec(in_a,in_gq,in_gf, in_Vec, in_gradVec, in_d23Vec, out_Vec)
       !$acc routine seq
       implicit none
       real(wp),intent(in) :: in_a,in_gq,in_gf
@@ -1387,7 +1387,7 @@ contains
    end subroutine TriCubic_Interpolation_of_Vec
 
 
-   subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion(in_a,in_gq,in_gf,P_R,P_grad_R,P_Z,P_grad_Z,P_BB,P_grad_BB,P_B_cov,P_B_cntv,P_j_cntv)
+   pure subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion(in_a,in_gq,in_gf,P_R,P_grad_R,P_Z,P_grad_Z,P_BB,P_grad_BB,P_B_cov,P_B_cntv,P_j_cntv)
       ! !$acc routine seq
       implicit none
       ! real(wp),intent(in) :: in_a,in_gq,in_gf
@@ -1407,9 +1407,9 @@ contains
       real(wp) F(0:1,0:1),d12F(3,0:1,0:1) ! Values at corners (2D in a,q)
       real(wp) F_Ha(0:1),dFa_Ha(0:1),dFq_Ha(0:1),dFaq_Ha(0:1) ! Values at Half a (1D in q)
 
-      real(wp) in_a,in_gq,in_gf
-      real(wp) P_R,P_grad_R(2),P_Z,P_grad_Z(2)
-      real(wp) P_BB, P_grad_BB(3), P_B_cntv(3), P_B_cov(3), P_j_cntv(3)
+      real(wp), intent(in) :: in_a,in_gq,in_gf
+      real(wp), intent(out) :: P_R,P_grad_R(2),P_Z,P_grad_Z(2)
+      real(wp), intent(out) :: P_BB, P_grad_BB(3), P_B_cntv(3), P_B_cov(3), P_j_cntv(3)
 
 
 
@@ -1540,7 +1540,7 @@ contains
 
 
 
-   subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion_at_zeon(P_R,P_grad_R,P_Z,P_grad_Z,P_BB,P_grad_BB,P_B_cov,P_B_cntv,P_j_cntv)
+   pure subroutine Cubic_Interpolation_of_VariousStuff_for_GCmotion_at_zeon(P_R,P_grad_R,P_Z,P_grad_Z,P_BB,P_grad_BB,P_B_cov,P_B_cntv,P_j_cntv)
       use global_parameters,only:me
       use particle_array
       implicit none
@@ -1561,26 +1561,26 @@ contains
       real(wp) F(0:1,0:1),d12F(3,0:1,0:1) ! Values at corners (2D in a,q)
       real(wp) F_Ha(0:1),dFa_Ha(0:1),dFq_Ha(0:1),dFaq_Ha(0:1) ! Values at Half a (1D in q)
 
-      real(wp) in_a,in_gq,in_gf
-      real(wp) P_R(me),P_grad_R(2,me),P_Z(me),P_grad_Z(2,me)
-      real(wp) P_BB(me), P_grad_BB(3,me), P_B_cntv(3,me), P_B_cov(3,me), P_j_cntv(3,me)
+      real(wp) :: P_a, P_gq, P_gf
+      real(wp), intent(out) :: P_R(me),P_grad_R(2,me),P_Z(me),P_grad_Z(2,me)
+      real(wp), intent(out) :: P_BB(me), P_grad_BB(3,me), P_B_cntv(3,me), P_B_cov(3,me), P_j_cntv(3,me)
 
       integer m
 
       !$acc parallel loop gang vector present(zeon)
       do m=1,me
 
-         in_a = zeon(1,m)
-         in_gq = zeon(2,m)
-         in_gf = zeon(3,m)
+         P_a = zeon(1,m)
+         P_gq = zeon(2,m)
+         P_gf = zeon(3,m)
 
-         aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
-         qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
-         fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+         aid = max(1,min(dim_a-1, floor((P_a-a_1D(1))*inv_da +1)))
+         qid = max(1,min(dim_gq-1, floor((P_gq-gq_1D(1))*inv_dgq +1)))
+         fid = max(1,min(dim_gf-1, floor((P_gf-gf_1D(1))*inv_dgf +1)))
 
-         at = (in_a-a_1D(aid))*inv_da
-         qt = (in_gq-gq_1D(qid))*inv_dgq
-         ft = (in_gf-gf_1D(fid))*inv_dgf
+         at = (P_a-a_1D(aid))*inv_da
+         qt = (P_gq-gq_1D(qid))*inv_dgq
+         ft = (P_gf-gf_1D(fid))*inv_dgf
 
 
          tt = [at,qt,ft]
