@@ -43,8 +43,7 @@ module Magnetic_Grid
    real(wp),allocatable,dimension(:,:,:) :: Jacobian_3D
 
    real(wp),allocatable,dimension(:,:,:) :: g_aa_cov,g_aq_cov,g_qq_cov,g_ff_cov
-
-
+   real(wp),allocatable,dimension(:,:,:) :: g_ss_cntv,g_sq_cntv,g_qq_cntv, g_ff_cntv, Jacob_sqf
 
    ! Equilibrium B fields
    real(wp),allocatable,dimension(:,:,:) :: BB0 ! magnetic of B fields
@@ -348,6 +347,11 @@ contains
       call h5ltmake_dataset_f(file_id, "g_qq_cov_2D",2,h5dims,H5T_NATIVE_DOUBLE, g_qq_cov(:,:,1), h5err)
       call h5ltmake_dataset_f(file_id, "g_ff_cov_2D",2,h5dims,H5T_NATIVE_DOUBLE, g_ff_cov(:,:,1), h5err)
 
+      call h5ltmake_dataset_f(file_id, "g_ss_cntv_2D",2,h5dims,H5T_NATIVE_DOUBLE, g_ss_cntv(:,:,1), h5err)
+      call h5ltmake_dataset_f(file_id, "g_sq_cntv_2D",2,h5dims,H5T_NATIVE_DOUBLE, g_sq_cntv(:,:,1), h5err)
+      call h5ltmake_dataset_f(file_id, "g_qq_cntv_2D",2,h5dims,H5T_NATIVE_DOUBLE, g_qq_cntv(:,:,1), h5err)
+      call h5ltmake_dataset_f(file_id, "g_ff_cntv_2D",2,h5dims,H5T_NATIVE_DOUBLE, g_ff_cntv(:,:,1), h5err)
+      call h5ltmake_dataset_f(file_id, "Jacobian_sqf_2D",2,h5dims,H5T_NATIVE_DOUBLE, Jacob_sqf(:,:,1), h5err)
 
       h5dims(1:3)=[3,dim_gq,dim_a]
       call h5ltmake_dataset_f(file_id, "d12_R_2D",3,h5dims,H5T_NATIVE_DOUBLE, d12_R_2D, h5err)
@@ -478,6 +482,7 @@ contains
       allocate(d12_R_2D(3,Nq,Na),d12_Z_2D(3,Nq,Na)) ! dRda, dRdgq, d2Rdagq
       allocate(Jacobian_3D(Nq,Na,Nf))
       allocate(g_aa_cov(Nq,Na,Nf),g_aq_cov(Nq,Na,Nf),g_qq_cov(Nq,Na,Nf),g_ff_cov(Nq,Na,Nf))
+      allocate(g_ss_cntv(Nq,Na,Nf),g_sq_cntv(Nq,Na,Nf),g_qq_cntv(Nq,Na,Nf),g_ff_cntv(Nq,Na,Nf), Jacob_sqf(Nq,Na,Nf))
 
       ! Equilibrium B fields
       allocate(BB0(Nq,Na,Nf),grad_BB0(3,Nq,Na,Nf), d23_BB0(4,Nq,Na,Nf))
@@ -666,6 +671,8 @@ contains
       real(wp) R,dRda,dRdq,d2Rdadq,Z,dZda,dZdq,d2Zdadq
       real(wp) f1D(0:1), dfa1D(0:1), f2D(0:1,0:1), dfa2D(0:1,0:1), dfq2D(0:1,0:1), dfaq2D(0:1,0:1)
       real(wp) f_Ha(0:1), dfa_Ha(0:1), dfq_Ha(0:1), dfaq_Ha(0:1) ! values at Half a
+      real(wp), external :: dsda
+      real(wp) tmp, DD
 
 
       esi_da =esi%a_1D(2)-esi%a_1D(1)
@@ -783,6 +790,15 @@ contains
             g_aq_cov(gqid,aid,:) = dRda*dRdq+dZda*dZdq
             g_qq_cov(gqid,aid,:) = dRdq**2+dZdq**2
             g_ff_cov(gqid,aid,:) = R*R
+
+            DD=dZda*dRdq-dZdq*dRda
+
+            tmp=dsda(a)
+            g_ss_cntv(gqid,aid,:)=((dRdq**2+dZdq**2)/DD**2)*(tmp**2.0)
+            g_sq_cntv(gqid,aid,:)=((-dRda*dRdq-dZda*dZdq)/DD**2)*tmp       
+            g_qq_cntv(gqid,aid,:)=(dZda**2+dRda**2)/DD**2   
+            g_ff_cntv(gqid,aid,:)=1.0/R**2               
+            Jacob_sqf(gqid,aid,:) = Jacob/tmp
 
             j0_cov(1,gqid,aid,:) = g_aq_cov(gqid,aid,:)*j0_cntv(2,gqid,aid,:)
             j0_cov(2,gqid,aid,:) = g_qq_cov(gqid,aid,:)*j0_cntv(2,gqid,aid,:)
