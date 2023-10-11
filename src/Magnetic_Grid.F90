@@ -1196,6 +1196,32 @@ contains
 
    end subroutine BiCubic_Interpolation_of_2D_Scalar_and_gradient
 
+   pure subroutine TriLinear_Interpolation_of_Scalar(in_a,in_gq,in_gf, in_Sca, out_Sca)
+      ! !$acc routine seq
+      implicit none
+      real(wp),intent(in) :: in_a,in_gq,in_gf
+      real(wp),intent(in) :: in_Sca(dim_gq,dim_a,dim_gf)
+      real(wp),intent(out) :: out_Sca
+      integer aid,qid,fid
+      real(wp) at,qt,ft
+      real(wp) F(0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
+      real(wp) F_Ha(0:1,0:1) ! Values at Half a (2D in q,f)
+      real(wp) F_Haq(0:1) ! Values at Half a & Half q (1D in f)
+
+      aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
+      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
+      fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+
+      at = (in_a-a_1D(aid))*inv_da
+      qt = (in_gq-gq_1D(qid))*inv_dgq
+      ft = (in_gf-gf_1D(fid))*inv_dgf
+
+      F  = in_Sca(qid:qid+1,aid:aid+1,fid:fid+1)
+      F_Ha = (1.0-at)*F(:,0,:) + at*F(:,1,:)
+      F_Haq = (1.0-qt)*F_Ha(0,:) + qt*F_Ha(1,:)
+      out_Sca = (1.0-ft)*F_Haq(0) + ft*F_Haq(1)
+   end subroutine TriLinear_Interpolation_of_Scalar
+
 
    pure subroutine TriCubic_Interpolation_of_Scalar(in_a,in_gq,in_gf, in_Sca, in_gradSca, in_d23Sca, out_Sca)
       ! !$acc routine seq
