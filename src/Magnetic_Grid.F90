@@ -1219,18 +1219,24 @@ contains
       real(wp),intent(in) :: in_Sca(dim_gq,dim_a,dim_gf)
       real(wp),intent(out) :: out_Sca
       integer aid,qid,fid
+      real(wp) norm_gq,norm_gf
       real(wp) at,qt,ft
       real(wp) F(0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
       real(wp) F_Ha(0:1,0:1) ! Values at Half a (2D in q,f)
       real(wp) F_Haq(0:1) ! Values at Half a & Half q (1D in f)
+      real(wp) pi
+
+      pi=4.0_wp*atan(1.0_wp)
+      norm_gq=modulo(in_gq,2.0*pi)
+      norm_gf=modulo(in_gf,2.0*pi)
 
       aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
-      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
-      fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+      qid = max(1,min(dim_gq-1, floor((norm_gq-gq_1D(1))*inv_dgq +1)))
+      fid = max(1,min(dim_gf-1, floor((norm_gf-gf_1D(1))*inv_dgf +1)))
 
       at = (in_a-a_1D(aid))*inv_da
-      qt = (in_gq-gq_1D(qid))*inv_dgq
-      ft = (in_gf-gf_1D(fid))*inv_dgf
+      qt = (norm_gq-gq_1D(qid))*inv_dgq
+      ft = (norm_gf-gf_1D(fid))*inv_dgf
 
       F  = in_Sca(qid:qid+1,aid:aid+1,fid:fid+1)
       F_Ha = (1.0-at)*F(:,0,:) + at*F(:,1,:)
@@ -1249,20 +1255,25 @@ contains
       real(wp) h00(3),h10(3),h01(3),h11(3)
       ! real(wp) dh00(3),dh10(3),dh01(3),dh11(3)
       integer aid,qid,fid
+      real(wp) norm_gq, norm_gf
       real(wp) at,qt,ft,tt(3),du(3)
       real(wp) F(0:1,0:1,0:1),dF(3,0:1,0:1,0:1),d23F(4,0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
       real(wp) F_Ha(0:1,0:1), dFq_Ha(0:1,0:1), dFf_Ha(0:1,0:1), d2Fqf_Ha(0:1,0:1)  ! Values at Half a (2D in q,f)
       real(wp) F_Haq(0:1), dFf_Haq(0:1) ! Values at Half a & Half q (1D in f)
+      real(wp) pi
 
+      pi=4.0_wp*atan(1.0_wp)
+      norm_gq = modulo(in_gq,2.0*pi)
+      norm_gf = modulo(in_gf,2.0*pi)
 
       aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
-      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
-      fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+      qid = max(1,min(dim_gq-1, floor((norm_gq-gq_1D(1))*inv_dgq +1)))
+      fid = max(1,min(dim_gf-1, floor((norm_gf-gf_1D(1))*inv_dgf +1)))
 
 
       at = (in_a-a_1D(aid))*inv_da
-      qt = (in_gq-gq_1D(qid))*inv_dgq
-      ft = (in_gf-gf_1D(fid))*inv_dgf
+      qt = (norm_gq-gq_1D(qid))*inv_dgq
+      ft = (norm_gf-gf_1D(fid))*inv_dgf
 
 
       tt = [at,qt,ft]
@@ -1308,20 +1319,26 @@ contains
       real(wp) h00(3),h10(3),h01(3),h11(3)
       real(wp) dh00(3),dh10(3),dh01(3),dh11(3)
       integer aid,qid,fid
+      real(wp) norm_gq, norm_gf
       real(wp) at,qt,ft,tt(3),du(3)
       real(wp) F(0:1,0:1,0:1),dF(3,0:1,0:1,0:1),d23F(4,0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
       real(wp) F_Ha(0:1,0:1), dFa_Ha(0:1,0:1), dFq_Ha(0:1,0:1), dFf_Ha(0:1,0:1), d2Faq_Ha(0:1,0:1), d2Faf_Ha(0:1,0:1), d2Fqf_Ha(0:1,0:1), d3Faqf_Ha(0:1,0:1)  ! Values at Half a (2D in q,f)
       real(wp) F_Haq(0:1), dFa_Haq(0:1), dFq_Haq(0:1), dFf_Haq(0:1), d2Faf_Haq(0:1), d2Fqf_Haq(0:1) ! Values at Half a & Half q (1D in f)
+      real(wp) pi
 
+      pi=4.0_wp*atan(1.0_wp)
+      norm_gq = modulo(in_gq,2.0*pi)
+      norm_gf = modulo(in_gf,2.0*pi)
+      
 
       aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
-      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
-      fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+      qid = max(1,min(dim_gq-1, floor((norm_gq-gq_1D(1))*inv_dgq +1)))
+      fid = max(1,min(dim_gf-1, floor((norm_gf-gf_1D(1))*inv_dgf +1)))
 
 
       at = (in_a-a_1D(aid))*inv_da
-      qt = (in_gq-gq_1D(qid))*inv_dgq
-      ft = (in_gf-gf_1D(fid))*inv_dgf
+      qt = (norm_gq-gq_1D(qid))*inv_dgq
+      ft = (norm_gf-gf_1D(fid))*inv_dgf
 
 
       tt = [at,qt,ft]
@@ -1380,19 +1397,25 @@ contains
       real(wp) h00(3),h10(3),h01(3),h11(3)
       ! real(wp) dh00(3),dh10(3),dh01(3),dh11(3)
       integer aid,qid,fid
+      real(wp) norm_gq, norm_gf
       real(wp) at,qt,ft,tt(3),du(3)
       real(wp) F(3,0:1,0:1,0:1),dF(3,3,0:1,0:1,0:1),d23F(4,3,0:1,0:1,0:1) ! Values at corners (3D in a,q,f)
       real(wp) F_Ha(3,0:1,0:1), dFq_Ha(3,0:1,0:1), dFf_Ha(3,0:1,0:1), d2Fqf_Ha(3,0:1,0:1)  ! Values at Half a (2D in q,f)
       real(wp) F_Haq(3,0:1), dFf_Haq(3,0:1) ! Values at Half a & Half q (1D in f)
+      real(wp) pi
 
+      pi=4.0_wp*atan(1.0_wp)
+
+      norm_gq = modulo(in_gq,2.0*pi)
+      norm_gf = modulo(in_gf,2.0*pi)
 
       aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
-      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
-      fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+      qid = max(1,min(dim_gq-1, floor((norm_gq-gq_1D(1))*inv_dgq +1)))
+      fid = max(1,min(dim_gf-1, floor((norm_gf-gf_1D(1))*inv_dgf +1)))
 
       at = (in_a-a_1D(aid))*inv_da
-      qt = (in_gq-gq_1D(qid))*inv_dgq
-      ft = (in_gf-gf_1D(fid))*inv_dgf
+      qt = (norm_gq-gq_1D(qid))*inv_dgq
+      ft = (norm_gf-gf_1D(fid))*inv_dgf
 
 
       tt = [at,qt,ft]
@@ -1448,20 +1471,24 @@ contains
       real(wp) V_Haq(3,0:1), dVf_Haq(3,0:1) ! Values at Half a & Half q (1D in f)
       real(wp) F(0:1,0:1),d12F(3,0:1,0:1) ! Values at corners (2D in a,q)
       real(wp) F_Ha(0:1),dFa_Ha(0:1),dFq_Ha(0:1),dFaq_Ha(0:1) ! Values at Half a (1D in q)
+      real(wp) norm_gq, norm_gf
 
       real(wp), intent(in) :: in_a,in_gq,in_gf
       real(wp), intent(out) :: P_R,P_grad_R(2),P_Z,P_grad_Z(2)
       real(wp), intent(out) :: P_BB, P_grad_BB(3), P_B_cntv(3), P_B_cov(3), P_j_cntv(3)
+      real(wp) pi
 
-
+      pi=4.0_wp*atan(1.0_wp)
+      norm_gq = modulo(in_gq,2.0*pi)
+      norm_gf = modulo(in_gf,2.0*pi)
 
       aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
-      qid = max(1,min(dim_gq-1, floor((in_gq-gq_1D(1))*inv_dgq +1)))
-      fid = max(1,min(dim_gf-1, floor((in_gf-gf_1D(1))*inv_dgf +1)))
+      qid = max(1,min(dim_gq-1, floor((norm_gq-gq_1D(1))*inv_dgq +1)))
+      fid = max(1,min(dim_gf-1, floor((norm_gf-gf_1D(1))*inv_dgf +1)))
 
       at = (in_a-a_1D(aid))*inv_da
-      qt = (in_gq-gq_1D(qid))*inv_dgq
-      ft = (in_gf-gf_1D(fid))*inv_dgf
+      qt = (norm_gq-gq_1D(qid))*inv_dgq
+      ft = (norm_gf-gf_1D(fid))*inv_dgf
 
 
       tt = [at,qt,ft]
