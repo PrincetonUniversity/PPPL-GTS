@@ -56,6 +56,8 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:) :: test_phi_2D, test_src_2D, test_res_2D
       real(wp), allocatable, dimension(:,:,:) :: test_phi_3D, test_src_3D
 
+      real(wp), allocatable, dimension(:,:,:) :: test_data_3D
+
       real(wp), allocatable, dimension(:,:) :: RealCharge_2D, niPol_2D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
       real(wp), allocatable, dimension(:,:,:) :: RealCharge_3D, niPol_3D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
 
@@ -324,6 +326,7 @@ contains
 
       allocate(SG%test_phi_2D(Nq,Ns),SG%test_src_2D(Nq,Ns),SG%test_res_2D(Nq,Ns))
       allocate(SG%test_phi_3D(Nq,Ns,mzetamax),SG%test_src_3D(Nq,Ns,mzetamax))
+      allocate(SG%test_data_3D(Nq,Ns,mzetamax))
       allocate(SG%RealCharge_2D(Nq,Ns),SG%niPol_2D(Nq,Ns))
       allocate(SG%RealCharge_3D(Nq,Ns,mzetamax),SG%niPol_3D(Nq,Ns,mzetamax))
 

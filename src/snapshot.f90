@@ -1591,6 +1591,7 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "niPol_3D",3,h5dims,H5T_NATIVE_DOUBLE, uSI%n0*SG%niPol_3D,h5err)
 
 
+      call h5ltmake_dataset_f(gid_SG, "test_data_3D",3,h5dims,H5T_NATIVE_DOUBLE, SG%test_data_3D,h5err)
       ! h5dims(1:4)=(/3,SG%dim_gq,SG%dim_s,mzetamax/)
       ! allocate(intp_val_arr(3*SG%dim_gq*SG%dim_s*mzetamax))
       ! call MPI_ALLGATHER(SG%grad_phi_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,intp_val_arr,3*SG%dim_gq*SG%dim_s,mpi_Rsize,toroidal_comm,ierror)
