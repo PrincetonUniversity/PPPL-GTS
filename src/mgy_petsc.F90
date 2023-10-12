@@ -3404,5 +3404,19 @@ subroutine Solve_GK_Ampere_3D_on_SG()
 
 end subroutine Solve_GK_Ampere_3D_on_SG
 
+subroutine Destruct_some_arrays_of_Field_Solver
+   implicit none
+
+
+   if(allocated(tarGid)) deallocate(tarGid)
+   if(allocated(tarVal)) deallocate(tarVal)
+   if(allocated(o_nnz)) deallocate(o_nnz)
+   if(allocated(d_nnz)) deallocate(d_nnz)  
+   if(allocated(Polar_T)) deallocate(Polar_T)  
+   if(allocated(Eps_T)) deallocate(Eps_T) 
+   if(allocated(CT)) deallocate(CT) 
+
+end subroutine
+
 
 end module MGY_PETSc_Interface_Data
