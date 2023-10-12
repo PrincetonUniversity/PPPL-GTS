@@ -570,7 +570,7 @@ end subroutine Construct_SimplePoisson3D_Solver_using_Structured_Grid
 
 
 
-subroutine Solve_Poisson3D_on_SG()
+subroutine Solve_Poisson3D_on_SG(input_src_2D)
    use precision, only:wp
    ! use global_parameters, only:stdout,mype,ifelectron,mzetamax,mgrid
    use global_parameters
@@ -580,6 +580,7 @@ subroutine Solve_Poisson3D_on_SG()
    use particle_decomp
    implicit none
 
+   real(wp), intent(in), optional :: input_src_2D(SG%dim_gq, SG%dim_s)
    PetscScalar, pointer :: ptr_xVec(:), ptr_bVec(:), ptr_ResVec(:)
    PetscInt Lid,Gid,num_its, gqid,gfid,aid
    PetscInt ss,qq,ff
@@ -593,14 +594,25 @@ subroutine Solve_Poisson3D_on_SG()
    integer :: i,j,ij
 
 
-   ! Assign and Assemble bVec (source term)
-   do Lid=1,Lsize
-      Gid=mapL2G(Lid)
-      qq=mapG2P(Gid)%gqid
-      ss=mapG2P(Gid)%aid
-      val=csc0_i*SG%dni_SM(qq,ss)+csc0*SG%dne_SM(qq,ss)
-      call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
-   enddo
+   if(present(input_src_2D)) then
+      ! Assign and Assemble bVec (using dni_SM and dne_SM)
+      do Lid=1,Lsize
+         Gid=mapL2G(Lid)
+         qq=mapG2P(Gid)%gqid
+         ss=mapG2P(Gid)%aid
+         val=input_src_2D(qq,ss)
+         call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      enddo
+   else
+      ! Assign and Assemble bVec (using input_src_2D)
+      do Lid=1,Lsize
+         Gid=mapL2G(Lid)
+         qq=mapG2P(Gid)%gqid
+         ss=mapG2P(Gid)%aid
+         val=csc0_i*SG%dni_SM(qq,ss)+csc0*SG%dne_SM(qq,ss)
+         call VecSetValues(bVec,1,Gid,val,INSERT_VALUES,ierr); CHKERRQ(ierr)
+      enddo      
+   endif
 
    call Apply_BC_to_GK_Poisson_RHS_Coeffs
 
