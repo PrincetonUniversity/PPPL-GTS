@@ -204,6 +204,7 @@ subroutine Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,dim_gf)
 
 
    call Construct_Metric_Tensor_on_Structured_Grid
+   call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
    ! Create vectors (bVec, xVec, ResVec) for future use
    call VecCreate(PETSC_COMM_WORLD,bVec,ierr); CHKERRQ(ierr)
    call VecSetSizes(bVec,Lsize,Gsize,ierr); CHKERRQ(ierr)
@@ -1684,7 +1685,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
    if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   call Determine_GK_PoissonTensors_on_Structured_Grid(0)
+   ! call Determine_GK_PoissonTensors_on_Structured_Grid
+   call Determine_GK_PoissonTensors_on_locally_Skewed_Structured_Grid
 
    max_nnz=25 ! maximum number of non-zero values per each row
    if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
@@ -1705,10 +1707,15 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
       do kq=-1,2
          skL_gqid(kq,:,:) = kq + floor(skL_gq0*SG%inv_dgq)+1 
       enddo
-      skL_gqid = modulo(skL_gqid-1, SG%dim_gq)+1 ! normalize
+      skL_gqid = modulo(skL_gqid-1, SG%dim_gq-1)+1 ! normalize
+     
+      ! make sure skL_gqid(0,:,0) is equal to qq
+      do ks=-1,1
+         skL_gqid(:,ks,0) = modulo([qq-1,qq,qq+1,qq+2]-1, SG%dim_gq-1)+1
+      enddo
 
       do ks=-1,1
-         do kf=-1,1
+         do kf=-1,1,2
             skL_ratio0(ks,kf) = (skL_gq0(ks,kf) - SG%gq_1D(skL_gqid(0,ks,kf)))*SG%inv_dgq
          enddo
       enddo
@@ -1733,7 +1740,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
       ND_term = 0.125*(skewCT(2,1,+1,0,0)-skewCT(2,1,-1,0,0)+skewCT(3,1,0,0,+1)-skewCT(3,1,0,0,-1))
       skewA(0,+1,0) = 0.5*(skewCT(1,1,0,+1,0)+skewCT(1,1,0,0,0)) +ND_term
       skewA(0,-1,0) = 0.5*(skewCT(1,1,0,-1,0)+skewCT(1,1,0,0,0)) -ND_term 
-      ! (qq,ss,ff) = (0,,0,+1) and (0,0,-1)
+      ! (qq,ss,ff) = (0,0,+1) and (0,0,-1)
       ND_term = 0.125*(skewCT(1,3,0,+1,0)-skewCT(1,3,0,-1,0)+skewCT(2,3,+1,0,0)-skewCT(2,3,-1,0,0))
       skewA(0,0,+1) = 0.5*(skewCT(3,3,0,0,+1)+skewCT(3,3,0,0,0)) +ND_term
       skewA(0,0,-1) = 0.5*(skewCT(3,3,0,0,-1)+skewCT(3,3,0,0,0)) -ND_term
@@ -1793,7 +1800,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
          nid=nid+1
       enddo
 
-      ! gqid=gqid_p([0,1],[-1,+1],[-1,+1]) & sid=[ss-1,ss+1] & gfid=[ff-1, ff+1]
+      ! gqid=gqid_p([0,1]) & sid=[ss-1,ss+1] & gfid=[ff-1, ff+1]
       do kf=-1,1,2
          do ks=-1,1,2
             tarGid(nid,Lid) = mapP2G(skL_gqid(0,ks,kf), ss+ks, ff+kf)
@@ -2230,7 +2237,7 @@ subroutine Determine_GK_PoissonTensors_on_locally_Skewed_Structured_Grid(In_Flag
          do j=1,3
             do i=1,3
                tmp=invBsq*(msm0*ne_tot(gqid,sid) + msm0_i*ni_tot(gqid,sid))
-               Polar_T(i,j,gqid,sid)= tmp*(Metric_T(i,j,gqid,sid)- invBsq*(skew_B_cntv(i)*skew_B_cntv(j)))
+               Polar_T(i,j,gqid,sid)= tmp*(Metric_T_skewed(i,j,gqid,sid)- invBsq*(skew_B_cntv(i)*skew_B_cntv(j)))
             enddo
          enddo
       enddo
