@@ -66,7 +66,9 @@ FFT:=fft_gl.o
 
 # List of all the object files needed to build the code
 SOLVER:=solver_petsc.o
-OBJ:=module.o Magnetic_Grid.o spl_profile.o function_gg.o Structured_Grid.o Diagnostic_Grid.o ${SOLVER} ptl_src_loss.o specfun.o mgy_petsc.o setup_v2.o Er_provider.o Theory_jb.o \
+OBJ:=module.o Magnetic_Grid.o spl_profile.o function_gg.o Structured_Grid.o \
+	  Diagnostic_Grid.o ${SOLVER} ptl_src_loss.o specfun.o mgy_petsc.o \
+	  TestTools_for_Field_solver.o setup_v2.o Er_provider.o Theory_jb.o \
      load.o restart.o diagnosis.o snapshot.o charge_ion.o current_ion.o \
      charge_eon.o current_eon.o solve_dphidt.o poisson.o smooth.o \
      field.o pushi_new.o pushe_new.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \
