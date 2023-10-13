@@ -6,7 +6,7 @@ module TestTools_for_Field_solver
    implicit none
 
    private
-   
+
    type, public :: target_function
 
       integer :: m, n
@@ -15,11 +15,11 @@ module TestTools_for_Field_solver
       contains
          procedure :: allocate_f_src_2D
          procedure :: deallocate_f_src_2D
-         procedure :: set_mn_modes => construct_target_function 
-         procedure :: func_eval => evaluate_target_function 
+         procedure :: set_mn_modes => construct_target_function
+         procedure :: func_eval => evaluate_target_function
          procedure :: Jacob_Polar_T
          procedure :: Cal_local_highResolution_LHS_GK_Poisson
-         procedure :: test_GK_Poisson_solver 
+         procedure :: test_GK_Poisson_solver
    end type target_function
 
    contains
@@ -36,14 +36,14 @@ module TestTools_for_Field_solver
          deallocate(this%sol_f_2D, this%src_2D, this%sim_f_2D)
       end subroutine deallocate_f_src_2D
 
-      subroutine construct_target_function(this, in_m, in_n) 
+      subroutine construct_target_function(this, in_m, in_n)
          class(target_function) :: this
          integer, intent(in), optional :: in_m,in_n
-         
+
          this%m = 6
          this%n = 3
 
-         if(present(in_m)) this%m = in_m 
+         if(present(in_m)) this%m = in_m
          if(present(in_n)) this%n = in_n
 
       end subroutine construct_target_function
@@ -144,11 +144,11 @@ module TestTools_for_Field_solver
          dx_vec(:,1)=[ds,  0.0, 0.0]
          dx_vec(:,2)=[0.0, dgq, 0.0]
          dx_vec(:,3)=[0.0, 0.0, dgf]
-         
+
          out_LHS_f = 0.0
 
          do ss=2,SG%dim_s-1
-            do qq=1,SG%dim_gq-1      
+            do qq=1,SG%dim_gq-1
 
                x0 = [SG%s_1D(ss),SG%gq_1D(qq),SG%zetamax]
 
@@ -161,20 +161,20 @@ module TestTools_for_Field_solver
                      call this%Jacob_Polar_T(pos_vec(1),pos_vec(2),pos_vec(3),T2)
 
                      pos_vec = x0 +0.5*dx_vec(:,i) +0.5*dx_vec(:,j)
-                     f1 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3)) 
+                     f1 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3))
                      pos_vec = x0 +0.5*dx_vec(:,i) -0.5*dx_vec(:,j)
-                     f2 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3)) 
+                     f2 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3))
                      pos_vec = x0 -0.5*dx_vec(:,i) +0.5*dx_vec(:,j)
-                     f3 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3)) 
+                     f3 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3))
                      pos_vec = x0 -0.5*dx_vec(:,i) -0.5*dx_vec(:,j)
-                     f4 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3)) 
+                     f4 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3))
 
                      out_LHS_f(qq,ss) = out_LHS_f(qq,ss) - 1.0/(SG%Jacob_sqf(qq,ss)*dx_vec(i,i)*dx_vec(j,j))*(T1(i,j)*(f1-f2)-T2(i,j)*(f3-f4))
                   enddo
                enddo
             enddo
          enddo
-         
+
       end subroutine Cal_local_highResolution_LHS_GK_Poisson
 
 
