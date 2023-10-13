@@ -180,8 +180,11 @@ module TestTools_for_Field_solver
 
       subroutine test_GK_Poisson_solver(this)
          use mpi_defs
+         use particle_decomp
+         use hdf5
+         use h5lt
          implicit none
-      
+
          class(target_function) :: this
          real(wp) tt0,tt1
          integer ss,qq,ff
@@ -190,19 +193,24 @@ module TestTools_for_Field_solver
          real(wp) loc_err_sq, loc_sol_sq, all_err_sq, all_sol_sq
          real(wp),allocatable :: m_modes(:), n_modes(:), rel_err_2D(:,:)
          real(wp) in_gf
-      
+         character(128) :: filename
+         integer :: h5err,file_exist
+         integer(HSIZE_T) :: h5dims(5)
+         integer(HID_T) file_id
+
          call Destruct_some_arrays_of_Field_Solver
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-    
+         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call Construct_GK_Poisson3D_Solver_using_Structured_Grid
+
          call this%allocate_f_src_2D
-  
-         
-         m_modes = [(nid, nid=-30,30,10)]
-         n_modes = [(nid, nid=-40,40,20)]
+
+
+         m_modes = [(nid, nid=-100,100,5)]
+         n_modes = [(nid, nid=-100,100,5)]
 
          Nm = size(m_modes)
-         Nn = size(n_modes) 
-        
+         Nn = size(n_modes)
+
          allocate(rel_err_2D(Nm,Nn))
 
 
@@ -214,18 +222,20 @@ module TestTools_for_Field_solver
 
                call this%set_mn_modes(m,n)
 
+               tt0=MPI_WTIME()
                do ss=1,SG%dim_s
                   do qq =1,SG%dim_gq
                      this%sol_f_2D(qq,ss) = this%func_eval(SG%s_1D(ss), SG%gq_1D(qq),SG%zetamax)
                   enddo
                enddo
-               
-            
+               tt1=MPI_WTIME()
+               if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", In test_GK_Poisson_solver, Get sol_f_2D takes ",tt1-tt0," secs"
+
                tt0=MPI_WTIME()
                call this%Cal_local_highResolution_LHS_GK_Poisson(this%src_2D)
                tt1=MPI_WTIME()
-               if(mype==0 .or. mype==1) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", Cal_local_highResolution_LHS_GK_Poisson takes ",tt1-tt0," secs"
-            
+               if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", Cal_local_highResolution_LHS_GK_Poisson takes ",tt1-tt0," secs"
+
                call Solve_Poisson3D_on_SG(this%src_2D)
 
                this%sim_f_2D = SG%phi(:,:,1)
@@ -233,16 +243,18 @@ module TestTools_for_Field_solver
                loc_err_sq = sum((this%sim_f_2D-this%sol_f_2D)**2.0)
                loc_sol_sq = sum((this%sol_f_2D)**2.0)
 
-               call MPI_REDUCE(loc_err_sq, all_err_sq, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD,ierrr)
-               call MPI_REDUCE(loc_sol_sq, all_sol_sq, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD,ierrr)
-
+               tt0=MPI_WTIME()
+               call MPI_REDUCE(loc_err_sq, all_err_sq, 1, MPI_DOUBLE, MPI_SUM, 0, toroidal_comm,ierrr)
+               call MPI_REDUCE(loc_sol_sq, all_sol_sq, 1, MPI_DOUBLE, MPI_SUM, 0, toroidal_comm,ierrr)
+               tt1=MPI_WTIME()
+               if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", In test_GK_Poisson_solver, MPI_REDUCE takes ",tt1-tt0," secs"
 
                if(mype==0) then
                   write(stdout,'(A,I0,A,I0,A,3ES15.4)') "Rel. error of mode number (m,n)=(",m,", ", n,") = ", sqrt(all_err_sq), sqrt(all_sol_sq), sqrt(all_err_sq)/sqrt(all_sol_sq)
                   call flush(stdout)
                endif
 
-               rel_err_2D(mid,nid) = sqrt(all_err_sq)/sqrt(all_sol_sq) 
+               rel_err_2D(mid,nid) = sqrt(all_err_sq)/sqrt(all_sol_sq)
             enddo
          enddo
 
@@ -253,8 +265,31 @@ module TestTools_for_Field_solver
                enddo
             enddo
          enddo
-     
-         
+
+
+         if(mype==0) then
+            ! Check if the file exists.
+            filename = 'GK_Poisson_test_mn.h5'
+            inquire(file=filename, exist=file_exist)
+            ! if (.not. file_exist) then
+            !    write(stdout,'(A,A,A)'), "In test_GK_Poisson_solver, Error: File ", trim(filename), " does not exist."
+            !    return
+            ! endif
+
+            call h5open_f(h5err)
+            call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, h5err)
+
+            h5dims(1) = Nm
+            call h5ltmake_dataset_f(file_id, "m_modes",1,h5dims,H5T_NATIVE_DOUBLE, m_modes, h5err)
+            h5dims(1) = Nn
+            call h5ltmake_dataset_f(file_id, "n_modes",1,h5dims,H5T_NATIVE_DOUBLE, n_modes, h5err)
+
+            h5dims(1:2) = [Nm,Nn]
+            call h5ltmake_dataset_f(file_id, "rel_err_2D",2,h5dims,H5T_NATIVE_DOUBLE, rel_err_2D, h5err)
+
+            call h5fclose_f(file_id, h5err)
+            call h5close_f(h5err)
+         endif
          call this%deallocate_f_src_2D
 
          deallocate(rel_err_2D)
