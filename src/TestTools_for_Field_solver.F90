@@ -51,7 +51,7 @@ module TestTools_for_Field_solver
       pure function evaluate_target_function(this,s,gq,gf) result(out_val)
          implicit none
 
-         class(target_function) :: this
+         class(target_function), intent(in) :: this
 
          real(wp), intent(in) :: s,gq,gf
          real(wp) out_val
@@ -66,7 +66,7 @@ module TestTools_for_Field_solver
          use Magnetic_Grid
          implicit none
 
-         class(target_function) :: this
+         class(target_function), intent(in) :: this
          real(wp), intent(in) :: s,gq,gf
          real(wp), intent(out) :: out_Jacob_Polar_T(3,3)
          real(wp) :: intp_a
