@@ -19,6 +19,7 @@ module TestTools_for_Field_solver
          procedure :: func_eval => evaluate_target_function
          procedure :: Jacob_Polar_T
          procedure :: Cal_local_highResolution_LHS_GK_Poisson
+         procedure :: Cal_local_highResolution_LHS_GK_Poisson_parallelized
          procedure :: test_GK_Poisson_solver
    end type target_function
 
@@ -177,6 +178,69 @@ module TestTools_for_Field_solver
 
       end subroutine Cal_local_highResolution_LHS_GK_Poisson
 
+      subroutine Cal_local_highResolution_LHS_GK_Poisson_parallelized(this, out_LHS_f)
+         use particle_decomp
+         use MGY_PETSc_Interface_Data
+         implicit none
+         class(target_function) :: this
+         real(wp), intent(out) :: out_LHS_f(SG%dim_gq, SG%dim_s)
+         real(wp) da,ds,dgq,dgf ! small value of delta_s, delta_gq, delta_gf
+         real(wp) x0(3),dx_vec(3,3), pos_vec(3)
+         integer :: ss,qq,ff
+         integer :: i,j, Lid, Gid, ierr
+         real(wp) Jacob
+         real(wp) src
+         real(wp) T1(3,3), T2(3,3)
+         real(wp) f1,f2,f3,f4
+         real(wp) LHS_f_mype(Lsize), LHS_f_partd(sum_Lsize_partd)
+
+         ds=1e-3
+         dgq=1e-3
+         dgf=0.01
+
+         dx_vec(:,1)=[ds,  0.0, 0.0]
+         dx_vec(:,2)=[0.0, dgq, 0.0]
+         dx_vec(:,3)=[0.0, 0.0, dgf]
+
+         out_LHS_f = 0.0
+
+         do Lid=1,Lsize
+            Gid=mapL2G(Lid)
+            qq=mapG2P(Gid)%gqid
+            ss=mapG2P(Gid)%aid
+
+            x0 = [SG%s_1D(ss),SG%gq_1D(qq),SG%zetamax]
+
+            LHS_f_mype(Lid) = 0.0
+            do i=1,3
+               do j=1,3
+                  pos_vec = x0 + 0.5*dx_vec(:,i)
+                  call this%Jacob_Polar_T(pos_vec(1),pos_vec(2),pos_vec(3),T1)
+                  pos_vec = x0 - 0.5*dx_vec(:,i)
+                  call this%Jacob_Polar_T(pos_vec(1),pos_vec(2),pos_vec(3),T2)
+
+                  pos_vec = x0 +0.5*dx_vec(:,i) +0.5*dx_vec(:,j)
+                  f1 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3))
+                  pos_vec = x0 +0.5*dx_vec(:,i) -0.5*dx_vec(:,j)
+                  f2 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3))
+                  pos_vec = x0 -0.5*dx_vec(:,i) +0.5*dx_vec(:,j)
+                  f3 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3))
+                  pos_vec = x0 -0.5*dx_vec(:,i) -0.5*dx_vec(:,j)
+                  f4 = this%func_eval(pos_vec(1),pos_vec(2),pos_vec(3))
+
+                  LHS_f_mype(Lid) = LHS_f_mype(Lid) - 1.0/(SG%Jacob_sqf(qq,ss)*dx_vec(i,i)*dx_vec(j,j))*(T1(i,j)*(f1-f2)-T2(i,j)*(f3-f4))
+               enddo
+            enddo
+         enddo
+
+         call MPI_ALLGATHERV(LHS_f_mype,Lsize,mpi_Rsize,LHS_f_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+         do Lid=1,sum_Lsize_partd
+            Gid=recv_mapL2G_partd(Lid)
+            out_LHS_f(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = LHS_f_partd(Lid)
+         enddo
+         out_LHS_f(SG%dim_gq,:)=out_LHS_f(1,:)
+
+      end subroutine Cal_local_highResolution_LHS_GK_Poisson_parallelized
 
       subroutine test_GK_Poisson_solver(this)
          use mpi_defs
@@ -232,7 +296,9 @@ module TestTools_for_Field_solver
                if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", In test_GK_Poisson_solver, Get sol_f_2D takes ",tt1-tt0," secs"
 
                tt0=MPI_WTIME()
-               call this%Cal_local_highResolution_LHS_GK_Poisson(this%src_2D)
+               ! call this%Cal_local_highResolution_LHS_GK_Poisson(this%src_2D)
+               call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(this%src_2D)
+                  
                tt1=MPI_WTIME()
                if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", Cal_local_highResolution_LHS_GK_Poisson takes ",tt1-tt0," secs"
 
