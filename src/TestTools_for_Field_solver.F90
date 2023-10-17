@@ -22,6 +22,7 @@ module TestTools_for_Field_solver
          procedure :: Cal_local_highResolution_LHS_GK_Poisson_parallelized
          procedure :: Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual
          procedure :: test_GK_Poisson_solver
+         procedure :: test_multiple_GK_Poisson_solvers
    end type target_function
 
    contains
@@ -363,6 +364,7 @@ module TestTools_for_Field_solver
 
       end subroutine Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual
 
+      subroutine test_GK_Poisson_solver(this, output_fname)
          use mpi_defs
          use particle_decomp
          use hdf5
@@ -370,6 +372,7 @@ module TestTools_for_Field_solver
          implicit none
 
          class(target_function) :: this
+         character(len=*), optional, intent(in) :: output_fname
          real(wp) tt0,tt1
          integer ss,qq,ff
          integer m,n,nid,mid
@@ -382,15 +385,11 @@ module TestTools_for_Field_solver
          integer(HSIZE_T) :: h5dims(5)
          integer(HID_T) file_id
 
-         call Destruct_some_arrays_of_Field_Solver
-         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call Construct_GK_Poisson3D_Solver_using_Structured_Grid
-
          call this%allocate_f_src_2D
 
 
-         m_modes = [(nid, nid=-100,100,5)]
-         n_modes = [(nid, nid=-100,100,5)]
+         m_modes = [(nid, nid=-200,200,20)]
+         n_modes = [(nid, nid=-200,200,20)]
 
          Nm = size(m_modes)
          Nn = size(n_modes)
@@ -418,6 +417,7 @@ module TestTools_for_Field_solver
                tt0=MPI_WTIME()
                ! call this%Cal_local_highResolution_LHS_GK_Poisson(this%src_2D)
                call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(this%src_2D)
+               ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(this%src_2D)
                   
                tt1=MPI_WTIME()
                if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", Cal_local_highResolution_LHS_GK_Poisson takes ",tt1-tt0," secs"
@@ -456,6 +456,9 @@ module TestTools_for_Field_solver
          if(mype==0) then
             ! Check if the file exists.
             filename = 'GK_Poisson_test_mn.h5'
+
+            if(present(output_fname)) filename = output_fname
+
             inquire(file=filename, exist=file_exist)
             ! if (.not. file_exist) then
             !    write(stdout,'(A,A,A)'), "In test_GK_Poisson_solver, Error: File ", trim(filename), " does not exist."
@@ -470,6 +473,9 @@ module TestTools_for_Field_solver
             h5dims(1) = Nn
             call h5ltmake_dataset_f(file_id, "n_modes",1,h5dims,H5T_NATIVE_DOUBLE, n_modes, h5err)
 
+            h5dims(1) = SG%dim_s
+            call h5ltmake_dataset_f(file_id, "skew_q",1,h5dims,H5T_NATIVE_DOUBLE, SG%skew_q_1D, h5err)
+
             h5dims(1:2) = [Nm,Nn]
             call h5ltmake_dataset_f(file_id, "rel_err_2D",2,h5dims,H5T_NATIVE_DOUBLE, rel_err_2D, h5err)
 
@@ -480,5 +486,53 @@ module TestTools_for_Field_solver
 
          deallocate(rel_err_2D)
       end subroutine test_GK_Poisson_solver
+
+
+      subroutine test_multiple_GK_Poisson_solvers(this)
+         implicit none
+
+         class(target_function) :: this
+
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_GK_Poisson3D_Solver_using_Structured_Grid
+         call this%test_GK_Poisson_solver("gk_poisson_mn_central.h5")
+
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=natural.h5")
+
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 2.0
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=2.h5")
+
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1.0
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=1.h5")
+
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 0.5
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=0.5.h5")
+
+
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 0.2
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=0.2.h5")
+
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+         call this%test_GK_Poisson_solver("gk_poisson_mn_extremal.h5")
+
+      end subroutine test_multiple_GK_Poisson_solvers
+
+
 
 end module TestTools_for_Field_solver
