@@ -20,6 +20,7 @@ module TestTools_for_Field_solver
          procedure :: Jacob_Polar_T
          procedure :: Cal_local_highResolution_LHS_GK_Poisson
          procedure :: Cal_local_highResolution_LHS_GK_Poisson_parallelized
+         procedure :: Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual
          procedure :: test_GK_Poisson_solver
    end type target_function
 
@@ -88,13 +89,14 @@ module TestTools_for_Field_solver
       end function evaluate_target_function
 
 
-      pure subroutine Jacob_Polar_T(this, s,gq,gf, out_Jacob_Polar_T)
+      pure subroutine Jacob_Polar_T(this, s,gq,gf, out_Jacob_Polar_T, ui, uj)
          use global_parameters, only: Flag_Def_dne_adiab
          use Magnetic_Grid
          implicit none
 
          class(target_function), intent(in) :: this
          real(wp), intent(in) :: s,gq,gf
+         integer, optional, intent(in) :: ui, uj
          real(wp), intent(out) :: out_Jacob_Polar_T(3,3)
          real(wp) :: intp_a
          integer :: sid, gqid, i,j
@@ -102,7 +104,7 @@ module TestTools_for_Field_solver
          real(wp) :: ni_tot, ne_tot
          real(wp) :: intp_BB, invBsq, intp_B0_ctnv3(3)
          real(wp) :: loc_Metric_T(3,3)
-         real(wp) :: intp_Jacob_sqf, tmp
+         real(wp) :: intp_Jacob_sqf, tmp_factor
          real(wp) :: norm_gq, norm_gf
 
          norm_gq = modulo(gq,2.0*pi)
@@ -130,22 +132,37 @@ module TestTools_for_Field_solver
          call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, Jacob_sqf, intp_Jacob_sqf)
 
          loc_Metric_T = 0.0
-         call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_ss_cntv, loc_Metric_T(1,1))
-         call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_sq_cntv, loc_Metric_T(2,1))
-         loc_Metric_T(1,2) = loc_Metric_T(2,1)
-         call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_qq_cntv, loc_Metric_T(2,2))
-         call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_ff_cntv, loc_Metric_T(3,3))
-
          out_Jacob_Polar_T = 0.0
 
          invBsq=1.0/(intp_BB**2.0) ! unit (T^2)
-         do j=1,3
-            do i=1,3
-               tmp=invBsq*(msm0*ne_tot+ msm0_i*ni_tot)
-               out_Jacob_Polar_T(i,j) = tmp*(loc_Metric_T(i,j)- invBsq*(intp_B0_ctnv3(i)*intp_B0_ctnv3(j)))
-            enddo
-         enddo
+         tmp_factor=invBsq*(msm0*ne_tot+ msm0_i*ni_tot)
 
+         if(present(ui) .and. present(uj)) then
+            if(ui==1 .and. uj==1) then
+               call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_ss_cntv, loc_Metric_T(1,1))
+            elseif((ui==1 .and. uj==2) .or. (ui==2 .and. uj==1)) then
+               call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_sq_cntv, loc_Metric_T(2,1))
+               loc_Metric_T(1,2) = loc_Metric_T(2,1)
+            elseif(ui==2 .and. uj==2) then
+               call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_qq_cntv, loc_Metric_T(2,2))
+            elseif(ui==3 .and. uj==3) then
+               call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_ff_cntv, loc_Metric_T(3,3))
+            endif
+
+            out_Jacob_Polar_T(ui,uj) = tmp_factor*(loc_Metric_T(ui,uj)- invBsq*(intp_B0_ctnv3(ui)*intp_B0_ctnv3(uj)))
+         else
+            call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_ss_cntv, loc_Metric_T(1,1))
+            call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_sq_cntv, loc_Metric_T(2,1))
+            loc_Metric_T(1,2) = loc_Metric_T(2,1)
+            call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_qq_cntv, loc_Metric_T(2,2))
+            call TriLinear_Interpolation_of_Scalar(intp_a,norm_gq,norm_gf, g_ff_cntv, loc_Metric_T(3,3))
+
+            do j=1,3
+               do i=1,3
+                  out_Jacob_Polar_T(i,j) = tmp_factor*(loc_Metric_T(i,j)- invBsq*(intp_B0_ctnv3(i)*intp_B0_ctnv3(j)))
+               enddo
+            enddo
+         endif
          out_Jacob_Polar_T = intp_Jacob_sqf*out_Jacob_Polar_T
 
       end subroutine Jacob_Polar_T
@@ -164,9 +181,9 @@ module TestTools_for_Field_solver
          real(wp) T1(3,3), T2(3,3)
          real(wp) f1,f2,f3,f4
 
-         ds=1e-3
-         dgq=1e-3
-         dgf=0.01
+         ds=1e-4
+         dgq=1e-4
+         dgf=0.001
 
          dx_vec(:,1)=[ds,  0.0, 0.0]
          dx_vec(:,2)=[0.0, dgq, 0.0]
@@ -268,7 +285,84 @@ module TestTools_for_Field_solver
 
       end subroutine Cal_local_highResolution_LHS_GK_Poisson_parallelized
 
-      subroutine test_GK_Poisson_solver(this)
+      subroutine Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(this, out_LHS_f)
+         use particle_decomp
+         use MGY_PETSc_Interface_Data
+         implicit none
+         class(target_function) :: this
+         real(wp), intent(out) :: out_LHS_f(SG%dim_gq, SG%dim_s)
+         real(wp) ds,dgq,dgf ! small value of delta_s, delta_gq, delta_gf
+         real(wp) x0(3)
+         integer :: ss,qq,ff
+         integer :: i,j, Lid, Gid, ierr
+         real(wp) Jacob
+         real(wp) src
+         real(wp) T0(3,3), Tp(3,3), Tm(3,3)
+         real(wp) LHS_f_mype(Lsize), LHS_f_partd(sum_Lsize_partd)
+
+         ds=1e-3
+         dgq=1e-3
+         dgf=0.01
+
+         out_LHS_f = 0.0
+
+         do Lid=1,Lsize
+            Gid=mapL2G(Lid)
+            qq=mapG2P(Gid)%gqid
+            ss=mapG2P(Gid)%aid
+
+            x0 = [SG%s_1D(ss),SG%gq_1D(qq),SG%zetamax]
+
+            LHS_f_mype(Lid) = 0.0
+         
+            call this%Jacob_Polar_T(x0(1), x0(2), x0(3), T0)
+
+            ! J*eps^ss* d^2f/ds^2
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - T0(1,1)*this%func_eval(x0(1),x0(2),x0(3), 11)
+            ! J*eps^gqgq * d^2f/dgq^2
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - T0(2,2)*this%func_eval(x0(1),x0(2),x0(3), 22)
+            ! J*eps^gfgf * d^2f/dgf^2
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - T0(3,3)*this%func_eval(x0(1),x0(2),x0(3), 33)
+            ! 2.0* J*eps^sgq* d^2f/dsdgq
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - 2.0*T0(1,2)*this%func_eval(x0(1),x0(2),x0(3), 12)
+            ! 2.0* J*eps^sgf* d^2f/dsdgf
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - 2.0*T0(1,3)*this%func_eval(x0(1),x0(2),x0(3), 13)
+            ! 2.0* J*eps^gqgf* d^2f/dgqdgf
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - 2.0*T0(2,3)*this%func_eval(x0(1),x0(2),x0(3), 23)
+
+
+            call this%Jacob_Polar_T(x0(1)+0.5*ds, x0(2), x0(3), Tp)
+            call this%Jacob_Polar_T(x0(1)-0.5*ds, x0(2), x0(3), Tm)
+            ! d(J*eps^ss)/ds * df/ds
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - (Tp(1,1)-Tm(1,1))/ds*this%func_eval(x0(1),x0(2),x0(3), 1)
+            ! d(J*eps^sgq)/ds * df/dgq
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - (Tp(1,2)-Tm(1,2))/ds*this%func_eval(x0(1),x0(2),x0(3), 2)
+            ! d(J*eps^sgf)/ds * df/dgf
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - (Tp(1,3)-Tm(1,3))/ds*this%func_eval(x0(1),x0(2),x0(3), 3)
+
+
+            call this%Jacob_Polar_T(x0(1), x0(2)+0.5*dgq, x0(3), Tp)
+            call this%Jacob_Polar_T(x0(1), x0(2)-0.5*dgq, x0(3), Tm)
+            ! d(J*eps^gqs)/dgq * df/ds
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - (Tp(2,1)-Tm(2,1))/dgq*this%func_eval(x0(1),x0(2),x0(3), 1)
+            ! d(J*eps^gqgq)/dgq * df/dgq
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - (Tp(2,2)-Tm(2,2))/dgq*this%func_eval(x0(1),x0(2),x0(3), 2)
+            ! d(J*eps^gqgf)/dgq * df/dgf
+            LHS_f_mype(Lid) = LHS_f_mype(Lid) - (Tp(2,3)-Tm(2,3))/dgq*this%func_eval(x0(1),x0(2),x0(3), 3)
+
+
+            LHS_f_mype(Lid) = LHS_f_mype(Lid)/SG%Jacob_sqf(qq,ss)
+         enddo
+
+         call MPI_ALLGATHERV(LHS_f_mype,Lsize,mpi_Rsize,LHS_f_partd,recv_Lsize_partd,displs_Lsize_partd,mpi_Rsize,partd_comm,ierr)
+         do Lid=1,sum_Lsize_partd
+            Gid=recv_mapL2G_partd(Lid)
+            out_LHS_f(mapG2P(Gid)%gqid,mapG2P(Gid)%aid) = LHS_f_partd(Lid)
+         enddo
+         out_LHS_f(SG%dim_gq,:)=out_LHS_f(1,:)
+
+      end subroutine Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual
+
          use mpi_defs
          use particle_decomp
          use hdf5
