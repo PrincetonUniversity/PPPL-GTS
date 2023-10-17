@@ -49,15 +49,41 @@ module TestTools_for_Field_solver
 
       end subroutine construct_target_function
 
-      pure function evaluate_target_function(this,s,gq,gf) result(out_val)
+      pure function evaluate_target_function(this,s,gq,gf,ddu_ij) result(out_val)
          implicit none
 
          class(target_function), intent(in) :: this
+         integer, intent(in), optional :: ddu_ij ! derivative along i,j coordinate
 
          real(wp), intent(in) :: s,gq,gf
          real(wp) out_val
 
-         out_val =  (1.0-cos(2*pi/(s1-s0)*(s-s0)))*cos(this%m*gq-this%n*gf)
+
+         if(present(ddu_ij)) then
+            select case(ddu_ij)
+               case(1) ! d/ds
+                  out_val =  (2*pi/(s1-s0))*(sin(2*pi/(s1-s0)*(s-s0)))*cos(this%m*gq-this%n*gf)
+               case(2) ! d/dgq 
+                  out_val =  -this%m*(1.0-cos(2*pi/(s1-s0)*(s-s0)))*sin(this%m*gq-this%n*gf)
+               case(3) ! d/dgf
+                  out_val =  this%n*(1.0-cos(2*pi/(s1-s0)*(s-s0)))*sin(this%m*gq-this%n*gf)
+               case(11) ! d^2/ds^2
+                  out_val =  (2*pi/(s1-s0))**2.0*(cos(2*pi/(s1-s0)*(s-s0)))*cos(this%m*gq-this%n*gf)
+               case(12, 21) ! d^2/(ds*dgq)
+                  out_val = -this%m*(2*pi/(s1-s0))*(sin(2*pi/(s1-s0)*(s-s0)))*sin(this%m*gq-this%n*gf)
+               case(13, 31) ! d^2/(ds*dgf)
+                  out_val = this%n*(2*pi/(s1-s0))*(sin(2*pi/(s1-s0)*(s-s0)))*sin(this%m*gq-this%n*gf)
+               case(22) ! d^2/dgq^2
+                  out_val =  -this%m**2.0*(1.0-cos(2*pi/(s1-s0)*(s-s0)))*cos(this%m*gq-this%n*gf)
+               case(23, 32) ! d^2/dgqdgf
+                  out_val =  this%m*this%n*(1.0-cos(2*pi/(s1-s0)*(s-s0)))*cos(this%m*gq-this%n*gf)
+               case(33) ! d^2/dgf^2
+                  out_val =  -this%n**2.0*(1.0-cos(2*pi/(s1-s0)*(s-s0)))*cos(this%m*gq-this%n*gf)
+            end select
+         else
+            out_val =  (1.0-cos(2*pi/(s1-s0)*(s-s0)))*cos(this%m*gq-this%n*gf)
+         endif
+
          out_val = out_val/(uSI%phi0)
       end function evaluate_target_function
 
