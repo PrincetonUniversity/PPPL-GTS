@@ -1308,7 +1308,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
    call Determine_GK_PoissonTensors_on_Structured_Grid
 
-   max_nnz=19 ! maximum number of non-zero values per each row
+   max_nnz=15 ! maximum number of non-zero values per each row
    if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
@@ -1355,32 +1355,21 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
       tarGid(11,Lid) =mapP2G(qq+1,ss-1,ff)
       tarVal(11,Lid) =-0.125*(CT(1,2,qq,ss,0)+CT(1,2,qq,ss-1,0)+CT(2,1,qq,ss,0)+CT(2,1,qq+1,ss,0))
 
-      ! 12 (sid+1,gfid+1) & 13 (sid-1,gfid-1)
-      tarGid(12,Lid) =mapP2G(qq,ss+1,ff+1)
-      tarVal(12,Lid) =+0.125*(CT(1,3,qq,ss,0)+CT(1,3,qq,ss+1,0)+CT(3,1,qq,ss,0)+CT(3,1,qq,ss,+1))
-      tarGid(13,Lid) =mapP2G(qq,ss-1,ff-1)
-      tarVal(13,Lid) =+0.125*(CT(1,3,qq,ss,0)+CT(1,3,qq,ss-1,0)+CT(3,1,qq,ss,0)+CT(3,1,qq,ss,-1))
-      ! 14 (sid+1,gfid-1) & 15 (sid-1,gfid+1)
-      tarGid(14,Lid) =mapP2G(qq,ss+1,ff-1)
-      tarVal(14,Lid) =-0.125*(CT(1,3,qq,ss,0)+CT(1,3,qq,ss+1,0)+CT(3,1,qq,ss,0)+CT(3,1,qq,ss,-1))
-      tarGid(15,Lid) =mapP2G(qq,ss-1,ff+1)
-      tarVal(15,Lid) =-0.125*(CT(1,3,qq,ss,0)+CT(1,3,qq,ss-1,0)+CT(3,1,qq,ss,0)+CT(3,1,qq,ss,+1))
-
-      ! 16 (gqid+1,gfid+1) & 17  (gqid-1, gfid-1)
-      tarGid(16,Lid) =mapP2G(qq+1,ss,ff+1)
-      tarVal(16,Lid) =+0.125*(CT(2,3,qq,ss,0)+CT(2,3,qq+1,ss,0)+CT(3,2,qq,ss,0)+CT(3,2,qq,ss,+1))
-      tarGid(17,Lid) =mapP2G(qq-1,ss,ff-1)
-      tarVal(17,Lid) =+0.125*(CT(2,3,qq,ss,0)+CT(2,3,qq-1,ss,0)+CT(3,2,qq,ss,0)+CT(3,2,qq,ss,-1))
-      ! 18 (gqid+1,gfid-1) & 18 (gqid-1, gfid+1)
-      tarGid(18,Lid) =mapP2G(qq+1,ss,ff-1)
-      tarVal(18,Lid) =-0.125*(CT(2,3,qq,ss,0)+CT(2,3,qq+1,ss,0)+CT(3,2,qq,ss,0)+CT(3,2,qq,ss,-1))
-      tarGid(19,Lid) =mapP2G(qq-1,ss,ff+1)
-      tarVal(19,Lid) =-0.125*(CT(2,3,qq,ss,0)+CT(2,3,qq-1,ss,0)+CT(3,2,qq,ss,0)+CT(3,2,qq,ss,+1))
+      ! 12 (gqid+1,gfid+1) & 13  (gqid-1, gfid-1)
+      tarGid(12,Lid) =mapP2G(qq+1,ss,ff+1)
+      tarVal(12,Lid) =+0.125*(CT(2,3,qq,ss,0)+CT(2,3,qq+1,ss,0)+CT(3,2,qq,ss,0)+CT(3,2,qq,ss,+1))
+      tarGid(13,Lid) =mapP2G(qq-1,ss,ff-1)
+      tarVal(13,Lid) =+0.125*(CT(2,3,qq,ss,0)+CT(2,3,qq-1,ss,0)+CT(3,2,qq,ss,0)+CT(3,2,qq,ss,-1))
+      ! 14 (gqid+1,gfid-1) & 15 (gqid-1, gfid+1)
+      tarGid(14,Lid) =mapP2G(qq+1,ss,ff-1)
+      tarVal(14,Lid) =-0.125*(CT(2,3,qq,ss,0)+CT(2,3,qq+1,ss,0)+CT(3,2,qq,ss,0)+CT(3,2,qq,ss,-1))
+      tarGid(15,Lid) =mapP2G(qq-1,ss,ff+1)
+      tarVal(15,Lid) =-0.125*(CT(2,3,qq,ss,0)+CT(2,3,qq-1,ss,0)+CT(3,2,qq,ss,0)+CT(3,2,qq,ss,+1))
 
 
       ! 1 (gqid,sid,gfid)
       tarGid(1,Lid)=mapP2G(qq,ss,ff)
-      tarVal(1,Lid)=-sum(tarVal(2:19,Lid))
+      tarVal(1,Lid)=-sum(tarVal(2:max_nnz,Lid))
 
       ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
       ! so make sure that target coefficient values represent (-nabla*(eps_T*nabla*phi))
