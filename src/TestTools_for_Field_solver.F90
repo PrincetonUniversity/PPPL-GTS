@@ -545,44 +545,63 @@ module TestTools_for_Field_solver
          implicit none
 
          class(target_function) :: this
+         integer, allocatable :: snap_m_modes(:), snap_n_modes(:)
+         integer :: k
+
+         snap_n_modes = [10, 10, 10, 10, 10,   10, 20, 20, 20, 20, 20,  20]
+         snap_m_modes = [10, 20, 30, 50, 100, 200, 10, 20, 30, 50, 100, 200]
+
 
          call Destruct_some_arrays_of_Field_Solver
+         call Construct_Metric_Tensor_on_Structured_Grid
          call Construct_GK_Poisson3D_Solver_using_Structured_Grid
-         call this%test_GK_Poisson_solver("gk_poisson_mn_central.h5")
+         call this%test_GK_Poisson_solver("gk_poisson_mn_central.h5", snap_m_modes, snap_n_modes)
 
          call Destruct_some_arrays_of_Field_Solver
          call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
          call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=natural.h5")
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=natural.h5", snap_m_modes, snap_n_modes)
+
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1e6
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=1e6.h5", snap_m_modes, snap_n_modes)
+
 
          call Destruct_some_arrays_of_Field_Solver
          SG%skew_q_1D = 2.0
          call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
          call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=2.h5")
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=2.h5", snap_m_modes, snap_n_modes)
 
          call Destruct_some_arrays_of_Field_Solver
          SG%skew_q_1D = 1.0
          call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
          call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=1.h5")
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=1.h5", snap_m_modes, snap_n_modes)
+
 
          call Destruct_some_arrays_of_Field_Solver
          SG%skew_q_1D = 0.5
+         write(stdout,*) "skew_q_1D=0.5"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
          call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=0.5.h5")
+         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=0.5.h5", snap_m_modes, snap_n_modes)
 
 
-         call Destruct_some_arrays_of_Field_Solver
-         SG%skew_q_1D = 0.2
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=0.2.h5")
+
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! SG%skew_q_1D = 0.2
+         ! call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=0.2.h5", snap_m_modes, snap_n_modes)
 
          call Destruct_some_arrays_of_Field_Solver
          call Construct_GK_Poisson3D_Solver_with_Extremal_Method
-         call this%test_GK_Poisson_solver("gk_poisson_mn_extremal.h5")
+         call this%test_GK_Poisson_solver("gk_poisson_mn_extremal.h5", snap_m_modes, snap_n_modes)
 
       end subroutine test_multiple_GK_Poisson_solvers
 
