@@ -283,9 +283,9 @@ subroutine Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
          ! g_gqt_gqt = egq*egq + 1/q^2*(egf*egf)
          Metric_T_skewed(2,2,gqid,sid)=SG%g_qq_cntv(gqid,sid) + SG%g_ff_cntv(gqid,sid)/(SG%skew_q_1D(sid)**2.0) 
          ! g_gqt_gft = -(1/q)*(egf*egf)
-         Metric_T_skewed(2,3,gqid,sid)= -(1/SG%skew_q_1D(sid))*SG%g_ff_cntv(gqid,sid)
+         Metric_T_skewed(2,3,gqid,sid)= -(1.0/SG%skew_q_1D(sid))*SG%g_ff_cntv(gqid,sid)
          ! g_gft_gqt = -(1/q)*(egf*egf)
-         Metric_T_skewed(3,2,gqid,sid)= -(1/SG%skew_q_1D(sid))*SG%g_ff_cntv(gqid,sid)
+         Metric_T_skewed(3,2,gqid,sid)= -(1.0/SG%skew_q_1D(sid))*SG%g_ff_cntv(gqid,sid)
          Metric_T_skewed(3,3,gqid,sid)=SG%g_ff_cntv(gqid,sid)
       enddo
    enddo
@@ -1306,7 +1306,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
    if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   call Determine_GK_PoissonTensors_on_Structured_Grid(0)
+   call Determine_GK_PoissonTensors_on_Structured_Grid
 
    max_nnz=19 ! maximum number of non-zero values per each row
    if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
@@ -1471,7 +1471,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
    if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   call Determine_GK_PoissonTensors_on_Structured_Grid(0)
+   call Determine_GK_PoissonTensors_on_Structured_Grid
 
    max_nnz=19 ! maximum number of non-zero values per each row
    if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
