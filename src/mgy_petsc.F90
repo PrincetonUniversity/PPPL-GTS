@@ -1717,7 +1717,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
       skL_gq0(-1:1,-1) = modulo(SG%gq_1D(qq) - SG%dgf/(SG%skew_q_1D(ss-1:ss+1)), 2.0*pi) 
      
       do kq=-1,2
-         skL_gqid(kq,:,:) = kq + floor(skL_gq0*SG%inv_dgq)+1 
+         skL_gqid(kq,:,:) = kq + max(1,min(SG%dim_gq-1, int(skL_gq0*SG%inv_dgq)+1))
       enddo
       skL_gqid = modulo(skL_gqid-1, SG%dim_gq-1)+1 ! normalize
      
@@ -1727,8 +1727,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
       enddo
 
       do ks=-1,1
-         do kf=-1,1,2
-            skL_ratio0(ks,kf) = (skL_gq0(ks,kf) - SG%gq_1D(skL_gqid(0,ks,kf)))*SG%inv_dgq
+         do kf=-1,1
+            skL_ratio0(ks,kf) = max(0.0,min(1.0,(skL_gq0(ks,kf) - SG%gq_1D(skL_gqid(0,ks,kf)))*SG%inv_dgq))
          enddo
       enddo
 
