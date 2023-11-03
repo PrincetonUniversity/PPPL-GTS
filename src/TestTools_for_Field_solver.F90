@@ -364,7 +364,7 @@ module TestTools_for_Field_solver
 
       end subroutine Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual
 
-      subroutine test_GK_Poisson_solver(this, output_fname)
+      subroutine test_GK_Poisson_solver(this, output_fname, snap_m_modes, snap_n_modes)
          use mpi_defs
          use particle_decomp
          use hdf5
@@ -373,6 +373,7 @@ module TestTools_for_Field_solver
 
          class(target_function) :: this
          character(len=*), optional, intent(in) :: output_fname
+         integer, intent(in), optional :: snap_m_modes(:), snap_n_modes(:) ! mn 
          real(wp) tt0,tt1
          integer ss,qq,ff
          integer m,n,nid,mid
@@ -380,21 +381,57 @@ module TestTools_for_Field_solver
          real(wp) loc_err_sq, loc_sol_sq, all_err_sq, all_sol_sq
          real(wp),allocatable :: m_modes(:), n_modes(:), rel_err_2D(:,:)
          real(wp) in_gf
-         character(128) :: filename
+         character(128) :: filename, dname
          integer :: h5err,file_exist
          integer(HSIZE_T) :: h5dims(5)
          integer(HID_T) file_id
+         integer N_snap,k
+         real(wp),allocatable :: snap_sim_3D(:,:,:,:), snap_sol_3D(:,:,:,:)
 
          call this%allocate_f_src_2D
 
 
-         m_modes = [(nid, nid=-200,200,20)]
-         n_modes = [(nid, nid=-200,200,20)]
-
+         ! m_modes = [(nid, nid=-200,200,20)]
+         ! n_modes = [(nid, nid=-200,200,20)]
+         m_modes = [(mid, mid=0,200,4)]
+         n_modes = [(nid, nid=0,200,4)]
          Nm = size(m_modes)
          Nn = size(n_modes)
 
          allocate(rel_err_2D(Nm,Nn))
+
+         if(present(snap_m_modes)) then
+            N_snap = size(snap_m_modes)
+            allocate(snap_sim_3D(SG%dim_gq,SG%dim_s,mzetamax, N_snap))
+            allocate(snap_sol_3D(SG%dim_gq,SG%dim_s,mzetamax, N_snap))
+         else
+            N_snap = 0
+         endif
+
+
+         do k=1,N_snap
+            m = snap_m_modes(k)
+            n = snap_n_modes(k)
+
+            call this%set_mn_modes(m,n)
+
+            do ff=1,mzetamax
+               do ss=1,SG%dim_s
+                  do qq=1,SG%dim_gq
+                     snap_sol_3D(qq,ss,ff,k) = uSI%phi0*this%func_eval(SG%s_1D(ss), SG%gq_1D(qq), ff*(2.0)*pi/mzetamax)
+                  enddo
+               enddo
+            enddo
+
+            ! call this%Cal_local_highResolution_LHS_GK_Poisson(this%src_2D)
+            ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(this%src_2D)
+            call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(this%src_2D)
+
+            call Solve_Poisson3D_on_SG(this%src_2D)
+
+            snap_sim_3D(:,:,:,k) = uSI%phi0*SG%test_phi_3D
+         enddo
+         
 
 
          do nid=1,Nn
@@ -416,8 +453,8 @@ module TestTools_for_Field_solver
 
                tt0=MPI_WTIME()
                ! call this%Cal_local_highResolution_LHS_GK_Poisson(this%src_2D)
-               call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(this%src_2D)
-               ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(this%src_2D)
+               ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(this%src_2D)
+               call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(this%src_2D)
                   
                tt1=MPI_WTIME()
                if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", Cal_local_highResolution_LHS_GK_Poisson takes ",tt1-tt0," secs"
@@ -479,12 +516,28 @@ module TestTools_for_Field_solver
             h5dims(1:2) = [Nm,Nn]
             call h5ltmake_dataset_f(file_id, "rel_err_2D",2,h5dims,H5T_NATIVE_DOUBLE, rel_err_2D, h5err)
 
+            if(present(snap_m_modes)) then
+               do k=1,N_snap
+                  write(dname, '("src3D_m",I0,"_n",I0)') snap_m_modes(k), snap_n_modes(k)
+                  call flush(stdout)
+                  h5dims(1:3) = [SG%dim_gq,SG%dim_s,mzetamax]
+                  call h5ltmake_dataset_f(file_id, dname,3,h5dims,H5T_NATIVE_DOUBLE, snap_sol_3D(:,:,:,k), h5err)
+                  write(dname, '("sol3D_m",I0,"_n",I0)') snap_m_modes(k), snap_n_modes(k)
+                  call h5ltmake_dataset_f(file_id, dname,3,h5dims,H5T_NATIVE_DOUBLE, snap_sim_3D(:,:,:,k), h5err)
+               enddo
+            endif
+
             call h5fclose_f(file_id, h5err)
             call h5close_f(h5err)
          endif
          call this%deallocate_f_src_2D
 
          deallocate(rel_err_2D)
+
+         if(present(snap_m_modes)) then
+            deallocate(snap_sim_3D)
+            deallocate(snap_sol_3D)
+         endif
       end subroutine test_GK_Poisson_solver
 
 
