@@ -1758,8 +1758,8 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
       skewA(0,-1,-1) = 0.125*(skewCT(1,3,0,0,0)+skewCT(1,3,0,-1,0)+skewCT(3,1,0,0,0)+skewCT(3,1,0,0,-1))
 
       ! (qq,ss,ff) = (+1,-1,0) and (-1,+1,0)
-      skewA(+1,-1,0) = -0.125*(skewCT(1,2,0,0,0)+skewCT(1,2,0,+1,0)+skewCT(2,1,0,0,0)+skewCT(2,1,-1,0,0))
-      skewA(-1,+1,0) = -0.125*(skewCT(1,2,0,0,0)+skewCT(1,2,0,-1,0)+skewCT(2,1,0,0,0)+skewCT(2,1,+1,0,0))
+      skewA(+1,-1,0) = -0.125*(skewCT(1,2,0,0,0)+skewCT(1,2,0,-1,0)+skewCT(2,1,0,0,0)+skewCT(2,1,+1,0,0))
+      skewA(-1,+1,0) = -0.125*(skewCT(1,2,0,0,0)+skewCT(1,2,0,+1,0)+skewCT(2,1,0,0,0)+skewCT(2,1,-1,0,0))
       ! (qq,ss,ff) = (+1,0,-1) and (-1,0,+1)
       skewA(+1,0,-1) = -0.125*(skewCT(2,3,0,0,0)+skewCT(2,3,+1,0,0)+skewCT(3,2,0,0,0)+skewCT(3,2,0,0,-1))
       skewA(-1,0,+1) = -0.125*(skewCT(2,3,0,0,0)+skewCT(2,3,-1,0,0)+skewCT(3,2,0,0,0)+skewCT(3,2,0,0,+1))
