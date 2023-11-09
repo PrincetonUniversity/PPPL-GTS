@@ -1689,7 +1689,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
    ! call Determine_GK_PoissonTensors_on_Structured_Grid
    call Determine_GK_PoissonTensors_on_locally_Skewed_Structured_Grid
 
-   max_nnz=25 ! maximum number of non-zero values per each row
+   max_nnz=17 ! maximum number of non-zero values per each row
    if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
@@ -1717,7 +1717,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
 
       do ks=-1,1
          do kf=-1,1
-            skL_ratio0(ks,kf) = max(0.0,min(1.0,(skL_gq0(ks,kf) - SG%gq_1D(skL_gqid(0,ks,kf)))*SG%inv_dgq))
+            skL_ratio0(ks,kf) = (skL_gq0(ks,kf) - SG%gq_1D(skL_gqid(0,ks,kf)))*SG%inv_dgq
          enddo
       enddo
 
@@ -1779,7 +1779,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
       nid=1 ! node id
       do kq=-1,1
          do ks=-1,1
-            tarGid(nid,Lid) = mapP2G(qq+kq,ss+ks,ff)
+            tarGid(nid,Lid) = mapP2G(skL_gqid(kq,ks,0),ss+ks,ff)
             tarVal(nid,Lid) = skewA(kq,ks,0)
             nid=nid+1
          enddo
@@ -1801,18 +1801,6 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
          nid=nid+1
       enddo
 
-      ! gqid=gqid_p([0,1]) & sid=[ss-1,ss+1] & gfid=[ff-1, ff+1]
-      do kf=-1,1,2
-         do ks=-1,1,2
-            tarGid(nid,Lid) = mapP2G(skL_gqid(0,ks,kf), ss+ks, ff+kf)
-            tarVal(nid,Lid) = (1.0-skL_ratio0(ks,kf))*skewA(0,ks,kf)
-            nid=nid+1
-
-            tarGid(nid,Lid) = mapP2G(skL_gqid(1,ks,kf), ss+ks, ff+kf)
-            tarVal(nid,Lid) = skL_ratio0(ks,kf)*skewA(0,ks,kf)
-            nid=nid+1
-         enddo
-      enddo
 
       if(nid /= max_nnz +1) then
          write(stdout,*) ""
