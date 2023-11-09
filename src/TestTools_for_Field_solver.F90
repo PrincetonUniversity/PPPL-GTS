@@ -551,47 +551,99 @@ module TestTools_for_Field_solver
          snap_n_modes = [10, 10, 10, 10, 10,   10, 20, 20, 20, 20, 20,  20]
          snap_m_modes = [10, 20, 30, 50, 100, 200, 10, 20, 30, 50, 100, 200]
 
-
+         if(mype==0) write(stdout,*) "gk central"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          call Destruct_some_arrays_of_Field_Solver
          call Construct_Metric_Tensor_on_Structured_Grid
          call Construct_GK_Poisson3D_Solver_using_Structured_Grid
          call this%test_GK_Poisson_solver("gk_poisson_mn_central.h5", snap_m_modes, snap_n_modes)
 
-         call Destruct_some_arrays_of_Field_Solver
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=natural.h5", snap_m_modes, snap_n_modes)
-
-         call Destruct_some_arrays_of_Field_Solver
-         SG%skew_q_1D = 1e6
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=1e6.h5", snap_m_modes, snap_n_modes)
-
-
-         call Destruct_some_arrays_of_Field_Solver
-         SG%skew_q_1D = 2.0
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=2.h5", snap_m_modes, snap_n_modes)
-
-         call Destruct_some_arrays_of_Field_Solver
-         SG%skew_q_1D = 1.0
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=1.h5", snap_m_modes, snap_n_modes)
-
-
-         call Destruct_some_arrays_of_Field_Solver
-         SG%skew_q_1D = 0.5
-         write(stdout,*) "skew_q_1D=0.5"
+         if(mype==0) write(stdout,*) "zero_kpara_q=natural"
          call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=natural_zero_kpara.h5", snap_m_modes, snap_n_modes)
+
+         if(mype==0) write(stdout,*) "skewed q=natural"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=natural_skewed.h5", snap_m_modes, snap_n_modes)
+
+
+         if(mype==0) write(stdout,*) "skewed; q=1e10"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1e10
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_skewed.h5", snap_m_modes, snap_n_modes)
+
+         SG%skew_q_1D = 1e10
+         if(mype==0) write(stdout,*) "zero_kpara; q=1e10"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_zero_kpara.h5", snap_m_modes, snap_n_modes)
+
+
+         SG%skew_q_1D = 2.0
+         if(mype==0) write(stdout,*) "skewed; q=2.0"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=2_skewed.h5", snap_m_modes, snap_n_modes)
+
+         SG%skew_q_1D = 2.0
+         if(mype==0) write(stdout,*) "zero_kpara; q=2.0"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=2_zero_kpara.h5", snap_m_modes, snap_n_modes)
+
+         SG%skew_q_1D = 1.0
+         if(mype==0) write(stdout,*) "skewed; q=1.0"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_skewed.h5", snap_m_modes, snap_n_modes)
+
+         SG%skew_q_1D = 1.0
+         if(mype==0) write(stdout,*) "zero_kpara; q=1.0"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_zero_kpara.h5", snap_m_modes, snap_n_modes)
+
+         SG%skew_q_1D = 0.5
+         write(stdout,*) "skewed; q=0.5"
+         call flush(stdout)
+         call Destruct_some_arrays_of_Field_Solver
          call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
          call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_skewed_q=0.5.h5", snap_m_modes, snap_n_modes)
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=0.5_skewed.h5", snap_m_modes, snap_n_modes)
 
 
+         SG%skew_q_1D = 0.5
+         if(mype==0) write(stdout,*) "zero_kpara; q=0.5"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=0.5_zero_kpara.h5", snap_m_modes, snap_n_modes)
 
          ! call Destruct_some_arrays_of_Field_Solver
          ! SG%skew_q_1D = 0.2
