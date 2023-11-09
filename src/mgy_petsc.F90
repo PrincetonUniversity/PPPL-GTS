@@ -1432,6 +1432,138 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
 end subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
+
+subroutine Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+
+   use Structured_Grid
+   use particle_decomp
+   use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
+   implicit none
+
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   PetscReal off_val
+   real tt0, tt1
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   real, external:: dsda
+   integer :: dim_gq, dim_a
+   integer :: nid
+   real(wp) CTqq_from_gf(-1:1)
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+   ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
+   ! Note that there are ghost cells for easier indexing
+   allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   call Determine_GK_PoissonTensors_on_Structured_Grid
+
+   
+   max_nnz=9 ! maximum number of non-zero values per each row
+   if(.not. allocated(tarGid)) allocate(tarGid(max_nnz,Lsize), tarVal(max_nnz,Lsize))
+
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
+
+      CTqq_from_gf(-1) = SG%Jacob_sqf(qq-1,ss)*(Eps_T(3,3,qq-1,ss,0)/SG%skew_q_1D(ss)**2.0- (Eps_T(2,3,qq-1,ss,0)+Eps_T(3,2,qq-1,ss,0))/SG%skew_q_1D(ss))*(SG%inv_dgq**2.0)
+      CTqq_from_gf(0)  = SG%Jacob_sqf(qq,ss)*(Eps_T(3,3,qq,ss,0)/SG%skew_q_1D(ss)**2.0- (Eps_T(2,3,qq,ss,0)+Eps_T(3,2,qq,ss,0))/SG%skew_q_1D(ss))*(SG%inv_dgq**2.0)
+      CTqq_from_gf(+1) = SG%Jacob_sqf(qq+1,ss)*(Eps_T(3,3,qq+1,ss,0)/SG%skew_q_1D(ss)**2.0- (Eps_T(2,3,qq+1,ss,0)+Eps_T(3,2,qq+1,ss,0))/SG%skew_q_1D(ss))*(SG%inv_dgq**2.0)
+
+      ! 2 (gqid-1) & 3 (gqid+1)
+      off_val        =0.125*(CT(1,2,qq,ss+1,0)-CT(1,2,qq,ss-1,0) +CT(3,2,qq,ss,+1)-CT(3,2,qq,ss,-1))
+      tarGid(2 ,Lid) =mapP2G(qq-1,ss,ff)
+      tarVal(2 ,Lid) =0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq-1,ss,0)) - off_val + 0.5*(CTqq_from_gf(0)+CTqq_from_gf(-1))
+      tarGid(3 ,Lid) =mapP2G(qq+1,ss,ff)
+      tarVal(3 ,Lid) =0.5*(CT(2,2,qq,ss,0)+CT(2,2,qq+1,ss,0)) + off_val + 0.5*(CTqq_from_gf(0)+CTqq_from_gf(+1))
+
+      ! 4 (sid-1) & 5 (sid+1)
+      off_val        =0.125*(CT(2,1,qq+1,ss,0)-CT(2,1,qq-1,ss,0) +CT(3,1,qq,ss,+1)-CT(3,1,qq,ss,-1))
+      tarGid(4 ,Lid) =mapP2G(qq,ss-1,ff)
+      tarVal(4 ,Lid) =0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss-1,0)) - off_val
+      tarGid(5 ,Lid) =mapP2G(qq,ss+1,ff)
+      tarVal(5 ,Lid) =0.5*(CT(1,1,qq,ss,0)+CT(1,1,qq,ss+1,0)) + off_val
+
+      ! 6 (sid+1,qid+1) & 7 (sid-1,qid-1)
+      tarGid(6 ,Lid) =mapP2G(qq+1,ss+1,ff)
+      tarVal(6 ,Lid) =+0.125*(CT(1,2,qq,ss,0)+CT(1,2,qq,ss+1,0)+CT(2,1,qq,ss,0)+CT(2,1,qq+1,ss,0))
+      tarGid(7 ,Lid) =mapP2G(qq-1,ss-1,ff)
+      tarVal(7 ,Lid) =+0.125*(CT(1,2,qq,ss,0)+CT(1,2,qq,ss-1,0)+CT(2,1,qq,ss,0)+CT(2,1,qq-1,ss,0))
+      ! 8 (sid+1,qid-1) & 9 (sid-1,qid+1)
+      tarGid(8,Lid) =mapP2G(qq-1,ss+1,ff)
+      tarVal(8,Lid) =-0.125*(CT(1,2,qq,ss,0)+CT(1,2,qq,ss+1,0)+CT(2,1,qq,ss,0)+CT(2,1,qq-1,ss,0))
+      tarGid(9,Lid) =mapP2G(qq+1,ss-1,ff)
+      tarVal(9,Lid) =-0.125*(CT(1,2,qq,ss,0)+CT(1,2,qq,ss-1,0)+CT(2,1,qq,ss,0)+CT(2,1,qq+1,ss,0))
+
+      ! 1 (gqid,sid,gfid)
+      tarGid(1,Lid)=mapP2G(qq,ss,ff)
+      tarVal(1,Lid)=-sum(tarVal(2:max_nnz,Lid))
+
+      ! IMPORTANT!! Multiply -inv_Jacob to the above coefficients,
+      ! so make sure that target coefficient values represent (-nabla*(eps_T*nabla*phi))
+      tarVal(:,Lid) = -1.0*inv_Jacob*tarVal(:,Lid)
+   enddo
+
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs
+
+   ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
+   d_nnz=0; o_nnz=0;
+   do Lid=1,Lsize
+      do tnum=1,max_nnz
+         if(tarGid(tnum,Lid)>=0) then
+            if(tarGid(tnum,Lid)<Gid_start .or. tarGid(tnum,Lid)>Gid_end) then
+               o_nnz(Lid)=o_nnz(Lid)+1
+            else
+               d_nnz(Lid)=d_nnz(Lid)+1
+            endif
+         endif
+      enddo
+   enddo
+
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
+   ! Preallocate the memory using o_nnz and d_nnz
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(:,Lid),tarVal(:,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+   ! Construct KSP
+   tt0=MPI_WTIME()
+   call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_P,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+end subroutine Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+
+
 subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
 
    use Structured_Grid
