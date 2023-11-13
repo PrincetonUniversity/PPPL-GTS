@@ -1279,6 +1279,241 @@ subroutine test_Laplacian_2D()
    return
 end subroutine test_Laplacian_2D
 
+subroutine Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order(diff_order_s,diff_order_gq, diff_order_gf)
+
+   use Structured_Grid
+   use particle_decomp
+   use global_parameters,only:mype,stdout,zetamax,zetamin,mzetamax
+   implicit none
+
+   integer, intent(in), optional :: diff_order_s, diff_order_gq, diff_order_gf
+   integer Os,Oq,Of ! Orders of difference in (s,gq,gf) directions
+   PetscInt Lid,Gid,qq,ss,ff,tnum
+   PetscReal off_val
+   real tt0, tt1
+   PetscReal inv_Jacob
+   PetscErrorCode ierr
+   real, external:: dsda
+   integer :: dim_gq, dim_a, nid
+   integer :: max_elms ! maximum neighboring elements for differencing each point
+   real(wp), allocatable :: locCT(:,:,:,:,:), locA(:,:,:)
+   integer ks,kq,kf ! loop parameter for 3 coordinates
+   real(wp), allocatable :: cc1st_s(:), cc2nd_s(:), cc1st_q(:), cc2nd_q(:), cc1st_f(:), cc2nd_f(:)
+   real(Wp) sum_dDji_duj ! sum_{j}(dDji_duj)
+
+
+   ! Default differencing order is 2nd order (using 3-points along each direction)
+   Os=2
+   Oq=2
+   Of=2
+
+   if(present(diff_order_s)) Os=diff_order_s
+   if(present(diff_order_gq)) Oq=diff_order_gq
+   if(present(diff_order_gf)) Of=diff_order_gf
+
+   allocate(locA(-Oq/2:Oq/2, -Os/2:Os/2, -Of/2:Of/2))
+   allocate(locCT(3,3,-Oq/2:Oq/2, -Os/2:Os/2, -Of/2:Of/2))
+   allocate(cc1st_s(-Os/2:Os/2), cc2nd_s(-Os/2:Os/2))
+   allocate(cc1st_q(-Oq/2:Oq/2), cc2nd_q(-Oq/2:Oq/2))
+   allocate(cc1st_f(-Of/2:Of/2), cc2nd_f(-Of/2:Of/2))
+
+   if(Os==2) then
+      cc1st_s=[-0.5,  0.0, +0.5]
+      cc2nd_s=[+1.0, -2.0, +1.0]
+   elseif(Os==4) then
+      cc1st_s=[+1.0/12.0, -8.0/12.0, 0.0, +8.0/12.0, -1.0/12.0]
+      cc2nd_s= [-1.0/12.0, +16.0/12.0, -30.0/12.0, +16.0/12.0, -1.0/12.0]
+   else
+      write(stdout,'(A,I0,A)') "Error!! Undefined Os=", Os, ", in Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order"
+      call flush(stdout)
+      stop
+   endif
+   
+   if(Oq==2) then
+      cc1st_q=[-0.5,  0.0, +0.5]
+      cc2nd_q=[+1.0, -2.0, +1.0]
+   elseif(Oq==4) then
+      cc1st_q=[+1.0/12.0, -8.0/12.0, 0.0, +8.0/12.0, -1.0/12.0]
+      cc2nd_q= [-1.0/12.0, +16.0/12.0, -30.0/12.0, +16.0/12.0, -1.0/12.0]
+   else
+      write(stdout,'(A,I0,A)') "Error!! Undefined Oq=", Oq, ", in Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order"
+      call flush(stdout)
+      stop
+   endif   
+
+   if(Of==2) then
+      cc1st_f=[-0.5,  0.0, +0.5]
+      cc2nd_f=[+1.0, -2.0, +1.0]
+   elseif(Of==4) then
+      cc1st_f=[+1.0/12.0, -8.0/12.0, 0.0, +8.0/12.0, -1.0/12.0]
+      cc2nd_f= [-1.0/12.0, +16.0/12.0, -30.0/12.0, +16.0/12.0, -1.0/12.0]
+   else
+      write(stdout,'(A,I0,A)') "Error!! Undefined Of=", Of, ", in Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order"
+      call flush(stdout)
+      stop
+   endif
+
+
+   dim_a =SG%dim_a
+   dim_gq=SG%dim_gq
+
+   ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
+   ! Note that there are ghost cells for easier indexing
+   allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   call Determine_GK_PoissonTensors_on_Structured_Grid
+
+   max_elms=(Os+1)*(Oq+1)*(Of+1) ! maximum number of non-zero values per each row
+   if(.not. allocated(tarGid)) allocate(tarGid(max_elms,Lsize), tarVal(max_elms,Lsize))
+
+   max_nnz=0 ! correct max_nnz will be calculated later
+   tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+
+      qq = mapG2P(Gid)%gqid
+      ss = mapG2P(Gid)%aid
+      ff = mapG2P(Gid)%gfid
+
+      inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
+
+
+      ! Copy a subset of CT to locCT
+      do kf=-Of/2,+Of/2
+         do ks=-Os/2,+Os/2
+            do kq=-Oq/2,+Oq/2
+               locCT(:,:,kq,ks,kf) = CT(:,:, modulo(qq+kq-1,SG%dim_gq-1)+1, max(0,min(SG%dim_s+1,ss+ks)), kf)
+            enddo
+         enddo
+      enddo
+    
+      ! Determine locA using locCT
+      locA=0.0
+      ! Along gq direction
+      sum_dDji_duj = dot_product(cc1st_s,locCT(1,2,0,:,0))
+      sum_dDji_duj = sum_dDji_duj + dot_product(cc1st_q,locCT(2,2,:,0,0)) 
+      sum_dDji_duj = sum_dDji_duj + dot_product(cc1st_f,locCT(3,2,0,0,:)) 
+      do kq=-Oq/2,+Oq/2
+         locA(kq,0,0) = locA(kq,0,0) + cc2nd_q(kq)*locCT(2,2,0,0,0)  + cc1st_q(kq)*sum_dDji_duj
+      enddo
+
+      ! Along s direction
+      sum_dDji_duj = dot_product(cc1st_s,locCT(1,1,0,:,0))
+      sum_dDji_duj = sum_dDji_duj + dot_product(cc1st_q,locCT(2,1,:,0,0)) 
+      sum_dDji_duj = sum_dDji_duj + dot_product(cc1st_f,locCT(3,1,0,0,:)) 
+      do ks=-Os/2,+Os/2
+         locA(0,ks,0) = locA(0,ks,0) + cc2nd_s(ks)*locCT(1,1,0,0,0)  + cc1st_s(ks)*sum_dDji_duj         
+      enddo
+      
+      ! Along gf direction
+      sum_dDji_duj = dot_product(cc1st_s,locCT(1,3,0,:,0))
+      sum_dDji_duj = sum_dDji_duj + dot_product(cc1st_q,locCT(2,3,:,0,0)) 
+      sum_dDji_duj = sum_dDji_duj + dot_product(cc1st_f,locCT(3,3,0,0,:)) 
+      do kf=-Of/2,+Of/2
+         locA(0,0,kf) = locA(0,0,kf) + cc2nd_f(kf)*locCT(3,3,0,0,0)  + cc1st_f(kf)*sum_dDji_duj         
+      enddo
+
+      ! (s, gq) combination
+      do ks=-Os/2,+Os/2
+         do kq=-Oq/2,+Oq/2
+            locA(kq,ks,0) = locA(kq,ks,0) + cc1st_q(kq)*cc1st_s(ks)*(locCT(1,2,0,0,0)+locCT(2,1,0,0,0))
+         enddo
+      enddo
+
+      ! (gq, gf) combination
+      do kf=-Of/2,+Of/2
+         do kq=-Oq/2,+Oq/2
+            locA(kq,0,kf) = locA(kq,0,kf) + cc1st_q(kq)*cc1st_f(kf)*(locCT(2,3,0,0,0)+locCT(3,2,0,0,0))
+         enddo
+      enddo
+
+      ! Don't need to calculate (s,gf) combination (because CT(2,3)=CT(3,2)=0)
+
+      ! divide by Jacobian and multiply -1 to represent -nabla*(eps_T)*nabla operator
+      locA = -locA/SG%Jacob_sqf(qq,ss)
+
+
+      ! Set tarVal only if locA is not zero
+      nid=1
+      do kf=-Of/2,+Of/2
+         do ks=-Os/2,+Os/2
+            do kq=-Oq/2,+Oq/2
+               if(locA(kq,ks,kf) /= 0.0) then
+                  tarGid(nid, Lid) = mapP2G(modulo(qq+kq-1,SG%dim_gq-1)+1,ss+ks,modulo(ff+kf-1,mzetamax)+1)
+                  tarVal(nid, Lid) = locA(kq,ks,kf)
+                  nid=nid+1
+               endif
+            enddo
+         enddo
+      enddo
+
+      max_nnz = max(nid-1, max_nnz) !update max_nnz
+
+   enddo
+
+   if(mype==0) write(stdout,'(A,I0,A)') "max_nnz=", max_nnz, " in Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order"
+   call flush(stdout)
+
+   call Apply_BC_to_GK_Poisson_LHS_Coeffs
+
+
+   ! To calculate numbers of non-zero elements for diagonal(d_nnz) & off-diagonal(o_nnz) blocks
+   if(.not. allocated(d_nnz)) allocate(d_nnz(Lsize), o_nnz(Lsize))
+   d_nnz=0; o_nnz=0;
+   do Lid=1,Lsize
+      do tnum=1,max_nnz
+         if(tarGid(tnum,Lid)>=0) then
+            if(tarGid(tnum,Lid)<Gid_start .or. tarGid(tnum,Lid)>Gid_end) then
+               o_nnz(Lid)=o_nnz(Lid)+1
+            else
+               d_nnz(Lid)=d_nnz(Lid)+1
+            endif
+         endif
+      enddo
+   enddo
+
+
+   ! Construct Matrix (PMat)
+   call MatCreate(PETSC_COMM_WORLD,PMat,ierr); CHKERRQ(ierr)
+   call MatSetSizes(PMat,Lsize,Lsize,Gsize,Gsize,ierr); CHKERRQ(ierr)
+   call MatSetFromOptions(PMat,ierr); CHKERRQ(ierr)
+   ! Preallocate the memory using o_nnz and d_nnz
+   call MatMPIAIJSetPreallocation(PMat,max_nnz,d_nnz,max_nnz,o_nnz,ierr); CHKERRQ(ierr)
+   ! Set Mat Values using the non-zero information calculated from above
+   do Lid=1,Lsize
+      Gid=mapL2G(Lid)
+      call MatSetValues(PMat,1,Gid,max_nnz,tarGid(1:max_nnz,Lid),tarVal(1:max_nnz,Lid),INSERT_VALUES,ierr); CHKERRQ(ierr)
+   enddo
+
+   ! Assembly Matrix
+   tt0=MPI_WTIME()
+   call MatAssemblyBegin(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   call MatAssemblyEnd(PMat,MAT_FINAL_ASSEMBLY,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "MatAssembly takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   ! call MatView(PMat,PETSC_VIEWER_STDOUT_WORLD,ierr); CHKERRQ(ierr)
+
+
+   ! Construct KSP
+   tt0=MPI_WTIME()
+   call KSPCreate(PETSC_COMM_WORLD,ksp_P,ierr); CHKERRQ(ierr)
+   call KSPSetOperators(ksp_P,PMat,PMat,ierr); CHKERRQ(ierr)
+   ! call KSPSetTolerances(ksp_P,1e-5,PETSC_DEFAULT_REAL, PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,ierr); CHKERRQ(ierr)
+   call KSPSetFromOptions(ksp_P,ierr); CHKERRQ(ierr)
+   tt1=MPI_WTIME()
+   if(mype==0) write(stdout,*) "KSPCreate takes ",tt1-tt0," secs"
+   call flush(stdout)
+
+   deallocate(locCT,locA)
+   deallocate(cc1st_s,cc2nd_s)
+   deallocate(cc1st_q,cc2nd_q)
+   deallocate(cc1st_f,cc2nd_f)
+
+
+end subroutine Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order
 
 subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
 
