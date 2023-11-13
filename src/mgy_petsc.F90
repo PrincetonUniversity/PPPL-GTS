@@ -1799,7 +1799,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
    real, external:: dsda
    integer :: dim_gq, dim_a
    real(wp), external :: Te0_eV, Ti0_eV, density
-   real(wp) tmp
+   real(wp) tmp, this_inv_skew_q
    real(wp) skewCT(3,3,-1:1,-1:1,-1:1), skewA(-1:1,-1:1,-1:1)
    integer :: skL_gqid(-1:2,-1:1,-1:1) ! gqid of skewed lattice  (qq-1:qq+2,ss-1:ss+1,ff-1:ff+1)
    real(wp) :: skL_gq0(-1:1,-1:1), skL_ratio0(-1:1,-1:1) ! reference gq (theta) and ratio at (ss-1:ss+1,ff-1:ff+1)
@@ -1834,8 +1834,12 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
       ff = mapG2P(Gid)%gfid
 
       skL_gq0(-1:1,0) = SG%gq_1D(qq)
-      skL_gq0(-1:1,+1) = modulo(SG%gq_1D(qq) + SG%dgf/(SG%skew_q_1D(ss-1:ss+1)), 2.0*pi) 
-      skL_gq0(-1:1,-1) = modulo(SG%gq_1D(qq) - SG%dgf/(SG%skew_q_1D(ss-1:ss+1)), 2.0*pi) 
+      do ks=-1,1
+         this_inv_skew_q = 1.0/SG%skew_q_1D(max(1,min(SG%dim_s,ss+ks)))
+         skL_gq0(ks,+1) = modulo(SG%gq_1D(qq) + SG%dgf*this_inv_skew_q, 2.0*pi) 
+         skL_gq0(ks,-1) = modulo(SG%gq_1D(qq) - SG%dgf*this_inv_skew_q, 2.0*pi) 
+      enddo
+      
      
       do kq=-1,2
          skL_gqid(kq,:,:) = kq + max(1,min(SG%dim_gq-1, int(skL_gq0*SG%inv_dgq)+1))
