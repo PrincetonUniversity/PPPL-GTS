@@ -1360,8 +1360,8 @@ subroutine Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order(d
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
-   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
+   allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-Of/2:Of/2))
+   if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-Of/2:Of/2))
    call Determine_GK_PoissonTensors_on_Structured_Grid
 
    max_elms=(Os+1)*(Oq+1)*(Of+1) ! maximum number of non-zero values per each row
@@ -2443,6 +2443,7 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
    real(wp) inv_du(3)
    integer istatus(MPI_STATUS_SIZE), icount, ierror
    real(wp) ne_tot(SG%dim_gq,SG%dim_s), ni_tot(SG%dim_gq,SG%dim_s)
+   integer loc_Nf, kf
 
    Flag_WhichTerm=2 !Default value=0 (Full Eps_T); =1(Metric_T only); =2(Polar_T only)
    if(present(In_Flag_WhichTerm)) Flag_WhichTerm = In_Flag_WhichTerm
@@ -2507,14 +2508,15 @@ subroutine Determine_GK_PoissonTensors_on_Structured_Grid(In_Flag_WhichTerm)
       stop
    endif
 
-   ! Communicate Eps_T with neighboring left and right planes.
+   loc_Nf = size(Eps_T,5)
+
+   ! Communicate Eps_T with neighboring left and right planes as needed.
    ! So, Eps_T(:,:,:,:,tid) ==>  tid=-1(left plane), tid=0(my plane), tid=1(right plane)
-   ! Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1)
+   do kf=1,(loc_Nf-1)/2
    icount=3*3*(SG%dim_gq+1)*(SG%dim_a+2)
-   call MPI_SENDRECV(Eps_T(:,:,:,:,0),icount,mpi_Rsize,left_pe,0,Eps_T(:,:,:,:,1),icount,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierror)
-   call MPI_SENDRECV(Eps_T(:,:,:,:,0),icount,mpi_Rsize,right_pe,0,Eps_T(:,:,:,:,-1),icount,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierror)
-
-
+      call MPI_SENDRECV(Eps_T(:,:,:,:,+(kf-1)),icount,mpi_Rsize,left_pe,0,Eps_T(:,:,:,:,+kf),icount,mpi_Rsize,right_pe,0,toroidal_comm,istatus,ierror)
+      call MPI_SENDRECV(Eps_T(:,:,:,:,-(kf-1)),icount,mpi_Rsize,right_pe,0,Eps_T(:,:,:,:,-kf),icount,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierror)
+   enddo
 
    inv_du(1) = SG%inv_ds
    inv_du(2) = SG%inv_dgq
