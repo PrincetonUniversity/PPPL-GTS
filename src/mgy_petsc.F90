@@ -1357,6 +1357,7 @@ subroutine Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order(d
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
+   if(.not. allocated(Metric_T)) call Construct_Metric_Tensor_on_Structured_Grid
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
@@ -1535,7 +1536,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Structured_Grid
    dim_gq=SG%dim_gq
 
    ! call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
-
+   if(.not. allocated(Metric_T)) call Construct_Metric_Tensor_on_Structured_Grid
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
@@ -1688,6 +1689,7 @@ subroutine Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zer
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
+   if(.not. allocated(Metric_T)) call Construct_Metric_Tensor_on_Structured_Grid
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
@@ -1821,7 +1823,7 @@ subroutine Construct_GK_Poisson3D_Solver_with_Extremal_Method
    dim_gq=SG%dim_gq
 
    ! call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
-
+   if(.not. allocated(Metric_T)) call Construct_Metric_Tensor_on_Structured_Grid
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
@@ -2046,14 +2048,13 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
-
+   if(.not. allocated(Metric_T_skewed)) call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
    ! call Initialize_MGY_PETSc_Interface_Data(dim_gq,dim_a,ntoroidal)
    ! Tensors on the poloidal plane, and Coeff Tensor including neighboring left and right poloidal plane
    ! Note that there are ghost cells for easier indexing
    allocate(Polar_T(3,3,0:dim_gq,0:dim_a+1))
    allocate(Eps_T(3,3,0:dim_gq,0:dim_a+1,-1:1))
    if(.not. allocated(CT)) allocate(CT(3,3,0:dim_gq,0:dim_a+1,-1:1))
-   ! call Determine_GK_PoissonTensors_on_Structured_Grid
    call Determine_GK_PoissonTensors_on_locally_Skewed_Structured_Grid
 
    max_nnz=17 ! maximum number of non-zero values per each row
@@ -2318,6 +2319,7 @@ subroutine Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method(In_Flag_WhichLHS)
    dim_a =SG%dim_a
    dim_gq=SG%dim_gq
 
+   if(.not. allocated(Metric_T)) call Construct_Metric_Tensor_on_Structured_Grid
    call Determine_GK_PoissonTensors_on_Structured_Grid(Flag_WhichLHS)
 
    tarGid=-100 ! Assign Negative initial values which will be ignored in MatSetValues
@@ -3765,6 +3767,8 @@ subroutine Destruct_some_arrays_of_Field_Solver
    if(allocated(Polar_T)) deallocate(Polar_T)  
    if(allocated(Eps_T)) deallocate(Eps_T) 
    if(allocated(CT)) deallocate(CT) 
+   if(allocated(Metric_T)) deallocate(Metric_T)
+   if(allocated(Metric_T_skewed)) deallocate(Metric_T_skewed)
 
 end subroutine
 
