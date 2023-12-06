@@ -10,19 +10,24 @@ module TestTools_for_Field_solver
    type, public :: target_function
 
       integer :: m, n
+      real(wp) target_safety_q, resonant_s
       real(wp), allocatable :: sol_f_2D(:,:), src_2D(:,:), sim_f_2D(:,:) ! dimension=(SG%dim_gq, SG%dim_s)
       ! real :: test_src_3D(SG%dim_gq, SG%dim_s, mzetamax)
       contains
          procedure :: allocate_f_src_2D
          procedure :: deallocate_f_src_2D
-         procedure :: set_mn_modes => construct_target_function
-         procedure :: func_eval => evaluate_target_function
+         procedure :: set_mn_modes 
+         procedure :: find_resonant_s
+         ! procedure :: func_eval => evaluate_target_function
+         procedure :: func_eval => island_function
          procedure :: Jacob_Polar_T
+         procedure :: Cal_RHS_Source_from_Known_Solution
          procedure :: Cal_local_highResolution_LHS_GK_Poisson
          procedure :: Cal_local_highResolution_LHS_GK_Poisson_parallelized
          procedure :: Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual
          procedure :: test_GK_Poisson_solver
          procedure :: test_multiple_GK_Poisson_solvers
+         procedure :: test_original_FEM_GK_Poisson_Solver
    end type target_function
 
    contains
@@ -39,7 +44,7 @@ module TestTools_for_Field_solver
          deallocate(this%sol_f_2D, this%src_2D, this%sim_f_2D)
       end subroutine deallocate_f_src_2D
 
-      subroutine construct_target_function(this, in_m, in_n)
+      subroutine set_mn_modes(this, in_m, in_n)
          class(target_function) :: this
          integer, intent(in), optional :: in_m,in_n
 
@@ -49,7 +54,28 @@ module TestTools_for_Field_solver
          if(present(in_m)) this%m = in_m
          if(present(in_n)) this%n = in_n
 
-      end subroutine construct_target_function
+      end subroutine set_mn_modes
+
+      subroutine find_resonant_s(this, in_target_safety_q)
+         use function_gg_module
+         implicit none
+         class(target_function) :: this
+         real(wp), intent(in), optional :: in_target_safety_q
+         real(wp) resonant_a
+         real(wp), external :: Find_a_at_specific_safety_q 
+
+         this%target_safety_q = 1.5 ! default value
+
+         if(present(in_target_safety_q)) this%target_safety_q = in_target_safety_q
+
+         resonant_a = Find_a_at_specific_safety_q(this%target_safety_q)
+         call Convert_a_to_s(resonant_a, this%resonant_s)
+
+         if(mype==0) write(stdout,'(A,ES11.3,A,ES11.3)') "In TestTools_for_Field_solver, target_safety_q=", this%target_safety_q, ", resonant_s=", this%resonant_s
+         call flush(stdout)
+               
+      end subroutine find_resonant_s
+      
 
       pure function evaluate_target_function(this,s,gq,gf,ddu_ij) result(out_val)
          implicit none
@@ -89,6 +115,22 @@ module TestTools_for_Field_solver
          out_val = out_val/(uSI%phi0)
       end function evaluate_target_function
 
+
+      pure function island_function(this,s,gq,gf,ddu_ij) result(out_val)
+         use function_gg_module
+         implicit none
+
+         class(target_function), intent(in) :: this
+         integer, intent(in), optional :: ddu_ij ! derivative along i,j coordinate
+
+         real(wp), intent(in) :: s,gq,gf
+         real(wp) out_val
+         real(wp) :: approx_half_width = 0.1
+      
+         out_val =  (1.0-cos(2*pi/(s1-s0)*(s-s0)))*((1.0-((s-this%resonant_s)/(s1-this%resonant_s))**2.0) + approx_half_width*cos(this%m*gq-this%n*gf))
+
+         out_val = out_val/(uSI%phi0)
+      end function island_function
 
       pure subroutine Jacob_Polar_T(this, s,gq,gf, out_Jacob_Polar_T, ui, uj)
          use global_parameters, only: Flag_Def_dne_adiab
@@ -168,6 +210,15 @@ module TestTools_for_Field_solver
 
       end subroutine Jacob_Polar_T
 
+      subroutine Cal_RHS_Source_from_Known_Solution(this, src2D)
+         implicit none
+         class(target_function) :: this
+         real(wp), intent(out) :: src2D(SG%dim_gq, SG%dim_s)
+         
+         ! call this%Cal_local_highResolution_LHS_GK_Poisson(src2D)
+         call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(src2D)
+         ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(src2D)   
+      end subroutine
 
       subroutine Cal_local_highResolution_LHS_GK_Poisson(this, out_LHS_f)
          implicit none
@@ -374,7 +425,7 @@ module TestTools_for_Field_solver
          class(target_function) :: this
          character(len=*), optional, intent(in) :: output_fname
          integer, intent(in), optional :: snap_m_modes(:), snap_n_modes(:) ! mn 
-         real(wp) tt0,tt1
+         real(wp) tt0,tt1, elap_time
          integer ss,qq,ff
          integer m,n,nid,mid
          integer Nm,Nn
@@ -386,15 +437,23 @@ module TestTools_for_Field_solver
          integer(HSIZE_T) :: h5dims(5)
          integer(HID_T) file_id
          integer N_snap,k
-         real(wp),allocatable :: snap_sim_3D(:,:,:,:), snap_sol_3D(:,:,:,:)
+         real(wp),allocatable :: snap_sim_3D(:,:,:,:), snap_sol_3D(:,:,:,:), snap_src_3D(:,:,:,:)
 
          call this%allocate_f_src_2D
 
 
          ! m_modes = [(nid, nid=-200,200,20)]
          ! n_modes = [(nid, nid=-200,200,20)]
-         m_modes = [(mid, mid=0,200,4)]
-         n_modes = [(nid, nid=0,200,4)]
+         ! m_modes = [(mid, mid=0,200,4)]
+         ! n_modes = [(nid, nid=0,200,4)]
+
+
+         m_modes = [(mid, mid=0,6,1)]
+         n_modes = [(nid, nid=0,6,1)]
+
+         ! m_modes = [(mid, mid=0,100,1)]
+         ! n_modes = [(nid, nid=0,100,1)]
+
          Nm = size(m_modes)
          Nn = size(n_modes)
 
@@ -404,6 +463,7 @@ module TestTools_for_Field_solver
             N_snap = size(snap_m_modes)
             allocate(snap_sim_3D(SG%dim_gq,SG%dim_s,mzetamax, N_snap))
             allocate(snap_sol_3D(SG%dim_gq,SG%dim_s,mzetamax, N_snap))
+            allocate(snap_src_3D(SG%dim_gq,SG%dim_s,mzetamax, N_snap))
          else
             N_snap = 0
          endif
@@ -423,17 +483,18 @@ module TestTools_for_Field_solver
                enddo
             enddo
 
-            ! call this%Cal_local_highResolution_LHS_GK_Poisson(this%src_2D)
-            ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(this%src_2D)
-            call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(this%src_2D)
+            call this%Cal_RHS_Source_from_Known_Solution(this%src_2D)
 
             call Solve_Poisson3D_on_SG(this%src_2D)
 
-            snap_sim_3D(:,:,:,k) = uSI%phi0*SG%test_phi_3D
+            call MPI_ALLGATHER(SG%phi(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,snap_sim_3D(:,:,:,k),SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierrr)
+            snap_sim_3D(:,:,:,k) = uSI%phi0*snap_sim_3D(:,:,:,k)
+            call MPI_ALLGATHER(this%src_2D,SG%dim_gq*SG%dim_a,mpi_Rsize,snap_src_3D(:,:,:,k),SG%dim_gq*SG%dim_a,mpi_Rsize,toroidal_comm,ierrr)
          enddo
          
 
 
+         elap_time=0.0 
          do nid=1,Nn
             do mid=1,Nm
 
@@ -452,15 +513,18 @@ module TestTools_for_Field_solver
                if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", In test_GK_Poisson_solver, Get sol_f_2D takes ",tt1-tt0," secs"
 
                tt0=MPI_WTIME()
-               ! call this%Cal_local_highResolution_LHS_GK_Poisson(this%src_2D)
-               ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(this%src_2D)
-               call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(this%src_2D)
+
+               call this%Cal_RHS_Source_from_Known_Solution(this%src_2D)
                   
                tt1=MPI_WTIME()
                if(mype==0) write(stdout,'(A,I0,A,ES11.3,A)') "mype=",mype,", Cal_local_highResolution_LHS_GK_Poisson takes ",tt1-tt0," secs"
 
+            ! Solve the linear system
+               tt0=MPI_WTIME()
                call Solve_Poisson3D_on_SG(this%src_2D)
-
+               tt1=MPI_WTIME()
+               elap_time = elap_time + (tt1-tt0)
+               
                this%sim_f_2D = SG%phi(:,:,1)
 
                loc_err_sq = sum((this%sim_f_2D-this%sol_f_2D)**2.0)
@@ -480,6 +544,8 @@ module TestTools_for_Field_solver
                rel_err_2D(mid,nid) = sqrt(all_err_sq)/sqrt(all_sol_sq)
             enddo
          enddo
+
+         if(mype==0 .or. mype==1) write(stdout,'(A,I0,A,A,A,ES11.3,A)') "In test_GK_Poisson_solver, mype=",mype, ", output_fname=",output_fname,"; avg Solve takes ",elap_time/(Nm*Nn)," secs"
 
          do ss=1,SG%dim_s
             do qq=1,SG%dim_gq
@@ -518,12 +584,13 @@ module TestTools_for_Field_solver
 
             if(present(snap_m_modes)) then
                do k=1,N_snap
-                  write(dname, '("src3D_m",I0,"_n",I0)') snap_m_modes(k), snap_n_modes(k)
-                  call flush(stdout)
                   h5dims(1:3) = [SG%dim_gq,SG%dim_s,mzetamax]
-                  call h5ltmake_dataset_f(file_id, dname,3,h5dims,H5T_NATIVE_DOUBLE, snap_sol_3D(:,:,:,k), h5err)
                   write(dname, '("sol3D_m",I0,"_n",I0)') snap_m_modes(k), snap_n_modes(k)
+                  call h5ltmake_dataset_f(file_id, dname,3,h5dims,H5T_NATIVE_DOUBLE, snap_sol_3D(:,:,:,k), h5err)
+                  write(dname, '("sim3D_m",I0,"_n",I0)') snap_m_modes(k), snap_n_modes(k)
                   call h5ltmake_dataset_f(file_id, dname,3,h5dims,H5T_NATIVE_DOUBLE, snap_sim_3D(:,:,:,k), h5err)
+                  write(dname, '("src3D_m",I0,"_n",I0)') snap_m_modes(k), snap_n_modes(k)
+                  call h5ltmake_dataset_f(file_id, dname,3,h5dims,H5T_NATIVE_DOUBLE, snap_src_3D(:,:,:,k), h5err)
                enddo
             endif
 
@@ -537,6 +604,7 @@ module TestTools_for_Field_solver
          if(present(snap_m_modes)) then
             deallocate(snap_sim_3D)
             deallocate(snap_sol_3D)
+            deallocate(snap_src_3D)
          endif
       end subroutine test_GK_Poisson_solver
 
@@ -548,102 +616,233 @@ module TestTools_for_Field_solver
          integer, allocatable :: snap_m_modes(:), snap_n_modes(:)
          integer :: k
 
-         snap_n_modes = [10, 10, 10, 10, 10,   10, 20, 20, 20, 20, 20,  20]
-         snap_m_modes = [10, 20, 30, 50, 100, 200, 10, 20, 30, 50, 100, 200]
+         ! snap_n_modes = [10, 10, 10, 10, 10,   10, 20, 20, 20, 20, 20,  20]
+         ! snap_m_modes = [10, 20, 30, 50, 100, 200, 10, 20, 30, 50, 100, 200]
+
+         call this%find_resonant_s(1.5)
+         snap_n_modes = [1, 2, 3, 2, 4, 6] 
+         snap_m_modes = [1, 2, 3, 3, 6, 9]
+
+         ! snap_n_modes = [10, 10, 10, 10, 10,   10] 
+         ! snap_m_modes = [10, 20, 30, 50, 100, 200]
 
          if(mype==0) write(stdout,*) "gk central"
          call flush(stdout)
          call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          call Destruct_some_arrays_of_Field_Solver
-         call Construct_Metric_Tensor_on_Structured_Grid
          call Construct_GK_Poisson3D_Solver_using_Structured_Grid
          call this%test_GK_Poisson_solver("gk_poisson_mn_central.h5", snap_m_modes, snap_n_modes)
 
-         if(mype==0) write(stdout,*) "zero_kpara_q=natural"
-         call flush(stdout)
-         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
-         call Destruct_some_arrays_of_Field_Solver
-         call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
-         call this%test_GK_Poisson_solver("gk_poisson_mn_q=natural_zero_kpara.h5", snap_m_modes, snap_n_modes)
-
-         if(mype==0) write(stdout,*) "skewed q=natural"
-         call flush(stdout)
-         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
-         call Destruct_some_arrays_of_Field_Solver
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_q=natural_skewed.h5", snap_m_modes, snap_n_modes)
-
-
-         if(mype==0) write(stdout,*) "skewed; q=1e10"
+         if(mype==0) write(stdout,*) "Gen. skewed; Of=2 Oq=2; q=1e10; "
          call flush(stdout)
          call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          call Destruct_some_arrays_of_Field_Solver
          SG%skew_q_1D = 1e10
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_skewed.h5", snap_m_modes, snap_n_modes)
+         call Construct_GK_Poisson3D_Solver_on_locally_Skewed_Grid_General_Diff_Order
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_Gen_Of2_Oq2_skewed.h5", snap_m_modes, snap_n_modes)
 
-         SG%skew_q_1D = 1e10
-         if(mype==0) write(stdout,*) "zero_kpara; q=1e10"
+         if(mype==0) write(stdout,*) "Gen. skewed; Of=2 Oq=4; q=1e10; "
          call flush(stdout)
          call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1e10
+         call Construct_GK_Poisson3D_Solver_on_locally_Skewed_Grid_General_Diff_Order(diff_order_gq=4)
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_Gen_Of2_Oq4_skewed.h5", snap_m_modes, snap_n_modes)         
+
+         if(mype==0) write(stdout,*) "Gen. skewed; Of=4 Oq=2; q=1e10; "
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1e10
+         call Construct_GK_Poisson3D_Solver_on_locally_Skewed_Grid_General_Diff_Order(diff_order_gf=4)
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_Gen_Of4_Oq2_skewed.h5", snap_m_modes, snap_n_modes)    
+
+         if(mype==0) write(stdout,*) "Gen. skewed; Of=4 Oq=4; q=1e10;"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1e10
+         call Construct_GK_Poisson3D_Solver_on_locally_Skewed_Grid_General_Diff_Order(diff_order_gq=4, diff_order_gf=4)
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_Gen_Of4_Oq4_skewed.h5", snap_m_modes, snap_n_modes)         
+
+
+         if(mype==0) write(stdout,*) "zero_kpara q=1e10"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1e10
          call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
          call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_zero_kpara.h5", snap_m_modes, snap_n_modes)
 
-
-         SG%skew_q_1D = 2.0
-         if(mype==0) write(stdout,*) "skewed; q=2.0"
+         if(mype==0) write(stdout,*) "zero_kpara q=1"
          call flush(stdout)
          call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          call Destruct_some_arrays_of_Field_Solver
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_q=2_skewed.h5", snap_m_modes, snap_n_modes)
-
-         SG%skew_q_1D = 2.0
-         if(mype==0) write(stdout,*) "zero_kpara; q=2.0"
-         call flush(stdout)
-         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
-         call Destruct_some_arrays_of_Field_Solver
-         call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
-         call this%test_GK_Poisson_solver("gk_poisson_mn_q=2_zero_kpara.h5", snap_m_modes, snap_n_modes)
-
-         SG%skew_q_1D = 1.0
-         if(mype==0) write(stdout,*) "skewed; q=1.0"
-         call flush(stdout)
-         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
-         call Destruct_some_arrays_of_Field_Solver
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_skewed.h5", snap_m_modes, snap_n_modes)
-
-         SG%skew_q_1D = 1.0
-         if(mype==0) write(stdout,*) "zero_kpara; q=1.0"
-         call flush(stdout)
-         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
-         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1
          call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
          call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_zero_kpara.h5", snap_m_modes, snap_n_modes)
 
-         SG%skew_q_1D = 0.5
-         write(stdout,*) "skewed; q=0.5"
-         call flush(stdout)
-         call Destruct_some_arrays_of_Field_Solver
-         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
-         call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
-         call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
-         call this%test_GK_Poisson_solver("gk_poisson_mn_q=0.5_skewed.h5", snap_m_modes, snap_n_modes)
 
-
-         SG%skew_q_1D = 0.5
-         if(mype==0) write(stdout,*) "zero_kpara; q=0.5"
+         if(mype==0) write(stdout,*) "Gen. skewed; Of=4 Oq=4; q=1;"
          call flush(stdout)
          call MPI_Barrier(MPI_COMM_WORLD,ierrr)
          call Destruct_some_arrays_of_Field_Solver
-         call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
-         call this%test_GK_Poisson_solver("gk_poisson_mn_q=0.5_zero_kpara.h5", snap_m_modes, snap_n_modes)
+         SG%skew_q_1D = 1
+         call Construct_GK_Poisson3D_Solver_on_locally_Skewed_Grid_General_Diff_Order(diff_order_gq=4, diff_order_gf=4)
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_Gen_Of4_Oq4_skewed.h5", snap_m_modes, snap_n_modes)         
+
+         if(mype==0) write(stdout,*) "Gen. skewed; Of=2 Oq=4; q=1;"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1
+         call Construct_GK_Poisson3D_Solver_on_locally_Skewed_Grid_General_Diff_Order(diff_order_gq=4, diff_order_gf=2)
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_Gen_Of2_Oq4_skewed.h5", snap_m_modes, snap_n_modes)     
+
+         if(mype==0) write(stdout,*) "Gen. skewed; Of=4 Oq=2; q=1;"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1
+         call Construct_GK_Poisson3D_Solver_on_locally_Skewed_Grid_General_Diff_Order(diff_order_gq=2, diff_order_gf=4)
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_Gen_Of4_Oq2_skewed.h5", snap_m_modes, snap_n_modes)     
+
+         if(mype==0) write(stdout,*) "Gen. skewed; Of=2 Oq=2; q=1;"
+         call flush(stdout)
+         call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         call Destruct_some_arrays_of_Field_Solver
+         SG%skew_q_1D = 1
+         call Construct_GK_Poisson3D_Solver_on_locally_Skewed_Grid_General_Diff_Order(diff_order_gq=2, diff_order_gf=2)
+         call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_Gen_Of2_Oq2_skewed.h5", snap_m_modes, snap_n_modes)     
+
+         ! if(mype==0) write(stdout,*) "genGK Of=4 Oq=2"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order(diff_order_gf=4)
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_gen_Of4_Oq2.h5", snap_m_modes, snap_n_modes)   
+
+         ! if(mype==0) write(stdout,*) "genGK Of=2 Oq=2"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order(diff_order_gq=2)
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_gen_Of2_Oq2.h5", snap_m_modes, snap_n_modes)   
+
+         ! if(mype==0) write(stdout,*) "genGK Of=2 Oq=4"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order(diff_order_gq=4)
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_gen_Of2_Oq4.h5", snap_m_modes, snap_n_modes)   
+
+
+         ! if(mype==0) write(stdout,*) "genGK Of=4 Oq=4"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_on_Structured_Grid_General_Diff_Order(diff_order_gq=4,diff_order_gf=4)
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_gen_Of4_Oq4.h5", snap_m_modes, snap_n_modes)   
+
+
+
+
+      
+         ! if(mype==0) write(stdout,*) "skewed; q=1e10"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! SG%skew_q_1D = 1e10
+         ! call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_skewed.h5", snap_m_modes, snap_n_modes)
+
+         ! if(mype==0) write(stdout,*) "zero_kpara q=natural"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=natural_zero_kpara.h5", snap_m_modes, snap_n_modes)
+
+         ! if(mype==0) write(stdout,*) "skewed q=natural"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=natural_skewed.h5", snap_m_modes, snap_n_modes)
+
+
+
+         ! if(mype==0) write(stdout,*) "skewed; q=1e10"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! SG%skew_q_1D = 1e10
+         ! call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_skewed.h5", snap_m_modes, snap_n_modes)
+
+         ! SG%skew_q_1D = 1e10
+         ! if(mype==0) write(stdout,*) "zero_kpara; q=1e10"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=1e10_zero_kpara.h5", snap_m_modes, snap_n_modes)
+
+
+         ! SG%skew_q_1D = 2.0
+         ! if(mype==0) write(stdout,*) "skewed; q=2.0"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=2_skewed.h5", snap_m_modes, snap_n_modes)
+
+         ! SG%skew_q_1D = 2.0
+         ! if(mype==0) write(stdout,*) "zero_kpara; q=2.0"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=2_zero_kpara.h5", snap_m_modes, snap_n_modes)
+
+         ! SG%skew_q_1D = 1.0
+         ! if(mype==0) write(stdout,*) "skewed; q=1.0"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_skewed.h5", snap_m_modes, snap_n_modes)
+
+         ! SG%skew_q_1D = 1.0
+         ! if(mype==0) write(stdout,*) "zero_kpara; q=1.0"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=1_zero_kpara.h5", snap_m_modes, snap_n_modes)
+
+         ! SG%skew_q_1D = 0.5
+         ! write(stdout,*) "skewed; q=0.5"
+         ! call flush(stdout)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Construct_Metric_Tensor_on_locally_skewed_Structured_Grid
+         ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=0.5_skewed.h5", snap_m_modes, snap_n_modes)
+
+
+         ! SG%skew_q_1D = 0.5
+         ! if(mype==0) write(stdout,*) "zero_kpara; q=0.5"
+         ! call flush(stdout)
+         ! call MPI_Barrier(MPI_COMM_WORLD,ierrr)
+         ! call Destruct_some_arrays_of_Field_Solver
+         ! call Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zero_kpara
+         ! call this%test_GK_Poisson_solver("gk_poisson_mn_q=0.5_zero_kpara.h5", snap_m_modes, snap_n_modes)
 
          ! call Destruct_some_arrays_of_Field_Solver
          ! SG%skew_q_1D = 0.2
@@ -658,5 +857,87 @@ module TestTools_for_Field_solver
       end subroutine test_multiple_GK_Poisson_solvers
 
 
+      subroutine test_original_FEM_GK_Poisson_Solver(this)
+         use global_parameters
+         use solver_data_class
+         use fem_data_class
+         implicit none
+
+         class(target_function) :: this
+         type(solver_data) :: solver1,solver_dphi_dt,masssolver
+         type(fem_data) :: fem1,femt,femm
+
+         if( order .le. 0 ) then
+            solver1%order=0
+            solver_dphi_dt%order=0
+            if(mype == 0) write (0, *) "	integral equation order=", order
+            ! mat type 1, bc type 1
+            solver1%mat%bc_type = 2
+            call new_gk_solver( solver1, '', 1, 2 )
+            ! mat type 2, bc type 2
+            solver_dphi_dt%mat%bc_type = 2
+            if(ifelectron==2.and.ifdphi==1) call new_gk_solver( solver_dphi_dt, 'dphidt_', 2, 2 )
+         else          !  for order > 0
+            if(mype == 0) write (0, *) "	finite element order=", order
+        
+            write(stdout,'(A,I0,A)') "mype=",mype,"; HI1"
+            call flush(stdout)
+            call MPI_BARRIER(MPI_COMM_WORLD,ierrr)
+
+            solver1%order = order
+            solver1%mat%mat_type = 1
+            solver1%mat%bc_type = 0
+            fem1%order = order
+            call new_fem_data( fem1 )
+
+        
+            write(stdout,'(A,I0,A)') "mype=",mype,"; HI2"
+            call flush(stdout)
+            call MPI_BARRIER(MPI_COMM_WORLD,ierrr)
+
+            call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, solver1%mat%bc_type )
+
+
+        
+            write(stdout,'(A,I0,A)') "mype=",mype,"; HI3"
+            call flush(stdout)
+            call MPI_BARRIER(MPI_COMM_WORLD,ierrr)
+
+            masssolver%order = 0
+            masssolver%mat%mat_type = -1
+            masssolver%mat%bc_type = -1
+            femm%order = 1
+            call new_fem_data( femm )
+        
+            write(stdout,'(A,I0,A)') "mype=",mype,"; HI4"
+            call flush(stdout)
+            call MPI_BARRIER(MPI_COMM_WORLD,ierrr)
+
+            call new_fem_masssolver( femm, masssolver )
+         
+        
+            write(stdout,'(A,I0,A)') "mype=",mype,"; HI5"
+            call flush(stdout)
+            call MPI_BARRIER(MPI_COMM_WORLD,ierrr)
+
+            if(ifelectron==2.and.ifdphi==1) then
+               solver_dphi_dt%order = order
+               solver_dphi_dt%mat%mat_type = 2
+               solver_dphi_dt%mat%bc_type = 2
+               femt%order = order
+               call new_fem_data( femt )
+               call new_fem_solver( femt,solver_dphi_dt, 'dphidt_', solver_dphi_dt%mat%mat_type, solver_dphi_dt%mat%bc_type )
+            endif
+         endif
+
+        
+            write(stdout,'(A,I0,A)') "mype=",mype,"; HI6"
+            call flush(stdout)
+            call MPI_BARRIER(MPI_COMM_WORLD,ierrr)
+
+         call poisson(solver1, masssolver)
+
+
+      end subroutine test_original_FEM_GK_Poisson_Solver 
 
 end module TestTools_for_Field_solver
