@@ -2010,9 +2010,9 @@ subroutine Construct_GK_Poisson3D_Solver_using_Central_Differencing_assuming_Zer
 
       inv_Jacob=1.0/SG%Jacob_sqf(qq,ss)
 
-      CTqq_from_gf(-1) = SG%Jacob_sqf(qq-1,ss)*(Eps_T(3,3,qq-1,ss,0)/SG%skew_q_1D(ss)**2.0- (Eps_T(2,3,qq-1,ss,0)+Eps_T(3,2,qq-1,ss,0))/SG%skew_q_1D(ss))*(SG%inv_dgq**2.0)
+      CTqq_from_gf(-1) = SG%Jacob_sqf(modulo(qq-1-1,SG%dim_gq-1)+1,ss)*(Eps_T(3,3,qq-1,ss,0)/SG%skew_q_1D(ss)**2.0- (Eps_T(2,3,qq-1,ss,0)+Eps_T(3,2,qq-1,ss,0))/SG%skew_q_1D(ss))*(SG%inv_dgq**2.0)
       CTqq_from_gf(0)  = SG%Jacob_sqf(qq,ss)*(Eps_T(3,3,qq,ss,0)/SG%skew_q_1D(ss)**2.0- (Eps_T(2,3,qq,ss,0)+Eps_T(3,2,qq,ss,0))/SG%skew_q_1D(ss))*(SG%inv_dgq**2.0)
-      CTqq_from_gf(+1) = SG%Jacob_sqf(qq+1,ss)*(Eps_T(3,3,qq+1,ss,0)/SG%skew_q_1D(ss)**2.0- (Eps_T(2,3,qq+1,ss,0)+Eps_T(3,2,qq+1,ss,0))/SG%skew_q_1D(ss))*(SG%inv_dgq**2.0)
+      CTqq_from_gf(+1) = SG%Jacob_sqf(modulo(qq+1-1,SG%dim_gq-1)+1,ss)*(Eps_T(3,3,qq+1,ss,0)/SG%skew_q_1D(ss)**2.0- (Eps_T(2,3,qq+1,ss,0)+Eps_T(3,2,qq+1,ss,0))/SG%skew_q_1D(ss))*(SG%inv_dgq**2.0)
 
       ! 2 (gqid-1) & 3 (gqid+1)
       off_val        =0.125*(CT(1,2,qq,ss+1,0)-CT(1,2,qq,ss-1,0) +CT(3,2,qq,ss,+1)-CT(3,2,qq,ss,-1))
@@ -2386,6 +2386,13 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
          skL_gqid(:,ks,0) = modulo([qq-1,qq,qq+1,qq+2]-1, SG%dim_gq-1)+1
       enddo
 
+      ! if(Gid==7000) then
+      !    write(stdout,'(2(A,I0),A,3I)') "Gid=",Gid,", qq=",qq, ", skL_gqid(:,0,-1)=",skL_gqid(:,0,-1)
+      !    write(stdout,'(2(A,I0),A,3I)') "Gid=",Gid,", qq=",qq, ", skL_gqid(:,0,0)=",skL_gqid(:,0,0)
+      !    write(stdout,'(2(A,I0),A,3I)') "Gid=",Gid,", qq=",qq, ", skL_gqid(:,0,+1)=",skL_gqid(:,0,+1)
+      !    call flush(stdout)
+      ! endif
+
       do ks=-1,1
          do kf=-1,1
             skL_ratio0(ks,kf) = (skL_gq0(ks,kf) - SG%gq_1D(skL_gqid(0,ks,kf)))*SG%inv_dgq
@@ -2445,6 +2452,13 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
       ! divide by Jacobian and multiply -1 to represent -nabla*(eps_T)*nabla operator
       skewA = -skewA/SG%Jacob_sqf(qq,ss)
 
+      ! if(Gid==7000) then
+      !    write(stdout,'(A,I0,A,9ES16.8)') "Gid=",Gid,",  skewA(:,:,-1)=", skewA(:,:,-1)
+      !    write(stdout,'(A,I0,A,9ES16.8)') "Gid=",Gid,",  skewA(:,:,0)=", skewA(:,:,0)
+      !    write(stdout,'(A,I0,A,9ES16.8)') "Gid=",Gid,",  skewA(:,:,+1)=", skewA(:,:,+1)
+      !    call flush(stdout)
+      ! endif
+
       ! Distribute skewA to target nodes on the regular structured grid
       ! First, assign skewA(:,:,0) to corresponding nodes (! skewA eqauls to tarVal at the current plane)
       nid=1 ! node id
@@ -2472,6 +2486,13 @@ subroutine Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
          nid=nid+1
       enddo
 
+      ! if(Gid==7000) then
+      !    do nid=1,max_nnz
+      !       write(stdout,'(A,I3,A,I8,A,ES16.8)') "nid=",nid,", tarGid(nid,Lid)=",tarGid(nid,Lid), ", tarVal(nid,Lid)=",tarVal(nid,Lid)
+      !    enddo
+      !    nid=max_nnz+1
+      !    call flush(stdout)
+      ! endif
 
       if(nid /= max_nnz +1) then
          write(stdout,*) ""
