@@ -369,6 +369,62 @@ contains
 
    end subroutine Initialize_Structured_Grid
 
+   subroutine Destruct_Structured_Grid
+
+      implicit none
+
+      if(allocated(SG%gq_1D)) deallocate(SG%gq_1D)
+      if(allocated(SG%a_1D)) deallocate(SG%a_1D,SG%ori_sid,SG%s_1D,SG%n0_1D,SG%Te0_1D,SG%Te0_eV_1D,SG%Ti0_1D,SG%Ti0_eV_1D,SG%dsda_1D,SG%safety_q_1D)
+      if(allocated(SG%skew_q_1D)) deallocate(SG%skew_q_1D)
+      if(allocated(SG%a_2D)) deallocate(SG%a_2D,SG%dsda_2D,SG%gq_2D,SG%Cell_dV,SG%inv_Cell_dV)
+      if(allocated(SG%Cell_dS_s)) deallocate(SG%Cell_dS_s,SG%inv_Cell_dS_s,SG%Cell_dS_gq,SG%inv_Cell_dS_gq,SG%Cell_dS_gf,SG%inv_Cell_dS_gf)
+
+      if(allocated(SG%Jacobian)) deallocate(SG%Jacobian,SG%F,SG%dFda,SG%dgFda,SG%dgYda,SG%R,SG%dRda,SG%dRdgq,SG%Z,SG%dZda,SG%dZdgq,SG%BB,SG%dBBda,SG%dBBdgq,SG%P,SG%T)
+      if(allocated(SG%esi_N)) deallocate(SG%esi_N,SG%esi_K,SG%g_aa_cov,SG%g_aq_cov,SG%g_qq_cov,SG%g_ff_cov)
+      if(allocated(SG%D)) deallocate(SG%D,SG%g_aa_cntv,SG%g_aq_cntv,SG%g_qq_cntv,SG%g_ff_cntv)
+      if(allocated(SG%B0_cov3)) deallocate(SG%B0_cov3)
+      if(allocated(SG%B0_cntv3)) deallocate(SG%B0_cntv3,SG%j0_cov3,SG%j0_cntv3)
+
+      if(allocated(SG%g_ss_cntv)) deallocate(SG%g_ss_cntv,SG%g_sq_cntv,SG%g_ss_cov,SG%g_sq_cov,SG%Jacob_sqf)
+      if(allocated(SG%B0_cntv3_sqf)) deallocate(SG%B0_cntv3_sqf)
+
+      if(allocated(SG%dne)) deallocate(SG%dne,SG%dni)
+      if(allocated(SG%dne_SM)) deallocate(SG%dne_SM,SG%dni_SM)
+      if(allocated(SG%dTe)) deallocate(SG%dTe,SG%dTi)
+      if(allocated(SG%ne_by_fh)) deallocate(SG%ne_by_fh,SG%ni_by_ff)
+
+      if(allocated(SG%dje_para)) deallocate(SG%dje_para, SG%dji_para)
+      if(allocated(SG%dje_para_SM)) deallocate(SG%dje_para_SM, SG%dji_para_SM)
+      if(allocated(SG%je_para_by_fh)) deallocate(SG%je_para_by_fh, SG%ji_para_by_ff)
+
+
+      if(allocated(SG%dB_cntv3)) deallocate(SG%dB_cntv3)
+      if(allocated(gyro_over_sqrt_mu)) deallocate(gyro_over_sqrt_mu)
+      if(allocated(SG%phi)) deallocate(SG%phi) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
+      if(allocated(SG%grad_phi_cov)) deallocate(SG%grad_phi_cov)
+
+      if(allocated(SG%test_phi_2D)) deallocate(SG%test_phi_2D,SG%test_src_2D,SG%test_res_2D)
+      if(allocated(SG%test_phi_3D)) deallocate(SG%test_phi_3D,SG%test_src_3D)
+      if(allocated(SG%test_data_3D)) deallocate(SG%test_data_3D)
+      if(allocated(SG%RealCharge_2D)) deallocate(SG%RealCharge_2D,SG%niPol_2D)
+      if(allocated(SG%RealCharge_3D)) deallocate(SG%RealCharge_3D,SG%niPol_3D)
+
+      if(electromagnetic==2) then
+         if(allocated(SG%AparaH)) deallocate(SG%AparaH)
+         if(allocated(SG%AparaS)) deallocate(SG%AparaS,SG%Ampere_RHS,SG%perpLap_AparaS)
+         if(allocated(SG%gaH)) deallocate(SG%gaH,SG%gaS)
+         if(allocated(SG%grad_gaH_cov)) deallocate(SG%grad_gaH_cov,SG%grad_gaS_cov)
+         if(allocated(SG%old_AparaS)) deallocate(SG%old_AparaS,SG%RK_cum_AparaS)
+      endif
+
+      if(allocated(SG%E_para)) deallocate(SG%E_para)
+
+      if(allocated(SG_s_1D)) deallocate(SG_s_1D, SG_gq_1D, SG_safety_q_1D)
+      if(allocated(SG_skew_q_1D)) deallocate(SG_skew_q_1D)
+      if(allocated(SG_phi)) deallocate(SG_phi) ! 0: left plane (@zetamin), 1: current plane (@zetamax), 2: right plane (@zeta=zetamax+delta_zeta)
+      if(allocated(SG_phi_3D)) deallocate(SG_phi_3D)
+   end subroutine Destruct_Structured_Grid
+
    subroutine Measure_Electron_Density_Current_on_SG(flag_which_target)
       use precision
       use global_parameters,only:me, electromagnetic

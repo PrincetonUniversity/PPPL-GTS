@@ -672,6 +672,7 @@ program GTS
 
    call Finalize_Ptl_Src_Loss
 
+   call Destruct_Structured_Grid
    !free all allocated arrays
    !  call GTS_finalize(ierror)
 
