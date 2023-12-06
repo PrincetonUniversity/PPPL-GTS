@@ -1037,6 +1037,7 @@ Subroutine setup
    enddo
 
    const_mtheta = ceiling(sum(mtheta)/real(mpsi+1)) ! average
+   ! const_mtheta = 400
 
    do i=0,mpsi
 

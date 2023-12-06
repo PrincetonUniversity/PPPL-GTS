@@ -441,6 +441,9 @@ contains
       dim_gq=3*(esi%dim_gq-1)+1
       dim_gf=65 ! 64 toroidal gaps that can deal with n=32 modes
 
+      ! dim_a=5*(esi%dim_a-1)+1   ! Finer than ESI but original nodes should be included
+      ! dim_gq=20*(esi%dim_gq-1)+1
+      ! dim_gf=5 ! 64 toroidal gaps that can deal with n=32 modes
       ! dim_a=esi%dim_a
       ! dim_gq=esi%dim_gq
       ! dim_gf=16

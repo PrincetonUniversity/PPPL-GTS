@@ -28,6 +28,8 @@ program GTS
    use function_gg_module
    use MGY_PETSc_Interface_Data
    use Magnetic_Grid
+   ! use TestTools_for_Field_solver
+   use mpi_defs
 #ifdef _ACCEL
    use accel_lib
 #endif _ACCEL
@@ -52,6 +54,7 @@ program GTS
    integer:: nrk !number of RK step (nrk=2 for RK2, nrk=4 for RK4)
    integer:: ngpus_per_node !number of gpus per node
    integer:: device_type,my_gpu_device_num
+   ! type(target_function) testTool_FieldSolver
 
    interface
       subroutine print_whichMPI_sees_whichGPU() bind(C, name="print_whichMPI_sees_whichGPU")
@@ -162,6 +165,7 @@ program GTS
    call MPI_BARRIER(MPI_COMM_WORLD,ierror)
 
    call Initialize_Ptl_Src_Loss
+   call Init_Diagnostic_Grid
 
    istep=0
 
@@ -184,6 +188,12 @@ program GTS
       call Initialize_MGY_PETSc_Interface_Data(SG%dim_gq,SG%dim_a,ntoroidal)
       call Construct_GK_Poisson3D_Solver_with_Extremal_Method
       call Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method
+      ! call Construct_GK_Poisson3D_Solver_using_Structured_Grid
+      ! call Destruct_some_arrays_of_Field_Solver
+      ! call Construct_GK_Poisson3D_Solver_with_Skewed_Derivative
+      ! call Destruct_some_arrays_of_Field_Solver
+      ! call Construct_GK_Poisson3D_Solver_with_Extremal_Method
+      ! call Update_GK_Poisson_LHS_Coeffs_with_Extremal_Method
       if(ifelectron==2 .and. Flag_Def_dne_adiab==2) then
          call Solve_Nonlinear_Poisson3D_on_SG
       else
@@ -204,8 +214,14 @@ program GTS
 
    call open_files
 
+   ! istep=0
+   ! call snapshot_hdf5
+   ! call MPI_BARRIER(MPI_COMM_WORLD,ierrr)
+   ! istep=1
+   ! call testTool_FieldSolver%test_multiple_GK_Poisson_solvers
+   ! stop
+
    ! ********************
-   call Init_Diagnostic_Grid
    if(irun==0) then
       istep=0
 

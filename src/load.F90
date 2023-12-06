@@ -857,6 +857,7 @@ subroutine load_uniform_MGY
    enddo
    acc_newer_H_zion=.true.
 
+   ! zion(5,:) =0.0
 
    wi_init  = zion(5,:)
    wi_vpara = 0
@@ -1062,6 +1063,8 @@ subroutine load_uniform_MGY
          enddo
       endif
       acc_newer_H_zeon=.true.
+
+      ! zeon(5,:)=0.0
 
       if(mype==0) then
 
@@ -1414,6 +1417,7 @@ subroutine Adjust_electron_weight_for_initially_zero_potential
       ! if(mype==0 .and. m==1) then
       !    write(stdout,*) 'After adjustment2, zeon0(9,m)=',zeon0(9,m), '; zeon(8,m)=', zeon(8,m),'; zeon(9,m)=', zeon(9,m)
       ! endif
+      ! zeon(5,m) = 0.0
    enddo
    acc_newer_D_zeon=.true.
 
