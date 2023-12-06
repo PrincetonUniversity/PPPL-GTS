@@ -1486,6 +1486,10 @@ subroutine snapshot_hdf5
       call h5ltmake_dataset_f(gid_SG, "Cell_dS_gq",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gq,h5err)
       call h5ltmake_dataset_f(gid_SG, "Cell_dS_gf",2,h5dims,H5T_NATIVE_DOUBLE, SG%Cell_dS_gf,h5err)
 
+      call h5ltmake_dataset_f(gid_SG, "Te0",2,h5dims,H5T_NATIVE_DOUBLE, (uSI%Erg0/uSI%e0)*SG%Te0(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "Ti0",2,h5dims,H5T_NATIVE_DOUBLE, (uSI%Erg0/uSI%e0)*SG%Ti0(:,:,1),h5err)
+      call h5ltmake_dataset_f(gid_SG, "n0",2,h5dims,H5T_NATIVE_DOUBLE, (uSI%n0)*SG%n0(:,:,1),h5err)
+
       call h5ltmake_dataset_f(gid_SG, "dni",2,h5dims,H5T_NATIVE_DOUBLE, uSI%n0*SG%dni(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dne",2,h5dims,H5T_NATIVE_DOUBLE, uSI%n0*SG%dne(:,:,1),h5err)
       call h5ltmake_dataset_f(gid_SG, "dni_SM",2,h5dims,H5T_NATIVE_DOUBLE, uSI%n0*SG%dni_SM(:,:),h5err)

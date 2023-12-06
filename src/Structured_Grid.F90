@@ -17,6 +17,8 @@ module Structured_Grid
       real(wp),allocatable,dimension(:,:) :: Cell_dV,inv_Cell_dV ! Cell Volume and its inverse
       real(wp),allocatable,dimension(:,:) :: Cell_dS_s,inv_Cell_dS_s,Cell_dS_gq,inv_Cell_dS_gq,Cell_dS_gf,inv_Cell_dS_gf ! Node_Surface in each direction
 
+      real(wp),allocatable,dimension(:,:,:) :: Te0, n0, Ti0 ! dimension: (dim_gq, dim_s, 0:1); 
+
       ! safety factor of locally skewed structured coordinate between nearby poloidal planes
       ! This skew_q_1D will be used in particle shape function and field solvers.
       ! Default: same as SG%safety_q; can be set differently depending on choice
@@ -132,6 +134,7 @@ contains
       allocate(SG%skew_q_1D(Ns))
       allocate(SG%a_2D(Nq,Ns),SG%dsda_2D(Nq,Ns),SG%gq_2D(Nq,Ns),SG%Cell_dV(Nq,Ns),SG%inv_Cell_dV(Nq,Ns))
       allocate(SG%Cell_dS_s(Nq,Ns),SG%inv_Cell_dS_s(Nq,Ns),SG%Cell_dS_gq(Nq,Ns),SG%inv_Cell_dS_gq(Nq,Ns),SG%Cell_dS_gf(Nq,Ns),SG%inv_Cell_dS_gf(Nq,Ns))
+      allocate(SG%Te0(Nq,Ns,0:1), SG%Ti0(Nq,Ns,0:1), SG%n0(Nq,Ns,0:1))
 
       k=1
       do i=0,mpsi
@@ -145,6 +148,11 @@ contains
          SG%Ti0_1D(k)=vth_grid(i)**2.0
          SG%safety_q_1D(k)=q_grid(i)
          SG%skew_q_1D(k)=q_grid(i)
+
+         SG%Te0(:,k,:) = Te_grid(i)
+         SG%Ti0(:,k,:) = vth_grid(i)**2.0 
+         SG%n0(:,k,:) =  den_grid(i)
+
          k=k+1
       enddo
       SG%Ti0_eV_1D=1e3*Tem_00*SG%Ti0_1D
@@ -378,6 +386,7 @@ contains
       if(allocated(SG%skew_q_1D)) deallocate(SG%skew_q_1D)
       if(allocated(SG%a_2D)) deallocate(SG%a_2D,SG%dsda_2D,SG%gq_2D,SG%Cell_dV,SG%inv_Cell_dV)
       if(allocated(SG%Cell_dS_s)) deallocate(SG%Cell_dS_s,SG%inv_Cell_dS_s,SG%Cell_dS_gq,SG%inv_Cell_dS_gq,SG%Cell_dS_gf,SG%inv_Cell_dS_gf)
+      if(allocated(SG%Te0)) deallocate(SG%Te0, SG%Ti0, SG%n0)
 
       if(allocated(SG%Jacobian)) deallocate(SG%Jacobian,SG%F,SG%dFda,SG%dgFda,SG%dgYda,SG%R,SG%dRda,SG%dRdgq,SG%Z,SG%dZda,SG%dZdgq,SG%BB,SG%dBBda,SG%dBBdgq,SG%P,SG%T)
       if(allocated(SG%esi_N)) deallocate(SG%esi_N,SG%esi_K,SG%g_aa_cov,SG%g_aq_cov,SG%g_qq_cov,SG%g_ff_cov)
