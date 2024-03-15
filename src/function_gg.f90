@@ -26,7 +26,7 @@ module function_gg_module
          RETURN
       end function SMOOTHSTEP_M
 
-      function SmootherStep(in_x,x0,y0,x1,y1) result(out_y)
+      pure function SmootherStep(in_x,x0,y0,x1,y1) result(out_y)
          !This function give a point from a smoothly increasing curve between two points (x0,y0) and (x1,y1)
          !$acc routine seq
          use precision
@@ -710,7 +710,7 @@ module function_gg_module
          use precision
          implicit none
          real(wp),intent(inout) :: RK_adv_coeff, RK_cum_coeff
-         integer, intent(in) :: i_RK, N_RK         
+         integer, intent(in) :: i_RK, N_RK
 
          ! Set RK_cum_coeff and RK_adv_coeff
          if(N_RK==4) then
@@ -748,10 +748,10 @@ module function_gg_module
          else
             write(stdout,'((A,I3))') "Error in Determine_RK_coefficients!! wrong N_RK=",N_RK
             call flush(stdout)
-            STOP            
+            STOP
          endif
 
-      end subroutine Determine_RK_coefficients 
+      end subroutine Determine_RK_coefficients
 
 end module function_gg_module
 
@@ -3070,7 +3070,7 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
       ! Other ranks do not need to allocate memory to the following variables
       ! Here, allocate a dummy small memory to those variables just to avoid some MPI compiler may complain that we are using a null pointer.
       allocate(recv_num_of_PPIs(1), recv_num_of_FootPoints(1))
-      allocate(recv_PPI(1, 1), recv_FootPoints(1,1)) 
+      allocate(recv_PPI(1, 1), recv_FootPoints(1,1))
    endif
    call MPI_Gatherv(num_of_PPIs, Lsize, MPI_INTEGER, recv_num_of_PPIs, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
    call MPI_Gatherv(num_of_FootPoints, Lsize, MPI_INTEGER, recv_num_of_FootPoints, recv_counts_Lsize, recv_displs_Lsize, MPI_INTEGER, 0,MPI_COMM_WORLD,ierr)
