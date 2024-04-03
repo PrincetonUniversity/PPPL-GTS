@@ -144,6 +144,7 @@ contains
    end subroutine Read_FMap3D_on_MG
 
    subroutine Read_ESI(filename)
+      use global_parameters, only:stdout
       implicit none
       type(esi_data), pointer :: E
       character(128), intent(in) :: filename
@@ -152,6 +153,11 @@ contains
       real(wp) tmp(4)
 
       E=>esi
+
+      if(allocated(E%a_1D)) then
+         write(stdout,*) " Read_ESI was already called. Ignore this call."
+         return
+      endif
 
       open(unit=20201213,file=filename,action='read')
 
@@ -420,11 +426,12 @@ contains
    end subroutine Write_Magnetic_Grid_hdf5
 
 
-   subroutine Init_Magnetic_Grid
+   subroutine Init_Magnetic_Grid(in_dim_a,in_dim_gq,in_dim_gf)
       use global_parameters, only:eq_data_name,pi,mype,stdout
       use mpi_defs
       implicit none
 
+      integer, intent(in), optional :: in_dim_a, in_dim_gq, in_dim_gf
       integer i,j,k
       integer Na,Nq,Nf
       real(wp) a_min, a_max
@@ -434,19 +441,24 @@ contains
       tt0=MPI_WTIME()
 
       call Read_ESI(eq_data_name)
-      ! dim_a=SG%dim_a
-      ! dim_gq=SG%dim_gq
-      ! dim_gf=36
-      dim_a=3*(esi%dim_a-1)+1   ! Finer than ESI but original nodes should be included
-      dim_gq=3*(esi%dim_gq-1)+1
-      dim_gf=65 ! 64 toroidal gaps that can deal with n=32 modes
 
-      ! dim_a=5*(esi%dim_a-1)+1   ! Finer than ESI but original nodes should be included
-      ! dim_gq=20*(esi%dim_gq-1)+1
-      ! dim_gf=5 ! 64 toroidal gaps that can deal with n=32 modes
-      ! dim_a=esi%dim_a
-      ! dim_gq=esi%dim_gq
-      ! dim_gf=16
+      if(present(in_dim_a)) then
+         dim_a = in_dim_a
+      else
+         dim_a= 3*(esi%dim_a-1)+1 ! Finer than ESI but original nodes should be included
+      endif
+
+      if(present(in_dim_gq)) then
+         dim_gq = in_dim_gq
+      else
+         dim_gq= 3*(esi%dim_gq-1)+1 ! Finer than ESI but original nodes should be included
+      endif
+
+      if(present(in_dim_gf)) then
+         dim_gf = in_dim_gf
+      else
+         dim_gf = 33
+      endif
 
 
       Na=dim_a
@@ -798,9 +810,9 @@ contains
 
             tmp=dsda(a)
             g_ss_cntv(gqid,aid,:)=((dRdq**2+dZdq**2)/DD**2)*(tmp**2.0)
-            g_sq_cntv(gqid,aid,:)=((-dRda*dRdq-dZda*dZdq)/DD**2)*tmp       
-            g_qq_cntv(gqid,aid,:)=(dZda**2+dRda**2)/DD**2   
-            g_ff_cntv(gqid,aid,:)=1.0/R**2               
+            g_sq_cntv(gqid,aid,:)=((-dRda*dRdq-dZda*dZdq)/DD**2)*tmp
+            g_qq_cntv(gqid,aid,:)=(dZda**2+dRda**2)/DD**2
+            g_ff_cntv(gqid,aid,:)=1.0/R**2
             Jacob_sqf(gqid,aid,:) = Jacob/tmp
 
             j0_cov(1,gqid,aid,:) = g_aq_cov(gqid,aid,:)*j0_cntv(2,gqid,aid,:)
@@ -1332,7 +1344,7 @@ contains
       pi=4.0_wp*atan(1.0_wp)
       norm_gq = modulo(in_gq,2.0*pi)
       norm_gf = modulo(in_gf,2.0*pi)
-      
+
 
       aid = max(1,min(dim_a-1, floor((in_a-a_1D(1))*inv_da +1)))
       qid = max(1,min(dim_gq-1, floor((norm_gq-gq_1D(1))*inv_dgq +1)))
