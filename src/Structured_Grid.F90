@@ -109,7 +109,8 @@ contains
 
       SG%dim_s=(mpsi+1)
       SG%dim_a=SG%dim_s
-      SG%dim_gq=mtheta(ipsi)+1
+      ! SG%dim_gq=mtheta(ipsi)+1
+      SG%dim_gq= in_SG_dim_gq
 
       SG%dgq=2.0*pi/(SG%dim_gq-1)
       SG%inv_dgq=1.0/SG%dgq

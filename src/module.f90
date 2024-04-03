@@ -184,6 +184,8 @@ module global_parameters
    integer :: Ptl_Src_dim_a=50 ! radial dimension of PtlSrcCV system
    integer :: Ptl_Src_dim_gq=50 ! poloidal dimension of PtlSrcCV system
 
+   integer :: in_SG_dim_gq = 501 ! number of nodes in poloidal direciton (structured grid)
+
    integer :: MaxLoopNum_Adiab_Weight_Update=1 ! Default=1 (number of loop for updating adiabatic weight evolution)
 
    logical :: acc_newer_H_zion=.true., acc_newer_D_zion=.true., acc_newer_H_zeon=.true., acc_newer_D_zeon=.true.

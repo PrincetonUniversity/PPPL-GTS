@@ -1036,8 +1036,11 @@ Subroutine setup
 #endif
    enddo
 
-   const_mtheta = ceiling(sum(mtheta)/real(mpsi+1)) ! average
-   ! const_mtheta = 400
+   ! const_mtheta = ceiling(sum(mtheta)/real(mpsi+1)) ! average
+   ! const_mtheta = 500
+   ! ! const_mtheta = 1000
+
+   const_mtheta = in_SG_dim_gq-1
 
    do i=0,mpsi
 
@@ -2620,6 +2623,7 @@ Subroutine read_input_params
       Ptl_Src_nstep,      &    ! Generate src from boundaires at every Ptl_Src_nstep
       Ptl_Src_dim_a,      &    ! radial dimension of PtlSrcCV system
       Ptl_Src_dim_gq,     &    ! poloidal dimension of PtlSrcCV system
+      in_SG_dim_gq,    & ! number of nodes in poloidal direciton (structured grid)
       BC0_type,           &    ! type of BC0 (inner boundary; s=s0) (type=0: Dirichelt, type=1: Neumann)
       BC0_value,          &    ! value of BC0 (inner boundary; s=s0)
       BC1_type,           &    ! type of BC1 (outer boundary; s=s1) (type=0: Dirichelt, type=1: Neumann)
@@ -2727,6 +2731,7 @@ Subroutine read_input_params
       write(0,*) 'BC1_type=', BC1_type,', BC1_value=',BC1_value
       write(0,*) 'Ptl_Src_nstep=', Ptl_Src_nstep
 
+      write(0,*) 'in_SG_dim_gq=', in_SG_dim_gq
    endif
 
 
