@@ -3387,7 +3387,8 @@ subroutine Do_FieldLineFollowing_for_Poincare_Plot_parallelized
    deallocate(FMap3D_a_1D,FMap3D_gq_1D,FMap3D_gf_1D,FMap3D_safety_q_1D)
    deallocate(FMap3D_Data, tmp_FMap3D_Data)
 
-
+   call MPI_Type_free(MPI_PPIs_Type, ierr)
+   call MPI_Type_free(MPI_FPs_Type, ierr)
 end subroutine
 
 
@@ -4267,6 +4268,8 @@ subroutine Cal_FootPrint_of_MagneticFieldLine
    deallocate(tmp_FMap3D_VecData)
    deallocate(MirrorRatio_eff)
 
+   call MPI_Type_free(MPI_PPIs_Type, ierr)
+   call MPI_Type_free(MPI_FPs_Type, ierr)
 
 end subroutine Cal_FootPrint_of_MagneticFieldLine
 

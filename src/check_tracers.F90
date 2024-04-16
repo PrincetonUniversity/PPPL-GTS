@@ -121,8 +121,8 @@ subroutine check_tracer_e
          send_buf_TRI(26,m) = zeon(9,my_tracer_indices(m))  ! f_AD @ previous step
 
 
-         call Get_SG_scalar_at_point(SG%phi, tracer(1), tracer(2), tracer(3), P_phi) 
-         call Get_SG_vector_at_point(SG%grad_phi_cov, tracer(1), tracer(2), tracer(3), P_grad_phi_cov) 
+         call Get_SG_scalar_at_point(SG%phi, tracer(1), tracer(2), tracer(3), P_phi)
+         call Get_SG_vector_at_point(SG%grad_phi_cov, tracer(1), tracer(2), tracer(3), P_grad_phi_cov)
          call TriCubic_Interpolation_of_Vec(tracer(1), tracer(2), tracer(3), B_cntv, grad_B_cntv, d23_B_cntv, P_B0_cntv)
 
          P_para_grad_phi = sum(P_B0_cntv*P_grad_phi_cov)/Bj(1)
@@ -131,14 +131,14 @@ subroutine check_tracer_e
          send_buf_TRI(28,m) = P_para_grad_phi
 
          if(electromagnetic==2) then
-            call Get_SG_scalar_at_point(SG%gaH, tracer(1), tracer(2), tracer(3), P_gaH) 
-            call Get_SG_scalar_at_point(SG%gaS, tracer(1), tracer(2), tracer(3), P_gaS) 
-            call Get_SG_vector_at_point(SG%grad_gaH_cov, tracer(1), tracer(2), tracer(3), P_grad_gaH_cov) 
-            call Get_SG_vector_at_point(SG%grad_gaS_cov, tracer(1), tracer(2), tracer(3), P_grad_gaS_cov) 
+            call Get_SG_scalar_at_point(SG%gaH, tracer(1), tracer(2), tracer(3), P_gaH)
+            call Get_SG_scalar_at_point(SG%gaS, tracer(1), tracer(2), tracer(3), P_gaS)
+            call Get_SG_vector_at_point(SG%grad_gaH_cov, tracer(1), tracer(2), tracer(3), P_grad_gaH_cov)
+            call Get_SG_vector_at_point(SG%grad_gaS_cov, tracer(1), tracer(2), tracer(3), P_grad_gaS_cov)
 
             P_para_grad_gaH = sum(P_B0_cntv*P_grad_gaH_cov)/Bj(1)
             P_para_grad_gaS = sum(P_B0_cntv*P_grad_gaS_cov)/Bj(1)
-            
+
             send_buf_TRI(29,m) = P_gaH
             send_buf_TRI(30,m) = P_para_grad_gaH
             send_buf_TRI(31,m) = P_gaS
@@ -147,8 +147,8 @@ subroutine check_tracer_e
             send_buf_TRI(29,m) = 0.0
             send_buf_TRI(30,m) = 0.0
             send_buf_TRI(31,m) = 0.0
-            send_buf_TRI(32,m) = 0.0            
-         endif 
+            send_buf_TRI(32,m) = 0.0
+         endif
 
       enddo
 
@@ -253,6 +253,8 @@ subroutine check_tracer_e
 
 
    deallocate( send_buf_TRI, recv_buf_TRI, send_buf_TRI_Poincare, recv_buf_TRI_Poincare)
+
+   call MPI_Type_free(MPI_TRI_Type, ierr)
 
 end subroutine check_tracer_e
 
@@ -475,6 +477,7 @@ subroutine check_tracer_i
    endif
 
    deallocate( send_buf_TRI, recv_buf_TRI, send_buf_TRI_Poincare, recv_buf_TRI_Poincare)
+   call MPI_Type_free(MPI_TRI_Type, ierr)
 
 end subroutine check_tracer_i
 
@@ -502,7 +505,7 @@ subroutine check_abnormal_weight_electrons
    character(len=30) file_name
 
 
-   each_PTL_length = 18 ! including we_adiab 
+   each_PTL_length = 18 ! including we_adiab
 
    MY_PE_weight_sum=0
    MY_PE_abnormal_weight_sum=0
@@ -585,6 +588,9 @@ subroutine check_abnormal_weight_electrons
    if(mype==0) then
       deallocate( recv_buf_PTL)
    endif
+
+
+   call MPI_Type_free(MPI_PTL_Type, ierr)
 
 end subroutine check_abnormal_weight_electrons
 
@@ -697,6 +703,7 @@ subroutine check_abnormal_weight_ions
    if(mype==0) then
       deallocate( recv_buf_PTL)
    endif
+   call MPI_Type_free(MPI_PTL_Type, ierr)
 
 end subroutine check_abnormal_weight_ions
 

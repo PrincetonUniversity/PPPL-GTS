@@ -123,6 +123,7 @@ subroutine shifte
          endif
 #endif
 
+         call MPI_Type_free(MPI_Ptl_type, ierr);
          return
       endif
 
@@ -185,14 +186,14 @@ subroutine shifte
       endif
 #endif
 
-      ! Send to Left and Right 
+      ! Send to Left and Right
       if(send_L_count > 0) call MPI_ISEND(send_Ptls(:,1:send_L_count), send_L_count, MPI_Ptl_type, left_pe, 0, toroidal_comm, request_send_L, ierr)
       if(send_R_count > 0) call MPI_ISEND(send_Ptls(:,1+send_L_count:send_num), send_R_count, MPI_Ptl_type, right_pe, 0, toroidal_comm, request_send_R, ierr)
 
       ! Recv from Left and Right
       if(recv_L_count > 0) call MPI_IRECV(recv_Ptls(:,1:recv_L_count), recv_L_count, MPI_Ptl_type, left_pe, 0, toroidal_comm, request_recv_L, ierr)
       if(recv_R_count > 0) call MPI_IRECV(recv_Ptls(:,1+recv_L_count:recv_num), recv_R_count, MPI_Ptl_type, right_pe, 0, toroidal_comm, request_recv_R, ierr)
-     
+
       ! Wait all non-blocking communications are finished
       if(send_L_count > 0) call MPI_WAIT(request_send_L, istatus, ierr)
       if(send_R_count > 0) call MPI_WAIT(request_send_R, istatus, ierr)
@@ -319,7 +320,8 @@ subroutine shifte
       if(allocated(fill_mid_arr)) deallocate(fill_mid_arr)
 
 
-      ! m0=me-recv_num+1  ! new starting index of next loop
    enddo
+
+   call MPI_Type_free(MPI_Ptl_type, ierr);
 
 end subroutine shifte
