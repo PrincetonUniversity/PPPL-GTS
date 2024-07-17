@@ -1,0 +1,9 @@
+module purge
+module load cudatoolkit/10.2 
+#module load cudatoolkit
+module load openmpi/pgi-20.4/4.0.4/64 
+module load hdf5/pgi-20.4/openmpi-4.0.4/1.10.6 
+module load fftw/gcc/openmpi-4.0.4/3.3.8
+module load pgi/19.9
+#module load pgi/20.4
+#conda activate myoo-env
