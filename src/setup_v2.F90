@@ -287,7 +287,7 @@ Subroutine setup
    uSI%R0 = R_00/1e2;
    uSI%m0 = pmass0/1e3;
    uSI%B0 = B_00/1e4;
-   
+
    uSI%t0 = uSI%m0/(uSI%e0*uSI%B0) ! inverse of unit gyro frequency
 
    uSI%v0 = uSI%R0/uSI%t0
@@ -1970,9 +1970,11 @@ Subroutine setup
    ! Larmor orbit points will be determined using uniformly distribued gyro-phase angle.
    !==================================
 
-   allocate (zion(ziondim,mimax),zion0(ziondim,mimax),jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
-      wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax), ilabels(mimax), itracers_labels(num_of_itracers),&
-      ionLarmor_s(larmor_num,mimax),ionLarmor_gq(larmor_num,mimax),ionLarmor_gf(larmor_num,mimax))
+   allocate (zion(ziondim,mimax),zion0(ziondim,mimax))
+   allocate(jtion0(0:larmor_num,mimax),jtion1(0:larmor_num,mimax),&
+      wzion(mimax),wpion(0:larmor_num,mimax),wtion0(0:larmor_num,mimax),wtion1(0:larmor_num,mimax),enion(mimax))
+   allocate(ionLarmor_s(larmor_num,mimax),ionLarmor_gq(larmor_num,mimax),ionLarmor_gf(larmor_num,mimax))
+   allocate(ilabels(mimax), itracers_labels(num_of_itracers))
 
    allocate(RK_cum_zion(ziondim,mimax))
    RK_cum_zion=0.0
@@ -1980,12 +1982,13 @@ Subroutine setup
 
       allocate(RK_cum_zeon(zeondim,memax))
       RK_cum_zeon=0.0
-      allocate (zeon(zeondim,memax),zeon0(zeondim,memax),zeon00(zeondim,memax))
-
+      allocate (zeon(zeondim,memax),zeon0(zeondim,memax))
+      allocate(zeon00(zeondim,memax))
       allocate (jteon0(memax),jteon1(memax),wzeon(memax),wpeon(memax),&
          wteon0(memax),wteon1(memax),markere(mgrid),&
          !   densitye(0:1,mgrid),cij(3,mgrid))
-      densitye(0:1,mgrid),cij(5,mgrid), elabels(memax), etracers_labels(num_of_etracers))
+      densitye(0:1,mgrid),cij(5,mgrid))
+      allocate(elabels(memax), etracers_labels(num_of_etracers))
 
 
       allocate(UnNorm_zeta_i(mimax), UnNorm_theta_i(mimax))

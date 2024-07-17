@@ -17,12 +17,12 @@ module Structured_Grid
       real(wp),allocatable,dimension(:,:) :: Cell_dV,inv_Cell_dV ! Cell Volume and its inverse
       real(wp),allocatable,dimension(:,:) :: Cell_dS_s,inv_Cell_dS_s,Cell_dS_gq,inv_Cell_dS_gq,Cell_dS_gf,inv_Cell_dS_gf ! Node_Surface in each direction
 
-      real(wp),allocatable,dimension(:,:,:) :: Te0, n0, Ti0 ! dimension: (dim_gq, dim_s, 0:1); 
+      real(wp),allocatable,dimension(:,:,:) :: Te0, n0, Ti0 ! dimension: (dim_gq, dim_s, 0:1);
 
       ! safety factor of locally skewed structured coordinate between nearby poloidal planes
       ! This skew_q_1D will be used in particle shape function and field solvers.
       ! Default: same as SG%safety_q; can be set differently depending on choice
-      real(wp),allocatable,dimension(:) :: skew_q_1D 
+      real(wp),allocatable,dimension(:) :: skew_q_1D
 
       ! Magnetic Field Information (ESI variables)
       real(wp),allocatable,dimension(:,:) :: F,dFda,dgFda,dgYda,R,dRda,dRdgq,Z,dZda,dZdgq,BB,dBBda,dBBdgq,P,T
@@ -64,11 +64,11 @@ module Structured_Grid
       real(wp), allocatable, dimension(:,:,:) :: RealCharge_3D, niPol_3D ! RealCharge=e*(niGC+niPol-ne); niPol=Polarization Ion Density
 
       ! for electromagneitc=2 simulation (solving GK Ampere equation)
-      real(wp), allocatable, dimension(:,:,:) :: AparaH ! A_para^h and A_para^s; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes  
-      real(wp), allocatable, dimension(:,:,:) :: gaH ! alpha_h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
+      real(wp), allocatable, dimension(:,:,:) :: AparaH ! A_para^h and A_para^s; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
+      real(wp), allocatable, dimension(:,:,:) :: gaH ! alpha_h; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
       real(wp), allocatable, dimension(:,:,:,:) :: grad_gaH_cov ! grad(alpha_h); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       real(wp), allocatable, dimension(:,:) :: AparaS ! A_para^s; dimension (dim_gq, dim_s)
-      real(wp), allocatable, dimension(:,:,:) :: gaS ! alpha_s; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes 
+      real(wp), allocatable, dimension(:,:,:) :: gaS ! alpha_s; dimension (dim_gq, dim_s,0:2) including neighboring left and right poloidal planes
       real(wp), allocatable, dimension(:,:,:,:) :: grad_gaS_cov ! grad(alpha_s); dimension (3,dim_gq, dim_s, 0:1) my plane and right poloidal plane
       real(wp), allocatable, dimension(:,:) :: old_AparaS, RK_cum_AparaS  ! parallel gradient of phi (b0*nabla(phi)))@ irk=1
       real(wp), allocatable, dimension(:,:) :: E_para
@@ -151,7 +151,7 @@ contains
          SG%skew_q_1D(k)=q_grid(i)
 
          SG%Te0(:,k,:) = Te_grid(i)
-         SG%Ti0(:,k,:) = vth_grid(i)**2.0 
+         SG%Ti0(:,k,:) = vth_grid(i)**2.0
          SG%n0(:,k,:) =  den_grid(i)
 
          k=k+1
@@ -374,7 +374,7 @@ contains
       SG_phi=0.0
       SG_phi_3D=0.0
       !$acc update device(SG_phi,SG_phi_3D)
- 
+
 
    end subroutine Initialize_Structured_Grid
 
@@ -475,7 +475,7 @@ contains
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_eD ! num of eData (First Dimension)
       real(wp) tt0,tt1,tmp
-      real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
+      real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH
       integer i
 
 
@@ -527,7 +527,7 @@ contains
                   if(electromagnetic==2) then
                      ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
                      vH = zeon(4,m)*BB(m)*csc0*m0ms
-                     ptl_data(2,m) = zeon(5,m)*csc0*vH 
+                     ptl_data(2,m) = zeon(5,m)*csc0*vH
                   endif
                enddo
             elseif(Flag_Weight_dfh==1) then ! Using full weight
@@ -548,7 +548,7 @@ contains
                ptl_data(2,m) = zeon(8,m)
 
                ! convert rhoH=rho_para+gaH to vH=v_para+qs*B0/ms*gaH
-               vH = zeon(4,m)*BB(m)*csc0*m0ms   
+               vH = zeon(4,m)*BB(m)*csc0*m0ms
                ptl_data(3,m) = zeon(5,m)*csc0*vH
                ptl_data(4,m) = zeon(8,m)*csc0*vH
             enddo
@@ -712,7 +712,7 @@ contains
       elseif(Flag_Weight_dfh==1) then
          SG%dje_para_SM = SG%je_para_by_fh(:,:,1)
       endif
-      call Smooth_SG_Data_2D([2,2],SG%dje_para_SM,SG%Cell_dV)     
+      call Smooth_SG_Data_2D([2,2],SG%dje_para_SM,SG%Cell_dV)
 
       !$acc exit data delete(ptl_data)
       deallocate(eData,tmp_eData)
@@ -748,7 +748,7 @@ contains
       real(wp), allocatable, dimension(:,:,:,:) :: iData, tmp_iData
       real(wp), allocatable, dimension(:,:) :: ptl_data
       integer num_iD ! num_of iData (First dimension)
-      real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH 
+      real(wp) vH !vH=v_para+qs*B0/ms*gaH, which is converetd from zon(4,m)=rhoH=rho_para+gaH
       integer i
 
 
@@ -774,7 +774,7 @@ contains
      select case(flagT)
          case(0) ! Default; only zion(5,m)
             num_iD=1
-            if(electromagnetic==2) num_iD=2! for parallel current dj_para_H or j_para_H 
+            if(electromagnetic==2) num_iD=2! for parallel current dj_para_H or j_para_H
          case(1) ! Diagnostic purpose
             num_iD=4 ! (dni, ni_by_ff, dji_para, ji_para_by_ff) for diagnostic purpose
          case default
@@ -972,7 +972,7 @@ contains
       enddo
 
 
-      ! Calculate dni_SM 
+      ! Calculate dni_SM
       if(Flag_Weight_dfh==0) then
          SG%dni_SM = SG%dni(:,:,1)
       elseif(Flag_Weight_dfh==1) then
@@ -988,10 +988,10 @@ contains
       elseif(Flag_Weight_dfh==1) then
          SG%dji_para_SM = SG%ji_para_by_ff(:,:,1)
       endif
-      call Smooth_SG_Data_2D([2,2],SG%dji_para_SM,SG%Cell_dV)     
+      call Smooth_SG_Data_2D([2,2],SG%dji_para_SM,SG%Cell_dV)
 
 
-      
+
       !$acc exit data delete(ptl_data)
       deallocate(iData,tmp_iData)
       deallocate(ptl_data)
@@ -1026,7 +1026,7 @@ contains
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
-#endif         
+#endif
 
       if(acc_newer_H_zion) then
          !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
@@ -1035,7 +1035,7 @@ contains
          acc_newer_H_zion=.false.
       endif
 
-      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,gyro_over_sqrt_mu,SG_s_1D,SG_gq_1D) private(intpl_gyro) 
+      !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,gyro_over_sqrt_mu,SG_s_1D,SG_gq_1D) private(intpl_gyro)
       do m=m0,m1
          ! Measure the intpl_gyro at the Guiding Center position
          P_s = zion(7,m)
@@ -1060,7 +1060,7 @@ contains
             ionLarmor_gf(larmor,m) = modulo(zion(3,m) + zion(6,m)*intpl_gyro(3,larmor), 2.0*pi)
          enddo
       enddo
-      
+
 #ifdef _MGY_TIMER_
       tt1=MPI_WTIME()
       if(mype==0) write(stdout,'(A,ES11.3,A)') "Cal_ionLarmor_s_gq_gf_using_SG_gyro_over_mu takes", tt1-tt0, " secs"
@@ -1219,7 +1219,7 @@ contains
             ori_sid = SG%ori_sid(i)
 
             gqdum = modulo(SG%gq_1D(j) - qtinv(ori_sid)*zetamax, 2.0*pi) * ori_inv_dgq(ori_sid)
-            jt=min(mtheta(ori_sid)-1,int(gqdum));  
+            jt=min(mtheta(ori_sid)-1,int(gqdum));
             wt=gqdum-jt
             ij=igrid(ori_sid)+jt
             out_IntpData_2D(j,i) =(1.0-wt)*oriData_1D(ij) + wt*oriData_1D(ij+1)
@@ -1336,8 +1336,8 @@ contains
       SG%gaS = SG%gaS + SG%gaH
       SG%AparaH = 0.0
       SG%gaH = 0.0
-   
-      call Cal_grad_gaH_and_grad_gaS_on_SG      
+
+      call Cal_grad_gaH_and_grad_gaS_on_SG
 
    end subroutine pullback_AparaH_to_AparaS_on_SG
 
@@ -1355,7 +1355,7 @@ contains
 
       ! NOTE that SG%AparaS has (Nq,Ns) dimension at the zetamin plane, but gaS has (Nq,Ns,0:2) dimension at 3 neighboring planes
       ! Communicate between neighboring planes to get 3D gaS
-      SG%gaS(:,:,1) = SG%AparaS/SG%BB 
+      SG%gaS(:,:,1) = SG%AparaS/SG%BB
       call MPI_SENDRECV(SG%gaS(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,right_pe,0,&
                         SG%gaS(:,:,0),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
       call MPI_SENDRECV(SG%gaS(:,:,1),SG%dim_gq*SG%dim_a,mpi_Rsize,left_pe,0,&
@@ -1431,7 +1431,7 @@ contains
       call MPI_SENDRECV(SG%grad_gaS_cov(:,:,:,1),3*SG%dim_gq*SG%dim_s,mpi_Rsize,right_pe,0, &
                         SG%grad_gaS_cov(:,:,:,0),3*SG%dim_gq*SG%dim_s,mpi_Rsize,left_pe,0,toroidal_comm,istatus,ierr)
 
-   end subroutine Cal_grad_gaH_and_grad_gaS_on_SG   
+   end subroutine Cal_grad_gaH_and_grad_gaS_on_SG
 
    subroutine Update_SG_AparaS(in_irk,in_nrk)
       use particle_decomp
@@ -1444,7 +1444,7 @@ contains
 
 
       ! This routine sovles the differntial equation of pd(AparaS)/pdt = -b0*grad(Phi) = -para_grad_Phi
-      ! For the numerical scheme, RK2 and RK4 are currently implemented. 
+      ! For the numerical scheme, RK2 and RK4 are currently implemented.
 
       if(in_irk==1) then
          SG%old_AparaS = SG%AparaS
@@ -1468,7 +1468,7 @@ contains
          SG%AparaS = SG%old_AparaS + SG%RK_cum_AparaS
       endif
 
-   end subroutine Update_SG_AparaS 
+   end subroutine Update_SG_AparaS
 
    subroutine Get_Intp_phi_on_SG(P_s, P_gq, P_gf, out_phi)
       !$acc routine seq
@@ -1794,8 +1794,8 @@ contains
       do m=1,me
          out_Phi_arr(m)=0.0
          out_gradPhi_arr(:,m)=0.0
-         out_gaH_arr(m)=0.0 
-         out_gaS_arr(m)=0.0 
+         out_gaH_arr(m)=0.0
+         out_gaS_arr(m)=0.0
          out_grad_gaH_arr(:,m)=0.0
          out_grad_gaS_arr(:,m)=0.0
 
@@ -1945,11 +1945,11 @@ contains
 
       !#TODO Check if SG_gradPhi and SG_grad_gaH are really needed.. Can we just use SG%grad_... without performance degradation?
       SG_gradPhi = SG%grad_phi_cov
-      SG_gaH = SG%gaH(:,:,0:1) 
+      SG_gaH = SG%gaH(:,:,0:1)
       SG_gaS = SG%gaS(:,:,0:1)
       SG_grad_gaH = SG%grad_gaH_cov
       SG_grad_gaS = SG%grad_gaS_cov
-      
+
 
 #ifdef _MGY_TIMER_
       tt0=MPI_WTIME()
@@ -1958,8 +1958,8 @@ contains
       !$acc parallel loop gang vector present(zion,ionLarmor_s,ionLarmor_gq,ionLarmor_gf,out_gradPhi_arr,out_gaH_arr,out_gaS_arr,out_grad_gaH_arr,out_grad_gaS_arr)
       do m=1,mi
          out_gradPhi_arr(:,m)=0.0
-         out_gaH_arr(m)=0.0 
-         out_gaS_arr(m)=0.0 
+         out_gaH_arr(m)=0.0
+         out_gaS_arr(m)=0.0
          out_grad_gaH_arr(:,m)=0.0
          out_grad_gaS_arr(:,m)=0.0
 
@@ -2028,7 +2028,7 @@ contains
       use, intrinsic :: ieee_arithmetic, only: IEEE_Value, IEEE_QUIET_NAN
       implicit none
 
-      real(wp), intent(in) :: SG_scalar(SG%dim_gq,SG%dim_s,0:2) 
+      real(wp), intent(in) :: SG_scalar(SG%dim_gq,SG%dim_s,0:2)
       real(wp), intent(in) :: P_s, P_gq, P_gf  ! position of point
       real(wp), intent(out) :: out_sca
       real(wp) ws0,ws1,wgf0,wgf1,wgq0,wgq1,target_gf,target_gq,inv_P_safety_q
@@ -2088,7 +2088,7 @@ contains
          write(stdout,*) "Error!! Out of SG boundary!! Get_SG_vector_at_point subroutine returned NaN values."
          write(stdout,'(3(A,ES13.3),A)') "(in_s=", P_s, "in_gq=", P_gq, "in_gf=", P_gf, ")"
          call flush(stdout)
-         
+
          do k=1,3
             out_vec(k) = IEEE_VALUE(out_vec(k), IEEE_QUIET_NAN)
          enddo
@@ -2122,7 +2122,7 @@ contains
       wgq0 = 1.0-wgq1
       out_vec = out_vec + wgf1*(ws0*(wgq0*SG_vector(:,gqid,sid,1) + wgq1*SG_vector(:,gqid+1,sid,1)) + ws1*(wgq0*SG_vector(:,gqid,sid+1,1) + wgq1*SG_vector(:,gqid+1,sid+1,1)))
 
-   end subroutine Get_SG_vector_at_point   
+   end subroutine Get_SG_vector_at_point
 
    subroutine Get_SG_scalar_at_zeon(SG_scalar, out_sca_arr)
       use mpi_defs
@@ -2248,7 +2248,7 @@ contains
       endif
       ! call flush(stdout)
 #endif
-   end subroutine Get_SG_vector_at_zeon   
+   end subroutine Get_SG_vector_at_zeon
 
    subroutine Get_SG_scalar_at_zion(SG_scalar, out_sca_arr)
       use mpi_defs
@@ -2391,7 +2391,7 @@ contains
       implicit none
       integer :: fUnit
       character(len=30) :: fName
-      integer :: Nelms 
+      integer :: Nelms
       real(wp) :: target_variable_at_surface(SG%dim_gq-1)
       real(wp) :: sum_var_each_plane, sum_var_sq_each_plane
       real(wp) :: sum_var_All_planes, sum_var_sq_All_planes
@@ -2402,7 +2402,7 @@ contains
 
       Nelms= (SG%dim_gq-1)*mzetamax
 
-      target_variable_at_surface = SG%phi(1:SG%dim_gq-1,ipsi,1) 
+      target_variable_at_surface = SG%phi(1:SG%dim_gq-1,ipsi,1)
       sum_var_each_plane = sum(target_variable_at_surface)
       sum_var_sq_each_plane = sum(target_variable_at_surface**2.0)
       call MPI_REDUCE(sum_var_each_plane, sum_var_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
@@ -2411,7 +2411,7 @@ contains
       rmse_phi = sqrt((sum_var_sq_All_planes/Nelms) - (sum_var_All_planes/Nelms)**2.0) ! std(X)=sqrt(Var(X))=sqrt(E[(X-E(X))^2])=sqrt(E[X^2]-E[X]^2)
 
 
-      target_variable_at_surface = SG%E_para(1:SG%dim_gq-1,ipsi) 
+      target_variable_at_surface = SG%E_para(1:SG%dim_gq-1,ipsi)
       sum_var_each_plane = sum(target_variable_at_surface)
       sum_var_sq_each_plane = sum(target_variable_at_surface**2.0)
       call MPI_REDUCE(sum_var_each_plane, sum_var_All_planes, 1, mpi_Rsize, MPI_SUM, 0, toroidal_comm, ierrr)
@@ -2423,6 +2423,6 @@ contains
 
       call flush(fUnit)
       close(fUnit)
-   end subroutine Print_Some_0D_Diagnostics_on_SG 
+   end subroutine Print_Some_0D_Diagnostics_on_SG
 
 end module Structured_Grid
