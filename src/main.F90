@@ -60,7 +60,7 @@ program GTS
       subroutine print_whichMPI_sees_whichGPU() bind(C, name="print_whichMPI_sees_whichGPU")
          use iso_c_binding, only: c_double
          implicit none
-      end subroutine print_whichMPI_sees_whichGPU 
+      end subroutine print_whichMPI_sees_whichGPU
    end interface
 
    call petsc_init()
@@ -130,7 +130,13 @@ program GTS
    ! input parameters, setup equilibrium, allocate memory
    call setup
 
+   ! call Init_Magnetic_Grid
+
+   call Initialize_Structured_Grid
+
+   call Read_ESI(eq_data_name)
    call Init_Magnetic_Grid
+   ! call Init_Magnetic_Grid((SG%dim_s-1)+1, 2*(SG%dim_gq-1)+1, 3)
 
    call Cal_FootPrint_of_MagneticFieldLine
    !call Cal_Weighted_Neighboring_Volume_on_each_GridNode
@@ -144,7 +150,7 @@ program GTS
 
    call MPI_Bcast(FLA_Te0,2*mgrid,MPI_Rsize,nproc_partd-1,partd_comm,ierror)
 
-   call Initialize_Structured_Grid
+   ! call Initialize_Structured_Grid
    ! SG%phi(:,1:SG%dim_s-10,:) =1e4
    ! initialize particle position and velocity
    if(Flag_Load_and_WeightDef==0) then
@@ -218,7 +224,9 @@ program GTS
    ! call snapshot_hdf5
    ! call MPI_BARRIER(MPI_COMM_WORLD,ierrr)
    ! istep=1
-   ! call testTool_FieldSolver%test_multiple_GK_Poisson_solvers
+   ! ! call testTool_FieldSolver%test_multiple_GK_Poisson_solvers
+   ! ! call testTool_FieldSolver%test_multiple_GK_Poisson_solvers_single_island
+   ! call testTool_FieldSolver%test_multiple_GK_Poisson_solvers_island_like
    ! stop
 
    ! ********************
@@ -527,7 +535,7 @@ program GTS
          !  phi_tmp=phi_tmp/real(msnap,wp)
 
          call ion_locator_at_larmor_points
-         call electron_locator
+         ! call electron_locator
 
          call Measure_Electron_Density_Current_on_SG(1) !Input flag=1 for diagnostic purpose
          call Measure_Ion_Density_Current_on_SG(1) !Input flag=1 for diagnostic purpose
