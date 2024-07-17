@@ -266,8 +266,8 @@ module TestTools_for_Field_solver
          real(wp), intent(out) :: src2D(SG%dim_gq, SG%dim_s)
 
          ! call this%Cal_local_highResolution_LHS_GK_Poisson(src2D)
-         call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(src2D)
-         ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(src2D)
+         ! call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized(src2D)
+         call this%Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(src2D)
       end subroutine
 
       subroutine Cal_local_highResolution_LHS_GK_Poisson(this, out_LHS_f)
@@ -394,6 +394,7 @@ module TestTools_for_Field_solver
       subroutine Cal_local_highResolution_LHS_GK_Poisson_parallelized_manual(this, out_LHS_f)
          use particle_decomp
          use MGY_PETSc_Interface_Data
+         use Magnetic_Grid,only: MG_da=>da, MG_dgq=>dgq
          implicit none
          class(target_function) :: this
          real(wp), intent(out) :: out_LHS_f(SG%dim_gq, SG%dim_s)
@@ -406,9 +407,13 @@ module TestTools_for_Field_solver
          real(wp) T0(3,3), Tp(3,3), Tm(3,3)
          real(wp) LHS_f_mype(Lsize), LHS_f_partd(sum_Lsize_partd)
 
-         ds=1e-3
-         dgq=1e-3
-         dgf=0.01
+         ! ds=1e-3
+         ! dgq=1e-3
+         ! dgf=0.01
+
+         ds = MG_da
+         dgq = MG_dgq
+
 
          out_LHS_f = 0.0
 
