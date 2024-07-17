@@ -435,6 +435,23 @@ contains
       if(allocated(SG_phi_3D)) deallocate(SG_phi_3D)
    end subroutine Destruct_Structured_Grid
 
+   subroutine Tweak_skew_q_1D_to_match_grid_node()
+      implicit none
+
+      integer sid, N
+      real(wp) ori_skew_q
+
+      do sid=1,SG%dim_s
+         ori_skew_q = SG%skew_q_1D(sid)
+         N = floor(SG%dgf/(ori_skew_q*SG%dgq)+0.5)
+         SG_skew_q_1D(sid) = SG%dgf/(N*SG%dgq)
+         SG%skew_q_1D(sid) = SG%dgf/(N*SG%dgq)
+         if(mype==0) write(stdout,'((A,I3,A,ES13.5,A,ES13.5))') "In Tweak_skew_q, sid=", sid, ", ori_skew_q=", ori_skew_q, ", new_skew_q=", SG_skew_q_1D(sid)
+      enddo
+      call flush(stdout)
+   end subroutine Tweak_skew_q_1D_to_match_grid_node
+
+
    subroutine Measure_Electron_Density_Current_on_SG(flag_which_target)
       use precision
       use global_parameters,only:me, electromagnetic
