@@ -13,9 +13,9 @@ ifeq ($(F90),ftn)
        else   # Using CRAY compiler
           ifeq ($(PE_ENV),NVIDIA)   # Using the INTEL compiler on Hopper or Edison
              FFLAGS:=-r8 -Dflush_=flush -I$(VPATH)/$(OBJDIR) -I$(VPATH)/fem/$(OBJDIR)
-             OPT:=-fast 
+             OPT:=-fast
              CFLAGS:=
-             COPT:=-fast 
+             COPT:=-fast
              OMPFLAG:=-qopenmp -DUSE_OPENMP
              NOOMPFLAG:=
              SPRNG_DIR=/global/cfs/cdirs/mp288/jinchen/LIB/NVIDIA_perlmutter
@@ -27,7 +27,7 @@ ifeq ($(F90),ftn)
              PETSC_DIR=/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220609
 	     PETSC_ARCH=perlmuttercpu-nvidia-gts
              PETSC_FINC:= -I${PETSC_DIR}/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
-	     PETSC_FLIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220609/perlmuttercpu-nvidia-gts/lib -L/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220609/perlmuttercpu-nvidia-gts/lib -L/opt/cray/pe/mpich/8.1.17/ofi/nvidia/20.7/lib -L/opt/cray/pe/libsci/21.08.1.2/NVIDIA/20.7/x86_64/lib -L/opt/cray/pe/dsmml/0.2.2/dsmml/lib -L/global/common/software/nersc/pm-2021q4/sw/darshan/3.3.1/lib -L/opt/cray/xpmem/2.3.2-2.2_7.5__g93dd7ee.shasta/lib64 -L/opt/nvidia/hpc_sdk/Linux_x86_64/21.11/compilers/lib -L/usr/lib64/gcc/x86_64-suse-linux/7 -Wl,-rpath,/opt/nvidia/hpc_sdk/Linux_x86_64/21.11/compilers/lib -lpetsc -lHYPRE -lnetcdf -lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5 -lz -lgmp -lstdc++ -ldl -ldarshan -lz -lsci_nvidia_mpi -lsci_nvidia -lmpifort_nvidia -lmpi_nvidia -ldsmml -lxpmem -lnvf -lnvomp -lnvhpcatm -latomic -lpthread -lnvcpumath -lnsnvc -lnvc -lrt -lgcc_s -lm -lquadmath -lstdc++ -ldl
+	     PETSC_FLIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220609/perlmuttercpu-nvidia-gts/lib -L/global/cfs/cdirs/mp288/jinchen/PETSC/petsc.20220609/perlmuttercpu-nvidia-gts/lib -L/opt/cray/pe/mpich/8.1.17/ofi/nvidia/20.7/lib -L/opt/cray/pe/libsci/21.08.1.2/NVIDIA/20.7/x86_64/lib -L/opt/cray/pe/dsmml/0.2.2/dsmml/lib -L/global/common/software/nersc/pm-2021q4/sw/darshan/3.3.1/lib -L/opt/cray/xpmem/2.3.2-2.2_7.5__g93dd7ee.shasta/lib64 -L/opt/nvidia/hpc_sdk/Linux_x86_64/21.11/compilers/lib -L/usr/lib64/gcc/x86_64-suse-linux/7 -Wl,-rpath,/opt/nvidia/hpc_sdk/Linux_x86_64/21.11/compilers/lib -lpetsc -lHYPRE -lnetcdf -lz -lgmp -lstdc++ -ldl -ldarshan -lz -lsci_nvidia_mpi -lsci_nvidia -lmpifort_nvidia -lmpi_nvidia -ldsmml -lxpmem -lnvf -lnvomp -lnvhpcatm -latomic -lpthread -lnvcpumath -lnsnvc -lnvc -lrt -lgcc_s -lm -lquadmath -lstdc++ -ldl
 
 
           else  # Using the CRAY compiler (cce)
@@ -63,7 +63,7 @@ endif
      COPT:=$(NOOMPFLAG) $(COPT)
      GOPT:= $(NOOMPFLAG) $(GOPT)
    endif
-
+HDF5:=-L$(HDF5_DIR)/lib -lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5
 LIB:=$(NAG) $(FEM) $(NETCDF) $(SPRNG_LIB) $(PSPLINE_LIB) $(HDF5) $(FFTLIB) $(PETSC_FLIB)
 
 %.o : %.cpp
