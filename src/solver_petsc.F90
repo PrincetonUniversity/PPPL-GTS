@@ -1919,6 +1919,7 @@ contains
     call flush(115)
     if(mype.eq.0) write(0, *) &
       "	mass solver: rms(dxdr dxdz)=",sqrt(sum(dxdr*dxdr))/mgrid, sqrt(sum(dxdz*dxdz))/mgrid
+    if(mype.eq.0) write(0, *) "	finite element mass solve end"
     
     deallocate(xx,bb) 
     deallocate(dxdr,dxdz,fcj)

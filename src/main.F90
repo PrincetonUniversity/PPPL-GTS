@@ -78,6 +78,11 @@ program GTS
   ! order = 0 original solver
   ! order = 1 linear finite element
   ! order = 2 2nd order finite element
+  ! which mat_type to use, there are 2 mat types
+  ! mat_type=1 and mat_type=2
+  ! mat_type=2 and ifelectron=1: alpha==0 (alpha is the coefficient of (Delta Phi) in GK poisson equation)
+  !           there will be a NULL space needs to be taken care of in form_tangent and form_tangent_RZcoor
+  ! mat_type=1 and all other cases: alpha!=0
   ! which bc_type to use
   ! bc_type=0 neumann bc at a0, neumann bc at a1
   ! bc_type=1 dirichlet bc at a0, neumann bc at a1
@@ -102,13 +107,9 @@ program GTS
      fem1%order = order
      call new_fem_data( fem1 )
 #ifdef CJTEST
-     call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, 2 )
-     call testsolve( solver1, masssolver )
-     call delete_fem_data( fem1 )
-     call destroy_solver( solver1 )
-#else
-     call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, solver1%mat%bc_type )
+     solver1%mat%bc_type = 2
 #endif
+     call new_fem_solver( fem1, solver1, '', solver1%mat%mat_type, solver1%mat%bc_type )
 
      masssolver%order = 0
      masssolver%mat%mat_type = -1
@@ -117,9 +118,11 @@ program GTS
      call new_fem_data( femm )
      call new_fem_masssolver( femm, masssolver )
 #ifdef CJTEST
+     call testsolve( solver1, masssolver )
+     call delete_fem_data( fem1 )
+     call destroy_solver( solver1 )
+
      call testmasssolve( masssolver )
-     call delete_fem_data( femm )
-     call destroy_solver( masssolver )
 #endif
 
      if(ifelectron==2.and.ifdphi==1) then
@@ -133,6 +136,9 @@ program GTS
         call testsolve( solver_dphi_dt, masssolver )
         call delete_fem_data( femt )
         call destroy_solver( solver_dphi_dt )
+
+     call delete_fem_data( femm )
+     call destroy_solver( masssolver )
 #endif
      endif
 
