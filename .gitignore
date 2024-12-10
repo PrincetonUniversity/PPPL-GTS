@@ -14,3 +14,4 @@ _perlmutter*
 _login*
 *.o
 *.lst
+_flux*

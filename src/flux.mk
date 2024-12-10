@@ -5,7 +5,7 @@ F90 := mpif90
 F77 := mpif77
 LOADER := mpif90
 
-#include  $(SRCDIR)/git_commands.mk
+include  $(SRCDIR)/git_commands.mk
 
 # PE_ENV has to be set as an environment variable before running make.
 # It does not get picked up since target.mk is called before eddy.mk
