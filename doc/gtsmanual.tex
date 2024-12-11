@@ -1,0 +1,3251 @@
+% Template article for preprint document class `elsart'
+% Jin Chen 2013/01/07 
+% TESTSUITE/symmetry/hopaper.m, out_pppl.m
+
+a(1,1)= 1
+      a(2,2)=1    
+            a(3,3)=1    
+                  a(4,4)=2    
+                        a(5,5)=1    
+                              a(6,6)=2    
+
+a(7,1)=1    a(7,2)=1                a(7,4)=1                             a(7,7)=1                                         a(7,11)=1                                                    a(7,16)=1                
+            a(8,2)=1                a(8,4)=2                             a(8,7)=3                                         a(8,11)=4                                                    a(8,16)=5                
+                        a(9,3)=1                a(9,5)=1                             a(9,8)=1                                          a(9,12)=1                                                                
+                                    a(10,4)=2                            a(10,7)=6                                        a(10,11)=12                                                  a(10,16)=20              
+                                                a(11,5)=1                            a(11,8)=2                                         a(11,12)=3                                                               
+                                                            a(12,6)=2                            a(12,9)=2                                         a(12,13)=2                          a(12,16)=-10 a(12,17)=-2 
+
+a(13,1)=1               a(13,3)=1                           a(13,6)=1                                         a(13,10)=1                                                   a(13,15)=1                           a(13,18)=1
+            a(14,2)=1                           a(14,5)=1                                        a(14,9)=1                                                     a(14,14)=1                                       
+                        a(15,3)=1                           a(15,6)=2                                         a(15,10)=3                                                   a(15,15)=4                           a(15,18)=5
+                                    a(16,4)=2                                        a(16,8)=2                                                     a(16,13)=2                                       a(16,17)=2  a(16,18)=-10
+                                                a(17,5)=1                                        a(17,9)=2                                                     a(17,14)=3                                       
+                                                            a(18,6)=2                                         a(18,19)=6                                                   a(18,15)=12                          a(18,18)=20
+
+% publish single column
+%\documentclass[final, oneeqnum, onefignum, onetabnum]{siamltex}
+\documentclass{report}
+
+%\input{../China2012/mypackage.tex}
+%\input{../China2012/mydefinition.tex}
+
+% publish double column
+%\documentclass{../elsevier/elsart3}
+
+% manuscript
+% Use the option doublespacing or reviewcopy to obtain double line spacing
+%\documentclass[doublespacing]{../elsevier/elsart}
+
+%\setlength{\topmargin}{0.2cm}
+%\setlength{\headheight}{1.1cm}
+
+% if you use PostScript figures in your article
+% use the graphics package for simple commands
+% \usepackage{graphics}
+% or use the graphicx package for more complicated commands
+\usepackage{graphicx}
+% or use the epsfig package if you prefer to use the old commands
+% \usepackage{epsfig}
+\usepackage[titletoc,toc,title]{appendix}
+%\addtocontents{toc}{\protect\contentsline{chapter}{Appendix:}{}}
+\usepackage[textwidth=20cm,textheight=24cm]{geometry}
+
+% The amssymb package provides various useful mathematical symbols
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+\newcommand{\ds}{\displaystyle}
+\newcommand{\bm}[1]{\mbox{\boldmath $#1$}}
+\newcommand{\abs}[1]{\left| #1 \right|}
+\newcommand{\fff}{\footnotesize}
+\renewcommand{\thesection}{\arabic{section}}
+%\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\renewcommand{\theequation}{\arabic{equation}}
+\newcommand{\ff}[2]{\frac{#1}{#2}}
+\newcommand{\pp}[2]{\frac{\partial{#1}}{\partial{#2}}}
+\newcommand{\psp}[2]{\frac{\partial^2{#1}}{\partial{#2}^2}}
+\newcommand{\ppp}[3]{\frac{\partial^2{#1}}{\partial{#2}\partial{#3}}}
+\newcommand{\ptp}[4]{\frac{\partial}{\partial{#1}}{#2}\frac{\partial{#3}}{\partial{#4}}}
+\def\A{\mbox{\bf A}}
+\def\B{\mbox{\bf B}}
+\def\R{\mbox{\bf R}}
+\def\l{\mbox{\bf l}}
+\def\v{\mbox{\bf v}}
+\def\x{\mbox{\bf x}}
+\def\U{\mbox{\bf U}}
+
+
+\title{GTS User Manual For Finite Element Solver}
+\author{gts team\\
+        Princeton Plasma Physics Lab\\
+        P.O. Box 451, Princeton, NJ 08543\\
+%        {\tt jchen@pppl.gov}
+       }
+\date{\today}
+
+
+\begin{document}
+\maketitle
+\tableofcontents
+%\addcontentsline{toc}{section}{Unnumbered Section}
+
+%N
+\section{Numerical integration}
+\begin{equation}
+\begin{array}{l}
+\bigl \langle
+P
+\bigr \rangle
+=
+\bigl \langle
+\begin{array}{lllllllllllllllllll}
+1 
+&\xi   &\eta 
+&\xi^2 &\xi\eta     &\eta^2 
+&\xi^3 &\xi^2\eta   &\xi\eta^2               &\eta^3 
+&\xi^4 &\xi^3\eta   &\xi^2\eta^2             &\xi\eta^3              &\eta^4 
+&\xi^5-5\xi^3\eta^2 &\xi^2\eta^3-\xi^3\eta^2 &\eta^5-5\xi^2\eta^3
+\end{array}
+\bigr \rangle
+\end{array}
+\end{equation}
+
+%N N_xi N_eta N_xixi N_xieta N_etaeta
+\begin{equation}
+\begin{array}{l}
+\bigl \langle
+P\\
+P_\xi\\
+P_\eta\\
+P_{\xi\xi}\\
+P_{\xi\eta}\\
+P_{\eta\eta}\\
+\bigr \rangle
+= \\
+%\bigl \langle
+\begin{array}{lllllllllllllllllll}
+1 
+&\xi   &\eta 
+&\xi^2 &\xi\eta     &\eta^2 
+&\xi^3 &\xi^2\eta   &\xi\eta^2               &\eta^3 
+&\xi^4 &\xi^3\eta   &\xi^2\eta^2             &\xi\eta^3              &\eta^4 
+&\xi^5-5\xi^3\eta^2 &\xi^2\eta^3-\xi^3\eta^2 &\eta^5-5\xi^2\eta^3
+\\
+0 
+&1      &0
+&2\xi   &\eta         &0
+&3\xi^2 &2\xi\eta     &\eta^2                  &0
+&4\xi^3 &3\xi^2\eta   &2\xi\eta^2              &\eta^3         &0
+&5\xi^4-15\xi^2\eta^2 &2\xi\eta^3-3\xi^2\eta^2 &-10\xi\eta^3
+\\
+0 
+&0            &1
+&0            &\xi                     &2\eta
+&0            &\xi^2                   &2\xi\eta               &3\eta^2 
+&0            &\xi^3                   &2\xi^2\eta             &3\xi\eta^2  &4\eta^3 
+&-10\xi^3\eta &3\xi^2\eta^2-2\xi^3\eta &5\eta^4-15\xi^2\eta^2
+\\
+0 
+&0                   &0
+&2                   &0                  &0
+&6\xi                &2\eta              &0                  &0
+&12\xi^2             &6\xi\eta           &2\eta^2            &0              &0
+&20\xi^3-30\xi\eta^2 &2\eta^3-6\xi\eta^2 &-10\eta^3
+\\
+0 
+&0      &0
+&0      &1            &0
+&0      &2\xi         &2\eta                   &0
+&0      &3\xi^2       &4\xi\eta                &3\eta^2         &0
+&-30\xi^2\eta   &6\xi\eta^2-6\xi^2\eta &-30\xi\eta^2
+\\
+0 
+&0            &0
+&0            &0                       &2
+&0            &0                       &2\xi                   &6\eta
+&0            &0                       &2\xi^2                 &6\xi\eta    &12\eta^2 
+&-10\xi^3     &6\xi^2\eta  -2\xi^3     &20\eta^3-30\xi^2\eta
+\\
+\end{array}
+%\bigr \rangle
+\end{array}
+\end{equation}
+
+%N N_xi N_eta N_xixi N_xieta N_etaeta at node 1 (1,xi=0,eta=0)
+%N N_xi N_eta N_xixi N_xieta N_etaeta at node 2 (0,xi=1,eta=0)
+%N N_xi N_eta N_xixi N_xieta N_etaeta at node 3 (0,xi=0,eta=1)
+\begin{equation}
+\begin{array}{l}
+\bigl \langle
+P\\
+P_\xi\\
+P_\eta\\
+P_{\xi\xi}\\
+P_{\xi\eta}\\
+P_{\eta\eta}\\
+\bigr \rangle
+= \\
+%\bigl \langle
+\begin{array}{l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l}
+ 1    &     &     &     &     &     &     &     &     &     &     &     &     &     &     &     &     & \\
+\hline
+      &1    &     &     &     &     &     &     &     &     &     &     &     &     &     &     &     & \\
+\hline
+      &     &1    &     &     &     &     &     &     &     &     &     &     &     &     &     &     & \\
+\hline
+      &     &     &2    &     &     &     &     &     &     &     &     &     &     &     &     &     & \\
+\hline
+      &     &     &     &1    &     &     &     &     &     &     &     &     &     &     &     &     & \\
+\hline
+      &     &     &     &     &2    &     &     &     &     &     &     &     &     &     &     &     & \\
+\hline
+      &     &     &     &     &     &     &     &     &     &     &     &     &     &     &     &     & \\
+\hline
+ 1    &1    &     &1    &     &     &1    &     &     &     &1    &     &     &     &     &1    &     & \\
+\hline
+      &1    &     &2    &     &     &3    &     &     &     &4    &     &     &     &     &5    &     & \\
+\hline
+      &     &1    &     &1    &     &     &1    &     &     &     &1    &     &     &     &     &     & \\
+\hline
+      &     &     &2    &     &     &6    &     &     &     &12   &     &     &     &     &20   &     & \\
+\hline
+      &     &     &     &1    &     &     &2    &     &     &     &3    &     &     &     &     &     & \\
+\hline
+      &     &     &     &     &2    &     &     &2    &     &     &     &2    &     &     &-10  &-2   & \\
+\hline
+      &     &     &     &     &     &     &     &     &     &     &     &     &     &     &     &     & \\
+\hline
+ 1    &     &1    &     &     &1    &     &     &     &1    &     &     &     &     &1    &     &     &1 \\
+\hline
+      &1    &     &     &1    &     &     &     &1    &     &     &     &     &1    &     &     &     & \\
+\hline
+      &     &1    &     &     &2    &     &     &     &3    &     &     &     &     &4    &     &     &5 \\
+\hline
+      &     &     &2    &     &     &     &2    &     &     &     &     &2    &     &     &     &2    &-10 \\
+\hline
+      &     &     &     &1    &     &     &     &2    &     &     &     &     &3    &     &     &     & \\
+\hline
+      &     &     &     &     &2    &     &     &     &6    &     &     &     &     &12   &     &     &20 \\
+\hline
+\\
+1 
+&\xi   &\eta 
+&\xi^2 &\xi\eta     &\eta^2 
+&\xi^3 &\xi^2\eta   &\xi\eta^2               &\eta^3 
+&\xi^4 &\xi^3\eta   &\xi^2\eta^2             &\xi\eta^3              &\eta^4 
+&\xi^5-5\xi^3\eta^2 &\xi^2\eta^3-\xi^3\eta^2 &\eta^5-5\xi^2\eta^3
+\\
+0 
+&1      &0
+&2\xi   &\eta         &0
+&3\xi^2 &2\xi\eta     &\eta^2                  &0
+&4\xi^3 &3\xi^2\eta   &2\xi\eta^2              &\eta^3         &0
+&5\xi^4-15\xi^2\eta^2 &2\xi\eta^3-3\xi^2\eta^2 &-10\xi\eta^3
+\\
+0 
+&0            &1
+&0            &\xi                     &2\eta
+&0            &\xi^2                   &2\xi\eta               &3\eta^2 
+&0            &\xi^3                   &2\xi^2\eta             &3\xi\eta^2  &4\eta^3 
+&-10\xi^3\eta &3\xi^2\eta^2-2\xi^3\eta &5\eta^4-15\xi^2\eta^2
+\\
+0 
+&0                   &0
+&2                   &0                  &0
+&6\xi                &2\eta              &0                  &0
+&12\xi^2             &6\xi\eta           &2\eta^2            &0              &0
+&20\xi^3-30\xi\eta^2 &2\eta^3-6\xi\eta^2 &-10\eta^3
+\\
+0 
+&0      &0
+&0      &1            &0
+&0      &2\xi         &2\eta                   &0
+&0      &3\xi^2       &4\xi\eta                &3\eta^2         &0
+&-30\xi^2\eta   &6\xi\eta^2-6\xi^2\eta &-30\xi\eta^2
+\\
+0 
+&0            &0
+&0            &0                       &2
+&0            &0                       &2\xi                   &6\eta
+&0            &0                       &2\xi^2                 &6\xi\eta    &12\eta^2 
+&-10\xi^3     &6\xi^2\eta  -2\xi^3     &20\eta^3-30\xi^2\eta
+\\
+\end{array}
+%\bigr \rangle
+\end{array}
+\end{equation}
+
+
+
+
+% ................................... %
+\section{First Of All: How To Get The Code}
+\label{sec:svn}
+GTS can be obtained from
+
+git clone https://github.com/PrincetonUniversity/PPPL-GTS
+
+\iffalse
+A finite element based poisson solver has been implemented in 2013
+on triangular mesh of general tokamak geometry with flux coordinates in GTS.
+This solver is fully accessible from input parameters from $C^0$ linear element,
+$C^0$ 2nd order element, to $C^1$ $5$th order elements.
+It can take Dirichlet boundary condtion, Neuman boundary condition,
+or mixed Dirichlet-Neuman boundary conditon.
+It solves the generated linear systems using direct solver or preconditioned iterative solver.
+Derivative finding operator and zonal flow operator are also implemented.
+
+The new finite element Poisson solver has been rigorously tested against analytical solutions
+and benchmarked with the previous solver for nonlinear ITG and TEM simulations.
+Improved performance for treating nonlinear physics is obtained,
+and now it is routinely used for GTS production runs.
+Further optimizations for the solver speedup is on the way.
+The finite element solver is a key component
+for the ongoing development of electromagnetic simulation capability in GTS.
+The same finite element structure/framework will be applied to
+solve additional equations needed for finite-beta simulations in GTS.
+\fi
+
+\iffalse
+GTS is under svn version control at
+
+\begin{verbatim}
+      svn+ssh://svnsrv.pppl.gov/svn/gts
+\end{verbatim}
+
+\noindent
+It has a trunk/GTS version and a branches/GTS-BRANCH-FROM-R77 version.
+The latter one brached off from trunk at rel77 on June 30, 2017.
+A working copy can be checked out from both PPPL and NERSC. But all need you to do
+
+\begin{verbatim}
+      module load subverison 
+\end{verbatim}
+
+\noindent
+to get access. Here is a list of most often used commands:
+
+\begin{verbatim}
+1) svn list -R svn+ssh://svnsrv.pppl.gov/svn/gts
+\end{verbatim}
+
+\noindent
+allows you to check what are in the svn repo.
+
+\begin{verbatim}
+2) svn co svn+ssh://svnsrv.pppl.gov/svn/gts/trunk/GTS
+   svn co svn+ssh://svnsrv.pppl.gov/svn/gts/branches/GTS-BRANCH-FROM-R77
+\end{verbatim}
+
+\noindent
+allows you to check out a working copy from PPPL, and
+
+\begin{verbatim}
+   svn co svn+ssh://username@svnsrv.pppl.gov/svn/gts/trunk/GTS
+   svn co svn+ssh://username@svnsrv.pppl.gov/svn/gts/branches/GTS-BRANCH-FROM-R77
+\end{verbatim}
+
+\noindent
+allows you to do so from NERSC.
+
+\begin{verbatim}
+4) svn status -u
+\end{verbatim}
+
+\noindent
+allows you to check your working copy status.
+
+\begin{verbatim}
+5) svn log 
+\end{verbatim}
+
+\noindent
+allows you to check commit history.
+
+\begin{verbatim}
+6) svn diff
+\end{verbatim}
+
+\noindent
+allows you to compare the difference of your working copy against the repo.
+
+\begin{verbatim}
+7) svn update
+\end{verbatim}
+
+\noindent
+allows you to update your working copy from repo's newest changes.
+
+\begin{verbatim}
+8) svn ci GTS -m "your message"
+\end{verbatim}
+
+\noindent
+allows you to commit your changes back into the repo  (ex: from GTS parent directory).
+
+\begin{verbatim}
+   Note: Before a commit, you must do "svn update".
+         After a commit, you must do "svn update" again
+         to avoid any future conflicts.
+\end{verbatim}
+
+\begin{verbatim}
+9) svn update
+   svn add filename/dirname
+   svn ci GTS -m "your message"
+   svn update
+\end{verbatim}
+
+\noindent
+allows you to add a new file or directory back into GTS repo.
+\fi
+
+
+
+% ................................... %
+\section{Second Of All: How To Compile The Code}
+\label{sec:compile}
+
+\begin{verbatim}
+make _ARCH=perlmutter
+make _ARCH=stellar
+make _ARCH=spark
+\end{verbatim}
+
+
+% ................................... %
+\section{Third Of All: How To Run The Code}
+\label{sec:run}
+GTS runs on both EDISON and CORI HASWELL \& KNL at NERSC.
+The first input parameter is
+
+\begin{verbatim}
+      order 
+\end{verbatim}
+
+\noindent
+given in the input file with default name
+
+\begin{verbatim}
+      INPUT.d
+\end{verbatim}
+
+\noindent
+and sets the order of linear solver
+
+\begin{verbatim}
+      solverobject%order=order
+      order = 0 original new_gk_solver solver
+      order = 1 new solver with linear finite element
+      order = 2 new solver with 2nd order finite element
+\end{verbatim}
+
+\noindent
+where the $solverobject$
+represents globally declared $solver0$, $solver1$, $solver\_dphi\_dt$, or $masssolver$ in 
+
+\begin{verbatim}
+      main.F90
+\end{verbatim}
+
+\noindent
+When
+
+\begin{verbatim}
+      order >= 1
+\end{verbatim}
+
+\noindent
+the $solverobject$ is created through
+
+\begin{verbatim}
+      new_fem_solver
+\end{verbatim}
+
+\noindent
+Otherwise, 
+
+\begin{verbatim}
+      new_gk_solver
+\end{verbatim}
+
+\noindent
+is to be called as the default solver.  
+$order$ is also assigned to 
+
+\begin{verbatim}
+      solverobject%fem%oder=order
+\end{verbatim}
+
+\noindent
+to define the order of corresponding finite elements.
+For $masssolver$, which finds the partial derivative and Laplacian
+in $(a, \theta)$ flux coordinates, we always have
+
+\begin{verbatim}
+      masssolver%oder=0
+      masssolver%fem%oder=1
+\end{verbatim}
+
+\noindent
+Imposing boundary condition for $masssolver$ is not necessary.
+
+Each $solverobject$ has its own set of mesh and elements 
+so that different set or order of elements can be built from solver to solver 
+to give us great flexibility.
+
+In $new\_fem\_solver$, 
+a triangular mesh is generated through utility $triangle$,
+then finite elements are created on this mesh,
+the solver matrix and multiply matrix are created accordingly,
+and finally the solve matrix is modified by the type of matrix and boundary conditions.
+The code returns the successfully created $solverobject$ 
+with its content stored in
+
+\begin{verbatim}
+      solverobject%ksp
+\end{verbatim}
+
+\noindent
+if there is no error.  Not untill the linear system is actually to be solved,
+will the right hand side vector $b$ be modified according to section \ref{sec:bc} in subroutine
+
+\begin{verbatim}
+      petsc_solve
+\end{verbatim}
+
+\noindent
+depending on the type of boundary condition.  From
+
+\begin{verbatim}
+      INPUT.d
+\end{verbatim}
+
+\noindent
+the boundaries are given at
+
+\begin{verbatim}
+      a0 : a_min is the flux surface closest to magnetic axis 
+      a1 : a_max, the outmost flux surface 
+\end{verbatim}
+
+\noindent
+and can be prescribed with the following $4$ types of boundary conditons
+
+\begin{verbatim}
+      bc_type = 0 neumann boundary conditions at both a=a0 and a=a1
+      bc_type = 1 dirichlet boundary condition at a=a0,
+                  neumann boundary conditions at a=a1
+      bc_type = 2 dirichlet boundary conditions at both a=a0 and a=a1
+      bc_type = 3 neumann boundary condition at a=a0,
+                  dirichlet boundary conditions at a=a1
+\end{verbatim}
+
+\noindent
+being passed as an argument to new\_fem\_solver.  
+In the case of $solver\_dphi\_dt$,
+only homogeneous Dirichlet boundary conditions will be imposed on boundaries
+at $a=a0$ and $a=a1$.
+
+The last important parameter is 
+
+\begin{verbatim}
+      mat_type
+\end{verbatim}
+
+\noindent
+and is passed to new\_fem\_solver
+in the same way as that bc\_type is argumented.
+
+\begin{verbatim}
+      mat_type == 2: alpha=0
+      mat_type != 2: alpha!=0
+\end{verbatim}
+
+\noindent
+where $\alpha$(alpha) is the coefficients in equations eq (\ref{eq:poisson2}) and eq (\ref{eq:poisson8})
+%mstep: maximum timestep the code will run
+
+ 
+
+% ................................... %
+\section{GTS Parameters}
+\label{sec:para}
+\begin{center}
+\begin{tabular}{ |l|l| } 
+ \hline
+  tstep=0.020, &   tstep=0.010, \\ 
+  micell=60, &   micell=60, \\ 
+  mpsi=160, &   mpsi=160, \\ 
+  ipsi=85, &   ipsi=85, \\ 
+  mthetamax=1, &   mthetamax=1, \\ 
+  mzetamax=32, &   mzetamax=64, \\ 
+               &                \\
+on edison: npartdom=24, or multiple of 24 &   on cori: npartdom=32, or multiple of 32 \\ 
+  ipsi=mpsi/2  & ipsi=mpsi/2\\
+& \\
+ \hline
+\end{tabular}
+\end{center}
+\\
+
+The number of mpi tasks is determined by the product of mzetamax and npartdom, for example
+
+\begin{verbatim}
+      mzetamax=32,
+      npartdom=24,
+      ntasks=32*24=768
+\end{verbatim}
+
+ 
+
+% ................................... %
+\section{GTS Mesh Grids and Safety Factor}
+\label{sec:q}
+GTS mesh setup has been described in reference \cite{WW1}.
+Here we only record the part important to understand finite element mesh.
+The GTS mesh is constructed using modified safety factor $\bar{q}(a)$,
+which is used everywhere in the code.
+In the magnetic flux coordinates $(a, \theta, \zeta)$, 
+the field lines are straight and
+the radial coordinate labels magnetic surface
+$$
+a = \sqrt{\ff{\psi}{\psi_e}}
+$$
+where $\psi$ and $\psi_e$ are the toroidal flux and its value on the plasma boundary, 
+repectively. Therefore,
+
+$$
+a0 \leq a \leq a1,\;\;\; 0<a0<a1 \leq 1
+$$
+$a0$ and $a1$ are input parameters explained in section (\ref{sec:run}).
+
+\iffalse
+Two sets of mesh are constructed in this coordinate systems.
+One set is 2D mesh with a uniform grid
+in both radial and poloidal directions to represent the axisymmetric MHD equilibrium.
+This mesh has a larger grid size
+since the equilibrium scale length is much larger than that of the turbulence.
+Then multidimensional spline interpolation is needed to derive the equilibrium quatities
+at any spatial location.
+
+The other set of mesh is called field-line-following mesh.
+In this mesh, the symmetriy is broken and 
+non-symmetric flux coordinate has to be used.
+If we rescale radial coordinate $a$ by defining $\rho$ as
+$$
+\ff{d\rho}{da} = \sqrt{\ff{T_c}{T_i(a)}}
+$$
+where $T_c$ is the temperature at a reference point radial location,
+then evenly spaced radial grid can be applied to the new radial coordiante $\rho$.
+This allows the grid size in real space to be correlated with the local gyro-radius
+$$
+\Delta a \sim \sqrt{\ff{T_i(a)}{T_c}}
+$$
+\fi
+
+In the poloidal direction, the total number of radial grids,
+each one representing one flux surface, is given by the global parameter
+
+\begin{verbatim}
+      mpsi
+\end{verbatim}
+
+\noindent
+in
+
+\begin{verbatim}
+      INPUT.d
+\end{verbatim}
+
+\noindent
+and the $\theta$ grid with grid size $\Delta \theta(a)$ is computed and saved in array
+
+\begin{verbatim}
+      mtheta(0:mpsi)
+\end{verbatim}
+
+\noindent
+which is uniform on each flux surface, while varying from surface to surface.
+It is determined so as to make poloidal arc length
+$\Delta l_\theta$ near the midplane correlated with $\rho_i$ in the loop
+
+\begin{verbatim}
+      do i=0,mpsi
+         tdum= ...
+         mtheta(i)= ... tdum ...
+      enddo
+\end{verbatim}
+
+\noindent
+in code
+
+\begin{verbatim}
+      setup_v2.F90
+\end{verbatim}
+
+\noindent
+and the total number of grid on each poloidal plane is evaluated and saved in parameter
+
+\begin{verbatim}
+      mgrid=sum(mtheta+1)
+\end{verbatim}
+
+\noindent
+Note that the mesh points are doubly counted when $\theta=2\pi$ meets $\theta=0$ in $mgrid$
+caused by polidal $2\pi$ periodicity.
+%A typical mesh in the poloidal plane $\zeta=0$ is set up in figure 1.
+By excluding this repeated redundancy, the total number of grids on each poloidal plane is computed by
+
+\begin{verbatim}
+      neq=sum(mtheta)
+\end{verbatim}
+
+\noindent
+where $\left[ 1:mtheta(0) \right]$ corresponds to boundary at $a=a0$, and
+      $\left[ neq-mtheta(mpsi-1)+1:neq \right]$ corresponds to boundary at $a=a1$.
+
+Once the 2D mesh is constructed on the $\zeta=0$ plane,
+a 3D mesh is constructed by starting from a grid point,
+following each (approximate) field line which satisfies
+$$
+\bar{q}(a)\theta - \zeta = const
+$$
+$\bar{q}(a)$ is slightly different from the usual safety factor $q(a)$ 
+and makes approximate come back to one of the grid points on the $\zeta=0$ plane.
+
+\iffalse
+Two methods are used to enforce the toroidal periodicity.
+One maps the grid at $\zeta=0$ to the grid at $\zeta=2\pi$ using interpolation;
+the other one allows the grid to depart slightly from the magnetic field lines
+to match the grid points. 
+The first method will result in some spatial damping.
+The second method requires a chain rule in calculating the parallel derivatives.
+
+Interpolation and deposition will transfer information between particles and grid points.
+They are performed within a "flux-tube type" of cell twisted along the field line 
+rather than a toroidally symmetric cell.
+\fi
+
+The number of toroidal grids, i.e., the number of poloidal planes,
+
+\begin{verbatim}
+      mzetamax
+\end{verbatim}
+
+\noindent
+is chosen as input parameter to give adequate resolution
+for the parallel structure of the modes.
+
+\iffalse
+The gyro-kinetic particles are followed in general flux coordinatess 
+using guiding center Lagrangian equations. 
+The guiding center Lagrangian has the following normalized form:
+$$
+L(\x, \dot{\x}; t) = (\A + \rho_\parallel \B) \cdot \v - H
+$$
+$H$ is the guiding center Hamiltonian
+$$
+H=\rho^2_\parallel B^2/2 + \mu B + \Phi.
+$$
+$\B = \boldsymbol{\nabla} \times \A$, 
+$\rho_\parallel = v_\parallel / B$ is the parallel gyro-radius,
+$\mu$ is the magnetic moment,
+and $\Phi$ is the electric potential.
+The independent variables are 
+$\x = \x(r, \theta, \zeta, \rho_\parallel)$.
+The Lagrangian equation for the motion is given by
+$$
+\ff{d}{dt}\left( \pp{}{x_i} L \right) - \pp{}{x_i} L = 0
+$$
+The obtained equations for $\ff{d\x}{dt}$ are suitable for any generalized flux coordinates.
+\fi
+
+
+% ................................... %
+\section{Poisson Equation and new\_gk\_solver}
+\label{sec:new_gk_solver}
+new\_gk\_solver uses four-point averaging scheme to solve GK poisson eq.
+
+Generally, with distribution function defined as a 7D function 
+$f(\x, \v, t)$
+of real space $\x$, velocity space $\v$, and time $t$, 
+the density can be given as a 3D function of real space $\x$
+\begin{equation}
+\label{eq:density}
+n(\x, t) \equiv \int f(\x, \v, t) d^3v
+\end{equation}
+Similarly, we can defined  the perturbed ion density and electron density
+\begin{equation}
+\begin{array}{l}
+\delta n_i(\x, t) = \int \delta f_i(\x, \v, t) d^3v
+\\
+\delta n_e(\x, t) = \int \delta f_e(\x, \v, t) d^3v
+\end{array}
+\end{equation}
+in real space.
+The quasi-neutrality becomes 
+$$\delta n_i(\x, t) \simeq \delta n_e(\x, t)$$
+
+But in gyro-kinetic studies,
+the distribution function is defined at guiding center $\R$, as a 6D function
+$f_{gc}(\R, \mu, v_\parallel, t)$
+of guiding center position $\R$, 
+magnetic moment $\mu$, 
+the parallel velocity $v_\parallel$,
+and time $t$.
+Thus, the transformation
+between the particle position $\x$ and the guiding center position $\R$
+should be applied.
+
+\noindent
+Briefly, we have the guiding center density
+$$
+n_{gc}(\R, t) \equiv \int f_{gc}(\R, \mu, \v_\parallel, t) \mathcal{J} d\mu d\v_\parallel
+$$
+
+\noindent
+the potential $\phi$
+$$
+\bar{\phi}(\R, \mu)=\ff{1}{2\pi} \int \phi(\x) \delta(\x - \R - \bm{\rho}) d\x d\Theta
+$$
+$$
+\tilde{\phi}(\x) = \ff{1}{2\pi} \int \bar{\phi}(\R, \mu) f_{0i}(\R, \mu, v_\parallel)
+\delta(\R - \x + \bm{\rho}) d\R d\mu dv_\parallel d\Theta
+$$
+
+\noindent
+the ion density $\delta n_i$
+$$
+\delta \bar{n}_i(\x) = \ff{1}{2\pi} \int
+\delta f_i(\R, \mu, v_\parallel) \delta(\R - \x + \bm{\rho}) d\R d\mu dv_\parallel d\Theta
+$$
+
+\noindent
+the electron density $\delta n_e$
+$$
+\delta n_e(\x) = \ff{1}{2\pi} \int
+\delta f_e(\R, \mu, v_\parallel) \delta(\R - \x + \bm{\rho}) d\R d\mu dv_\parallel d\Theta
+ = \ff{1}{2\pi} \int
+\delta f_e(\x, \mu, v_\parallel) d\mu dv_\parallel
+$$
+
+\noindent
+where $\bm{\rho}$ is the gyro-radius vector,
+$\Theta$ is the gyro-phase,
+$f_{0i}$ is assumed to be Maxwellian for ions,
+and $\delta f_i$ is the perturbed ion distribution function.
+Using 
+$$
+\delta n_i(\x, t) 
+= \delta \bar{n}_i(\x, t) + \delta n_i^{polarization}
+= \delta \bar{n}_i(\x, t) - n_0 \ff{q_i}{T_i} (\phi - \tilde{\phi})
+$$
+and the quasi-neutrality condition, we obtain the most used poission equation
+\begin{equation}
+\label{eq:1a}
+\ff{q_i}{T_i} (\phi - \tilde{\phi})
+= \ff{\delta \bar{n}_i(\x, t) }{ n_0 } -
+  \ff{\delta n_e(\x, t) }{ n_0 } -
+\end{equation}
+
+
+
+\iffalse
+% ................................... %
+\section{Gyro-kinetic transformation and the }
+
+%One of the important elements of the gyro-kinetic formalism is 
+The fluctuations, such as  and 
+in the two coordinates are connected by the gyro-kinetic transformation
+
+In a gyro-kinetic simulation, the quantities are calculated either in real space
+or in Fourier space.
+
+In real space, the transformation is carried out by the four-point averaging scheme.
+The exact average is performed on a gyro-plane perpendicular to the magnetic field,
+with four points exactly spaced on a gyro-orbit.
+Because the grid points on which perturbed potential and perturbed density
+are calculated are set up on poloidal planes,
+it is much more convenient to perform the gyro-average on ploidal planes 
+instead of gyro-planes.
+In general geometry, the finite ratio of poloidal to total magnetic field 
+$\ff{B_p}{B}$ will separate poloidal plane from gyro-plane. 
+The projection of gyro-plane onto poloidal plane becomes an elliptic orbit.
+
+In the direction of 
+$(\boldsymbol{\nabla} \zeta \times \B) \times \boldsymbol{\nabla} \zeta$,
+the gyro-radius is elongated by a factor of $\ff{1}{\cos\alpha}$
+while there is no change in the 
+$(\boldsymbol{\nabla} \zeta \times \B)$ direction.
+Here
+$$
+\cos\alpha = \ff{\B \cdot \boldsymbol{\nabla}\zeta }{ B |\nabla\zeta| }
+= \ff{\psi^\prime }{ \mathcal{J} B | \nabla \zeta | }
+$$
+with $\psi^\prime \equiv \ff{d\psi}{dr}$ and 
+the Jacobian defined as 
+$\mathcal{J} = (\nabla r \cdot \nabla \theta \times \nabla \zeta)^{-1} > 0 $.
+
+The four points used for the gyro-average are chosen to be located on the axes
+$(\nabla \zeta \times \B) \times \nabla \zeta$ and
+$(\nabla \zeta \times \B)$.
+An ion spends approximately the same amount of time on each quarter of the ellipse.
+To locate the the positions of these points relative to the guiding center,
+the directional derivatives need to be determined first.
+
+The directional derivative is defined as
+$$
+\ff{du}{dl} \equiv \hat{\l} \cdot \boldsymbol{\nabla} u
+$$
+for any function $u$. 
+$\hat{\l}$ is the unit vector in direction $\l$.
+
+In the 
+$\l_1 = (\boldsymbol{\nabla} \zeta \times \B)$
+direction
+$$
+\begin{array}{l}
+\ff{dr}{dl_1} = \\
+\ff{d\theta}{dl_1} = \\
+\end{array}
+$$
+
+In the 
+$\l_2 = (\boldsymbol{\nabla} \zeta \times \B) \times \boldsymbol{\nabla} \zeta$
+direction
+$$
+\begin{array}{l}
+\ff{dr}{dl_2} = \\
+\ff{d\theta}{dl_2} = \\
+\end{array}
+$$
+
+The four points are determined by
+$$
+r_j = r_0 + \Delta r_j,
+\theta_j = \theta_0 + \Delta \theta_j,
+\zeta_j = \zeta_0, 
+j = 1, 2, 3, 4
+$$
+with
+$$
+\begin{array}{l}
+\Delta r_{1,2} = \pm \ff{dr}{dl_1} \rho_i,
+\Delta \theta_{1,2} = \pm \ff{d\theta}{dl_1} \rho_i,
+\\
+\Delta r_{3,4} = \pm \ff{dr}{dl_2} \ff{\rho_i}{\cos\alpha},
+\Delta \theta_{3,4} = \pm \ff{d\theta}{dl_2} \ff{\rho_i}{\cos\alpha}.
+\end{array}
+$$
+
+The calculation of the potential 
+$\tilde{\phi}(\x)$ in terms of $\phi(\x)$ involves
+the double averaging process, shown in Fig.3.
+$\tilde{\phi}$ at the center point is the four-point average of
+$\bar{\phi}$ on the $X$ points,
+and 
+$\bar{\phi}$ on the $X$ points are the other four-point average of $\phi$ on the $O$ points.
+This has been done in different gyro-radii.
+
+Note that the four-point averaging scheme is accurate for
+$k_\perp \rho_i \leq 2$
+modes.
+To resolve shorter wavelength modes, we may use more points for the averaging process.
+
+% ................................... %
+\section{Gyro-kinetic equations}
+
+The gyro-kinetic distribution function is expression as the sum of 
+equilibrium distribution $f_0$ and turbulence perturbation $\delta f$
+$$
+f = f_0 + \delta f.
+$$
+
+Since gyro-radius is large for ion, the ion particle position $\x$
+is different from its guiding center position $\R$. The equation for its 
+distribution function is called gyro-kinetic equation.
+And the ion gyro-kinetic equation is solved at guiding center $\R$.
+
+While for electron, its gyro-radius is neglectable compared to ion,
+and hence the approximation $\x \simeq \R$ can be made and the equaiton
+for its distribution function is called drift kinetic equation.
+This equation is solved at guiding center $\R$ as well.
+
+In the electrostatic limit, the ion gyro-kinetic equation for $\delta f_i$ is
+\begin{equation}
+\label{eq:iongyroeq}
+%\ref{eq:iongyroeq}
+\ff{d \delta f_i}{dt} =
+\end{equation}
+$\mu$ and $v_\parallel$ are independent variables.
+Once $\delta f_i$ is known, 
+$\delta \bar{n}_i(\x)$ can be calculated using eq\ref{eq:nbar}.
+Note that ion particle position $\x$ is different from its guiding center $\R$
+and therefore, $\delta \bar{n}_i(\x)$ and $\delta n_i(\x)$ are different.
+
+The equation for the equilibrium distribution function $f_0$ is given as follows
+\begin{equation}
+\label{eq:f0}
+\ff{df_0}{dt} =
+\end{equation}
+
+There are different ways for electrons. Mainly,
+one is the full $\delta f$ method,
+the other one is the $\delta h$ method.
+In each method, one can solve either the total potential 
+or the perturbed turbulence potential.
+
+
+% ................................... %
+\subsection{full $\delta f$ electrons}
+The electron dynamics is described by the drift kinetic equation, 
+neglecting the finite gyro-radius effect
+\begin{equation}
+\label{eq:edrifteq_df}
+%\ref{eq:edrifteq_df}
+\ff{d \delta f_e}{dt} =
+\end{equation}
+Once $\delta f_e$ is known, 
+$\delta n_e(\x) \simeq \delta \bar{n}_e(\x)$ can be calculated similar to eq\ref{eq:nbar}
+\fi
+
+
+
+
+
+
+\iffalse
+When $\delta \bar{n}_i(\x)$ and $\delta n_e(\x)$ are solved, we can form 
+the following poission equation 
+\begin{equation}
+\label{eq:1a}
+%\ref{eq:1a}
+\ff{q_i}{T_i} (\phi - \tilde{\phi}) = 
+ \ff{\delta \bar{n}_i}{n_0} - \ff{\delta n_e}{n_0}
+\end{equation}
+from $0 \simeq \nabla^2 \phi = q(n_i - n_e)$,
+$n_i = \bar{n}_i + n_i^{\mbox{polarization}}$
+subject to quasi-neutrality condition.
+$\phi$ is the total potential.
+\fi
+
+
+\noindent
+Instead of solving total potential, 
+one may solve for the turbulence contribution $\delta \phi$ 
+and zonal flow contribution $\langle \phi \rangle$ 
+given by
+$$
+\delta \phi = \phi - \langle \phi \rangle
+$$
+The equation for $\delta \phi$ is derived by
+taking flux surface average of the total potential equation (\ref{eq:1a})
+and subtracting this average from (\ref{eq:1a})
+\begin{equation}
+\label{eq:1b}
+%\ref{eq:1b}
+\ff{q_i}{T_i} (\delta \phi - \delta \tilde{\phi}) = 
+ \ff{\delta \bar{n}_i - \langle \delta \bar{n}_i \rangle}{n_0} - 
+ \ff{\delta n_e - \langle \delta n_e \rangle}{n_0}
+\end{equation}
+
+\iffalse
+obviously We need the equation to solve for zonal flow 
+$\langle \phi \rangle$:
+$$
+\ff{d\langle \phi \rangle}{da} = \cdots
+$$
+
+% ................................... %
+\subsection{$\delta h$ electrons}
+\fi
+
+
+An alternate method to solve for electorns is the so called $\delta h$ method.
+\iffalse
+The electron guiding center distribution function is decomposed into
+$$
+f_e = f_{e0} - \ff{e\delta \phi}{T_e} f_{e0} + \delta h_e
+$$
+Again, $\delta \phi$ is the turbulence potential.
+The electron equilibrium dristribution function $f_{e0}$ satisfies
+the electron version of eq (\ref{eq:f0})
+and can be approximated by a shifted Maxwellian containing a parallel flow,
+similiar to that for ions.
+The second term for $f_e$ represents the adiabatic electron response to the potential
+fluctuation due to the fast electron motion.
+
+The nonadiabatic electron distribution function $\delta h_e$
+is determined by
+\begin{equation}
+\label{eq:edrifteq_dh}
+%\ref{eq:edrifteq_dh}
+\ff{d \delta h_e}{dt} =
+\end{equation}
+Once $\delta h_e$ is solved, $\delta n_e$ can be obtained and
+potential $\phi$ can solved.
+As before, 
+\fi
+In summary,
+one way is to solve the total potential.
+\begin{equation}
+\label{eq:2a}
+%\ref{eq:2a}
+\left( 1 + \ff{T_i}{T_e} \right)
+\ff{q_i}{T_i} \phi- 
+\ff{q_i}{T_i} \tilde{\phi}
+= \ff{\delta \bar{n}_i}{n_0} - \ff{\delta n_e^h}{n_0}
+  + \ff{q_i}{T_e} \langle \phi \rangle
+\end{equation}
+and
+the other way is to solve equation for the turbulence potential %and zonal flow contribution.
+%The poisson equation for turbulence potential is
+\begin{equation}
+\label{eq:2b}
+%\ref{eq:2b}
+\left( 1 + \ff{T_i}{T_e} \right)
+\ff{q_i }{T_i} \delta \phi - 
+\ff{q_i }{T_i} \delta \tilde{\phi}
+= 
+ \ff{\delta \bar{n}_i - \langle \delta \bar{n}_i \rangle}{n_0} - 
+ \ff{\delta n_e^h - \langle \delta n_e^h \rangle}{n_0}
+\end{equation}
+ 
+
+% ................................... %
+\section{Poisson Equation and new\_fem\_solver}
+\label{sec:new_fem_solver}
+new\_fem\_solver uses finite elements to solve partial differential GK equation.
+
+Instead of solving integral equation, 
+we can derive and solve the elliptic pde for the total potential $\phi$.
+From the total potential eq (\ref{eq:1a}), we obtain
+\begin{equation}
+\label{eq:poisson1}
+-\bm{\nabla}_\perp \cdot \left( \ff{q_i n_0}{B\Omega_i} \bm{\nabla}_\perp \Phi \right) 
+= \langle \delta \bar{n}_i \rangle - \delta n_e
+\end{equation}
+More generally, the following GK poisson equation is implemented in the code
+\begin{equation}
+\label{eq:poisson2}
+\alpha \Phi + \beta \bm{\nabla}_\perp \cdot \left( \sum_s g_s \bm{\nabla}_\perp \Phi \right) = b
+\end{equation}
+where
+$$
+\begin{array} {l}
+\alpha(a) = \left(\ff{e}{e_0}\right) 
+            \left(\ff{m_o}{m_e}\right) 
+            \ff{1}{T_e},
+\beta(a) = - \ff{1}{n_{eo}(a)},
+g_s(a) = \ff{Z_s}{B^2} n_{so} \left(\ff{e_o}{e_s}\right) \left(\ff{m_s}{m_o}\right) 
+\\
+b = \sum_s \ff{\delta \bar{n}_s}{n_{so}} \left(\ff{n_{so}}{n_{eo}}\right) - \ff{\delta n_e^{na}}{n_{eo}}
+    + \left(\ff{e}{e_o}\right) \left(\ff{m_o}{m_e}\right) \ff{\langle\Phi\rangle}{\bar{T}_e},
+\langle\Phi\rangle = \ff{\oint \Phi {\cal J} d\varphi d\theta}{\oint {\cal J} d\varphi d\theta}
+\\
+\delta n_e^{na} \mbox{ is the non-adiabatic electron fluctuation density}
+\end{array}
+$$
+$s$ specifies the ion species. From now on we assume single ion specie $s=1$ for simplicity.
+In flux coordinate $(a, \theta, \zeta)$, the second term in eq (\ref{eq:poisson2}) becomes
+\begin{equation}
+\label{eq:poisson3}
+\begin{array} {l}
+\bm{\nabla}_\perp \cdot \left( g_s \bm{\nabla}_\perp \Phi \right)  \\
+= \bm{\nabla} \cdot \left( g_s \bm{\nabla}_\perp \Phi \right) \\
+= 
+\ff{1}{\cal J} \pp{}{a} \left[ {\cal J} g_s \bm{\nabla}_\perp \Phi \cdot \bm{\nabla} a \right]
++
+\ff{1}{\cal J} \pp{}{\theta} \left[ {\cal J} g_s \bm{\nabla}_\perp \Phi  \cdot \bm{\nabla }\theta \right]
++
+\ff{1}{\cal J} \pp{}{\varphi} \left[ {\cal J} g_s \bm{\nabla}_\perp \Phi  \cdot \bm{\nabla} \varphi \right]
+\end{array}
+\end{equation}
+where ${\cal J}$ represents the flux coordinate Jacobian
+$\left[ \bm{\nabla} a \times \bm{\nabla} \theta \cdot \bm{\nabla} \varphi \right]^{-1}$.
+Please refer the Appendix for a summary of formulae in curved coordinate systems.
+The first term in (\ref{eq:poisson3}) can be written as
+\begin{equation}
+\label{eq:poisson4}
+\begin{array} {rl}
+\bm{\nabla}_\perp \Phi \cdot \bm{\nabla} a
+= &
+ \left[
+ \bm{\nabla} \Phi - (\hat{b} \cdot \bm{\nabla} \Phi) \hat{b} 
+ \right] \cdot \bm{\nabla} a
+\\
+\simeq &
+  \bm{\nabla} \Phi \cdot \bm{\nabla} a
+\\
+= &
+ \left(
+ \pp{\Phi}{a} \bm{\nabla} a + \pp{\Phi}{\theta} \bm{\nabla} \theta
+ \right) \cdot \bm{\nabla} a
+=
+ \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+\end{array}
+\end{equation}
+in an axis-symmetry system.
+Similarly, the second term in (\ref{eq:poisson3}) can be written as
+\begin{equation}
+\label{eq:poisson5}
+\begin{array} {rl}
+\bm{\nabla}_\perp \Phi \cdot \bm{\nabla} \theta
+= &
+ \left[
+ \bm{\nabla} \Phi - (\hat{b} \cdot \bm{\nabla} \Phi) \hat{b} 
+ \right] \cdot \bm{\nabla} \theta
+\\
+\simeq &
+  \bm{\nabla} \Phi \cdot \bm{\nabla} \theta
+\\
+= &
+ \left(
+ \pp{\Phi}{a} \bm{\nabla} a + \pp{\Phi}{\theta} \bm{\nabla} \theta
+ \right) \cdot \bm{\nabla} \theta
+=
+ \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+\end{array}
+\end{equation}
+and the third term in (\ref{eq:poisson3}) becomes
+\begin{equation}
+\label{eq:poisson6}
+\begin{array}{rl}
+\ff{1}{\cal J} \pp{}{\varphi} \left[ {\cal J} g_s \bm{\nabla}_\perp \Phi \cdot \bm{\nabla} \varphi \right]
+= & g_s \pp{}{\varphi} \left[ \bm{\nabla}_\perp \Phi \cdot \bm{\nabla} \varphi \right]
+=  g_s \pp{}{\varphi} \left[ 
+   \bm{\nabla} \Phi - (\hat{b} \cdot \bm{\nabla} \varphi ) \hat{b}
+                     \right] \cdot \bm{\nabla} \varphi 
+\\
+\simeq & g_s \pp{}{\varphi} \left[ 
+   \bm{\nabla} \Phi \cdot \bm{\nabla} \varphi 
+                     \right]
+=  g_s \pp{}{\varphi} \left[ 
+   \pp{\Phi}{\varphi} |\bm{\nabla} \varphi |^2
+                     \right]
+=  g_s |\bm{\nabla} \varphi |^2 \pp{}{\varphi} \pp{\Phi}{\varphi}
+\\
+= & g_s |\bm{\nabla} \varphi |^2 \pp{}{\varphi} \left[ 
+   -\ff{1}{q} \pp{\Phi}{\theta}
+                     \right]
+=  -\ff{g_s}{q} |\bm{\nabla} \varphi |^2 \pp{}{\varphi} \pp{\Phi}{\theta}
+\\
+\simeq & \ff{g_s}{q^2} |\bm{\nabla} \varphi |^2 \psp{\Phi}{\theta}
+=  \ff{g_s}{q^2} \psp{\Phi}{\theta} g^{\varphi \varphi}
+\end{array}
+\end{equation}
+Subtituting
+(\ref{eq:poisson4}) 
+(\ref{eq:poisson5}) 
+(\ref{eq:poisson6}) 
+into
+(\ref{eq:poisson2}),
+the partial differential equation to be solved becomes
+\begin{equation}
+\label{eq:poisson7}
+\begin{array}{l}
+\alpha \Phi + 
+\\
+\beta \left[
+\ff{1}{\cal J} \pp{}{a} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                        \right)
++
+\ff{1}{\cal J} \pp{}{\theta} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                        \right)
++
+           \ff{g_s}{q^2} \psp{\Phi}{\theta} g^{\varphi \varphi}
+                    \right] 
+\\
+= b
+\end{array}
+\end{equation}
+Here $g^{aa}$, $g^{a\theta}$, $g^{\theta \theta}$
+represent the coordinate metrics.
+This equation is solved in solver1.
+
+
+\iffalse
+% ................................... %
+\section{flux-surface averaged GK poisson equation}
+\label{sec:poisson2}
+\fi
+
+
+
+
+If we decompose $\Phi$ into $2$ parts
+$$
+\Phi = \langle \Phi \rangle + \delta \Phi
+$$
+\iffalse
+$$
+\beta \ff{d}{d\nu} \left[
+    \sum_s \langle g_s(a,\theta) g^{aa} \rangle \nu_a^\prime \ff{d\langle \Phi \rangle}{da}
+                   \right]
+=
+- \beta \ff{d}{d\nu} \sum_s 
+  \langle g_s(a,\theta) \bm{\nabla}_\perp \delta \Phi \cdot \bm{\nabla}a \rangle \nu_a^\prime
++ \langle b \rangle
+$$
+which can be convertd into
+$$
+\ff{d}{d\nu} \left[
+    \sum_s \langle g_s(a,\theta) g^{aa} \rangle \nu_a^\prime \ff{d\langle \Phi \rangle}{da}
+                   \right]
+=
+-  \ff{d}{d\nu} \sum_s 
+  \langle g_s(a,\theta) \bm{\nabla}_\perp \delta \Phi \cdot \bm{\nabla}a \rangle \nu_a^\prime
++ \ff{\nu_a^\prime}{\beta}\langle b \rangle
+$$
+With
+$$
+\bm{\nabla}_\perp \delta \Phi \cdot \bm{\nabla}a
+=
+\pp{\delta \Phi}{a} g^{aa} + \pp{\delta \Phi}{\theta} g^{a\theta}
+$$
+we can solve the other form of problem, 
+\fi
+Similarly to eq (\ref{eq:poisson2}) the equation for $\delta \Phi$ will be
+\begin{equation}
+\label{eq:poisson8}
+\alpha \delta \Phi 
++ \beta 
+\bm{\nabla}_\perp \cdot \sum_s g_s \bm{\nabla}_\perp \delta \Phi 
+=
+b - \beta \bm{\nabla}_\perp \cdot \sum_s g_s \ff{d\langle \Phi \rangle}{da} \bm{\nabla}a
+\end{equation}
+with an additional term on the rhs.
+ This addtional term can be extended as follows
+$$
+\begin{array}{ll}
+- \beta \bm{\nabla}_\perp \cdot \sum_s g_s \ff{d\langle \Phi \rangle}{da} \bm{\nabla}a
+& =
+- \beta \ff{1}{\cal J} \pp{}{a} \left(
+           {\cal J} g_s \ff{d\langle \Phi \rangle}{da} \bm{\nabla}a \cdot \bm{\nabla}a
+                                \right)
+- \beta \ff{1}{\cal J} \pp{}{\theta} \left(
+           {\cal J} g_s \ff{d\langle \Phi \rangle}{da} \bm{\nabla} \theta \cdot \bm{\nabla}a
+                                     \right)
+\\
+& =
+- \beta \ff{1}{\cal J} \pp{}{a} \left(
+           {\cal J} g_s \ff{d\langle \Phi \rangle}{da} g^{aa}
+                                \right)
+- \beta \ff{1}{\cal J} \pp{}{\theta} \left(
+           {\cal J} g_s \ff{d\langle \Phi \rangle}{da} g^{a\theta}
+                                     \right)
+\end{array}
+$$
+Thus eq (\ref{eq:poisson8}) has a similar form as 
+eq (\ref{eq:poisson7}) with above additional writing on the right hand side
+and is solved in solver0.
+
+$solver\_dphi\_dt$ solves the following eq, which is similar to eq (\ref{eq:poisson2}).
+The only differences come from setting $\alpha=0$, the unknows $\pp{\Phi}{t}$ to be solved,
+and rhs vector $b$.
+\begin{equation}
+\label{eq:poisson9}
+\beta (a) \bm{\nabla}_\perp \cdot \sum_s g_s \bm{\nabla}_\perp \pp{\Phi}{t} = b,
+\;\;\;
+b=\sum_i \ff{Z_i}{n_{eo}} \pp{\delta \bar{n}_i}{t} 
+  - \ff{1}{n_{eo}} \pp{\delta n_e^h}{t} 
+  - \pp{}{t}\left( \ff{e\delta \Phi}{T_e} \right)
+\end{equation}
+The only boundary condition is Dirichlet type $\pp{\Phi}{t}=0$ at $a=a0$ and $a=a1$.
+
+
+
+% ................................... %
+\section{Finite Elements Method}
+Finite elements are built upon the reference triangle:
+$$
+(\bm{\xi 1}(0,0), \bm{\xi 2}(1,0), \bm{\xi 3}(0,1))
+$$
+which is mapped from real triangle:
+$$
+(\bm{x1}(a1,\theta 1), \bm{x2}(a2,\theta 2), \bm{x3}(a3,\theta 3))
+$$
+using transformation Jacobian $J$ 
+\begin{equation}
+J = \left| \begin{array}{ll}
+        \pp{a}{\xi}  & \pp{\theta}{\xi} \\
+        \pp{a}{\eta} & \pp{\theta}{\eta}
+    \end{array} \right|
+  = \pp{a}{\xi}  \pp{\theta}{\eta} - \pp{a}{\eta} \pp{\theta}{\xi}
+\end{equation}
+from real space $\bm{x}(a,\theta)$ to reference space $\bm{\xi}(\xi,\eta)$
+$$
+\bm{\xi} \Longrightarrow \bm{x} = \bm{x}(\bm{\xi})
+$$
+The reverse transformation $J^{-1}$ is written as
+\begin{equation}
+J^{-1} = \left| \begin{array}{ll}
+             \pp{\xi}{a} & \pp{\eta}{a} \\
+             \pp{\xi}{\theta} & \pp{\eta}{\theta}
+         \end{array} \right|
+\end{equation}
+from reference space $\bm{\xi}(\xi,\eta)$ to real space $\bm{x}(a,\theta)$
+$$
+\bm{x} \Longrightarrow \bm{\xi} = \bm{\xi}(\bm{x})
+$$
+Three types of elements are available in the current version of GTS
+and are represented by $N_i$ for the $ith$ base function.
+
+Now we introuduce the variational formulation by
+multiplying quation (\ref{eq:poisson7}) with base function $N_i (i=1, 2, \cdots)$ on its both side, 
+integrating over each triangle, and then assembling them together
+\begin{equation}
+\label{eq:variation1}
+\begin{array}{lll}
+\alpha \int\int \Phi N_i d\sigma
+& + & \beta \int\int \left[
+      \ff{1}{\cal J} \pp{}{a} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                                           \right)
+                   \right] N_i d\sigma
+\\
+& + & \beta \int\int \left[
+      \ff{1}{\cal J} \pp{}{\theta} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                                                \right)
+                   \right] N_i d\sigma
+\\
+& + & \beta \int\int \left[
+      \ff{g_s}{q^2} \psp{\Phi}{\theta} g^{\varphi \varphi}
+                   \right] N_i d\sigma
+\\
+= \int\int b N_i d\sigma, & & i=1, 2, \cdots.
+\end{array}
+\end{equation}
+$d\sigma$ is the 2D differential area in real space.
+Using the approximated variable $\Phi$ and rhs vector $b$
+$$
+\Phi = \sum_j \Phi_j N_j, \;\;\;
+b = \sum_j b_j N_j
+$$
+the first term in the eq (\ref{eq:variation1}) is converted to
+\begin{equation}
+\label{eq:variation2}
+\begin{array}{ll}
+\alpha \int\int \Phi N_i d\sigma
+& = \alpha \int\int \sum_j \Phi_j N_j N_i {\cal J} da d\theta
+\\
+& = \alpha \sum_j \left(\int\int N_j N_i {\cal J} dad\theta\right) \Phi_j
+\\
+& = \alpha \sum_j {\cal J}_j m_{ij} \Phi_j
+\end{array}
+\end{equation}
+Similarly, we have for the right-hand-side $b$ term
+\begin{equation}
+\label{eq:variation3}
+\begin{array}{ll}
+\int\int b N_i d\sigma
+& = \int\int \sum_j b_j N_j N_i {\cal J} dad\theta
+\\
+& = \sum_j \left(\int\int N_j N_i {\cal J} da d\theta\right) b_j
+\\
+& = \sum_j {\cal J}_j m_{ij} b_j
+\end{array}
+\end{equation}
+Where ${\cal J}$ is the flux coordiante Jacobian evaluated at node $j$,
+and $m_{ij}$ is the mass matrix relted to $N_i$ and $N_j$.
+Taking partial integration, the $2nd$ part on the left of eq (\ref{eq:variation1}) becomes
+\begin{equation}
+\label{eq:variation4}
+\begin{array}{l}
+\beta \int\int \ff{1}{\cal J} \pp{}{a} \left[
+      {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                            \right)
+                              \right] N_i d\sigma
++\\
+\beta \int\int \ff{1}{\cal J} \pp{}{\theta} \left[
+      {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                                 \right)
+                              \right] N_i d\sigma
++\\
+\beta \int\int \left[
+      \ff{g_s}{q^2} \psp{\Phi}{\theta} g^{\varphi \varphi}
+               \right] N_i d\sigma
+ \\
+=
+\beta \int\int \ff{1}{\cal J} \pp{}{a} \left[
+      {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                            \right)
+                              \right] N_i  {\cal J} dad\theta
++\\
+\;\;\;
+\beta \int\int \ff{1}{\cal J} \pp{}{\theta} \left[
+      {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                                 \right)
+                              \right] N_i  {\cal J} dad\theta
++\\
+\;\;\;
+\beta \int\int \left[
+      \ff{g_s}{q^2} \psp{\Phi}{\theta} g^{\varphi \varphi}
+               \right] N_i  {\cal J} dad\theta
+\\
+=
+- \beta \int\int 
+      \pp{N_i}{a} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                               \right) dad\theta
+\\
+\;\;\;\;
+- \beta \int\int 
+      \pp{N_i}{\theta} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                                    \right) dad\theta
+\\
+\;\;\;\;
+- \beta \int\int 
+      \pp{ }{\theta}\left(
+                          {\cal J}\ff{g_s}{q^2} g^{\varphi \varphi} N_i
+                    \right)
+      \pp{\Phi}{\theta} dad\theta
+\\
+\simeq
+- \beta \int\int \left( {\cal J} g_s g^{a a} \right)
+                 \pp{N_i}{a} \pp{\Phi}{a} dad\theta
+- \beta \int\int \left( {\cal J} g_s g^{a \theta} \right)
+                 \pp{N_i}{a} \pp{\Phi}{\theta} dad\theta
+\\
+\;\;\;\;
+- \beta \int\int \left( {\cal J} g_s g^{a \theta} \right)
+                 \pp{N_i}{\theta} \pp{\Phi}{a} dad\theta
+- \beta \int\int \left( {\cal J} g_s g^{\theta \theta} \right)
+                 \pp{N_i}{\theta} \pp{\Phi}{\theta} dad\theta
+\\
+\;\;\;\;
+- \beta \int\int 
+      \left( {\cal J}\ff{g_s}{q^2} g^{\varphi \varphi} \right)
+      \pp{N_i}{\theta} \pp{\Phi}{\theta} dad\theta
+\\
+=
+- \beta \sum_j \Phi_j \int\int \left( {\cal J} g_s g^{a a} \right)
+                 \pp{N_i}{a} \pp{N_j}{a} dad\theta
+- \beta \sum_j \Phi_j \int\int \left( {\cal J} g_s g^{a \theta} \right)
+                 \pp{N_i}{a} \pp{N_j}{\theta} dad\theta
+\\
+\;\;\;\;
+- \beta \sum_j \Phi_j \int\int \left( {\cal J} g_s g^{a \theta} \right)
+                 \pp{N_i}{\theta} \pp{N_j}{a} dad\theta
+- \beta \sum_j \Phi_j \int\int \left( {\cal J} g_s g^{\theta \theta} \right)
+                 \pp{N_i}{\theta} \pp{N_j}{\theta} dad\theta
+\\
+\;\;\;\;
+- \beta \sum_j \Phi_j \int\int 
+      \left( {\cal J}\ff{g_s}{q^2} g^{\varphi \varphi} \right)
+      \pp{N_i}{\theta} \pp{N_j}{\theta} dad\theta
+\\
+=
+- \beta \sum_j \left( {\cal J} g_s g^{a a} \right)_{ij} srr_{ij} \Phi_j 
+- \beta \sum_j \left( {\cal J} g_s g^{a \theta} \right)_{ij} srz_{ij} \Phi_j
+\\
+\;\;\;\;
+- \beta \sum_j \left( {\cal J} g_s g^{a \theta} \right)_{ij} szr_{ij} \Phi_j
+- \beta \sum_j \left( {\cal J} g_s g^{\theta \theta} \right)_{ij} szz_{ij} \Phi_j
+\\
+\;\;\;\;
+- \beta \sum_j \left( {\cal J}\ff{g_s}{q^2} g^{\varphi \varphi} \right)_{ij} szz_{ij} \Phi_j
+\end{array}
+\end{equation}
+Here $srr_{ij}$, 
+     $srz_{ij}$, 
+     $szr_{ij}$, and 
+     $szz_{ij}$ 
+are the stiffness matrices corresponding to operators
+$\pp{N_i}{a}$, $\pp{N_i}{\theta}$, and $\pp{N_j}{a}$, $\pp{N_j}{\theta}$.
+Summing together, we obtain the following linear systems
+\begin{equation}
+\begin{array}{ll}
+\sum_j & \{ \alpha {\cal J}_j m_{ij} \\
+       & - \beta \left( {\cal J} g_s g^{a a} \right)_{ij} srr_{ij} 
+         -2\beta \left( {\cal J} g_s g^{a \theta} \right)_{ij} srz_{ij}
+         - \beta \left( {\cal J} g_s g^{\theta \theta} \right)_{ij} szz_{ij}
+\\
+       & - \beta \left( {\cal J}\ff{g_s}{q^2} g^{\varphi \varphi} \right)_{ij} szz_{ij}
+       \} \Phi_j 
+\\
+= & \sum_j {\cal J}_j m_{ij} b_j, \;\;\; i= 1, 2, \cdots
+\end{array}
+\end{equation}
+which is implemented in $solver1$.
+
+A similar form for equation (\ref{eq:poisson8}) in section \ref{sec:new_fem_solver} 
+can be given easily.
+First the additional term on the rhs is
+$$
+\begin{array}{l}
+%\int\int - \beta \bm{\nabla}_\perp \cdot \sum_s g_s \ff{d\langle \Phi \rangle}{da} \bm{\nabla}a N_i d\sigma =
+%\\
+  - \beta \int\int \ff{1}{\cal J} \pp{}{a} \left(
+           {\cal J} g_s \ff{d\langle \Phi \rangle}{da} g^{aa}
+                                           \right) N_i d\sigma
+  - \beta \int\int \ff{1}{\cal J} \pp{}{\theta} \left(
+           {\cal J} g_s \ff{d\langle \Phi \rangle}{da} g^{a\theta}
+                                                \right) N_i d\sigma
+\\
+= - \beta \int\int \ff{1}{\cal J} \pp{}{a} \left(
+           {\cal J} g_s g^{aa} \ff{d\langle \Phi \rangle}{da}
+                                           \right) N_i {\cal J} dad\theta
+  - \beta \int\int \ff{1}{\cal J} \pp{}{\theta} \left(
+           {\cal J} g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da}
+                                                \right) N_i {\cal J} dad\theta
+\\
+\simeq - \beta \sum_j \int\int \left( {\cal J} g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right)_j
+                        \pp{N_j}{a} N_i dad\theta
+       - \beta \sum_j \int\int \left( {\cal J} g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)_j
+                       \pp{N_j}{\theta} N_i dad\theta
+\\
+\\
+\left[ = - \beta \sum_j sr_{ij} \left( {\cal J} g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right)_j
+  - \beta  \sum_j sz_{ij} \left( {\cal J} g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)_j \right]
+\\
+ (=R_{mat} \left( -\beta g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right) + 
+   Z_{mat} \left( -\beta g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)
+\\
+\mbox{in } (a, \theta) \mbox{ coordinate, } {\cal J} \mbox{is included in } R_{mat} , Z_{mat}
+\\
+\\
+=\sum_j \left( -\beta g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right)_j
+         \int\int \ff{1}{J} \sum_k E_{jk} \theta_k N_i {\cal J} J d\xi d\eta 
++
+ \sum_j \left( -\beta g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)_j
+         \int\int \left(-\ff{1}{J}\right) \sum_k E_{jk} a_k N_i {\cal J} J d\xi d\eta 
+\\
+ (=R_{mat} \left( -\beta g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right) + 
+   Z_{mat} \left( -\beta g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)
+\\
+=\sum_j \left( -\beta g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right)_j
+         \sum_k \theta_k \int\int E_{jk} N_i {\cal J} d\xi d\eta 
++
+ \sum_j \left( -\beta g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)_j
+         \sum_k a_k \int\int E_{jk} N_i {\cal J} d\xi d\eta 
+\\
+=\sum_j \left[ \left( -\beta g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right)_j
+               +
+               \left( -\beta g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)_j
+        \right]
+         \sum_k \left( \theta_k - a_k\right) P_{ijk}(i,j,k)
+\end{array}
+$$
+where $sr_{ij}$ and $sz_{ij}$ are the partial stiffness matrices corresponding to
+operators $\pp{N_j}{a} N_i$ and $\pp{N_j}{\theta} N_i$, repspectively.
+The code can be found in subroutine $add\_hh2bb$.
+Thus we have the second type of linear systems to be solved
+\begin{equation}
+\begin{array}{ll}
+\sum_j & \{ \alpha {\cal J}_j m_{ij} \\
+       & - \beta \left( {\cal J} g_s g^{a a} \right)_{ij} srr_{ij} 
+         -2\beta \left( {\cal J} g_s g^{a \theta} \right)_{ij} srz_{ij}
+         - \beta \left( {\cal J} g_s g^{\theta \theta} \right)_{ij} szz_{ij}
+\\
+       & - \beta \left( {\cal J}\ff{g_s}{q^2} g^{\varphi \varphi} \right)_{ij} szz_{ij}
+       \} \Phi_j 
+\\
+\\
+\left[ =\right. & \left. \sum_j \{ m_{ij} {\cal J}_j b_j
+              - \beta sr_{ij} \left( {\cal J} g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right)_j
+              - \beta sz_{ij} \left( {\cal J} g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)_j
+           \} \right]
+\\
+\\
+= & \sum_j \{ m_{ij} {\cal J}_j b_j
+ - \left[ \left( -\beta g_s g^{aa} \ff{d\langle \Phi \rangle}{da} \right)_j
+               +
+               \left( -\beta g_s g^{a\theta} \ff{d\langle \Phi \rangle}{da} \right)_j
+        \right]
+         \sum_k \left( \theta_k - a_k\right) P_{ijk}(i,j,k) \}
+%\\
+\end{array}
+\end{equation}
+which is implemented in $solver0$.
+This is the first option to evaluate this second term
+each time the solver is called. 
+
+The second option, which is currently implemented in add\_hh2bb,
+follows from finding derivation directly from subroutin find\_dxdadxdt
+in section (\ref{sec:dadt}). So the above equation becomes
+\begin{equation}
+\begin{array}{ll}
+\sum_j & \{ \alpha {\cal J}_j m_{ij} \\
+       & - \beta \left( {\cal J} g_s g^{a a} \right)_{ij} srr_{ij} 
+         -2\beta \left( {\cal J} g_s g^{a \theta} \right)_{ij} srz_{ij}
+         - \beta \left( {\cal J} g_s g^{\theta \theta} \right)_{ij} szz_{ij}
+\\
+       & - \beta \left( {\cal J}\ff{g_s}{q^2} g^{\varphi \varphi} \right)_{ij} szz_{ij}
+       \} \Phi_j 
+\\
+\\
+ = & \sum_j m_{ij} {\cal J}_j 
+       \left( 
+        b_j 
+- \beta \ff{1}{\cal J} \pp{}{a} \left(
+           {\cal J} g_s \ff{d\langle \Phi \rangle}{da} g^{aa}
+                                \right)_j
+- \beta \ff{1}{\cal J} \pp{}{\theta} \left(
+           {\cal J} g_s \ff{d\langle \Phi \rangle}{da} g^{a\theta}
+                                     \right)_j
+       \right) 
+\end{array}
+\end{equation}
+
+
+
+% ................................... %
+\subsection{$C^0$ linear elements}
+\label{sec:e1}
+This set of simplest elements is built upon the three nodes of reference triangle and 
+has continuity across the element edges:
+\begin{equation}
+\begin{array}{l}
+N_1 = 1-\xi-\eta\\
+N_2=\xi\\
+N_3=\eta\\
+\end{array}
+\end{equation}
+variable $u(\bm{x})$ to be found in real space can be represent by
+\begin{equation}
+u(\bm{x})=\sum_j N_j u_j
+\end{equation}
+where $u_j$ is the variable $u(\bm{x})$ evaluated at triangle node $j$.
+With iso-parameter mapping from real triangle to reference triangle,
+the coordinates can be written as
+\begin{equation}
+\begin{array}{l}
+a=\sum_j N_j a_j\\
+\theta=\sum_j N_j \theta_j\\
+\end{array}
+\end{equation}
+Here $j$ refers to the $j$th node of each triangle. 
+Obvisously, the first order derivative of the base functions are found to be
+\begin{equation}
+\begin{array}{ll}
+\pp{N_1}{\xi} = -1   &  \pp{N_1}{\eta} = -1\\
+\pp{N_2}{\xi} = 1    &  \pp{N_2}{\eta} = 0\\
+\pp{N_3}{\xi} = 0    &  \pp{N_3}{\eta} = 1
+\end{array}
+\end{equation}
+So the Jacobian can be easily computed as 
+$$
+\begin{array}{ll}
+J & = \sum_i a_i \pp{N_i}{\xi}  \sum_j \theta_j \pp{N_j}{\eta} - 
+      \sum_i a_i \pp{N_i}{\eta} \sum_j \theta_j \pp{N_j}{\xi}
+\\
+  & = \sum_i\sum_j a_i  \theta_j \left(\pp{N_i}{\xi}  \pp{N_j}{\eta} - \pp{N_i}{\eta} \pp{N_j}{\xi}\right)
+\\
+  & = \sum_i\sum_j a_i  \theta_j E_{ij}
+\end{array}
+$$
+The inverse Jacobian $J^{-1}$ is computed below.
+We start from the following fact
+$$
+J \cdot J^{-1} = \left[
+                       \begin{array}{ll}
+                          \pp{a}{\xi}  & \pp{\theta}{\xi} \\
+                          \pp{a}{\eta} & \pp{\theta}{\eta}
+                       \end{array}
+                 \right]
+\cdot
+                 \left[
+                       \begin{array}{ll}
+                          \pp{\xi}{a} & \pp{\eta}{a} \\
+                          \pp{\xi}{\theta} & \pp{\eta}{\theta}
+                       \end{array}
+                 \right]
+=
+                 \left[
+                       \begin{array}{cc}
+                          1 & 0 \\
+                          0 & 1
+                       \end{array}
+                 \right]
+= I
+$$
+which gives the following two linear sysems. The first one is
+$$
+J \left[ \begin{array}{l}
+          \pp{\xi}{x} \\
+          \pp{\xi}{y} 
+         \end{array} \right]
+=
+  \left[ \begin{array}{l}
+          1  \\
+          0
+  \end{array} \right]
+$$
+and the second one is
+$$
+J \left[ \begin{array}{l}
+          \pp{\eta}{x} \\
+          \pp{\eta}{y}
+  \end{array} \right]
+=
+  \left[ \begin{array}{l}
+          0 \\
+          1
+  \end{array} \right]
+$$
+Their solution gives us the four entries in the inverse Jacobian $J$
+$$
+\begin{array}{l}
+\pp{\xi}{a} = \ff{1}{J} \left[\begin{array}{ll}
+                              1 & \pp{\theta}{\xi} \\
+                              0 & \pp{\theta}{\eta} 
+                              \end{array}\right]
+            = \ff{1}{J} \pp{\theta}{\eta} ;
+\\
+\pp{\xi}{\theta} = \ff{1}{J} \left[\begin{array}{ll}
+                                   \pp{a}{\xi} & 1  \\
+                                   \pp{a}{\eta}& 0   
+                                   \end{array}\right]
+            =-\ff{1}{J} \pp{a}{\eta} ;
+\\
+
+\pp{\eta}{a} = \ff{1}{J} \left[\begin{array}{ll}
+                               0 & \pp{\theta}{\xi} \\
+                               1 & \pp{\theta}{\eta} 
+                               \end{array}\right]
+             =-\ff{1}{J} \pp{\theta}{\xi} ;
+\\
+\pp{\eta}{\theta} = \ff{1}{J} \left[\begin{array}{ll}
+                                    \pp{a}{\xi} & 0  \\
+                                    \pp{a}{\eta}& 1   
+                                    \end{array}\right]
+             = \ff{1}{J} \pp{a}{\xi} ;
+\\
+\end{array}
+$$
+Thus the differentition of base functions in real space $\bm{x}(a,\theta)$ 
+can be obtained in the following way.
+$$
+\begin{array}{l}
+\pp{N_i}{a} = \pp{N_i}{\xi} \pp{\xi}{a} + \pp{N_i}{\eta} \pp{\eta}{a}
+            = \pp{N_i}{\xi} \ff{1}{J} \pp{\theta}{\eta} + \pp{N_i}{\eta} (-\ff{1}{J}) \pp{\theta}{\xi}
+            = \ff{1}{J} (\pp{N_i}{\xi} \pp{\theta}{\eta} - \pp{N_i}{\eta} \pp{\theta}{\xi})
+            = \ff{1}{J} E_{i,j} \theta_j
+\\
+\pp{N_i}{\theta} = \pp{N_i}{\xi} \pp{\xi}{\theta} + \pp{N_i}{\eta} \pp{\eta}{\theta}
+                 = \pp{N_i}{\xi} (-\ff{1}{J}) \pp{a}{\eta} + \pp{N_i}{\eta} \ff{1}{J} \pp{a}{\xi}
+                 = - \ff{1}{J} (\pp{N_i}{\xi} \pp{a}{\eta} - \pp{N_i}{\eta} \pp{a}{\xi})
+                 = - \ff{1}{J} E_{i,j} a_j
+\end{array}
+$$
+Introducing $nw$ GLL points and weights $w(nw)$ on these points,
+all the elemental matrices on each triangle can be written using numerical integration:
+$$
+m_{ij} = \int\int N_i N_j dad\theta
+       = \int\int N_i N_j J d\xi d\eta
+       = \sum_{n=1}^{n=nw} N_i(n) N_j(n) J(n) w(n)
+$$
+
+$$
+srr_{ij} = \int\int \pp{N_i}{a}\pp{N_j}{a} dad\theta  
+         = \int\int \pp{N_i}{a}\pp{N_j}{a} J d\xi d\eta
+         = \sum_{n=1}^{n=nw} \pp{N_i}{a}(n) \pp{N_j}{a}(n) J(n) w(n)
+$$
+
+$$
+srz_{ij} = \int\int \pp{N_i}{a}\pp{N_j}{\theta} dad\theta  
+         = \int\int \pp{N_i}{a}\pp{N_j}{\theta} J d\xi d\eta
+         = \sum_{n=1}^{n=nw} \pp{N_i}{a}(n) \pp{N_j}{\theta}(n) J(n) w(n)
+$$
+
+$$
+szz_{ij} = \int\int \pp{N_i}{\theta}\pp{N_j}{\theta} dad\theta  
+         = \int\int \pp{N_i}{\theta}\pp{N_j}{\theta} J d\xi d\eta
+         = \sum_{n=1}^{n=nw} \pp{N_i}{\theta}(n) \pp{N_j}{\theta}(n) J(n) w(n)
+$$
+
+$$
+sr_{ij} = \int\int N_i \pp{N_j}{a} dad\theta
+        = \int\int N_i \pp{N_j}{a} J d\xi d\eta
+        = \sum_{n=1}^{n=nw} N_i(n) \pp{N_j}{a}(n) J(n) w(n)
+$$
+
+$$
+sz_{ij} = \int\int N_i \pp{N_j}{\theta} dad\theta
+        = \int\int N_i \pp{N_j}{\theta} J d\xi d\eta
+        = \sum_{n=1}^{n=nw} N_i(n) \pp{N_j}{\theta}(n) J(n) w(n)
+$$
+
+
+
+% ................................... %
+\subsection{$C^0$ 2nd order elements}
+\label{sec:e2}
+This set of elements is built upon the linear elements given in the last section
+on $6$ nodes (3 nodes and 3 edge nodes) of each triangle.
+All the formation of operators and matrices for the 2nd order elements
+are exactly the same as section in \ref{sec:e1}.
+So we'll just give the base functions and the corresponding first order
+derivatives in the reference space here.
+\begin{equation}
+\begin{array}{l}
+N_1 = - \lambda (1 - 2\lambda) \\
+N_2 = 4 \lambda \xi \\
+N_3 = - \xi ( 1 - 2\xi) \\
+N_4 = 4 \xi \eta \\
+N_5 = - \eta (1 - 2\eta) \\
+N_6 = 4 \eta \lambda
+\end{array}
+\end{equation}
+where $\lambda=1-\xi-\eta$ is the $N_1$, $\xi$ is the $N_2$,
+and $\eta$ is the $N_3$ base functions in section \ref{sec:e1},
+respectively.
+The derivative corresponding to $\xi$ and $\eta$ are
+\begin{equation}
+\begin{array}{ll}
+\pp{N_1}{\xi} = 1-4\lambda   &  \pp{N_1}{\eta} = 1-4\lambda \\
+\pp{N_2}{\xi} = 4(\lambda-\xi)    &  \pp{N_2}{\eta} = -4\xi \\
+\pp{N_3}{\xi} = -1+4\xi    &  \pp{N_3}{\eta} = 0 \\
+\pp{N_4}{\xi} = 4\eta    &  \pp{N_4}{\eta} = 4\xi \\
+\pp{N_5}{\xi} = 0    &  \pp{N_5}{\eta} = -1+4\eta \\
+\pp{N_6}{\xi} = -4\eta    &  \pp{N_6}{\eta} = 4(\lambda-\eta) \\
+\end{array}
+\end{equation}
+The iso-parameter mapping is used in tranforming from reference space
+to real space this set of elements.
+
+
+
+% ................................... %
+\subsection{$C^1$ 5th order elements}
+\label{sec:e5}
+This set of elements is much more complicated than the two sets of elements 
+introuduced in the previous 2 subsections. Here we have $18$ base functions
+built upon the three nodes of each reference triangle,
+and each node is related to $6$ of them involving 
+$\phi$, 
+$\pp{\phi}{a}$,
+$\pp{\phi}{\theta}$,
+$\psp{\phi}{a}$,
+$\ppp{\phi}{a}{\theta}$,
+and $\psp{\phi}{\theta}$.
+These $18$ base functions are
+\begin{equation}
+\begin{array}{l}
+N_1 = \lambda^2(10\lambda - 15\lambda^2 + 6\lambda^3 + 30\xi\eta(\xi + \eta)) \\
+N_2 = \xi \lambda^2(3 - 2\lambda - 3\xi^2  + 6\xi\eta) \\
+N_3 = \eta\lambda^2(3 - 2\lambda - 3\eta^2 + 6\xi\eta) \\
+N_4 = \ff{1}{2} \xi^2\lambda^2(1 - \lambda + 2\eta) \\
+N_5 = \xi^2\eta\lambda^2 \\
+N_6 = \ff{1}{2} \eta^2\lambda^2(1 + 2\xi - \eta) \\
+\\
+N_7 = \xi^2(10\xi^ - 15\xi^2 + 6\xi^3 + 15\eta^2\lambda) \\
+N_8 = \ff{1}{2}\xi^2(-8\xi^ + 14\xi^2 - 6\xi^3 - 15\eta^2\lambda) \\
+N_9 = \ff{1}{2}\xi^2\eta(6 - 4\xi - 3\eta - 3\eta^2 + 3\xi\eta) \\
+N_{10} = \ff{1}{4}\xi^2(2\xi(1 - \xi)^2 + 5\eta^2\lambda) \\
+N_{11} = \ff{1}{2}\xi^2\eta(-2 +2\xi + \eta + \eta^2 - \xi\lambda) \\
+N_{12} = \ff{1}{4}\xi^2\eta^2\lambda + \ff{1}{2}\xi^3\eta^2\\
+\\
+N_{13} = \eta^2(10\eta - 15\eta^2 + 6\eta^3 + 15\xi^2\lambda)\\
+N_{14} = \ff{1}{2}\xi\eta^2(6 - 3\xi - 4\eta - 3\xi^3 + 3\xi\eta)\\
+N_{15} = \ff{1}{2}\eta^2(- 8\eta + 14\eta^2 - 6\eta^3 - 15\xi^2\lambda)\\
+N_{16} = \ff{1}{4}\xi^2\eta^2\lambda + \ff{1}{2}\xi^2\eta^3)\\
+N_{17} = \ff{1}{2}\xi\eta^2(-2 + \xi + 2\eta + \xi^2 -\xi\eta)\\
+N_{18} = \ff{1}{4}\eta^2(2\eta(1-\eta)^2 + 5\xi^2\lambda)\\
+\end{array}
+\end{equation}
+which preseve first order derivative continuity across the element edges. 
+Their derivatives in the reference space
+$$
+\pp{N_i}{\xi}, \;\;\;
+\pp{N_i}{\eta}, \;\;\; i=1, 2, \cdots, 18
+$$
+are simple algebra and will be omitted here.
+Check the code for those who are interested in.
+The most important numerical issue here is coordinate mapping.
+Instead of using iso-parameter mapping as we did in section~\ref{sec:e1}
+and section~\ref{sec:e2},
+we use sub-parameter mapping 
+given by $C^0$ linear element in the section~\ref{sec:e1}, i.e.,
+\begin{equation}
+\begin{array}{l}
+a=\sum_j \bar{N}_j a_j\\
+\theta=\sum_j \bar{N}_j \theta_j\\
+\end{array}
+\end{equation}
+to save cost and reduce complexity.
+Here the base function $\bar{N}_i$ represents the set of elements given in section~\ref{sec:e1}
+and we renam as $\bar{N}_j$ to differentiate it from the $C^1$ elements $N_i$ given in this subsection.
+If the precision needs to be increased, the $\bar{N}_i$ can be replaced 
+by the second order elements in secton \ref{sec:e2}.
+Thus the transformation Jacobian won't change from the previous subsections, i.e.,
+$$
+\begin{array}{rl}
+J = & \pp{a}{\xi}  \pp{\theta}{\eta} - \pp{a}{\eta} \pp{\theta}{\xi} \\
+  = & \sum_i a_i \pp{\bar{N}_i}{\xi}  \sum_j \theta_j \pp{\bar{N}_j}{\eta} - 
+      \sum_i a_i \pp{\bar{N}_i}{\eta} \sum_j \theta_j \pp{\bar{N}_j}{\xi} \\
+  = & \sum_{i,j} (\pp{\bar{N}_i}{\xi}  \pp{\bar{N}_j}{\eta} - 
+                  \pp{\bar{N}_i}{\eta} \pp{\bar{N}_j}{\xi}) a_i \theta_j \\
+  = & \sum_{i,j} \bar{E}_{i,j} a_i \theta_j
+\end{array}
+$$
+Note the bar sign over the above  opetator $\bar{E}_ij$.
+We need to differentiate the base functions in real space $\bm{x}(a,\theta)$
+as we did previously:
+$$
+\begin{array}{ll}
+\pp{N_i}{a} & = \pp{N_i}{\xi} \pp{\xi}{a} + \pp{N_i}{\eta} \pp{\eta}{a}
+            = \pp{N_i}{\xi} \ff{1}{J} \pp{y}{\eta} + \pp{N_i}{\eta} (-\ff{1}{J}) \pp{y}{\xi}
+            = \ff{1}{J} (\pp{N_i}{\xi} \sum_jy_j\pp{\bar{N}_j}{\eta} - \pp{N_i}{\eta} \sum_jy_j\pp{\bar{N}_j}{\xi})
+\\
+            & = \ff{1}{J} E_{ij} \theta_j
+\\
+\pp{N_i}{\theta} & = \pp{N_i}{\xi} \pp{\xi}{\theta} + \pp{N_i}{\eta} \pp{\eta}{\theta}
+                 = \pp{N_i}{\xi} (-\ff{1}{J}) \pp{a}{\eta} + \pp{N_i}{\eta} \ff{1}{J} \pp{a}{\xi}
+                 = - \ff{1}{J} (\pp{N_i}{\xi} \sum_jx_j\pp{\bar{N}_j}{\eta} - \pp{N_i}{\eta} \sum_jx_j\pp{\bar{N}_j}{\xi})
+\\
+                 & = - \ff{1}{J} E_{ij} a_j
+\end{array}
+$$
+Apparently, $E_{ij}$ here is a mixed product of derivatives of $N_i$ and $\bar{N}_j$,
+thus is different from the $E_{ij}$ in sections \ref{sec:e1} and \ref{sec:e2}.
+However, the mass and stiffness matrices are computed in the same way as we did in \ref{sec:e1}
+with $i,j=1,\cdots,18$.
+We rename them with a bar sign over each matrix just as we did for the $\bar{E}_{ij}$ operator:
+$$
+\bar{m}_{ij}, \;\;\;
+\bar{srr}_{ij}, \;\;\;
+\bar{srz}_{ij}, \;\;\;
+\bar{szz}_{ij}, \;\;\;
+\bar{sr}_{ij}, \;\;\;
+\bar{sz}_{ij}
+$$
+Besides this,
+the follwoing transformation matrix is needed to convert the higher order derivative from
+reference space to real space before the matrices are assembled. 
+This is not needed in $C^0$ elements when only $\phi(\bm{x})$ itself is solved.
+If you insist to have one, then the transformation matrix in such case would be 
+a matrix with one entry $T=[ 1 ]$.
+
+First of all, a new variable $U(\bm{x})$ in real space is formed as
+\begin{equation}
+U(\bm{x})=\sum_{j=1}^{18} N_j U_j,
+\end{equation}
+where
+\begin{equation}
+\begin{array}{lll}
+U(\bm{x})= ( & \underbrace{ \phi(\bm{x}_1),
+                            \pp{\phi}{a}(\bm{x}_1),
+                            \pp{\phi}{\theta}(\bm{x}_1),
+                            \psp{\phi}{a}(\bm{x}_1),
+                            \ppp{\phi}{a}{\theta}(\bm{x}_1),
+                            \psp{\phi}{\theta}(\bm{x}_1)
+                 }_{node 1},
+& \\
+             & \underbrace{ \phi(\bm{x}_2),
+                            \pp{\phi}{a}(\bm{x}_2),
+                            \pp{\phi}{\theta}(\bm{x}_2),
+                            \psp{\phi}{a}(\bm{x}_2),
+                            \ppp{\phi}{a}{\theta}(\bm{x}_2),
+                            \psp{\phi}{\theta}(\bm{x}_2)
+                 }_{node 2},
+& \\
+             & \underbrace{ \phi(\bm{x}_3),
+                            \pp{\phi}{a}(\bm{x}_3),
+                            \pp{\phi}{\theta}(\bm{x}_3),
+                            \psp{\phi}{a}(\bm{x}_3),
+                            \ppp{\phi}{a}{\theta}(\bm{x}_3),
+                            \psp{\phi}{\theta}(\bm{x}_3)
+                 }_{node 3}
+&)^T
+\end{array}
+\end{equation}
+and
+$U_j$ is $U(\x)$ evaluated at $\x = (a,\theta)$ on each node.
+Our problem is converted to solve for $U(\x)$. Once $U(\x)$ is solved,
+we not only have $\phi(\x)$ but also we have its first order derivatives
+and second order derivatives. In the reference space $U({\bm \xi})$
+has a similar form
+\begin{equation}
+\begin{array}{lll}
+U(\bm{\xi})=( & \underbrace{ \phi(\bm{\xi}_1),
+                             \pp{\phi}{\xi}(\bm{\xi}_1),
+                             \pp{\phi}{\eta}(\bm{\xi}_1),
+                             \psp{\phi}{\xi}(\bm{\xi}_1),
+                             \ppp{\phi}{\xi}{\eta}(\bm{\xi}_1),
+                             \psp{\phi}{\eta}(\bm{\xi}_1)
+                 }_{node 1},
+& \\
+            &    \underbrace{ \phi(\bm{\xi}_2),
+                              \pp{\phi}{\xi}(\bm{\xi}_2),
+                              \pp{\phi}{\eta}(\bm{\xi}_2),
+                              \psp{\phi}{\xi}(\bm{\xi}_2),
+                              \ppp{\phi}{\xi}{\eta}(\bm{\xi}_2),
+                              \psp{\phi}{\eta}(\bm{\xi}_2)
+                 }_{node 2},
+& \\
+            &    \underbrace{ \phi(\bm{\xi_3}),
+                              \pp{\phi}{\xi}(\bm{\xi}_3),
+                              \pp{\phi}{\eta}(\bm{\xi}_3),
+                              \psp{\phi}{\xi}(\bm{\xi}_3),
+                              \ppp{\phi}{\xi}{\eta}(\bm{\xi}_3),
+                              \psp{\phi}{\eta}(\bm{\xi})_3
+                 }_{node 3},
+& )^T
+\end{array}
+\end{equation}
+From $U(\x)$ to $U(\bm{\xi})$, the transformation matrix at each node $i$ is given as:
+$$
+T_i =
+\left|
+\begin{array}{llllll}
+1 &        &        &              &                             &              \\
+  & J_{11} & J_{12} &              &                             &              \\
+  & J_{21} & J_{22} &              &                             &              \\
+  &        &        & J_{11}^2     & 2J_{11}J_{12}               & J_{12}^2     \\
+  &        &        & J_{11}J_{21} & J_{12}J_{21} + J_{11}J_{22} & J_{12}J_{22} \\
+  &        &        & J_{21}^2     & 2J_{21}J_{22}               & J_{22}^2     \\
+\end{array}
+\right|
+$$
+It is derived in the following steps.
+\begin{equation}
+\begin{array}{ll}
+\pp{u}{\xi} & = \pp{u}{a}\pp{a}{\xi} + \pp{u}{\theta}\pp{\theta}{\xi}
+            = \pp{u}{a} J_{11} + \pp{u}{\theta} J_{12}
+\\
+\pp{u}{\eta} & = \pp{u}{a}\pp{a}{\eta} + \pp{u}{\theta}\pp{\theta}{\eta}
+            = \pp{u}{a} J_{21} + \pp{u}{\theta} J_{22}
+\\
+\psp{u}{\xi} & = \pp{}{\xi}(\pp{u}{a} J_{11} + \pp{u}{\theta} J_{12})
+             = \pp{}{\xi}J_{11}\pp{u}{a} + J_{11}\pp{}{\xi}\pp{u}{a} +
+               \pp{}{\xi}J_{12}\pp{u}{\theta} + J_{12}\pp{}{\xi}\pp{u}{\theta}
+\\
+             & = \pp{}{\xi}J_{11}\pp{u}{a} + \pp{}{\xi}J_{12}\pp{u}{\theta}
+               + J_{11}(\pp{}{a}\pp{u}{a}\pp{a}{\xi} + \pp{}{\theta}\pp{u}{a}\pp{\theta}{\xi})
+               + J_{12}(\pp{}{a}\pp{u}{\theta}\pp{a}{\xi} + \pp{}{\theta}\pp{u}{\theta}\pp{\theta}{\xi})
+\\
+             & = \pp{}{\xi}J_{11}\pp{u}{a} + \pp{}{\xi}J_{12}\pp{u}{\theta}
+               + J_{11}^2\psp{u}{a} + J_{11}J_{12}\ppp{u}{\theta}{a}
+               + J_{12}J_{11}\ppp{u}{a}{\theta} + J_{12}^2\psp{u}{\theta}
+\\
+\ppp{u}{\xi}{\eta} & = \pp{}{\eta}(\pp{u}{a} J_{11} + \pp{u}{\theta} J_{12})
+             = \pp{}{\eta}J_{11}\pp{u}{a} + J_{11}\pp{}{\eta}\pp{u}{a} +
+               \pp{}{\eta}J_{12}\pp{u}{\theta} + J_{12}\pp{}{\eta}\pp{u}{\theta}
+\\
+             & = \pp{}{\eta}J_{11}\pp{u}{a} + \pp{}{\eta}J_{12}\pp{u}{\theta}
+               + J_{11}(\pp{}{a}\pp{u}{a}\pp{a}{\eta} + \pp{}{\theta}\pp{u}{a}\pp{\theta}{\eta})
+               + J_{12}(\pp{}{a}\pp{u}{\theta}\pp{a}{\eta} + \pp{}{\theta}\pp{u}{\theta}\pp{\theta}{\eta})
+\\
+             & = \pp{}{\eta}J_{11}\pp{u}{a} + \pp{}{\eta}J_{12}\pp{u}{\theta}
+               + J_{11}J_{21}\psp{u}{a} + J_{11}J_{22}\ppp{u}{a}{\theta}
+               + J_{12}J_{21}\ppp{u}{\theta}{a} + J_{12}J_{22}\psp{u}{\theta}
+\\
+\ppp{u}{\eta}{\xi} & = \pp{}{\xi}(\pp{u}{a} J_{21} + \pp{u}{\theta} J_{22})
+                   = \pp{}{\xi}J_{21}\pp{u}{a} + J_{21}\pp{}{\xi}\pp{u}{a} +
+                     \pp{}{\xi}J_{22}\pp{u}{\theta} + J_{22}\pp{}{\xi}\pp{u}{\theta}
+\\
+                   & = \pp{}{\xi}J_{21}\pp{u}{a} + \pp{}{\xi}J_{22}\pp{u}{\theta} 
+                     + J_{21}(\pp{}{a}\pp{u}{a}\pp{a}{\xi}+\pp{}{\theta}\pp{u}{a}\pp{\theta}{\xi})
+                     + J_{22}(\pp{}{a}\pp{u}{\theta}\pp{a}{\xi}+\pp{}{\theta}\pp{u}{\theta}\pp{\theta}{\xi})
+\\
+                   & = \pp{}{\xi}J_{21}\pp{u}{a} + \pp{}{\xi}J_{22}\pp{u}{\theta} 
+                     + J_{21}J_{11}\psp{u}{a}+J_{21}J_{12}\ppp{u}{a}{\theta}
+                     + J_{22}J_{11}\ppp{u}{\theta}{a}+J_{22}J_{12}\psp{u}{\theta}
+\\
+\psp{u}{\eta} & = \pp{}{\eta}(\pp{u}{a} J_{21} + \pp{u}{\theta} J_{22})
+              = \pp{}{\eta}J_{21}\pp{u}{a} + J_{21} \pp{}{\eta}\pp{u}{a} +
+                \pp{}{\eta}J_{22}\pp{u}{\theta} + J_{22} \pp{}{\eta}\pp{u}{\theta}
+\\
+              & = \pp{}{\eta}J_{21}\pp{u}{a} + \pp{}{\eta}J_{22}\pp{u}{\theta} 
+                + J_{21} (\pp{}{a}\pp{u}{a}\pp{a}{\eta}+\pp{}{\theta}\pp{u}{a}\pp{\theta}{\eta})
+                + J_{22} (\pp{}{a}\pp{u}{\theta}\pp{a}{\eta}+\pp{}{\theta}\pp{u}{\theta}\pp{\theta}{\eta})
+\\
+              & = \pp{}{\eta}J_{21}\pp{u}{a} + \pp{}{\eta}J_{22}\pp{u}{\theta} 
+                + J_{21}^2 \psp{u}{a} + J_{21}J_{22}\ppp{u}{a}{\theta}
+                + J_{22}J_{21} \ppp{u}{\theta}{a} + J_{22}^2\psp{u}{\theta}
+\end{array}
+\end{equation}
+Thus on each triangle
+$$
+U(\bm{\xi}) = \bm{T} U(\bm{x}),
+\; \; \;
+\bm{T}= \left[ \begin{array}{lll}
+                  T_1 &    &     \\
+                      &T_2 &     \\
+                      &    & T_3 \\
+               \end{array}
+        \right]^T 
+$$
+
+$$
+mij = \bm{T}^T \cdot \bar{m}_{ij} \cdot \bm{T}
+$$
+
+$$
+srr_{ij} = \bm{T}^T \cdot \bar{srr}_{ij} \cdot \bm{T},
+\; \; \;
+srz_{ij} = \bm{T}^T \cdot \bar{srz}_{ij} \cdot \bm{T},
+\; \; \;
+szz_{ij} = \bm{T}^T \cdot \bar{szz}_{ij} \cdot \bm{T}
+$$
+
+$$
+sr_{ij} = \bm{T}^T \cdot \bar{sr}_{ij} \cdot \bm{T},
+\; \; \;
+sz_{ij} = \bm{T}^T \cdot \bar{sz}_{ij} \cdot \bm{T}
+$$
+
+
+
+% ................................... %
+\subsection{Find Derivatives and Laplacian}
+\label{sec:dadt}
+Given a function $f$, we find derivatives in real space 
+$\pp{f}{a}$ and $\pp{f}{\theta}$ 
+using the fact
+$$
+\pp{f}{a} = \pp{f}{a}
+$$
+Multipying it with base function $N_i$ on both side of the above equaiton
+and integrating it over each triangle element
+$$
+\int\int \pp{f}{a} N_i d\sigma = \int\int \pp{f}{a} N_i d\sigma
+$$
+i.e.,
+$$
+\int\int \pp{f}{a} N_i {\cal J} dad\theta = \int\int \pp{f}{a} N_i {\cal J}dad\theta,
+$$
+in flux coordinate, we have  
+\begin{equation}
+\label{eq:dfda}
+\int\int \sum_j \left(\pp{f}{a}\right)_j N_j N_i {\cal J} J d\xi d\eta = 
+\int\int \sum_j f_j \pp{N_j}{a} N_i {\cal J} J d\xi d\eta
+\end{equation}
+where
+$$
+f=\sum_j f_j N_j,
+\;\;\;
+\pp{f}{a} = \sum_j \left(\pp{f}{a}\right)_j N_j
+$$
+The derivative $\pp{f}{a}$ is found by solving the linear system
+$$
+\sum_j {\cal J}_j m_{ij} \left(\pp{f}{a}\right)_j
+= \sum_j {\cal J}_j sr_{ij} f_j
+$$
+with the use of $m_{ij}$ and $sr_{ij}$ matrices. 
+Or in compact form
+$$
+M \left(\pp{f}{a}\right) = R_{mat} f
+$$
+
+
+The other way to compute the rhs vector of eq (\ref{eq:dfda}) makes use of operator $P_{ijk}$
+\begin{equation}
+\label{eq:aPijk}
+\begin{array}{ll}
+\int\int \sum_j f_j \pp{N_j}{a} N_i {\cal J} J d\xi d\eta
+& = \sum_j f_j \int\int \ff{1}{J} \sum_k E_{jk} \theta_k N_i {\cal J} dad\theta
+\\
+& = \sum_j f_j \sum_k \theta_k \int\int \ff{1}{J} E_{jk} N_i {\cal J} J da\xi d\eta \\
+& = \sum_j \sum_k f_j \theta_k P_{ijk} {\cal J}
+\end{array}
+\end{equation}
+In the same way, we can find its $\theta$ derivative by solving the linear system
+\begin{equation}
+\label{eq:dfdt}
+\int\int \sum_j \left(\pp{f}{\theta}\right)_j N_j N_i {\cal J} J d\xi d\eta = 
+\int\int \sum_j f_j \pp{N_j}{\theta} N_i {\cal J} J d\xi d\eta
+\end{equation}
+i.e.,
+$$
+\sum_j {\cal J}_j m_{ij} \left(\pp{f}{\theta}\right)_j
+= \sum_j {\cal J}_j sz_{ij} f_j
+$$
+In compact form
+$$
+M \left(\pp{f}{a}\right) = Z_{mat} f
+$$
+
+or compute the rhs vetor using $P_{ijk}$
+\begin{equation}
+\label{eq:tPijk}
+\begin{array}{ll}
+\int\int \sum_j f_j \pp{N_j}{\theta} N_i {\cal J} J d\xi d\eta
+& = - \sum_j f_j \int\int \ff{1}{J} \sum_k E_{jk} a_k N_i {\cal J} dad\theta
+\\
+& = - \sum_j f_j \sum_k a_k \int\int \ff{1}{J} E_{jk} N_i {\cal J} J da\xi \eta \\
+& = - \sum_j \sum_k f_j a_k P_{ijk} {\cal J}
+\end{array}
+\end{equation}
+The computing of (\ref{eq:aPijk}) and (\ref{eq:tPijk}) are implemented in subroutine $find\_dxdadxdt$.
+If you just need (\ref{eq:aPijk}) call subroutine $find\_dxda$;
+If you just need (\ref{eq:tPijk}) call subroutine $find\_dxdt$.
+$find\_dxdt$ calculates the derivative along $\theta$ direction.
+
+According to the term in the square braket right after $\beta$ in eq (\ref{eq:poisson7}):
+$$
+\left[
+\ff{1}{\cal J} \pp{}{a} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                        \right)
++
+\ff{1}{\cal J} \pp{}{\theta} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                        \right)
++
+           \ff{g_s}{q^2} \psp{\Phi}{\theta} g^{\varphi \varphi}
+                    \right] 
+$$
+the Lapacian is implemented in subroutine $find\_laplacian$ using $find\_dxdadxdt$.
+%But instead of evaluating derivatives twice to get Laplacian in this way, in section \ref{sec:del} 
+%we can derive this quantity by simulating the evalution of first derivatives in this section.
+
+
+
+% ................................... %
+\subsection{New: Finding Derivatives in $(R,Z)$ Coordinates}
+\label{sec:dadt_new}
+Considering the accuray, the drivatives found in last section \ref{sec:dadt} can be improved in the following ways.
+This time the masssolver is construced in $(R,Z)$ coordinate systems and 
+$find\_dxdadxdt$, $find\_dxda$, and $find\_dxdt$
+are called to calculate the derivative in $(R,Z)$ coordinate. The the corresponding derivatives
+in $(a,\theta)$ coordinate systems can be recovered by
+
+\begin{equation}
+\label{tranformation:at2rz}
+   \left\{
+   \begin{array}{l}
+     \pp{\Phi}{a} = \pp{\Phi}{R}\pp{R}{a} + \pp{\Phi}{Z}\pp{Z}{a} \\
+     \pp{\Phi}{\theta} = \pp{\Phi}{R}\pp{R}{\theta} + \pp{\Phi}{Z}\pp{Z}{\theta} \\
+   \end{array}
+   \right.
+\end{equation}
+
+
+
+% ................................... %
+%\subsection{Find 2nd Order Derivative}
+%\label{sec:del}
+%Given a function $f$, we find its Laplacian in real space 
+%$\psp{f}{a}$ and $\psp{f}{\theta}$ 
+%using the fact
+%$$
+%\psp{f}{a} = \psp{f}{a}
+%$$
+%Multipying it with base function $N_i$ on both side of the above equaiton
+%and integrating it over each triangle element
+%$$
+%\int\int \psp{f}{a} N_i d\sigma = \int\int \psp{f}{a} N_i d\sigma
+%$$
+%i.e.,
+%$$
+%\int\int \psp{f}{a} N_i {\cal J} dad\theta = \int\int \psp{f}{a} N_i {\cal J}dad\theta,
+%$$
+%in flux coordinate, we have  
+%\begin{equation}
+%\label{eq:dfda}
+%\int\int \sum_j \left(\psp{f}{a}\right)_j N_j N_i {\cal J} J d\xi d\eta = 
+%\int\int \sum_j f_j \psp{N_j}{a} N_i {\cal J} J d\xi d\eta
+%\end{equation}
+%where
+%$$
+%f=\sum_j f_j N_j,
+%\;\;\;
+%\psp{f}{a} = \sum_j \left(\psp{f}{a}\right)_j N_j
+%$$
+%The derivative $\psp{f}{a}$ is found by solving the linear system
+%$$
+%\sum_j {\cal J}_j m_{ij} \left(\psp{f}{a}\right)_j
+%= \sum_j {\cal J}_j sr_{ij} f_j
+%$$
+%with the use of $m_{ij}$ and $sr_{ij}$ matrices.
+%Or in compact form
+%$$
+%M \left(\pp{f}{a}\right) = R_{mat} f
+%$$
+
+
+
+% ................................... %
+\subsection{New: Finite Element In $(R,Z)$ Coordinates}
+\label{sec:felement_new}
+Use transformation (\ref{tranformation:at2rz}), eq (\ref{eq:poisson7}) can be transformed into
+
+\begin{equation}
+\label{eq:poisson7-term1}
+   \begin{array}{rl}
+\mbox{term \#1}=
+ & \ff{1}{\cal J} \pp{}{a} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                                        \right)
+\\
+ & \\
+=& \ff{1}{\cal J} \pp{}{R} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                                        \right) \pp{R}{a}
+   +
+   \ff{1}{\cal J} \pp{}{Z} {\cal J} g_s \left( 
+           \pp{\Phi}{a} g^{a a} + \pp{\Phi}{\theta} g^{a \theta}
+                                        \right) \pp{Z}{a}
+\\
+ & \\
+=&
+   \ff{1}{\cal J} \pp{}{R} {\cal J} g_s \left[ 
+           (\pp{\Phi}{R} \pp{R}{a} + \pp{\Phi}{Z} \pp{Z}{a}) g^{a a} + 
+           (\pp{\Phi}{R} \pp{R}{\theta} +\pp{\Phi}{Z} \pp{Z}{\theta}) g^{a \theta}
+                                        \right] \pp{R}{a} +
+\\
+ & \\
+ & \ff{1}{\cal J} \pp{}{Z} {\cal J} g_s \left[ 
+           (\pp{\Phi}{R} \pp{R}{a} + \pp{\Phi}{Z} \pp{Z}{a}) g^{a a} + 
+           (\pp{\Phi}{R} \pp{R}{\theta} + \pp{\Phi}{Z} \pp{Z}{\theta}) g^{a \theta}
+                                        \right] \pp{Z}{a}
+\\
+   \end{array}
+\end{equation}
+
+\begin{equation}
+\label{eq:poisson7-term2}
+   \begin{array}{rl}
+\mbox{term \#2}= 
+ & \ff{1}{\cal J} \pp{}{\theta} {\cal J} g_s \left(
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                                          \right)
+\\
+ & \\
+=& \ff{1}{\cal J} \pp{}{R} {\cal J} g_s \left(
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                                          \right)\pp{R}{\theta} 
+   +
+   \ff{1}{\cal J} \pp{}{Z} {\cal J} g_s \left(
+           \pp{\Phi}{a} g^{a \theta} + \pp{\Phi}{\theta} g^{\theta \theta}
+                                          \right)\pp{Z}{\theta} 
+\\
+ & \\
+=& \ff{1}{\cal J} \pp{}{R} {\cal J} g_s \left[
+           (\pp{\Phi}{R} \pp{R}{a} + \pp{\Phi}{Z} \pp{Z}{a}) g^{a \theta} +
+           (\pp{\Phi}{R} \pp{R}{\theta} + \pp{\Phi}{Z} \pp{Z}{\theta}) g^{\theta \theta})
+                                          \right]\pp{R}{\theta} +
+\\
+ & \\
+ & \ff{1}{\cal J} \pp{}{Z} {\cal J} g_s \left[
+           (\pp{\Phi}{R} \pp{R}{a} + \pp{\Phi}{Z} \pp{Z}{a}) g^{a \theta} +
+           (\pp{\Phi}{R} \pp{R}{\theta} + \pp{\Phi}{Z} \pp{Z}{\theta}) g^{\theta \theta})
+                                          \right]\pp{Z}{\theta} 
+\\
+   \end{array}
+\end{equation}
+
+\begin{equation}
+\label{eq:poisson7-term3}
+   \begin{array}{rl}
+\mbox{term \#3}= 
+&           \ff{g_s}{q^2} \psp{\Phi}{\theta} g^{\varphi \varphi} =
+            \ff{g_s}{q^2} g^{\varphi \varphi} \pp{}{\theta} \pp{\Phi}{\theta} \\
+ & \\
+=&
+            \ff{g_s}{q^2} g^{\varphi \varphi} (\pp{}{R} \pp{\Phi}{\theta}) \pp{R}{\theta} +
+            \ff{g_s}{q^2} g^{\varphi \varphi} (\pp{}{Z} \pp{\Phi}{\theta}) \pp{Z}{\theta}
+\\
+ & \\
+=&
+ \ff{g_s}{q^2} g^{\varphi \varphi} [\pp{}{R} (\pp{\Phi}{R} \pp{R}{\theta} + \pp{\Phi}{Z} \pp{Z}{\theta})] \pp{R}{\theta} +
+ \ff{g_s}{q^2} g^{\varphi \varphi} [\pp{}{Z} (\pp{\Phi}{R} \pp{R}{\theta} + \pp{\Phi}{Z} \pp{Z}{\theta})] \pp{Z}{\theta}
+   \end{array}
+\end{equation}
+
+\noindent
+With finite elements $N_i$, they become
+
+\begin{equation}
+\label{eq:poisson7-term1}
+   \begin{array}{rl}
+\mbox{term \#1}=
+& (\ff{1}{\cal J} \pp{R}{a} N_i) \pp{}{R} {\cal J} g_s \left[ 
+           (\pp{N_j}{R} \pp{R}{a}      + \pp{N_j}{Z} \pp{Z}{a}) g^{a a} + 
+           (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta}) g^{a \theta}
+                                        \right] j +
+\\
+& \\
+& (\ff{1}{\cal J} \pp{Z}{a} N_i) \pp{}{Z} {\cal J} g_s \left[ 
+           (\pp{N_j}{R} \pp{R}{a}      + \pp{N_j}{Z} \pp{Z}{a}) g^{a a} + 
+           (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta}) g^{a \theta}
+                                        \right] j
+\\
+& \\
+=&
+ -\pp{}{R} (\ff{1}{\cal J} \pp{R}{a} N_i)  {\cal J} g_s \left[ 
+           (\pp{N_j}{R} \pp{R}{a}      + \pp{N_j}{Z} \pp{Z}{a}) g^{a a} + 
+           (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta}) g^{a \theta}
+                                        \right] j +
+\\
+& \\
+&-\pp{}{Z} (\ff{1}{\cal J} \pp{Z}{a} N_i)  {\cal J} g_s \left[ 
+           (\pp{N_j}{R} \pp{R}{a}      + \pp{N_j}{Z} \pp{Z}{a}) g^{a a} + 
+           (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta}) g^{a \theta}
+                                        \right] j
+\\
+& \\
+\sim&
+ -\pp{N_i}{R}\pp{N_j}{R} (g_s \pp{R}{a} \pp{R}{a} g^{a a}) j
+ -\pp{N_i}{R}\pp{N_j}{Z} (g_s \pp{R}{a} \pp{Z}{a} g^{a a}) j
+ -\pp{N_i}{R}\pp{N_j}{R} (g_s \pp{R}{a} \pp{R}{\theta} g^{a \theta}) j
+ -\pp{N_i}{R}\pp{N_j}{Z} (g_s \pp{R}{a} \pp{Z}{\theta} g^{a \theta}) j
+\\
+& \\
+&
+ -\pp{N_i}{Z}\pp{N_j}{R} (g_s \pp{Z}{a} \pp{R}{a} g^{a a}) j
+ -\pp{N_i}{Z}\pp{N_j}{Z} (g_s \pp{Z}{a} \pp{Z}{a} g^{a a}) j
+ -\pp{N_i}{Z}\pp{N_j}{R} (g_s \pp{Z}{a} \pp{R}{\theta} g^{a \theta}) j
+ -\pp{N_i}{Z}\pp{N_j}{Z} (g_s \pp{Z}{a} \pp{Z}{\theta} g^{a \theta}) j
+\\
+& \\
+=&
+ -\pp{N_i}{R}\pp{N_j}{R} \left[g_s \pp{R}{a} (\pp{R}{a} g^{a a} + \pp{R}{\theta} g^{a \theta}) j \right]
+ -\pp{N_i}{R}\pp{N_j}{Z} \left[g_s \pp{R}{a} (\pp{Z}{a} g^{a a} + \pp{Z}{\theta} g^{a \theta}) j \right]
+\\
+& \\
+&
+ -\pp{N_i}{Z}\pp{N_j}{R} \left[g_s \pp{Z}{a} (\pp{R}{a} g^{a a} + \pp{R}{\theta} g^{a \theta}) j \right]
+ -\pp{N_i}{Z}\pp{N_j}{Z} \left[g_s \pp{Z}{a} (\pp{Z}{a} g^{a a} + \pp{Z}{\theta} g^{a \theta}) j \right]
+\\
+& \\
+\equiv&
+ -\pp{N_i}{R}\pp{N_j}{R} (\mbox{coef\_rr})
+ -\pp{N_i}{R}\pp{N_j}{Z} (\mbox{coef\_rz})
+ -\pp{N_i}{Z}\pp{N_j}{R} (\mbox{coef\_zr})
+ -\pp{N_i}{Z}\pp{N_j}{Z} (\mbox{coef\_zz})
+   \end{array}
+\end{equation}
+
+\begin{equation}
+\label{eq:poisson7-term2}
+   \begin{array}{rl}
+\mbox{term \#2}= 
+& (\ff{1}{\cal J} \pp{R}{\theta} N_i) \pp{}{R} {\cal J} g_s \left[
+           (\pp{N_j}{R} \pp{R}{a}      + \pp{N_j}{Z} \pp{Z}{a}) g^{a \theta} +
+           (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta}) g^{\theta \theta})
+                                          \right]+
+\\
+& \\
+& (\ff{1}{\cal J} \pp{Z}{\theta} N_i) \pp{}{Z} {\cal J} g_s \left[
+           (\pp{N_j}{R} \pp{R}{a}      + \pp{N_j}{Z} \pp{Z}{a}) g^{a \theta} +
+           (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta}) g^{\theta \theta})
+                                          \right]
+\\
+& \\
+= & 
+ -\pp{}{R} (\ff{1}{\cal J} \pp{R}{\theta} N_i) {\cal J} g_s \left[
+           (\pp{N_j}{R} \pp{R}{a}      + \pp{N_j}{Z} \pp{Z}{a}) g^{a \theta} +
+           (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta}) g^{\theta \theta})
+                                          \right]+
+\\
+& \\
+&-\pp{}{Z} (\ff{1}{\cal J} \pp{Z}{\theta} N_i) {\cal J} g_s \left[
+           (\pp{N_j}{R} \pp{R}{a}      + \pp{N_j}{Z} \pp{Z}{a}) g^{a \theta} +
+           (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta}) g^{\theta \theta})
+                                          \right]
+\\
+& \\
+\sim & 
+ -\pp{N_i}{R}\pp{N_j}{R} (g_s \pp{R}{\theta} \pp{R}{a} g^{a \theta})
+ -\pp{N_i}{R}\pp{N_j}{Z} (g_s \pp{R}{\theta} \pp{Z}{a} g^{a \theta})
+ -\pp{N_i}{R}\pp{N_j}{R} (g_s \pp{R}{\theta} \pp{R}{\theta} g^{\theta \theta})
+ -\pp{N_i}{R}\pp{N_j}{Z} (g_s \pp{R}{\theta} \pp{Z}{\theta} g^{\theta \theta})
+\\
+& \\
+&-\pp{N_i}{Z}\pp{N_j}{R} (g_s \pp{Z}{\theta} \pp{R}{a} g^{a \theta})
+ -\pp{N_i}{Z}\pp{N_j}{Z} (g_s \pp{Z}{\theta} \pp{Z}{a} g^{a \theta})
+ -\pp{N_i}{Z}\pp{N_j}{R} (g_s \pp{Z}{\theta} \pp{R}{\theta} g^{\theta \theta})
+ -\pp{N_i}{Z}\pp{N_j}{Z} (g_s \pp{Z}{\theta} \pp{Z}{\theta} g^{\theta \theta})
+\\
+& \\
+=&
+ -\pp{N_i}{R}\pp{N_j}{R} \left[g_s \pp{R}{\theta} (\pp{R}{a} g^{a \theta} + \pp{R}{\theta} g^{\theta \theta}) \right]
+ -\pp{N_i}{R}\pp{N_j}{Z} \left[g_s \pp{R}{\theta} (\pp{Z}{a} g^{a \theta} + \pp{Z}{\theta} g^{\theta \theta}) \right]
+\\
+& \\
+&-\pp{N_i}{Z}\pp{N_j}{R} \left[g_s \pp{Z}{\theta} (\pp{R}{a}  g^{a \theta} + \pp{R}{\theta} g^{\theta \theta}) \right]
+ -\pp{N_i}{Z}\pp{N_j}{Z} \left[g_s \pp{Z}{\theta} (\pp{Z}{a}) g^{a \theta} + \pp{Z}{\theta} g^{\theta \theta}) \right]
+\\
+& \\
+\equiv &
+ -\pp{N_i}{R}\pp{N_j}{R} \mbox{coef\_rr}
+ -\pp{N_i}{R}\pp{N_j}{Z} \mbox{coef\_rz}
+ -\pp{N_i}{Z}\pp{N_j}{R} \mbox{coef\_zr}
+ -\pp{N_i}{Z}\pp{N_j}{Z} \mbox{coef\_zz}
+   \end{array}
+\end{equation}
+
+\begin{equation}
+\label{eq:poisson7-term3}
+   \begin{array}{rl}
+\mbox{term \#3}= 
+&
+ \ff{g_s}{q^2} g^{\varphi \varphi} [\pp{}{R} (\pp{\Phi}{R} \pp{R}{\theta} + \pp{\Phi}{Z} \pp{Z}{\theta})] \pp{R}{\theta} +
+ \ff{g_s}{q^2} g^{\varphi \varphi} [\pp{}{Z} (\pp{\Phi}{R} \pp{R}{\theta} + \pp{\Phi}{Z} \pp{Z}{\theta})] \pp{Z}{\theta}
+\\
+=& (\ff{g_s}{q^2} \pp{R}{\theta} g^{\varphi \varphi} N_i) [\pp{}{R} (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta})] +
+   (\ff{g_s}{q^2} \pp{Z}{\theta} g^{\varphi \varphi} N_i) [\pp{}{Z} (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta})]
+\\
+=&-\pp{}{R} (\ff{g_s}{q^2} \pp{R}{\theta} g^{\varphi \varphi} N_i) (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta})
+  -\pp{}{Z} (\ff{g_s}{q^2} \pp{Z}{\theta} g^{\varphi \varphi} N_i) (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta})
+\\
+\sim & -\pp{N_i}{R} (\ff{g_s}{q^2} \pp{R}{\theta} g^{\varphi \varphi} ) (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta})
+       -\pp{N_i}{Z} (\ff{g_s}{q^2} \pp{Z}{\theta} g^{\varphi \varphi} ) (\pp{N_j}{R} \pp{R}{\theta} + \pp{N_j}{Z} \pp{Z}{\theta})
+\\
+=& -\pp{N_i}{R}\pp{N_j}{R} (\ff{g_s}{q^2} g^{\varphi \varphi} \pp{R}{\theta} \pp{R}{\theta})
+   -\pp{N_i}{R}\pp{N_j}{Z} (\ff{g_s}{q^2} g^{\varphi \varphi} \pp{R}{\theta} \pp{Z}{\theta})
+   -\pp{N_i}{Z}\pp{N_j}{R} (\ff{g_s}{q^2} g^{\varphi \varphi} \pp{Z}{\theta} \pp{R}{\theta})
+   -\pp{N_i}{Z}\pp{N_j}{Z} (\ff{g_s}{q^2} g^{\varphi \varphi} \pp{Z}{\theta} \pp{Z}{\theta})
+\\
+=& -\pp{N_i}{R}\pp{N_j}{R} \mbox{coef\_rr}
+   -\pp{N_i}{R}\pp{N_j}{Z} \mbox{coef\_rz}
+   -\pp{N_i}{Z}\pp{N_j}{R} \mbox{coef\_zr}
+   -\pp{N_i}{Z}\pp{N_j}{Z} \mbox{coef\_zz}
+   \end{array}
+\end{equation}
+
+
+% ................................... %
+\subsection{Boundary Conditon}
+\label{sec:bc}
+The solution domain is bounded by two magnetic flux surfaces.
+One is the innermost flux surface $a=a0$ and the other one is the outermost flux surface $a=a1$.
+Dirichlet boundary condition and Neumann boundary condition can be specified on
+either one of these two surfaces.
+We use a set of array to store the index of the grid points which sit on boudnaries.
+
+The Dirichlet boundary condition can be imposed by
+zeroing the row of the matrix with indices on the boundaries and then set their diagonal 
+entries to $1$.
+The rhs vector will be changed acoordingly by setting those elements to the real solution.
+Here is a simple example.
+Assumping there are $5$ grid points and they are numbered as $1, 2, 3, 4, 5$.
+The linear system is given as
+$$
+\left[ \begin{array}{lllll}
+         a1 & a2 & a3 & a4 & a5 \\
+         b1 & b2 & b3 & b4 & b5 \\
+         c1 & c2 & c3 & c4 & c5 \\
+         d1 & d2 & d3 & d4 & d5 \\
+         e1 & e2 & e3 & e4 & e5
+\end{array} \right]
+\left[ \begin{array}{l}
+         x1\\
+         x2\\
+         x3\\
+         x4\\
+         x5
+\end{array} \right]
+=
+\left[ \begin{array}{l}
+         b1\\
+         b2\\
+         b3\\
+         b4\\
+         b5
+\end{array} \right]
+$$
+Suppose the boundary points are at $2$ and $5$, and the Dirichlet bounnday condition is given on
+these points, i.e.
+$$
+\begin{array}{l}
+x2=v1\\
+x5=v2\\
+\end{array}
+$$
+Then the matrix and rhs are modified in the following way
+$$
+\left[ \begin{array}{lllll}
+         a1 & a2 & a3 & a4 & a5 \\
+            &  1 &    &    &    \\
+         c1 & c2 & c3 & c4 & c5 \\
+         d1 & d2 & d3 & d4 & d5 \\
+            &    &    &    &  1
+\end{array} \right]
+\left[ \begin{array}{l}
+         x1\\
+         x2\\
+         x3\\
+         x4\\
+         x5
+\end{array} \right]
+=
+\left[ \begin{array}{l}
+         b1\\
+         v2\\
+         b3\\
+         v4\\
+         v5
+\end{array} \right]
+$$
+By solving the above linear system, we immediately get $x2=v1$ and $x5=v2$.
+This is unsymmetrical zeroing.
+We can do symmetric zeroing to keep the modified matrix symmetrical
+so that better linear solver can be applied. It can be explained 
+by continuing zero the corresponding columns, i.e., column $2$ and $5$,
+of the row-zeroing modified matrix
+$$
+\left[ \begin{array}{lllll}
+         a1 & a2-a2 & a3 & a4 & a5-a5 \\
+            &  1    &    &    &       \\
+         c1 & c2-c2 & c3 & c4 & c5-c5 \\
+         d1 & d2-d2 & d3 & d4 & d5-d5 \\
+            &       &    &    &  1
+\end{array} \right]
+\left[ \begin{array}{l}
+         x1\\
+         x2\\
+         x3\\
+         x4\\
+         x5
+\end{array} \right]
+=
+\left[ \begin{array}{l}
+         b1-a2v1-a5v2\\
+         v2\\
+         b3-c2v1-c5v2\\
+         v4-d2v1-d5v2\\
+         v5
+\end{array} \right]
+$$
+i.e.,
+$$
+\left[ \begin{array}{lllll}
+         a1 &    & a3 & a4 &   \\
+            &  1 &    &    &   \\
+         c1 &    & c3 & c4 &   \\
+         d1 &    & d3 & d4 &   \\
+            &    &    &    &  1
+\end{array} \right]
+\left[ \begin{array}{l}
+         x1\\
+         x2\\
+         x3\\
+         x4\\
+         x5
+\end{array} \right]
+=
+\left[ \begin{array}{l}
+         b1-a2v1-a5v2\\
+         v2\\
+         b3-c2v1-c5v2\\
+         v4-d2v1-d5v2\\
+         v5
+\end{array} \right]
+$$
+Note that the rhs vector $b$ was modified acoordingly.
+
+\noindent
+If Neumann boundary condition is imposed, the correction is much more complicated.
+To make the explanation easier, we write the problem as follows
+$$
+\begin{array}{l}
+\Delta u = f \\
+\pp{u}{n} = g \\
+\end{array}
+$$
+and the numerical linear system as
+$$A x = b $$
+We start from the variational form 
+$$
+\int\int N_i \bm{\nabla}_\perp \cdot g_s \bm{\nabla}_\perp \Phi {\cal J} dad\theta
+=
+\int {\cal J} g_s N_i \bm{n} \cdot \bm{\nabla}_\perp \Phi dl
+- \int\int \bm{\nabla}_\perp({\cal J} N_i) \cdot g_s \bm{\nabla}_\perp \Phi dad\theta
+$$
+Suppose on the boundary we have
+$$
+\bm{n} \cdot \bm{\nabla}_\perp \Phi = \gamma(a,\theta)
+$$
+$ \bm{n} $ is the boundary normal directon pointing away from the solution domain.
+In the current version of GTS, this directon is equivalent to $\ff{\bm{\nabla}a}{|\bm{\nabla}a|}$.
+Thus,
+$$
+\ff{\bm{\nabla}a}{|\bm{\nabla}a|} \cdot \bm{\nabla} \Phi = \gamma(a,\theta)
+$$
+Using the previous expression for $\bm{\nabla} \Phi$, it becomes
+$$
+\ff{\bm{\nabla}a}{|\bm{\nabla}a|} \cdot 
+(\pp{\Phi}{a} \bm{\nabla}a + \pp{\Phi}{\theta} \bm{\nabla}\theta) 
+= \gamma(a,\theta)
+$$
+i.e.,
+$$
+\ff{1}{|\bm{\nabla}a|} \left( g^{aa} \pp{\Phi}{a} + g^{a\theta}\pp{\Phi}{\theta} \right) = \gamma(a,\theta)
+$$
+Therefore
+$$
+\begin{array}{l}
+\int {\cal J} g_s N_i \bm{n} \cdot \bm{\nabla}_\perp dl \\
+= \int {\cal J} g_sN_i \ff{1}{|\bm{\nabla}a|} ( g^{aa} \pp{\Phi}{a} + g^{a\theta}\pp{\Phi}{\theta} ) dl \\
+= \int_{e_1} {\cal J} g_s N_i \ff{1}{|\bm{\nabla}a|} ( g^{aa} \pp{\Phi}{a} + g^{a\theta}\pp{\Phi}{\theta} ) dl
+  +
+  \int_{e_2} {\cal J} g_s N_i \ff{1}{|\bm{\nabla}a|} ( g^{aa} \pp{\Phi}{a} + g^{a\theta}\pp{\Phi}{\theta} ) dl
+  +
+  \int_{e_3} {\cal J} g_s N_i \ff{1}{|\bm{\nabla}a|} ( g^{aa} \pp{\Phi}{a} + g^{a\theta}\pp{\Phi}{\theta} ) dl
+\\
+ \equiv I_1 + I_2 + I3 \\
+= \int {\cal J} g_s N_i \ff{1}{|\bm{\nabla}a|} \gamma(a,\theta) dl
+\end{array}
+$$
+where $I_1$, $I_2$, and $I_3$ are the linear integral along one of the 3 edges of each triangle,
+respectively.
+For simplicity, we use the $C^0$ linear elements $N_i$.
+
+(1) if the boundary falls on edge $1$,
+$$
+\begin{array}{l}
+N_1=1-\xi\\
+N_2=\xi\\
+N_3=0 \\
+a = \sum_i a_i N_i = a_1(1-\xi) + a_2 \xi = a_1 + \bar{a}_{21} \xi\\
+\theta = \sum_i \theta_i N_i = \theta_1(1-\xi) + \theta_2 \xi = \theta_1 + \bar{\theta}_{21} \xi\\
+dl^2 = da^2 + d\theta^2 
+     = \bar{a}_{21}^2 d\xi^2 + \bar{\theta}_{21}^2 d\xi^2
+     = (\bar{a}_{21}^2 + \bar{\theta}_{21}^2) d\xi^2
+     = l_{21}^2 d\xi^2
+\end{array}
+$$
+The following terms are used to modify the right hand side
+$$
+\begin{array}{ll}
+rhs(v_1) & = rhs(v_1) - \int_0^1 N_1(\xi,0) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{21} d\xi \\
+         & = rhs(v_1) - \int_0^1 (1-\xi) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{21} d\xi \\
+         & \simeq rhs(v_1) - \ff{1}{2} {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{21}
+\\
+rhs(v_2) & = rhs(v_2) - \int_0^1 N_2(\xi,0) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{21} d\xi \\
+         & = rhs(v_2) - \int_0^1 (\xi) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{21} d\xi \\
+         & \simeq rhs(v_2) - \ff{1}{2} {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{21}
+\\
+rhs(v_3) & = rhs(v_3) - \int_0^1 N_3(\xi,0) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{21} d\xi \\
+         & = rhs(v_3) - \int_0^1 (0) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{21} d\xi \\
+         & = rhs(v_3)
+\end{array}
+$$
+
+(2) if the boundary falls on edge $2$,
+$$
+\begin{array}{l}
+N_1=1-\xi-\eta=0\\
+N_1=1-\eta\\
+N_2=\eta\\
+a = \sum_i a_i N_i = a_2(1-\eta) + a_3 \eta = a_2 + \bar{a}_{32} \xi\\
+\theta = \sum_i \theta_i N_i = \theta_2(1-\eta) + \theta_3 \eta = \theta_2 + \bar{\theta}_{32} \xi\\
+dl^2 = da^2 + d\theta^2 
+     = \bar{a}_{32}^2 d\eta^2 + \bar{\theta}_{32}^2 d\eta^2
+     = (\bar{a}_{32}^2 + \bar{\theta}_{32}^2) d\eta^2
+     = l_{32}^2 d\eta^2
+\end{array}
+$$
+The following terms are used to modify the right hand side
+$$
+\begin{array}{ll}
+rhs(v_1) & = rhs(v_1) - \int_0^1 N_1(\xi,\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{32} d\eta \\
+         & = rhs(v_1) - \int_0^1 (0) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{32} d\eta \\
+         & = rhs(v_1)
+\\
+rhs(v_2) & = rhs(v_2) - \int_0^1 N_2(\xi,\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{32} d\eta \\
+         & = rhs(v_2) - \int_0^1 (1-\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{32} d\eta \\
+         & \simeq rhs(v_2) - \ff{1}{2} {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{32}
+\\
+rhs(v_3) & = rhs(v_3) - \int_0^1 N_3(\xi,\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{32} d\eta \\
+         & = rhs(v_3) - \int_0^1 (\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{32} d\eta \\
+         & \simeq rhs(v_3) - \ff{1}{2} {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma l_{32}
+\end{array}
+$$
+
+(3) if the boundary falls on edge $3$,
+$$
+\begin{array}{l}
+N_1=1-\eta\\
+N_2=0\\
+N_3=\eta
+a = \sum_i a_i N_i = a_1(1-\eta) + a_3 \eta = a_1 + \bar{a}_{13} \eta\\
+\theta = \sum_i \theta_i N_i = \theta_1(1-\eta) + \theta_3 \eta = \theta_1 + \bar{\theta}_{31} \eta\\
+dl^2 = da^2 + d\theta^2 
+     = \bar{a}_{13}^2 d\xi^2 + \bar{\theta}_{13}^2 d\eta^2
+     = (\bar{a}_{13}^2 + \bar{\theta}_{13}^2) d\eta^2
+     = l_{13}^2 d\eta^2
+\end{array}
+$$
+The following terms are used to modify the right hand side
+$$
+\begin{array}{ll}
+rhs(v_1) & = rhs(v_1) - \int_0^1 N_1(0,\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma (-l_{13}) d\eta \\
+         & = rhs(v_1) - \int_0^1 (1-\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma (-l_{13}) d\eta \\
+         & \simeq rhs(v_1) - \ff{1}{2} {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma (-l_{13})
+\\
+rhs(v_2) & = rhs(v_2) - \int_0^1 N_2(0,\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma (-l_{13}) d\eta \\
+         & = rhs(v_2) - \int_0^1 (0) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma (-l_{13}) d\eta \\
+         & = rhs(v_2)
+\\
+rhs(v_3) & = rhs(v_3) - \int_0^1 N_3(0,\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma (-l_{13}) d\eta \\
+         & = rhs(v_3) - \int_0^1 (\eta) {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma (-l_{13}) d\eta \\
+         & \simeq rhs(v_3) - \ff{1}{2} {\cal J} g_s \ff{1}{|\bm{\nabla}a|} \gamma (-l_{13})
+\end{array}
+$$
+These are implemented in subroutine $neumbcfix$.
+
+
+The stiffness matrix $\bm{A}$ is singular when neumann bc is specified.
+Thus the nullspace of this matrix is not empty,
+and in almost every case the constant vector $\bm{e}=\{1\}$ belongs to this space,
+i.e.,
+
+\begin{verbatim}
+   nullspace=span{e}
+\end{verbatim}
+
+\noindent
+To check if this is true, we just need to confirm the following the matrix-vector product of $A$ and $\bm{e}$
+
+\begin{verbatim}
+   A.e = 0  
+\end{verbatim}
+
+\noindent
+is zero. Then We need to check the solvability by computing the vector product of 
+rhs vector $\bm{b}$ and the constant vector $\bm{e}$
+
+\begin{verbatim}
+   b.e
+\end{verbatim}
+
+\noindent
+If dot product is zero, then there is a solution;
+if not, the following projection is needed
+
+\begin{verbatim}
+  b = b - e (b.e)/(e.e)
+\end{verbatim}
+
+\noindent
+to ensure that there exists a solution in the linear system we are solving.
+If a solution exists, it’s unique though only up to an additive constant;
+in this case there’s also a requirement on $\gamma$.
+This follows from $\int\int \Delta u d\sigma = \int\int f d\sigma$. With partial integration,
+$\int \pp{u}{n} dl = \int\int f d\sigma$, i.e., 
+$\int \gamma dl = \int\int f d\sigma$.
+
+\noindent
+Here is the implementation after the above steps
+
+\begin{verbatim}
+  /* declare nullspace and create nullspace object*/
+  MatNullSpace  nullsp;
+  PetscBool  isNull;
+       call MatNullSpaceCreate(partd_comm, PETSC_TRUE, 0, PETSC_NULL_OBJECT, nullsp, ierr);
+       call MatNullSpaceTest(nullsp, Amat, isNull,ierr)
+       call KSPSetNullSpace(ksp, nullsp,ierr)
+       call KSPGetPC(ksp,prec,ierr)
+       call PCFactorSetShiftType(prec,MAT_SHIFT_POSITIVE_DEFINITE,ierr)
+       call PCFactorSetShiftAmount(prec,1.e-10,ierr)
+       call MatNullSpaceDestroy(nullsp,ierr)
+\end{verbatim}
+
+\noindent
+After it is solved, the solution vector $\bm{x}$ needs to be projected away from the nullspace by
+\begin{verbatim}
+  x = x - e (x.e)/(e.e)
+\end{verbatim}
+
+\noindent
+in the end.
+
+When matrix is not big, we can use the following technique. First an
+$n$-dimension space can be spanned by
+$$
+R^n=span{e,q2,q3,\cdots,qn}
+$$
+where $q2, q3, \cdots, qn$ are $n-1$ linear independent vectors and 
+they forming the following transformation matrix
+$$
+Q=\left[ e,q2,q3,\cdots,qn \right]
+$$
+Apply this transformation to our linear system $Ax=b$, we get
+$$(Q^T A Q) (Q^T x) = Q^T b
+$$
+$$
+(Q^T A Q) = \left[ \begin{array}{ll}  
+                         0 & 0 \\
+                         0 & B \\
+                   \end{array}  
+            \right],
+(Q^T B) = \left[ \begin{array}{l}  
+                         0 \\
+                         d \\
+                   \end{array}  
+            \right],
+(Q^T x) = \left[ \begin{array}{l}  
+                         0 \\
+                         z \\
+                   \end{array}  
+            \right]
+$$
+So instead of solving $Ax=b$, we solve $Bz=d$. $x$ is recovered from
+$$
+x = Q \left[ \begin{array}{l}  
+                         w \\
+                         z \\
+                   \end{array}  
+            \right]
+$$
+where $w$ is arbitrary constant.
+If we take $w=0$, we get the least square solution.
+
+The example of dealing with Neumann bc is given in subroutine $testsolve$
+by setting $whichone=4$ and $bc\_type=0$.
+$$
+u=a^2, \pp{u}{a}=2a, \pp{u}{t}=0
+$$
+
+$$
+\pp{u}{n}
+=\bm{n} \cdot \bm{\nabla} u
+=\ff{\bm{\nabla}a}{|\bm{\nabla}a|} \cdot \bm{\nabla} u
+=\ff{\bm{\nabla}a}{|\bm{\nabla}a|} \cdot \pp{u}{a} \bm{\nabla}a
+=\ff{1}{|\bm{\nabla}a|} \pp{u}{a} g^{aa}
+\equiv \gamma(a)
+$$
+
+
+
+% ................................... %
+\subsection{Numerical Difficulty: periodic domain}
+\label{sec:period}
+The numerical difficulty comes from the $2\pi$ peroidicity in $\theta$ direction
+when numerical integration is performed.
+The value of $2\pi$ must be subtracted from $\theta$ 
+whenever the elements has one or two nodes crossing the $\theta=0, 2\pi$ line.
+This is implemented in subroutine $fixtheta$.
+
+
+
+% ................................... %
+\begin{thebibliography}{1}
+
+  \bibitem{WW1} W. X. Wang et al, {\em Gyro-kinetic silumation of global turbulent
+                transport properties in tokamak experiments},
+                Physcs of  Plasma, vol 13,  2006
+
+  \bibitem{Coor} W. D. D'haeseleer, {\em Flux coordinates and magnetic field structure},
+                1991.
+
+  \bibitem{Integration} G. E. Karniadakis and S. J. Sherwin, {\em Spectral/hp Element Methods for CFD},
+                1999.
+
+  \bibitem{C1element1} Gouri Dhatt, Emmanuel Lefrançois, Gilbert Touzot, {\em Finite Element Method}, 2012
+
+  \bibitem{C1element0} A. R. Mitchell and R. Wait, Wiley, {\em The Finite Element Method in Partial Differential Equations}, London, 1977
+  \end{thebibliography}
+
+
+
+% ................................... %
+\begin{appendices}
+\section{Flux Coordiante Basics}
+\label{App:coor}
+We review some important facts here about curved coordiante system 
+that will be needed in the the derivation of pde equations and 
+in the implementation of finite elements in the flux coordiantes.
+We list them here so we will not mention them when we use these facts.
+
+As a start, we introduce the coordinate surface $u^i=\mbox{const}$.
+$\bm{\nabla} u^i$ is perpendicular to the $i$th surface.
+$i=1,2,3$.
+
+The coordinate curve $u^i$
+is defined by the intersection of $2$ surfaces 
+$u^j=\mbox{const}$, $u^k=\mbox{const}$.
+On this curve, $du^j = du^k = 0$, $j\neq k, j\neq i, k\neq i$.
+
+$$
+\bm{R} = \bm{R} (u^1, u^2, u^3),
+\;\;\;
+\bm{e}^i =\bm{\nabla}u^i,
+\;\;\;
+\bm{e}_i = \pp{\bm{R}}{u^i}
+\;\;\;
+\bm{e}^i \cdot \bm{e}_i = \delta_j^i
+$$
+
+$$
+\bm{e}^i = \ff{ \bm{e}_j \times \bm{e}_k }{ \bm{e}_i \cdot \bm{e}_j \times \bm{e}_k }
+         = \ff{1}{\cal J} \bm{e}_j \times \bm{e}_k
+$$
+
+$$
+\bm{e}_i = \ff{\bm{R}}{u^i}
+         = \ff{ \bm{e}^j \times \bm{e}^k }{ \bm{e}^i \cdot \bm{e}^j \times \bm{e}^k }
+         = {\cal J} \bm{e}^j \times \bm{e}^k
+$$
+
+$$
+D_i = \bm{D} \cdot \bm{e}_i,
+D^j = \bm{D} \cdot \bm{e}^j,
+\bm{D} = \sum_i D_i \bm{e}^i = \sum_j D^j \bm{e}_j 
+$$
+
+$du^i$ are contravariants.
+$\bm{\nabla}\Phi$ is a covariant vector: 
+$$\bm{\nabla}\Phi = \pp{\Phi}{u^i} \bm{\nabla}u^i = \pp{\Phi}{u^i} \bm{e}^i$$
+
+1). gradient
+$$\bm{\nabla}\Phi = \bm{\nabla}u^i \pp{\Phi}{u^i} 
+                  = \pp{\Phi}{u^i} \bm{e}^i
+$$
+
+2). divergence
+$$
+\bm{\nabla} \cdot \bm{D} = \ff{1}{\cal J} \pp{}{u^i} \left( {\cal J} D^i \right)
+                         = \ff{1}{\cal J} \pp{}{u^i} \left( {\cal J} \bm{D} \cdot \bm{e}^i \right)
+                         = \ff{1}{\cal J} \pp{}{u^i} \left( {\cal J} D_j \bm{e}^j \cdot \bm{e}^i \right)
+                         = \ff{1}{\cal J} \pp{}{u^i} \left( {\cal J} D_j g^{ji} \right)
+$$
+
+3). laplacian
+$$
+\Delta D = \ff{1}{\cal J} \pp{}{u^i} \left( {\cal J} \bm{\nabla} D \cdot \bm{e}^i \right)
+         = \ff{1}{\cal J} \pp{}{u^i} \left( {\cal J} \pp{D}{u^j} \bm{e}^j \cdot \bm{e}^i \right)
+         = \ff{1}{\cal J} \pp{}{u^i} \left( {\cal J} \pp{D}{u^j} g^{ji} \right)
+$$
+
+4). Jacobian
+$$
+{\cal J} = \pp{\Phi}{u^1} \cdot \pp{\Phi}{u^2} \times \pp{\Phi}{u^3}
+$$
+
+5). metrics
+$$
+g^{aa} = \bm{\nabla} a \cdot \bm{\nabla} a,
+\;\;\;
+g^{a\theta} = \bm{\nabla} a \cdot \bm{\nabla} \theta,
+\;\;\;
+g^{\theta\theta} = \bm{\nabla} \theta \cdot \bm{\nabla} \theta,
+$$
+
+6). the differential arc length
+$$
+dl(\mbox{along} \; u^j) 
+\equiv dl(i)
+= \| d\bm{R} \|
+= \sqrt{ d\bm{R}(i) \cdot d\bm{R}(i)}
+$$
+while 
+$$d\bm{R}(i) = \pp{\bm{R}}{u^1}du^1
+               + \pp{\bm{R}}{u^2}du^2
+               + \pp{\bm{R}}{u^3}du^3
+             = \bm{e}_i du^i
+             = {\cal J} \| \bm{\nabla}u^j \times \bm{\nabla}u^j \| du^i
+$$
+
+7). the differential area element
+$$
+\begin{array}{ll}
+dS (\mbox{in } u^i
+ \equiv \mbox{const})
+& \equiv dS(i) \\
+& = \| d\bm{R}(j) \times \bm{R}(k) \| \\
+& = \| \pp{\bm{R}}{u^j} \times \pp{\bm{R}}{u^k} \| du^j du^k \\
+& = \| \bm{e}_j \times \bm{e}_k \| du^j du^k \\
+& = {\cal J} \| \bm{e}^i \| du^j du^k \\
+& = {\cal J} \| \bm{\nabla} u^i \| du^j du^k
+\end{array}
+$$
+
+
+
+% ................................... %
+\section{Numerical integration}
+\label{App:gauss}
+The basic problem considered by numerical integration is to compute a definite integral
+\begin{equation}
+\label{eq:int1}
+\int u(\xi) d\xi
+\end{equation}
+There are many methods of approximating the integral with arbitrary precision.
+A method 
+which yields a small error for a small number of evaluations 
+is usually considered superior. 
+Gauss Quadrature is one of such algorithms.
+
+The integrand is evaluated at a finite set of points called integration points 
+and a weighted sum of these values is used to approximate the integral. 
+The integration points and weights depend on the specific method used 
+and the accuracy required from the approximation.
+
+\iffalse
+\begin{verbatim}
+~/project/spectralElement/QUADRATURE/stroud.f90 
+~/project/spectralElement/GLpts/quadrature_lib.f 
+therm2d used "rule=1"
+lagrange used "rule=2"
+10532 !
+10533 !  1 point, precision 1.
+10534 !
+10535   if ( rule == 1 ) then
+10536 
+10537     a = 1.0D+00 / 3.0D+00
+10538     w = 1.0D+00
+10539 
+10540     norder = 1
+10541     xtab(1) = a
+10542     ytab(1) = a
+10543     weight(1) = w
+10544 !
+10545 !  3 points, precision 2, Strang and Fix formula #1.
+10546 !
+10547   else if ( rule == 2 ) then
+10548 
+10549     a = 1.0D+00
+10550     b = 3.0D+00
+10551     c = 4.0D+00
+10552     d = 6.0D+00
+10553 
+10554     norder = 3
+10555     xtab(1:3) =   (/ c, a, a /) / d
+10556     ytab(1:3) =   (/ a, c, a /) / d
+10557     weight(1:3) = (/ a, a, a /) / b
+\end{verbatim}
+\fi
+
+In Gauss quadrature technique, the integrand is represented as a Lagrange polynomial
+using $Q$ points $\xi_i$
+$$
+u(\xi) = \sum_{i=0}^{Q-1} u(\xi_i) h_i(\xi) + \epsilon(u)
+$$
+If we substitute it into the integral (\ref{eq:int1}), we obtain
+a representation of the integral as a summation
+$$
+\int u(\xi) d\xi = \sum_{i=0}^{Q-1} w_i u(\xi_i) + R(u)
+$$
+where
+$$
+\begin{array}{l}
+w_i = \int_{-1}^1 h_i(\xi) d\xi \\
+R(u) = \int_{-1}^1 \epsilon(u) d\xi
+\end{array}
+$$
+Since $u(\xi)$ is represented by a polynomial of order $Q-1$,
+we would expect the above relation to be exact if $u(\xi)$ 
+is a polynomial of order $Q-1$ or less.
+This would be true if the points are equispaced in the interval.
+There is, however, a better choice of abscissae which permits exact 
+integration of polynomials of higher order than $Q-1$.
+
+If we ensure that the quadrature formula is exact for polynomials of order $k$
+at least, then the formula is also exact for the next $(k-1)$ order of polynomials.
+
+
+
+
+\end{appendices}
+\end{document}
+\iffalse
+\fi
+\begin{verbatim}
+\end{verbatim}
