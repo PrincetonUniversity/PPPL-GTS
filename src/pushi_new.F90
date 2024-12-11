@@ -678,6 +678,7 @@ else
    timef=1.0_wp-exp(-(real(istep-26500)/5.0d2)**4)
 end if
 
+! disable "apply equilibrium Er in the middle insteady at the beginning"
   timef=1.0_wp
 
   Er401_bp=Er401_bp0*timef
@@ -802,6 +803,12 @@ dmaxv=0.0d0
         vdr=ghq(m)             !  da/at|_EXB
         vdq=Ta(m)              !  dtheta/dt|_EXB
      endif
+
+     !!!!!!!!!!!!    TEST for Ed Startsev  6/06/2023
+
+     !!  kappa=0.0_wp
+
+     !!!!!!!!!!!!    TEST for Ed Startsev  6/06/2023
 
      wdrive=vdr*kappa
 
@@ -956,6 +963,9 @@ dmaxv=0.0d0
      wpi(1,m)=ghq(m)    ! at present, wpi(1,*)=da/dt|_EXB 
      wpi(2,m)=energy    ! =(v_para-u//)^2/2+v_perp^2/2
      wpi(3,m)=muB       ! =v_perp^2/2, need for calculate distribution function in get_fluxes
+
+          ! note: kinetic energy =v_para^2/2+v_perp^2/2 should be used for calculating 
+          ! energy flux instead of wpi(2,*) used previously Jan. 2021
 
   enddo
       

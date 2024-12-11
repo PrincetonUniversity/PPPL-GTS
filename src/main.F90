@@ -406,6 +406,12 @@ end if
            !  phi_tmp=0.0_wp
         end if
 
+        if(mod(istep,10)==0) then
+         call check_abnormal_weight_electrons
+         call check_abnormal_weight_ions
+         !   if(Flag_w_Threshold==2) call Abandon_Abnormal_Particles
+        endif
+
 !        if(movie_3D_h5>0) then                   ! write potential 3D-data
 !           if(mod(istep,movie_3D_h5)==0) then    ! every movie_3D_h5 step
 !              call output3d

@@ -84,7 +84,7 @@ end module precision
   real(wp) lmin, lmax, rmin, rmax
 
 ! The following  parameters are used to sepcify weight damping implementation
-!     wimcompressibility=0 --> no damping
+!     wimcompressibility=0 --> no damping for NL run; for linear run, wimcompressibility=0 automatically (intrinsically)
 !     wimcompressibility=1 --> use the algorithm to assure imcompressibility in weight
 !     wimcompressibility=2 --> apply weight damping with damping rate specified by eta_w=weight_damping_rate/tstep
   integer,parameter  :: wimcompressibility=1       ! switch  added April, 2013 for implementing weight imcompressibility
@@ -152,7 +152,7 @@ module field_array
   real(wp),dimension(:),allocatable :: markeri,markere,dtemper,heatflux, &
                                        phi_tmp,Jcbn,gsij,div1,div2,      &
                                        dRda, dRdt, dZda, Dzdt, gbeta,    &
-                                       gpij, hpij
+                                       gpij, hpij, affx1, affx2
   real(wp),dimension(:),allocatable :: jflux
   real(wp),dimension(:),allocatable :: bb_a, bb_t
   real(wp),dimension(:,:,:),allocatable :: evector,pflux_i,pflux_e

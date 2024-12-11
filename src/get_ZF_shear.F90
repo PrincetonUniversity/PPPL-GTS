@@ -259,14 +259,10 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
     end if
 
 
-
-
-
 !   calculate intensity gradient
 
     phiaa=0.0
     if(mype==0) then
-
        open(502,file='Intensity_gradient.dat',status='replace',RECL=8192)
        do j=1,LINES
           !  read(80,802) istep, (phia00(i),i=0,mpsi)  ! not working after edison relocated
@@ -292,15 +288,70 @@ print*, 'EXB SHEAR with  vthc/a_minor= ', vthc, a_minor
     end if
 
 
+    !   calculate radial derivative of electron residual stress fort.195
+
+    phiaa=0.0
+    if(mype==max(0,numberpe-3)) then
+       open(502,file='fort.195_derivative',status='replace',RECL=8192)
+
+       do j=1,LINES
+          read(195,*) istep, (phia00(i),i=0,mpsi)
+
+          call ezspline_init(spEr,mpsi+1,(/1,1/),ierror) ! 1st derivative boundary condition for both left and right
+          spEr%x1=psi_grid
+          spEr%bcval1min=0.0d0  ! derivative at left
+          spEr%bcval1max=0.0d0  ! derivative at right
+          call ezspline_setup(spEr,phia00,ierror)
+
+          do i=0,mpsi
+             call ezspline_derivative(spEr,1,psi_grid(i),phiaa(i),ierror) ! phiaa=(d/da)(delta_phi^2)
+          end do
+
+          call ezspline_free(spEr,ierror)
+
+          write(502,5) istep, (phiaa(i),i=0,mpsi)
+
+          call flush(502)
+       end do
+       close(502)
+    end if
 
 
+    !   calculate radial derivative of ion residual stress fort.95
 
-5   format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
-801 format(1x,i6, 21(1x,d13.6))       ! new format for mstep>100000
-! 801 format(1x,i5, 21(1x,d13.6))       ! new format for mstep>100000
-! 801 format(i6, 21(1x,d13.6))
+    phiaa=0.0
+    if(mype==max(0,numberpe-1)) then
+       open(502,file='fort.95_derivative',status='replace',RECL=8192)
 
-802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
+       do j=1,LINES
+          read(95,*) istep, (phia00(i),i=0,mpsi)
+
+          call ezspline_init(spEr,mpsi+1,(/1,1/),ierror) ! 1st derivative boundary condition for both left and right
+          spEr%x1=psi_grid
+          spEr%bcval1min=0.0d0  ! derivative at left
+          spEr%bcval1max=0.0d0  ! derivative at right
+          call ezspline_setup(spEr,phia00,ierror)
+
+          do i=0,mpsi
+             call ezspline_derivative(spEr,1,psi_grid(i),phiaa(i),ierror) ! phiaa=(d/da)(delta_phi^2)
+          end do
+
+          call ezspline_free(spEr,ierror)
+
+          write(502,5) istep, (phiaa(i),i=0,mpsi)
+
+          call flush(502)
+       end do
+       close(502)
+    end if
+
+
+5   format(1x,i6, 503(1x,E13.6)) ! for maxium mpsi=500
+801 format(1x,i6, 21(1x,E13.6))       ! new format for mstep>100000
+! 801 format(1x,i5, 21(1x,E13.6))       ! new format for mstep>100000
+! 801 format(i6, 21(1x,E13.6))
+
+802 format(1x,i6, 503(1x,E13.6)) ! for maxium mpsi=500
 
   if(mype==0) then
      open(502,file='Er_estimate.dat')

@@ -353,18 +353,18 @@ subroutine snapshot
   endif
   
 101 format(i6)
-!  102 format(e10.4)
+!  102 format(E10.4)
 
   
 !  105 format(e10.4,4x,6hflux2x,4x,i4)
 !  106 format(e10.4,4x,6hflux2z,4x,i4)
 !  107 format(e10.4,2x,i4,2x,4hpsi=,e10.4,2x,4hthe=,e10.4,2x,2hR=,e10.4,2x,2hz=,e10.4)
 
-102 format(d17.10)
+102 format(E17.10)
 
-105 format(d17.10,4x,6hflux2x,4x,i4)
-106 format(e17.10,4x,6hflux2z,4x,i4)
-107 format(e17.10,2x,i4,2x,4hpsi=,d17.10,2x,4hthe=,d17.10,2x,2hR=,d17.10,2x,2hz=,d17.10)
+105 format(E17.10,4x,6hflux2x,4x,i4)
+106 format(E17.10,4x,6hflux2z,4x,i4)
+107 format(E17.10,2x,i4,2x,4hpsi=,E17.10,2x,4hthe=,E17.10,2x,2hR=,E17.10,2x,2hz=,E17.10)
 
 ! REcord Potential. Each myrank_toroidal has its own file (see open_file).
   if(movie_3D_h5==0) then  ! no 3D movie data created
@@ -405,7 +405,7 @@ subroutine snapshot
 !          print*, 'mype= ', mype, 'istep=', istep, phi_tmp(mgrid/2), heatflux(mgrid/2), densitye(1,mgrid/2), densityi(1,mgrid/2)
 !          print*, 'mype= ', mype, 'istep=', istep, jflux(mgrid/2), heatflux(mgrid/2)
 !          write(197, 20) heatflux(mgrid/16), heatflux(mgrid/8),heatflux(mgrid/4),heatflux(mgrid/2), jflux(mgrid/16),jflux(mgrid/8),jflux(mgrid/4),jflux(mgrid/2)
-!     20   format(8(2x,d16.10))
+!     20   format(8(2x,E16.10))
 !          call flush(197)
 
      end if

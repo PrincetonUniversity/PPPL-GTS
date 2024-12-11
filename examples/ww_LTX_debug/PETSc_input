@@ -1,0 +1,17 @@
+-mat_partitioning_type current
+
+-pc_type hypre
+-pc_hypre_type boomeramg
+-ksp_rtol 1.e-5
+-ksp_monitor
+-ksp_converged_reason
+
+-dphidt_pc_type hypre
+-dphidt_pc_hypre_type boomeramg
+-dphidt_ksp_rtol 1.e-5
+-dphidt_ksp_monitor
+-dphidt_ksp_converged_reason
+
+-options_table
+-options_left
+-xmat_ascii_output_large

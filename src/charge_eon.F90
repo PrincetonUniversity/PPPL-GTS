@@ -6,6 +6,9 @@ subroutine charge_eon
   use particle_array
   use field_array
   use diagnosis_array
+
+  use profile_array, only: f1, f2, f3, rc_left, rc_right, dr_left, dr_right, jc_left, jc_right ! added Feb. 2024
+
   use esi_interface
 
   implicit none
@@ -13,9 +16,10 @@ subroutine charge_eon
   integer m,i,j,k,jt,kk,ii,ierror,ij,&
        icount,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
   real(wp) weight,rdum,tdum,r,wz1,wz0,wp1,wp0,wt11,wt10,wt01,wt00, & 
-       wdum(0:mpsi),total_w,wf,wn,pdum,zdum
+       wdum(0:mpsi),wdum1(0:mpsi),wdum2(0:mpsi),total_w,wf,wn,pdum,zdum
   real(wp) sendl(mgrid),recvr(mgrid)
   real(wp) dnitmp(0:1,mgrid)
+  real(wp) zf_left, zf_right, fdown  ! addede Feb. 2024
 
   real(wp), external :: SMOOTHSTEP
 
@@ -357,8 +361,24 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
 !  added Jan. 2015
    if(irun==0.and.istep < 2*ndiag) then
       wdum=1.0  ! this is because initially sumfluxpsi=0 which cannot be used as weighting function
+      kk=1
    else
-      wdum=sqrt(sumfluxpsi)   ! in terms of sqrt{int[I(a)dt]}
+
+      !   wdum=sqrt(sumfluxpsi)   ! in terms of sqrt{int[I(a)dt]}
+      !   do i=0,nbound
+      !      rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
+      !      wdum(i)=wdum(i)*rdum
+      !      wdum(mpsi-i)=wdum(mpsi-i)*rdum
+      !   enddo
+      !   kk=1
+
+      wdum=1.0  ! uniform compensation used previously:
+      kk=12     ! do kk-times to achieve better charge conservation
+                ! -- it retains zonal density profile structure;
+                ! -- may generate artificial ZF in linearly stable zones!!!
+                !
+                ! -- in Feb. 2024, further modification made
+                ! -- to eliminate zonal density at boundary the same way as plasma profile modification
    end if
 
 
@@ -373,12 +393,14 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
 
 !  wdum=eta_grid  ! check ZF driving turbulence
 
-  do i=0,nbound
-     rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
-     wdum(i)=wdum(i)*rdum
-     wdum(mpsi-i)=wdum(mpsi-i)*rdum
-  enddo
+!  do i=0,nbound
+!     rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
+!     wdum(i)=wdum(i)*rdum
+!     wdum(mpsi-i)=wdum(mpsi-i)*rdum
+!  enddo
 
+DO ii=1,kk   ! for uniform compensation with wdum=1.0, do kk times to achieve charge conservation
+             ! which ensures E_zf=0 at both boundaries
 
 ! calculate int[dVda*I(a)*da]
   wf=0.0
@@ -390,9 +412,19 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      ! else               !  old solver
 
      if(order==1) then  ! FEM solver, added Jan. 2015 See note -- charge conservation consistent with E_zf=0 at boundary
-        wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(wdum(i)+wdum(i-1))
-        wn=wn+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(den_grid(i-1)*dVda(i-1)*zonale(i-1)  &
-                                                +den_grid(i)*dVda(i)*zonale(i))
+
+        !   following correction made in Feb. 2024
+        !   wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(wdum(i)+wdum(i-1))
+
+        !   wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(wdum(i)*dVda(i)+wdum(i-1)*dVda(i-1))
+
+        !   wn=wn+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(den_grid(i-1)*dVda(i-1)*zonale(i-1)  &
+        !                                           +den_grid(i)*dVda(i)*zonale(i))
+
+        ! replaced by 1D integral gts_integration(m,a1,a2,x,y,intgall) coded by J. Chen Feb. 2024
+        wdum1(i)=wdum(i)*dVda(i)
+        wdum2(i)=den_grid(i)*dVda(i)*zonale(i)
+
      else
 
         wf=wf+0.5*(psi_grid(i)-psi_grid(i-1))*(dVda(i)*wdum(i)*B2_s(i)  &
@@ -401,6 +433,14 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
                                               +dVda(i-1)*zonale(i-1)*B2_s(i-1))
      endif
   end do
+
+  ! add calculation of wdum1(0) and wdum2(0) which are calculated in above do-loop
+  wdum1(0)=wdum(0)*dVda(0)
+  wdum2(0)=den_grid(0)*dVda(0)*zonale(0)
+
+  ! replaced by 1D integral gts_integration(m,a1,a2,x,y,intgall) coded by J. Chen Feb. 2024
+  call gts_integration(mpsi,psi_grid(0),psi_grid(mpsi),psi_grid,wdum1,wf)
+  call gts_integration(mpsi,psi_grid(0),psi_grid(mpsi),psi_grid,wdum2,wn)
 
   do i=1,mpsi-1
 
@@ -414,24 +454,49 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      ! else                  !  old solver
 
      if(order==1) then     ! FEM solver, added Jan. 2015 See note -- charge conservation consistent with E_zf=0 at boundary
+        ! correction made in Feb. 2024
         !  zonale(i)=zonale(i)-wdum(i)*(wn/wf)/(den_grid(i)*dVda(i))
-        wdum(i)=wdum(i)*(wn/wf)/(den_grid(i)*dVda(i))  ! see note
+        !  wdum(i)=wdum(i)*(wn/wf)/(den_grid(i)*dVda(i))  ! see note
+        ! ---->
+        !  zonale(i)=zonale(i)-wdum(i)*(wn/wf)/den_grid(i)
+        wdum1(i)=wdum(i)*(wn/wf)/den_grid(i)  ! see note on Feb. 2024
      else
         !  zonale(i)=zonale(i)-wdum(i)*(wn/wf)            ! see note
-        wdum(i)=wdum(i)*(wn/wf)            ! see note
+        wdum1(i)=wdum(i)*(wn/wf)            ! see note
      endif
 
   enddo
 
-  if(mype==0.and.idiag==0) then
-     wdum(0)=0.0
-     wdum(mpsi)=0.0
-     write(801,100) istep, (wdum(i),i=0,mpsi), (zonale(i),i=0,mpsi)
-100  format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
-     call flush(801)
-  end if
+  zonale(1:mpsi-1)=zonale(1:mpsi-1)-wdum1(1:mpsi-1)
 
-  zonale(1:mpsi-1)=zonale(1:mpsi-1)-wdum(1:mpsi-1)
+
+  !!! added Feb. 2024  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!
+
+  zf_left=((psi_grid(jc_left)-rc_left)*zonale(jc_left-1)+   &
+             (rc_left-psi_grid(jc_left-1))*zonale(jc_left))/(psi_grid(jc_left)-psi_grid(jc_left-1))
+
+  zf_right=((psi_grid(jc_right)-rc_right)*zonale(jc_right-1)+   &
+             (rc_right-psi_grid(jc_right-1))*zonale(jc_right))/(psi_grid(jc_right)-psi_grid(jc_right-1))
+
+  do i=0, jc_left-1
+     pdum=psi_grid(i)
+     fdown=abs((pdum-rc_left)/(f1*dr_left))
+     fdown=dexp(-f2*fdown**f3)
+     zonale(i)=zf_left*fdown
+  enddo
+
+  do i=jc_right, mpsi
+     pdum=psi_grid(i)
+     fdown=abs((pdum-rc_right)/(f1*dr_right))
+     fdown=dexp(-f2*fdown**f3)
+     zonale(i)=zf_right*fdown
+  enddo
+
+ENDDO
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
   do i=0,nbound
      rdum=smoothstep(0.0_wp, real(nbound,wp),real(i,wp))
@@ -444,6 +509,14 @@ else  ! solve zonal flows separately when ZF_SEPARATION==1
      zonale(i)=zonale(i)*rdum
      zonale(mpsi-i)=zonale(mpsi-i)*rdum
   enddo
+
+!     if(mype==0.and.idiag==0) then
+!        wdum(0)=0.0
+!        wdum(mpsi)=0.0
+!        write(801,100) istep, (wdum(i),i=0,mpsi), (zonale(i),i=0,mpsi)
+!  100   format(1x,i6, 503(1x,E13.6)) ! for maxium mpsi=500
+!        call flush(801)
+!       end if
 
   end if   ! end (its_jacobi==1)
 

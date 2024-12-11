@@ -589,6 +589,12 @@ IF(ifelectron==2.and.ifdphi==2) then  ! use direct derivative along trajectory t
         weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
      end if
 
+     !!!!!!!!!!! TEST for Ed Startsev 6/05/2023
+
+     !!  kappa=0.0_wp
+
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
      wdrive=vdr*kappa
 
 
@@ -950,7 +956,7 @@ end if
 
 
 
-if(ifelectron==-100) then    ! need to do one more time ?
+       if(ifelectron==-100) then    ! need to do one more time ?
 
   CALL CHARGE_EON
   CALL POISSON( solver1, masssolver )
@@ -1000,7 +1006,7 @@ if(ifelectron==-100) then    ! need to do one more time ?
 !       E_t=E_t+zeon(5,m)
   end do
 
-end if
+       end if
 
 
 
@@ -1038,8 +1044,9 @@ end if
 if(mype==min(2,numberpe)) then
   error_8=1.0e-5_wp
   IFAIL=1
-  rdum=D01AHF(0.0d0,zeon(1,me/2),error_8,minpts,acc,dsda,-1,IFAIL)
-  print*, 'EEEEEEEEEEEE', zeon(7,me/2),'  ', rdum
+  !  this is a check -- no need to do for each simulation so comment out by WX April 2020  
+!   rdum=D01AHF(0.0d0,zeon(1,me/2),error_8,minpts,acc,dsda,-1,IFAIL)
+!   print*, 'EEEEEEEEEEEE', zeon(7,me/2),'  ', rdum
 !   write(stdout,*)'######## electron gcmotion: wall =',(tt1-tt0),'  cpu =',(cput1-cput0)
 end if
 ! ********************************
@@ -1084,6 +1091,12 @@ ELSE    !  for df electrons, adiabatic electrons, and delta-h electrons with dph
         vdr=ghq(m)             !  da/dt|_EXB
         weqflow=vdr*Ba(m)+Ta(m)*Bq(m)
      end if
+
+     !!!!!!!!!!! TEST for Ed Startsev 6/05/2023
+ 
+     !!  kappa=0.0_wp
+ 
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
      wdrive=vdr*kappa
 

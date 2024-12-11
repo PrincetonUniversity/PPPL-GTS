@@ -1,5 +1,4 @@
 subroutine smooth(iflag)
-
   use precision
   use mpi_defs
   use global_parameters
@@ -1417,7 +1416,14 @@ enddo
 do n=1,mtdiag/2+1  ! n is n in the range 1:mtdiag/2+1
     m=meachtheta/2*myrank_toroidal+floor((j-1)/2.)+1   ! m in the range 1:mtdiag/2+1 
     if(mype==0.and.j==2) m=meachtheta/2+1
-    if(abs((m-1)-(n-1)/qtinv(i))>deltam) yz(n)=0.
+
+    !    WX: following change made to keep fixed m-modes which are m_0+-deltam with 
+    !    n specified in INPUT.d and n/m_0 the resonant mode at ipsi (specified at INOUT.d) surface
+
+    !    if(abs((m-1)-(n-1)/qtinv(i))>deltam) yz(n)=0.
+
+    ! if(abs((m-1)-(n-1)*q_grid(ipsi))>deltam) yz(n)=0.  ! m-modes of # 2xdeltam specified in terms of ipsi surface
+    if(abs((m-1)-(n-1)*q_grid(i))>deltam) yz(n)=0.       ! m-modes of # 2xdeltam specified in terms of mode own surface
 enddo
 
             ! transform back to real space

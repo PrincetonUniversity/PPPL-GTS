@@ -23,7 +23,8 @@ subroutine poisson( solver, masssolver )
   
   real(wp) adum(0:mpsi),phi_flux_ave(0:mpsi),adum0(0:mpsi),adum_11(0:mpsi),  &
            add_gp_ave(0:mpsi), add_hp_ave(0:mpsi), &
-           adum_16(0:mpsi), dphi_zero(0:mpsi)
+           adum_16(0:mpsi), dphi_zero(0:mpsi), &
+           fdum(0:1), xdis(0:1), x1, x2, yval
   
   !real(wp) ptilde(mgrid),dentmp(mzeta,mgrid),titer(mzeta,mgrid)
   real(wp) dentmp(mgrid),xx(mgrid) !,titer(mgrid)
@@ -85,7 +86,7 @@ subroutine poisson( solver, masssolver )
         enddo
      endif
   endif
-  
+
   !  tmp=1.0/(tite+1.0-gamma) --> replaced by titer(ij)
   !  zero gyroradius limit
   !  tmp=1.0/tite           !wx
@@ -258,9 +259,20 @@ subroutine poisson( solver, masssolver )
 
               adum_11=0.0_wp
               do i=1,mpsi
-                 adum_11(i)=adum_11(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
-                            (-dnda_grid(i-1)*dVda(i-1)*add_hp_ave(i-1)  &
-                            -dnda_grid(i)*dVda(i)*add_hp_ave(i))
+                 !  adum_11(i)=adum_11(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
+                 !             (-dnda_grid(i-1)*dVda(i-1)*add_hp_ave(i-1)  &
+                 !             -dnda_grid(i)*dVda(i)*add_hp_ave(i))
+
+                 ! replaced by 1D integral  gts_integration(m,a1,a2,x,y,intgall) coded by J Chen Feb. 2024
+                 fdum(0)=-dnda_grid(i-1)*dVda(i-1)*add_hp_ave(i-1)
+                 fdum(1)=-dnda_grid(i)*dVda(i)*add_hp_ave(i)
+                 x1=psi_grid(i-1)
+                 x2=psi_grid(i)
+                 xdis(0)=x1
+                 xdis(1)=x2
+                 yval=0.0d0
+                 call gts_integration(1,x1,x2,xdis,fdum,yval)
+                 adum_11(i)=adum_11(i-1)+yval
               enddo
 
            end if    ! end pade==1
@@ -425,9 +437,21 @@ end if
 
               phip00=0.0_wp
               do i=1,mpsi
-                 phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
-                           (-den_grid(i-1)*dVda(i-1)*(zonali(i-1)-zonale(i-1))  &
-                            -den_grid(i)*dVda(i)*(zonali(i)-zonale(i)) )
+                 !  phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
+                 !            (-den_grid(i-1)*dVda(i-1)*(zonali(i-1)-zonale(i-1))  &
+                 !             -den_grid(i)*dVda(i)*(zonali(i)-zonale(i)) )
+
+                 ! replaced by 1D integral  gts_integration(m,a1,a2,x,y,intgall) coded by J Chen Feb. 2024
+                 fdum(0)=-den_grid(i-1)*dVda(i-1)*(zonali(i-1)-zonale(i-1))
+                 fdum(1)=-den_grid(i)*dVda(i)*(zonali(i)-zonale(i))
+                 x1=psi_grid(i-1)
+                 x2=psi_grid(i)
+                 xdis(0)=x1
+                 xdis(1)=x2
+                 yval=0.0d0
+                 call gts_integration(1,x1,x2,xdis,fdum,yval)
+                 phip00(i)=phip00(i-1)+yval
+
               enddo
 
               phip00=phip00/dVda/gsgaa
@@ -456,7 +480,18 @@ end if
            ! (0,0) mode potential store in phi00
            phi00=0.0_wp   ! phi00(0)=0.0 is chosen
            do i=1,mpsi
-              phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
+              !   phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
+              ! replaced by 1D integral  gts_integration(m,a1,a2,x,y,intgall) coded by J Chen Feb. 2024
+              fdum(0)=phip00(i-1)
+              fdum(1)=phip00(i)
+              x1=psi_grid(i-1)
+              x2=psi_grid(i)
+              xdis(0)=x1
+              xdis(1)=x2
+              yval=0.0d0
+              call gts_integration(1,x1,x2,xdis,fdum,yval)
+              phi00(i)=phi00(i-1)+yval
+
            enddo
            
            !   if(mype==10) then
@@ -465,14 +500,14 @@ end if
            !      write(72,802) istep, (dphi_zero(i),i=0,mpsi)
            !      call flush(72)
            !   end if
-           !   802     format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
+           !   802     format(1x,i6, 503(1x,E13.6)) ! for maxium mpsi=500
 
 !   if(mype==0.and.istep==80) then
 !      do i=1,mgrid
 !         write(18, 100) i, phi(1,i)
 !      end do
 !   end if
-! 100 format(1x,i6, 2x,d13.6)
+! 100 format(1x,i6, 2x,E13.6)
 !     call flush(18)
 
         end if
@@ -606,7 +641,7 @@ endif
 !         write(18, 100) i, phi(1,i), add_phi(i), dentmp(i)
 !      end do
 !   end if
-! 100 format(1x,i6, 3(2x,d12.6))
+! 100 format(1x,i6, 3(2x,E13.6))
 !     call flush(18)
 !
 
@@ -614,7 +649,7 @@ endif
       phi(1,igrid(0):igrid(0)+mtheta(0))=0.0_wp
       phi(1,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0_wp
       call fd_sync_scalar(phi);
-      deltam = 0;
+      deltam = 4;
       fltr_out = 0.0_wp;
       if(deltam == 0) then
          call smooth_fft(phi);

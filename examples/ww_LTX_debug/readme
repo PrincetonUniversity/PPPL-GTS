@@ -1,0 +1,19 @@
+20241211
+/home/weixingw/GTS_master_nersc
+/scratch/gpfs/weixingw/LTX_debug
+
+merged GTS_master_nersc into git repo and test it with:
+
+Use 1 node:
+   INPUT.d_1
+   short_stellar_1
+
+Use 10 nodes:
+   INPUT.d_10
+   short_stellar_10
+
+Use 1 node on Flux:
+   INPUT.d_1
+   short_flux
+
+compare fort.56 for accuracy.

@@ -225,7 +225,7 @@ end if
 5    format(2x, i5, 4(2x,ES13.6))
   end if
 
-  ErTRANSP=1
+  ErTRANSP=0
   if(ifneoclassical==1) ErTRANSP=0
 
   if(plasma==1.and.ErTRANSP==1) then

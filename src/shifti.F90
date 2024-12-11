@@ -1,175 +1,191 @@
 subroutine shifti
-  use precision
-  use mpi_defs
-  use global_parameters
-  use particle_decomp
-  use particle_array
-  use esi_interface
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use particle_array
+   use esi_interface
 
-  implicit none
-    
-  integer i,tid, m, mtop,lasth, dest_tor_rank, dim_zion, dim_zion0, dim_Ptl_package, ierr
-  integer tor_send_counts(ntoroidal), tor_send_displs(ntoroidal), tot_send_num
-  integer tor_recv_counts(ntoroidal), tor_recv_displs(ntoroidal), tot_recv_num
-  integer send_mid_arr(mimax), send_dest_arr(mimax)
+   implicit none
 
-  real(wp) normalized_zeta, Delta_zeta
-  real(wp),dimension(:,:),allocatable :: tor_send_Ptls_data, tor_recv_Ptls_data
+   integer i,j,k,tid, m, mtop,lasth, dim_zion, dim_zion0, dim_Ptl_package, ierr,istatus(MPI_STATUS_SIZE)
+   integer send_L_count,send_R_count, send_num, send_mid_arr(mimax), left_mid_arr(mimax), right_mid_arr(mimax)
+   integer recv_L_count,recv_R_count, recv_num
+   integer, dimension(:),allocatable :: fill_mid_arr
+   integer fill_num
+   real(wp) zion_zeta_arr(mimax)
 
-  integer MPI_Ptl_type
-  
-  character(len=30) file_name
+   integer m0, sid, rid, idest, isource, loop,tor_dir, tot_send_num
 
+   real(wp) normalized_zeta
+   real(wp),dimension(:,:),allocatable :: send_Ptls, recv_Ptls
 
+   integer MPI_Ptl_type
 
-  ! write(file_name,'("shifti_out_",i2.2,".dat")')mype
-  ! open(unit=4321, file=file_name, position='append', action='write')
+   !$acc declare create (zion_zeta_arr)
 
-  
-  
-  ! write(4321,*) "shift_i start! I'm=",mype,"mytorrank",myrank_toroidal,"ntoroidal",ntoroidal, "toroidal_comm", toroidal_comm
-  ! write(4321,*) "zetamin", zetamin, "zetamax", zetamax
-  ! call flush(4321)
- 
+   dim_zion = size(zion,1)
+   dim_zion0 = size(zion0,1)
+
+   dim_Ptl_package = dim_zion + dim_zion0
 
 
-  dim_zion = size(zion,1)
-  dim_zion0 = size(zion0,1)
+   call MPI_Type_contiguous( dim_Ptl_package, MPI_Rsize, MPI_Ptl_type, ierr);
+   call MPI_Type_commit(MPI_Ptl_type, ierr);
 
-  dim_Ptl_package = dim_zion + dim_zion0  ! zeon + zeon0
-
-  ! write(4321,*) "dim_zion=", dim_zion, "dim_zion0=",dim_zion0
-  ! call flush(4321)
-
-  
-  call MPI_Type_contiguous( dim_Ptl_package, MPI_Rsize, MPI_Ptl_type, ierr);
-  call MPI_Type_commit(MPI_Ptl_type, ierr);
-
-
-  Delta_zeta = 2.0*pi/ntoroidal
-
-
-  ! write(4321,*) "Delta_zeta =", Delta_zeta
-  ! call flush(4321)
- 
+   m0=1
+   loop=0
+   do while(1)
+      loop = loop +1
+      if(loop>ntoroidal)then
+         write(0,*)'endless ION shift loop at PE=',mype
+         call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+      endif
+      ! find send_counts and related information
+      ! send_counts = 0
+      send_L_count=0
+      send_R_count=0
+      send_num = 0
 
 
-  ! find send_counts and related information
-  tor_send_counts = 0
-  tor_send_displs = 0
-  tot_send_num = 0
-  send_mid_arr = 0
-  send_dest_arr = 0
-  do m=1, mi 
-    normalized_zeta =  zion(3,m) - floor(zion(3,m)/(2.0*pi)) * 2.0*pi
-    dest_tor_rank = floor(normalized_zeta / Delta_zeta)
-    
-    if(dest_tor_rank<0 .OR. dest_tor_rank>ntoroidal) then
-      
-      write(file_name,'("shifti_out_",i2.2,".dat")')mype
-      open(unit=4321, file=file_name, position='append', action='write')
-  
-      write(4321,*) "Error!! dest_tor_rank=", dest_tor_rank, 'zeta',zion(3,m), 'norm_zeta', normalized_zeta,'zeta0', zion0(3,m)
-      call flush(4321)
-      close(4321)
-    endif
+      !$acc parallel loop
+      do m=m0,mi
+         zion_zeta_arr(m)=zion(3,m)
+      enddo
+      !$acc update self(zion_zeta_arr(m0:mi))
 
-    if(dest_tor_rank /= myrank_toroidal) then
-        tor_send_counts(1+dest_tor_rank) = tor_send_counts(1+dest_tor_rank) + 1
-        tot_send_num = tot_send_num + 1
-        send_mid_arr(tot_send_num) = m
-        send_dest_arr(tot_send_num) = dest_tor_rank
-    endif  
-  enddo
+      do m=m0,mi
+         normalized_zeta =  modulo(zion_zeta_arr(m),2.0*pi)
 
+         !   This could be a BUG causing memory errors due to index bound  April 2024
+         !   if( (normalized_zeta-zetamax)*(normalized_zeta-zetamin) >0 ) then
+         !   change to -->
+         if( (normalized_zeta-zetamax)*(normalized_zeta-zetamin) >0.0_wp ) then
+            send_num=send_num+1
+            send_mid_arr(send_num) = m
 
-
-  do tid=2, ntoroidal
-    tor_send_displs(tid) = tor_send_displs(tid-1) + tor_send_counts(tid-1)
-  enddo
+            if( modulo(zion_zeta_arr(m)-zetamax, 2.0*pi)<pi) then
+               ! send to right rank
+               send_R_count = send_R_count +1
+               right_mid_arr(send_R_count) = m
+            else
+               ! send to left rank
+               send_L_count = send_L_count +1
+               left_mid_arr(send_L_count) = m
+            endif
+         endif
+      enddo
 
 
-  ! establish recv_counts using send_counts
-  tor_recv_counts = 0
-  tor_recv_displs = 0
-  tot_recv_num = 0
-  call MPI_Alltoall(tor_send_counts, 1, MPI_INTEGER, tor_recv_counts, 1, MPI_INTEGER, toroidal_comm, ierr);
-  do tid=1, ntoroidal
-    tot_recv_num = tot_recv_num + tor_recv_counts(tid)
-  enddo
-  do tid=2, ntoroidal
-    tor_recv_displs(tid) = tor_recv_displs(tid-1) + tor_recv_counts(tid-1)
-  enddo
+      call MPI_ALLREDUCE(send_num,tot_send_num,1,MPI_INTEGER,MPI_SUM,toroidal_comm,ierr)
+      if(tot_send_num==0) then
+         if(loop>1) then
+            ntracer=0
+         endif
+         return
+      endif
+
+      call MPI_SENDRECV(send_R_count,1,MPI_INTEGER,right_pe,0, recv_L_count,1,MPI_INTEGER,left_pe ,0,toroidal_comm,istatus,ierr)
+      call MPI_SENDRECV(send_L_count,1,MPI_INTEGER,left_pe ,0, recv_R_count,1,MPI_INTEGER,right_pe,0,toroidal_comm,istatus,ierr)
+
+      recv_num=recv_L_count+recv_R_count
+
+      !  could be a memory bug, depending on compilers, April 2024
+      !  allocate(send_Ptls(dim_Ptl_package, send_num), recv_Ptls(dim_Ptl_package, recv_num))
+
+      allocate(send_Ptls(dim_Ptl_package, send_num+1), recv_Ptls(dim_Ptl_package, recv_num+1))
+
+      ! copy all information of sending particles into tor_send_Ptls
+
+      !$acc parallel loop copyin(left_mid_arr(:send_L_count),right_mid_arr(:send_R_count))
+      do i=1, send_num
+
+         if (i<=send_L_count) then
+            m=left_mid_arr(i)
+         else
+            m=right_mid_arr(i-send_L_count)
+         endif
+
+         k=0
+         !$acc loop seq
+         do j=1,dim_zion
+            send_Ptls(k+j, i) =  zion(j,m)
+         enddo
+         k=k+dim_zion
+
+         !$acc loop seq
+         do j=1,dim_zion0
+            send_Ptls(k+j, i) =  zion0(j,m)
+         enddo
+         k=k+dim_zion0
+      enddo
 
 
-  ! write(4321,*) mype, myrank_toroidal, "tot_send_num =", tot_send_num, "tot_recv_num=", tot_recv_num
-  ! write(4321,*) mype, myrank_toroidal, "tor_send_counts =", tor_send_counts
-  ! write(4321,*) mype, myrank_toroidal, "tor_send_displs =", tor_send_displs
-  ! write(4321,*) mype, myrank_toroidal, "tor_recv_counts =", tor_recv_counts
-  ! write(4321,*) mype, myrank_toroidal, "tor_recv_displs =", tor_recv_displs
-  ! call flush(4321)    
-  
+      ! Send to Left
+      call MPI_SENDRECV(send_Ptls(:,1:send_L_count),send_L_count,MPI_Ptl_type,left_pe,0, recv_Ptls(:,1+recv_L_count:recv_num),recv_R_count,MPI_Ptl_type,right_pe ,0,toroidal_comm,istatus,ierr)
+      ! Send to Right
+      call MPI_SENDRECV(send_Ptls(:,1+send_L_count:send_num),send_R_count,MPI_Ptl_type,right_pe,0, recv_Ptls(:,1:recv_L_count),recv_L_count,MPI_Ptl_type,left_pe ,0,toroidal_comm,istatus,ierr)
 
-  !allocate required memories
-  allocate(tor_send_Ptls_data(dim_Ptl_package, tot_send_num))
-  allocate(tor_recv_Ptls_data(dim_Ptl_package, tot_recv_num))
+      ! fill holes
+      mtop = mi
+      mi = mi - send_num ! remained mi after sending
+      lasth = send_num
 
-
-  ! write(4321,*) "mype=",mype,", myrank_toroidal=",myrank_toroidal, "tot_send_num",tot_send_num, "tot_recv_num", tot_recv_num
-  ! call flush(4321)
-  
-
-
-  ! 여기서 뿌리기전에 target_tor_rank에 맞게 send_mid_arr 을 sorting 미리 해줘야한다.
-  
-  ! sort send_dest_arr ascending order; send_mid_arr is also sorted by the ascending order of send_dest_arr
-   call quicksort2(send_dest_arr, send_mid_arr, 1, tot_send_num)
-
-  ! copy all information of sending particles into tor_send_Ptls
-  do i=1, tot_send_num
-    tor_send_Ptls_data(1:dim_zion, i) =  zion(:,send_mid_arr(i))
-    tor_send_Ptls_data(dim_zion+1:dim_zion+dim_zion0, i) =  zion0(:,send_mid_arr(i))
-  enddo
-  
-
-  ! AlltoAllv
-  call MPI_Alltoallv(tor_send_Ptls_data, tor_send_counts, tor_send_displs, MPI_Ptl_type, tor_recv_Ptls_data, tor_recv_counts, tor_recv_displs, MPI_Ptl_type, toroidal_comm, ierr)
+      allocate(fill_mid_arr(send_num))
+      fill_num=0
+      do i=1, send_num
+         m = send_mid_arr(i)
+         if(m>mi) exit
+         do while(mtop == send_mid_arr(lasth))
+            mtop=mtop-1
+            lasth=lasth-1
+         enddo
+         fill_mid_arr(i) = mtop
+         mtop = mtop -1
+         fill_num=i
+      enddo
 
 
+      !$acc parallel loop
+      do i=1, fill_num
+         m = send_mid_arr(i)
+         mtop= fill_mid_arr(i)
+         !$acc loop seq
+         do j=1,dim_zion
+            zion(j, m)      = zion(j, mtop)
+         enddo
+         !$acc loop seq
+         do j=1,dim_zion0
+            zion0(j, m)     = zion0(j, mtop)
+         enddo
+      enddo
 
 
-  
-  ! fill holes 
-  call quicksort(send_mid_arr, 1, tot_send_num)
-  mtop = mi
-  mi = mi - tot_send_num ! remained mi after sending
-  lasth = tot_send_num
-  do i=1, tot_send_num
-    m = send_mid_arr(i)
+      ! append recv particles
+      !$acc parallel loop
+      do i=1, recv_num
+         k=0
+         !$acc loop seq
+         do j=1,dim_zion
+            zion(j,mi+i)    = recv_Ptls(k+j, i)
+         enddo
+         k=k+dim_zion
+         !$acc loop seq
+         do j=1,dim_zion0
+            zion0(j,mi+i)   = recv_Ptls(k+j, i)
+         enddo
+         k=k+dim_zion0
+      enddo
+      mi = mi + recv_num
 
-    if(m>mi) exit
-    do while(mtop == send_mid_arr(lasth))
-        mtop=mtop-1
-        lasth=lasth-1
-    enddo
-
-    zion(:, m) = zion(:, mtop)
-    zion0(:, m) = zion0(:, mtop)
-    mtop = mtop -1
-  enddo
+      if(allocated(send_Ptls)) deallocate(send_Ptls)
+      if(allocated(recv_Ptls)) deallocate(recv_Ptls)
+      if(allocated(fill_mid_arr)) deallocate(fill_mid_arr)
 
 
-  ! append recv particles
-  zion(:, mi+1:mi+tot_recv_num) = tor_recv_Ptls_data(1:dim_zion, :)
-  zion0(:, mi+1:mi+tot_recv_num) = tor_recv_Ptls_data(dim_zion+1:dim_zion+dim_zion0, :)
-  mi = mi + tot_recv_num  
+      m0=mi-recv_num+1  ! new starting index of next loop
+   enddo
 
-  deallocate(tor_send_Ptls_data, tor_recv_Ptls_data)
-  
-  
-  !close(4321)
-
+   call MPI_Type_free(MPI_Ptl_type, ierr)
 
 end subroutine shifti
-
-

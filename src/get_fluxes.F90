@@ -44,7 +44,7 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
 
   real(wp), external :: SMOOTHSTEP
 
-  real(wp) r,vpara,energy
+  real(wp) r,vpara,energy,energy0
 
   real(wp) dpsi_inv,e_psi2,e_psi1,dpsi2_inv,dpsi1,dpsi2,dpsi1_inv
 
@@ -63,7 +63,7 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
 !!     call esigetb(zion0(1,:),zion0(2,:),mi)   ! get B
 !     call esigetb(zion0,mi)   ! get B
 
-!$omp parallel private(m,r,yy,kc,j1,j2,part,vpara,energy,vpara0) reduction(+:ONE_me,my_ion)
+!$omp parallel private(m,r,yy,kc,j1,j2,part,vpara,energy,energy0,vpara0) reduction(+:ONE_me,my_ion)
 !$omp do
      do m=1,mi
         r=zion0(1,m)        
@@ -76,7 +76,11 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
         part=abs(real(j2,wp)-0.5_wp-yy)
 
         vpara=zion0(4,m)*BB(m)
-        energy=wpi(2,m)                ! v^2/2
+        energy=wpi(2,m)                       ! (v_para-u//)^2/2+v_perp^2/2
+
+        ! energy0 is kinetic energy to be used for calculate energy flux
+        ! instead of wpi(2,*) used previously Jan. 2021
+        energy0=vpara*vpara/2.0_wp+wpi(3,m)   ! kinetic energy v^2/2
      
         ONE_me(1,j1)=ONE_me(1,j1)+part
         ONE_me(1,j2)=ONE_me(1,j2)+(1.0_wp-part)
@@ -104,13 +108,13 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
         ONE_me(14,j2)=ONE_me(14,j2)+(1.0_wp-part)*zion0(5,m)*da(m)
 
 
-        ONE_me(7,j1)=ONE_me(7,j1)+part*zion0(5,m)*wpi(1,m)*energy ! energy flux
-        ONE_me(7,j2)=ONE_me(7,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)*energy
+        ONE_me(7,j1)=ONE_me(7,j1)+part*zion0(5,m)*wpi(1,m)*energy0 ! energy flux
+        ONE_me(7,j2)=ONE_me(7,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)*energy0
 
 
         ! added to calculate NC fluxes associated with total (magnetic) drift which is da(m) April, 2019
-        ONE_me(15,j1)=ONE_me(15,j1)+part*zion0(5,m)*da(m)*energy ! energy flux using full radial drift
-        ONE_me(15,j2)=ONE_me(15,j2)+(1.0_wp-part)*zion0(5,m)*da(m)*energy
+        ONE_me(15,j1)=ONE_me(15,j1)+part*zion0(5,m)*da(m)*energy0 ! energy flux using full radial drift
+        ONE_me(15,j2)=ONE_me(15,j2)+(1.0_wp-part)*zion0(5,m)*da(m)*energy0
 
 
         ONE_me(8,j1)=ONE_me(8,j1)+part*zion0(5,m)*vpara ! v_// in delta-f
@@ -248,10 +252,10 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
                     df(3,k,k2,l2)=df(3,k,k2,l2)+ss4
 
 ! energy distribution
-                    qq1=qq1*energy
-                    qq2=qq2*energy
-                    qq3=qq3*energy
-                    qq4=qq4*energy
+                    qq1=qq1*energy0
+                    qq2=qq2*energy0
+                    qq3=qq3*energy0
+                    qq4=qq4*energy0
 
                     df(4,k,k1,l1)=df(4,k,k1,l1)+qq1
                     df(4,k,k1,l2)=df(4,k,k1,l2)+qq2
@@ -371,7 +375,7 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
 
      ONE_me_g=0.0_wp
      adum=0.0_wp
-!$omp parallel private(m,r,yy,kc,j1,j2,part,energy) reduction(+:ONE_me_g,adum)
+!$omp parallel private(m,r,yy,kc,j1,j2,part,energy,energy0) reduction(+:ONE_me_g,adum)
 !$omp do
      do m=1,mi
         r=zion0(7,m)
@@ -384,7 +388,11 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
         part=abs(real(j2,wp)-yy)
 
         vpara=zion0(4,m)*BB(m)
-        energy=wpi(2,m)                ! v^2/2
+        energy=wpi(2,m)                ! (v_para-u//)^2/2+v_perp^2/2
+
+        ! energy0 is kinetic energy to be used for calculate energy flux
+        ! instead if wpi(2,*) used previously Jan. 2021
+        energy0=vpara*vpara/2.0_wp+wpi(3,m)   ! kinetic energy v^2/2
 
         ONE_me_g(1,j1)=ONE_me_g(1,j1)+part*zion0(5,m)*energy         ! Temp contained in delta-f
         ONE_me_g(1,j2)=ONE_me_g(1,j2)+(1.0_wp-part)*zion0(5,m)*energy
@@ -433,12 +441,12 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
         ONE_me_g(12,j1)=ONE_me_g(12,j1)+part*zion0(5,m)*da(m) ! particle flux
         ONE_me_g(12,j2)=ONE_me_g(12,j2)+(1.0_wp-part)*zion0(5,m)*da(m)
 
-        ONE_me_g(9,j1)=ONE_me_g(9,j1)+part*zion0(5,m)*wpi(1,m)*energy ! energy flux
-        ONE_me_g(9,j2)=ONE_me_g(9,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)*energy
+        ONE_me_g(9,j1)=ONE_me_g(9,j1)+part*zion0(5,m)*wpi(1,m)*energy0 ! energy flux
+        ONE_me_g(9,j2)=ONE_me_g(9,j2)+(1.0_wp-part)*zion0(5,m)*wpi(1,m)*energy0
 
         !  energy flux calculated with full radial drift; added 04/2019
-        ONE_me_g(13,j1)=ONE_me_g(13,j1)+part*zion0(5,m)*da(m)*energy ! energy flux
-        ONE_me_g(13,j2)=ONE_me_g(13,j2)+(1.0_wp-part)*zion0(5,m)*da(m)*energy
+        ONE_me_g(13,j1)=ONE_me_g(13,j1)+part*zion0(5,m)*da(m)*energy0 ! energy flux
+        ONE_me_g(13,j2)=ONE_me_g(13,j2)+(1.0_wp-part)*zion0(5,m)*da(m)*energy0
 
      enddo
 !$omp end parallel
@@ -641,12 +649,12 @@ subroutine get_fluxes(wpi,da,dgf,dgq)
     end if
 
 
-800 format(1x,i6,1x,20(d13.6,1x))
-801 format(1x,i6, 21(1x,d13.6))
-802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
-! 802 format(1x,i6, 10(1x,d13.6)) ! for maxium mpsi=500
-400 format(1x,i6, 600(1x,d13.6))
-! 400 format(1x,i6, 10(1x,d13.6))
+800 format(1x,i6,1x,20(E13.6,1x))
+801 format(1x,i6, 21(1x,E13.6))
+802 format(1x,i6, 503(1x,E13.6)) ! for maxium mpsi=500
+! 802 format(1x,i6, 10(1x,E13.6)) ! for maxium mpsi=500
+400 format(1x,i6, 600(1x,E13.6))
+! 400 format(1x,i6, 10(1x,E13.6))
 
 end subroutine get_fluxes
 

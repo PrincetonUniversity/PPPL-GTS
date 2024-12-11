@@ -2359,7 +2359,7 @@ int gcmotion_eon(REAL *dXgr,
 /*                    Pa[k]=drho/dt|_EXB            */
 /*                    gha[k]=1/|grad a|             */
 /*                    Fa[k]=E_//   added 2017       */
-#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,wpi1,wpi2,wpi3)
+#pragma omp parallel for private(k,a,q,j1,j0,y,Y,YY,yy,x,X,xx,XX,D,Dhh,r,ra,rq,za,zq,BB,BBa,BBq,Bf,FI,gYa,gFa,T,P, a11,a12,a21,a22,f0,f1,fq0,fq1,YF,YD,yF,yD,dY,dYD,dyD,i0,i1,XF,XD,xF,xD,dX,dXD,dxD,j00,j01,j10,j11,Xa,Xgq,Xgr,Xgm,wpi1,wpi2,wpi3,qq)
   for(k=0; k < n; k++){
     Xa  = *(particle_array+k*(*zeondim));    /* particle_array[k][0] */
     Xgq = *(particle_array+k*(*zeondim)+1);  /* particle_array[k][1] */

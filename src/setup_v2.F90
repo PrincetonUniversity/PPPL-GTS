@@ -269,11 +269,18 @@ Subroutine setup
 
 if(mype==0) print*, 'FFFFFFF CCCCCCCC', uveloci*charg0, uveloci*charg0/3.0d5
 if(mype==0) print*, 'Unit for poloidal flux', uveloci*uveloci*1.0d2  ! convert the pol momentum flux in fort.56 etc. to 1/(m*s^2)
+if(mype==0) print*, 'convert normalized potential in code unit to volt',  E_00/trans 
 
 
       if(plasma==1) then           !Read experimental profiles
 
          call read_profiles(profile_data_name)         ! for JET data output
+
+         !  call read_profilesLeonid(profile_data_name)      ! for Leonid Li-plasmas  April 2024
+
+         !  call mpi_finalize(ierror)
+         !  STOP
+
 
          !  tdum=6.0_wp    ! for testing DTEM in DIII-D geometry with NSTX profiles
          !  tdum=4.0_wp    ! change rho* by changing Te and Ti for size scaling
@@ -1175,7 +1182,7 @@ end if ! if(mype==0)
        phi_tmp(mgrid),gij(4,mgrid),Jcbn(mgrid),pflux_i(3,0:1,mgrid),          &
        pflux_e(3,0:1,mgrid),dphidt(0:1,mgrid),gsij(mgrid),                    &
        dRda(mgrid), dRdt(mgrid), dZda(mgrid), dZdt(mgrid), gbeta(mgrid),      &
-       gpij(mgrid), hpij(mgrid) )
+       gpij(mgrid), hpij(mgrid), affx1(mgrid), affx2(mgrid) )
 
   allocate (jflux(mgrid))
 
@@ -1582,6 +1589,14 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 
         k=metric_elements(pdum,tdum,zdum) 
 
+!  added in April 2020 for calculating particle and energy flux due to adiabatic electrons 
+
+        grada=sqrt(rqj(1)**2+zqj(1)**2)/abs(zaj(1)*rqj(1)-zqj(1)*raj(1)) ! |grad(a)|
+        affx1(ij)=-Fj(1)*inv_jaco/Bj(1)/Bj(1)/grada
+        affx2(ij)=metric(3)*metric(1)*(-gYaj(1))/Bj(1)/Bj(1)/grada
+        affx1(ij)=affx1(ij)*abs(csc0)/Te_grid(i)  ! note Te_grid(i)=Te/E_00, i.e, the same unit as Ti
+        affx2(ij)=affx2(ij)*abs(csc0)/Te_grid(i)
+
 !        dtheta_dx=1.0/(r*(1.0+r*cos(tdum)))
 
 !        dtheta_dx=1.0/sqrt(metric(3)*Bj(1)**2/gFaj(1)**2-inv_jaco**2) 
@@ -1639,6 +1654,9 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
      dRdt(igrid(i)+mtheta(i))=dRdt(igrid(i))  !(:,igrid(i)) is missing in last do-loop
      dZda(igrid(i)+mtheta(i))=dZda(igrid(i))  !(:,igrid(i)) is missing in last do-loop
      dZdt(igrid(i)+mtheta(i))=dZdt(igrid(i))  !(:,igrid(i)) is missing in last do-loop
+
+     affx1(igrid(i)+mtheta(i))=affx1(igrid(i))  !(:,igrid(i)) is missing in last do-loop
+     affx2(igrid(i)+mtheta(i))=affx2(igrid(i))  !(:,igrid(i)) is missing in last do-loop
   enddo
 
 !  for zero gyroradius limit, set tgyro,pgyro=0 !wx
@@ -1799,7 +1817,7 @@ if(mype==0) write(0,*) 'density_bin=', dnty_on_bin_g(i), sn0_g(i)
 ! need a separate directory with ZF data copied 
 !  i=21616    ! number of lines in ZF data files
 !  i=7203    ! number of lines in ZF data files
-!  i=10228    ! number of lines in ZF data files
+!  i=11628    ! number of lines in ZF data files
 !  call get_ZF_shear(i)
 !  call mpi_finalize(ierror)
 !  STOP
@@ -2207,6 +2225,28 @@ end if
 
   w2_ion0=1.0_wp
   w2_eon0=1.0_wp
+
+
+!!!!!! added Feb. 2024 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! 
+    do i=0,mpsi
+       if(psi_grid(i) > rc_left) then 
+          jc_left=i
+          go to 121
+       end if
+    enddo
+
+121 do i=0,mpsi
+       if(psi_grid(i) > rc_right) then
+          jc_right=i
+          go to 131
+       end if
+    enddo
+
+131 if(mype==0) then
+       print*, 'jc_left=',jc_left, 'rc_left=', rc_left, 'jc_right=', jc_right, 'rc_right=', rc_right
+       print*, 'psi(jc_left)=',psi_grid(jc_left), 'psi(jc_right)=', psi_grid(jc_right)
+    endif
 
 
 end subroutine setup

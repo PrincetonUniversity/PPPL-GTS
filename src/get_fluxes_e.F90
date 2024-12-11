@@ -2,6 +2,7 @@ subroutine get_fluxes_e(wpi,da)
   use precision
   use mpi_defs
   use global_parameters
+  use particle_decomp
   use particle_array
   use field_array
   use diagnosis_array
@@ -10,12 +11,13 @@ subroutine get_fluxes_e(wpi,da)
   implicit none
 
   real(wp)  wpi(3,me), da(me)
-  integer   m, i, j, k, kc, j1, j2, m1, m2, l1, l2, mc, k1, k2,ierr
+  integer   m, i, j, k, kc, j1, j2, m1, m2, l1, l2, mc, k1, k2,ierr, ij
   real(wp)  adot,thedot,cosx,sinx,aj,da_table,yy,part,f_rho
   real(wp)  my_eon,total_eon
 
   real(wp), dimension((nn-2),nbin_a) :: ONE_me,TOTAL_pe
   real(wp), dimension(10,0:mpsi) :: ONE_me_g,TOTAL_pe_g
+  real(wp), dimension(0:mpsi) :: adum_16, aflux, aEflux
 
 ! add for diagnosis of distribution functions
   real(wp), dimension(7,nprobe,-nv:nv,0:nv) :: df, df_tot
@@ -51,6 +53,26 @@ subroutine get_fluxes_e(wpi,da)
      df_tot=0.0_wp
      df_heat=0.0_wp
      my_eon=0.0_wp
+
+
+     !  added to calculation particle and energy flux of adiabatic electrons  April 2020
+              adum_16=0.0_wp
+              !$omp parallel private(i,j,ij) reduction(+:adum_16)
+              !$omp do
+              do i=0,mpsi
+                 do j=1,mtheta(i)
+                    ij=igrid(i)+j
+                    adum_16(i)=adum_16(i)+dtemper(ij)*(affx1(ij)*evector(2,1,ij) + affx2(ij)*evector(3,1,ij))*phi(1,ij)
+                 enddo
+              enddo
+              !$omp end parallel
+
+              aflux=0.0_wp
+              call MPI_ALLREDUCE(adum_16,aflux,mpsi+1,mpi_Rsize, MPI_SUM,toroidal_comm,ierr)
+              aflux=aflux/jaco_sum       ! = <particle flux due to adiabatic electrons>
+              aflux=aflux*den_grid*uveloci*1.0e4_wp       ! adiabatic electron particle flux in units 1/m^2.s 
+              aEflux=3.0_wp/2.0_wp*aflux*Te_grid*E_00*1.0e-7_wp  ! adiabatic electron energy flux in J/m^2.s
+
 
 !!     call esigetb(zeon0(1,:),zeon0(2,:),me)   ! get B
 !     call esigetb(zeon0,me)   ! get B
@@ -452,11 +474,15 @@ subroutine get_fluxes_e(wpi,da)
 ! 175 --> fort.195F = electron m-flux with full drift 
      write(186,802) istep, (TOTAL_pe_g(6,i),i=0,mpsi)
      call flush(186)
+     write(1866,802) istep, (aflux(i),i=0,mpsi)   ! adiabatic electron particle flux
+     call flush(1866)
      write(176,802) istep, (TOTAL_pe_g(7,i),i=0,mpsi)
      call flush(176)
 
      write(187,802) istep, (TOTAL_pe_g(8,i),i=0,mpsi)
      call flush(187)
+     write(1877,802) istep, (aEflux(i),i=0,mpsi)
+     call flush(1877)
      write(177,802) istep, (TOTAL_pe_g(9,i),i=0,mpsi)
      call flush(177)
 
@@ -490,12 +516,12 @@ subroutine get_fluxes_e(wpi,da)
     end if
 
 
-800 format(1x,i6,1x,20(d13.6,1x))
-801 format(1x,i6, 21(1x,d13.6))
-802 format(1x,i6, 503(1x,d13.6)) ! for maxium mpsi=500
-! 802 format(1x,i6, 10(1x,d13.6)) ! for maxium mpsi=500
-400 format(1x,i6, 600(1x,d13.6))
-! 400 format(1x,i6, 10(1x,d13.6))
+800 format(1x,i6,1x,20(E13.6,1x))
+801 format(1x,i6, 21(1x,E13.6))
+802 format(1x,i6, 503(1x,E13.6)) ! for maxium mpsi=500
+! 802 format(1x,i6, 10(1x,E13.6)) ! for maxium mpsi=500
+400 format(1x,i6, 600(1x,E13.6))
+! 400 format(1x,i6, 10(1x,E13.6))
 
 end subroutine get_fluxes_e
 
