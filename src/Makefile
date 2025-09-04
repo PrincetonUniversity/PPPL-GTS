@@ -74,7 +74,7 @@ ifeq ($(OPENMP), y)
 OBJ:=$(OBJ) hypresolve.o
 endif
 
-all : libcm libfem $(CMD)
+all : libcm libfem libquadpack $(CMD)
 
 $(CMD): $(OBJ)
 	$(LOADER) $(OBJ) $(OPT) $(LIB) -o $@
@@ -85,6 +85,9 @@ libcm:
 	#finite element and mesh generator
 libfem: module.o
 	(cd $(VPATH)/fem; $(MAKE) FC=$(F90) FFLAGS="$(OPT)" CC=$(CC) CFLAGS="$(COPT)" DEBUG="$(GOPT)"; cd ..)
+
+libquadpack:
+	(cd $(VPATH)/quadpack; $(MAKE) FC=$(F77) FFLAGS="$(OPT)" ; cd ..)
 
 $(OB): module.o
 

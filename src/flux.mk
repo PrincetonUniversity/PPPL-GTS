@@ -34,17 +34,23 @@ OMPFLAG:=-qopenmp
 NOOMPFLAG:=
 ###LOCAL_LIB:=-L$(LIB_DIR) -lsprng -lpspline -lezcdf -lnetcdf
 LOCAL_LIB:=-L${SPRNG_LIB} -lsprng -L${PSPLINE_LIB} -lpspline -L$(NETCDF_C_HOME)/lib64/ -lnetcdf -L$(NETCDF_F_HOME)/lib/ -lnetcdff
+
 ifeq ($(DEBUG),y)
 else
 	PETSC_WITH_EXTERNAL_LIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/p/swim/jchen/PETSC/petsc.20231214/real-spark-gts/lib -L/p/swim/jchen/PETSC/petsc.20231214/real-spark-gts/lib -Wl,-rpath,/opt/pppl/intel/2023.2.0/mkl/2023.2.0/lib/intel64 -L/opt/pppl/intel/2023.2.0/mkl/2023.2.0/lib/intel64 -L/opt/pppl/pkgs-spack/linux-rocky9-zen3/intel-2023.2.0/openmpi-4.1.5-u5n2mrzof35eduxvqlsilu2akf43ewup/lib -L/opt/pppl/pkgs-spack/linux-rocky9-zen3/gcc-11.3.1/hwloc-2.9.1-tfqm6yyezgbdjtpzlcsmpkcew2omhyok/lib -L/opt/pppl/pkgs-spack/linux-rocky9-zen3/gcc-11.3.1/libevent-2.1.12-mbhu3djdevlnislas2gssh5uy4obbuki/lib -L/opt/pppl/pkgs-spack/linux-rocky9-zen3/intel-2023.2.0/pmix-5.0.1-5pfyaosw4gg7t3avbartnn55yi2yhwru/lib -L/opt/pppl/pkgs-spack/linux-rocky9-zen3/gcc-13.2.0/slurm-23-02-5-1-rjtbt7npfgbrtdjr4b2qnd3gfrospvcn/lib -L/opt/pppl/intel/2023.2.0/ipp/2021.9.0/lib/intel64 -L/opt/pppl/intel/2023.2.0/ippcp/2021.8.0/lib/intel64 -L/opt/pppl/intel/2023.2.0/dnnl/2023.2.0/cpu_dpcpp_gpu_dpcpp/lib -L/opt/pppl/intel/2023.2.0/dal/2023.2.0/lib/intel64 -L/opt/pppl/intel/2023.2.0/ccl/2021.10.0/lib/cpu_gpu_dpcpp -L/opt/pppl/intel/2023.2.0/compiler/2023.2.0/linux/lib -L/opt/pppl/intel/2023.2.0/tbb/2021.10.0/lib/intel64/gcc4.8 -L/opt/pppl/intel/2023.2.0/compiler/2023.2.0/linux/compiler/lib/intel64_lin -L/usr/lib/gcc/x86_64-redhat-linux/11 -Wl,-rpath,/opt/pppl/intel/2023.2.0/compiler/2023.2.0/linux/compiler/lib/intel64_lin -Wl,-rpath,/opt/pppl/pkgs-spack/linux-rocky9-zen3/intel-2023.2.0/openmpi-4.1.5-u5n2mrzof35eduxvqlsilu2akf43ewup/lib -Wl,-rpath,/opt/pppl/pkgs-spack/linux-rocky9-zen3/gcc-11.3.1/hwloc-2.9.1-tfqm6yyezgbdjtpzlcsmpkcew2omhyok/lib -Wl,-rpath,/opt/pppl/pkgs-spack/linux-rocky9-zen3/gcc-11.3.1/libevent-2.1.12-mbhu3djdevlnislas2gssh5uy4obbuki/lib -Wl,-rpath,/opt/pppl/pkgs-spack/linux-rocky9-zen3/intel-2023.2.0/pmix-5.0.1-5pfyaosw4gg7t3avbartnn55yi2yhwru/lib -Wl,-rpath,/opt/pppl/pkgs-spack/linux-rocky9-zen3/gcc-13.2.0/slurm-23-02-5-1-rjtbt7npfgbrtdjr4b2qnd3gfrospvcn/lib -lpetsc -lHYPRE -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5 -lgmp -lX11 -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lifport -lifcoremt_pic -limf -lsvml -lm -lipgo -lirc -lpthread -lgcc_s -lirc_s -ldl -lmpi_cxx -lmpi -limf -lsvml -lirng -lstdc++ -lm -lipgo -ldecimal -lcilkrts -lgcc_s -lirc -lirc_s -ldl -lquadmath -lmpi_cxx -lmpi -limf -lsvml -lirng -lstdc++ -lm -lipgo -ldecimal -lcilkrts -lgcc_s -lirc -lirc_s -ldl
+	PETSC_FC_INCLUDES = -I/p/swim/jchen/PETSC/petsc.20231214/include -I/p/swim/jchen/PETSC/petsc.20231214/real-spark-gts/include
 endif
-PETSC_FC_INCLUDES = -I/p/swim/jchen/PETSC/petsc.20231214/include -I/p/swim/jchen/PETSC/petsc.20231214/real-spark-gts/include
 
-FFTLIB:=
-NAG_FILES:=fake_nag.o nag.o
-NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib
-NAG_REPLACEMENT:=libcm
-FEM:=-L$(VPATH)/fem/$(OBJDIR) -lfemlib
+   FFTLIB:=
+   ifeq ($(NAG),y)   # Use nag libraries
+	NAG_FILES:=fake_nag.o nag.o
+	NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib
+   else   # Use nag replacement
+	NAG_FILES:=fake_nag.o
+	NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib -L$(VPATH)/quadpack -lquadpack
+   endif
+   FEM:=-L$(VPATH)/fem/$(OBJDIR) -lfemlib
+
 CFLAGS:=$(CFLAGS) -DAdd_ -I${PSPLINE_INC} $(SPRNG_INC) $(PETSC_FC_INCLUDES)
 FFLAGS:=$(FFLAGS) -I${PSPLINE_INC} -I${SPRNG_INC} -I${PSPLINE_MOD} -I${SPRNG_MOD} $(PETSC_FC_INCLUDES)
 

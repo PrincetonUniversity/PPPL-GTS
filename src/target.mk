@@ -29,6 +29,7 @@ clean:
 	rm -rf $(OBJDIR)
 	(cd cmlib; $(MAKE) clean ; cd ..)
 	(cd fem; $(MAKE) clean ; cd ..)
+	(cd quadpack; $(MAKE) clean ; cd ..)
 
 # gmake cleangts to clean GTS code
 .PHONY: cleangts
@@ -40,7 +41,10 @@ cleangts:
 cleancmlib:
 	(cd cmlib; $(MAKE) clean ; cd ..)
 
-# gmake cleancmlib to clean fem directory
 .PHONY: cleanfem
 cleanfem:
 	(cd fem; $(MAKE) clean ; cd ..)
+
+.PHONY: cleanquadpack
+cleanquadpack:
+	(cd quadpack; $(MAKE) clean ; cd ..)

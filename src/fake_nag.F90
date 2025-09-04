@@ -333,6 +333,93 @@
 
       return
       end
+
+!************************************************************************
+!*     D01AHF simulate NAG'S D01AHF 
+!*     20250902
+!************************************************************************
+
+      real FUNCTION D01AHF(A,B,EPR,NPTS,RELERR,F,NL,IFAIL)
+
+!     INPUT ARGUMENTS
+!     ----- ----------
+!     A,B     -  LOWER AND UPPER INTEGRATION LIMITS.
+!     EPR     -  REQUIRED RELATIVE ACCURACY.
+!     NL      -  APPROXIMATE LIMIT ON NUMBER OF INTEGRAND EVALUATIONS.
+!                IF SET NEGATIVE OR ZERO THE DEFAULT IS 10000.
+!     F       -  THE USER NAMED AND PREPARED FUNCTION  F(X)
+!                GIVES THE VALUE OF THE INTEGRAND AT X.
+!     IFAIL      INTEGER VARIABLE
+!             - 0  FOR HARD FAIL REPORT
+!             - 1  FOR SOFT FAIL REPORT
+!
+!     OUTPUT ARGUMENTS
+!     ------ ----------
+!     NPTS    -  NUMBER OF INTEGRAND EVALUATIONS USED IN OBTAINING THE RESULT.
+!     RELERR  -  ROUGH ESTIMATE OF RELATIVE ACCURACY ACHIEVED.
+!     IFAIL   -  VALUE INDICATES THE OUTCOME OF THE INTEGRATION -
+!                IFAIL  = 0  CONVERGED
+!                IFAIL  = 1  INTEGRAND EVALUATIONS EXCEEDED  NL.
+!                            THE RESULT WAS OBTAINED BY CONTINUING
+!                            BUT IGNORING ANY NEED TO SUBDIVIDE.
+!                            RESULT LIKELY TO BE INACCURATE.
+!                IFAIL  = 2  DURING THE SUBDIVISION PROCESS, THE STACK BECAME FULL
+!                            (PRESENTLY SET TO HOLD 20 LEVELS OF INFORMATION.  
+!                            MAY BE INCREASED BY  ALTERING  ISMAX
+!                            AND THE DIMENSIONS OF STACK AND ISTACK).
+!                            RESULT IS OBTAINED BY CONTINUING BUT IGNORING CONVERGENCE
+!                            FAILURES ON INTERVALS WHICH CANNOT BE ACCOMMODATED ON THE STACKS.
+!                            RESULT LIKELY TO BE INACCURATE.
+!                IFAIL  = 3  INVALID ACCURACY REQUEST.
+!
+!     .. Parameters ..
+      CHARACTER*7                      SRNAME
+      PARAMETER                        (SRNAME='D01AHF')
+
+!     .. Scalar Arguments ..
+      DOUBLE PRECISION                 A, B, EPR, RELERR
+      INTEGER                          IFAIL, NL, NPTS
+!     .. Function Arguments ..
+      DOUBLE PRECISION                 F
+      EXTERNAL                         F
+
+!     Prepare to call dqag
+
+      double precision epsabs,epsrel,qresult,abserr
+      integer key,neval,ier,limit,lenw,last
+      integer,dimension(:),allocatable :: iwork
+      double precision,dimension(:),allocatable :: work
+
+      interface
+              subroutine dqag(f,a,b,epsabs,epsrel,key,result,abserr,neval,ier, limit,lenw,last,iwork,work)
+                      double precision a,abserr,b,epsabs,epsrel,f,result,work
+                      integer ier,iwork,key,last,lenw,limit,lvl,l1,l2,l3,neval
+                      dimension iwork(limit),work(lenw)
+                      external f
+                      end subroutine dqag
+      end interface
+
+      epsrel=EPR
+      epsabs=epsrel*1.d-5
+      key=6
+      limit=100
+      lenw=4*limit
+      allocate(iwork(limit))
+      allocate(work(lenw))
+
+      call dqag(F,A,B,epsabs,epsrel,key,qresult,abserr,neval,ier,limit,lenw,last,iwork,work)
+
+      RELERR=abserr
+      IFAIL=ier
+      NPTS=neval
+      deallocate(iwork)
+      deallocate(work)
+
+      D01AHF = qresult
+      RETURN
+      END
+
+
 !     =====================================================
 !     S15AEF returns the value of the error function erf(x)
 !     
@@ -375,4 +462,5 @@
       s14aef = 0.0
       return
       end
+
 
