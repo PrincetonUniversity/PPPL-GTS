@@ -51,15 +51,19 @@ ifeq ($(DEBUG),y)
 else
    #PETSC_FLIB:=-L${PETSC_DIR}/${PETSC_ARCH}/lib -lpetsc -lHYPRE -lX11 -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core
    PETSC_FLIB = -L${PETSC_DIR}/${PETSC_ARCH}/lib -Wl,-rpath,/home/jinchen/LIB/PETSC/lib -L/home/jinchen/LIB/PETSC/lib -L/usr/local/openmpi/4.1.0/intel20211/lib64 -L/usr/local/hdf5/intel-2021.1/openmpi-4.1.0/1.10.6/lib64 -L/usr/local/fftw/intel-2021.1/openmpi-4.1.0/3.3.9/lib64 -L/opt/intel/oneapi/mkl/2021.1.1/lib/intel64 -L/opt/intel/oneapi/tbb/2021.1.1/lib/intel64/gcc4.8 -L/opt/intel/oneapi/compiler/2021.1.2/linux/lib -L/opt/intel/oneapi/compiler/2021.1.2/linux/compiler/lib/intel64_lin -L/usr/lib/gcc/x86_64-redhat-linux/8 -Wl,-rpath,/usr/local/openmpi/4.1.0/intel20211/lib64 -lpetsc -lHYPRE -lcmumps -ldmumps -lsmumps -lzmumps -lmumps_common -lpord -lscalapack -lsuperlu -lsuperlu_dist -lflapack -lfblas -lparmetis -lmetis -lstdc++ -ldl -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lifport -lifcoremt -limf -lsvml -lm -lipgo -lirc -lpthread -lgcc_s -lirc_s -lquadmath -lstdc++ -ldl
-
+   PETSC_INC:=-I${PETSC_DIR}/include -I${PETSC_DIR}/${PETSC_ARCH}/include #-I/usr/local/openmpi/3.0.0/intel180/x86_64/include
 endif
-PETSC_INC:=-I${PETSC_DIR}/include -I${PETSC_DIR}/${PETSC_ARCH}/include #-I/usr/local/openmpi/3.0.0/intel180/x86_64/include
 
-FFTLIB:=
-NAG_FILES:=fake_nag.o nag.o
-NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib
-NAG_REPLACEMENT:=libcm
-FEM:=-L$(VPATH)/fem/$(OBJDIR) -lfemlib
+   FFTLIB:=
+   ifeq ($(NAG),y)   # Use nag libraries
+	NAG_FILES:=fake_nag.o nag.o
+	NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib
+   else   # Use nag replacement
+	NAG_FILES:=fake_nag.o
+	NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib -L$(VPATH)/quadpack -lquadpack
+   endif
+   FEM:=-L$(VPATH)/fem/$(OBJDIR) -lfemlib
+
 CFLAGS:=$(CFLAGS) -DAdd_ -I${PSPLINE_INC} $(SPRNG_INC) $(PETSC_INC)
 FFLAGS:=$(FFLAGS) -I${PSPLINE_INC} -I${SPRNG_INC} -I${PSPLINE_MOD} -I${SPRNG_MOD} $(PETSC_INC)
 
