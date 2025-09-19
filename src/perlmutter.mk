@@ -35,10 +35,15 @@ ifeq ($(F90),ftn)
        endif
 
    FFTLIB:=
-   NAG_FILES:=fake_nag.o nag.o
-   NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib
-   NAG_REPLACEMENT:=libcm
+   ifeq ($(NAG),y)   # Use nag libraries
+	NAG_FILES:=fake_nag.o nag.o
+	NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib
+   else   # Use nag replacement
+	NAG_FILES:=fake_nag.o
+	NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib -L$(VPATH)/quadpack -lquadpack
+   endif
    FEM:=-L$(VPATH)/fem/$(OBJDIR) -lfemlib
+
    CC:=cc
    CFLAGS:=$(CFLAGS) -DAdd_ ${SPRNG_INC} $(PETSC_FINC)
    FFLAGS:=$(FFLAGS) $(SPRNG_INC) $(NETCDF) $(PSPLINE_INC) $(PETSC_FINC) $(HDF5)
