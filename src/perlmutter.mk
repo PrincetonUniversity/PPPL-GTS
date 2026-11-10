@@ -37,10 +37,10 @@ ifeq ($(F90),ftn)
    FFTLIB:=
    ifeq ($(NAG),y)   # Use nag libraries
 	NAG_FILES:=fake_nag.o nag.o
-	NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib
+	override NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib
    else   # Use nag replacement
 	NAG_FILES:=fake_nag.o
-	NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib -L$(VPATH)/quadpack -lquadpack
+	override NAG:=-L$(VPATH)/cmlib/$(OBJDIR) -lcmlib -L$(VPATH)/quadpack -lquadpack
    endif
    FEM:=-L$(VPATH)/fem/$(OBJDIR) -lfemlib
 

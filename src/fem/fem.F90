@@ -124,7 +124,7 @@ end subroutine delete_fem_data_private
 !========================================================================    
 subroutine tri_mesh( this )
   use precision 
-  use global_parameters,only: mpsi,mype,mtheta,zetamin,deltaz,deltat,R_0,pi,numberpe
+  use global_parameters,only: mpsi,mype,mtheta,zetamin,deltaz,deltat,R_0,pi
   use field_array,only: psi_grid,qtinv,q_grid
   !  use petsc_array
   use fem_data_class 
@@ -195,7 +195,7 @@ subroutine tri_mesh( this )
 
   ! extract 2nd order node coordinate
   if (this%order .eq. 2) then
-     if(mype==min(1,numberpe)) write(*,*) '	order and global nodes=',this%order, this%nmesh_pts, ngvert
+     if(mype==1) write(*,*) '	order and global nodes=',this%order, this%nmesh_pts, ngvert
      allocate( gvert(5,ngvert) )
 !    allocate( tmp(2,ngvert) )
 !     do ie=1,this%iemax

@@ -36,7 +36,7 @@ module phit_matrix_class
   public :: add_gk_value,new_phit_matrix
 contains
   !========================================================================
-  !                       subroutine new_phit_matrix  
+  !                       subroutine new_phit_matrix
   !========================================================================
   subroutine new_phit_matrix( this, mat, mindex, mat_type )
     use precision,only:wp,doubleprec
@@ -46,8 +46,7 @@ contains
     type(phit_matrix_data) :: this
     Mat mat
     !integer,dimension(0:) :: mtheta
-    integer  mat_type
-PetscInt  mindex
+    integer mindex, mat_type
     ! locals
     integer i, j, ierr, it, id
     !real(doubleprec) val
@@ -79,7 +78,7 @@ PetscInt  mindex
              if(ZF_SEPARATION==1) then
                 if( i==0 ) this%gk_matid(it) = -1         ! Dirichlet boundary condiction at inner boundary: phi(i=0)=0
                 !   if( i==mpsi ) this%gk_matid(it) = -1         ! Dirichlet boundary condiction at outer boundary: phi(i=mpsi)=0
-             else ! ZF_SEPARATION==0                
+             else ! ZF_SEPARATION==0
                 if(ifelectron==0)  then ! adiabatic electrons
                    ! NOTE: any combination of following BCs produces a spike at the boundary for ad-electron case
                    ! if( i==0 ) this%gk_matid(it) = -1
@@ -104,9 +103,9 @@ PetscInt  mindex
 
   end subroutine new_phit_matrix
 
-  
+
   !========================================================================
-  !           subroutine delete_phit_matrix  
+  !           subroutine delete_phit_matrix
   !========================================================================
   subroutine delete_phit_matrix( this )
     implicit none
@@ -126,36 +125,33 @@ PetscInt  mindex
     implicit none
     type(phit_matrix_data) :: this
     integer :: ij, ij0
-    real(wp) rs 
+    real(wp) rs
     !
-    integer nt
-    PetscErrorCode  ierr
-    PetscInt ii, jj
+    integer nt, ierr, ii, jj
     PetscScalar val, zero
-    PetscScalar :: ione=1
 
     ! insignificant point replaced by the original grid point !!!
     val = rs
     zero = 0.d0
     ii = this%gk_matid(ij0)
     jj = this%gk_matid(ij)
-    if( ii >= 0 .and. jj >= 0 ) then ! BCs      
+    if( ii >= 0 .and. jj >= 0 ) then ! BCs
        if( mod(ii,nproc_partd) .eq. myrank_partd ) then
           if(val<0.00001)then
           !           if(val<1.0d-9)then
-             call MatSetValue(this%data,ii,ii,val,ADD_VALUES,ierr)
+             call MatSetValues(this%data,1,ii,1,ii,val,ADD_VALUES,ierr)
              if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
              !ring(1,ij0,k)= this%ring(1,ij0,k)+rr
           else
-             call MatSetValue(this%data,ii,jj,val,ADD_VALUES,ierr)
+             call MatSetValues(this%data,1,ii,1,jj,val,ADD_VALUES,ierr)
              if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
              ! symmmetrize for partitioning
-             call MatSetValue(this%data,jj,ii,zero,ADD_VALUES,ierr)
+             call MatSetValues(this%data,1,jj,1,ii,zero,ADD_VALUES,ierr)
              if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
           end if
        end if
     end if
- 
+
   end subroutine add_gk_value
 
 end module phit_matrix_class
@@ -175,7 +171,7 @@ module solver_data_type
      VecScatter scat
      IS petsc_gts_is
      type(phit_matrix_data) :: mat
-     Mat rhs_mat     
+     Mat rhs_mat
 
      type(fem_data) :: fem
 
@@ -203,13 +199,13 @@ contains
   !========================================================================
   subroutine nullify_solver( this )
     implicit none
-    type(solver_data) :: this    
+    type(solver_data) :: this
     !
     this%mat%data = PETSC_NULL_MAT !0 !PETSC_NULL_OBJECT
     this%mat%mdata = PETSC_NULL_MAT !0 !PETSC_NULL_OBJECT
     this%mat%rdata = PETSC_NULL_MAT !0 !PETSC_NULL_OBJECT
     this%mat%zdata = PETSC_NULL_MAT !0 !PETSC_NULL_OBJECT
-    this%ksp = PETSC_NULL_KSP !0 !PETSC_NULL_OBJECT      
+    this%ksp = PETSC_NULL_KSP !0 !PETSC_NULL_OBJECT
     this%scat = PETSC_NULL_VECSCATTER !0 !PETSC_NULL_OBJECT
     this%xVec = PETSC_NULL_VEC !0 !PETSC_NULL_OBJECT
     this%bVec = PETSC_NULL_VEC !0 !PETSC_NULL_OBJECT
@@ -218,19 +214,19 @@ contains
   end subroutine nullify_solver
     !========================================================================
   !             subroutine solver_init
-  !              - partition matrix    
+  !              - partition matrix
   !              - create solver objects
   !========================================================================
   subroutine petsc_init()
     implicit none
     integer ierror
-    
+
     call PetscInitialize('./PETSc_input',ierror)
-    
+
   end subroutine petsc_init
   !========================================================================
   !             subroutine solver_init
-  !              - partition matrix    
+  !              - partition matrix
   !              - create solver objects
   !========================================================================
   subroutine solver_init( this, prefix, Amat, neq, ierr )
@@ -241,7 +237,7 @@ contains
     type(solver_data) :: this
     character,intent(in) :: prefix*(*)
     Mat :: Amat
-    PetscInt :: neq
+    integer,intent(in) :: neq
     integer,intent(out) :: ierr
     IS               mis,isn,id_is,gts_petsc_is
     PetscInt         cnt(4096)
@@ -251,14 +247,12 @@ contains
     PC               prec
     Vec              vec, oneVec, rhsVec
     real(doubleprec):: tol,value(17),zeros(17), norm
-    integer          i,flg,j,col(17),inz
-    PetscInt         n_loc,start,kk
+    integer          i,flg,j,col(17),inz,n_loc,start,kk
     PetscViewer viewer
     MatPartitioning  mpart
     MatNullSpace  nullsp;
     PetscBool  isNull;
     MPI_Comm  comm;
-    PetscInt  ::     ione=1, izero=0;
 
     call nullify_solver( this )
 
@@ -271,7 +265,7 @@ contains
        call PetscViewerDestroy(viewer,ierr)
        write(*,*) " ---> debug matsum on mype", mype, nproc_partd
     endif
-    ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if( this%petsc_gts_is .eq. PETSC_NULL_IS ) then
        npartitions = nproc_partd
        call MatPartitioningCreate( partd_comm, mpart, ierr )
@@ -290,10 +284,10 @@ contains
        call ISPartitioningCount( mis, npartitions, cnt, ierr )
        if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
        call ISDestroy(mis,ierr)
-       if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )         
+       if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
        ! side effect
        call ISInvertPermutation(gts_petsc_is,cnt(myrank_partd+1),this%petsc_gts_is,ierr )
-       if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )         
+       if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
 
        call ISSort( this%petsc_gts_is, ierr )
        if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
@@ -305,7 +299,7 @@ contains
     endif
 
     call ISAllGather( this%petsc_gts_is, isn, ierr )
-    
+
 !cj call MatGetSubMatrix(Amat,this%petsc_gts_is,isn,PETSC_DECIDE,MAT_INITIAL_MATRIX,Bmat,ierr)
 !   call MatGetSubMatrix(Amat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,Bmat,ierr)
     call MatCreateSubMatrix(Amat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,Bmat,ierr)
@@ -321,20 +315,20 @@ contains
        call MatGetOwnershipRange( Amat, start, kk, ierr )
        if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
        n_loc = kk - start
-       
+
        call VecCreateMPI( partd_comm, n_loc, neq, this%xVec, ierr )
        call VecSetFromOptions( this%xVec, ierr )
        call VecDuplicate( this%xVec, this%bVec, ierr )
-       
-       call ISCreateStride(MPI_COMM_SELF,n_loc,start,ione,id_is,ierr)
+
+       call ISCreateStride(MPI_COMM_SELF,n_loc,start,1,id_is,ierr)
        if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
        !     scatter object
        call VecCreateSeq( MPI_COMM_SELF, neq, vec, ierr )
        if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
-       ! side effect 
+       ! side effect
        call VecScatterCreate(vec,this%petsc_gts_is,this%bVec,id_is,this%scat,ierr)
        if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
-       
+
        call ISDestroy( id_is, ierr )
        if(ierr .ne. 0) call MPI_ABORT( mpi_comm_world, 1, ierr )
        call VecDestroy( vec, ierr )
@@ -342,7 +336,7 @@ contains
     else
        stop 'SKIPPING vector allocation!!!'
     endif
-    
+
     ! debug
     if( mype/nproc_partd .eq. -2 ) then
        call PetscViewerBinaryOpen(partd_comm, 'A.m',FILE_MODE_WRITE,viewer,ierr)
@@ -377,7 +371,7 @@ contains
 
        call PetscObjectGetComm(Amat,comm,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-       call MatNullSpaceCreate(partd_comm, PETSC_TRUE, izero, PETSC_NULL_VEC, nullsp, ierr);
+       call MatNullSpaceCreate(partd_comm, PETSC_TRUE, 0, PETSC_NULL_VEC, nullsp, ierr);
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
        call MatNullSpaceTest(nullsp, Amat, isNull,ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
@@ -400,14 +394,14 @@ contains
        call VecDestroy( rhsVec, ierr )
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
-        
+
     call KSPSetOptionsPrefix( ksp, prefix, ierr )
     call KSPSetFromOptions( ksp, ierr )
 
     if( mype / nproc_partd .ne. 0 ) then
        call KSPMonitorCancel( ksp, ierr )
        !call KSPClearMonitor( ksp, ierr )
-    endif    
+    endif
 
     if(this%mat%data .ne. PETSC_NULL_MAT) call MPI_ABORT(mpi_comm_world,1,ierr)
     this%mat%data = Amat
@@ -422,48 +416,48 @@ contains
     implicit none
     type(solver_data) :: this
     integer ierr
-    
+
     !  if( this%bVec .ne. 0 ) then
     call VecDestroy(this%xVec,ierr)
-    
+
     !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     call VecDestroy(this%bVec,ierr)
     !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    
+
     call VecScatterDestroy( this%scat, ierr )
     !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
-    
+
     call ISDestroy( this%petsc_gts_is, ierr )
     !  endif
-    
+
     if( this%mat%data /= PETSC_NULL_MAT ) then
        call MatDestroy( this%mat%data,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
-    
+
     if( this%mat%mdata /= PETSC_NULL_MAT ) then
        call MatDestroy( this%mat%mdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
-    
+
     if( this%mat%rdata /= PETSC_NULL_MAT ) then
        call MatDestroy( this%mat%rdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
-    
+
     if( this%mat%zdata /= PETSC_NULL_MAT ) then
        call MatDestroy( this%mat%zdata,ierr)
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
-    
+
     if( this%rhs_mat /= PETSC_NULL_MAT ) then
        call MatDestroy( this%rhs_mat, ierr )
        !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     endif
-    
+
     !  if( this%ksp .ne. 0 ) then
     call KSPDestroy(this%ksp,ierr)
-    !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)            
+    !     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     !  endif
     !
     if(this%order .ge. 1) then
@@ -473,7 +467,7 @@ contains
     endif
 
   end subroutine destroy_solver
-  
+
   !========================================================================
   !              subroutine new_gk_solver
   !========================================================================
@@ -490,31 +484,27 @@ contains
     real(wp), external :: SMOOTHSTEP
     real(wp) instep,outstep
     ! locals
-    integer ib,sz,j,i
-    PetscInt iv
-    PetscInt :: ione=1
+    integer iv,ib,sz,j,i
     type(phit_matrix_data) :: m
     Mat Amat
-    integer ierr,mring
-    PetscInt mindex
-    PetscInt neq
+    integer ierr,neq,mindex,mring
     PetscScalar a
     ! init PETSc here, need to fix for multiple solvers!!!
-    !call PetscInitialize('./.petscrc',ierr) 
+    !call PetscInitialize('./.petscrc',ierr)
     !if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     ! create matrix
     mring=2
     ! mindex=32*mring+1 ! estimate for matrix size
     mindex=64*mring+1 ! estimate for matrix size
     ! mindex=mtheta(mpsi)+64*mring+1 ! estimate for matrix size
-    neq = sum( mtheta )    
+    neq = sum( mtheta )
     !  write(0,*)mype,' mring=',mring,' mindex=',mindex,' neq=',neq
 
-    ! 
+    !
     !call MatCreateMPIAIJ(partd_comm,PETSC_DECIDE,PETSC_DECIDE,neq,neq,mindex,
     !   PETSC_NULL_INTEGER,mindex,PETSC_NULL_INTEGER,Amat,ierr)
     call MatCreate( partd_comm, Amat, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetSizes(Amat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Amat, ierr ) ! need ti separate for SuperLU
@@ -530,7 +520,7 @@ contains
     if(mype .eq. 0) write(0,*) '[',mype,'] new_gk_solver: call integral form of PETSc operator, neq = ', neq
     call new_phit_matrix( m, Amat, mindex, mat_type )
     call delete_phit_matrix( m )
-    
+
     ! I + tite - Phi_tilda
     iv = 0
     do i=0,mpsi
@@ -544,7 +534,7 @@ contains
           elseif(ifelectron==1) then    ! full delta-f kinetic electron case
        !        a = -(0.01 + 1.d0)         ! full electron (no split)
        !        a = -(0.002 + 1.d0)         ! full electron (no split)
-       !        a = -1.d0            
+       !        a = -1.d0
 
        !    ADDED Jan., 2010
               outstep=smoothstep(rmin,rmax,psi_grid(i))
@@ -563,7 +553,7 @@ contains
 
 
 
-       !  ADDED TEST 
+       !  ADDED TEST
        !       a = -(0.01 + 1.d0)
 
 
@@ -574,14 +564,14 @@ contains
        !       a = -(0.30 + 1.d0)                   ! full electron (no split)
 
        !    ADDED TEST Jan, 2010
-       !       if(i.lt.144) then 
+       !       if(i.lt.144) then
        !          a = -(0.01 + 1.d0)         ! full electron (no split)
        !       else
        !          a = -(0.10 + 1.d0)         ! added test Jan, 2010
        !       end if
 
           elseif(ifelectron==2) then    ! delta-h adiabatic electrons (split weight)
-             a = -(tite(i) + 1.d0)   
+             a = -(tite(i) + 1.d0)
           endif
        else         ! for dphi/dt solver
 
@@ -594,12 +584,12 @@ contains
 
           a = -(gama0 + gama1*outstep + 1.d0)    ! for solving dphi/dt in double-split weight
 
-       !  ADDED TEST 
+       !  ADDED TEST
        !       a = -(0.01 + 1.d0)
        endif
        do j=1,sz
           if(mod(i,nproc_partd) .eq. myrank_partd) then
-             call MatSetValues(Amat,ione,iv,ione,iv,a,ADD_VALUES,ierr)
+             call MatSetValues(Amat,1,iv,1,iv,a,ADD_VALUES,ierr)
           endif
           iv = iv + 1
        enddo
@@ -637,13 +627,10 @@ contains
     ! locals
     real(wp) :: alpha,beta
     Mat Amat, Mmat
-    integer ierr,mring, i, j, ir, it, ib, id, ki
-    PetscInt ib2
-    PetscInt mindex
-    PetscInt neq
+    integer ierr,neq,mindex,mring, i, j, ir, it, ib, ib2, id, ki
     PetscScalar a
     PetscViewer viewer
-    PetscInt, dimension(:), allocatable :: bdy
+    integer, dimension(:), allocatable :: bdy
     Vec              vec_yy
     integer :: fe_ndof=1, ie, ind1, ind2, ind3, ind4, ind5, ind6, msize, nsize
 
@@ -656,7 +643,7 @@ contains
     if(mype==0) write(*,*) "	finite element: matrix dim neq=", sum(mtheta), neq
 
     call MatCreate( partd_comm, Amat, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetSizes(Amat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Amat, ierr ) ! need ti separate for SuperLU
@@ -667,7 +654,7 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatCreate( partd_comm, Mmat, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetSizes(Mmat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Mmat, ierr ) ! need ti separate for SuperLU
@@ -782,7 +769,7 @@ contains
 
     call solver_init( this, prefix, Amat, neq,ierr)
     if(mype==0) write(0,*) '	finite elements solver created'
-    
+
     ! finalize stiff matrix
     ! ... done in solver_init
 
@@ -829,8 +816,7 @@ contains
     real(wp) :: alpha,beta
     Mat Amat, Mmat
     Mat Rmat, Zmat
-    integer ierr,mring
-    PetscInt neq,mindex
+    integer ierr,neq,mindex,mring
 
 
     mring=2
@@ -840,7 +826,7 @@ contains
     if(mype==0) write(*,*) "	finite element: mass dim neq order=", sum(mtheta), neq, fem%order
 
     call MatCreate( partd_comm, Amat, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetSizes(Amat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Amat, ierr ) ! need ti separate for SuperLU
@@ -851,7 +837,7 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatCreate( partd_comm, Mmat, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetSizes(Mmat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Mmat, ierr ) ! need ti separate for SuperLU
@@ -862,7 +848,7 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatCreate( partd_comm, Rmat, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetSizes(Rmat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Rmat, ierr ) ! need ti separate for SuperLU
@@ -873,7 +859,7 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
 
     call MatCreate( partd_comm, Zmat, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)    
+    if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetSizes(Zmat, PETSC_DECIDE,PETSC_DECIDE, neq, neq, ierr)
     if(ierr .ne. 0) call MPI_ABORT(mpi_comm_world,1,ierr)
     call MatSetFromOptions( Zmat, ierr ) ! need ti separate for SuperLU
@@ -912,7 +898,7 @@ contains
 
     call solver_init( this, ' ', Mmat, neq,ierr)
     if(mype==0) write(0,*) '	finite element: masssolver created'
-    
+
     ! finalize rmass matrix
 !   call MatGetSubMatrix(Rmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%rdata,ierr)
     call MatCreateSubMatrix(Rmat,this%petsc_gts_is,this%petsc_gts_is,MAT_INITIAL_MATRIX,this%mat%rdata,ierr)
@@ -931,18 +917,18 @@ contains
 !         solve
 !========================================================================
   subroutine solve( solver, masssolver, nn, bb_gk, xx_gk, ierr )
-    !     solve linear system.  
+    !     solve linear system.
     !     Solver (KSP) and matrix are in linear_solve.h
-    !     
+    !
     !     input:
     !       nn: global number of equations in system
     !       bb_gk: rhs[nn]
     !       xx_gk: solution[nn]
-    !     
+    !
     !     output:
     !       bb_gk: RHS[nn]
     !     ierr: error code
-    !     
+    !
     !use global_parameters
     use precision,only:wp,doubleprec
     !   use global_parameters, only:mype,mtheta,mpsi,mgrid,ZF_SEPARATION,ifelectron,ifdphi, pade
@@ -954,7 +940,7 @@ contains
     type(solver_data) :: masssolver
     integer,intent(in) :: nn
     integer,intent(out) :: ierr
-    real(wp),intent(in) :: bb_gk(nn) 
+    real(wp),intent(in) :: bb_gk(nn)
     real(wp),intent(inout) :: xx_gk(nn)
     !   real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, hh, bh, bpade, hh_ho, bh_ho
     real(doubleprec),allocatable,dimension(:) :: xx_ho, bb_ho, hh, bh, hh_ho, bh_ho
@@ -962,7 +948,7 @@ contains
     real(wp),allocatable,dimension(:) :: gs, neuma, neumt
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
-    real(doubleprec),allocatable,dimension(:) :: xx, bb 
+    real(doubleprec),allocatable,dimension(:) :: xx, bb
     real(doubleprec),allocatable,dimension(:) :: bn,bn_ho
     integer :: count = 0, ioffset, ioffset2
 
@@ -990,7 +976,7 @@ contains
     ivsl = 0
     ivgts = 0
     ioffset = 0
-    do ir=0,mpsi 
+    do ir=0,mpsi
        itmax=mtheta(ir)
        hh_gk(ioffset+1:ioffset+itmax+1)=phip00(ir)
        ioffset = ioffset+itmax+1
@@ -1027,7 +1013,7 @@ contains
           xx(neq-mtheta(mpsi)+1:neq) = 0.
        endif
     endif
-    
+
     !cj2014.05.02 solver1 uses homogeneous Neumann BC, so don't call neumbcfix
 #ifdef CJTEST
     if( solver%order .ge. 1) then
@@ -1110,7 +1096,7 @@ contains
 !cj    do ir=0,mpsi
 !cj       itmax=mtheta(ir)
 !cj       do it=0,itmax
-!cj          ivgts = ivgts+1 
+!cj          ivgts = ivgts+1
 !cj          if(it.lt.itmax) then ! skip double stored 0,2pi value
 !cj             ivsl = ivsl + 1
 !cj             xx_gk(ivgts) = xx(ivsl)
@@ -1120,10 +1106,10 @@ contains
 !cj       enddo
 !cj    enddo
 
-    !  deallocate(bb,xx,hh,bh,bn,bpade) 
-    deallocate(bb,xx,hh,bh,bn) 
-    deallocate(gs,neuma,neumt) 
-    deallocate(hh_gk) 
+    !  deallocate(bb,xx,hh,bh,bn,bpade)
+    deallocate(bb,xx,hh,bh,bn)
+    deallocate(gs,neuma,neumt)
+    deallocate(hh_gk)
 
     ! debug
     if( count .eq. 1 .and. mype==-10 ) then
@@ -1144,18 +1130,18 @@ contains
 !         solve test phi-phitilda
 !========================================================================
   subroutine phitilda_solve( solver, nn, bb_gk, xx_gk, ierr )
-    !     solve linear system.  
+    !     solve linear system.
     !     Solver (KSP) and matrix are in linear_solve.h
-    !     
+    !
     !     input:
     !       nn: global number of equations in system
     !       bb_gk: rhs[nn]
     !       xx_gk: solution[nn]
-    !     
+    !
     !     output:
     !       bb_gk: RHS[nn]
     !     ierr: error code
-    !     
+    !
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,pi,zetamin,deltaz,deltat,R_0,a0,a1
@@ -1165,7 +1151,7 @@ contains
     type(solver_data) :: solver
     integer,intent(in) :: nn
     integer,intent(out) :: ierr
-    real(wp),intent(in) :: bb_gk(nn) 
+    real(wp),intent(in) :: bb_gk(nn)
     real(wp),intent(out) :: xx_gk(nn)
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq,ij
@@ -1192,8 +1178,8 @@ contains
     xx=0.0_wp
     ivsl = 0
     ivgts = 0
-    zeta = zetamin + deltaz ! zeta for my plane   
-    do ir=0,mpsi 
+    zeta = zetamin + deltaz ! zeta for my plane
+    do ir=0,mpsi
        itmax=mtheta(ir)
        pdum=psi_grid(ir)
        dt = deltat(ir)
@@ -1241,7 +1227,7 @@ contains
     neq = sum(mtheta)
     ivsl = 0
     ivgts = 0
-    do ir=0,mpsi 
+    do ir=0,mpsi
        itmax=mtheta(ir)
        do it=0,itmax
           ivgts = ivgts + 1
@@ -1254,7 +1240,7 @@ contains
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
-    
+
     ! solve GK Poisson equation
     call petsc_solve( solver, neq, bb, xx, bb, ierr)
 
@@ -1266,7 +1252,7 @@ contains
        pdum=psi_grid(ir)
        dt = deltat(ir)
        do it=0,itmax
-          ivgts = ivgts+1 
+          ivgts = ivgts+1
           if(it.lt.itmax) then ! skip double stored 0,2pi value
              ivsl = ivsl + 1
              xx_gk(ivgts) = xx(ivsl)
@@ -1286,7 +1272,7 @@ contains
        enddo
     enddo
 
-    deallocate(rhs,xx,bb,phi) 
+    deallocate(rhs,xx,bb,phi)
     call PetscFinalize( ierr )
     stop
 
@@ -1303,18 +1289,18 @@ contains
 !         testsolve
 !========================================================================
   subroutine testsolve( solver, masssolver )
-    !     solve linear system.  
+    !     solve linear system.
     !     Solver (KSP) and matrix are in linear_solve.h
-    !     
+    !
     !     input:
     !       nn: global number of equations in system
     !       bb_gk: rhs[nn]
     !       xx_gk: solution[nn]
-    !     
+    !
     !     output:
     !       bb_gk: RHS[nn]
     !     ierr: error code
-    !     
+    !
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
@@ -1339,8 +1325,8 @@ contains
 
     real(wp) :: M=1., L=1., alfa=0.
     real(wp) :: rms=0., eps, err, pim, rr, zz
-    PetscBool :: flg
-    PetscInt :: whichone = 5
+    logical :: flg
+    integer :: whichone = 5
     integer :: ki, fe_ndof, i0, i1, i2, i3, i4, i5
 
     real(wp) dxda, dxdt, fcj
@@ -1371,8 +1357,8 @@ contains
        allocate(x_Jgdxda(mgrid),x_Jgdxdt(mgrid))
        ivsl = 0
        ivgts = 0
-       zeta = zetamin + deltaz ! zeta for my plane   
-       do ir=0,mpsi 
+       zeta = zetamin + deltaz ! zeta for my plane
+       do ir=0,mpsi
           itmax=mtheta(ir)
           pdum=psi_grid(ir)
           dt = deltat(ir)
@@ -1421,8 +1407,8 @@ contains
     xx1=0.
     ivsl = 0
     ivgts = 0
-    zeta = zetamin + deltaz ! zeta for my plane   
-    do ir=0,mpsi 
+    zeta = zetamin + deltaz ! zeta for my plane
+    do ir=0,mpsi
        itmax=mtheta(ir)
        pdum=psi_grid(ir)
        dt = deltat(ir)
@@ -1474,18 +1460,18 @@ contains
                 rr=rj(1)-R_0
                 zz=zj(1)
                 xx(i0) = sin(pim*rr) * cos(L*zz+alfa)
-                bb(i0) = (-pim*pim - L*L) * xx(i0) 
+                bb(i0) = (-pim*pim - L*L) * xx(i0)
                 if(fe_ndof .gt. 1) then
                    xx(i1) = cos(pim*rr) * cos(L*zz+alfa) * (pim)
                    xx(i2) = sin(pim*rr) * sin(L*zz+alfa) * (-L)
                    xx(i3) = -(pim*pim) * xx(i0)
                    xx(i4) = cos(pim*rr) * sin(L*zz+alfa) * (-pim*L)
                    xx(i5) = -(L*L) * xx(i0)
-                   bb(i1) = (-(pim)*(pim) - L*L) * xx(i1) 
-                   bb(i2) = (-(pim)*(pim) - L*L) * xx(i2) 
-                   bb(i3) = (-(pim)*(pim) - L*L) * xx(i3) 
-                   bb(i4) = (-(pim)*(pim) - L*L) * xx(i4) 
-                   bb(i5) = (-(pim)*(pim) - L*L) * xx(i5) 
+                   bb(i1) = (-(pim)*(pim) - L*L) * xx(i1)
+                   bb(i2) = (-(pim)*(pim) - L*L) * xx(i2)
+                   bb(i3) = (-(pim)*(pim) - L*L) * xx(i3)
+                   bb(i4) = (-(pim)*(pim) - L*L) * xx(i4)
+                   bb(i5) = (-(pim)*(pim) - L*L) * xx(i5)
                 endif
              else if(whichone==3) then
                 !in at coordinates
@@ -1517,7 +1503,7 @@ contains
 
              else if(whichone==4) then
                 !in at coordinates
-                !matrix: Amatrix = 
+                !matrix: Amatrix =
                 !      d^2 phi / da ^2  da ^2\     d^2 phi / da  dt     da  dt \   d^2 phi / dt ^2  dt ^2\
                 !del u=------- |(--)  +(--)  | + 2 ------- |(--)(--) + (--)(--)| + ------- |(--)  +(--)  |
                 !      da^2    \ dx     dy   /     da dt   \ dx  dx     dy  dy /   dt^2    \ dx     dy   /
@@ -1628,8 +1614,8 @@ contains
 !cj the following is a combianation of solve and tri_mesh, check |u-xx|
     ivsl = 0
     ivgts = 0
-    zeta = zetamin + deltaz ! zeta for my plane   
-    do ir=0,mpsi 
+    zeta = zetamin + deltaz ! zeta for my plane
+    do ir=0,mpsi
        itmax=mtheta(ir)
        pdum=psi_grid(ir)
        dt = deltat(ir)
@@ -1739,9 +1725,9 @@ contains
     call flush(111)
     if(mype.eq.0) write(0, *) "	finite element test rms=",sqrt(rms)/ivsl
     if(mype.eq.0) write(0, *) "	finite element test solve end"
-    
-    deallocate(bb,xx) 
-    deallocate(xx1,hh,bh,bn) 
+
+    deallocate(bb,xx)
+    deallocate(xx1,hh,bh,bn)
     if(whichone==3) deallocate(x_Jgdxda,x_Jgdxdt)
     deallocate(neuma,neumt,gs)
 
@@ -1779,8 +1765,8 @@ contains
 
     real(wp) :: M=1., L=1., alfa=0., rms=0., pim, rr, zz, tmpr, tmpz
     integer :: i,ii,j,jj,k,kk
-    PetscBool :: flg
-    PetscInt :: whichone = 5
+    logical :: flg
+    integer :: whichone = 5
     integer :: fe_ns=3, fe_order=1
     real(wp),allocatable,dimension(:,:) :: xlt
     integer,dimension(:),allocatable :: ind
@@ -1804,8 +1790,8 @@ contains
     dxdz=0.
     ivsl = 0
     ivgts = 0
-    zeta = zetamin + deltaz ! zeta for my plane   
-    do ir=0,mpsi 
+    zeta = zetamin + deltaz ! zeta for my plane
+    do ir=0,mpsi
        itmax=mtheta(ir)
        pdum=psi_grid(ir)
        dt = deltat(ir)
@@ -1823,7 +1809,7 @@ contains
              bb(ivgts) = 1.
           else if(whichone == 1) then
              !cj 2015-03-11 masssolver use (r,z) coordinate
-             !cj bb(ivgts) =   (rj(1)-R_0) + zj(1)  
+             !cj bb(ivgts) =   (rj(1)-R_0) + zj(1)
 
              Mk=0.5d0
              Lk=10.0d0
@@ -1862,8 +1848,8 @@ contains
 
     ivsl = 0
     ivgts = 0
-    zeta = zetamin + deltaz ! zeta for my plane   
-    do ir=0,mpsi 
+    zeta = zetamin + deltaz ! zeta for my plane
+    do ir=0,mpsi
        itmax=mtheta(ir)
        pdum=psi_grid(ir)
        dt = deltat(ir)
@@ -1919,9 +1905,8 @@ contains
     call flush(115)
     if(mype.eq.0) write(0, *) &
       "	mass solver: rms(dxdr dxdz)=",sqrt(sum(dxdr*dxdr))/mgrid, sqrt(sum(dxdz*dxdz))/mgrid
-    if(mype.eq.0) write(0, *) "	finite element mass solve end"
-    
-    deallocate(xx,bb) 
+
+    deallocate(xx,bb)
     deallocate(dxdr,dxdz,fcj)
 
   end subroutine testmasssolve
@@ -1932,7 +1917,7 @@ contains
 !========================================================================
   subroutine testAxb( solver )
     !     solve Ax=b with x=1, b=Ax
-    !     
+    !
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta
@@ -1945,7 +1930,7 @@ contains
     logical :: flg
     real(wp) norm
     Vec xVec, bVec;
-    PetscInt its; 
+    PetscInt its;
     KSPConvergedReason reason;
 
 
@@ -1990,7 +1975,7 @@ contains
     call VecSet(solver%bVec, 0., ierr)
 
     if(mype.eq.0) write(0, *) "	testAxb end"
-    
+
   end subroutine testAxb
 
 
@@ -2023,8 +2008,8 @@ contains
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk,ix,iy
-    PetscBool :: flg
-    PetscInt :: whichone = 1
+    logical :: flg
+    integer :: whichone = 1
 
 
     if(solver%order .gt. 0) then
@@ -2060,7 +2045,7 @@ contains
     allocate(bb(neq),xa(neq),ba(neq),xt(neq),bt(neq),fcj(neq))
 !cj    ivsl = 0
 !cj    ivgts = 0
-!cj    do ir=0,mpsi 
+!cj    do ir=0,mpsi
 !cj       itmax=mtheta(ir)
 !cj       do it=0,itmax
 !cj          ivgts = ivgts + 1
@@ -2142,7 +2127,7 @@ contains
     ! 'fcj' serves as a place holder
     call petsc_solve( solver, neq, ba, xa, fcj, ierr)
     call petsc_solve( solver, neq, bt, xt, fcj, ierr)
-    
+
     ! set solution (output)
     !cj 2015-03-14 map xa xt from fem index to gts index
     call mappingLoal2Global(xa, xa_gk, neq, mgrid)
@@ -2210,8 +2195,8 @@ contains
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk,ix,iy
-    PetscBool :: flg
-    PetscInt :: whichone = 5
+    logical :: flg
+    integer :: whichone = 5
 
 
     if(solver%order .gt. 0) then
@@ -2245,7 +2230,7 @@ contains
     allocate(bb(neq),xa(neq),ba(neq),fcj(neq))
     ivsl = 0
     ivgts = 0
-    do ir=0,mpsi 
+    do ir=0,mpsi
        itmax=mtheta(ir)
        do it=0,itmax
           ivgts = ivgts + 1
@@ -2293,7 +2278,7 @@ contains
     solver%order=0
     ! 'fcj' serves as a place holder
     call petsc_solve( solver, neq, ba, xa, fcj, ierr)
-    
+
     ! set solution (output)
     ivsl = 0
     ivgts = 0
@@ -2353,8 +2338,8 @@ contains
     integer,dimension(:),allocatable :: ind
     integer :: fe_order, fe_ns, fe_nvar
     integer :: i,ii,j,jj,k,kk,ix,iy
-    PetscBool :: flg
-    PetscInt :: whichone = 5
+    logical :: flg
+    integer :: whichone = 5
 
 
     if(solver%order .gt. 0) then
@@ -2388,7 +2373,7 @@ contains
     allocate(bb(neq),xt(neq),bt(neq),fcj(neq))
     ivsl = 0
     ivgts = 0
-    do ir=0,mpsi 
+    do ir=0,mpsi
        itmax=mtheta(ir)
        do it=0,itmax
           ivgts = ivgts + 1
@@ -2436,7 +2421,7 @@ contains
     solver%order=0
     ! 'fcj' serves as a place holder
     call petsc_solve( solver, neq, bt, xt, fcj, ierr)
-    
+
     ! set solution (output)
     ivsl = 0
     ivgts = 0
@@ -2474,14 +2459,14 @@ contains
 !       call find_laplacian( masssolver, mgrid, send_sm, recv_sm, ierr )
   subroutine find_laplacian( masssolver, nn, bb_gk, xx_gk, ierr )
     !     solve xx : grad_perp . [ gs grad_perp phi]
-    !              = 1/J d/da [ J gs (grad_perp phi . grad a) ] + 
-    !                1/J d/dt [ J gs (grad_perp phi . grad t) ] + 
+    !              = 1/J d/da [ J gs (grad_perp phi . grad a) ] +
+    !                1/J d/dt [ J gs (grad_perp phi . grad t) ] +
     !                gs/q^2 | grad vphi |^2 d^2/dt^2 phi
-    !              = 1/J d/da [ J gs (d/da phi grad a + d/dt phi grad t) . grad a) ] + 
-    !                1/J d/dt [ J gs (d/da phi grad a + d/dt phi grad t) . grad t) ] + 
+    !              = 1/J d/da [ J gs (d/da phi grad a + d/dt phi grad t) . grad a) ] +
+    !                1/J d/dt [ J gs (d/da phi grad a + d/dt phi grad t) . grad t) ] +
     !                gs/q^2 | grad vphi |^2 d^2/dt^2 phi
-    !              = 1/J d/da [ J gs (d/da phi gaa + d/dt phi gat) ] + 
-    !                1/J d/dt [ J gs (d/da phi gat + d/dt phi gtt) ] + 
+    !              = 1/J d/da [ J gs (d/da phi gaa + d/dt phi gat) ] +
+    !                1/J d/dt [ J gs (d/da phi gat + d/dt phi gtt) ] +
     !                gs/q^2 gvv^2 d^2/dt^2 phi
 
     !use global_parameters
@@ -2544,8 +2529,8 @@ contains
        allocate(qq(mgrid))
        ivsl = 0
        ivgts = 0
-       zeta = zetamin + deltaz ! zeta for my plane   
-       do ir=0,mpsi 
+       zeta = zetamin + deltaz ! zeta for my plane
+       do ir=0,mpsi
           itmax=mtheta(ir)
           pdum=psi_grid(ir)
           dt = deltat(ir)
@@ -2661,18 +2646,18 @@ contains
 !         petsc_solve
 !========================================================================
   subroutine petsc_solve( solver, nn, bb, xx, ierr )
-    !     solve linear system.  
+    !     solve linear system.
     !     Solver (KSP) and matrix are in linear_solve.h
-    !     
+    !
     !     input:
     !       nn: global number of equations in system
     !       bb: rhs[nn]
     !       xx: solution[nn]
-    !     
+    !
     !     output:
     !       bb: RHS[nn]
     !     ierr: error code
-    !     
+    !
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mgrid ! debug
@@ -2702,8 +2687,8 @@ contains
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     call VecScatterEnd(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
-    
-    !     Solve      
+
+    !     Solve
     call KSPSolve( solver%ksp, solver%bVec, solver%xVec, ierr )
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
 
@@ -2714,15 +2699,15 @@ contains
     call VecScatterBegin(solver%scat,solver%xVec,vec_yy,INSERT_VALUES,SCATTER_REVERSE,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     call VecScatterEnd(solver%scat,solver%xVec, vec_yy, INSERT_VALUES,SCATTER_REVERSE,ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr) 
-    
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+
     ! add all to all -- not super efficient
     call MPI_ALLREDUCE(yy,zz,nn,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
     !     copy in
     xx = zz;
     ! clean up
     call VecDestroy( vec_yy, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     deallocate(yy,zz)
   end subroutine petsc_solve
 
@@ -2731,18 +2716,18 @@ contains
 !         petsc_solve
 !========================================================================
   subroutine petsc_solve( solver, nn, bb, xx, bh, ierr )
-    !     solve linear system.  
+    !     solve linear system.
     !     Solver (KSP) and matrix are in linear_solve.h
-    !     
+    !
     !     input:
     !       nn: global number of equations in system
     !       bb: rhs[nn]
     !       xx: solution[nn]
-    !     
+    !
     !     output:
     !       bb: RHS[nn]
     !     ierr: error code
-    !     
+    !
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mgrid ! debug
@@ -2781,7 +2766,7 @@ contains
     call VecScatterEnd(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
 
-    if(solver%order .ge. 1) then 
+    if(solver%order .ge. 1) then
        !cj M * b =>> rhs for solve Stiff xx = rhs
        call VecDuplicate(solver%bVec, rhsVec, ierr)
        if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
@@ -2852,7 +2837,7 @@ contains
     !   if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     !       if(mype==0) write(*,*) 'data: msize=',msize, 'nsize=',nsize
 
-    !     Solve      
+    !     Solve
 !!!!!!#ifdef _OPENMP   ! _OPENMP gets defined whenever the code is compiled
                        ! with OpenMP, which removes the flexibility of choosing
                        ! KSPSolve when OpenMP is tunred on. It also causes problems
@@ -2889,15 +2874,15 @@ contains
     call VecScatterBegin(solver%scat,solver%xVec,vec_yy,INSERT_VALUES,SCATTER_REVERSE,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     call VecScatterEnd(solver%scat,solver%xVec, vec_yy, INSERT_VALUES,SCATTER_REVERSE,ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr) 
-    
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+
     ! add all to all -- not super efficient
     call MPI_ALLREDUCE(yy,zz,nn,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
     !     copy in
     xx = zz;
     ! clean up
     call VecDestroy( vec_yy, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     deallocate(yy,zz)
     call VecSet(solver%xVec, 0., ierr)
     call VecSet(solver%bVec, 0., ierr)
@@ -2929,7 +2914,7 @@ contains
     allocate(this%gk_matid(it))
     this%gk_matid = 0
     !... this%gk_matid(it) = -2
-    
+
     id = 0
     it = 0
     do i=0,mpsi
@@ -2951,7 +2936,7 @@ contains
              else if(bc_type==3) then
                 ! neumann bc at a0, dirichlet bc at a1
                 if( i==mpsi ) this%gk_matid(id) = -1
-             else                      ! for 
+             else                      ! for
                 ! bc_type = 0
                 ! neumann bc at both a0 and a1
              endif
@@ -3036,7 +3021,7 @@ end subroutine neumbcfix
 !========================================================================
   subroutine add_hh2bb( fem, masssolver, nn, hh, bh, ierr )
     !     add hh(dphi/dt) term to bb(rhs) before KSPSolve
-    !     
+    !
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
     use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij,gbeta
@@ -3070,8 +3055,8 @@ end subroutine neumbcfix
     integer,dimension(:),allocatable :: ind
     integer,allocatable,dimension(:) :: indlocal, indglobal
     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
-    PetscBool :: flg
-    PetscInt :: whichone = 5
+    logical :: flg
+    integer :: whichone = 5
     real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, beta, bh_kk
 
 
@@ -3105,8 +3090,8 @@ end subroutine neumbcfix
 #endif
 !cj    ivsl = 0
     do ivgts = 1, mgrid
-!cj    zeta = zetamin + deltaz ! zeta for my plane   
-!cj    do ir=0,mpsi 
+!cj    zeta = zetamin + deltaz ! zeta for my plane
+!cj    do ir=0,mpsi
 !cj       itmax=mtheta(ir)
 !cj       pdum=psi_grid(ir)
 !cj       dt = deltat(ir)
@@ -3152,7 +3137,7 @@ end subroutine neumbcfix
 !cj    if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
 !cj    bgsjgaa(:) = gsij(:)*Jcbn(:)*gij(1,:)*hh(:)
 !cj    bgsjgat(:) = gsij(:)*Jcbn(:)*gij(4,:)*hh(:)
-    
+
 #ifdef OLD2014
     if( fem%order .eq. 2) then
         ! interpolate linear to ho array
@@ -3232,8 +3217,8 @@ end subroutine neumbcfix
     bh=0.
 !cj    ivsl = 0
 !cj    ivgts = 0
-!cj    zeta = zetamin + deltaz ! zeta for my plane   
-!cj    do ir=0,mpsi 
+!cj    zeta = zetamin + deltaz ! zeta for my plane
+!cj    do ir=0,mpsi
 !cj       itmax=mtheta(ir)
 !cj       pdum=psi_grid(ir)
 !cj       dt = deltat(ir)
@@ -3265,188 +3250,188 @@ end subroutine neumbcfix
 
 
 
-!========================================================================
-!         add_pade2bb
-!========================================================================
-  subroutine add_pade2bb( fem, masssolver, bpade_gk, ierr )
-    !     add grad_perp . [ h_p grad_perp b] term to bb(rhs) before KSPSolve
-    !     
-    use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mgrid,mtheta,mpsi
-    use field_array,only: Jcbn,gij,bb_a, bb_t, q_grid, hpij
-    use fem_data_class
-    implicit none
-    type(fem_data) :: fem
-    type(solver_data) :: masssolver
-    integer,intent(out) :: ierr
-    ! locals
-    real(doubleprec),allocatable,dimension(:) :: phbjgaa,phbjgat,phbjgpp,qq2
-    integer :: fe_order, fe_ns, fe_nvar, fe_ndof
-    PetscBool :: flg
-    PetscInt :: whichone = 5
-    real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt
-    real(wp) :: bpade_gk(mgrid)
-    integer :: ivsl, ivgts, ioffset, ir, itmax
+! !========================================================================
+! !         add_pade2bb
+! !========================================================================
+!   subroutine add_pade2bb( fem, masssolver, bpade_gk, ierr )
+!     !     add grad_perp . [ h_p grad_perp b] term to bb(rhs) before KSPSolve
+!     !
+!     use precision,only:wp,doubleprec
+!     use global_parameters, only:mype,mgrid,mtheta,mpsi
+!     use field_array,only: Jcbn,gij,bb_a, bb_t, q_grid, hpij
+!     use fem_data_class
+!     implicit none
+!     type(fem_data) :: fem
+!     type(solver_data) :: masssolver
+!     integer,intent(out) :: ierr
+!     ! locals
+!     real(doubleprec),allocatable,dimension(:) :: phbjgaa,phbjgat,phbjgpp,qq2
+!     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
+!     logical :: flg
+!     integer :: whichone = 5
+!     real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt
+!     real(wp) :: bpade_gk(mgrid)
+!     integer :: ivsl, ivgts, ioffset, ir, itmax
 
-#ifdef DEBUG
-    if(mype==0) write(*,*)"	finite element: add pade to bb fem_order=", fem%order
-#endif
-    call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
-#ifdef OLD2014
-#else
-    whichone=1
-#endif
+! #ifdef DEBUG
+!     if(mype==0) write(*,*)"	finite element: add pade to bb fem_order=", fem%order
+! #endif
+!     call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+! #ifdef OLD2014
+! #else
+!     whichone=1
+! #endif
 
-    !cal hp * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
-    fe_ns=3
-    fe_ndof=1
-    allocate(phbjgaa(mgrid*fe_ndof), phbjgat(mgrid*fe_ndof), phbjgpp(mgrid*fe_ndof))
-    allocate(dxdr(mgrid*fe_ndof), dxdz(mgrid*fe_ndof))
-    allocate(tmpr(mgrid*fe_ndof), tmpz(mgrid*fe_ndof))
-    allocate(bb_at(mgrid*fe_ndof), bb_tt(mgrid*fe_ndof))
-    allocate(qq2(mgrid*fe_ndof))
+!     !cal hp * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
+!     fe_ns=3
+!     fe_ndof=1
+!     allocate(phbjgaa(mgrid*fe_ndof), phbjgat(mgrid*fe_ndof), phbjgpp(mgrid*fe_ndof))
+!     allocate(dxdr(mgrid*fe_ndof), dxdz(mgrid*fe_ndof))
+!     allocate(tmpr(mgrid*fe_ndof), tmpz(mgrid*fe_ndof))
+!     allocate(bb_at(mgrid*fe_ndof), bb_tt(mgrid*fe_ndof))
+!     allocate(qq2(mgrid*fe_ndof))
 
-! find the derivatives d(bb)/da  d(bb)/dt of bb
-    ! already calculated in poisson.F90
+! ! find the derivatives d(bb)/da  d(bb)/dt of bb
+!     ! already calculated in poisson.F90
 
-    !       bb_a=0.
-    !       bb_t=0.
-    !       call find_dxdadxdt( masssolver, mgrid, bb, bb_a, bb_t, ierr )
+!     !       bb_a=0.
+!     !       bb_t=0.
+!     !       call find_dxdadxdt( masssolver, mgrid, bb, bb_a, bb_t, ierr )
 
-!find the derivatives d(bb_t)/da  d(bb_t)/dt of d(bb)/dt
-    bb_at=0.
-    bb_tt=0.
-    call find_dxdadxdt( masssolver, mgrid, bb_t, bb_at, bb_tt, ierr )
- 
-    ivsl = 0
-    ivgts = 0
-    ioffset = 0
-    do ir=0,mpsi
-       itmax=mtheta(ir)
-       qq2(ioffset+1:ioffset+itmax+1)=q_grid(ir)**2
-       ioffset = ioffset+itmax+1
-    enddo
+! !find the derivatives d(bb_t)/da  d(bb_t)/dt of d(bb)/dt
+!     bb_at=0.
+!     bb_tt=0.
+!     call find_dxdadxdt( masssolver, mgrid, bb_t, bb_at, bb_tt, ierr )
 
-!compute 
-    do ivgts = 1, mgrid
-       phbjgaa(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(1,ivgts)*bb_a(ivgts)+gij(4,ivgts)*bb_t(ivgts) )
-       phbjgat(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(4,ivgts)*bb_a(ivgts)+gij(2,ivgts)*bb_t(ivgts) )
-       phbjgpp(ivgts) = hpij(ivgts)/qq2(ivgts) *( gij(3,ivgts)*bb_tt(ivgts) )
-    enddo
+!     ivsl = 0
+!     ivgts = 0
+!     ioffset = 0
+!     do ir=0,mpsi
+!        itmax=mtheta(ir)
+!        qq2(ioffset+1:ioffset+itmax+1)=q_grid(ir)**2
+!        ioffset = ioffset+itmax+1
+!     enddo
 
-    
-    !cj 2015-03-12 using (r,z) coor in masssolver
-    dxdr=0.
-    dxdz=0.
-    call find_dxdadxdt( masssolver, mgrid, phbjgaa, dxdr, dxdz, ierr )
-    tmpr=dxdr
-
-    dxdr=0.
-    dxdz=0.
-    call find_dxdadxdt( masssolver, mgrid, phbjgat, dxdr, dxdz, ierr )
-    tmpz=dxdz
-
-    bpade_gk= 1./Jcbn*(tmpr+tmpz)+phbjgpp
-
-    deallocate(phbjgaa, phbjgat, phbjgpp)
-    deallocate(bb_at, bb_tt, tmpr, tmpz, dxdr, dxdz, qq2)
-  end subroutine add_pade2bb
+! !compute
+!     do ivgts = 1, mgrid
+!        phbjgaa(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(1,ivgts)*bb_a(ivgts)+gij(4,ivgts)*bb_t(ivgts) )
+!        phbjgat(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(4,ivgts)*bb_a(ivgts)+gij(2,ivgts)*bb_t(ivgts) )
+!        phbjgpp(ivgts) = hpij(ivgts)/qq2(ivgts) *( gij(3,ivgts)*bb_tt(ivgts) )
+!     enddo
 
 
+!     !cj 2015-03-12 using (r,z) coor in masssolver
+!     dxdr=0.
+!     dxdz=0.
+!     call find_dxdadxdt( masssolver, mgrid, phbjgaa, dxdr, dxdz, ierr )
+!     tmpr=dxdr
 
-!========================================================================
-!         add_pade2bb
-!========================================================================
-  subroutine add_pade2bb_0( fem, masssolver, nn, bpade, ierr )
-    !     add grad_perp . [ h_p grad_perp b] term to bb(rhs) before KSPSolve
-    !     
-    use precision,only:wp,doubleprec
-    use global_parameters, only:mype,mgrid,mtheta,mpsi
-    use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij, bb_a, bb_t, q_grid, hpij
-    use fem_data_class
-    implicit none
-    type(fem_data) :: fem
-    type(solver_data) :: masssolver
-    integer,intent(in) :: nn
-    real(wp),intent(out) :: bpade(nn)  !dimension of neq
-    integer,intent(out) :: ierr
-    ! locals
-    integer :: neq
-    real(doubleprec),allocatable,dimension(:) :: phbjgaa,phbjgat,phbjgpp,qq2
-    integer :: fe_order, fe_ns, fe_nvar, fe_ndof
-    PetscBool :: flg
-    PetscInt :: whichone = 5
-    real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt, bpade_gk
-    integer :: ivsl, ivgts, ioffset, ir, itmax
+!     dxdr=0.
+!     dxdz=0.
+!     call find_dxdadxdt( masssolver, mgrid, phbjgat, dxdr, dxdz, ierr )
+!     tmpz=dxdz
 
-#ifdef DEBUG
-    if(mype==0) write(*,*)"     finite element: add pade to bb fem_order=", fem%order
-#endif
-    call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
-#ifdef OLD2014
-#else
-    whichone=1
-#endif
+!     bpade_gk= 1./Jcbn*(tmpr+tmpz)+phbjgpp
 
-    !cal hp * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
-    fe_ns=3
-    fe_ndof=1
-    neq = sum(mtheta)
-    allocate(phbjgaa(mgrid*fe_ndof), phbjgat(mgrid*fe_ndof), phbjgpp(mgrid*fe_ndof))
-    allocate(dxdr(mgrid*fe_ndof), dxdz(mgrid*fe_ndof))
-    allocate(tmpr(mgrid*fe_ndof), tmpz(mgrid*fe_ndof))
-    allocate(bb_at(mgrid*fe_ndof), bb_tt(mgrid*fe_ndof))
-    allocate(bpade_gk(mgrid*fe_ndof))
-    allocate(qq2(mgrid*fe_ndof))
-
-! find the derivatives d(bb)/da  d(bb)/dt of bb
-    ! already calculated in poisson.F90
-
-    !       bb_a=0.
-    !       bb_t=0.
-    !       call find_dxdadxdt( masssolver, mgrid, bb, bb_a, bb_t, ierr )
-
-!find the derivatives d(bb_t)/da  d(bb_t)/dt of d(bb)/dt
-    bb_at=0.
-    bb_tt=0.
-    call find_dxdadxdt( masssolver, mgrid, bb_t, bb_at, bb_tt, ierr )
-
-    ivsl = 0
-    ivgts = 0
-    ioffset = 0
-    do ir=0,mpsi
-       itmax=mtheta(ir)
-       qq2(ioffset+1:ioffset+itmax+1)=q_grid(ir)**2
-       ioffset = ioffset+itmax+1
-    enddo
-
-!compute 
-    do ivgts = 1, mgrid
-       phbjgaa(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(1,ivgts)*bb_a(ivgts)+gij(4,ivgts)*bb_t(ivgts) )
-       phbjgat(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(4,ivgts)*bb_a(ivgts)+gij(2,ivgts)*bb_t(ivgts) )
-       phbjgpp(ivgts) = hpij(ivgts)/qq2(ivgts) *( gij(3,ivgts)*bb_tt(ivgts) )
-    enddo
+!     deallocate(phbjgaa, phbjgat, phbjgpp)
+!     deallocate(bb_at, bb_tt, tmpr, tmpz, dxdr, dxdz, qq2)
+!   end subroutine add_pade2bb
 
 
-    !cj 2015-03-12 using (r,z) coor in masssolver
-    dxdr=0.
-    dxdz=0.
-    call find_dxdadxdt( masssolver, mgrid, phbjgaa, dxdr, dxdz, ierr )
-    tmpr=dxdr
 
-    dxdr=0.
-    dxdz=0.
-    call find_dxdadxdt( masssolver, mgrid, phbjgat, dxdr, dxdz, ierr )
-    tmpz=dxdz
+! !========================================================================
+! !         add_pade2bb
+! !========================================================================
+!   subroutine add_pade2bb_0( fem, masssolver, nn, bpade, ierr )
+!     !     add grad_perp . [ h_p grad_perp b] term to bb(rhs) before KSPSolve
+!     !
+!     use precision,only:wp,doubleprec
+!     use global_parameters, only:mype,mgrid,mtheta,mpsi
+!     use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij, bb_a, bb_t, q_grid, hpij
+!     use fem_data_class
+!     implicit none
+!     type(fem_data) :: fem
+!     type(solver_data) :: masssolver
+!     integer,intent(in) :: nn
+!     real(wp),intent(out) :: bpade(nn)  !dimension of neq
+!     integer,intent(out) :: ierr
+!     ! locals
+!     integer :: neq
+!     real(doubleprec),allocatable,dimension(:) :: phbjgaa,phbjgat,phbjgpp,qq2
+!     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
+!     logical :: flg
+!     integer :: whichone = 5
+!     real(wp),allocatable,dimension(:) :: dxdr, dxdz, tmpr, tmpz, bb_at, bb_tt, bpade_gk
+!     integer :: ivsl, ivgts, ioffset, ir, itmax
 
-    bpade=0.
-    bpade_gk= 1./Jcbn*(tmpr+tmpz)+phbjgpp
-    call mappingGlobal2Local(bpade_gk, bpade, mgrid, neq)
+! #ifdef DEBUG
+!     if(mype==0) write(*,*)"     finite element: add pade to bb fem_order=", fem%order
+! #endif
+!     call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
+! #ifdef OLD2014
+! #else
+!     whichone=1
+! #endif
 
-    deallocate(phbjgaa, phbjgat, phbjgpp)
-    deallocate(bpade_gk)
-    deallocate(bb_at, bb_tt, tmpr, tmpz, dxdr, dxdz, qq2)
-  end subroutine add_pade2bb_0
+!     !cal hp * fluxcoordinatejacobian * gradadotgrada or gradadotgradt
+!     fe_ns=3
+!     fe_ndof=1
+!     neq = sum(mtheta)
+!     allocate(phbjgaa(mgrid*fe_ndof), phbjgat(mgrid*fe_ndof), phbjgpp(mgrid*fe_ndof))
+!     allocate(dxdr(mgrid*fe_ndof), dxdz(mgrid*fe_ndof))
+!     allocate(tmpr(mgrid*fe_ndof), tmpz(mgrid*fe_ndof))
+!     allocate(bb_at(mgrid*fe_ndof), bb_tt(mgrid*fe_ndof))
+!     allocate(bpade_gk(mgrid*fe_ndof))
+!     allocate(qq2(mgrid*fe_ndof))
+
+! ! find the derivatives d(bb)/da  d(bb)/dt of bb
+!     ! already calculated in poisson.F90
+
+!     !       bb_a=0.
+!     !       bb_t=0.
+!     !       call find_dxdadxdt( masssolver, mgrid, bb, bb_a, bb_t, ierr )
+
+! !find the derivatives d(bb_t)/da  d(bb_t)/dt of d(bb)/dt
+!     bb_at=0.
+!     bb_tt=0.
+!     call find_dxdadxdt( masssolver, mgrid, bb_t, bb_at, bb_tt, ierr )
+
+!     ivsl = 0
+!     ivgts = 0
+!     ioffset = 0
+!     do ir=0,mpsi
+!        itmax=mtheta(ir)
+!        qq2(ioffset+1:ioffset+itmax+1)=q_grid(ir)**2
+!        ioffset = ioffset+itmax+1
+!     enddo
+
+! !compute
+!     do ivgts = 1, mgrid
+!        phbjgaa(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(1,ivgts)*bb_a(ivgts)+gij(4,ivgts)*bb_t(ivgts) )
+!        phbjgat(ivgts) = hpij(ivgts)*Jcbn(ivgts)*( gij(4,ivgts)*bb_a(ivgts)+gij(2,ivgts)*bb_t(ivgts) )
+!        phbjgpp(ivgts) = hpij(ivgts)/qq2(ivgts) *( gij(3,ivgts)*bb_tt(ivgts) )
+!     enddo
+
+
+!     !cj 2015-03-12 using (r,z) coor in masssolver
+!     dxdr=0.
+!     dxdz=0.
+!     call find_dxdadxdt( masssolver, mgrid, phbjgaa, dxdr, dxdz, ierr )
+!     tmpr=dxdr
+
+!     dxdr=0.
+!     dxdz=0.
+!     call find_dxdadxdt( masssolver, mgrid, phbjgat, dxdr, dxdz, ierr )
+!     tmpz=dxdz
+
+!     bpade=0.
+!     bpade_gk= 1./Jcbn*(tmpr+tmpz)+phbjgpp
+!     call mappingGlobal2Local(bpade_gk, bpade, mgrid, neq)
+
+!     deallocate(phbjgaa, phbjgat, phbjgpp)
+!     deallocate(bpade_gk)
+!     deallocate(bb_at, bb_tt, tmpr, tmpz, dxdr, dxdz, qq2)
+!   end subroutine add_pade2bb_0
 
 
 
@@ -3455,7 +3440,7 @@ end subroutine neumbcfix
 !========================================================================
   subroutine add_hh2bb_0( fem, nn, hh, bh, ierr )
     !     add hh(dphi/dt) term to bb(rhs) before KSPSolve
-    !     
+    !
     use precision,only:wp,doubleprec
     use global_parameters, only:mype,mtheta,mpsi,mgrid,zetamin,deltaz,deltat,R_0,a0,a1,pi,csc0,m0ms,c0cs_i,msm0_i
     use field_array,only: psi_grid,qtinv,Jcbn,gij,gsij
@@ -3465,7 +3450,7 @@ end subroutine neumbcfix
     type(fem_data) :: fem
     integer,intent(in) :: nn
     real(wp),intent(in) :: hh(nn)
-    real(wp),intent(inout) :: bh(nn) 
+    real(wp),intent(inout) :: bh(nn)
     integer,intent(out) :: ierr
     ! locals
     integer :: ir,it,ivgts,ivsl,itq,itmax,ie,iv,jv,kv,neq
@@ -3483,8 +3468,8 @@ end subroutine neumbcfix
     integer,dimension(:),allocatable :: ind
     integer,allocatable,dimension(:) :: indlocal, indglobal
     integer :: fe_order, fe_ns, fe_nvar, fe_ndof
-    PetscBool :: flg
-    PetscInt :: whichone = 5
+    logical :: flg
+    integer :: whichone = 5
 
 
    !if(mype==0) write(*,*)"	finite element: add hh to bb fem_order=", fem%order
@@ -3505,8 +3490,8 @@ end subroutine neumbcfix
     allocate(bgsjgaa(neq*fe_ndof), bgsjgat(neq*fe_ndof))
     ivsl = 0
     ivgts = 0
-    zeta = zetamin + deltaz ! zeta for my plane   
-    do ir=0,mpsi 
+    zeta = zetamin + deltaz ! zeta for my plane
+    do ir=0,mpsi
        itmax=mtheta(ir)
        pdum=psi_grid(ir)
        dt = deltat(ir)
@@ -3544,7 +3529,7 @@ end subroutine neumbcfix
        enddo
     enddo
     if(ivsl.ne.neq)stop'solve: ivsl.ne.neq'
-    
+
     if( fem%order .eq. 2) then
         ! interpolate linear to ho array
         allocate(bgsjgaa_ho(fem%nmesh_pts), bgsjgat_ho(fem%nmesh_pts))
@@ -3623,11 +3608,11 @@ end subroutine neumbcfix
     !     input:
     !       nn: global number of equations in system
     !       bb: rhs[nn]
-    !     
+    !
     !     output:
     !       iop=1: xx-> ba = Rmat * bb
     !       iop=2: xx-> bt = Zmat * bb
-    !     
+    !
     !use global_parameters
     use precision,only:wp,doubleprec
     use global_parameters, only:mype
@@ -3662,7 +3647,7 @@ end subroutine neumbcfix
     call VecScatterEnd(solver%scat,vec_yy, solver%bVec, INSERT_VALUES,SCATTER_FORWARD,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, 1, ierr )
 
-    if(iop .eq. 1) then 
+    if(iop .eq. 1) then
        call MatMult(solver%mat%rdata, solver%bVec, solver%xVec, ierr)
     else
        call MatMult(solver%mat%zdata, solver%bVec, solver%xVec, ierr)
@@ -3678,8 +3663,8 @@ end subroutine neumbcfix
     call VecScatterBegin(solver%scat,solver%xVec,vec_yy,INSERT_VALUES,SCATTER_REVERSE,ierr)
     if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     call VecScatterEnd(solver%scat,solver%xVec, vec_yy, INSERT_VALUES,SCATTER_REVERSE,ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr) 
-    
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+
     ! add all to all -- not super efficient
     call MPI_ALLREDUCE(yy,zz,nn,MPI_DOUBLE_PRECISION,MPI_SUM,partd_comm,ierr)
     !     copy in
@@ -3687,14 +3672,14 @@ end subroutine neumbcfix
 
     ! clean up
     call VecDestroy( vec_yy, ierr )
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
 
     deallocate(yy,zz)
 
     call VecSet(solver%xVec, 0., ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
     call VecSet(solver%bVec, 0., ierr)
-    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)      
+    if(ierr .ne. 0) call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
   end subroutine find_rhs
 
 
@@ -3753,13 +3738,13 @@ end subroutine mappingLoal2Global
 !subroutine form_tangent( order, Amat, Mmat, iemax, iet, npts, points, &
 subroutine form_tangent( fem, Amat, Mmat, npts, &
      mat_type, bc_type, ierr )
-  !     
+  !
   !     input:
   !     iemax: number of elements
   !     iet1,2,3[iemax]: nodes of triangles of mesh
   !     npts: number of mesh points
   !     points[6,npts]: coordinates of points in cartesian and flux coordinate
-  !     
+  !
   !     output:
   !     Amat: stiffness matrix
   !     Mmat: mass matrix
@@ -3770,13 +3755,12 @@ subroutine form_tangent( fem, Amat, Mmat, npts, &
   use field_array,only: psi_grid,qtinv,Jcbn, dRda, dRdt, dZda, dZdt
 #endif
   use particle_decomp,only:myrank_partd,nproc_partd
-  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi, pade
+  use global_parameters, only:mype, csc0, m0ms, c0cs_i, msm0_i, ifelectron, pi,ifdphi, Cs, adiab !, pade
   use esi_interface, only : metric
   use fem_data_class
   implicit none
   type(fem_data) :: fem
-  integer order,iemax,ierr
-PetscInt  npts
+  integer order,iemax,npts,ierr
   integer mat_type, bc_type
 ! integer,dimension(:),allocatable :: iet1,iet2,iet3
 ! integer,dimension(:,:) :: iet
@@ -3789,17 +3773,15 @@ PetscInt  npts
   real(doubleprec) eps,big ! therm2d uses *8
   real(doubleprec),dimension(:,:,:),allocatable ::  fe_Pijk
   real(doubleprec),dimension(:,:),allocatable ::  xlt,sarr,marr,ul ! therm2d uses *8
-PetscScalar,dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
+  real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
   real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
   real(doubleprec),dimension(:),allocatable ::  rarr2,zarr2            ! r&z matrix
   real(doubleprec) :: c1=1., c2=1.
   real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
   real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
 ! integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
-  integer ie,i,j,k,n,kk,ki,nel,nst
-PetscInt nz
-  integer,dimension(:),allocatable :: ind3,ind
-  PetscInt,dimension(:),allocatable :: ind2
+  integer ie,i,j,k,n,kk,ki,nz,nel,nst
+  integer,dimension(:),allocatable :: ind2,ind3,ind
 ! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 ! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
   real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
@@ -3818,8 +3800,8 @@ PetscInt nz
   real(doubleprec),dimension(:),allocatable :: fe_weight
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
-  PetscBool :: flg
-  PetscInt :: whichone = 5
+  logical :: flg
+  integer :: whichone = 5
 
 
   call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
@@ -3898,7 +3880,7 @@ PetscInt nz
   do ie=1,fem%iemax
      ind(:)=fem%iet(:,ie)
      if(ind(1) .eq. 0) stop 'ind(1) == 0'
-    
+
      if(whichone.lt.3) then
         ! in (r,z) cylindrical coordinates
         xlt(1,:) = fem%points(1,ind(:))
@@ -4038,7 +4020,7 @@ PetscInt nz
         gtt(i)=metric(2)
         gpp(i)=metric(3)
         gat(i)=metric(4)
-        if(pade==1) gp3(i)=gp(aaa(i),the(i),adum)
+      !   if(pade==1) gp3(i)=gp(aaa(i),the(i),adum)
      end do
 
      q(:)=-gFaj(:)/gYaj(:)
@@ -4086,7 +4068,11 @@ PetscInt nz
         vthe3(i)=temperature_e(aaa(i),0.0_wp)
      enddo
      if(ifelectron==1 .or. mat_type==2) then
-        alpha = 0.0_wp
+        if(adiab>0.0_wp) then
+          alpha = adiab*abs(csc0)*m0ms/mean(vthe3,fe_ns)
+        else
+          alpha = 0.01/(Cs*Cs)
+        endif
      else
         alpha = abs(csc0) * m0ms / mean(vthe3, fe_ns)
      endif
@@ -4101,12 +4087,14 @@ PetscInt nz
      gs = Zs / mean(Bj*Bj, fe_ns) &
         * mean(ns0, fe_ns) &
         * c0cs_i * msm0_i
-     if(pade==1) then   ! include additional term due to Pade approximation
-        gpfem = mean(gp3, fe_ns)
-        !     gpfem=0.0   ! test
-     else
-        gpfem=0.0_wp
-     end if 
+   !   if(pade==1) then   ! include additional term due to Pade approximation
+   !      gpfem = mean(gp3, fe_ns)
+   !      !     gpfem=0.0   ! test
+   !   else
+   !      gpfem=0.0_wp
+   !   end if
+     gpfem=0.0_wp
+
 
     END SUBROUTINE cmp_phy_qty
 
@@ -4118,7 +4106,7 @@ PetscInt nz
 
     integer, intent(in) :: nn
     real(wp), dimension(nn), intent(in) :: vals
-    
+
     mean = sum(vals)/real(nn,wp)
     END FUNCTION mean
 end subroutine form_tangent
@@ -4130,13 +4118,13 @@ end subroutine form_tangent
 !subroutine form_tangent( order, Amat, Mmat, iemax, iet, npts, points, &
 subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
      mat_type, bc_type, ierr )
-  !     
+  !
   !     input:
   !     iemax: number of elements
   !     iet1,2,3[iemax]: nodes of triangles of mesh
   !     npts: number of mesh points
   !     points[6,npts]: coordinates of points in cartesian and flux coordinate
-  !     
+  !
   !     output:
   !     Amat: stiffness matrix
   !     Mmat: mass matrix
@@ -4149,8 +4137,7 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   use fem_data_class
   implicit none
   type(fem_data) :: fem
-  integer order,iemax,ierr
-  PetscInt npts
+  integer order,iemax,npts,ierr
   integer mat_type, bc_type
 ! integer,dimension(:),allocatable :: iet1,iet2,iet3
 ! integer,dimension(:,:) :: iet
@@ -4164,16 +4151,15 @@ subroutine form_tangent_RZcoor( fem, Amat, Mmat, Rmat, Zmat, npts, &
   real(doubleprec) eps,big ! therm2d uses *8
   real(doubleprec),dimension(:,:,:),allocatable ::  fe_Pijk
   real(doubleprec),dimension(:,:),allocatable ::  xlt,sarr,marr,ul ! therm2d uses *8
-PetscScalar,dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
+  real(doubleprec),dimension(:),allocatable ::  sarr2,marr2            ! mass matrix
   real(doubleprec),dimension(:,:),allocatable ::  rrarr,rzarr,zrarr,zzarr,pparr,rarr,zarr
   real(doubleprec),dimension(:),allocatable ::  rarr2,zarr2            ! r&z matrix
   real(doubleprec) :: c1=1., c2=1.
   real(doubleprec) :: fcj=1.  ! flux coordinate jacobian
   real(doubleprec) :: cf1=1., cf2=0., cf3=1., cf4=0., cf5=0., cf6=0.
 ! integer ie,i,j,k,kk,nz,ind2(3),ind3(3),ind(3),nel,nst
-  integer ie,i,j,k,n,kk,kkk,ki,nel,nst
-PetscInt nz
-  PetscInt,dimension(:),allocatable :: ind2,ind3,ind
+  integer ie,i,j,k,n,kk,kkk,ki,nz,nel,nst
+  integer,dimension(:),allocatable :: ind2,ind3,ind
 ! real(wp), dimension(3) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
 ! real(wp), dimension(3) :: gaa,gtt,gpp,gat,vthe3,q,ns0,ne0
   real(wp), dimension(:),allocatable :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
@@ -4189,8 +4175,8 @@ PetscInt nz
   real(doubleprec),dimension(:),allocatable :: fe_weight
   real(doubleprec),dimension(:,:),allocatable :: fe_NN
   real(doubleprec),dimension(:,:,:),allocatable :: fe_dN1, fe_Eij, fe_bEij
-  PetscBool :: flg
-  PetscInt :: whichone = 5
+  logical :: flg
+  integer :: whichone = 5
 
 
   call PetscOptionsGetInt(PETSC_NULL_OPTIONS,PETSC_NULL_CHARACTER,'-whichone',whichone,flg,ierr)
@@ -4264,7 +4250,7 @@ PetscInt nz
   do ie=1,fem%iemax
      ind(:)=fem%iet(:,ie)
      if(ind(1) .eq. 0) stop 'ind(1) == 0'
-    
+
      if(whichone.lt.3) then
         ! in (r,z) cylindrical coordinates
         xlt(1,:) = fem%points(1,ind(:)) + R_0
@@ -4444,7 +4430,7 @@ PetscInt nz
 
     integer, intent(in) :: nn
     real(wp), dimension(nn), intent(in) :: vals
-    
+
     mean = sum(vals)/real(nn,wp)
     END FUNCTION mean
 end subroutine form_tangent_RZcoor
@@ -4466,9 +4452,9 @@ subroutine plot_array( nn, arr, str )
   PetscViewer viewer
   PetscScalar yy(nn)
   Vec v;
-  
+
   yy = arr
-  
+
   call VecCreateMPIWithArray(mpi_comm_self,1,nn,PETSC_DECIDE,yy,v,ierr)
   !
   call PetscViewerASCIIOpen(mpi_comm_self, str,viewer,ierr)
@@ -4476,5 +4462,5 @@ subroutine plot_array( nn, arr, str )
   call VecView( v, viewer, ierr )
   call PetscViewerDestroy(viewer,ierr)
   call VecDestroy( v, ierr )
-  
+
 end subroutine plot_array

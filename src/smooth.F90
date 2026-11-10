@@ -1,619 +1,502 @@
 subroutine smooth(iflag)
-  use precision
-  use mpi_defs
-  use global_parameters
-  use particle_decomp
-  use field_array
-  use diagnosis_array
-  use esi_interface
-  implicit none
-  integer iflag,i,j,k,ii,ij,ip,jt,jte,kz,ismooth,mz,mzmax,mzbig,jpe,indp,indt,indp1,indt1,&
-       meachtheta,icount,ierror,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-  real(wp) sendl(mgrid),sendr(mgrid),recvl(mgrid),recvr(mgrid),phism(mgrid),&
-       pleft(mthetamax),pright(mthetamax),phitmp(0:1,mgrid),filter(mtdiag/2+1),wt,r,&
-       dt,wz,zdum,tdum,pi2_inv,den00(0:mpsi),phiflux(mtdiag/ntoroidal,mtdiag,idiag1:idiag2),&
-       eachzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal/ntoroidal),&
-       allzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal),xz(mtdiag)
-  complex(wp) y_eigen(mtdiag/ntoroidal*num_mode),yz(mtdiag/2+1),yt(mtdiag*num_mode),&
-       ye(mtdiag),yp(ipsi+1)
-! the dummy array size for thread-safe FFT assume data array size <16384
-  real(wp) :: aux1f(25000),aux1b(25000),aux2f(20000),aux2b(20000)
-  real(wp) :: aux3f(1),aux3b(1)
-
-
-
-
-
-! wx: solve zonal flow for general geometry (July, 04): 
-!     assume <tilde{phi}>=tilde{<phi>} -- probabaly not justified for gg 
-
-  if(iflag==1)then
-   if(ZF_SEPARATION==1.and.order <= 0) then    ! solve zonal flows separately
-     phip00=zonali                           ! =<n_i>/n_0
-     if(ifelectron/=0) phip00=phip00-zonale  ! =(<n_i>-<n_e>)/n_0 with non-adiabatic electrons
-! (-0.0625 0.25 0.625 0.25 -0.0625) radial smoothing of (0,0) mode density phip00
-     do ismooth=1,1
-        den00(0)=phip00(0)
-        den00(mpsi)=phip00(mpsi)
-        den00(1)=0.5_wp*phip00(1)+0.25_wp*(phip00(0)+phip00(2))
-        den00(mpsi-1)=0.5_wp*phip00(mpsi-1)+0.25_wp*(phip00(mpsi-2)+phip00(mpsi))
-        den00(2:mpsi-2)=phip00(0:mpsi-4)+phip00(4:mpsi)
-        den00(2:mpsi-2)=0.625_wp*phip00(2:mpsi-2)+0.25_wp*(phip00(1:mpsi-3)+&
-                        phip00(3:mpsi-1))-0.0625_wp*den00(2:mpsi-2)
-        phip00=den00
-     enddo
-     
-! solve zonal flow for gg: phip00=dphi_00/da, dphi_00/da(a0)=0. Trapezoid rule
-     den00=phip00
-     phip00=0.0_wp
-     do i=1,mpsi
-        phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  & 
-                  (dVda(i-1)*B2_s(i-1)*den00(i-1)+dVda(i)*B2_s(i)*den00(i))
-     enddo
-
-     do i=0,mpsi
-        phip00(i)=-phip00(i)/dVda(i)/gaa(i)
-     enddo
-
-! add FLR contribution using Pade approximation: b*<phi>=(1+b)*<n>
-     phi00=den00*vth_grid**2   ! =T*(dn_00/n_0)
-     do i=1,mpsi-1
-        phip00(i)=phip00(i) + (phi00(i+1)-phi00(i-1))/(psi_grid(i+1)-psi_grid(i-1))  ! =dphi_00/da
-     enddo
-     phip00(mpsi)=phip00(mpsi) ! taking (d/da)(Ti*S)=0 at right boundary
-
-! enforce boundary condition
-     phip00(0)=0.0_wp
-!     phip00(mpsi)=0.0   ! only one boundary condition is needed to solve dphi_00/da 
-
-! zero gyroradius limit OR linear simulation
-!     phip00=0.0     !wx      no zonal flow
-
-! (0,0) mode potential store in phi00
-     phi00=0.0_wp   ! phi00(0)=0.0 is chosen
-     do i=1,mpsi
-        phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
-     enddo
-
-! cancel following do loop           !wx unreasonable enforcement
-! enforce <phi>=0 at radial boundary
-!     do i=1,mpsi
-!        phi00(i)=phi00(i)-phi00(mpsi)*real(i)/real(mpsi)
-!     enddo
-
-     if(mode00==0) phip00=0.0_wp  ! exclude zonal flow
-   endif    ! end ZF_SEPARATION==1
-  endif     ! end iflag=1
-
-
-
-
-
-
-  if(iflag==1) then 
-!$omp parallel do private(i)
-     do i=1,mgrid
-        phitmp(1,i)=phi(1,i)  !phitmp=phi  ! smooth phi for numerical derivative -->E field
-     enddo
-  else                                    !   if(iflag==0), smooth n_i or n_e just for output; used nowhere
-     if(ifelectron==0) then               !if(ifelectron==0), phitmp=densityi
-!$omp parallel do private(i)
-        do i=1,mgrid
-           phitmp(1,i)=densityi(1,i)  !just for output; used nowhere
-        enddo
-     else                                 !if(ifelectron==1 or 2), phitmp=densitye
-!$omp parallel do private(i)
-        do i=1,mgrid
-           phitmp(1,i)=densitye(1,i)  !just for output; used nowhere
-        enddo
-     end if
-  endif   ! end if(iflag==1)
-
-  ismooth=1
-  do ip=1,ismooth
-
-! radial smoothing
-     do i=1,mpsi-1
-        phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
-     enddo
-     phism=0.0
-!$omp parallel do private(i,j,ij)        
-     do i=2,mpsi-2
-        do j=1,mtheta(i)
-           ij=igrid(i)+j
-!
-! need to take into account uneven radial grid size dpsi when doing radial smoothing? wx
-!
-           phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-                wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-                (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-                wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
-                0.0625_wp*((1.0_wp-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
-                wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1)+&
-                (1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
-                wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
-              
-        enddo
-     enddo
-
-!
-!       radial smoothing I
-!
-!       i=1
-!  !$omp parallel do private(j,ij)
-!          do j=1,mtheta(i)
-!             ij=igrid(i)+j
-!             phism(ij)=0.25*((1.0-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-!                  wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-!                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-!                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
-!          enddo
-!  
-!       i=mpsi-1
-!  !$omp parallel do private(j,ij)
-!          do j=1,mtheta(i)
-!             ij=igrid(i)+j
-!             phism(ij)=0.25*((1.0-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-!                  wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-!                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-!                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
-!          enddo
-!  
-!  !$omp parallel do private(i)
-!       do i=igrid(2)+1, igrid(mpsi-2)+mtheta(mpsi-2)
-!          phitmp(1,i)=0.625*phitmp(1,i)+phism(i) ! 5-point smoothing
-!       end do
-!  
-!  !$omp parallel do private(i)
-!       do i=igrid(1)+1,igrid(1)+mtheta(1)
-!          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
-!       end do
-!  
-!  !$omp parallel do private(i)
-!       do i=igrid(mpsi-1)+1,igrid(mpsi-1)+mtheta(mpsi-1)
-!          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
-!       end do
-
-!
-!       radial smoothing II
-!
-     i=1
-!$omp parallel do private(j,ij)
-     do j=1,mtheta(i)
-        ij=igrid(i)+j
-        phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-             wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-             (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-             wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
-             0.0625_wp*((1.0_wp-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
-             wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1)+&
-             phitmp(1,ij))
-     enddo
-
-     i=mpsi-1
-!$omp parallel do private(j,ij)
-     do j=1,mtheta(i)
-        ij=igrid(i)+j
-        phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-             wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-             (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-             wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
-             0.0625_wp*(phitmp(1,ij)+&
-             (1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
-             wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
-     enddo
-
-     i=0
-!$omp parallel do private(j,ij)
-     do j=1,mtheta(i)
-        ij=igrid(i)+j
-        phism(ij)=0.5_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-             wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1))-&
-             0.125_wp*((1.0-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
-             wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1))
-     enddo
-
-     i=mpsi
-!$omp parallel do private(j,ij)
-     do j=1,mtheta(i)
-        ij=igrid(i)+j
-        phism(ij)=0.5_wp*((1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-             wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
-             0.125_wp*((1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
-             wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
-     enddo
-
-!$omp parallel do private(i)
-     do i=1,mgrid
-        phitmp(1,i)=0.625_wp*phitmp(1,i)+phism(i) ! 5-point smoothing
-     end do
-
-
-     do i=0,mpsi
-        phitmp(1,igrid(i))=phitmp(1,igrid(i)+mtheta(i))
-     enddo
-
-! poloidal smoothing (-0.0625 0.25 0.625 0.25 -0.0625)
-!$omp parallel do private(i,ii,jt,pright)        
-     do i=0,mpsi
-        ii=igrid(i)
-        jt=mtheta(i)
-        pright(1:jt)=phitmp(1,ii+1:ii+jt)
-        phitmp(1,ii+1:ii+jt)=0.625_wp*pright(1:jt)+&
-             0.25_wp*(cshift(pright(1:jt),-1)+cshift(pright(1:jt),1))-&
-             0.0625_wp*(cshift(pright(1:jt),-2)+cshift(pright(1:jt),2))
-     enddo
-
-     do i=0,mpsi
-           phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
-     enddo
-
-! parallel smoothing 
-! send phi to right and receive from left
-     sendr=phitmp(1,:)
-     recvl=0.0_wp
-     icount=mgrid
-     idest=right_pe
-     isource=left_pe
-     isendtag=myrank_toroidal
-     irecvtag=isource
-     call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,&
-          recvl,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-     
-! send phi to left and receive from right
-     sendl=phitmp(1,:)
-     recvr=0.0_wp
-     idest=left_pe
-     isource=right_pe
-     isendtag=myrank_toroidal
-     irecvtag=isource
-     call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,&
-          recvr,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-    
-!$omp parallel do private(i,ii,jt,j,ij,pleft,pright)
-     do i=0,mpsi
-        ii=igrid(i)
-        jt=mtheta(i)
-        if(myrank_toroidal==0)then !down-shift for zeta=0
-           pleft(1:jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
-           pright(1:jt)=recvr(ii+1:ii+jt)
-        elseif(myrank_toroidal==ntoroidal-1)then !up-shift for zeta=2*pi
-           pright(1:jt)=cshift(recvr(ii+1:ii+jt),itran(i))
-           pleft(1:jt)=recvl(ii+1:ii+jt)
-        else
-           pleft(1:jt)=recvl(ii+1:ii+jt)
-           pright(1:jt)=recvr(ii+1:ii+jt)
-        endif
-        
-        do j=1,mtheta(i)
-           ij=igrid(i)+j
-           phitmp(1,ij)=0.5_wp*phitmp(1,ij)+0.25_wp*(pleft(j)+pright(j))
-        enddo
-     enddo   ! end do i=0,mpsi
-  enddo      ! end do ip=1,ismooth
-
-! toroidal BC: send phi to right and receive from left
-  sendr=phitmp(1,:)
-  recvl=0.0_wp
-  icount=mgrid
-  idest=right_pe
-  isource=left_pe
-  isendtag=myrank_toroidal
-  irecvtag=isource
-  call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,&
-       recvl,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-     
-  if(myrank_toroidal==0)then
-     do i=0,mpsi
-        ii=igrid(i)
-        jt=mtheta(i)
-        phitmp(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
-     enddo
-  else
-     phitmp(0,:)=recvl
-  endif
-
-! poloidal BC
-  do i=0,mpsi
-     phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
-  enddo
-
-! radial boundary: 3 cases 
-! 1. phi=0 at both inner and outer boundaries
-! 2. phi=0 at inner boundary and float phi at outer boundary 
-! 3. phi is float at both inner and outer boundaries
-!    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
-
-!    phitmp(:,igrid(0):igrid(0)+mtheta(0))=0.0
-!    potential at right boundary is float
-!    phitmp(:,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
-
-!adiabatic electron response
-  if(iflag==1) then 
-!$omp parallel do private(i)
-     do i=1,mgrid
-        phi(:,i)=phitmp(:,i)    ! now phi(0,:) also has valid data
-                                ! phi(:,igird(i)) also has valid data
-     enddo
-  else  ! if(iflag==0)
-
-     if(ifelectron==0) then 
-!$omp parallel do private(i)
-        do i=1,mgrid
-           densityi(:,i)=phitmp(:,i) !just for output; used nowhere
-        enddo
-
-     else    ! if(ifelectron==1 or 2)
-!$omp parallel do private(i)
-        do i=1,mgrid
-           densitye(:,i)=phitmp(:,i) !just for output; used nowhere
-        enddo
-     end if
-  endif
- 
-
-
-
-! interpolate on a flux surface from fieldline coordinates to magnetic coordinates
-! use mtdiag for both poloidal and toroidal grid points
-!    if(iflag==1 .and. (nonlinear<0.5 .or. idiag==0))then
-
-  if(nonlinear<-100.0) then   ! never do following work -- abandon 
-
-     xz=0.0_wp
-     yz=0.0_wp
-#ifdef __ESSL
-     call drcft(1,xz,0,yz,0,mtdiag,1, 1,1.0,aux1f,25000,aux2f,20000,aux3f,1)
-     call dcrft(1,yz,0,xz,0,mtdiag,1,-1,1.0,aux1b,25000,aux2b,20000,aux3b,1)
-#endif
-     
-
-     mzbig=max(1,mtdiag/mzetamax)
-     mzmax=mzetamax*mzbig
-     mz=mzbig
-     meachtheta=mtdiag/ntoroidal
-     icount=meachtheta*mz*(idiag2-idiag1+1)  
-     dt=2.0_wp*pi/real(mtdiag,wp)
-     pi2_inv=0.5_wp/pi
-     filter=0.0_wp
-     filter(nmode+1)=1.0_wp/real(mzmax,wp)
-     allzeta=0.0_wp
-
-!$omp parallel do private(kz,i,j,wz,zdum,ii,tdum,jt,wt)           
-     do kz=1,mzbig
-        wz=real(kz,wp)/real(mzbig,wp)
-        zdum=zetamin+deltaz*wz
-        do i=idiag1,idiag2
-           ii=igrid(i)
-           do j=1,mtdiag
-              tdum=pi2_inv*(dt*real(j,wp)-zdum*qtinv(i))+10.0
-              tdum=(tdum-aint(tdum))*real(mtheta(i),wp)
-              jt=max(0,min(mtheta(i)-1,int(tdum)))
-              wt=tdum-real(jt,wp)
-                 
-              phiflux(kz,j,i)=((1.0_wp-wt)*phi(1,ii+jt)+wt*phi(1,ii+jt+1))*&
-                   wz+(1.0_wp-wz)*((1.0_wp-wt)*phi(0,ii+jt)+wt*phi(0,ii+jt+1))
-           enddo
-        enddo
-     enddo
-
-! transpose 2-d matrix from (ntoroidal,mzbig) to (1,mzetamax*mzbig)
-     do jpe=0,ntoroidal-1
-
-!$omp parallel do private(j,i,k,jt,indt,indp1,indp)
-        do j=1,meachtheta
-           jt=jpe*meachtheta+j
-           indt=(j-1)*mz
-           do i=idiag1,idiag2
-              indp1=indt+(i-idiag1)*meachtheta*mz
-              do k=1,mz
-                 indp=indp1+k
-                 eachzeta(indp)=phiflux(k,jt,i)
-              enddo
-           enddo
-        enddo
-
-        call MPI_GATHER(eachzeta,icount,mpi_Rsize,allzeta,icount,&
-                        mpi_Rsize,jpe,toroidal_comm,ierror)
-     enddo
-        
-
-! transform to k space
-#ifdef __ESSL
-!$omp parallel do private(j,i,kz,k,indt1,indt,indp,xz,yz) firstprivate(aux2f,aux3f,aux2b,aux3b)
-#else
-!$omp parallel do private(j,i,kz,k,indt1,indt,indp,xz,yz)
-#endif
-     do j=1,meachtheta
-        indt1=(j-1)*mz
-        do i=idiag1,idiag2
-           indt=indt1+(i-idiag1)*meachtheta*mz
-
-           do kz=0,ntoroidal-1
-              do k=1,mz
-                 indp=kz*icount+indt+k
-                 xz(kz*mz+k)=allzeta(indp)
-              enddo
-           enddo
-
-#ifdef __ESSL
-           call drcft(0,xz,0,yz,0,mtdiag,1,1,1.0_wp,aux1f,25000,aux2f,20000,aux3f,1)
-#else
-           call fftr1d(1,mtdiag,1.0_wp,xz,yz,2)
-#endif
-
-! record mode information for diagnostic
-           if(i==ipsi)then
-              do kz=1,num_mode
-                 y_eigen(j+meachtheta*(kz-1))=yz(nmode(kz)+1)
-              enddo
-           endif
-
-           if(nonlinear<0.5_wp)then
-! linear run only keep a few modes
-              yz=filter*yz
-
-! transform back to real space
-#ifdef __ESSL
-              call dcrft(0,yz,0,xz,0,mtdiag,1,-1,1.0_wp,aux1b,25000,aux2b,20000,aux3b,1)
-#else
-              call fftr1d(-1,mtdiag,1.0_wp,xz,yz,2)
-#endif
-
-! transpose back to (ntoroidal,mz)
-              do kz=0,ntoroidal-1
-                 do k=1,mz
-                    indp=kz*icount+indt+k
-                    allzeta(indp)=xz(kz*mz+k)
-                 enddo
-              enddo
-           endif
-
-        enddo
-     enddo
-
-     if(nonlinear<0.5_wp)then
-        do jpe=0,ntoroidal-1
-           call MPI_SCATTER(allzeta,icount,mpi_Rsize,eachzeta,&
-                icount,mpi_Rsize,jpe,toroidal_comm,ierror)
-
-!$omp parallel do private(j,i,k,jt,indt,indp1,indp)
-           do j=1,meachtheta
-              jt=jpe*meachtheta+j
-              indt=(j-1)*mz
-              do i=idiag1,idiag2
-                 indp1=indt+(i-idiag1)*meachtheta*mz
-                 do k=1,mz
-                    indp=indp1+k
-                    phiflux(k,jt,i)=eachzeta(indp)
-                 enddo
-              enddo
-           enddo
-
-        enddo
-
-! interpolate field from magnetic coordinates to fieldline coordinates
-
-        zdum=zetamin+deltaz
-
-!$omp parallel do private(i,j,ii,tdum,jt,wt,jte)           
-        do i=idiag1,idiag2
-           ii=igrid(i)              
-           do j=1,mtheta(i)
-              tdum=pi2_inv*(deltat(i)*real(j,wp)+zdum*qtinv(i))+10.0_wp
-              tdum=(tdum-aint(tdum))*real(mtdiag,wp)
-              jt=max(0,min(mtdiag-1,int(tdum)))
-              wt=tdum-real(jt,wp)
-              jte=jt+1
-              if(jt==0)jt=mtdiag
-              phi(1,ii+j)=wt*phiflux(mzbig,jte,i)+(1.0_wp-wt)*phiflux(mzbig,jt,i)
-           enddo
-        enddo
-
-! toroidal BC: send phi to right and receive from left
-        sendr=phi(1,:)
-        recvl=0.0_wp
-        icount=mgrid
-        idest=right_pe
-        isource=left_pe
-        isendtag=myrank_toroidal
-        irecvtag=isource
-        call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,recvl,icount,&
-                      mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-     
-        if(myrank_toroidal==0)then
-           do i=idiag1,idiag2
-              ii=igrid(i)
-              jt=mtheta(i)
-              phi(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
-           enddo
-        else
-           phi(0,:)=recvl
-        endif
-
-! poloidal BC
-        do i=idiag1,idiag2
-           phi(:,igrid(i))=phi(:,igrid(i)+mtheta(i))
-        enddo
-
-     endif
-
-  endif  ! end if(iflag==1 .and. (nonlinear<0.5 .or. idiag==0)) 
-         ! end if(nonlinear < -100)
+
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use field_array
+   use diagnosis_array
+   use esi_interface
+   implicit none
+   integer iflag,i,j,k,ii,ij,ip,jt,jte,kz,ismooth,mz,mzmax,mzbig,jpe,indp,indt,indp1,indt1,&
+      meachtheta,icount,ierror,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
+   real(wp) sendl(mgrid),sendr(mgrid),recvl(mgrid),recvr(mgrid),phism(mgrid),&
+      pleft(mthetamax),pright(mthetamax),phitmp(0:1,mgrid),filter(mtdiag/2+1),wt,r,&
+      dt,wz,zdum,tdum,pi2_inv,den00(0:mpsi),phiflux(mtdiag/ntoroidal,mtdiag,idiag1:idiag2),&
+      eachzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal/ntoroidal),&
+      allzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal),xz(mtdiag)
+   complex(wp) y_eigen(mtdiag/ntoroidal*num_mode),yz(mtdiag/2+1),yt(mtdiag*num_mode),&
+      ye(mtdiag),yp(ipsi+1)
+   ! the dummy array size for thread-safe FFT assume data array size <16384
+   real(wp) :: aux1f(25000),aux1b(25000),aux2f(20000),aux2b(20000)
+   real(wp) :: aux3f(1),aux3b(1)
+   real(wp) :: tmp_zonal_term(0:mpsi)
+
+
+
+
+   ! wx: solve zonal flow for general geometry (July, 04):
+   !     assume <tilde{phi}>=tilde{<phi>} -- probabaly not justified for gg
+
+   if(iflag==1)then
+      if(ZF_SEPARATION==1.and.order <= 0) then    ! solve zonal flows separately
+         phip00=zonali                           ! =<n_i>/n_0
+         if(ifelectron/=0) phip00=phip00-zonale  ! =(<n_i>-<n_e>)/n_0 with non-adiabatic electrons
+         ! (-0.0625 0.25 0.625 0.25 -0.0625) radial smoothing of (0,0) mode density phip00
+         do ismooth=1,1
+            den00(0)=phip00(0)
+            den00(mpsi)=phip00(mpsi)
+            den00(1)=0.5_wp*phip00(1)+0.25_wp*(phip00(0)+phip00(2))
+            den00(mpsi-1)=0.5_wp*phip00(mpsi-1)+0.25_wp*(phip00(mpsi-2)+phip00(mpsi))
+            den00(2:mpsi-2)=phip00(0:mpsi-4)+phip00(4:mpsi)
+            den00(2:mpsi-2)=0.625_wp*phip00(2:mpsi-2)+0.25_wp*(phip00(1:mpsi-3)+&
+               phip00(3:mpsi-1))-0.0625_wp*den00(2:mpsi-2)
+            phip00=den00
+         enddo
+
+         ! solve zonal flow for gg: phip00=dphi_00/da, dphi_00/da(a0)=0. Trapezoid rule
+         den00=phip00
+         phip00=0.0_wp
+         do i=1,mpsi
+            phip00(i)=phip00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*  &
+               (dVda(i-1)*B2_s(i-1)*den00(i-1)+dVda(i)*B2_s(i)*den00(i))
+         enddo
+
+         do i=0,mpsi
+            phip00(i)=-phip00(i)/dVda(i)/gaa(i)
+         enddo
+
+         ! add FLR contribution using Pade approximation: b*<phi>=(1+b)*<n>
+         phi00=den00*vth_grid**2   ! =T*(dn_00/n_0)
+         do i=1,mpsi-1
+            phip00(i)=phip00(i) + (phi00(i+1)-phi00(i-1))/(psi_grid(i+1)-psi_grid(i-1))  ! =dphi_00/da
+         enddo
+         phip00(mpsi)=phip00(mpsi) ! taking (d/da)(Ti*S)=0 at right boundary
+
+         ! enforce boundary condition
+         phip00(0)=0.0_wp
+         !     phip00(mpsi)=0.0   ! only one boundary condition is needed to solve dphi_00/da
+
+         ! zero gyroradius limit OR linear simulation
+         !     phip00=0.0     !wx      no zonal flow
+
+         ! (0,0) mode potential store in phi00
+         phi00=0.0_wp   ! phi00(0)=0.0 is chosen
+         do i=1,mpsi
+            phi00(i)=phi00(i-1)+0.5_wp*(psi_grid(i)-psi_grid(i-1))*(phip00(i-1)+phip00(i))
+         enddo
+
+         ! cancel following do loop           !wx unreasonable enforcement
+         ! enforce <phi>=0 at radial boundary
+         !     do i=1,mpsi
+         !        phi00(i)=phi00(i)-phi00(mpsi)*real(i)/real(mpsi)
+         !     enddo
+
+         if(mode00==0) phip00=0.0_wp  ! exclude zonal flow
+      endif    ! end ZF_SEPARATION==1
+   endif     ! end iflag=1
+
+
+
+
+
+
+   if(iflag==1) then
+      !$omp parallel do private(i)
+      do i=1,mgrid
+         phitmp(1,i)=phi(1,i)  !phitmp=phi  ! smooth phi for numerical derivative -->E field
+      enddo
+   else                                    !   if(iflag==0), smooth n_i or n_e just for output; used nowhere
+      if(ifelectron==0) then               !if(ifelectron==0), phitmp=densityi
+         !$omp parallel do private(i)
+         ! MGYOO (06/11/2019): For consistent smoothing including zonal components
+         if(ZF_SEPARATION==1) then
+            do i=0,mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  phitmp(1,ij)=densityi(1,ij)+zonali(i)  ! tilde{dn_i}/n_0
+               enddo
+            enddo
+         else
+            do i=1,mgrid
+               phitmp(1,i)=densityi(1,i)  !just for output; used nowhere
+            enddo
+         endif
+      else                                 !if(ifelectron==1 or 2), phitmp=densitye
+         ! MGYOO (06/11/2019): For consistent smoothing including zonal components
+         if(ZF_SEPARATION==1) then
+            do i=0,mpsi
+               do j=0,mtheta(i)
+                  ij=igrid(i)+j
+                  phitmp(1,ij)=densitye(1,ij)+zonale(i)  ! tilde{dn_e}/n_0
+               enddo
+            enddo
+         else
+            !$omp parallel do private(i)
+            do i=1,mgrid
+               phitmp(1,i)=densitye(1,i)  !just for output; used nowhere
+            enddo
+         endif
+      end if
+   endif   ! end if(iflag==1)
+
+   ismooth=1
+   do ip=1,ismooth
+
+      ! radial smoothing
+      do i=1,mpsi-1
+         phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
+      enddo
+      phism=0.0
+      !$omp parallel do private(i,j,ij)
+      do i=2,mpsi-2
+         do j=1,mtheta(i)
+            ij=igrid(i)+j
+            !
+            ! need to take into account uneven radial grid size dpsi when doing radial smoothing? wx
+            !
+            phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+               wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+               (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+               wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
+               0.0625_wp*((1.0_wp-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
+               wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1)+&
+               (1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
+               wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
+
+         enddo
+      enddo
+
+      !
+      !       radial smoothing I
+      !
+      !       i=1
+      !  !$omp parallel do private(j,ij)
+      !          do j=1,mtheta(i)
+      !             ij=igrid(i)+j
+      !             phism(ij)=0.25*((1.0-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+      !                  wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+      !                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+      !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
+      !          enddo
+      !
+      !       i=mpsi-1
+      !  !$omp parallel do private(j,ij)
+      !          do j=1,mtheta(i)
+      !             ij=igrid(i)+j
+      !             phism(ij)=0.25*((1.0-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+      !                  wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+      !                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+      !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
+      !          enddo
+      !
+      !  !$omp parallel do private(i)
+      !       do i=igrid(2)+1, igrid(mpsi-2)+mtheta(mpsi-2)
+      !          phitmp(1,i)=0.625*phitmp(1,i)+phism(i) ! 5-point smoothing
+      !       end do
+      !
+      !  !$omp parallel do private(i)
+      !       do i=igrid(1)+1,igrid(1)+mtheta(1)
+      !          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
+      !       end do
+      !
+      !  !$omp parallel do private(i)
+      !       do i=igrid(mpsi-1)+1,igrid(mpsi-1)+mtheta(mpsi-1)
+      !          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
+      !       end do
+
+      !
+      !       radial smoothing II
+      !
+      i=1
+      !$omp parallel do private(j,ij)
+      do j=1,mtheta(i)
+         ij=igrid(i)+j
+         phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+            wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+            (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+            wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
+            0.0625_wp*((1.0_wp-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
+            wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1)+&
+            phitmp(1,ij))
+      enddo
+
+      i=mpsi-1
+      !$omp parallel do private(j,ij)
+      do j=1,mtheta(i)
+         ij=igrid(i)+j
+         phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+            wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+            (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+            wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
+            0.0625_wp*(phitmp(1,ij)+&
+            (1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
+            wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
+      enddo
+
+      i=0
+      !$omp parallel do private(j,ij)
+      do j=1,mtheta(i)
+         ij=igrid(i)+j
+         phism(ij)=0.5_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+            wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1))-&
+            0.125_wp*((1.0-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
+            wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1))
+      enddo
+
+      i=mpsi
+      !$omp parallel do private(j,ij)
+      do j=1,mtheta(i)
+         ij=igrid(i)+j
+         phism(ij)=0.5_wp*((1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+            wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
+            0.125_wp*((1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
+            wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
+      enddo
+
+      !$omp parallel do private(i)
+      do i=1,mgrid
+         phitmp(1,i)=0.625_wp*phitmp(1,i)+phism(i) ! 5-point smoothing
+      end do
+
+
+      do i=0,mpsi
+         phitmp(1,igrid(i))=phitmp(1,igrid(i)+mtheta(i))
+      enddo
+
+      ! poloidal smoothing (-0.0625 0.25 0.625 0.25 -0.0625)
+      !$omp parallel do private(i,ii,jt,pright)
+      do i=0,mpsi
+         ii=igrid(i)
+         jt=mtheta(i)
+         pright(1:jt)=phitmp(1,ii+1:ii+jt)
+         phitmp(1,ii+1:ii+jt)=0.625_wp*pright(1:jt)+&
+            0.25_wp*(cshift(pright(1:jt),-1)+cshift(pright(1:jt),1))-&
+            0.0625_wp*(cshift(pright(1:jt),-2)+cshift(pright(1:jt),2))
+      enddo
+
+      do i=0,mpsi
+         phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
+      enddo
+
+      ! parallel smoothing
+      ! send phi to right and receive from left
+      sendr=phitmp(1,:)
+      recvl=0.0_wp
+      icount=mgrid
+      idest=right_pe
+      isource=left_pe
+      isendtag=myrank_toroidal
+      irecvtag=isource
+      call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,&
+         recvl,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+
+      ! send phi to left and receive from right
+      sendl=phitmp(1,:)
+      recvr=0.0_wp
+      idest=left_pe
+      isource=right_pe
+      isendtag=myrank_toroidal
+      irecvtag=isource
+      call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,&
+         recvr,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+
+      !$omp parallel do private(i,ii,jt,j,ij,pleft,pright)
+      do i=0,mpsi
+         ii=igrid(i)
+         jt=mtheta(i)
+         if(myrank_toroidal==0)then !down-shift for zeta=0
+            pleft(1:jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
+            pright(1:jt)=recvr(ii+1:ii+jt)
+         elseif(myrank_toroidal==ntoroidal-1)then !up-shift for zeta=2*pi
+            pright(1:jt)=cshift(recvr(ii+1:ii+jt),itran(i))
+            pleft(1:jt)=recvl(ii+1:ii+jt)
+         else
+            pleft(1:jt)=recvl(ii+1:ii+jt)
+            pright(1:jt)=recvr(ii+1:ii+jt)
+         endif
+
+         do j=1,mtheta(i)
+            ij=igrid(i)+j
+            phitmp(1,ij)=0.5_wp*phitmp(1,ij)+0.25_wp*(pleft(j)+pright(j))
+         enddo
+      enddo   ! end do i=0,mpsi
+   enddo      ! end do ip=1,ismooth
+
+   ! toroidal BC: send phi to right and receive from left
+   sendr=phitmp(1,:)
+   recvl=0.0_wp
+   icount=mgrid
+   idest=right_pe
+   isource=left_pe
+   isendtag=myrank_toroidal
+   irecvtag=isource
+   call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,&
+      recvl,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+
+   if(myrank_toroidal==0)then
+      do i=0,mpsi
+         ii=igrid(i)
+         jt=mtheta(i)
+         phitmp(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
+      enddo
+   else
+      phitmp(0,:)=recvl
+   endif
+
+   ! poloidal BC
+   do i=0,mpsi
+      phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
+   enddo
+
+   ! radial boundary: 3 cases
+   ! 1. phi=0 at both inner and outer boundaries
+   ! 2. phi=0 at inner boundary and float phi at outer boundary
+   ! 3. phi is float at both inner and outer boundaries
+   !    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
+
+   !    phitmp(:,igrid(0):igrid(0)+mtheta(0))=0.0
+   !    potential at right boundary is float
+   !    phitmp(:,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
+
+   !adiabatic electron response
+   if(iflag==1) then
+      !$omp parallel do private(i)
+      do i=1,mgrid
+         phi(:,i)=phitmp(:,i)    ! now phi(0,:) also has valid data
+         ! phi(:,igird(i)) also has valid data
+      enddo
+   else  ! if(iflag==0)
+
+      if(ifelectron==0) then
+         !$omp parallel do private(i)
+         do i=1,mgrid
+            densityi(:,i)=phitmp(:,i) !just for output; used nowhere
+         enddo
+
+         ! MGYOO (06/11/2019): For consistent smoothing including zonal components
+         tmp_zonal_term=0.0
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               tmp_zonal_term(i)=tmp_zonal_term(i)+dtemper(ij)*densityi(1,ij)
+            enddo
+         enddo
+         call MPI_ALLREDUCE(tmp_zonal_term,zonali,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+         zonali=zonali/jaco_sum
+
+         if(ZF_SEPARATION==1) then
+            ! Subtract zonal term to get correct non-zonal density
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  densityi(1,ij)=densityi(1,ij)-zonali(i)
+               enddo
+               densityi(1,igrid(i))=densityi(1,igrid(i)+mtheta(i))
+            enddo
+         endif
+      else    ! if(ifelectron==1 or 2)
+         !$omp parallel do private(i)
+         do i=1,mgrid
+            densitye(:,i)=phitmp(:,i) !just for output; used nowhere
+         enddo
+
+         ! MGYOO (06/11/2019): For consistent smoothing including zonal components
+         tmp_zonal_term=0.0
+         do i=0,mpsi
+            do j=1,mtheta(i)
+               ij=igrid(i)+j
+               tmp_zonal_term(i)=tmp_zonal_term(i)+dtemper(ij)*densitye(1,ij)
+            enddo
+         enddo
+         call MPI_ALLREDUCE(tmp_zonal_term,zonale,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+         zonale=zonale/jaco_sum
+
+         if(ZF_SEPARATION==1) then
+            ! Subtract zonal term to get correct non-zonal density
+            do i=0,mpsi
+               do j=1,mtheta(i)
+                  ij=igrid(i)+j
+                  densitye(1,ij)=densitye(1,ij)-zonale(i)
+               enddo
+               densitye(1,igrid(i))=densitye(1,igrid(i)+mtheta(i))
+            enddo
+         endif
+      end if
+   endif
+
+
+
+
+   ! interpolate on a flux surface from fieldline coordinates to magnetic coordinates
+   ! use mtdiag for both poloidal and toroidal grid points
+   !    if(iflag==1 .and. (nonlinear<0.5 .or. idiag==0))then
+
 
 #ifdef USE_OLD_DIAGNOSTICS
-go to 1000
+   go to 1000
 
-if(mype==0) print*, 'INSIDE SMOOTH(1) 111'
+   if(mype==0) print*, 'INSIDE SMOOTH(1) 111'
 
-! diagnostic
-  if(idiag==0 .and. iflag==1)then
+   ! diagnostic
+   if(idiag==0 .and. iflag==1)then
 
-if(mype==0) print*, 'INSIDE SMOOTH(1) 222', 'idiag=', idiag, 'iflag=', iflag
+      if(mype==0) print*, 'INSIDE SMOOTH(1) 222', 'idiag=', idiag, 'iflag=', iflag
 
-! shear flow amplitude
-     eradial=sqrt(sum(phip00(1:mpsi)**2)/real(mpsi,wp))/vthc    ! ???
+      ! shear flow amplitude
+      eradial=sqrt(sum(phip00(1:mpsi)**2)/real(mpsi,wp))/vthc    ! ???
 
-if(mype==0) print*, 'INSIDE SMOOTH(1) 333', 'idiag=', idiag, 'iflag=', iflag
+      if(mype==0) print*, 'INSIDE SMOOTH(1) 333', 'idiag=', idiag, 'iflag=', iflag
 
-! RMS of potential
-     efield=0.0_wp
-     do i=1,mpsi
-        efield=efield+sum(phi(1,igrid(i)+1:igrid(i)+mtheta(i))**2)
-     enddo
-     efield=sqrt(efield/real(sum(mtheta(1:mpsi)),wp))/(vthc**2)  !  ???
-     
-if(mype==0) print*, 'INSIDE SMOOTH(1) 6aaa7'
+      ! RMS of potential
+      efield=0.0_wp
+      do i=1,mpsi
+         efield=efield+sum(phi(1,igrid(i)+1:igrid(i)+mtheta(i))**2)
+      enddo
+      efield=sqrt(efield/real(sum(mtheta(1:mpsi)),wp))/(vthc**2)  !  ???
 
-! record zonal flow mode history
-     call fftr1d(1,mpsi,1.0_wp,phip00(1:mpsi),yp,1)
+      if(mype==0) print*, 'INSIDE SMOOTH(1) 6aaa7'
 
-if(mype==0) print*, 'INSIDE SMOOTH(1) 6bbb7'
+      ! record zonal flow mode history
+      call fftr1d(1,mpsi,1.0_wp,phip00(1:mpsi),yp,1)
 
-     do i=1,num_mode
-        amp_mode(1,i,1)=real(yp(i+1))/(real(mpsi,wp)*vthc)  ! ???
-        amp_mode(2,i,1)=aimag(yp(i+1))/(real(mpsi,wp)*vthc) ! ???
-     enddo
-     
-if(mype==0) print*, 'INSIDE SMOOTH(1) 6ccc7'
+      if(mype==0) print*, 'INSIDE SMOOTH(1) 6bbb7'
 
-! dominant (n,m) mode history data for flux surface at i=ipsi
-     icount=meachtheta*num_mode
-     call MPI_GATHER(y_eigen,icount,mpi_complex_size,yt,icount,&
-          mpi_complex_size,0,toroidal_comm,ierror)
+      do i=1,num_mode
+         amp_mode(1,i,1)=real(yp(i+1))/(real(mpsi,wp)*vthc)  ! ???
+         amp_mode(2,i,1)=aimag(yp(i+1))/(real(mpsi,wp)*vthc) ! ???
+      enddo
 
-if(mype==0) print*, 'INSIDE SMOOTH(1) 6ddd7'
+      if(mype==0) print*, 'INSIDE SMOOTH(1) 6ccc7'
 
-     if(myrank_toroidal == 0)then
-        do kz=1,num_mode
+      ! dominant (n,m) mode history data for flux surface at i=ipsi
+      icount=meachtheta*num_mode
+      call MPI_GATHER(y_eigen,icount,mpi_complex_size,yt,icount,&
+         mpi_complex_size,0,toroidal_comm,ierror)
 
-           do i=0,ntoroidal-1
-              do j=1,meachtheta
-                 ye(j+i*meachtheta)=yt(j+(kz-1)*meachtheta+i*icount)
-              enddo
-           enddo
+      if(mype==0) print*, 'INSIDE SMOOTH(1) 6ddd7'
 
-if(mype==0) print*, 'INSIDE SMOOTH(1) do-loop 1'
+      if(myrank_toroidal == 0)then
+         do kz=1,num_mode
 
-           call fftc1d(1,mtdiag,1.0_wp,ye)
+            do i=0,ntoroidal-1
+               do j=1,meachtheta
+                  ye(j+i*meachtheta)=yt(j+(kz-1)*meachtheta+i*icount)
+               enddo
+            enddo
 
-if(mype==0) print*, 'INSIDE SMOOTH(1) do-loop 2'
+            if(mype==0) print*, 'INSIDE SMOOTH(1) do-loop 1'
 
-           amp_mode(1,kz,2)=real(ye(mtdiag-mmode(kz)+1))/ &
-                (real(mzmax*mtdiag,wp)*vth_grid(ipsi)**2)  
-           amp_mode(2,kz,2)=aimag(ye(mtdiag-mmode(kz)+1))/ &
-                (real(mzmax*mtdiag,wp)*vth_grid(ipsi)**2)  
+            call fftc1d(1,mtdiag,1.0_wp,ye)
 
-if(mype==0) print*, 'INSIDE SMOOTH(1) do-loop 3'
+            if(mype==0) print*, 'INSIDE SMOOTH(1) do-loop 2'
 
-        enddo
-     endif
-  endif   ! end if(idiag==0 .and. iflag==1)
-  
-if(mype==0) print*, 'INSIDE SMOOTH(1) 777 end'
+            amp_mode(1,kz,2)=real(ye(mtdiag-mmode(kz)+1))/ &
+               (real(mzmax*mtdiag,wp)*vth_grid(ipsi)**2)
+            amp_mode(2,kz,2)=aimag(ye(mtdiag-mmode(kz)+1))/ &
+               (real(mzmax*mtdiag,wp)*vth_grid(ipsi)**2)
 
-1000 continue 
+            if(mype==0) print*, 'INSIDE SMOOTH(1) do-loop 3'
+
+         enddo
+      endif
+   endif   ! end if(idiag==0 .and. iflag==1)
+
+   if(mype==0) print*, 'INSIDE SMOOTH(1) 777 end'
+
+   1000 continue
 #endif
+
 
 end subroutine smooth
 
@@ -627,982 +510,299 @@ end subroutine smooth
 
 subroutine smooth_phi
 
-  use precision
-  use mpi_defs
-  use global_parameters
-  use particle_decomp
-  use field_array
-  use diagnosis_array
-  implicit none
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_decomp
+   use field_array
+   use diagnosis_array
+   implicit none
 
-  integer i,j,k,ii,ij,ip,jt,ismooth, &
-          icount,ierror,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-  real(wp) sendl(mgrid),sendr(mgrid),recvl(mgrid),recvr(mgrid),phism(mgrid), &
-           pleft(mthetamax),pright(mthetamax),phitmp(0:1,mgrid), &
-           adum(0:mpsi)
-  real(wp) dum, tdum
+   integer i,j,k,ii,ij,ip,jt,ismooth, &
+      icount,ierror,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
+   real(wp) sendl(mgrid),sendr(mgrid),recvl(mgrid),recvr(mgrid),phism(mgrid), &
+      pleft(mthetamax),pright(mthetamax),phitmp(0:1,mgrid), &
+      adum(0:mpsi)
+   real(wp) dum, tdum
 
-!$omp parallel do private(i)
-     do i=1,mgrid
-        phitmp(1,i)=phi(1,i)  !phitmp=phi  ! smooth phi for numerical derivative -->E field
-     enddo
+   !$omp parallel do private(i)
+   do i=1,mgrid
+      phitmp(1,i)=phi(1,i)  !phitmp=phi  ! smooth phi for numerical derivative -->E field
+   enddo
 
-  ismooth=1
-  do ip=1,ismooth
+   ismooth=1
+   do ip=1,ismooth
 
-! radial smoothing
-     do i=1,mpsi-1
-        phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
-     enddo
-     phism=0.0
-!$omp parallel do private(i,j,ij)        
-     do i=2,mpsi-2
-        do j=1,mtheta(i)
-           ij=igrid(i)+j
-!
-! need to take into account uneven radial grid size dpsi when doing radial smoothing? wx
-!
-           phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-                wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-                (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-                wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
-                0.0625_wp*((1.0_wp-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
-                wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1)+&
-                (1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
-                wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
-              
-        enddo
-     enddo
+      ! radial smoothing
+      do i=1,mpsi-1
+         phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
+      enddo
+      phism=0.0
+      !$omp parallel do private(i,j,ij)
+      do i=2,mpsi-2
+         do j=1,mtheta(i)
+            ij=igrid(i)+j
+            !
+            ! need to take into account uneven radial grid size dpsi when doing radial smoothing? wx
+            !
+            phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+               wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+               (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+               wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
+               0.0625_wp*((1.0_wp-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
+               wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1)+&
+               (1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
+               wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
 
-!
-!       radial smoothing I
-!
-!       i=1
-!  !$omp parallel do private(j,ij)
-!          do j=1,mtheta(i)
-!             ij=igrid(i)+j
-!             phism(ij)=0.25*((1.0-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-!                  wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-!                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-!                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
-!          enddo
-!  
-!       i=mpsi-1
-!  !$omp parallel do private(j,ij)
-!          do j=1,mtheta(i)
-!             ij=igrid(i)+j
-!             phism(ij)=0.25*((1.0-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-!                  wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-!                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-!                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
-!          enddo
-!  
-!  !$omp parallel do private(i)
-!       do i=igrid(2)+1, igrid(mpsi-2)+mtheta(mpsi-2)
-!          phitmp(1,i)=0.625*phitmp(1,i)+phism(i) ! 5-point smoothing
-!       end do
-!  
-!  !$omp parallel do private(i)
-!       do i=igrid(1)+1,igrid(1)+mtheta(1)
-!          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
-!       end do
-!  
-!  !$omp parallel do private(i)
-!       do i=igrid(mpsi-1)+1,igrid(mpsi-1)+mtheta(mpsi-1)
-!          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
-!       end do
+         enddo
+      enddo
 
-!
-!       radial smoothing II
-!
-     i=1
-!$omp parallel do private(j,ij)
-     do j=1,mtheta(i)
-        ij=igrid(i)+j
-        phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-             wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-             (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-             wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
-             0.0625_wp*((1.0_wp-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
-             wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1)+&
-             phitmp(1,ij))
-     enddo
+      !
+      !       radial smoothing I
+      !
+      !       i=1
+      !  !$omp parallel do private(j,ij)
+      !          do j=1,mtheta(i)
+      !             ij=igrid(i)+j
+      !             phism(ij)=0.25*((1.0-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+      !                  wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+      !                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+      !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
+      !          enddo
+      !
+      !       i=mpsi-1
+      !  !$omp parallel do private(j,ij)
+      !          do j=1,mtheta(i)
+      !             ij=igrid(i)+j
+      !             phism(ij)=0.25*((1.0-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+      !                  wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+      !                  (1.0-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+      !                  wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))
+      !          enddo
+      !
+      !  !$omp parallel do private(i)
+      !       do i=igrid(2)+1, igrid(mpsi-2)+mtheta(mpsi-2)
+      !          phitmp(1,i)=0.625*phitmp(1,i)+phism(i) ! 5-point smoothing
+      !       end do
+      !
+      !  !$omp parallel do private(i)
+      !       do i=igrid(1)+1,igrid(1)+mtheta(1)
+      !          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
+      !       end do
+      !
+      !  !$omp parallel do private(i)
+      !       do i=igrid(mpsi-1)+1,igrid(mpsi-1)+mtheta(mpsi-1)
+      !          phitmp(1,i)=0.5*phitmp(1,i)+phism(i)   ! 3-point smoothing
+      !       end do
 
-     i=mpsi-1
-!$omp parallel do private(j,ij)
-     do j=1,mtheta(i)
-        ij=igrid(i)+j
-        phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-             wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
-             (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-             wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
-             0.0625_wp*(phitmp(1,ij)+&
-             (1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
-             wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
-     enddo
+      !
+      !       radial smoothing II
+      !
+      i=1
+      !$omp parallel do private(j,ij)
+      do j=1,mtheta(i)
+         ij=igrid(i)+j
+         phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+            wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+            (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+            wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
+            0.0625_wp*((1.0_wp-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
+            wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1)+&
+            phitmp(1,ij))
+      enddo
 
-     i=0
-!$omp parallel do private(j,ij)
-     do j=1,mtheta(i)
-        ij=igrid(i)+j
-        phism(ij)=0.5_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
-             wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1))-&
-             0.125_wp*((1.0-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
-             wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1))
-     enddo
+      i=mpsi-1
+      !$omp parallel do private(j,ij)
+      do j=1,mtheta(i)
+         ij=igrid(i)+j
+         phism(ij)=0.25_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+            wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1)+&
+            (1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+            wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
+            0.0625_wp*(phitmp(1,ij)+&
+            (1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
+            wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
+      enddo
 
-     i=mpsi
-!$omp parallel do private(j,ij)
-     do j=1,mtheta(i)
-        ij=igrid(i)+j
-        phism(ij)=0.5_wp*((1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
-             wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
-             0.125_wp*((1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
-             wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
-     enddo
+      i=0
+      !$omp parallel do private(j,ij)
+      do j=1,mtheta(i)
+         ij=igrid(i)+j
+         phism(ij)=0.5_wp*((1.0_wp-wtp1(1,ij))*phitmp(1,jtp1(1,ij))+&
+            wtp1(1,ij)*phitmp(1,jtp1(1,ij)+1))-&
+            0.125_wp*((1.0-wtp2(1,ij))*phitmp(1,jtp2(1,ij))+&
+            wtp2(1,ij)*phitmp(1,jtp2(1,ij)+1))
+      enddo
 
-!$omp parallel do private(i)
-     do i=1,mgrid
-        phitmp(1,i)=0.625_wp*phitmp(1,i)+phism(i) ! 5-point smoothing
-     end do
+      i=mpsi
+      !$omp parallel do private(j,ij)
+      do j=1,mtheta(i)
+         ij=igrid(i)+j
+         phism(ij)=0.5_wp*((1.0_wp-wtp1(2,ij))*phitmp(1,jtp1(2,ij))+&
+            wtp1(2,ij)*phitmp(1,jtp1(2,ij)+1))-&
+            0.125_wp*((1.0_wp-wtp2(2,ij))*phitmp(1,jtp2(2,ij))+&
+            wtp2(2,ij)*phitmp(1,jtp2(2,ij)+1))
+      enddo
 
-
-     do i=0,mpsi
-        phitmp(1,igrid(i))=phitmp(1,igrid(i)+mtheta(i))
-     enddo
-
-! poloidal smoothing (-0.0625 0.25 0.625 0.25 -0.0625)
-!$omp parallel do private(i,ii,jt,pright)        
-     do i=0,mpsi
-        ii=igrid(i)
-        jt=mtheta(i)
-        pright(1:jt)=phitmp(1,ii+1:ii+jt)
-        phitmp(1,ii+1:ii+jt)=0.625_wp*pright(1:jt)+&
-             0.25_wp*(cshift(pright(1:jt),-1)+cshift(pright(1:jt),1))-&
-             0.0625_wp*(cshift(pright(1:jt),-2)+cshift(pright(1:jt),2))
-     enddo
-
-     do i=0,mpsi
-           phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
-     enddo
-
-! parallel smoothing 
-! send phi to right and receive from left
-     sendr=phitmp(1,:)
-     recvl=0.0_wp
-     icount=mgrid
-     idest=right_pe
-     isource=left_pe
-     isendtag=myrank_toroidal
-     irecvtag=isource
-     call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,&
-          recvl,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-     
-! send phi to left and receive from right
-     sendl=phitmp(1,:)
-     recvr=0.0_wp
-     idest=left_pe
-     isource=right_pe
-     isendtag=myrank_toroidal
-     irecvtag=isource
-     call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,&
-          recvr,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-    
-!$omp parallel do private(i,ii,jt,j,ij,pleft,pright)
-     do i=0,mpsi
-        ii=igrid(i)
-        jt=mtheta(i)
-        if(myrank_toroidal==0)then !down-shift for zeta=0
-           pleft(1:jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
-           pright(1:jt)=recvr(ii+1:ii+jt)
-        elseif(myrank_toroidal==ntoroidal-1)then !up-shift for zeta=2*pi
-           pright(1:jt)=cshift(recvr(ii+1:ii+jt),itran(i))
-           pleft(1:jt)=recvl(ii+1:ii+jt)
-        else
-           pleft(1:jt)=recvl(ii+1:ii+jt)
-           pright(1:jt)=recvr(ii+1:ii+jt)
-        endif
-        
-        do j=1,mtheta(i)
-           ij=igrid(i)+j
-           phitmp(1,ij)=0.5_wp*phitmp(1,ij)+0.25_wp*(pleft(j)+pright(j))
-        enddo
-     enddo   ! end do i=0,mpsi
-  enddo      ! end do ip=1,ismooth
-
-! toroidal BC: send phi to right and receive from left
-  sendr=phitmp(1,:)
-  recvl=0.0_wp
-  icount=mgrid
-  idest=right_pe
-  isource=left_pe
-  isendtag=myrank_toroidal
-  irecvtag=isource
-  call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,&
-       recvl,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-     
-  if(myrank_toroidal==0)then
-     do i=0,mpsi
-        ii=igrid(i)
-        jt=mtheta(i)
-        phitmp(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
-     enddo
-  else
-     phitmp(0,:)=recvl
-  endif
-
-! poloidal BC
-  do i=0,mpsi
-     phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
-  enddo
-
-! radial boundary: 3 cases 
-! 1. phi=0 at both inner and outer boundaries
-! 2. phi=0 at inner boundary and float phi at outer boundary 
-! 3. phi is float at both inner and outer boundaries
-!    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
-
-!    phitmp(:,igrid(0):igrid(0)+mtheta(0))=0.0
-!    potential at right boundary is float
-!    phitmp(:,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
-
-!$omp parallel do private(i)
-     do i=1,mgrid
-        phi(:,i)=phitmp(:,i)    ! now phi(0,:) also has valid data
-                                ! phi(:,igird(i)) also has valid data
-     enddo
+      !$omp parallel do private(i)
+      do i=1,mgrid
+         phitmp(1,i)=0.625_wp*phitmp(1,i)+phism(i) ! 5-point smoothing
+      end do
 
 
+      do i=0,mpsi
+         phitmp(1,igrid(i))=phitmp(1,igrid(i)+mtheta(i))
+      enddo
+
+      ! poloidal smoothing (-0.0625 0.25 0.625 0.25 -0.0625)
+      !$omp parallel do private(i,ii,jt,pright)
+      do i=0,mpsi
+         ii=igrid(i)
+         jt=mtheta(i)
+         pright(1:jt)=phitmp(1,ii+1:ii+jt)
+         phitmp(1,ii+1:ii+jt)=0.625_wp*pright(1:jt)+&
+            0.25_wp*(cshift(pright(1:jt),-1)+cshift(pright(1:jt),1))-&
+            0.0625_wp*(cshift(pright(1:jt),-2)+cshift(pright(1:jt),2))
+      enddo
+
+      do i=0,mpsi
+         phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
+      enddo
+
+      ! parallel smoothing
+      ! send phi to right and receive from left
+      sendr=phitmp(1,:)
+      recvl=0.0_wp
+      icount=mgrid
+      idest=right_pe
+      isource=left_pe
+      isendtag=myrank_toroidal
+      irecvtag=isource
+      call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,&
+         recvl,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+
+      ! send phi to left and receive from right
+      sendl=phitmp(1,:)
+      recvr=0.0_wp
+      idest=left_pe
+      isource=right_pe
+      isendtag=myrank_toroidal
+      irecvtag=isource
+      call MPI_SENDRECV(sendl,icount,mpi_Rsize,idest,isendtag,&
+         recvr,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+
+      !$omp parallel do private(i,ii,jt,j,ij,pleft,pright)
+      do i=0,mpsi
+         ii=igrid(i)
+         jt=mtheta(i)
+         if(myrank_toroidal==0)then !down-shift for zeta=0
+            pleft(1:jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
+            pright(1:jt)=recvr(ii+1:ii+jt)
+         elseif(myrank_toroidal==ntoroidal-1)then !up-shift for zeta=2*pi
+            pright(1:jt)=cshift(recvr(ii+1:ii+jt),itran(i))
+            pleft(1:jt)=recvl(ii+1:ii+jt)
+         else
+            pleft(1:jt)=recvl(ii+1:ii+jt)
+            pright(1:jt)=recvr(ii+1:ii+jt)
+         endif
+
+         do j=1,mtheta(i)
+            ij=igrid(i)+j
+            phitmp(1,ij)=0.5_wp*phitmp(1,ij)+0.25_wp*(pleft(j)+pright(j))
+         enddo
+      enddo   ! end do i=0,mpsi
+   enddo      ! end do ip=1,ismooth
+
+   ! toroidal BC: send phi to right and receive from left
+   sendr=phitmp(1,:)
+   recvl=0.0_wp
+   icount=mgrid
+   idest=right_pe
+   isource=left_pe
+   isendtag=myrank_toroidal
+   irecvtag=isource
+   call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,&
+      recvl,icount,mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
+
+   if(myrank_toroidal==0)then
+      do i=0,mpsi
+         ii=igrid(i)
+         jt=mtheta(i)
+         phitmp(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
+      enddo
+   else
+      phitmp(0,:)=recvl
+   endif
+
+   ! poloidal BC
+   do i=0,mpsi
+      phitmp(:,igrid(i))=phitmp(:,igrid(i)+mtheta(i))
+   enddo
+
+   ! radial boundary: 3 cases
+   ! 1. phi=0 at both inner and outer boundaries
+   ! 2. phi=0 at inner boundary and float phi at outer boundary
+   ! 3. phi is float at both inner and outer boundaries
+   !    for above three cases, electric field E=grad\phi=0 is enforced at both boundaries
+
+   !    phitmp(:,igrid(0):igrid(0)+mtheta(0))=0.0
+   !    potential at right boundary is float
+   !    phitmp(:,igrid(mpsi):igrid(mpsi)+mtheta(mpsi))=0.0
+
+   !$omp parallel do private(i)
+   do i=1,mgrid
+      phi(:,i)=phitmp(:,i)    ! now phi(0,:) also has valid data
+      ! phi(:,igird(i)) also has valid data
+   enddo
 
 
-if(ZF_SEPARATION==0) then  ! Calculate zonal flow component of phi, <phi>
- 
-
-! Note: phi and phi00 are calculated at particle coordinates (x), but not guiding center coordinates (R)
-
-! There is arbitrary constant in the potential;
-! Re-level potential phi to make <phi>(a0)=0 at inner boundary 12/07
-
-!   calculate <phi> at inner boundary a=a0
-     dum=0.0_wp
-!$omp parallel private(j,ij) reduction(+:dum)
-!$omp do
-     do j=1,mtheta(0)
-        ij=igrid(0)+j
-        dum=dum+dtemper(ij)*phi(1,ij)  ! surface averaging
-     enddo
-!$omp end parallel
-     call MPI_ALLREDUCE(dum,tdum,1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
-     tdum=tdum/jaco_sum(0)    !  =<phi> at inner boundary a=a0
-
-     phi=phi-tdum  ! Re-level potential phi by a constant to make <phi>(a0)=0 at inner boundary
-
-     do i=0, mpsi
-        phi(:,igrid(i))=phi(:,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
-     enddo
-
-! now phi(0,:) also has valid data;  phi(:,igird(i)) also has valid data
 
 
-    adum=0.0
-!$omp parallel private(i,j,ij) reduction(+:adum)
-!$omp do
-    do i=0,mpsi
-       do j=1,mtheta(i)
-          ij=igrid(i)+j
-          adum(i)=adum(i)+dtemper(ij)*phi(1,ij)  ! surface averaging
-       enddo
-    enddo
-!$omp end parallel
-    call MPI_ALLREDUCE(adum,phi00,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
-    phi00=phi00/jaco_sum    !  =<phi>
+   if(ZF_SEPARATION==0) then  ! Calculate zonal flow component of phi, <phi>
 
 
-end if  ! end ZF_SEPARATION==0
+      ! Note: phi and phi00 are calculated at particle coordinates (x), but not guiding center coordinates (R)
+
+      ! There is arbitrary constant in the potential;
+      ! Re-level potential phi to make <phi>(a0)=0 at inner boundary 12/07
+
+      !   calculate <phi> at inner boundary a=a0
+      dum=0.0_wp
+      !$omp parallel private(j,ij) reduction(+:dum)
+      !$omp do
+      do j=1,mtheta(0)
+         ij=igrid(0)+j
+         dum=dum+dtemper(ij)*phi(1,ij)  ! surface averaging
+      enddo
+      !$omp end parallel
+      call MPI_ALLREDUCE(dum,tdum,1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+      tdum=tdum/jaco_sum(0)    !  =<phi> at inner boundary a=a0
+
+      phi=phi-tdum  ! Re-level potential phi by a constant to make <phi>(a0)=0 at inner boundary
+
+      do i=0, mpsi
+         phi(:,igrid(i))=phi(:,igrid(i)+mtheta(i))  !validate phi(1,igrid(i)) for safe
+      enddo
+
+      ! now phi(0,:) also has valid data;  phi(:,igird(i)) also has valid data
+
+
+      adum=0.0
+      !$omp parallel private(i,j,ij) reduction(+:adum)
+      !$omp do
+      do i=0,mpsi
+         do j=1,mtheta(i)
+            ij=igrid(i)+j
+            adum(i)=adum(i)+dtemper(ij)*phi(1,ij)  ! surface averaging
+         enddo
+      enddo
+      !$omp end parallel
+      call MPI_ALLREDUCE(adum,phi00,mpsi+1,mpi_Rsize,MPI_SUM,toroidal_comm,ierror)
+      phi00=phi00/jaco_sum    !  =<phi>
+
+
+   end if  ! end ZF_SEPARATION==0
+
 
 
 end subroutine smooth_phi
-
-
-subroutine smooth_fft(myphi)
-
-   use precision
-   use mpi_defs
-   use global_parameters
-   use particle_decomp
-   use field_array
-   use diagnosis_array
-   use esi_interface
-   implicit none
-   real(wp),intent(inout),dimension(0:1,mgrid)::myphi
-   integer iflag,i,j,k,ii,ij,ip,jt,jte,kz,ismooth,mz,mzmax,mzbig,jpe,indp,indt,indp1,indt1,&
-      meachtheta,icount,ierror,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-   real(wp) sendl(mgrid),sendr(mgrid),recvl(mgrid),recvr(mgrid),phism(mgrid),&
-      pleft(mthetamax),pright(mthetamax),phitmp(0:1,mgrid),filter(mtdiag/2+1),wt,r,&
-      !dt,wz,zdum,tdum,pi2_inv,den00(0:mpsi),phiflux(mtdiag/ntoroidal,mtdiag,idiag1:idiag2),&
-      !eachzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal/ntoroidal),&
-      !allzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal),xz(mtdiag),&
-      !allzetadum((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal)
-      dt,wz,zdum,tdum,pi2_inv,den00(0:mpsi),xz(mtdiag)
-   complex(wp) y_eigen(mtdiag/ntoroidal*num_mode),yz(mtdiag/2+1),yt(mtdiag*num_mode),&
-      ye(mtdiag),yp(ipsi+1)
-! the dummy array size for thread-safe FFT assume data array size <16384
-   real(wp) :: aux1f(25000),aux1b(25000),aux2f(20000),aux2b(20000)
-   real(wp) :: aux3f(1),aux3b(1)
-
-   !aditya Following definition is used to speedup smooth_fft
-   real(wp),dimension(:,:,:),allocatable :: phiflux
-   real(wp),dimension(:),allocatable :: eachzeta,allzeta,allzetadum
-   integer :: i1,i2,jr_partd, counts(0:npartdom-1),displ(0:npartdom-1)
-   real(wp),dimension(:,:) :: idiags(1:2,0:npartdom-1)
-   real(wp),dimension(:),allocatable :: phi_dum, phi_dum2
-
-   xz=0.0_wp
-   yz=0.0_wp
-#ifdef __ESSL
-   call drcft(1,xz,0,yz,0,mtdiag,1, 1,1.0,aux1f,25000,aux2f,20000,aux3f,1)
-   call dcrft(1,yz,0,xz,0,mtdiag,1,-1,1.0,aux1b,25000,aux2b,20000,aux3b,1)
-#endif
-
-   call fd_sync_scalar(myphi);
-
-   if(nonlinear<5.5_wp)then
-      !aditya 2017-05-11-Thursday Modifying idiag1 and idiag2 to
-      !speedup smooth_fft
-      do jr_partd=0,npartdom-1
-         i1 = (mpsi/npartdom + 1)*min(mod(mpsi,npartdom),jr_partd) + 1 &
-            + (mpsi/npartdom)*max(0,jr_partd-mod(mpsi,npartdom))
-
-         i2 = (mpsi/npartdom+1)*min(mod(mpsi,npartdom),jr_partd+1) &
-            + (mpsi/npartdom)*max(0,jr_partd+1-mod(mpsi,npartdom))
-
-         counts(jr_partd) = igrid(i2)+mtheta(i2)-igrid(i1)+1
-         idiags(1,jr_partd) = i1
-         idiags(2,jr_partd) = i2
-      enddo
-      idiag1 = idiags(1,myrank_partd)
-      idiag2 = idiags(2,myrank_partd)
-
-      allocate (phiflux(mtdiag/ntoroidal,mtdiag,idiag1:idiag2),&
-         eachzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal/ntoroidal),&
-         allzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal),&
-         allzetadum((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal))
-
-   endif
-
-   mzbig=max(1,mtdiag/mzetamax)
-   mzmax=mzetamax*mzbig
-   mz=mzbig
-   meachtheta=mtdiag/ntoroidal
-   icount=meachtheta*mz*(idiag2-idiag1+1)
-   dt=2.0_wp*pi/real(mtdiag,wp)
-   pi2_inv=0.5_wp/pi
-   filter=fltr_out
-   filter(nmode+1)=1.-fltr_out  !/real(mzmax,wp)
-   allzeta=0.0_wp
-
-   !!!!!$omp parallel do private(kz,i,j,wz,zdum,ii,tdum,jt,wt)
-   do kz=1,mzbig
-      wz=real(kz,wp)/real(mzbig,wp)
-      zdum=zetamin+deltaz*wz
-      do i=idiag1,idiag2
-         ii=igrid(i)
-         do j=1,mtdiag
-            tdum=pi2_inv*(dt*real(j,wp)-zdum*qtinv(i))+10.0
-            tdum=(tdum-aint(tdum))*real(mtheta(i),wp)
-            jt=max(0,min(mtheta(i)-1,int(tdum)))
-            wt=tdum-real(jt,wp)
-
-            phiflux(kz,j,i)=((1.0_wp-wt)*myphi(1,ii+jt)+wt*myphi(1,ii+jt+1))*&
-               wz+(1.0_wp-wz)*((1.0_wp-wt)*myphi(0,ii+jt)+wt*myphi(0,ii+jt+1))
-            !             phiflux(1,kz,j,i)=((1.0_wp-wt)*epar(1,ii+jt)+wt*epar(1,ii+jt+1))*&
-            !                  wz+(1.0_wp-wz)*((1.0_wp-wt)*epar(0,ii+jt)+wt*epar(0,ii+jt+1))
-
-         enddo
-      enddo
-   enddo
-
-   ! transpose 2-d matrix from (ntoroidal,mzbig) to (1,mzetamax*mzbig)
-   do jpe=0,ntoroidal-1
-
-      !$omp parallel do private(j,i,k,jt,indt,indp1,indp)
-      do j=1,meachtheta
-         jt=jpe*meachtheta+j
-         indt=(j-1)*mz
-         do i=idiag1,idiag2
-            indp1=indt+(i-idiag1)*meachtheta*mz
-            do k=1,mz
-               indp=indp1+k
-               eachzeta(indp)=phiflux(k,jt,i)
-            enddo
-         enddo
-      enddo
-
-      !aditya 2017-05-03-Wednesday. eachzeta is aggregated in allzetadum and
-      !communicated across toroidal_comm using MPI_AllToAll, rather than looped
-      !MPI_Gather
-      allzetadum(jpe*icount+1:(jpe+1)*icount)=eachzeta
-      !call MPI_GATHER(eachzeta,icount,mpi_Rsize,allzeta,icount,&
-      !               mpi_Rsize,jpe,toroidal_comm,ierror)
-   enddo
-
-   call MPI_ALLTOALL(allzetadum,icount,mpi_Rsize,&
-      allzeta,icount,mpi_Rsize,&
-      toroidal_comm,ierror)
-
-   ! transform to k space
-#ifdef __ESSL
-!!!!!$omp parallel do private(j,i,kz,k,indt1,indt,indp,xz,yz) firstprivate(aux2f,aux3f,aux2b,aux3b)
-#else
-!!!!!$omp parallel do private(j,i,kz,k,indt1,indt,indp,xz,yz)
-#endif
-   ! do fldindx=0,1
-   do j=1,meachtheta
-      indt1=(j-1)*mz
-      do i=idiag1,idiag2
-         indt=indt1+(i-idiag1)*meachtheta*mz
-
-         do kz=0,ntoroidal-1
-            do k=1,mz
-               indp=kz*icount+indt+k
-               xz(kz*mz+k)=allzeta(indp)
-            enddo
-         enddo
-
-#ifdef __ESSL
-         call drcft(0,xz,0,yz,0,mtdiag,1,1,1.0_wp,aux1f,25000,aux2f,20000,aux3f,1)
-#else
-         call fftr1d(1,mtdiag,1.0_wp,xz,yz,2)
-#endif
-
-         ! record mode information for diagnostic
-         if(i==ipsi)then
-            do kz=1,num_mode
-               y_eigen(j+meachtheta*(kz-1))=yz(nmode(kz)+1)
-            enddo
-         endif
-
-         if(nonlinear<5.5_wp)then
-            ! linear run only keep a few modes
-            yz=filter*yz
-
-            ! transform back to real space
-#ifdef __ESSL
-            call dcrft(0,yz,0,xz,0,mtdiag,1,-1,1.0_wp,aux1b,25000,aux2b,20000,aux3b,1)
-#else
-            call fftr1d(-1,mtdiag,1.0_wp,xz,yz,2)
-#endif
-
-            ! transpose back to (ntoroidal,mz)
-            do kz=0,ntoroidal-1
-               do k=1,mz
-                  indp=kz*icount+indt+k
-                  allzeta(indp)=xz(kz*mz+k)
-               enddo
-            enddo
-         endif
-
-      enddo
-   enddo
-   !enddo
-   if(nonlinear<5.5_wp)then
-
-      call MPI_ALLTOALL(allzeta,icount,mpi_Rsize,&
-         allzetadum,icount,mpi_Rsize,&
-         toroidal_comm,ierror)
-
-      do jpe=0,ntoroidal-1
-         !aditya 2017-05-03-Wednesday. using MPI_AllToAll above instead of MPI_SCATTER
-         !   call MPI_SCATTER(allzeta,icount,mpi_Rsize,eachzeta,&
-         !        icount,mpi_Rsize,jpe,toroidal_comm,ierror)
-         eachzeta=allzetadum(jpe*icount+1:(jpe+1)*icount)
-
-         !!!!!$omp parallel do private(j,i,k,jt,indt,indp1,indp)
-         do j=1,meachtheta
-            jt=jpe*meachtheta+j
-            indt=(j-1)*mz
-            do i=idiag1,idiag2
-               indp1=indt+(i-idiag1)*meachtheta*mz
-               do k=1,mz
-                  indp=indp1+k
-                  phiflux(k,jt,i)=eachzeta(indp)
-               enddo
-            enddo
-         enddo
-
-      enddo
-
-      ! interpolate field from magnetic coordinates to fieldline coordinates
-
-      zdum=zetamin+deltaz
-
-      !!!!!$omp parallel do private(i,j,ii,tdum,jt,wt,jte)
-      do i=idiag1,idiag2
-         ii=igrid(i)
-         do j=1,mtheta(i)
-            tdum=pi2_inv*(deltat(i)*real(j,wp)+zdum*qtinv(i))+10.0_wp
-            tdum=(tdum-aint(tdum))*real(mtdiag,wp)
-            jt=max(0,min(mtdiag-1,int(tdum)))
-            wt=tdum-real(jt,wp)
-            jte=jt+1
-            if(jt==0)jt=mtdiag
-            myphi(1,ii+j)=wt*phiflux(mzbig,jte,i)+(1.0_wp-wt)*phiflux(mzbig,jt,i)
-            !           epar(1,ii+j)=wt*phiflux(1,mzbig,jte,i)+(1.0_wp-wt)*phiflux(1,mzbig,jt,i)
-         enddo
-      enddo
-
-      ! toroidal BC: send myphi to right and receive from left
-      sendr=myphi(1,:)
-      recvl=0.0_wp
-      icount=mgrid
-      idest=right_pe
-      isource=left_pe
-      isendtag=myrank_toroidal
-      irecvtag=isource
-      call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,recvl,icount,&
-         mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-
-      if(myrank_toroidal==0)then
-         do i=idiag1,idiag2
-            ii=igrid(i)
-            jt=mtheta(i)
-            myphi(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
-         enddo
-      else
-         myphi(0,:)=recvl
-      endif
-
-      ! poloidal BC
-      do i=idiag1,idiag2
-         myphi(:,igrid(i))=myphi(:,igrid(i)+mtheta(i))
-      enddo
-
-   !icount=igrid(idiag2)+mtheta(idiag2)-igrid(idiag1)+1
-   !call MPI_ALLGATHER(icount,1,MPI_INT,&
-   !   counts,1,MPI_INT,partd_comm,ierror)
-   icount=counts(myrank_partd)
-
-   !aditya Hardcode alert! igrid(1)
-   displ(0)=max(0,igrid(1)-1)
-   do i=1,npartdom-1
-      displ(i)=displ(0)+SUM(counts(0:i-1))
-   enddo
-
-   !allocate (phi_dum(0:1,mgrid))
-   allocate (phi_dum(mgrid))
-   allocate (phi_dum2(icount))
-
-   !if(mype==0)then
-   !   write(stdout,*)'Calling MPI_ALLGATHERV myphi(0,)'
-   !endif
-
-   phi_dum2=myphi(0,igrid(idiag1):igrid(idiag2)+mtheta(idiag2))
-   call MPI_ALLGATHERV(phi_dum2,icount,mpi_Rsize,&
-      phi_dum,counts,displ,mpi_Rsize,&
-      partd_comm,ierror)
-
-   myphi(0,igrid(1):mgrid)=phi_dum(igrid(1):mgrid)
-   phi_dum=0._wp
-
-
-   phi_dum2=myphi(1,igrid(idiag1):igrid(idiag2)+mtheta(idiag2))
-   call MPI_ALLGATHERV(phi_dum2,icount,mpi_Rsize,&
-      phi_dum,counts,displ,mpi_Rsize,&
-      partd_comm,ierror)
-
-   myphi(1,igrid(1):mgrid)=phi_dum(igrid(1):mgrid)
-
-   !if(mype==0)then
-   !   write(stdout,*)'Done with MPI_ALLGATHERV'
-   !endif
-
-   deallocate (phiflux,eachzeta,allzeta,allzetadum,phi_dum,phi_dum2)
-
-
-   endif
-
-end subroutine smooth_fft
-
-
-subroutine smooth_fft_2d(myphi)
-   use precision
-   use mpi_defs
-   use global_parameters
-   use particle_decomp
-   use field_array
-   use diagnosis_array
-   use esi_interface
-   implicit none
-   real(wp),intent(inout),dimension(0:1,mgrid)::myphi
-   integer iflag,i,j,k,ii,ij,ip,jt,jte,kz,ismooth,mz,mzmax,mzbig,jpe,indp,indt,indp1,indt1,&
-      n,m,meachtheta,icount,ierror,idest,isource,isendtag,irecvtag,istatus(MPI_STATUS_SIZE)
-   real(wp) sendl(mgrid),sendr(mgrid),recvl(mgrid),recvr(mgrid),phism(mgrid),&
-      pleft(mthetamax),pright(mthetamax),phitmp(0:1,mgrid),filter(mtdiag/2+1),wt,r,&
-      !dt,wz,zdum,tdum,pi2_inv,den00(0:mpsi),phiflux(mtdiag/ntoroidal,mtdiag,idiag1:idiag2),&
-      !eachzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal/ntoroidal),&
-      !allzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal),xz(mtdiag),&
-      !allzetadum((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal)
-      dt,wz,zdum,tdum,pi2_inv,den00(0:mpsi),xz(mtdiag)
-   complex(wp) y_eigen(mtdiag/ntoroidal*num_mode),yz(mtdiag/2+1),yt(mtdiag*num_mode),&
-      ye(mtdiag),yp(ipsi+1)
-! the dummy array size for thread-safe FFT assume data array size <16384
-   real(wp) :: aux1f(25000),aux1b(25000),aux2f(20000),aux2b(20000)
-   real(wp) :: aux3f(1),aux3b(1)
-
-   !aditya Following definition is used to speedup smooth_fft
-   real(wp),dimension(:,:,:),allocatable :: phiflux,phiffttheta
-   real(wp),dimension(:),allocatable :: eachzeta,allzeta,allzetadum
-   integer :: i1,i2,jr_partd, counts(0:npartdom-1),displ(0:npartdom-1)
-   real(wp),dimension(:,:) :: idiags(1:2,0:npartdom-1)
-   real(wp),dimension(:),allocatable :: phi_dum, phi_dum2
-
-   xz=0.0_wp
-   yz=0.0_wp
-#ifdef __ESSL
-   call drcft(1,xz,0,yz,0,mtdiag,1, 1,1.0,aux1f,25000,aux2f,20000,aux3f,1)
-   call dcrft(1,yz,0,xz,0,mtdiag,1,-1,1.0,aux1b,25000,aux2b,20000,aux3b,1)
-#endif
-
-   call fd_sync_scalar(myphi);
-
-   if(nonlinear<5.5_wp)then
-      !aditya 2017-05-11-Thursday Modifying idiag1 and idiag2 to
-      !speedup smooth_fft
-      do jr_partd=0,npartdom-1
-         i1 = (mpsi/npartdom + 1)*min(mod(mpsi,npartdom),jr_partd) + 1 &
-            + (mpsi/npartdom)*max(0,jr_partd-mod(mpsi,npartdom))
-
-         i2 = (mpsi/npartdom+1)*min(mod(mpsi,npartdom),jr_partd+1) &
-            + (mpsi/npartdom)*max(0,jr_partd+1-mod(mpsi,npartdom))
-
-         counts(jr_partd) = igrid(i2)+mtheta(i2)-igrid(i1)+1
-         idiags(1,jr_partd) = i1
-         idiags(2,jr_partd) = i2
-      enddo
-      idiag1 = idiags(1,myrank_partd)
-      idiag2 = idiags(2,myrank_partd)
-
-      allocate (phiflux(mtdiag/ntoroidal,mtdiag,idiag1:idiag2),&
-         phiffttheta(mtdiag/ntoroidal,mtdiag,idiag1:idiag2),&
-         eachzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal/ntoroidal),&
-         allzeta((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal),&
-         allzetadum((idiag2-idiag1+1)*mtdiag*mtdiag/ntoroidal))
-
-   endif
-
-   mzbig=max(1,mtdiag/mzetamax)
-   mzmax=mzetamax*mzbig
-   mz=mzbig
-   meachtheta=mtdiag/ntoroidal
-   icount=meachtheta*mz*(idiag2-idiag1+1)
-   dt=2.0_wp*pi/real(mtdiag,wp)
-   pi2_inv=0.5_wp/pi
-   filter=fltr_out
-   filter(nmode+1)=1.-fltr_out  !/real(mzmax,wp)
-   allzeta=0.0_wp
-
-   !!!!!$omp parallel do private(kz,i,j,wz,zdum,ii,tdum,jt,wt)
-   do kz=1,mzbig
-      wz=real(kz,wp)/real(mzbig,wp)
-      zdum=zetamin+deltaz*wz
-      do i=idiag1,idiag2
-         ii=igrid(i)
-         do j=1,mtdiag
-            tdum=pi2_inv*(dt*real(j,wp)-zdum*qtinv(i))+10.0
-            tdum=(tdum-aint(tdum))*real(mtheta(i),wp)
-            jt=max(0,min(mtheta(i)-1,int(tdum)))
-            wt=tdum-real(jt,wp)
-
-            phiflux(kz,j,i)=((1.0_wp-wt)*myphi(1,ii+jt)+wt*myphi(1,ii+jt+1))*&
-               wz+(1.0_wp-wz)*((1.0_wp-wt)*myphi(0,ii+jt)+wt*myphi(0,ii+jt+1))
-            !             phiflux(1,kz,j,i)=((1.0_wp-wt)*epar(1,ii+jt)+wt*epar(1,ii+jt+1))*&
-            !                  wz+(1.0_wp-wz)*((1.0_wp-wt)*epar(0,ii+jt)+wt*epar(0,ii+jt+1))
-
-         enddo
-      enddo
-   enddo
-
-! now phiflux(myphi,theta,r) (myphi-is toroidal myphi)
-! do fft in theta direction theta->k_theta
-do kz=1,mzbig
-  do i=idiag1,idiag2
-   xz(:)=phiflux(kz,:,i)
-   call fftr1d(1,mtdiag,1.0_wp,xz,yz,2)
-      phiffttheta(kz,1,i)=real(yz(1)) !-real since m=0
-      phiffttheta(kz,2,i)=real(yz(1+mtdiag/2))  ! real since m=ntmdiag/2
-   do j=2,mtdiag/2             ! the rest are complex, paired 
-      phiffttheta(kz,2*j-1,i)=real(yz(j))
-      phiffttheta(kz,2*j  ,i)=aimag(yz(j))
-   enddo
- enddo
-enddo
-
-
-! now phiflux(myphi,theta,r) has been tranformed to  phiflux(myphi,k_theta,r)
-
-
-   ! transpose 2-d matrix from (ntoroidal,mzbig) to (1,mzetamax*mzbig)
-   do jpe=0,ntoroidal-1
-
-      !!$omp parallel do private(j,i,k,jt,indt,indp1,indp)
-      do j=1,meachtheta
-         jt=jpe*meachtheta+j
-         indt=(j-1)*mz
-         do i=idiag1,idiag2
-            indp1=indt+(i-idiag1)*meachtheta*mz
-            do k=1,mz
-               indp=indp1+k
-               eachzeta(indp)=phiffttheta(k,jt,i)
-            enddo
-         enddo
-      enddo
-
-      !aditya 2017-05-03-Wednesday. eachzeta is aggregated in allzetadum and
-      !communicated across toroidal_comm using MPI_AllToAll, rather than looped
-      !MPI_Gather
-      allzetadum(jpe*icount+1:(jpe+1)*icount)=eachzeta
-      !call MPI_GATHER(eachzeta,icount,mpi_Rsize,allzeta,icount,&
-      !               mpi_Rsize,jpe,toroidal_comm,ierror)
-   enddo
-
-   call MPI_ALLTOALL(allzetadum,icount,mpi_Rsize,&
-      allzeta,icount,mpi_Rsize,&
-      toroidal_comm,ierror)
-
-   ! transform to k space
-#ifdef __ESSL
-!!!!!$omp parallel do private(j,i,kz,k,indt1,indt,indp,xz,yz) firstprivate(aux2f,aux3f,aux2b,aux3b)
-#else
-!!!!!$omp parallel do private(j,i,kz,k,indt1,indt,indp,xz,yz)
-#endif
-   ! do fldindx=0,1
-   do j=1,meachtheta
-      indt1=(j-1)*mz
-      do i=idiag1,idiag2
-         indt=indt1+(i-idiag1)*meachtheta*mz
-
-         do kz=0,ntoroidal-1
-            do k=1,mz
-               indp=kz*icount+indt+k
-               xz(kz*mz+k)=allzeta(indp)
-            enddo
-         enddo
-
-#ifdef __ESSL
-         call drcft(0,xz,0,yz,0,mtdiag,1,1,1.0_wp,aux1f,25000,aux2f,20000,aux3f,1)
-#else
-         call fftr1d(1,mtdiag,1.0_wp,xz,yz,2)
-#endif
-
-         ! record mode information for diagnostic
-!         if(i==ipsi)then
-!           do kz=1,num_mode
-!               y_eigen(j+meachtheta*(kz-1))=yz(nmode(kz)+1)
-!            enddo
-!         endif
-
- !        if(nonlinear<0.5_wp)then
-            ! linear run only keep a few modes
-!!!!!!!!!!!!!!!!!!!!!!!!!
-!now yz(n) is f_m(n) (where poloidal m=meachtheta/2*myrank+floor((j-1)/2)+1 and n-is toroidal n)
-! exception for myrank=0, j=1-> m=1, j=2 -> m=meachtheta/2+1 
-
-! Apply fillter in (n,m) space to zero out f_n(m) outside n-m*q(r)=dm region. 
-
-! first filter out n:
-            yz=filter*yz
-
-! now filter m:
-do n=1,mtdiag/2+1  ! n is n in the range 1:mtdiag/2+1
-    m=meachtheta/2*myrank_toroidal+floor((j-1)/2.)+1   ! m in the range 1:mtdiag/2+1 
-    if(mype==0.and.j==2) m=meachtheta/2+1
-
-    !    WX: following change made to keep fixed m-modes which are m_0+-deltam with 
-    !    n specified in INPUT.d and n/m_0 the resonant mode at ipsi (specified at INOUT.d) surface
-
-    !    if(abs((m-1)-(n-1)/qtinv(i))>deltam) yz(n)=0.
-
-    ! if(abs((m-1)-(n-1)*q_grid(ipsi))>deltam) yz(n)=0.  ! m-modes of # 2xdeltam specified in terms of ipsi surface
-    if(abs((m-1)-(n-1)*q_grid(i))>deltam) yz(n)=0.       ! m-modes of # 2xdeltam specified in terms of mode own surface
-enddo
-
-            ! transform back to real space
-#ifdef __ESSL
-            call dcrft(0,yz,0,xz,0,mtdiag,1,-1,1.0_wp,aux1b,25000,aux2b,20000,aux3b,1)
-#else
-            call fftr1d(-1,mtdiag,1.0_wp,xz,yz,2)
-#endif
-
-            ! transpose back to (ntoroidal,mz)
-            do kz=0,ntoroidal-1
-               do k=1,mz
-                  indp=kz*icount+indt+k
-                  allzeta(indp)=xz(kz*mz+k)
-               enddo
-            enddo
-!         endif
-
-      enddo
-   enddo
-   !enddo
-!   if(nonlinear<0.5_wp)then
-
-      call MPI_ALLTOALL(allzeta,icount,mpi_Rsize,&
-         allzetadum,icount,mpi_Rsize,&
-         toroidal_comm,ierror)
-
-      do jpe=0,ntoroidal-1
-         !aditya 2017-05-03-Wednesday. using MPI_AllToAll above instead of MPI_SCATTER
-         !   call MPI_SCATTER(allzeta,icount,mpi_Rsize,eachzeta,&
-         !        icount,mpi_Rsize,jpe,toroidal_comm,ierror)
-         eachzeta=allzetadum(jpe*icount+1:(jpe+1)*icount)
-
-         !!!!!$omp parallel do private(j,i,k,jt,indt,indp1,indp)
-         do j=1,meachtheta
-            jt=jpe*meachtheta+j
-            indt=(j-1)*mz
-            do i=idiag1,idiag2
-               indp1=indt+(i-idiag1)*meachtheta*mz
-               do k=1,mz
-                  indp=indp1+k
-                  phiffttheta(k,jt,i)=eachzeta(indp)
-               enddo
-            enddo
-         enddo
-
-      enddo
-
-
-! now do inverse fft in k_theta->theta
-
-
-do kz=1,mzbig
-  do i=idiag1,idiag2
-     yz(1)=phiffttheta(kz,1,i)      
-     yz(1+mtdiag/2)=phiffttheta(kz,2,i)
-    do j=2,mtdiag/2
-      yz(j)=cmplx(phiffttheta(kz,2*j-1,i),phiffttheta(kz,2*j,i))
-     enddo
-
-   call fftr1d(-1,mtdiag,1.0_wp,xz,yz,2)
-   phiflux(kz,:,i)=xz(:)
- 
- enddo
-enddo
-
-
-! now phiflux(myphi,k_theta,r) has been tranformed to phiflux(myphi,theta,r)
-
-      ! interpolate field from magnetic coordinates to fieldline coordinates
-
-      zdum=zetamin+deltaz
-
-      !!!!!$omp parallel do private(i,j,ii,tdum,jt,wt,jte)
-      do i=idiag1,idiag2
-         ii=igrid(i)
-         do j=1,mtheta(i)
-            tdum=pi2_inv*(deltat(i)*real(j,wp)+zdum*qtinv(i))+10.0_wp
-            tdum=(tdum-aint(tdum))*real(mtdiag,wp)
-            jt=max(0,min(mtdiag-1,int(tdum)))
-            wt=tdum-real(jt,wp)
-            jte=jt+1
-            if(jt==0)jt=mtdiag
-            myphi(1,ii+j)=wt*phiflux(mzbig,jte,i)+(1.0_wp-wt)*phiflux(mzbig,jt,i)
-            !           epar(1,ii+j)=wt*phiflux(1,mzbig,jte,i)+(1.0_wp-wt)*phiflux(1,mzbig,jt,i)
-         enddo
-      enddo
-
-      ! toroidal BC: send myphi to right and receive from left
-      sendr=myphi(1,:)
-      recvl=0.0_wp
-      icount=mgrid
-      idest=right_pe
-      isource=left_pe
-      isendtag=myrank_toroidal
-      irecvtag=isource
-      call MPI_SENDRECV(sendr,icount,mpi_Rsize,idest,isendtag,recvl,icount,&
-         mpi_Rsize,isource,irecvtag,toroidal_comm,istatus,ierror)
-
-      if(myrank_toroidal==0)then
-         do i=idiag1,idiag2
-            ii=igrid(i)
-            jt=mtheta(i)
-            myphi(0,ii+1:ii+jt)=cshift(recvl(ii+1:ii+jt),-itran(i))
-         enddo
-      else
-         myphi(0,:)=recvl
-      endif
-
-      ! poloidal BC
-      do i=idiag1,idiag2
-         myphi(:,igrid(i))=myphi(:,igrid(i)+mtheta(i))
-      enddo
-
-   !icount=igrid(idiag2)+mtheta(idiag2)-igrid(idiag1)+1
-   !call MPI_ALLGATHER(icount,1,MPI_INT,&
-   !   counts,1,MPI_INT,partd_comm,ierror)
-   icount=counts(myrank_partd)
-
-   !aditya Hardcode alert! igrid(1)
-   displ(0)=max(0,igrid(1)-1)
-   do i=1,npartdom-1
-      displ(i)=displ(0)+SUM(counts(0:i-1))
-   enddo
-
-   !allocate (phi_dum(0:1,mgrid))
-   allocate (phi_dum(mgrid))
-   allocate (phi_dum2(icount))
-
-   !if(mype==0)then
-   !   write(stdout,*)'Calling MPI_ALLGATHERV myphi(0,)'
-   !endif
-
-   phi_dum2=myphi(0,igrid(idiag1):igrid(idiag2)+mtheta(idiag2))
-   call MPI_ALLGATHERV(phi_dum2,icount,mpi_Rsize,&
-      phi_dum,counts,displ,mpi_Rsize,&
-      partd_comm,ierror)
-
-   myphi(0,igrid(1):mgrid)=phi_dum(igrid(1):mgrid)
-   phi_dum=0._wp
-
-
-   phi_dum2=myphi(1,igrid(idiag1):igrid(idiag2)+mtheta(idiag2))
-   call MPI_ALLGATHERV(phi_dum2,icount,mpi_Rsize,&
-      phi_dum,counts,displ,mpi_Rsize,&
-      partd_comm,ierror)
-
-   myphi(1,igrid(1):mgrid)=phi_dum(igrid(1):mgrid)
-
-   !if(mype==0)then
-   !   write(stdout,*)'Done with MPI_ALLGATHERV'
-   !endif
-
-   deallocate (phiflux,eachzeta,allzeta,allzetadum,phi_dum,phi_dum2)
-
-
-!   endif
-
-
-
-end subroutine smooth_fft_2d
-
-subroutine smooth_fft_vector(myevector)
- use precision
- use mpi_defs
- use global_parameters
- use particle_decomp
- use field_array,only:igrid,qtinv,psi_grid,wtp1,jtp1,itran
- 
- use solver_data_class
-
- implicit none
-
- real(wp),dimension(0:1,mgrid)::myphi
- real(wp),dimension(3,0:1,mgrid)::myevector
-
- myphi(:, :) = myevector(1, :, :);
- call smooth_fft(myphi);
- myevector(1,:,:) = myphi(:,:);
-
-end subroutine smooth_fft_vector
-

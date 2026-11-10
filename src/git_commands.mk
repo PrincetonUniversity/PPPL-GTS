@@ -14,6 +14,7 @@ BUILD_DIR   := $(shell pwd)
 GIT_STATUS_RESULT:= $(shell git status > gts_git_status.out)
 GIT_DIFF_RESULT:= $(shell git add -N -u)
 GIT_DIFF_RESULT:= $(shell git diff > gts_git_diff.out)
+GIT_DIFF_RESULT:= $(shell echo Above changes are \"git diff\" results: >> gts_git_diff.out)
 GIT_DIFF_RESULT:= $(shell git reset HEAD)
 GIT_DIFF_XXD 	:= $(shell xxd -i gts_git_diff.out > gts_git_diff.h)
 

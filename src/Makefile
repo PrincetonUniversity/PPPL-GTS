@@ -32,6 +32,12 @@ ifeq (,$(filter _%,$(notdir $(CURDIR))))
 OPENMP:=n
 DEBUG:=n
 ESSL:=n
+ACC:=n
+CUDA:=n
+ifeq ($(ACC), y)
+  BIN_POSTFIX := $(BIN_POSTFIX)-ACC
+else
+endif
 
 ifeq ($(OPENMP), y)
   BIN_POSTFIX := $(BIN_POSTFIX)-OMP
@@ -42,6 +48,7 @@ ifeq ($(DEBUG), y)
   BIN_POSTFIX := $(BIN_POSTFIX)-G
 else
 endif
+
 
 include target.mk
 
@@ -59,15 +66,17 @@ FFT:=fft_gl.o
 
 # List of all the object files needed to build the code
 SOLVER:=solver_petsc.o
-OBJ:=module.o spl_profile.o ${SOLVER} main.o function_gg.o specfun.o setup_v2.o Er_provider.o Theory_jb.o \
+OBJ:=module.o Magnetic_Grid.o spl_profile.o function_gg.o Structured_Grid.o \
+	  Diagnostic_Grid.o ${SOLVER} ptl_src_loss.o specfun.o mgy_petsc.o \
+	  TestTools_for_Field_solver.o setup_v2.o Er_provider.o Theory_jb.o \
      load.o restart.o diagnosis.o snapshot.o charge_ion.o current_ion.o \
      charge_eon.o current_eon.o solve_dphidt.o poisson.o smooth.o \
-     field.o field_operator.o pushi_new.o pushe_new.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \
+     field.o pushi_new.o pushe_new.o shifti.o shifte.o collision.o collision_eon.o CTPandCELL.o \
      $(FFT) escZ_march03.o check_eq.o view_distribution.o view_orbit.o $(NAG_FILES) \
      check_temperature.o get_fluxes.o get_3D_flow.o get_Te_fluctuation.o get_fluxes_e.o \
-     get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o \
-     weight_damping_new.o weight_damping_eon_new2.o git_info.o spline.o seval.o gauss_quadrature.o
- # output_profiles.o
+     get_ZF_shear.o open_files.o csr2css.o check_tracers.o create_directory.o\
+     weight_damping_new.o weight_damping_eon_new2.o sobol.o main.o gpus_for_tasks.o git_info.o
+#output_profiles.o
 
 #hypre openmp solver
 ifeq ($(OPENMP), y)
@@ -82,10 +91,11 @@ $(CMD): $(OBJ)
 libcm:
 	(cd $(VPATH)/cmlib; $(MAKE) FC=$(F77) FFLAGS="$(OPT)" ; cd ..)
 
-	#finite element and mesh generator
+#finite element and mesh generator
 libfem: module.o
 	(cd $(VPATH)/fem; $(MAKE) FC=$(F90) FFLAGS="$(OPT)" CC=$(CC) CFLAGS="$(COPT)" DEBUG="$(GOPT)"; cd ..)
 
+# netlib QUADPACK: replacement of the NAG quadrature routine d01ahf (see fake_nag.F90)
 libquadpack:
 	(cd $(VPATH)/quadpack; $(MAKE) FC=$(F77) FFLAGS="$(OPT)" ; cd ..)
 

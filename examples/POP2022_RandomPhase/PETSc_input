@@ -1,0 +1,11 @@
+-pc_type hypre
+-pc_hypre_type boomeramg
+-ksp_rtol 1.0e-10
+-ksp_max_it 10
+-mat_partitioning_type current
+-dphidt_pc_type hypre
+-dphidt_pc_hypre_type boomeramg
+-dphidt_ksp_monitor
+-dphidt_ksp_tol 1.e-5
+-mat_ascii_output_large
+-log_view

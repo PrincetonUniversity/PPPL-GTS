@@ -1,103 +1,485 @@
 subroutine check_tracer_e
-  use precision
-  use mpi_defs
-  use global_parameters
-  use particle_array
-  use esi_interface
-  implicit none
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_array
+   use esi_interface
+   use particle_decomp
+   use Structured_Grid
+   use Magnetic_Grid, only:B_cntv,grad_B_cntv,d23_B_cntv,TriCubic_Interpolation_of_Vec
+   implicit none
 
-  integer ierror,istatus(MPI_STATUS_SIZE)
-  real etracer,tracer(7)
-  integer my_mpi_id
- 
-  real(wp), dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+   logical tf
+   integer ierror,istatus(MPI_STATUS_SIZE)
+   real tracer_energy, tracer(zeondim), tracer0(zeondim), tracer_at_ZeroPhi(zeondim)
+   integer m,i, kk
+   integer my_mpi_id, ierr
+   real(wp), dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+   integer my_tracer_indices(num_of_etracers)
+   integer num_of_MY_tracers, recv_num_of_TRI, num_of_MY_tracers_Poincare, recv_num_of_TRI_Poincare
+   !real send_buf_TRI(13, num_of_etracers), recv_buf_TRI(13, num_of_etracers), send_buf_TRI_Poincare(13, num_of_etracers), recv_buf_TRI_Poincare(13, num_of_etracers)
+   real(wp), dimension(:,:), allocatable:: send_buf_TRI, recv_buf_TRI, send_buf_TRI_Poincare, recv_buf_TRI_Poincare
+   integer each_TRI_length
+   integer recv_TRI_counts(nproc_toroidal), recv_TRI_displs(nproc_toroidal), recv_TRI_Poincare_counts(nproc_toroidal), recv_TRI_Poincare_displs(nproc_toroidal)
+   integer MPI_TRI_Type ! TRI = TRacer Information
+   real normalized_zeta, normalized_zeta0, acute_zeta, acute_zeta0, ratio_for_tracer, ratio_for_tracer0
+   real(wp) P_phi, P_gaH, P_gaS, P_grad_phi_cov(3), P_grad_gaH_cov(3), P_grad_gaS_cov(3), P_para_grad_phi, P_para_grad_gaH, P_para_grad_gaS, P_B0_cntv(3)
+   character(len=128) cdum
+   character(len=30) file_name
 
-! send tracer information to PE=0
-  tracer=0.0_wp
 
-  if(ntracer_e>0) then
-     tracer(1:7)=zeon(1:7,ntracer_e)
-     my_mpi_id=mype
-     if(mype.ne.0) then 
-        call MPI_SEND(tracer,7,mpi_Rsize,0,1,MPI_COMM_WORLD,ierror)
-        call MPI_SEND(my_mpi_id,1,mpi_integer,0,1,MPI_COMM_WORLD,ierror)
-     end if
-  endif
-  if(mype==0) then
-     if(ntracer_e==0) then 
-        call MPI_RECV(tracer,7,mpi_Rsize,MPI_ANY_SOURCE,1,&
-                                    MPI_COMM_WORLD,istatus,ierror)
-        call MPI_RECV(my_mpi_id,1,mpi_integer,MPI_ANY_SOURCE,1,&
-                                    MPI_COMM_WORLD,istatus,ierror)
-     end if
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_D_zeon=.false.
+      acc_newer_H_zeon=.false.
+   endif
 
-! tracer particle energy and angular momentum
-     aaa(1)=tracer(1)
-     the(1)=tracer(2)
-     call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
 
-     etracer=0.5_wp*(tracer(4)*Bj(1))**2*m0ms*csc0**2+tracer(6)**2*Bj(1)  ! +epotential
+   if(size(zeon,1) /= size(zeon0,1)) then
+      write(*,*) "size(zeon,1)=", size(zeon,1), "size(zeon0,1)=", size(zeon0,1), " is differnet!!!!!"
+      call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
+   endif
 
-! record tracer information
-     write(89,102) istep,(rj(1)-R_0), zj(1), tracer(2), tracer(3), &
-                     abs(1.0_wp-etracer/etracer_e0), etracer, my_mpi_id
-     call flush(89)
-  endif
 
-102 format(1x,i7,6(1x,ES14.6),1x,i6)
+   each_TRI_length = 32 ! including we_adiab +  2 Unnormalized Angles + electromagnetic field information
+
+   allocate( send_buf_TRI(each_TRI_length, num_of_etracers), recv_buf_TRI(each_TRI_length, num_of_etracers), send_buf_TRI_Poincare(each_TRI_length, num_of_etracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_etracers))
+
+   ! 102 format(1x,i7,6(1x,ES16.8),1x,i6)
+   !102 format(13(1x,ES16.8))
+   102 format(999(1x,ES16.8))
+
+   !call MPI_Type_contiguous(13, MPI_Rsize, MPI_TRI_Type, ierr);
+   call MPI_Type_contiguous(each_TRI_length, MPI_Rsize, MPI_TRI_Type, ierr);
+   call MPI_Type_commit(MPI_TRI_Type, ierr);
+
+   ! check tracer
+   num_of_MY_tracers = 0
+   do m=1,me
+      do i=1,num_of_etracers
+         if (elabels(m) == etracers_labels(i)) then
+            num_of_MY_tracers = num_of_MY_tracers + 1
+            my_tracer_indices(num_of_MY_tracers) = m
+
+            ! ! Print out a reference tracer information
+            ! if(elabels(m) == etracers_labels((num_of_etracers/2))) then
+            !    aaa(1)=zeon(1,m)
+            !    the(1)=zeon(2,m)
+            !    call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+            !    tracer_energy=0.5_wp*(zeon(4,m)*Bj(1))**2*m0ms*csc0**2+zeon(6,m)**2*Bj(1)
+            !    write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,I5,a,", size(zeon,1), "(ES11.3))"
+            !    write(stdout,cdum) 'istep=',istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer(',num_of_etracers/2,') =', zeon(:,m)
+            !    call flush(stdout)
+            ! endif
+         endif
+      enddo
+   enddo
+
+
+   ! Real_tracers_electron.dat output routine
+   if (MOD(istep, nstep_for_tracer_record) == 0) then
+
+      call MPI_GATHER(num_of_MY_tracers, 1, MPI_INTEGER, recv_TRI_counts, 1, MPI_INTEGER, 0, toroidal_comm, ierror)
+
+      if(mype == 0) then
+         recv_TRI_displs(1) = 0
+         recv_num_of_TRI = recv_TRI_counts(1)
+         do i=2, nproc_toroidal
+            recv_TRI_displs(i) = recv_TRI_displs(i-1) + recv_TRI_counts(i-1)
+            recv_num_of_TRI = recv_num_of_TRI + recv_TRI_counts(i)
+         enddo
+      endif
+
+      ! Save TRacers Information to send_buf_TRI
+      do m=1, num_of_MY_tracers
+         tracer(:) = zeon(:,my_tracer_indices(m))
+         tracer0(:) = zeon0(:,my_tracer_indices(m))
+         aaa(1)=tracer(1)
+         the(1)=tracer(2)
+         call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+         tracer_energy=0.5_wp*(tracer(4)*Bj(1))**2*m0ms*csc0**2+tracer(6)**2*Bj(1)  ! +epotential
+
+         send_buf_TRI(1,m) = istep
+         send_buf_TRI(2,m) = rj(1)
+         send_buf_TRI(3,m) = zj(1)
+         send_buf_TRI(4:10,m) = tracer(1:7)
+         send_buf_TRI(11,m) = tracer_energy
+         send_buf_TRI(12,m) = elabels(my_tracer_indices(m))
+         send_buf_TRI(13,m) = Bj(1) ! NOTE: Bmag information will be needed to calculate vpara, vperp and etc later at the postprocessing
+         send_buf_TRI(14,m) = mype
+         send_buf_TRI(15,m) = we_init(my_tracer_indices(m))
+         send_buf_TRI(16,m) = we_vpara(my_tracer_indices(m))
+         send_buf_TRI(17,m) = we_vperp(my_tracer_indices(m))
+         send_buf_TRI(18,m) = we_accel(my_tracer_indices(m))
+         send_buf_TRI(19,m) = we_adiab(my_tracer_indices(m))
+         send_buf_TRI(20,m) = UnNorm_theta_e(my_tracer_indices(m))
+         send_buf_TRI(21,m) = UnNorm_zeta_e(my_tracer_indices(m))
+         send_buf_TRI(22,m) = zeon0(6,my_tracer_indices(m)) ! Phase volume
+         send_buf_TRI(23,m) = zeon0(8,my_tracer_indices(m)) ! full-f or full-h @ previous step
+         send_buf_TRI(24,m) = zeon0(9,my_tracer_indices(m)) ! f0 @ previous step
+         send_buf_TRI(25,m) = zeon0(5,my_tracer_indices(m)) ! df or dh @ previous step
+         send_buf_TRI(26,m) = zeon(9,my_tracer_indices(m))  ! f_AD @ previous step
+
+
+         call Get_SG_scalar_at_point(SG%phi, tracer(1), tracer(2), tracer(3), P_phi)
+         call Get_SG_vector_at_point(SG%grad_phi_cov, tracer(1), tracer(2), tracer(3), P_grad_phi_cov)
+         call TriCubic_Interpolation_of_Vec(tracer(1), tracer(2), tracer(3), B_cntv, grad_B_cntv, d23_B_cntv, P_B0_cntv)
+
+         P_para_grad_phi = sum(P_B0_cntv*P_grad_phi_cov)/Bj(1)
+
+         send_buf_TRI(27,m) = P_phi
+         send_buf_TRI(28,m) = P_para_grad_phi
+
+         if(electromagnetic==2) then
+            call Get_SG_scalar_at_point(SG%gaH, tracer(1), tracer(2), tracer(3), P_gaH)
+            call Get_SG_scalar_at_point(SG%gaS, tracer(1), tracer(2), tracer(3), P_gaS)
+            call Get_SG_vector_at_point(SG%grad_gaH_cov, tracer(1), tracer(2), tracer(3), P_grad_gaH_cov)
+            call Get_SG_vector_at_point(SG%grad_gaS_cov, tracer(1), tracer(2), tracer(3), P_grad_gaS_cov)
+
+            P_para_grad_gaH = sum(P_B0_cntv*P_grad_gaH_cov)/Bj(1)
+            P_para_grad_gaS = sum(P_B0_cntv*P_grad_gaS_cov)/Bj(1)
+
+            send_buf_TRI(29,m) = P_gaH
+            send_buf_TRI(30,m) = P_para_grad_gaH
+            send_buf_TRI(31,m) = P_gaS
+            send_buf_TRI(32,m) = P_para_grad_gaS
+         else
+            send_buf_TRI(29,m) = 0.0
+            send_buf_TRI(30,m) = 0.0
+            send_buf_TRI(31,m) = 0.0
+            send_buf_TRI(32,m) = 0.0
+         endif
+
+      enddo
+
+      ! Gather tracers_information to Root Rank.
+      call MPI_Gatherv(send_buf_TRI, num_of_MY_tracers, MPI_TRI_Type, recv_buf_TRI, recv_TRI_counts, recv_TRI_displs, MPI_TRI_Type, 0, toroidal_comm, ierror)
+
+      if (mype == 0) then
+         open(unit=1515, file="multi_tracers_electron.dat", position='append',action='write')
+         do i=1, recv_num_of_TRI
+            !write(1515,*) recv_buf_TRI(:,i)
+            write(1515,102) recv_buf_TRI(:,i)
+         enddo
+         call flush(1515)
+         close(1515)
+      endif
+   endif
+
+
+   ! Check particles passing a specific poloidal plane (phi=0) for a Poincare plot
+   ! Real_tracers_electron_Poincare.dat output routine
+   num_of_MY_tracers_Poincare = 0
+   recv_num_of_TRI_Poincare = 0
+   do m=1, num_of_MY_tracers
+      tracer(:) = zeon(:,my_tracer_indices(m))
+      tracer0(:) = zeon0(:,my_tracer_indices(m))
+
+      if ( ABS(tracer(3) - tracer0(3)) > 5.0 ) then
+
+         normalized_zeta =  tracer(3) - floor(tracer(3)/(2.0*pi)) * 2.0*pi
+         normalized_zeta0 =  tracer0(3) - floor(tracer0(3)/(2.0*pi)) * 2.0*pi
+         acute_zeta = min(normalized_zeta, 2*pi-normalized_zeta)
+         acute_zeta0 = min(normalized_zeta0, 2*pi-normalized_zeta0)
+         ratio_for_tracer = acute_zeta0/ (acute_zeta+ acute_zeta0)
+         ratio_for_tracer0 = acute_zeta/ (acute_zeta+ acute_zeta0)
+
+         do kk=1,size(zeon,1)
+            tracer_at_ZeroPhi(kk) = ratio_for_tracer*tracer(kk) + ratio_for_tracer0*tracer0(kk)
+         enddo
+
+         ! tracer(6) = sqrt(magnetic moment) is constant during simulation except collisional process.
+         ! Therefore, tracer(6) is always enough to deal with magnetic moment mu = tracer(6)*tracer(6).
+         ! In this sense, tracer0(6) is not used for sqrt(mu), but it is set by value 1 (in loading routine) for other purpose.
+         ! We need to recover tracer_at_ZeroPhi(6) using tracer(6) only, not including tracer0(6) which is not sqrt(mu).
+         tracer_at_ZeroPhi(6) = tracer(6)
+
+         ! new angle (theta and zeta) should be calculated using two angles whose difference is smaller than pi
+         ! Angle of tracer0 is modified to satisfy the above condition.
+         ! A = tracer angle, B = tracer0;   B' = B + 2*n*pi where n = floor((A-B+pi)/(2*pi));
+         do kk=2,3
+            tracer_at_ZeroPhi(kk) = ratio_for_tracer*tracer(kk) + ratio_for_tracer0*  ( tracer0(kk) + 2.0*pi* floor( (tracer(kk) - tracer0(kk) + pi )/(2.0*pi)  ))
+            tracer_at_ZeroPhi(kk) = tracer_at_ZeroPhi(kk) - floor(tracer_at_ZeroPhi(kk)/(2.0*pi)) * 2.0*pi ! normalization
+         end do
+
+         aaa(1)=tracer_at_ZeroPhi(1)
+         the(1)=tracer_at_ZeroPhi(2)
+         call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+         tracer_energy=0.5_wp*(tracer_at_ZeroPhi(4)*Bj(1))**2*m0ms*csc0**2+tracer_at_ZeroPhi(6)**2*Bj(1)  ! +epotential
+
+         ! Save tracers_Poincare Information to send_buf_TRI_Poincare
+         num_of_MY_tracers_Poincare = num_of_MY_tracers_Poincare + 1
+
+         send_buf_TRI_Poincare(1,num_of_MY_tracers_Poincare) = istep
+         send_buf_TRI_Poincare(2,num_of_MY_tracers_Poincare) = rj(1)
+         send_buf_TRI_Poincare(3,num_of_MY_tracers_Poincare) = zj(1)
+         send_buf_TRI_Poincare(4:10,num_of_MY_tracers_Poincare) = tracer_at_ZeroPhi(1:7)
+         send_buf_TRI_Poincare(11,num_of_MY_tracers_Poincare) = tracer_energy
+         send_buf_TRI_Poincare(12,num_of_MY_tracers_Poincare) = elabels(my_tracer_indices(m))
+         send_buf_TRI_Poincare(13,num_of_MY_tracers_Poincare) = Bj(1)
+         send_buf_TRI_Poincare(14,num_of_MY_tracers_Poincare) = mype
+         send_buf_TRI_Poincare(15,num_of_MY_tracers_Poincare) = we_init(my_tracer_indices(m))
+         send_buf_TRI_Poincare(16,num_of_MY_tracers_Poincare) = we_vpara(my_tracer_indices(m))
+         send_buf_TRI_Poincare(17,num_of_MY_tracers_Poincare) = we_vperp(my_tracer_indices(m))
+         send_buf_TRI_Poincare(18,num_of_MY_tracers_Poincare) = we_accel(my_tracer_indices(m))
+         send_buf_TRI_Poincare(19,num_of_MY_tracers_Poincare) = we_adiab(my_tracer_indices(m))
+         send_buf_TRI_Poincare(20,num_of_MY_tracers_Poincare) = UnNorm_theta_e(my_tracer_indices(m))
+         send_buf_TRI_Poincare(21,num_of_MY_tracers_Poincare) = UnNorm_zeta_e(my_tracer_indices(m))
+      endif
+   enddo
+
+   call MPI_GATHER(num_of_MY_tracers_Poincare, 1, MPI_INTEGER, recv_TRI_Poincare_counts, 1, MPI_INTEGER, 0, toroidal_comm, ierror)
+
+   if(mype == 0) then
+      recv_TRI_Poincare_displs(1) = 0
+      recv_num_of_TRI_Poincare = recv_TRI_Poincare_counts(1)
+      do i=2, nproc_toroidal
+         recv_TRI_Poincare_displs(i) = recv_TRI_Poincare_displs(i-1) + recv_TRI_Poincare_counts(i-1)
+         recv_num_of_TRI_Poincare = recv_num_of_TRI_Poincare + recv_TRI_Poincare_counts(i)
+      enddo
+   endif
+
+   call MPI_Gatherv(send_buf_TRI_Poincare, num_of_MY_tracers_Poincare, MPI_TRI_Type, recv_buf_TRI_Poincare, recv_TRI_Poincare_counts, recv_TRI_Poincare_displs, MPI_TRI_Type, 0, toroidal_comm, ierror)
+
+   if (mype == 0) then
+      open(unit=1516, file="multi_tracers_electron_Poincare.dat", position='append',action='write')
+      do i=1, recv_num_of_TRI_Poincare
+         !write(1516,*) recv_buf_TRI_Poincare(:,i)
+         write(1516,102) recv_buf_TRI_Poincare(:,i)
+      enddo
+      call flush(1516)
+      close(1516)
+   endif
+
+
+   deallocate( send_buf_TRI, recv_buf_TRI, send_buf_TRI_Poincare, recv_buf_TRI_Poincare)
+
+   call MPI_Type_free(MPI_TRI_Type, ierr)
 
 end subroutine check_tracer_e
 
 
+
+
+
 subroutine check_tracer_i
-  use precision
-  use mpi_defs
-  use global_parameters
-  use particle_array
-  use esi_interface
-  implicit none
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_array
+   use esi_interface
+   use particle_decomp
+   implicit none
 
-  integer ierror,istatus(MPI_STATUS_SIZE)
-  real etracer,tracer(7)
-  integer my_mpi_id
+   logical tf
+   integer ierror,istatus(MPI_STATUS_SIZE)
+   real tracer_energy, tracer(7), tracer0(7), tracer_at_ZeroPhi(7)
+   integer m,i, kk
+   integer my_mpi_id, ierr
+   real(wp), dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+   integer my_tracer_indices(num_of_itracers)
+   integer num_of_MY_tracers, recv_num_of_TRI, num_of_MY_tracers_Poincare, recv_num_of_TRI_Poincare
+   !real send_buf_TRI(13, num_of_itracers), recv_buf_TRI(13, num_of_itracers), send_buf_TRI_Poincare(13, num_of_itracers), recv_buf_TRI_Poincare(13, num_of_itracers)
+   real(wp), dimension(:,:), allocatable:: send_buf_TRI, recv_buf_TRI, send_buf_TRI_Poincare, recv_buf_TRI_Poincare
+   integer each_TRI_length
+   integer recv_TRI_counts(nproc_toroidal), recv_TRI_displs(nproc_toroidal), recv_TRI_Poincare_counts(nproc_toroidal), recv_TRI_Poincare_displs(nproc_toroidal)
+   integer MPI_TRI_Type ! TRI = TRacer Information
+   real normalized_zeta, normalized_zeta0, acute_zeta, acute_zeta0, ratio_for_tracer, ratio_for_tracer0
+   character(len=128) cdum
+   character(len=30) file_name
 
-  real, dimension(10) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+   if(acc_newer_D_zion) then
+      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_D_zion=.false.
+      acc_newer_H_zion=.false.
+   endif
 
-! send tracer information to PE=0
-  tracer=0.0_wp
 
-  if(ntracer>0) then
-     tracer(1:7)=zion(1:7,ntracer)
-     my_mpi_id=mype
-     if(mype.ne.0) then 
-        call MPI_SEND(tracer,7,mpi_Rsize,0,1,MPI_COMM_WORLD,ierror)
-        call MPI_SEND(my_mpi_id,1,mpi_integer,0,1,MPI_COMM_WORLD,ierror)
-     end if
-  endif
-  if(mype==0) then
-     if(ntracer==0) then 
-        call MPI_RECV(tracer,7,mpi_Rsize,MPI_ANY_SOURCE,1,&
-                                  MPI_COMM_WORLD,istatus,ierror)
-        call MPI_RECV(my_mpi_id,1,mpi_integer,MPI_ANY_SOURCE,1,&
-                                    MPI_COMM_WORLD,istatus,ierror)
-     end if
-! tracer particle energy and angular momentum
-     aaa(1)=tracer(1)
-     the(1)=tracer(2)
-     call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+   if(size(zion,1) /= size(zion0,1)) then
+      write(*,*) "size(zion,1)=", size(zion,1), "size(zion0,1)=", size(zion0,1), " is differnet!!!!!"
+      call MPI_ABORT(MPI_COMM_WORLD,1,ierror)
+   endif
 
-     etracer=0.5_wp*(tracer(4)*Bj(1))**2+tracer(6)**2*Bj(1)  ! +epotential
+   each_TRI_length = 24 ! + 2 Unnormalized Angles
+   allocate( send_buf_TRI(each_TRI_length, num_of_itracers), recv_buf_TRI(each_TRI_length, num_of_itracers), send_buf_TRI_Poincare(each_TRI_length, num_of_itracers), recv_buf_TRI_Poincare(each_TRI_length, num_of_itracers))
 
-! record tracer information
-     write(189,102) istep, (rj(1)-R_0), zj(1), tracer(2), tracer(3), &
-                      abs(1.0_wp-etracer/etracer_i0), etracer, my_mpi_id
-     call flush(189)
-  endif
 
-102 format(1x,i7,6(1x,ES14.6),1x,i6)
+   ! 102 format(1x,i7,6(1x,ES16.8),1x,i6)
+   ! 102 format(13(1x,ES16.8))
+   102 format(999(1x,ES16.8))
+   !call MPI_Type_contiguous(13, MPI_Rsize, MPI_TRI_Type, ierr);
+   call MPI_Type_contiguous(each_TRI_length, MPI_Rsize, MPI_TRI_Type, ierr);
+   call MPI_Type_commit(MPI_TRI_Type, ierr);
+
+   ! check tracer
+   num_of_MY_tracers = 0
+   do m=1,mi
+      do i=1,num_of_itracers
+         if (ilabels(m) == itracers_labels(i)) then
+            num_of_MY_tracers = num_of_MY_tracers + 1
+            my_tracer_indices(num_of_MY_tracers) = m
+
+            ! ! Print out a reference tracer information
+            ! if(ilabels(m) == itracers_labels((num_of_itracers/2))) then
+            !    aaa(1)=zion(1,m)
+            !    the(1)=zion(2,m)
+            !    call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+            !    tracer_energy=0.5_wp*(zion(4,m)*Bj(1))**2+zion(6,m)**2*Bj(1)  ! Ion energy
+            !    write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,I5,a,", size(zion,1), "(ES11.3))"
+            !    write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer(',num_of_itracers/2,') =', zion(:,m)
+            !    call flush(stdout)
+            ! endif
+         endif
+      enddo
+   enddo
+
+
+   ! Real_tracers_ion.dat output routine
+   if (MOD(istep, nstep_for_tracer_record) == 0) then
+
+      call MPI_GATHER(num_of_MY_tracers, 1, MPI_INTEGER, recv_TRI_counts, 1, MPI_INTEGER, 0, toroidal_comm, ierror)
+
+      if(mype == 0) then
+         recv_TRI_displs(1) = 0
+         recv_num_of_TRI = recv_TRI_counts(1)
+         do i=2, nproc_toroidal
+            recv_TRI_displs(i) = recv_TRI_displs(i-1) + recv_TRI_counts(i-1)
+            recv_num_of_TRI = recv_num_of_TRI + recv_TRI_counts(i)
+         enddo
+      endif
+
+
+      !$acc update self(back_f0_i(:))
+
+      ! Save TRacers Information to send_buf_TRI
+      do m=1, num_of_MY_tracers
+         tracer(:) = zion(:,my_tracer_indices(m))
+         tracer0(:) = zion0(:,my_tracer_indices(m))
+         aaa(1)=tracer(1)
+         the(1)=tracer(2)
+         call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+         tracer_energy=0.5_wp*(tracer(4)*Bj(1))**2+tracer(6)**2*Bj(1)  ! Ion energy
+         send_buf_TRI(1,m) = istep
+         send_buf_TRI(2,m) = rj(1)
+         send_buf_TRI(3,m) = zj(1)
+         send_buf_TRI(4:10,m) = tracer(1:7)
+         send_buf_TRI(11,m) = tracer_energy
+         send_buf_TRI(12,m) = ilabels(my_tracer_indices(m))
+         send_buf_TRI(13,m) = Bj(1)
+         send_buf_TRI(14,m) = mype
+         send_buf_TRI(15,m) = wi_init(my_tracer_indices(m))
+         send_buf_TRI(16,m) = wi_vpara(my_tracer_indices(m))
+         send_buf_TRI(17,m) = wi_vperp(my_tracer_indices(m))
+         send_buf_TRI(18,m) = wi_accel(my_tracer_indices(m))
+         send_buf_TRI(19,m) = UnNorm_theta_i(my_tracer_indices(m))
+         send_buf_TRI(20,m) = UnNorm_zeta_i(my_tracer_indices(m))
+         send_buf_TRI(21,m) = zion0(6,my_tracer_indices(m)) ! Phase volume
+         send_buf_TRI(22,m) = zion0(8,my_tracer_indices(m)) ! full-f @ previous step
+         send_buf_TRI(23,m) = zion0(6,my_tracer_indices(m))*back_f0_i(my_tracer_indices(m))! f0 @ current step
+         send_buf_TRI(24,m) = zion(5,my_tracer_indices(m)) ! df @ current step
+      enddo
+
+      ! Gather tracers_information to Root Rank.
+      call MPI_Gatherv(send_buf_TRI, num_of_MY_tracers, MPI_TRI_Type, recv_buf_TRI, recv_TRI_counts, recv_TRI_displs, MPI_TRI_Type, 0, toroidal_comm, ierror)
+
+      if (mype == 0) then
+         open(unit=1515, file="multi_tracers_ion.dat", position='append',action='write')
+         do i=1, recv_num_of_TRI
+            !write(1515,*) recv_buf_TRI(:,i)
+            write(1515,102) recv_buf_TRI(:,i)
+         enddo
+         call flush(1515)
+         close(1515)
+      endif
+   endif
+
+
+   ! Check particles passing a specific poloidal plane (phi=0) for a Poincare plot
+   ! Real_tracers_ion_Poincare.dat output routine
+   num_of_MY_tracers_Poincare = 0
+   recv_num_of_TRI_Poincare = 0
+   do m=1, num_of_MY_tracers
+      tracer(:) = zion(:,my_tracer_indices(m))
+      tracer0(:) = zion0(:,my_tracer_indices(m))
+
+      if ( ABS(tracer(3) - tracer0(3)) > 5.0 ) then
+
+         normalized_zeta =  tracer(3) - floor(tracer(3)/(2.0*pi)) * 2.0*pi
+         normalized_zeta0 =  tracer0(3) - floor(tracer0(3)/(2.0*pi)) * 2.0*pi
+         acute_zeta = min(normalized_zeta, 2*pi-normalized_zeta)
+         acute_zeta0 = min(normalized_zeta0, 2*pi-normalized_zeta0)
+         ratio_for_tracer = acute_zeta0/ (acute_zeta+ acute_zeta0)
+         ratio_for_tracer0 = acute_zeta/ (acute_zeta+ acute_zeta0)
+
+         do kk=1,size(zion,1)
+            tracer_at_ZeroPhi(kk) = ratio_for_tracer*tracer(kk) + ratio_for_tracer0*tracer0(kk)
+         enddo
+
+         ! tracer(6) = sqrt(magnetic moment) is constant during simulation except collisional process.
+         ! Therefore, tracer(6) is always enough to deal with magnetic moment mu = tracer(6)*tracer(6).
+         ! In this sense, tracer0(6) is not used for sqrt(mu), but it is set by value 1 (in loading routine) for other purpose.
+         ! We need to recover tracer_at_ZeroPhi(6) using tracer(6) only, not including tracer0(6) which is not sqrt(mu).
+         tracer_at_ZeroPhi(6) = tracer(6)
+
+         ! new angle (theta and zeta) should be calculated using two angles whose difference is smaller than pi
+         ! Angle of tracer0 is modified to satisfy the above condition.
+         ! A = tracer angle, B = tracer0;   B' = B + 2*n*pi where n = floor((A-B+pi)/(2*pi));
+         do kk=2,3
+            tracer_at_ZeroPhi(kk) = ratio_for_tracer*tracer(kk) + ratio_for_tracer0*  ( tracer0(kk) + 2.0*pi* floor( (tracer(kk) - tracer0(kk) + pi )/(2.0*pi)  ))
+            tracer_at_ZeroPhi(kk) = tracer_at_ZeroPhi(kk) - floor(tracer_at_ZeroPhi(kk)/(2.0*pi)) * 2.0*pi ! normalization
+         end do
+
+         aaa(1)=tracer_at_ZeroPhi(1)
+         the(1)=tracer_at_ZeroPhi(2)
+         call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+         tracer_energy=0.5_wp*(tracer_at_ZeroPhi(4)*Bj(1))**2+tracer_at_ZeroPhi(6)**2*Bj(1)  ! Ion energy
+         ! Save tracers_Poincare Information to send_buf_TRI_Poincare
+         num_of_MY_tracers_Poincare = num_of_MY_tracers_Poincare + 1
+
+         send_buf_TRI_Poincare(1,num_of_MY_tracers_Poincare) = istep
+         send_buf_TRI_Poincare(2,num_of_MY_tracers_Poincare) = rj(1)
+         send_buf_TRI_Poincare(3,num_of_MY_tracers_Poincare) = zj(1)
+         send_buf_TRI_Poincare(4:10,num_of_MY_tracers_Poincare) = tracer_at_ZeroPhi(1:7)
+         send_buf_TRI_Poincare(11,num_of_MY_tracers_Poincare) = tracer_energy
+         send_buf_TRI_Poincare(12,num_of_MY_tracers_Poincare) = ilabels(my_tracer_indices(m))
+         send_buf_TRI_Poincare(13,num_of_MY_tracers_Poincare) = Bj(1)
+         send_buf_TRI_Poincare(14,num_of_MY_tracers_Poincare) = mype
+         send_buf_TRI_Poincare(15,num_of_MY_tracers_Poincare) = wi_init(my_tracer_indices(m))
+         send_buf_TRI_Poincare(16,num_of_MY_tracers_Poincare) = wi_vpara(my_tracer_indices(m))
+         send_buf_TRI_Poincare(17,num_of_MY_tracers_Poincare) = wi_vperp(my_tracer_indices(m))
+         send_buf_TRI_Poincare(18,num_of_MY_tracers_Poincare) = wi_accel(my_tracer_indices(m))
+         send_buf_TRI_Poincare(19,num_of_MY_tracers_Poincare) = UnNorm_theta_i(my_tracer_indices(m))
+         send_buf_TRI_Poincare(20,num_of_MY_tracers_Poincare) = UnNorm_zeta_i(my_tracer_indices(m))
+      endif
+   enddo
+
+   call MPI_GATHER(num_of_MY_tracers_Poincare, 1, MPI_INTEGER, recv_TRI_Poincare_counts, 1, MPI_INTEGER, 0, toroidal_comm, ierror)
+
+   if(mype == 0) then
+      recv_TRI_Poincare_displs(1) = 0
+      recv_num_of_TRI_Poincare = recv_TRI_Poincare_counts(1)
+      do i=2, nproc_toroidal
+         recv_TRI_Poincare_displs(i) = recv_TRI_Poincare_displs(i-1) + recv_TRI_Poincare_counts(i-1)
+         recv_num_of_TRI_Poincare = recv_num_of_TRI_Poincare + recv_TRI_Poincare_counts(i)
+      enddo
+   endif
+
+   call MPI_Gatherv(send_buf_TRI_Poincare, num_of_MY_tracers_Poincare, MPI_TRI_Type, recv_buf_TRI_Poincare, recv_TRI_Poincare_counts, recv_TRI_Poincare_displs, MPI_TRI_Type, 0, toroidal_comm, ierror)
+
+   if (mype == 0) then
+      open(unit=1516, file="multi_tracers_ion_Poincare.dat", position='append',action='write')
+      do i=1, recv_num_of_TRI_Poincare
+         !write(1516,*) recv_buf_TRI_Poincare(:,i)
+         write(1516,102) recv_buf_TRI_Poincare(:,i)
+      enddo
+      call flush(1516)
+      close(1516)
+   endif
+
+   deallocate( send_buf_TRI, recv_buf_TRI, send_buf_TRI_Poincare, recv_buf_TRI_Poincare)
+   call MPI_Type_free(MPI_TRI_Type, ierr)
 
 end subroutine check_tracer_i
-
 
 subroutine check_abnormal_weight_electrons
 
@@ -122,12 +504,8 @@ subroutine check_abnormal_weight_electrons
    real(wp) weight, energy
    character(len=30) file_name
 
-   real(wp) w_Thold_min, w_Thold_max
 
-   each_PTL_length = 19 ! including we_adiab + we_fdamp
-
-   w_Thold_min = -50.0
-   w_Thold_max = 50.0
+   each_PTL_length = 18 ! including we_adiab
 
    MY_PE_weight_sum=0
    MY_PE_abnormal_weight_sum=0
@@ -178,23 +556,13 @@ subroutine check_abnormal_weight_electrons
       send_buf_PTL(3,i) = zj(1)
       send_buf_PTL(4:10,i) = zeon(:,m)
       send_buf_PTL(11,i) = energy
-      !  send_buf_PTL(12,i) = elabels(m)
-      send_buf_PTL(12,i) = 0
+      send_buf_PTL(12,i) = elabels(m)
       send_buf_PTL(13,i) = mype
-
-      send_buf_PTL(14,i) = 0.0
-      send_buf_PTL(15,i) = 0.0
-      send_buf_PTL(16,i) = 0.0
-      send_buf_PTL(17,i) = 0.0
-      send_buf_PTL(18,i) = 0.0
-      send_buf_PTL(19,i) = 0.0
-
-      !  send_buf_PTL(14,i) = we_init(m)
-      !  send_buf_PTL(15,i) = we_vpara(m)
-      !  send_buf_PTL(16,i) = we_vperp(m)
-      !  send_buf_PTL(17,i) = we_accel(m)
-      !  send_buf_PTL(18,i) = we_adiab(m)
-      !  send_buf_PTL(19,i) = we_fdamp(m)
+      send_buf_PTL(14,i) = we_init(m)
+      send_buf_PTL(15,i) = we_vpara(m)
+      send_buf_PTL(16,i) = we_vperp(m)
+      send_buf_PTL(17,i) = we_accel(m)
+      send_buf_PTL(18,i) = we_adiab(m)
    enddo
 
    ! Gather tracers_information to Root Rank.
@@ -221,6 +589,9 @@ subroutine check_abnormal_weight_electrons
       deallocate( recv_buf_PTL)
    endif
 
+
+   call MPI_Type_free(MPI_PTL_Type, ierr)
+
 end subroutine check_abnormal_weight_electrons
 
 
@@ -244,13 +615,9 @@ subroutine check_abnormal_weight_ions
    integer recv_PTL_counts(numberpe), recv_PTL_displs(numberpe)
    integer MPI_PTL_Type ! PTL = TRacer Information
 
-   real(wp) w_Thold_min, w_Thold_max
    real(wp) weight, energy
    character(len=30) file_name
 
-
-   w_Thold_min = -50.0
-   w_Thold_max = 50.0
 
    each_PTL_length = 18 !
 
@@ -305,21 +672,12 @@ subroutine check_abnormal_weight_ions
       send_buf_PTL(3,i) = zj(1)
       send_buf_PTL(4:10,i) = zion(:,m)
       send_buf_PTL(11,i) = energy
-      !  send_buf_PTL(12,i) = ilabels(m)
-      send_buf_PTL(12,i) = 0
+      send_buf_PTL(12,i) = ilabels(m)
       send_buf_PTL(13,i) = mype
-
-      send_buf_PTL(14,i) = 0.0
-      send_buf_PTL(15,i) = 0.0
-      send_buf_PTL(16,i) = 0.0
-      send_buf_PTL(17,i) = 0.0
-      send_buf_PTL(18,i) = 0.0
-
-      !  send_buf_PTL(14,i) = wi_init(m)
-      !  send_buf_PTL(15,i) = wi_vpara(m)
-      !  send_buf_PTL(16,i) = wi_vperp(m)
-      !  send_buf_PTL(17,i) = wi_accel(m)
-      !  send_buf_PTL(18,i) = wi_fdamp(m)
+      send_buf_PTL(14,i) = wi_init(m)
+      send_buf_PTL(15,i) = wi_vpara(m)
+      send_buf_PTL(16,i) = wi_vperp(m)
+      send_buf_PTL(17,i) = wi_accel(m)
    enddo
 
    ! Gather tracers_information to Root Rank.
@@ -345,5 +703,287 @@ subroutine check_abnormal_weight_ions
    if(mype==0) then
       deallocate( recv_buf_PTL)
    endif
+   call MPI_Type_free(MPI_PTL_Type, ierr)
 
 end subroutine check_abnormal_weight_ions
+
+
+subroutine Abandon_Abnormal_Particles
+
+   use precision
+   use mpi_defs
+   use global_parameters
+   use particle_array
+   use particle_decomp
+   use esi_interface
+   use function_gg_module
+   implicit none
+
+   integer i,m,mtop,lasth
+   integer ABN_mid_arr(max(memax,mimax)) ! ABN=abnormal
+   integer num_of_ABN_ptl
+   real(wp) norm_vpara, norm_vperp,norm_vtot
+
+   if(acc_newer_D_zion) then
+      !$acc update self(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   ! ======================
+   ! Ion First.
+   ! ======================
+   num_of_ABN_ptl=0
+   if(Flag_w_Threshold==2) then
+      do m=1,mi
+         if(zion(5,m)<w_Thold_min .or. zion(5,m)>w_Thold_max) then
+            num_of_ABN_ptl = num_of_ABN_ptl+1
+            ABN_mid_arr(num_of_ABN_ptl) = m
+         endif
+      enddo
+   endif
+
+   if(Flag_v_Threshold==1) then
+      call n_T_u_group
+      call esigetb(zion,mi,ziondim)
+      !$acc update self(BB(:mi),backT(:mi))
+      do m=1,mi
+         norm_vpara = zion(4,m)*BB(m)/sqrt(backT(m))
+         norm_vperp = zion(6,m)*sqrt(2.0*BB(m))/sqrt(backT(m)) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m)
+         norm_vtot = sqrt(norm_vpara**2+norm_vperp**2)
+         if(norm_vtot>umax) then
+            num_of_ABN_ptl = num_of_ABN_ptl+1
+            ABN_mid_arr(num_of_ABN_ptl) = m
+         endif
+      enddo
+   endif
+
+   if(num_of_ABN_ptl>0) then
+      write(stdout,'((A,I8,A,I4,A,I8))') "istep=",istep,"; mype=",mype,"; Ion num_of_ABN_ptl=",num_of_ABN_ptl
+      call flush(stdout)
+   endif
+
+
+   ! Fill holes
+   mtop = mi
+   mi = mi - num_of_ABN_ptl ! remained mi after sending
+   lasth = num_of_ABN_ptl
+   do i=1, num_of_ABN_ptl
+
+      m = ABN_mid_arr(i)
+
+      if(m>mi) exit
+      do while(mtop == ABN_mid_arr(lasth))
+         mtop=mtop-1
+         lasth=lasth-1
+      enddo
+
+      zion(:, m)      = zion(:, mtop)
+      zion0(:, m)     = zion0(:, mtop)
+      ilabels(m)      = ilabels(mtop)
+      wi_init(m)      = wi_init(mtop)
+      wi_vpara(m)     = wi_vpara(mtop)
+      wi_vperp(m)     = wi_vperp(mtop)
+      wi_accel(m)     = wi_accel(mtop)
+
+      UnNorm_theta_i(m) =UnNorm_theta_i(mtop)
+      UnNorm_zeta_i(m) =UnNorm_zeta_i(mtop)
+      RK_cum_zion(:,m)= RK_cum_zion(:,mtop)
+
+      mtop = mtop -1
+   enddo
+
+   if(num_of_ABN_ptl>0) then
+      !$acc update device(zion(:,:mi),zion0(:,:mi),RK_cum_zion(:,:mi))
+   endif
+
+
+
+   ! ======================
+   ! Electron
+   ! ======================
+   if(acc_newer_D_zeon) then
+      !$acc update self(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+      acc_newer_H_zeon=.false.
+      acc_newer_D_zeon=.false.
+   endif
+
+   num_of_ABN_ptl=0
+   if(Flag_w_Threshold==2) then
+      do m=1,me
+         if(zeon(5,m)<w_Thold_min .or. zeon(5,m)>w_Thold_max) then
+            num_of_ABN_ptl = num_of_ABN_ptl+1
+            ABN_mid_arr(num_of_ABN_ptl) = m
+         endif
+      enddo
+   endif
+
+
+   if(Flag_v_Threshold==1) then
+      call n_T_u_group_e
+      call esigetb(zeon,me,zeondim)
+      !$acc update self(BB(:me),backTe(:me))
+      do m=1,me
+         norm_vpara = zeon(4,m)*csc0*BB(m)*sqrt(m0ms/(msm0*backTe(m))) ! norm_vpara = vpara/sqrt(T/m) = rho_para*(eB/m)/sqrt(T/m) = rho_para*(e*B)/sqrt(m*T)
+         norm_vperp = zeon(6,m)*sqrt(2.0*BB(m))/sqrt(msm0*backTe(m)) ! norm_vperp = sqrt(mu)*sqrt(2B/m)/sqrt(T/m) = sqrt(mu)*sqrt(2B)/(sqrt(T))
+         norm_vtot = sqrt(norm_vpara**2+norm_vperp**2)
+         if(norm_vtot>umax) then
+            num_of_ABN_ptl = num_of_ABN_ptl+1
+            ABN_mid_arr(num_of_ABN_ptl) = m
+         endif
+      enddo
+   endif
+
+
+   if(num_of_ABN_ptl>0) then
+      write(stdout,'((A,I8,A,I4,A,I8))') "istep=",istep,"; mype=",mype,"; Electron num_of_ABN_ptl=",num_of_ABN_ptl
+      call flush(stdout)
+   endif
+
+   ! Fill holes
+   mtop = me
+   me = me - num_of_ABN_ptl ! remained me after sending
+   lasth = num_of_ABN_ptl
+   do i=1, num_of_ABN_ptl
+      m = ABN_mid_arr(i)
+
+      if(m>me) exit
+      do while(mtop == ABN_mid_arr(lasth))
+         mtop=mtop-1
+         lasth=lasth-1
+      enddo
+
+      zeon(:, m)      = zeon(:, mtop)
+      zeon0(:, m)     = zeon0(:, mtop)
+      elabels(m)      = elabels(mtop)
+      we_init(m)      = we_init(mtop)
+      we_vpara(m)     = we_vpara(mtop)
+      we_vperp(m)     = we_vperp(mtop)
+      we_accel(m)     = we_accel(mtop)
+      we_adiab(m)     = we_adiab(mtop)
+
+      UnNorm_theta_e(m) =UnNorm_theta_e(mtop)
+      UnNorm_zeta_e(m) =UnNorm_zeta_e(mtop)
+
+      RK_cum_zeon(:,m)= RK_cum_zeon(:,mtop)
+
+      mtop = mtop -1
+   enddo
+
+   if(num_of_ABN_ptl>0) then
+      !$acc update device(zeon(:,:me),zeon0(:,:me),RK_cum_zeon(:,:me))
+   endif
+
+end subroutine Abandon_Abnormal_Particles
+
+
+subroutine Print_Reference_ntracer_Information
+   use precision
+   use global_parameters
+   use particle_array
+   use esi_interface
+   implicit none
+
+   real tracer_energy
+   integer m,i, kk
+   real(wp), dimension(1) :: aaa,the,Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj
+   character(len=128) cdum
+
+   if(ntracer>0) then
+      m=ntracer
+
+      !$acc update self(zion(:,m),zion0(:,m))
+
+      aaa(1)=zion(1,m)
+      the(1)=zion(2,m)
+      call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+      tracer_energy=0.5_wp*(zion(4,m)*Bj(1))**2+zion(6,m)**2*Bj(1)  ! Ion energy
+      write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,", size(zion,1), "(ES11.3),a,ES11.3)"
+      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', itracer =', zion(:,m), "; ini_f_tot=",zion0(6,m)
+      call flush(stdout)
+   endif
+
+   if(ntracer_e>0) then
+      m=ntracer_e
+
+      !$acc update self(zeon(:,m),zeon0(:,m))
+
+      aaa(1)=zeon(1,m)
+      the(1)=zeon(2,m)
+      call esiget2dthese(Fj,Faj,gFaj,gYaj,rj,raj,rqj,zj,zaj,zqj,Bj,aaa,the,1)
+      tracer_energy=0.5_wp*(zeon(4,m)*Bj(1))**2*m0ms*csc0**2+zeon(6,m)**2*Bj(1)
+      write(cdum,'(a,I4,a)') "(a,I8,a,ES11.3,a,a,", size(zeon,1), "(ES11.3),a,ES11.3)"
+      write(stdout,cdum) 'istep=', istep,', KE=',tracer_energy*Tem_00, ' keV',', etracer =', zeon(:,m),"; ini_f_tot=",zeon0(6,m)
+      call flush(stdout)
+   endif
+
+end subroutine
+
+! subroutine Am_I_tracer_e(m, tf)
+!   use global_parameters
+!   use particle_decomp
+!   implicit none
+!   integer, intent(in) :: m
+!   logical, intent(in) :: tf
+!   integer ori_me_per_processor
+!   integer :: i,t_max
+!   integer, DIMENSION(:), allocatable :: tracer_e_list
+
+!   t_max = 20
+
+
+!   allocate( tracer_e_list(t_max) )
+
+!   do i=1,t_max
+!     tracer_e_list(i) = 1e5*((real(i)/tmax) * ori_me_per_processor) + 0
+!   enddo
+
+!   do i=1,t_max
+!      if(elabels(m) == tracer_e_list(i)) then
+!         tf = .true.
+!         return
+!     endif
+!   enddo
+
+!   tf = .false.
+!   return
+
+!   deallocate(tracer_e_list)
+
+! end subroutine Am_I_tracer_e
+
+
+! subroutine Am_I_tracer_i(m, tf)
+!   use global_parameters
+!   use particle_decomp
+!   implicit none
+!   integer, intent(in) :: m
+!   logical, intent(in) :: tf
+!   integer ori_mi_per_processor
+!   integer :: i,t_max
+!   integer, DIMENSION(:), allocatable :: tracer_i_list
+
+
+
+!   t_max = 20
+
+
+!   allocate( tracer_i_list(t_max) )
+
+!   do i=1,t_max
+!     tracer_i_list(i) = 1e5*((real(i)/tmax) * ori_mi_per_processor) + 0
+!   enddo
+
+!   do i=1,t_max
+!      if(ilabels(m) == tracer_i_list(i)) then
+!         tf = .true.
+!         return
+!     endif
+!   enddo
+
+!   tf = .false.
+!   return
+
+!   deallocate(tracer_i_list)
+
+! end subroutine Am_I_tracer_i

@@ -383,37 +383,40 @@
       DOUBLE PRECISION                 F
       EXTERNAL                         F
 
-!     Prepare to call dqag
+!     Prepare to call dqage
+!     dqage is called directly instead of the driver dqag: when the integral does not
+!     converge, dqag reports it through the SLATEC xermsg chain, whose helper routines
+!     (xerror, j4save, i1mach, fdump, ...) clash with same-named older ones in cmlib and
+!     crashed GTS. dqage only returns ier, like NAG d01ahf with IFAIL=1 (soft fail).
+!     limit is raised from 100 to 1000 sub-intervals (61-point rule each), above the
+!     ~10000 integrand evaluations that NAG d01ahf allows by default.
 
       double precision epsabs,epsrel,qresult,abserr
-      integer key,neval,ier,limit,lenw,last
-      integer,dimension(:),allocatable :: iwork
-      double precision,dimension(:),allocatable :: work
+      integer key,neval,ier,limit,last
+      integer,dimension(:),allocatable :: iord
+      double precision,dimension(:),allocatable :: alist,blist,rlist,elist
 
       interface
-              subroutine dqag(f,a,b,epsabs,epsrel,key,result,abserr,neval,ier, limit,lenw,last,iwork,work)
-                      double precision a,abserr,b,epsabs,epsrel,f,result,work
-                      integer ier,iwork,key,last,lenw,limit,lvl,l1,l2,l3,neval
-                      dimension iwork(limit),work(lenw)
+              subroutine dqage(f,a,b,epsabs,epsrel,key,limit,result,abserr,neval,ier,alist,blist,rlist,elist,iord,last)
+                      double precision a,abserr,b,epsabs,epsrel,f,result,alist,blist,rlist,elist
+                      integer ier,iord,key,last,limit,neval
+                      dimension alist(limit),blist(limit),rlist(limit),elist(limit),iord(limit)
                       external f
-                      end subroutine dqag
+                      end subroutine dqage
       end interface
 
       epsrel=EPR
       epsabs=epsrel*1.d-5
       key=6
-      limit=100
-      lenw=4*limit
-      allocate(iwork(limit))
-      allocate(work(lenw))
+      limit=1000
+      allocate(alist(limit),blist(limit),rlist(limit),elist(limit),iord(limit))
 
-      call dqag(F,A,B,epsabs,epsrel,key,qresult,abserr,neval,ier,limit,lenw,last,iwork,work)
+      call dqage(F,A,B,epsabs,epsrel,key,limit,qresult,abserr,neval,ier,alist,blist,rlist,elist,iord,last)
 
       RELERR=abserr
       IFAIL=ier
       NPTS=neval
-      deallocate(iwork)
-      deallocate(work)
+      deallocate(alist,blist,rlist,elist,iord)
 
       D01AHF = qresult
       RETURN
